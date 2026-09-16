@@ -1,0 +1,14 @@
+BASELINE AUDIT: Rehab_Center_System_v28_WORKING.xlsm
+RESULT: PASS WITH NOTES
+
+CHECKS
+  OK  - All 13 required sheets are present.
+  OK  - Embedded VBA project is present.
+  OK  - PATIENTS headers match the agreed compact model.
+  OK  - 90 patient records checked; no duplicate PatientID found.
+  OK  - Name-format items worth reviewing: row 23: 'ΛΙΑΚΟΣ.'; row 70: 'ΤΖΟΡΙΛΗ '
+  OK  - Infectious highlighting is already data-driven by column D = "Ν".
+  OK  - Column B validation points to SETTINGS!$H$2:$H$200.
+  OK  - Column D validation points to SETTINGS!$G$2:$G$10.
+  OK  - Column E validation points to SETTINGS!$F$2:$F$50.
+  OK  - Existing student placeholder(s) found in therapist settings: φοιτ 1
