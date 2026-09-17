@@ -6,13 +6,13 @@ from typing import Iterable
 
 from .availability import is_patient_available, is_therapist_available
 from .models import (
-    AbsenceKind,
     DailyAbsence,
     Patient,
     ReplacementAssignment,
     Session,
     Therapist,
 )
+from .workload import calculate_therapist_workload
 
 
 @dataclass(frozen=True)
@@ -21,80 +21,8 @@ class ReplacementCandidate:
     display_name: str
     active_sessions: int
     infectious_sessions: int
-
-
-def _patient_absent(
-    patient_id: str,
-    target_date: date,
-    target_time: time,
-    absences: Iterable[DailyAbsence],
-) -> bool:
-    return any(
-        absence.absence_kind == AbsenceKind.PATIENT
-        and absence.subject_id == patient_id
-        and absence.covers(target_date, target_time)
-        for absence in absences
-    )
-
-
-def _replaced_session_ids(
-    replacements: Iterable[ReplacementAssignment],
-) -> set[str]:
-    return {replacement.target_session_id for replacement in replacements}
-
-
-def _daily_workload(
-    therapist_id: str,
-    target_date: date,
-    sessions: Iterable[Session],
-    absences: Iterable[DailyAbsence],
-    replacements: Iterable[ReplacementAssignment],
-    patient_by_id: dict[str, Patient],
-) -> tuple[int, int]:
-    """Return operational (active sessions, infectious sessions) for the day."""
-
-    active_sessions = 0
-    infectious_sessions = 0
-    replaced_ids = _replaced_session_ids(replacements)
-
-    for session in sessions:
-        if session.therapist_id != therapist_id or session.session_date != target_date:
-            continue
-        if session.session_id in replaced_ids:
-            continue
-        if _patient_absent(
-            session.patient_id,
-            session.session_date,
-            session.start_time,
-            absences,
-        ):
-            continue
-
-        active_sessions += 1
-        patient = patient_by_id.get(session.patient_id)
-        if patient is not None and patient.infectious:
-            infectious_sessions += 1
-
-    for replacement in replacements:
-        if (
-            replacement.replacement_therapist_id != therapist_id
-            or replacement.replacement_date != target_date
-        ):
-            continue
-        if _patient_absent(
-            replacement.patient_id,
-            replacement.replacement_date,
-            replacement.replacement_time,
-            absences,
-        ):
-            continue
-
-        active_sessions += 1
-        patient = patient_by_id.get(replacement.patient_id)
-        if patient is not None and patient.infectious:
-            infectious_sessions += 1
-
-    return active_sessions, infectious_sessions
+    robotic_sessions: int
+    replacement_sessions: int
 
 
 def find_replacement_candidates(
@@ -152,20 +80,22 @@ def find_replacement_candidates(
         ):
             continue
 
-        active_sessions, infectious_sessions = _daily_workload(
+        workload = calculate_therapist_workload(
             therapist_id=therapist.therapist_id,
             target_date=target_session.session_date,
             sessions=sessions,
             absences=absences,
+            patients=patients,
             replacements=replacements,
-            patient_by_id=patient_by_id,
         )
         candidates.append(
             ReplacementCandidate(
                 therapist_id=therapist.therapist_id,
                 display_name=therapist.display_name,
-                active_sessions=active_sessions,
-                infectious_sessions=infectious_sessions,
+                active_sessions=workload.active_sessions,
+                infectious_sessions=workload.infectious_sessions,
+                robotic_sessions=workload.robotic_sessions,
+                replacement_sessions=workload.replacement_sessions,
             )
         )
 

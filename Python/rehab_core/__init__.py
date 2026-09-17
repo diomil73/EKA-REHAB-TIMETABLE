@@ -22,6 +22,7 @@ from .models import (
     Session,
     Therapist,
 )
+from .workload import TherapistWorkload, calculate_therapist_workload
 from .replacements import (
     ReplacementCandidate,
     create_replacement_assignment,
@@ -40,7 +41,9 @@ __all__ = [
     "ScheduleConflict",
     "Session",
     "Therapist",
+    "TherapistWorkload",
     "build_operational_occurrences",
+    "calculate_therapist_workload",
     "create_replacement_assignment",
     "find_operational_conflicts",
     "find_replacement_candidates",
