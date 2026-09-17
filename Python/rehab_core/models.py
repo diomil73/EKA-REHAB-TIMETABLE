@@ -24,6 +24,7 @@ class Patient:
 class Therapist:
     therapist_id: str
     display_name: str
+    robotic_capable: bool = False
 
 
 @dataclass(frozen=True)
