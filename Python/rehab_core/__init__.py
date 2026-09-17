@@ -8,6 +8,11 @@ from .conflicts import (
     build_operational_occurrences,
     find_operational_conflicts,
 )
+from .daily_state import (
+    DailySessionState,
+    DailySessionStatus,
+    build_daily_session_states,
+)
 from .day_patterns import (
     RehabWeekday,
     parse_day_pattern,
@@ -33,6 +38,8 @@ __all__ = [
     "AbsenceKind",
     "ConflictKind",
     "DailyAbsence",
+    "DailySessionStatus",
+    "DailySessionState",
     "OperationalOccurrence",
     "Patient",
     "RehabWeekday",
@@ -42,6 +49,7 @@ __all__ = [
     "Session",
     "Therapist",
     "TherapistWorkload",
+    "build_daily_session_states",
     "build_operational_occurrences",
     "calculate_therapist_workload",
     "create_replacement_assignment",
