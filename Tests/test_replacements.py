@@ -152,7 +152,7 @@ def test_robotic_session_only_returns_robotic_capable_therapists():
     assert [candidate.therapist_id for candidate in candidates] == ["T-ROBOT"]
 
 
-def test_infectious_target_prefers_lower_infectious_workload():
+def test_total_load_stays_first_priority_for_infectious_target():
     patients = [
         Patient("P-TARGET", "Target", infectious=True),
         Patient("P-INF", "Infectious", infectious=True),
@@ -171,8 +171,32 @@ def test_infectious_target_prefers_lower_infectious_workload():
         patients=patients,
     )
 
-    # T-B has more total work but no infectious patient yet, so for an
-    # infectious target it is intentionally ranked first.
+    # Confirmed ranking: total operational load remains the first priority.
+    # Infectious workload is a tie-breaker, not a reason to override lower load.
+    assert [candidate.therapist_id for candidate in candidates] == ["T-A", "T-B"]
+    assert candidates[0].active_sessions == 1
+    assert candidates[1].active_sessions == 2
+
+
+def test_infectious_workload_breaks_tie_after_load_and_time_match():
+    patients = [
+        Patient("P-TARGET", "Target", infectious=True),
+        Patient("P-INF", "Infectious", infectious=True),
+        Patient("P-NORMAL", "Normal", infectious=False),
+    ]
+    sessions = [
+        Session("A1", "P-INF", "T-A", TODAY, time(9, 0)),
+        Session("B1", "P-NORMAL", "T-B", TODAY, time(9, 0)),
+    ]
+
+    candidates = find_replacement_candidates(
+        target_session(patient_id="P-TARGET"),
+        therapists=[Therapist("T-A", "A"), Therapist("T-B", "B")],
+        sessions=sessions,
+        patients=patients,
+    )
+
     assert [candidate.therapist_id for candidate in candidates] == ["T-B", "T-A"]
+    assert candidates[0].active_sessions == candidates[1].active_sessions == 1
     assert candidates[0].infectious_sessions == 0
     assert candidates[1].infectious_sessions == 1

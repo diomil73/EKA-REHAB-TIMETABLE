@@ -5,7 +5,13 @@ from datetime import date, time
 from enum import Enum
 from typing import Iterable
 
-from .models import AbsenceKind, DailyAbsence, ReplacementAssignment, Session
+from .models import (
+    AbsenceKind,
+    DailyAbsence,
+    ReplacementAssignment,
+    ReplacementProviderKind,
+    Session,
+)
 
 
 class DailySessionStatus(str, Enum):
@@ -34,6 +40,7 @@ class DailySessionState:
     effective_time: time | None
     replacement_id: str | None = None
     reason: str | None = None
+    effective_provider_kind: ReplacementProviderKind | None = None
 
     @property
     def needs_replacement(self) -> bool:
@@ -160,6 +167,7 @@ def build_daily_session_states(
                     effective_time=replacement.replacement_time,
                     replacement_id=replacement.replacement_id,
                     reason=replacement.reason,
+                    effective_provider_kind=replacement.replacement_provider_kind,
                 )
             )
             continue
@@ -197,6 +205,7 @@ def build_daily_session_states(
                 original_time=session.start_time,
                 effective_therapist_id=session.therapist_id,
                 effective_time=session.start_time,
+                effective_provider_kind=ReplacementProviderKind.THERAPIST,
             )
         )
 

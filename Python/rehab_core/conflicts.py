@@ -5,11 +5,18 @@ from datetime import date, time
 from enum import Enum
 from typing import Iterable
 
-from .models import AbsenceKind, DailyAbsence, ReplacementAssignment, Session
+from .models import (
+    AbsenceKind,
+    DailyAbsence,
+    ReplacementAssignment,
+    ReplacementProviderKind,
+    Session,
+)
 
 
 class ConflictKind(str, Enum):
     THERAPIST_DOUBLE_BOOKING = "therapist_double_booking"
+    STUDENT_DOUBLE_BOOKING = "student_double_booking"
     PATIENT_DOUBLE_BOOKING = "patient_double_booking"
 
 
@@ -21,6 +28,11 @@ class OperationalOccurrence:
     occurrence_date: date
     start_time: time
     is_replacement: bool = False
+    provider_kind: ReplacementProviderKind = ReplacementProviderKind.THERAPIST
+
+    @property
+    def provider_id(self) -> str:
+        return self.therapist_id
 
 
 @dataclass(frozen=True)
@@ -65,8 +77,6 @@ def build_operational_occurrences(
     for session in sessions:
         replacement = replacement_by_session.get(session.session_id)
         if replacement is not None:
-            # The base occurrence is replaced operationally and is therefore
-            # not present at its original therapist/time.
             continue
         if _is_patient_absent(
             session.patient_id,
@@ -82,6 +92,7 @@ def build_operational_occurrences(
                 therapist_id=session.therapist_id,
                 occurrence_date=session.session_date,
                 start_time=session.start_time,
+                provider_kind=ReplacementProviderKind.THERAPIST,
             )
         )
 
@@ -101,6 +112,7 @@ def build_operational_occurrences(
                 occurrence_date=replacement.replacement_date,
                 start_time=replacement.replacement_time,
                 is_replacement=True,
+                provider_kind=replacement.replacement_provider_kind,
             )
         )
 
@@ -112,18 +124,21 @@ def find_operational_conflicts(
     absences: Iterable[DailyAbsence] = (),
     replacements: Iterable[ReplacementAssignment] = (),
 ) -> list[ScheduleConflict]:
-    """Find therapist and patient double bookings in the effective day."""
+    """Find provider and patient double bookings in the effective day."""
 
     occurrences = build_operational_occurrences(sessions, absences, replacements)
     conflicts: list[ScheduleConflict] = []
 
-    therapist_slots: dict[tuple[str, date, time], list[OperationalOccurrence]] = {}
+    provider_slots: dict[
+        tuple[ReplacementProviderKind, str, date, time], list[OperationalOccurrence]
+    ] = {}
     patient_slots: dict[tuple[str, date, time], list[OperationalOccurrence]] = {}
 
     for occurrence in occurrences:
-        therapist_slots.setdefault(
+        provider_slots.setdefault(
             (
-                occurrence.therapist_id,
+                occurrence.provider_kind,
+                occurrence.provider_id,
                 occurrence.occurrence_date,
                 occurrence.start_time,
             ),
@@ -138,17 +153,23 @@ def find_operational_conflicts(
             [],
         ).append(occurrence)
 
-    for (therapist_id, conflict_date, start_time), items in therapist_slots.items():
-        if len(items) > 1:
-            conflicts.append(
-                ScheduleConflict(
-                    kind=ConflictKind.THERAPIST_DOUBLE_BOOKING,
-                    subject_id=therapist_id,
-                    conflict_date=conflict_date,
-                    start_time=start_time,
-                    occurrence_ids=tuple(sorted(item.source_id for item in items)),
-                )
+    for (provider_kind, provider_id, conflict_date, start_time), items in provider_slots.items():
+        if len(items) <= 1:
+            continue
+        conflict_kind = (
+            ConflictKind.STUDENT_DOUBLE_BOOKING
+            if provider_kind == ReplacementProviderKind.STUDENT
+            else ConflictKind.THERAPIST_DOUBLE_BOOKING
+        )
+        conflicts.append(
+            ScheduleConflict(
+                kind=conflict_kind,
+                subject_id=provider_id,
+                conflict_date=conflict_date,
+                start_time=start_time,
+                occurrence_ids=tuple(sorted(item.source_id for item in items)),
             )
+        )
 
     for (patient_id, conflict_date, start_time), items in patient_slots.items():
         if len(items) > 1:

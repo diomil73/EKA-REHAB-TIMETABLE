@@ -1,6 +1,10 @@
 """Core scheduling logic for the Rehab Center system."""
 
-from .availability import is_patient_available, is_therapist_available
+from .availability import (
+    is_patient_available,
+    is_student_available,
+    is_therapist_available,
+)
 from .conflicts import (
     ConflictKind,
     OperationalOccurrence,
@@ -24,14 +28,28 @@ from .models import (
     DailyAbsence,
     Patient,
     ReplacementAssignment,
+    ReplacementProviderKind,
     Session,
+    Student,
+    StudentAssignment,
     Therapist,
 )
-from .workload import TherapistWorkload, calculate_therapist_workload
 from .replacements import (
     ReplacementCandidate,
     create_replacement_assignment,
     find_replacement_candidates,
+)
+from .students import (
+    StudentDisplayState,
+    build_student_display_map,
+    student_display_state,
+    students_for_session,
+)
+from .workload import (
+    StudentWorkload,
+    TherapistWorkload,
+    calculate_student_workload,
+    calculate_therapist_workload,
 )
 
 __all__ = [
@@ -45,19 +63,29 @@ __all__ = [
     "RehabWeekday",
     "ReplacementAssignment",
     "ReplacementCandidate",
+    "ReplacementProviderKind",
     "ScheduleConflict",
     "Session",
+    "Student",
+    "StudentAssignment",
+    "StudentDisplayState",
+    "StudentWorkload",
     "Therapist",
     "TherapistWorkload",
     "build_daily_session_states",
     "build_operational_occurrences",
+    "build_student_display_map",
+    "calculate_student_workload",
     "calculate_therapist_workload",
     "create_replacement_assignment",
     "find_operational_conflicts",
     "find_replacement_candidates",
     "is_patient_available",
+    "is_student_available",
     "is_therapist_available",
     "parse_day_pattern",
     "patterns_are_complementary",
     "patterns_overlap",
+    "student_display_state",
+    "students_for_session",
 ]

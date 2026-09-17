@@ -1,0 +1,17 @@
+REHAB replacement priority correction
+
+This patch supersedes the previous student_management patch, which should NOT be applied separately.
+
+Confirmed ranking:
+1) lower operational daily load
+2) exact requested/original time when load is equal
+3) otherwise another common free timeslot keeps the provider eligible
+
+Students:
+- separate role from therapists
+- may be replacement providers when active and replacement-capable
+- maximum 5 daily patient/timeslots
+- 4/5 can receive one more replacement
+- 5/5 cannot receive a sixth slot
+
+No Excel workbook is modified by this patch.

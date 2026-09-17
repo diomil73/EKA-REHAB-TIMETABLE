@@ -3,7 +3,14 @@ from __future__ import annotations
 from datetime import date, time
 from typing import Iterable
 
-from .models import AbsenceKind, DailyAbsence, ReplacementAssignment, Session
+from .models import (
+    AbsenceKind,
+    DailyAbsence,
+    ReplacementAssignment,
+    ReplacementProviderKind,
+    Session,
+    StudentAssignment,
+)
 
 
 def _is_absent(
@@ -40,17 +47,7 @@ def is_therapist_available(
     absences: Iterable[DailyAbsence] = (),
     replacements: Iterable[ReplacementAssignment] = (),
 ) -> bool:
-    """Return real operational availability for the requested day/time.
-
-    Rules:
-    - an absent therapist is unavailable;
-    - an accepted replacement assignment blocks the replacement therapist;
-    - once a base session has a replacement overlay, that base session no
-      longer blocks its original therapist;
-    - a normal base session blocks the therapist unless that session's patient
-      is absent at the same date/time;
-    - the base schedule is never mutated by daily exceptions.
-    """
+    """Return real operational availability at one exact date/time."""
 
     sessions = tuple(sessions)
     absences = tuple(absences)
@@ -66,6 +63,8 @@ def is_therapist_available(
         return False
 
     for replacement in replacements:
+        if replacement.replacement_provider_kind != ReplacementProviderKind.THERAPIST:
+            continue
         if (
             replacement.replacement_therapist_id == therapist_id
             and replacement.replacement_date == target_date
@@ -89,8 +88,6 @@ def is_therapist_available(
         ):
             continue
 
-        # The daily overlay replaces the base occurrence operationally. The
-        # original therapist is therefore not considered occupied by it.
         if _replacement_for_session(session.session_id, replacements) is not None:
             continue
 
@@ -107,6 +104,70 @@ def is_therapist_available(
     return True
 
 
+def is_student_available(
+    student_id: str,
+    target_date: date,
+    target_time: time,
+    sessions: Iterable[Session],
+    student_assignments: Iterable[StudentAssignment] = (),
+    absences: Iterable[DailyAbsence] = (),
+    replacements: Iterable[ReplacementAssignment] = (),
+) -> bool:
+    """Return whether a student is free at one exact operational timeslot."""
+
+    sessions = tuple(sessions)
+    student_assignments = tuple(student_assignments)
+    absences = tuple(absences)
+    replacements = tuple(replacements)
+    session_by_id = {session.session_id: session for session in sessions}
+
+    if _is_absent(
+        absence_kind=AbsenceKind.STUDENT,
+        subject_id=student_id,
+        target_date=target_date,
+        target_time=target_time,
+        absences=absences,
+    ):
+        return False
+
+    for replacement in replacements:
+        if replacement.replacement_provider_kind != ReplacementProviderKind.STUDENT:
+            continue
+        if (
+            replacement.replacement_therapist_id == student_id
+            and replacement.replacement_date == target_date
+            and replacement.replacement_time == target_time
+        ):
+            if not _is_absent(
+                absence_kind=AbsenceKind.PATIENT,
+                subject_id=replacement.patient_id,
+                target_date=target_date,
+                target_time=target_time,
+                absences=absences,
+            ):
+                return False
+
+    for assignment in student_assignments:
+        if assignment.student_id != student_id:
+            continue
+        session = session_by_id.get(assignment.session_id)
+        if session is None:
+            continue
+        if session.session_date != target_date or session.start_time != target_time:
+            continue
+        if _is_absent(
+            absence_kind=AbsenceKind.PATIENT,
+            subject_id=session.patient_id,
+            target_date=target_date,
+            target_time=target_time,
+            absences=absences,
+        ):
+            continue
+        return False
+
+    return True
+
+
 def is_patient_available(
     patient_id: str,
     target_date: date,
@@ -117,13 +178,7 @@ def is_patient_available(
     *,
     ignore_session_id: str | None = None,
 ) -> bool:
-    """Return whether a patient can receive a session at a date/time.
-
-    Daily overlays are treated as the operational truth while the base
-    schedule remains untouched. ``ignore_session_id`` is used when validating
-    a replacement for the session being moved/reassigned, so the session does
-    not conflict with itself.
-    """
+    """Return whether a patient can receive a session at a date/time."""
 
     sessions = tuple(sessions)
     absences = tuple(absences)
@@ -158,8 +213,6 @@ def is_patient_available(
         ):
             continue
 
-        # If this base occurrence was replaced, its old base position is no
-        # longer operationally occupied by the patient.
         if _replacement_for_session(session.session_id, replacements) is not None:
             continue
 
