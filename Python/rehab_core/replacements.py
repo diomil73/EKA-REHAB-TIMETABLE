@@ -5,7 +5,14 @@ from datetime import date
 from typing import Iterable
 
 from .availability import is_therapist_available
-from .models import AbsenceKind, DailyAbsence, Patient, Session, Therapist
+from .models import (
+    AbsenceKind,
+    DailyAbsence,
+    Patient,
+    ReplacementAssignment,
+    Session,
+    Therapist,
+)
 
 
 @dataclass(frozen=True)
@@ -34,13 +41,10 @@ def _daily_workload(
     target_date: date,
     sessions: Iterable[Session],
     absences: Iterable[DailyAbsence],
+    replacements: Iterable[ReplacementAssignment],
     patient_by_id: dict[str, Patient],
 ) -> tuple[int, int]:
-    """Return (active sessions, infectious active sessions) for the day.
-
-    Patient absences remove the corresponding base session from today's
-    operational workload. The base schedule itself remains unchanged.
-    """
+    """Return operational (active sessions, infectious sessions) for the day."""
 
     active_sessions = 0
     infectious_sessions = 0
@@ -56,6 +60,18 @@ def _daily_workload(
         if patient is not None and patient.infectious:
             infectious_sessions += 1
 
+    for replacement in replacements:
+        if (
+            replacement.replacement_therapist_id != therapist_id
+            or replacement.replacement_date != target_date
+        ):
+            continue
+
+        active_sessions += 1
+        patient = patient_by_id.get(replacement.patient_id)
+        if patient is not None and patient.infectious:
+            infectious_sessions += 1
+
     return active_sessions, infectious_sessions
 
 
@@ -65,27 +81,18 @@ def find_replacement_candidates(
     sessions: Iterable[Session],
     absences: Iterable[DailyAbsence] = (),
     patients: Iterable[Patient] = (),
+    replacements: Iterable[ReplacementAssignment] = (),
 ) -> list[ReplacementCandidate]:
-    """Return available replacement therapists in a deterministic order.
+    """Return available replacement therapists in deterministic order.
 
-    Milestone 2 rules:
-    - never suggest the therapist already assigned to the base session;
-    - exclude therapists absent at the requested date/time;
-    - exclude therapists busy at that date/time, except when their own patient
-      is absent and therefore their slot is operationally free;
-    - robotic sessions require a robotic-capable therapist;
-    - balance workload using today's active sessions;
-    - for an infectious target patient, prefer the lower infectious workload
-      before total workload;
-    - do not mutate the base schedule.
-
-    Day-pattern compatibility and persisted daily replacement overlays will be
-    added as separate milestones rather than hidden inside this first engine.
+    The ranking uses today's operational state, including already accepted
+    replacement assignments. The base schedule remains unchanged.
     """
 
     sessions = tuple(sessions)
     absences = tuple(absences)
     patients = tuple(patients)
+    replacements = tuple(replacements)
     patient_by_id = {patient.patient_id: patient for patient in patients}
     target_patient = patient_by_id.get(target_session.patient_id)
     target_is_infectious = bool(target_patient and target_patient.infectious)
@@ -103,6 +110,7 @@ def find_replacement_candidates(
             target_time=target_session.start_time,
             sessions=sessions,
             absences=absences,
+            replacements=replacements,
         ):
             continue
 
@@ -111,6 +119,7 @@ def find_replacement_candidates(
             target_date=target_session.session_date,
             sessions=sessions,
             absences=absences,
+            replacements=replacements,
             patient_by_id=patient_by_id,
         )
         candidates.append(
@@ -142,3 +151,53 @@ def find_replacement_candidates(
         )
 
     return candidates
+
+
+def create_replacement_assignment(
+    *,
+    replacement_id: str,
+    target_session: Session,
+    replacement_therapist_id: str,
+    therapists: Iterable[Therapist],
+    sessions: Iterable[Session],
+    absences: Iterable[DailyAbsence] = (),
+    replacements: Iterable[ReplacementAssignment] = (),
+    reason: str | None = None,
+) -> ReplacementAssignment:
+    """Validate and create a daily replacement overlay.
+
+    This function does not edit the base Session. It raises ValueError when
+    the requested therapist cannot legally take the session in today's state.
+    """
+
+    therapist_by_id = {
+        therapist.therapist_id: therapist for therapist in therapists
+    }
+    therapist = therapist_by_id.get(replacement_therapist_id)
+    if therapist is None:
+        raise ValueError("Unknown replacement therapist")
+    if replacement_therapist_id == target_session.therapist_id:
+        raise ValueError("Replacement therapist cannot be the original therapist")
+    if target_session.robotic and not therapist.robotic_capable:
+        raise ValueError("Replacement therapist is not robotic-capable")
+
+    if not is_therapist_available(
+        therapist_id=replacement_therapist_id,
+        target_date=target_session.session_date,
+        target_time=target_session.start_time,
+        sessions=sessions,
+        absences=absences,
+        replacements=replacements,
+    ):
+        raise ValueError("Replacement therapist is not available")
+
+    return ReplacementAssignment(
+        replacement_id=replacement_id,
+        target_session_id=target_session.session_id,
+        patient_id=target_session.patient_id,
+        original_therapist_id=target_session.therapist_id,
+        replacement_therapist_id=replacement_therapist_id,
+        replacement_date=target_session.session_date,
+        replacement_time=target_session.start_time,
+        reason=reason,
+    )

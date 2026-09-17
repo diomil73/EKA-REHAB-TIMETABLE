@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, time
 from typing import Iterable
 
-from .models import AbsenceKind, DailyAbsence, Session
+from .models import AbsenceKind, DailyAbsence, ReplacementAssignment, Session
 
 
 def _is_absent(
@@ -28,14 +28,16 @@ def is_therapist_available(
     target_time: time,
     sessions: Iterable[Session],
     absences: Iterable[DailyAbsence] = (),
+    replacements: Iterable[ReplacementAssignment] = (),
 ) -> bool:
-    """Return real availability for the requested day/time.
+    """Return real operational availability for the requested day/time.
 
-    Rules implemented in milestone 1:
-    - An absent therapist is unavailable.
-    - A scheduled session blocks the therapist unless that session's patient
-      is absent at the same date/time.
-    - Base schedule data is not mutated.
+    Rules:
+    - an absent therapist is unavailable;
+    - an accepted replacement assignment blocks the replacement therapist;
+    - a base session blocks the therapist unless that session's patient is
+      absent at the same date/time;
+    - the base schedule is never mutated by daily exceptions.
     """
 
     if _is_absent(
@@ -46,6 +48,14 @@ def is_therapist_available(
         absences=absences,
     ):
         return False
+
+    for replacement in replacements:
+        if (
+            replacement.replacement_therapist_id == therapist_id
+            and replacement.replacement_date == target_date
+            and replacement.replacement_time == target_time
+        ):
+            return False
 
     for session in sessions:
         if (

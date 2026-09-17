@@ -57,3 +57,21 @@ class DailyAbsence:
         if self.end_time is not None and target_time >= self.end_time:
             return False
         return True
+
+
+@dataclass(frozen=True)
+class ReplacementAssignment:
+    """A daily overlay that replaces the therapist for one base session.
+
+    The base Session is deliberately not edited. This object represents the
+    operational change for a single day and time.
+    """
+
+    replacement_id: str
+    target_session_id: str
+    patient_id: str
+    original_therapist_id: str
+    replacement_therapist_id: str
+    replacement_date: date
+    replacement_time: time
+    reason: Optional[str] = None
