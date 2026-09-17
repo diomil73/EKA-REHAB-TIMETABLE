@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, time
 from typing import Iterable
 
-from .availability import is_therapist_available
+from .availability import is_patient_available, is_therapist_available
 from .models import (
     AbsenceKind,
     DailyAbsence,
@@ -25,15 +25,22 @@ class ReplacementCandidate:
 
 def _patient_absent(
     patient_id: str,
-    session: Session,
+    target_date: date,
+    target_time: time,
     absences: Iterable[DailyAbsence],
 ) -> bool:
     return any(
         absence.absence_kind == AbsenceKind.PATIENT
         and absence.subject_id == patient_id
-        and absence.covers(session.session_date, session.start_time)
+        and absence.covers(target_date, target_time)
         for absence in absences
     )
+
+
+def _replaced_session_ids(
+    replacements: Iterable[ReplacementAssignment],
+) -> set[str]:
+    return {replacement.target_session_id for replacement in replacements}
 
 
 def _daily_workload(
@@ -48,11 +55,19 @@ def _daily_workload(
 
     active_sessions = 0
     infectious_sessions = 0
+    replaced_ids = _replaced_session_ids(replacements)
 
     for session in sessions:
         if session.therapist_id != therapist_id or session.session_date != target_date:
             continue
-        if _patient_absent(session.patient_id, session, absences):
+        if session.session_id in replaced_ids:
+            continue
+        if _patient_absent(
+            session.patient_id,
+            session.session_date,
+            session.start_time,
+            absences,
+        ):
             continue
 
         active_sessions += 1
@@ -64,6 +79,13 @@ def _daily_workload(
         if (
             replacement.replacement_therapist_id != therapist_id
             or replacement.replacement_date != target_date
+        ):
+            continue
+        if _patient_absent(
+            replacement.patient_id,
+            replacement.replacement_date,
+            replacement.replacement_time,
+            absences,
         ):
             continue
 
@@ -82,6 +104,8 @@ def find_replacement_candidates(
     absences: Iterable[DailyAbsence] = (),
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    *,
+    replacement_time: time | None = None,
 ) -> list[ReplacementCandidate]:
     """Return available replacement therapists in deterministic order.
 
@@ -93,9 +117,23 @@ def find_replacement_candidates(
     absences = tuple(absences)
     patients = tuple(patients)
     replacements = tuple(replacements)
+    target_time = replacement_time or target_session.start_time
     patient_by_id = {patient.patient_id: patient for patient in patients}
     target_patient = patient_by_id.get(target_session.patient_id)
     target_is_infectious = bool(target_patient and target_patient.infectious)
+
+    # There is no meaningful replacement if the patient cannot attend at the
+    # proposed operational time.
+    if not is_patient_available(
+        patient_id=target_session.patient_id,
+        target_date=target_session.session_date,
+        target_time=target_time,
+        sessions=sessions,
+        absences=absences,
+        replacements=replacements,
+        ignore_session_id=target_session.session_id,
+    ):
+        return []
 
     candidates: list[ReplacementCandidate] = []
 
@@ -107,7 +145,7 @@ def find_replacement_candidates(
         if not is_therapist_available(
             therapist_id=therapist.therapist_id,
             target_date=target_session.session_date,
-            target_time=target_session.start_time,
+            target_time=target_time,
             sessions=sessions,
             absences=absences,
             replacements=replacements,
@@ -162,13 +200,26 @@ def create_replacement_assignment(
     sessions: Iterable[Session],
     absences: Iterable[DailyAbsence] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    replacement_time: time | None = None,
     reason: str | None = None,
 ) -> ReplacementAssignment:
     """Validate and create a daily replacement overlay.
 
-    This function does not edit the base Session. It raises ValueError when
-    the requested therapist cannot legally take the session in today's state.
+    The replacement may use the original time or a new time. Both therapist
+    and patient availability are validated against the operational day. The
+    base Session is never edited.
     """
+
+    sessions = tuple(sessions)
+    absences = tuple(absences)
+    replacements = tuple(replacements)
+    target_time = replacement_time or target_session.start_time
+
+    if any(
+        replacement.target_session_id == target_session.session_id
+        for replacement in replacements
+    ):
+        raise ValueError("Target session already has a replacement")
 
     therapist_by_id = {
         therapist.therapist_id: therapist for therapist in therapists
@@ -181,10 +232,21 @@ def create_replacement_assignment(
     if target_session.robotic and not therapist.robotic_capable:
         raise ValueError("Replacement therapist is not robotic-capable")
 
+    if not is_patient_available(
+        patient_id=target_session.patient_id,
+        target_date=target_session.session_date,
+        target_time=target_time,
+        sessions=sessions,
+        absences=absences,
+        replacements=replacements,
+        ignore_session_id=target_session.session_id,
+    ):
+        raise ValueError("Patient is not available")
+
     if not is_therapist_available(
         therapist_id=replacement_therapist_id,
         target_date=target_session.session_date,
-        target_time=target_session.start_time,
+        target_time=target_time,
         sessions=sessions,
         absences=absences,
         replacements=replacements,
@@ -198,6 +260,6 @@ def create_replacement_assignment(
         original_therapist_id=target_session.therapist_id,
         replacement_therapist_id=replacement_therapist_id,
         replacement_date=target_session.session_date,
-        replacement_time=target_session.start_time,
+        replacement_time=target_time,
         reason=reason,
     )

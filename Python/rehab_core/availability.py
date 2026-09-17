@@ -22,6 +22,16 @@ def _is_absent(
     )
 
 
+def _replacement_for_session(
+    session_id: str,
+    replacements: Iterable[ReplacementAssignment],
+) -> ReplacementAssignment | None:
+    for replacement in replacements:
+        if replacement.target_session_id == session_id:
+            return replacement
+    return None
+
+
 def is_therapist_available(
     therapist_id: str,
     target_date: date,
@@ -35,10 +45,16 @@ def is_therapist_available(
     Rules:
     - an absent therapist is unavailable;
     - an accepted replacement assignment blocks the replacement therapist;
-    - a base session blocks the therapist unless that session's patient is
-      absent at the same date/time;
+    - once a base session has a replacement overlay, that base session no
+      longer blocks its original therapist;
+    - a normal base session blocks the therapist unless that session's patient
+      is absent at the same date/time;
     - the base schedule is never mutated by daily exceptions.
     """
+
+    sessions = tuple(sessions)
+    absences = tuple(absences)
+    replacements = tuple(replacements)
 
     if _is_absent(
         absence_kind=AbsenceKind.THERAPIST,
@@ -55,7 +71,15 @@ def is_therapist_available(
             and replacement.replacement_date == target_date
             and replacement.replacement_time == target_time
         ):
-            return False
+            patient_absent = _is_absent(
+                absence_kind=AbsenceKind.PATIENT,
+                subject_id=replacement.patient_id,
+                target_date=target_date,
+                target_time=target_time,
+                absences=absences,
+            )
+            if not patient_absent:
+                return False
 
     for session in sessions:
         if (
@@ -63,6 +87,11 @@ def is_therapist_available(
             or session.session_date != target_date
             or session.start_time != target_time
         ):
+            continue
+
+        # The daily overlay replaces the base occurrence operationally. The
+        # original therapist is therefore not considered occupied by it.
+        if _replacement_for_session(session.session_id, replacements) is not None:
             continue
 
         patient_absent = _is_absent(
@@ -74,5 +103,66 @@ def is_therapist_available(
         )
         if not patient_absent:
             return False
+
+    return True
+
+
+def is_patient_available(
+    patient_id: str,
+    target_date: date,
+    target_time: time,
+    sessions: Iterable[Session],
+    absences: Iterable[DailyAbsence] = (),
+    replacements: Iterable[ReplacementAssignment] = (),
+    *,
+    ignore_session_id: str | None = None,
+) -> bool:
+    """Return whether a patient can receive a session at a date/time.
+
+    Daily overlays are treated as the operational truth while the base
+    schedule remains untouched. ``ignore_session_id`` is used when validating
+    a replacement for the session being moved/reassigned, so the session does
+    not conflict with itself.
+    """
+
+    sessions = tuple(sessions)
+    absences = tuple(absences)
+    replacements = tuple(replacements)
+
+    if _is_absent(
+        absence_kind=AbsenceKind.PATIENT,
+        subject_id=patient_id,
+        target_date=target_date,
+        target_time=target_time,
+        absences=absences,
+    ):
+        return False
+
+    for replacement in replacements:
+        if replacement.target_session_id == ignore_session_id:
+            continue
+        if (
+            replacement.patient_id == patient_id
+            and replacement.replacement_date == target_date
+            and replacement.replacement_time == target_time
+        ):
+            return False
+
+    for session in sessions:
+        if session.session_id == ignore_session_id:
+            continue
+        if (
+            session.patient_id != patient_id
+            or session.session_date != target_date
+            or session.start_time != target_time
+        ):
+            continue
+
+        # If this base occurrence was replaced, its old base position is no
+        # longer operationally occupied by the patient.
+        if _replacement_for_session(session.session_id, replacements) is not None:
+            continue
+
+        return False
 
     return True
