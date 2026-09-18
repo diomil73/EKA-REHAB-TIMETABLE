@@ -1,24 +1,13 @@
-Patch: DailySessionState -> verified Excel cell + formatting plan
-Date: 2026-09-18
+Rehab Center System - Native Excel write-back foundation
 
-Adds a dry semantic rendering layer. It does NOT write or save the workbook.
+This patch does NOT write to the baseline workbook.
+It adds:
+- rich-text write plans for line-level strike-through
+- DailyExcelRenderPlan -> safe WritePlan conversion
+- Windows Excel COM writer that writes only to a new .xlsm copy
+- source SHA-256 guard
+- cleanup of partial output on failure
+- runtime probe for Windows + Excel + pywin32
 
-Key points:
-- Resolves each daily session to its MASTER_SCHEDULE treatment cell for traceability.
-- Resolves original/effective provider-time cells in THERAPIST_DAILY.
-- Aggregates multiple patients that share one provider/time cell.
-- Plans strike-through for patient/therapist absence and replaced original sessions.
-- Plans replacement patient display in the effective provider/time cell.
-- Robotic = pink fill role.
-- Infectious = yellow fill/border role; robotic+infectious keeps pink fill plus yellow border.
-- Minimum planned font size remains 10 with wrap text.
-- Student replacements can resolve current legacy headers such as "φοιτ 1".
-- MASTER_SCHEDULE is located but not rewritten, to protect recurring day-pattern text.
-
-Validation against Rehab_Center_System_v27_1.xlsm for 2026-09-18:
-- 75 materialized provider sessions
-- 75 session/cell bindings
-- 74 THERAPIST_DAILY render cells (one legitimate shared slot)
-- 0 mapping issues
-- workbook bytes unchanged
-- full test suite: 120 passed
+Test result in development environment: 131 passed.
+Actual Microsoft Excel COM execution must be verified on the user's Windows PC.

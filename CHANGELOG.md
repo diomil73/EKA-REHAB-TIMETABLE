@@ -59,3 +59,13 @@
 - Added semantic formatting roles for active, absent, replacement, infectious and robotic sessions.
 - Preserved multi-patient cells and student legacy-column resolution.
 - No workbook writes are performed by this layer.
+
+## 2026-09-18 - Native Excel copy-write foundation
+
+- Added rich-text `CellPatch` runs for line-level strike-through and font roles.
+- Added `DailyExcelRenderPlan -> WritePlan` translation for `THERAPIST_DAILY`.
+- Added Windows-native Excel COM writer that writes only to a new `.xlsm` copy.
+- Added source SHA-256 verification and deletion of partial preview files on failure.
+- Added semantic presentation handling for infectious, robotic, student and muted lines.
+- Added a Windows/Excel runtime probe.
+- Production/baseline in-place write-back remains prohibited.

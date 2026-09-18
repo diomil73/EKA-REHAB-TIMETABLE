@@ -31,6 +31,7 @@ from .writeback import (
     WriteIntent,
     WritePlan,
     WritebackSafetyError,
+    TextRunPatch,
     build_write_plan,
     dry_run_writeback,
     validate_write_plan,
@@ -47,6 +48,22 @@ from .render_plan import (
     RenderLineRole,
     SessionCellBinding,
     build_daily_excel_render_plan,
+)
+
+from .render_writeback import (
+    RenderWritebackError,
+    RenderWritebackSummary,
+    build_daily_write_plan,
+    summarize_daily_write_plan,
+)
+
+from .native_excel import (
+    NativeExcelWriteError,
+    NativeStylePalette,
+    NativeWriteReport,
+    Win32ComExcelBackend,
+    apply_write_plan_to_copy,
+    excel_rgb,
 )
 
 from .source_contract import (
@@ -77,6 +94,17 @@ __all__ = [
     "WriteIntent",
     "DryRunReport",
     "CellPatch",
+    "TextRunPatch",
+    "RenderWritebackError",
+    "RenderWritebackSummary",
+    "build_daily_write_plan",
+    "summarize_daily_write_plan",
+    "NativeExcelWriteError",
+    "NativeStylePalette",
+    "NativeWriteReport",
+    "Win32ComExcelBackend",
+    "apply_write_plan_to_copy",
+    "excel_rgb",
     "audit_workbook",
     "build_snapshot",
     "get_source_rule",

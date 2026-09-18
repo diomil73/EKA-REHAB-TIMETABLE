@@ -41,8 +41,15 @@
 Documentation/
 Python/
   rehab_core/
+  rehab_excel/
+  tools/
 Tests/
 README.md
 CHANGELOG.md
 pyproject.toml
 ```
+
+
+## Excel write-back
+
+Η Python δεν αποθηκεύει το production `.xlsm` με `openpyxl`. Το πραγματικό write-back γίνεται μόνο μέσω Microsoft Excel σε Windows και μόνο σε νέο preview copy, αφού περάσουν source/layout/render safety checks.
