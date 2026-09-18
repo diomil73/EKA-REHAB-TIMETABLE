@@ -1,9 +1,7 @@
-Replaces Python/tools/smoke_native_writeback.py.
+Operational replacement visual preview.
 
-Fixes:
-- removes hard-coded B8 assumption
-- auto-selects an empty safe cell in THERAPIST_DAILY grids
-- rejects formula and merged cells
-- uses pywin32 directly so the smoke test is independent of unrelated rehab_excel imports
-- writes only to a copied .xlsm
-- verifies source hash unchanged and VBA preserved
+Copy the CONTENTS of this folder into the repository root.
+Do not copy the outer patch folder itself.
+
+Then run:
+python Python/tools/preview_operational_replacement.py --overwrite
