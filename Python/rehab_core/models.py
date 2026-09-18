@@ -34,6 +34,19 @@ class Therapist:
 
 
 @dataclass(frozen=True)
+class BaseScheduleEntry:
+    """Recurring schedule row imported from the Excel base programme."""
+
+    base_entry_id: str
+    patient_id: str
+    treatment: str
+    start_time: time
+    day_pattern: str
+    therapist_id: Optional[str] = None
+    robotic: bool = False
+
+
+@dataclass(frozen=True)
 class Session:
     session_id: str
     patient_id: str

@@ -1,25 +1,24 @@
-# Native Excel smoke test
+# Native Excel smoke test v2
 
-This is the first controlled real write-back test.
+This smoke test no longer assumes that `THERAPIST_DAILY!B8` is empty.
 
-It never writes to the v27.1 source workbook. It creates a new preview copy under `Excel/previews/` and writes one visible marker to `THERAPIST_DAILY!B8`.
+It opens the baseline workbook read-only, searches only the confirmed daily grids
+`B2:J8` and `B12:J18`, and selects an empty cell that is not a formula or merged
+cell. It then copies the `.xlsm`, writes `PYTHON SMOKE TEST` only to the copy,
+reopens the copy to verify the value, confirms that `xl/vbaProject.bin` still
+exists, and confirms that the source SHA-256 did not change.
 
-The tool also verifies:
-
-- the source workbook hash remains unchanged,
-- the output can be read back by Microsoft Excel,
-- `xl/vbaProject.bin` is still present in the output workbook.
-
-Run from the repository root:
+Run with Excel closed:
 
 ```powershell
 python Python/tools/smoke_native_writeback.py
 ```
 
-Before running, close any open copy of the baseline workbook in Excel.
+If an older preview already exists:
 
-On success, open only:
+```powershell
+python Python/tools/smoke_native_writeback.py --overwrite
+```
 
-`Excel/previews/Rehab_Center_System_v27_1_NATIVE_SMOKE.xlsm`
-
-and confirm that the workbook opens normally and `THERAPIST_DAILY!B8` contains `PYTHON SMOKE TEST`.
+A successful run prints the exact automatically selected cell. Open only the
+preview workbook under `Excel/previews/` for manual inspection.

@@ -1,13 +1,9 @@
-Rehab Center System - Native Excel write-back foundation
+Replaces Python/tools/smoke_native_writeback.py.
 
-This patch does NOT write to the baseline workbook.
-It adds:
-- rich-text write plans for line-level strike-through
-- DailyExcelRenderPlan -> safe WritePlan conversion
-- Windows Excel COM writer that writes only to a new .xlsm copy
-- source SHA-256 guard
-- cleanup of partial output on failure
-- runtime probe for Windows + Excel + pywin32
-
-Test result in development environment: 131 passed.
-Actual Microsoft Excel COM execution must be verified on the user's Windows PC.
+Fixes:
+- removes hard-coded B8 assumption
+- auto-selects an empty safe cell in THERAPIST_DAILY grids
+- rejects formula and merged cells
+- uses pywin32 directly so the smoke test is independent of unrelated rehab_excel imports
+- writes only to a copied .xlsm
+- verifies source hash unchanged and VBA preserved
