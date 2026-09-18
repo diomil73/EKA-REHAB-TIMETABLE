@@ -8,3 +8,5 @@ venv/
 Thumbs.db
 ~$*.xls*
 *.tmp
+
+Excel/previews/
