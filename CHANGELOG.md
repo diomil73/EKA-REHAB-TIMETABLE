@@ -18,3 +18,44 @@
 ### Unchanged
 - Base schedule remains immutable.
 - `Rehab_Center_System_v27_1.xlsm` baseline remains untouched.
+
+## 2026-09-17 - Read-only Excel integration
+
+- Added read-only `.xlsm` adapter for `PATIENTS`, `PATIENT_PLANNER` and `SETTINGS`.
+- Added recurring `BaseScheduleEntry` and date materialization into operational `Session` objects.
+- Added support for the workbook day pattern `Καθ/να`.
+- Added workbook audit tooling and regression tests.
+- Confirmed `SESSIONS` identity drift and excluded it from the Python scheduling import path for now.
+
+## 2026-09-18 - Authoritative source contract
+
+- Formalized `PATIENTS`, `PATIENT_PLANNER` and `SETTINGS` as the only current authoritative Excel import sources.
+- Added immutable read-only `WorkbookSnapshot`.
+- Added safety gate that blocks operational import when authoritative identity/source errors exist.
+- Classified `SESSIONS` as audit-only and workbook output/UI sheets as non-authoritative.
+- Added a privacy rule: no automatic patient-data export to repository files.
+## 2026-09-18 - Excel write-back dry run
+
+- Added validated `CellPatch` / `WritePlan` objects for future Excel output.
+- Added a dry-run safety gate that permits only sheets marked as future write targets.
+- Protected authoritative input sheets and legacy operational sheets from Python write-back.
+- Added workbook SHA-256 verification proving that dry runs do not alter the `.xlsm`.
+- Added CLI tooling and regression tests for the write-back safety layer.
+- Real workbook writes remain disabled.
+
+
+## 2026-09-18 - Excel layout contract
+
+- Mapped the actual v27.1 cell structure for `MASTER_SCHEDULE`, `THERAPIST_DAILY`, `REPLACEMENTS`, `CONFLICT_LOG`, `REPLACEMENT_LOG` and `THERAPIST_ATTENDANCE`.
+- Added a read-only OOXML package probe that inspects `.xlsm` layout without saving the workbook.
+- Added dynamic `THERAPIST_DAILY` provider/timeslot cell resolution.
+- Added cell-level write zones in addition to the existing sheet-level source contract.
+- Protected therapist headers, time cells, refresh-button area and master-schedule identity/status columns from future write plans.
+- Added a layout drift audit and regression tests.
+- Real Excel mutation remains disabled.
+
+## 2026-09-18 - Daily render planning
+- Added `DailySessionState -> Excel cell` binding for `THERAPIST_DAILY` and `MASTER_SCHEDULE` references.
+- Added semantic formatting roles for active, absent, replacement, infectious and robotic sessions.
+- Preserved multi-patient cells and student legacy-column resolution.
+- No workbook writes are performed by this layer.
