@@ -132,6 +132,29 @@ def _student_lookup_aliases(student: Student, target_date: date) -> tuple[str, .
     )
 
 
+def _replacement_provider_display(
+    provider_id: str,
+    *,
+    provider_kind: ReplacementProviderKind,
+    labels: Mapping[str, str],
+    students: Mapping[str, Student],
+    target_date: date,
+) -> tuple[str, RenderFontRole]:
+    """Return the human label used on the original slot's replacement line."""
+
+    if provider_kind == ReplacementProviderKind.STUDENT:
+        student = students.get(provider_id)
+        if student is not None:
+            display = student_display_state(student, target_date)
+            return (
+                display.label,
+                RenderFontRole.STUDENT_ACTIVE
+                if display.use_green_font
+                else RenderFontRole.DEFAULT,
+            )
+    return _provider_label(provider_id, labels), RenderFontRole.DEFAULT
+
+
 def _resolve_provider_cell(
     workbook_path: str | Path,
     provider_id: str,
@@ -354,6 +377,29 @@ def build_daily_excel_render_plan(
         )
 
         if state.status == DailySessionStatus.REPLACED and effective_daily_cell is not None:
+            provider_kind = (
+                state.effective_provider_kind or ReplacementProviderKind.THERAPIST
+            )
+            provider_label, provider_font = _replacement_provider_display(
+                state.effective_therapist_id,
+                provider_kind=provider_kind,
+                labels=labels,
+                students=student_by_id,
+                target_date=target_date,
+            )
+            # Keep the original slot visually self-contained: the original
+            # patient line is struck through and the effective provider/time is
+            # shown immediately below it. This preserves the compact timetable
+            # width while making the daily exception readable at a glance.
+            cell_lines.setdefault(original_daily_cell, []).append(
+                RenderLine(
+                    f"→ {provider_label} {state.effective_time.strftime('%H:%M')}",
+                    role=RenderLineRole.REPLACEMENT,
+                    strike_through=False,
+                    font_role=provider_font,
+                )
+            )
+
             if effective_daily_cell != original_daily_cell:
                 cell_lines.setdefault(effective_daily_cell, []).append(
                     RenderLine(

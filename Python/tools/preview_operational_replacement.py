@@ -86,6 +86,10 @@ def build_preview_plan(source: Path):
     replacement_before = _read_cell_text(source, replacement_cell)
 
     original_after = append_unique_line(original_before, PATIENT_NAME)
+    replacement_note = (
+        f"→ {REPLACEMENT_PROVIDER} {SLOT_TIME.strftime('%H:%M')}"
+    )
+    original_after = append_unique_line(original_after, replacement_note)
     replacement_after = append_unique_line(replacement_before, PATIENT_NAME)
 
     original_run = line_run_for_text(
@@ -93,6 +97,12 @@ def build_preview_plan(source: Path):
         PATIENT_NAME,
         strike=True,
         font_role="muted",
+    )
+    replacement_note_run = line_run_for_text(
+        original_after,
+        replacement_note,
+        strike=False,
+        font_role="default",
     )
     replacement_run = line_run_for_text(
         replacement_after,
@@ -110,7 +120,7 @@ def build_preview_plan(source: Path):
             min_font_size=10,
             fill_role="infectious_yellow",
             border_role="infectious_yellow",
-            text_runs=(original_run,),
+            text_runs=(original_run, replacement_note_run),
             source_tag="operational_preview:original",
         ),
         CellPatch(
@@ -187,7 +197,8 @@ def main() -> int:
     print(f"VBA preserved: {vba_preserved}")
     print(
         "NEXT: open ONLY the operational preview. Confirm the original patient is "
-        "struck through and the same patient appears under Φιλιππούσης at 12:15."
+        "struck through, the line below reads → Φιλιππούσης 12:15, and the same "
+        "patient appears under Φιλιππούσης at 12:15."
     )
     return 0 if report.source_unchanged and vba_preserved else 3
 

@@ -28,3 +28,16 @@ def test_line_run_targets_full_line_containing_patient():
     assert run.start == len("ΑΛΛΟΣ\n") + 1
     assert run.length == len("ΖΑΛΟΚΩΣΤΑΣ [Καθ/να]")
     assert run.strike_through is True
+
+
+def test_replacement_note_is_a_distinct_unstruck_line():
+    text = "ΖΑΛΟΚΩΣΤΑΣ\n→ Φιλιππούσης 12:15"
+    run = module.line_run_for_text(
+        text,
+        "→ Φιλιππούσης 12:15",
+        strike=False,
+        font_role="default",
+    )
+    assert run.start == len("ΖΑΛΟΚΩΣΤΑΣ\n") + 1
+    assert run.length == len("→ Φιλιππούσης 12:15")
+    assert run.strike_through is False

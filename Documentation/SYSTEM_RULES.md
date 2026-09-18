@@ -38,3 +38,22 @@
 - Αν το infectious θα παράγεται αυτόματα από θάλαμο ή θα παραμένει ανεξάρτητο πεδίο.
 - Τελική μορφή/πηγή του πλήρους timeslot grid από το Excel `SETTINGS`.
 - Τελική οπτική μορφή original/replacement μέσα στο Excel.
+
+## Excel/Python integration
+
+- Python first integrates with the workbook in read-only mode.
+- `PATIENTS` is the patient-registry source and `PATIENT_PLANNER` is the current recurring base-programme source.
+- `SESSIONS` is not used as the scheduling source while its PatientID/name mapping is inconsistent with `PATIENTS`.
+- Blank day patterns are not silently interpreted as daily; they must be resolved by an explicit programme rule.
+- `Καθ/να` means all rehabilitation weekdays Monday-Friday.
+- The read-only adapter must not save the `.xlsm`.
+## Daily replacement display
+
+In `THERAPIST_DAILY`, a replaced session remains visible in its original slot as a compact two-line operational overlay:
+
+- line 1: original patient, struck through;
+- line 2: `→ replacement provider HH:MM`, not struck through;
+- the patient also appears in the replacement provider's effective timeslot.
+
+This is a presentation overlay only. It never overwrites the base programme.
+

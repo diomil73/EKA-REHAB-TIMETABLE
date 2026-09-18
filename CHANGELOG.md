@@ -69,3 +69,7 @@
 - Added semantic presentation handling for infectious, robotic, student and muted lines.
 - Added a Windows/Excel runtime probe.
 - Production/baseline in-place write-back remains prohibited.
+
+- Added compact two-line replacement overlay in the original `THERAPIST_DAILY` slot.
+- Original patient remains struck through; replacement provider and effective time appear directly below.
+- Active student replacement names use the student-green presentation role.
