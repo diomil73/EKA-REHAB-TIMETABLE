@@ -1,0 +1,11 @@
+Rehab Center System - Excel write-back dry run
+
+This patch adds a write-back planning/safety layer only.
+It does NOT modify or save any workbook.
+
+Validated against Rehab_Center_System_v27_1.xlsm:
+- planned targets: THERAPIST_DAILY!B2, MASTER_SCHEDULE!D2
+- workbook SHA-256 unchanged after dry run
+- full test suite: 93 passed
+
+Next step: map operational daily states to exact Excel cells/ranges and formatting roles before enabling any real write.
