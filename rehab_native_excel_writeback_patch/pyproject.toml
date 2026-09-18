@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rehab-center-system"
+version = "0.1.0"
+description = "Scheduling logic for the Rehab Center Excel system"
+requires-python = ">=3.11"
+dependencies = [
+    "openpyxl>=3.1,<4",
+]
+
+[project.optional-dependencies]
+windows = [
+    "pywin32>=306; platform_system == 'Windows'",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["Tests"]
+pythonpath = ["Python"]
