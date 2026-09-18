@@ -1,0 +1,10 @@
+Excel layout contract patch
+
+- Adds read-only OOXML package probe for .xlsx/.xlsm layout metadata.
+- Maps the actual v27.1 MASTER_SCHEDULE and THERAPIST_DAILY cell structure.
+- Resolves provider + timeslot dynamically to THERAPIST_DAILY cells.
+- Adds patient-row lookup for MASTER_SCHEDULE without exporting patient data.
+- Adds cell-level write zones on top of the existing sheet-level source contract.
+- Protects THERAPIST_DAILY headers/time/button area and MASTER_SCHEDULE identity/status columns.
+- Adds layout drift audit CLI.
+- Real workbook writes remain disabled.
