@@ -39,7 +39,14 @@ def append_unique_line(existing: str, line: str) -> str:
     return "\n".join(current_lines)
 
 
-def line_run_for_text(full_text: str, needle: str, *, strike: bool, font_role: str | None):
+def line_run_for_text(
+    full_text: str,
+    needle: str,
+    *,
+    strike: bool,
+    italic: bool = False,
+    font_role: str | None,
+):
     """Return a 1-based rich-text run covering the line containing needle."""
 
     cursor = 0
@@ -50,6 +57,7 @@ def line_run_for_text(full_text: str, needle: str, *, strike: bool, font_role: s
                 start=cursor + 1,
                 length=len(visible),
                 strike_through=strike,
+                italic=italic,
                 font_role=font_role,
             )
         cursor += len(line)
@@ -95,7 +103,8 @@ def build_preview_plan(source: Path):
     original_run = line_run_for_text(
         original_after,
         PATIENT_NAME,
-        strike=True,
+        strike=False,
+        italic=True,
         font_role="muted",
     )
     replacement_note_run = line_run_for_text(
@@ -197,8 +206,8 @@ def main() -> int:
     print(f"VBA preserved: {vba_preserved}")
     print(
         "NEXT: open ONLY the operational preview. Confirm the original patient is "
-        "struck through, the line below reads → Φιλιππούσης 12:15, and the same "
-        "patient appears under Φιλιππούσης at 12:15."
+        "muted/italic (NOT struck through), the line below reads → Φιλιππούσης 12:15, "
+        "and the same patient appears under Φιλιππούσης at 12:15."
     )
     return 0 if report.source_unchanged and vba_preserved else 3
 

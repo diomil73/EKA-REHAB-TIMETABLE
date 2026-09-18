@@ -1,11 +1,2 @@
-Replacement visual semantics patch
-
-Confirmed rule:
-- A replaced session still happens, so the original patient line is NOT struck through.
-- Original line: muted + italic.
-- Replacement line: normal text, e.g. -> Provider 12:15.
-- Strikethrough remains for absence/cancellation-style states.
-
-Also preserves the tested GetCharacters pywin32 compatibility fix for Excel rich text.
-
-Test result: 136 passed.
+Fixes the demo operational preview so replacement does NOT strike the patient name.
+The original patient line is now italic + muted; strikethrough remains reserved for true absence/cancellation in the general renderer.
