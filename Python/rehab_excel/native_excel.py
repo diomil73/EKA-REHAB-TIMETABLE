@@ -162,13 +162,15 @@ class Win32ComExcelBackend:
                 border.Weight = 2
                 border.Color = self.palette.infectious_yellow
 
-        # Reset the whole string to non-strike first. Then format individual
-        # lines/runs. This prevents stale rich-text state from a previous day.
+        # Reset whole-string rich-text state first. Then format individual
+        # lines/runs. This prevents stale presentation from a previous day.
         if patch.text_runs:
             cell.Font.Strikethrough = False
+            cell.Font.Italic = False
             for run in patch.text_runs:
                 chars = self._characters(cell, run.start, run.length)
                 chars.Font.Strikethrough = bool(run.strike_through)
+                chars.Font.Italic = bool(run.italic)
                 run_color = self._font_color_for_role(run.font_role, self.palette)
                 if run_color is not None:
                     chars.Font.Color = run_color

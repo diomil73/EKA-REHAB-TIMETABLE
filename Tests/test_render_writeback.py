@@ -49,7 +49,8 @@ def test_render_plan_becomes_rich_text_cell_patch(tmp_path):
             RenderLine(
                 "ΑΣΘΕΝΗΣ Α",
                 RenderLineRole.ORIGINAL,
-                strike_through=True,
+                strike_through=False,
+                italic=True,
                 font_role=RenderFontRole.MUTED,
             ),
             RenderLine(
@@ -75,7 +76,8 @@ def test_render_plan_becomes_rich_text_cell_patch(tmp_path):
     assert len(patch.text_runs) == 2
     assert patch.text_runs[0].start == 1
     assert patch.text_runs[0].length == len("ΑΣΘΕΝΗΣ Α")
-    assert patch.text_runs[0].strike_through is True
+    assert patch.text_runs[0].strike_through is False
+    assert patch.text_runs[0].italic is True
     assert patch.text_runs[1].start == len("ΑΣΘΕΝΗΣ Α") + 2
     assert patch.text_runs[1].font_role == "student_active_green"
 

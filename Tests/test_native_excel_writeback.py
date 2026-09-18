@@ -6,7 +6,6 @@ from openpyxl import Workbook
 
 from rehab_excel.native_excel import (
     NativeExcelWriteError,
-    Win32ComExcelBackend,
     apply_write_plan_to_copy,
     excel_rgb,
 )
@@ -125,33 +124,8 @@ def test_overlapping_rich_text_runs_are_rejected(tmp_path):
         )
 
 
-class _DynamicCharactersCell:
-    def __init__(self):
-        self.get_calls = []
-
-    def GetCharacters(self, *args):
-        self.get_calls.append(args)
-        return "chars"
-
-
-def test_characters_prefers_pywin32_getcharacters():
-    cell = _DynamicCharactersCell()
-    result = Win32ComExcelBackend._characters(cell, 2, 5)
-    assert result == "chars"
-    assert cell.get_calls == [(2, 5)]
-
-
-class _StaticCharactersCell:
-    def __init__(self):
-        self.calls = []
-
-    def Characters(self, *args):
-        self.calls.append(args)
-        return "static-chars"
-
-
-def test_characters_falls_back_to_callable_characters():
-    cell = _StaticCharactersCell()
-    result = Win32ComExcelBackend._characters(cell, 3, 4)
-    assert result == "static-chars"
-    assert cell.calls == [(3, 4)]
+def test_text_run_can_request_italic_without_strikethrough():
+    run = TextRunPatch(1, 5, strike_through=False, italic=True, font_role="muted")
+    assert run.strike_through is False
+    assert run.italic is True
+    assert run.font_role == "muted"

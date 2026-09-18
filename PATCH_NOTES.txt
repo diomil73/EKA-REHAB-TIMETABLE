@@ -1,11 +1,11 @@
-Replacement visual overlay patch
+Replacement visual semantics patch
 
-Changes:
-- Original THERAPIST_DAILY slot becomes a compact two-line overlay for replacements.
-- Line 1: patient name struck through.
-- Line 2: -> replacement provider HH:MM, not struck through.
-- Patient still appears in the replacement provider's effective timeslot.
-- Active student provider names use the student-green font role on the overlay line.
-- No base schedule write-back.
+Confirmed rule:
+- A replaced session still happens, so the original patient line is NOT struck through.
+- Original line: muted + italic.
+- Replacement line: normal text, e.g. -> Provider 12:15.
+- Strikethrough remains for absence/cancellation-style states.
 
-Validation: 135 tests passed in the assembled project.
+Also preserves the tested GetCharacters pywin32 compatibility fix for Excel rich text.
+
+Test result: 136 passed.

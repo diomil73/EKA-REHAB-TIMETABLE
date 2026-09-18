@@ -47,6 +47,7 @@ class RenderLine:
     text: str
     role: RenderLineRole
     strike_through: bool = False
+    italic: bool = False
     font_role: RenderFontRole = RenderFontRole.DEFAULT
 
 
@@ -343,11 +344,13 @@ def build_daily_excel_render_plan(
             )
         )
 
+        # A replacement means the session still happens, so it must not look
+        # cancelled. Only a real absence/cancellation-style state is struck.
         original_strike = state.status in {
             DailySessionStatus.PATIENT_ABSENT,
             DailySessionStatus.THERAPIST_ABSENT,
-            DailySessionStatus.REPLACED,
         }
+        original_italic = state.status == DailySessionStatus.REPLACED
         original_role = (
             RenderLineRole.ACTIVE
             if state.status == DailySessionStatus.ACTIVE
@@ -363,6 +366,7 @@ def build_daily_excel_render_plan(
                 patient.display_name,
                 role=original_role,
                 strike_through=original_strike,
+                italic=original_italic,
                 font_role=original_font,
             )
         )
@@ -387,10 +391,9 @@ def build_daily_excel_render_plan(
                 students=student_by_id,
                 target_date=target_date,
             )
-            # Keep the original slot visually self-contained: the original
-            # patient line is struck through and the effective provider/time is
-            # shown immediately below it. This preserves the compact timetable
-            # width while making the daily exception readable at a glance.
+            # Keep the original slot visually self-contained. The patient line
+            # remains present in muted italics because the session still happens;
+            # the effective provider/time is shown immediately below it.
             cell_lines.setdefault(original_daily_cell, []).append(
                 RenderLine(
                     f"→ {provider_label} {state.effective_time.strftime('%H:%M')}",

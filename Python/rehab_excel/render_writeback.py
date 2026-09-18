@@ -27,6 +27,7 @@ def _line_runs(text_lines) -> tuple[TextRunPatch, ...]:
                     start=cursor,
                     length=len(line.text),
                     strike_through=line.strike_through,
+                    italic=line.italic,
                     font_role=line.font_role.value,
                 )
             )

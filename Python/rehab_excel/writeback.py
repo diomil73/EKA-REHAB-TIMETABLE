@@ -28,6 +28,7 @@ class TextRunPatch:
     start: int
     length: int
     strike_through: bool = False
+    italic: bool = False
     font_role: str | None = None
 
     def __post_init__(self) -> None:

@@ -1,3 +1,10 @@
+## 2026-09-19 — Replacement visual semantics
+
+- Replaced sessions no longer show the patient with strikethrough in the original slot.
+- The original line is rendered in muted italics because the session still takes place.
+- Strikethrough remains reserved for absence/cancellation-style states.
+- Rich-text writeback now supports per-run italic formatting.
+
 # Changelog
 
 ## Unreleased

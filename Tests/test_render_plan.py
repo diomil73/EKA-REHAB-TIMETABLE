@@ -116,10 +116,13 @@ def test_replacement_same_time_maps_to_new_provider_cell(fake_layout):
     assert binding.original_daily_cell == "B7"
     assert binding.effective_daily_cell == "C7"
     cells = {item.cell: item for item in plan.cells}
-    assert cells["B7"].lines[0].strike_through is True
+    assert cells["B7"].lines[0].strike_through is False
+    assert cells["B7"].lines[0].italic is True
+    assert cells["B7"].lines[0].font_role == rp.RenderFontRole.MUTED
     assert cells["B7"].lines[1].text == "→ Θ2 12:15"
     assert cells["B7"].lines[1].role == rp.RenderLineRole.REPLACEMENT
     assert cells["B7"].lines[1].strike_through is False
+    assert cells["B7"].lines[1].italic is False
     assert cells["C7"].lines[0].role == rp.RenderLineRole.REPLACEMENT
     assert cells["C7"].lines[0].strike_through is False
 

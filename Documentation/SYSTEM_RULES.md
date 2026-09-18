@@ -37,7 +37,6 @@
 
 - Αν το infectious θα παράγεται αυτόματα από θάλαμο ή θα παραμένει ανεξάρτητο πεδίο.
 - Τελική μορφή/πηγή του πλήρους timeslot grid από το Excel `SETTINGS`.
-- Τελική οπτική μορφή original/replacement μέσα στο Excel.
 
 ## Excel/Python integration
 
@@ -51,9 +50,10 @@
 
 In `THERAPIST_DAILY`, a replaced session remains visible in its original slot as a compact two-line operational overlay:
 
-- line 1: original patient, struck through;
-- line 2: `→ replacement provider HH:MM`, not struck through;
-- the patient also appears in the replacement provider's effective timeslot.
+- line 1: original patient remains visible in muted italics, with no strikethrough;
+- line 2: `→ replacement provider HH:MM`, normal (not struck through);
+- the patient also appears in the replacement provider's effective timeslot;
+- strikethrough is reserved for sessions that do not happen, such as patient/therapist absence or cancellation-like states.
 
 This is a presentation overlay only. It never overwrites the base programme.
 
