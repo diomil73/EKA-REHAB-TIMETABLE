@@ -86,11 +86,41 @@ class Win32ComExcelBackend:
 
     @staticmethod
     def _characters(cell, start: int, length: int):
-        # pywin32 exposes Characters differently across Excel versions.
-        try:
-            return cell.Characters(Start=start, Length=length)
-        except TypeError:
-            return cell.Characters(start, length)
+        # With pywin32's dynamic Excel dispatch, Range.Characters(Start, Length)
+        # is exposed as an indexed COM property and calling it directly can raise
+        # DISP_E_MEMBERNOTFOUND. pywin32 exposes the property getter as
+        # GetCharacters(Start, Length), which is the compatible route on these
+        # Office installs. Keep a direct Characters fallback for generated/static
+        # wrappers where that syntax is callable.
+        getter = getattr(cell, "GetCharacters", None)
+        if callable(getter):
+            try:
+                return getter(start, length)
+            except Exception as get_exc:
+                direct = getattr(cell, "Characters", None)
+                if callable(direct):
+                    try:
+                        return direct(start, length)
+                    except Exception:
+                        pass
+                raise NativeExcelWriteError(
+                    f"Excel rich-text character access failed "
+                    f"(start={start}, length={length}): {get_exc}"
+                ) from get_exc
+
+        direct = getattr(cell, "Characters", None)
+        if callable(direct):
+            try:
+                return direct(start, length)
+            except Exception as exc:
+                raise NativeExcelWriteError(
+                    f"Excel rich-text character access failed "
+                    f"(start={start}, length={length}): {exc}"
+                ) from exc
+
+        raise NativeExcelWriteError(
+            "Excel Range exposes neither GetCharacters nor callable Characters"
+        )
 
     def _apply_patch(self, workbook, patch: CellPatch) -> None:
         worksheet = workbook.Worksheets(patch.sheet)
