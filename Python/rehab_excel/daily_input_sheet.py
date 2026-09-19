@@ -171,8 +171,11 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     ws.Range("A1").HorizontalAlignment = -4108  # xlCenter
 
     ws.Range("A2").Value = "Ημερομηνία"
-    ws.Range("B2").Value = _excel_datetime(spec.target_date)
-    ws.Range("B2").NumberFormat = "dd/mm/yyyy"
+    # Write the date as display text instead of setting NumberFormat.
+    # Some localized Excel/COM installations reject Range.NumberFormat even
+    # for valid format strings. The DAILY_INPUT date is a UI value, so a
+    # deterministic dd/mm/yyyy string is safer and locale-independent.
+    ws.Range("B2").Value2 = spec.target_date.strftime("%d/%m/%Y")
     ws.Range("A3:F3").Merge()
     ws.Range("A3").Value = (
         "Συμπλήρωσε μόνο τις γραμμές που χρειάζονται. "

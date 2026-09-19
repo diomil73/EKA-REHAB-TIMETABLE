@@ -1,7 +1,5 @@
-DAILY_INPUT date compatibility fix
+DAILY_INPUT Excel locale compatibility fix
 
-Fixes Windows Excel/pywin32 error:
-  must be a pywintypes time object (got datetime.date)
-
-The DAILY_INPUT target date is now written to Excel as a midnight datetime,
-which COM accepts as an Excel date while preserving the dd/mm/yyyy display.
+- Removes the B2 Range.NumberFormat assignment that fails on some localized Excel/COM installations.
+- Writes the target date as deterministic dd/mm/yyyy display text via Value2.
+- No change to baseline workbook; this affects preview sheet creation only.
