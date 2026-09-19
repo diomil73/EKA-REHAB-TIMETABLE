@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, time
+from datetime import date, datetime, time
 from hashlib import sha256
 from pathlib import Path
 import shutil
@@ -39,6 +39,11 @@ def _unique_nonblank(values: Iterable[str]) -> tuple[str, ...]:
 
 def _time_text(value: time) -> str:
     return value.strftime("%H:%M")
+
+
+def _excel_datetime(value: date) -> datetime:
+    """Convert a date-only value to a COM-friendly Excel datetime."""
+    return datetime.combine(value, time.min)
 
 
 @dataclass(frozen=True)
@@ -166,7 +171,7 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     ws.Range("A1").HorizontalAlignment = -4108  # xlCenter
 
     ws.Range("A2").Value = "Ημερομηνία"
-    ws.Range("B2").Value = spec.target_date
+    ws.Range("B2").Value = _excel_datetime(spec.target_date)
     ws.Range("B2").NumberFormat = "dd/mm/yyyy"
     ws.Range("A3:F3").Merge()
     ws.Range("A3").Value = (

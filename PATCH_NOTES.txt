@@ -1,10 +1,7 @@
-DAILY INPUT PREVIEW
+DAILY_INPUT date compatibility fix
 
-Adds a real Excel DAILY_INPUT sheet in a safe preview copy.
-- Therapist absence rows with dropdowns.
-- Patient absence/cancellation rows with dropdowns.
-- Patient status dropdown preserves the existing SETTINGS options exactly.
-- Hidden _PY_LISTS sheet supplies validations without hard-coded long lists.
-- Baseline remains unchanged; VBA remains preserved through native Excel COM.
+Fixes Windows Excel/pywin32 error:
+  must be a pywintypes time object (got datetime.date)
 
-This patch creates the input surface only. Parsing/applying the filled rows comes next.
+The DAILY_INPUT target date is now written to Excel as a midnight datetime,
+which COM accepts as an Excel date while preserving the dd/mm/yyyy display.
