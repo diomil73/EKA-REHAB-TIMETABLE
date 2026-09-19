@@ -1,2 +1,11 @@
-Fixes the workbook day-pattern alias "Καθ/να" so it is interpreted as Monday-Friday.
-This restores behavior already required by the read-only Excel adapter and keeps unknown patterns as safety errors.
+Patient-centric assignment + automatic SlotGroup patch
+
+Adds:
+- derived SlotGroup model based on independent patient assignments
+- automatic pair/group formation for same therapist + same time
+- weekday overlap detection instead of silently accepting same-day collisions
+- pure reassignment helper proving one pair member can move independently
+- documentation for shared-cell daily behaviour
+- durable project documentation for intranet hyperlinks, progress charts, therapist dashboards and multi-user operation
+
+No Excel write-back is changed by this patch.
