@@ -171,14 +171,10 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     ws.Range("A1").HorizontalAlignment = -4108  # xlCenter
 
     ws.Range("A2").Value = "Ημερομηνία"
-    # Write the date as display text instead of setting NumberFormat.
-    # Some localized Excel/COM installations reject Range.NumberFormat even
-    # for valid format strings. The DAILY_INPUT date is a UI value, so a
-    # deterministic dd/mm/yyyy string is safer and locale-independent.
     ws.Range("B2").Value2 = spec.target_date.strftime("%d/%m/%Y")
     ws.Range("A3:F3").Merge()
     ws.Range("A3").Value = (
-        "Συμπλήρωσε μόνο τις γραμμές που χρειάζονται. "
+        "Η γραμμή ενεργοποιείται μόλις επιλέξεις όνομα. "
         "Το βασικό πρόγραμμα δεν αλλάζει από αυτή την καρτέλα."
     )
     ws.Range("A3").Font.Italic = True
@@ -187,7 +183,7 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     ws.Range("A5").Value = "ΑΠΟΥΣΙΕΣ ΘΕΡΑΠΕΥΤΩΝ"
     ws.Range("A5").Font.Bold = True
 
-    therapist_headers = ("Ενεργό", "Θεραπευτής", "Από", "Έως", "Αιτία", "Σχόλιο")
+    therapist_headers = ("Θεραπευτής", "Όλη ημέρα", "Από", "Έως", "Αιτία", "Σχόλιο")
     for col, value in enumerate(therapist_headers, start=1):
         ws.Cells(6, col).Value = value
         ws.Cells(6, col).Font.Bold = True
@@ -197,41 +193,39 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     ws.Range(f"A{patient_title_row}").Value = "ΑΠΟΥΣΙΕΣ / ΑΚΥΡΩΣΕΙΣ ΑΣΘΕΝΩΝ"
     ws.Range(f"A{patient_title_row}").Font.Bold = True
 
-    patient_headers = ("Ενεργό", "Ασθενής", "Ώρα", "Όλη ημέρα", "Κατάσταση", "Σχόλιο")
+    patient_headers = ("Ασθενής", "Όλη ημέρα", "Ώρα", "Κατάσταση", "Σχόλιο")
     for col, value in enumerate(patient_headers, start=1):
         ws.Cells(spec.patient_header_row, col).Value = value
         ws.Cells(spec.patient_header_row, col).Font.Bold = True
 
-    # Data validation. All values come from hidden named ranges to avoid locale
-    # problems and Excel's 255-character literal-list limit.
     tr1, tr2 = spec.therapist_first_row, spec.therapist_last_row
     pr1, pr2 = spec.patient_first_row, spec.patient_last_row
-    _set_validation(ws.Range(f"A{tr1}:A{tr2}"), "=PY_YESNO")
-    _set_validation(ws.Range(f"B{tr1}:B{tr2}"), "=PY_THERAPISTS")
+
+    # A selected name is the activation signal. No separate Ενεργό column.
+    _set_validation(ws.Range(f"A{tr1}:A{tr2}"), "=PY_THERAPISTS")
+    _set_validation(ws.Range(f"B{tr1}:B{tr2}"), "=PY_YESNO")
     _set_validation(ws.Range(f"C{tr1}:D{tr2}"), "=PY_TIMESLOTS")
-    _set_validation(ws.Range(f"A{pr1}:A{pr2}"), "=PY_YESNO")
-    _set_validation(ws.Range(f"B{pr1}:B{pr2}"), "=PY_PATIENTS")
+
+    _set_validation(ws.Range(f"A{pr1}:A{pr2}"), "=PY_PATIENTS")
+    _set_validation(ws.Range(f"B{pr1}:B{pr2}"), "=PY_YESNO")
     _set_validation(ws.Range(f"C{pr1}:C{pr2}"), "=PY_TIMESLOTS")
-    _set_validation(ws.Range(f"D{pr1}:D{pr2}"), "=PY_YESNO")
-    _set_validation(ws.Range(f"E{pr1}:E{pr2}"), "=PY_STATUSES")
+    _set_validation(ws.Range(f"D{pr1}:D{pr2}"), "=PY_STATUSES")
 
-    # Defaults reduce clicks: a row is inactive unless explicitly turned on.
-    ws.Range(f"A{tr1}:A{tr2}").Value = "ΟΧΙ"
-    ws.Range(f"A{pr1}:A{pr2}").Value = "ΟΧΙ"
-    ws.Range(f"D{pr1}:D{pr2}").Value = "ΟΧΙ"
+    # Keep unused rows visually empty. Whole-day is chosen only when needed.
+    # This avoids a wall of ΟΧΙ values and removes one click per active row.
 
-    # Compact layout, intentionally no giant columns.
-    widths = {"A": 10, "B": 24, "C": 10, "D": 10, "E": 24, "F": 28}
+    widths = {"A": 28, "B": 12, "C": 10, "D": 18, "E": 26, "F": 28}
     for col, width in widths.items():
         ws.Columns(col).ColumnWidth = width
     ws.Range(f"A1:F{spec.patient_last_row}").VerticalAlignment = -4108
     ws.Range(f"A1:F{spec.patient_last_row}").WrapText = True
+    ws.Range("A2").WrapText = False
+    ws.Range("B2").WrapText = False
     ws.Rows("1:3").RowHeight = 24
 
-    # Light table borders. No hard-coded colors are required for data meaning.
     for rng in (
         ws.Range(f"A6:F{tr2}"),
-        ws.Range(f"A{spec.patient_header_row}:F{pr2}"),
+        ws.Range(f"A{spec.patient_header_row}:E{pr2}"),
     ):
         for edge in (7, 8, 9, 10, 11, 12):
             try:
@@ -247,7 +241,6 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
         ws.Application.ActiveWindow.FreezePanes = True
     except Exception:
         pass
-
 
 def create_daily_input_sheet(workbook_path: str | Path, spec: DailyInputSpec) -> None:
     if sys.platform != "win32":

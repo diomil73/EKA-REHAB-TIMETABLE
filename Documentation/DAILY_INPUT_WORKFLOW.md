@@ -1,22 +1,17 @@
-# Daily Input workflow
+# DAILY_INPUT workflow
 
-`DAILY_INPUT` is a user-facing operational sheet generated in a **preview copy** of the XLSM workbook.
+`DAILY_INPUT` is the daily exception-entry surface. Selecting a therapist or patient name activates that row; there is no separate **Ενεργό** field.
 
-## Purpose
+## Therapist absence
 
-Capture only daily exceptions while keeping `PATIENT_PLANNER` as the untouched base programme.
+Columns: `Θεραπευτής | Όλη ημέρα | Από | Έως | Αιτία | Σχόλιο`.
 
-### Therapist absences
+## Patient absence / cancellation
 
-Each active row stores a therapist, optional start/end times, reason, and note. The final workflow will interpret blank start/end as an all-day absence and will also support an explicit single-timeslot choice.
+Columns: `Ασθενής | Όλη ημέρα | Ώρα | Κατάσταση | Σχόλιο`.
 
-### Patient absences / cancellations
+The `Κατάσταση` dropdown preserves the workbook's existing SETTINGS options exactly.
 
-Each active row stores one patient independently. The `Κατάσταση` dropdown uses the existing `SETTINGS` status options without renaming them.
+## Patient dropdown safety
 
-## Safety
-
-- The baseline workbook is never modified.
-- A hidden `_PY_LISTS` helper sheet supplies dropdown values.
-- Patient and therapist dropdowns come from authoritative workbook sources.
-- This patch creates the input surface only. Applying those entries to the timetable is the next step.
+Patient identities come from `PATIENTS` (`PatientID` + `Ασθενής`) and are cross-checked against `PATIENT_PLANNER`. The system does not infer identity from formatting or cell position.

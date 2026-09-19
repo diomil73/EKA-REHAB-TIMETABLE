@@ -1,5 +1,9 @@
-DAILY_INPUT Excel locale compatibility fix
-
-- Removes the B2 Range.NumberFormat assignment that fails on some localized Excel/COM installations.
-- Writes the target date as deterministic dd/mm/yyyy display text via Value2.
-- No change to baseline workbook; this affects preview sheet creation only.
+DAILY_INPUT cleanup patch
+- removes separate Ενεργό columns
+- therapist row activates by therapist selection
+- patient row activates by patient selection
+- adds explicit Όλη ημέρα field for therapist absences
+- keeps unused rows visually blank
+- widens the first column so Ημερομηνία no longer wraps
+- builds patient dropdown from strict PATIENTS identities and cross-checks PATIENT_PLANNER
+- includes a patient audit command
