@@ -1,10 +1,2 @@
-Daily input reader/apply patch
-
-Adds:
-- Python/rehab_excel/daily_input_reader.py
-- Python/tools/apply_daily_input.py
-- Tests/test_daily_input_reader.py
-- Documentation/DAILY_INPUT_APPLY_WORKFLOW.md
-
-Purpose:
-Read saved DAILY_INPUT rows from Excel and create a patient-centric operational preview without re-entering absences on the command line.
+Diagnostic only. Does not write to Excel.
+Prints the DAILY_INPUT date, parsed absence rows, sessions materialized for that date, and exact match counts.
