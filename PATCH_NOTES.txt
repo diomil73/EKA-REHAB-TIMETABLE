@@ -1,11 +1,9 @@
-Replacement timeslot suggestions
+Guided replacement workflow patch.
 
-Adds a read-only option layer on top of the existing replacement engine.
+Adds:
+- Python/rehab_core/replacement_workflow.py
+- Python/tools/apply_replacement_choice.py
+- Tests/test_replacement_workflow.py
+- Documentation/GUIDED_REPLACEMENT_WORKFLOW.md
 
-Confirmed policy preserved:
-1. lower operational load ranks first;
-2. exact requested time is preferred among otherwise comparable providers;
-3. a provider busy at that time is NOT excluded if another common patient/provider slot exists.
-
-For one selected provider, free alternative slots are ordered by proximity to the requested time.
-No workbook write-back is performed by show_replacement_options.py.
+The tool shows ranked candidates, accepts a numeric choice, and automatically uses the candidate's recommended feasible timeslot to build a patient-centric preview copy.
