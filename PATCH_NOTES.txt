@@ -1,6 +1,10 @@
-DAILY_INPUT time display fix
+Daily input reader/apply patch
 
-- Forces hidden timeslot validation values to Excel Text format.
-- Forces DAILY_INPUT time-entry cells to Text format.
-- Prevents Excel from displaying times as serial fractions such as 0.3541666667.
-- Times remain visible as 08:30, 09:15, 10:00, etc.
+Adds:
+- Python/rehab_excel/daily_input_reader.py
+- Python/tools/apply_daily_input.py
+- Tests/test_daily_input_reader.py
+- Documentation/DAILY_INPUT_APPLY_WORKFLOW.md
+
+Purpose:
+Read saved DAILY_INPUT rows from Excel and create a patient-centric operational preview without re-entering absences on the command line.
