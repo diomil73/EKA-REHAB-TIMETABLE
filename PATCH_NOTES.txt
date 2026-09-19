@@ -1,2 +1,2 @@
-Adds a real-workbook audit for patient-centric therapist/time grouping.
-No Excel write-back is performed.
+Corrects slot-group semantics so a patient cannot be paired with itself.
+Same-patient complementary assignments are reported separately as split schedules.

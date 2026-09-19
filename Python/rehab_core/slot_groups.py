@@ -68,8 +68,33 @@ class SlotGroup:
         return not self.overlaps
 
     @property
+    def distinct_patient_ids(self) -> frozenset[str]:
+        return frozenset(member.patient_id for member in self.members)
+
+    @property
+    def is_same_patient_split(self) -> bool:
+        """True when one patient owns multiple complementary assignments here.
+
+        This is not a patient pair. It is one patient whose recurring schedule is
+        represented by more than one assignment, for example because different
+        day patterns carry different operational attributes.
+        """
+
+        return (
+            len(self.members) > 1
+            and len(self.distinct_patient_ids) == 1
+            and self.is_conflict_free
+        )
+
+    @property
     def is_pair(self) -> bool:
-        return len(self.members) == 2 and self.is_conflict_free
+        """Two distinct patients sharing a conflict-free therapist/time slot."""
+
+        return (
+            len(self.members) == 2
+            and len(self.distinct_patient_ids) == 2
+            and self.is_conflict_free
+        )
 
     def active_members_on(self, target_date: date) -> tuple[SlotGroupMember, ...]:
         """Return only the member(s) that actually have treatment that date."""

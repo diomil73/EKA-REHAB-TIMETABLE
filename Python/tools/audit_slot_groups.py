@@ -57,12 +57,24 @@ def main() -> int:
     print(f"Single-member groups: {report.single_member_group_count}")
     print(f"Multi-member groups: {report.multi_member_group_count}")
     print(f"Clean derived pairs: {report.clean_pair_count}")
+    print(f"Same-patient split schedules: {report.same_patient_split_count}")
     print(f"Overlapping-day groups requiring review: {report.overlapping_group_count}")
 
     pairs = [group for group in report.groups if group.is_pair]
     if pairs:
         print("\nDERIVED PAIRS")
         for group in pairs:
+            members = " + ".join(
+                f"{names.get(member.patient_id, member.patient_id)} [{member.day_pattern}]"
+                for member in group.members
+            )
+            print(f"  {group.therapist_id} {group.start_time.strftime('%H:%M')} | {members}")
+
+
+    splits = [group for group in report.groups if group.is_same_patient_split]
+    if splits:
+        print("\nSAME-PATIENT SPLIT SCHEDULES (NOT PAIRS)")
+        for group in splits:
             members = " + ".join(
                 f"{names.get(member.patient_id, member.patient_id)} [{member.day_pattern}]"
                 for member in group.members
@@ -84,6 +96,7 @@ def main() -> int:
             )
 
     print("\nRULE: each patient assignment remains independent; pairs/groups are derived views only.")
+    print("RULE: a patient cannot be paired with itself; complementary assignments for the same patient are a split schedule.")
     return 0
 
 

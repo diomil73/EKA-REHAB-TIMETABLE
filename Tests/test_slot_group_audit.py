@@ -50,3 +50,17 @@ def test_audit_surfaces_same_day_overlap_for_review():
     assert report.clean_pair_count == 0
     assert report.overlapping_group_count == 1
     assert report.ok
+
+
+def test_audit_counts_same_patient_split_separately_from_pairs():
+    report = audit_slot_groups(
+        [
+            _entry("a", "P1", "Δε-Τε-Πα"),
+            _entry("b", "P1", "Τρ-Πε"),
+            _entry("c", "P2", "Δε-Τε-Πα", therapist="X"),
+            _entry("d", "P3", "Τρ-Πε", therapist="X"),
+        ]
+    )
+
+    assert report.same_patient_split_count == 1
+    assert report.clean_pair_count == 1

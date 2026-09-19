@@ -135,3 +135,17 @@ def test_unknown_assignment_is_not_silently_ignored():
             assignment_id="missing",
             therapist_id="ΘΕΡΑΠΕΥΤΗΣ Β",
         )
+
+
+def test_same_patient_complementary_assignments_are_not_a_pair():
+    group = build_slot_groups(
+        [
+            entry("a", "P1", "Δε-Τε-Πα"),
+            entry("b", "P1", "Τρ-Πε"),
+        ]
+    )[0]
+
+    assert group.is_conflict_free
+    assert group.is_same_patient_split
+    assert not group.is_pair
+    assert group.distinct_patient_ids == frozenset({"P1"})

@@ -14,14 +14,15 @@ class SlotGroupAuditReport:
     single_member_group_count: int
     multi_member_group_count: int
     clean_pair_count: int
+    same_patient_split_count: int
     overlapping_group_count: int
     groups: tuple[SlotGroup, ...]
 
     @property
     def ok(self) -> bool:
-        # Overlapping groups are not silently rejected. They are surfaced for
-        # human review because some future workflows may intentionally allow a
-        # therapist to supervise more than one patient at once.
+        # Overlapping groups are surfaced for human review rather than silently
+        # rewritten. A therapist may intentionally supervise more than one
+        # patient at once in some future workflow.
         return True
 
 
@@ -34,6 +35,7 @@ def audit_slot_groups(entries: Iterable[BaseScheduleEntry]) -> SlotGroupAuditRep
         single_member_group_count=sum(len(group.members) == 1 for group in groups),
         multi_member_group_count=sum(len(group.members) > 1 for group in groups),
         clean_pair_count=sum(group.is_pair for group in groups),
+        same_patient_split_count=sum(group.is_same_patient_split for group in groups),
         overlapping_group_count=sum(bool(group.overlaps) for group in groups),
         groups=groups,
     )
