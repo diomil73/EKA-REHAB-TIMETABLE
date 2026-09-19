@@ -115,9 +115,25 @@ def _remove_name_if_present(workbook, name: str) -> None:
         pass
 
 
-def _write_column(ws, column: int, values: Sequence[str]) -> None:
+def _write_column(ws, column: int, values: Sequence[str], *, as_text: bool = False) -> None:
+    if as_text:
+        try:
+            ws.Columns(column).NumberFormat = "@"
+        except Exception:
+            try:
+                ws.Columns(column).NumberFormatLocal = "@"
+            except Exception:
+                pass
     for row, value in enumerate(values, start=1):
-        ws.Cells(row, column).Value = value
+        cell = ws.Cells(row, column)
+        if as_text:
+            try:
+                cell.NumberFormat = "@"
+            except Exception:
+                pass
+            cell.Value2 = str(value)
+        else:
+            cell.Value = value
 
 
 def _add_named_range(workbook, name: str, sheet_name: str, column_letter: str, count: int) -> None:
@@ -148,7 +164,7 @@ def _configure_lists(workbook, spec: DailyInputSpec):
     _write_column(lists, 1, spec.therapist_names)
     _write_column(lists, 2, spec.patient_names)
     _write_column(lists, 3, spec.patient_statuses)
-    _write_column(lists, 4, spec.timeslots)
+    _write_column(lists, 4, spec.timeslots, as_text=True)
     _write_column(lists, 5, spec.yes_no_values)
 
     _add_named_range(workbook, "PY_THERAPISTS", LISTS_SHEET_NAME, "A", len(spec.therapist_names))
@@ -205,10 +221,25 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     _set_validation(ws.Range(f"A{tr1}:A{tr2}"), "=PY_THERAPISTS")
     _set_validation(ws.Range(f"B{tr1}:B{tr2}"), "=PY_YESNO")
     _set_validation(ws.Range(f"C{tr1}:D{tr2}"), "=PY_TIMESLOTS")
+    for rng in (ws.Range(f"C{tr1}:D{tr2}"),):
+        try:
+            rng.NumberFormat = "@"
+        except Exception:
+            try:
+                rng.NumberFormatLocal = "@"
+            except Exception:
+                pass
 
     _set_validation(ws.Range(f"A{pr1}:A{pr2}"), "=PY_PATIENTS")
     _set_validation(ws.Range(f"B{pr1}:B{pr2}"), "=PY_YESNO")
     _set_validation(ws.Range(f"C{pr1}:C{pr2}"), "=PY_TIMESLOTS")
+    try:
+        ws.Range(f"C{pr1}:C{pr2}").NumberFormat = "@"
+    except Exception:
+        try:
+            ws.Range(f"C{pr1}:C{pr2}").NumberFormatLocal = "@"
+        except Exception:
+            pass
     _set_validation(ws.Range(f"D{pr1}:D{pr2}"), "=PY_STATUSES")
 
     # Keep unused rows visually empty. Whole-day is chosen only when needed.

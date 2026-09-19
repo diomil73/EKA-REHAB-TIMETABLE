@@ -1,9 +1,6 @@
-DAILY_INPUT cleanup patch
-- removes separate Ενεργό columns
-- therapist row activates by therapist selection
-- patient row activates by patient selection
-- adds explicit Όλη ημέρα field for therapist absences
-- keeps unused rows visually blank
-- widens the first column so Ημερομηνία no longer wraps
-- builds patient dropdown from strict PATIENTS identities and cross-checks PATIENT_PLANNER
-- includes a patient audit command
+DAILY_INPUT time display fix
+
+- Forces hidden timeslot validation values to Excel Text format.
+- Forces DAILY_INPUT time-entry cells to Text format.
+- Prevents Excel from displaying times as serial fractions such as 0.3541666667.
+- Times remain visible as 08:30, 09:15, 10:00, etc.
