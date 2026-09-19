@@ -1,2 +1,10 @@
-Corrects slot-group semantics so a patient cannot be paired with itself.
-Same-patient complementary assignments are reported separately as split schedules.
+PATIENT-CENTRIC VISUAL PREVIEW
+
+Purpose:
+- Rebuild multi-assignment THERAPIST_DAILY cells from patient-owned assignments.
+- Display same patient once when they have split day/treatment assignments.
+- Show day-pattern information when multiple different patients share a cell.
+- Date-label temporary replacement occurrences at the destination.
+- Safety-stop when the selected destination time is actually occupied on that date.
+
+This is a preview experiment. It does not change PATIENT_PLANNER or the baseline workbook.
