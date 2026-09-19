@@ -1,9 +1,10 @@
-Guided replacement workflow patch.
+DAILY INPUT PREVIEW
 
-Adds:
-- Python/rehab_core/replacement_workflow.py
-- Python/tools/apply_replacement_choice.py
-- Tests/test_replacement_workflow.py
-- Documentation/GUIDED_REPLACEMENT_WORKFLOW.md
+Adds a real Excel DAILY_INPUT sheet in a safe preview copy.
+- Therapist absence rows with dropdowns.
+- Patient absence/cancellation rows with dropdowns.
+- Patient status dropdown preserves the existing SETTINGS options exactly.
+- Hidden _PY_LISTS sheet supplies validations without hard-coded long lists.
+- Baseline remains unchanged; VBA remains preserved through native Excel COM.
 
-The tool shows ranked candidates, accepts a numeric choice, and automatically uses the candidate's recommended feasible timeslot to build a patient-centric preview copy.
+This patch creates the input surface only. Parsing/applying the filled rows comes next.
