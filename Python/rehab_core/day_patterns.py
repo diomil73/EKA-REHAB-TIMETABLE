@@ -68,6 +68,10 @@ def parse_day_pattern(pattern: str) -> frozenset[RehabWeekday]:
     if pattern is None or not pattern.strip():
         raise ValueError("Day pattern cannot be empty")
 
+    compact = _normalize_token(pattern)
+    if compact in {"καθ/να", "καθημερινα", "καθημερινο"}:
+        return frozenset(RehabWeekday)
+
     normalized = pattern.replace("–", "-").replace("—", "-")
     tokens = [token for token in normalized.split("-") if token.strip()]
     if not tokens:
