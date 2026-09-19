@@ -1,10 +1,11 @@
-PATIENT-CENTRIC VISUAL PREVIEW
+Replacement timeslot suggestions
 
-Purpose:
-- Rebuild multi-assignment THERAPIST_DAILY cells from patient-owned assignments.
-- Display same patient once when they have split day/treatment assignments.
-- Show day-pattern information when multiple different patients share a cell.
-- Date-label temporary replacement occurrences at the destination.
-- Safety-stop when the selected destination time is actually occupied on that date.
+Adds a read-only option layer on top of the existing replacement engine.
 
-This is a preview experiment. It does not change PATIENT_PLANNER or the baseline workbook.
+Confirmed policy preserved:
+1. lower operational load ranks first;
+2. exact requested time is preferred among otherwise comparable providers;
+3. a provider busy at that time is NOT excluded if another common patient/provider slot exists.
+
+For one selected provider, free alternative slots are ordered by proximity to the requested time.
+No workbook write-back is performed by show_replacement_options.py.
