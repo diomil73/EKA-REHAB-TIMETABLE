@@ -15,7 +15,7 @@ This layer converts `DailySessionState` into a **read-only semantic render plan*
 - Active session: normal patient line.
 - Patient absent: original patient line remains in its original slot with strike-through.
 - Therapist absent: original patient line remains in its original slot with strike-through; no replacement slot is invented.
-- Accepted replacement: original line is struck through and the patient is also planned in the effective provider/time cell.
+- Accepted replacement: original patient line remains visible in muted italics without strikethrough; a second line shows `→ provider HH:MM`, and the patient is also placed in the effective provider/time cell.
 - Multiple patients in the same legacy slot are preserved as separate lines in the same cell.
 
 ## Visual roles
@@ -28,3 +28,16 @@ This layer converts `DailySessionState` into a **read-only semantic render plan*
 ## Students
 
 A student replacement can resolve the current legacy header (`φοιτ N`) while the student model keeps the real name and placement dates. Header renaming/green-font application is deliberately left for the next controlled UI step.
+
+
+## Minimal operational overlay
+
+The generic operational preview no longer regenerates the whole `THERAPIST_DAILY` grid. It starts from the existing workbook text and touches only cells affected by non-active daily states. This preserves unrelated patient lines and legacy annotations in the same cell.
+
+Supported preview inputs:
+
+- one or more replacements;
+- patient absence for one slot or all day;
+- therapist absence for all day or a time interval.
+
+The overlay refuses ambiguous/missing patient lines instead of guessing.

@@ -51,7 +51,6 @@ class DailySessionState:
         return self.status in {
             DailySessionStatus.PATIENT_ABSENT,
             DailySessionStatus.THERAPIST_ABSENT,
-            DailySessionStatus.REPLACED,
         }
 
 

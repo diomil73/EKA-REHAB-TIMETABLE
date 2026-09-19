@@ -80,3 +80,11 @@
 - Added compact two-line replacement overlay in the original `THERAPIST_DAILY` slot.
 - Original patient remains struck through; replacement provider and effective time appear directly below.
 - Active student replacement names use the student-green presentation role.
+## 2026-09-19 - Generic daily operational overlay
+
+- Added a minimal overlay writer that touches only changed `THERAPIST_DAILY` cells and preserves unrelated existing lines.
+- Added repeatable CLI inputs for replacements, patient absences and therapist absences.
+- Replacements now keep the original patient in muted italics without strikethrough and append `→ provider HH:MM`.
+- Absence/cancellation-style states retain strikethrough semantics.
+- Added multi-replacement same-cell regression coverage and corrected `DailySessionState.original_should_be_struck_through`.
+

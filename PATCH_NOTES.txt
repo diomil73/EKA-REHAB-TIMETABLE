@@ -1,2 +1,11 @@
-Fixes the demo operational preview so replacement does NOT strike the patient name.
-The original patient line is now italic + muted; strikethrough remains reserved for true absence/cancellation in the general renderer.
+Generic daily operational overlay
+
+This patch removes the hardcoded patient/provider demo from the next test path.
+The new preview tool accepts repeated daily operations from the command line and
+builds a minimal write plan against the existing THERAPIST_DAILY contents.
+
+Important:
+- copy the CONTENTS of this patch into the repository root;
+- keep Excel closed while generating the preview;
+- preview output stays under Excel/previews and remains ignored by Git;
+- baseline/source workbook is never used as the output.

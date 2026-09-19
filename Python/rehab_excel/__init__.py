@@ -66,6 +66,14 @@ from .native_excel import (
     excel_rgb,
 )
 
+
+from .operational_overlay import (
+    OperationalOverlayError,
+    OperationalOverlayPlan,
+    OverlayBinding,
+    build_operational_overlay_write_plan,
+)
+
 from .source_contract import (
     AUTHORITATIVE_SHEETS,
     SOURCE_RULES,
@@ -137,4 +145,8 @@ __all__ = [
     "RenderLineRole",
     "SessionCellBinding",
     "build_daily_excel_render_plan",
+    "OperationalOverlayError",
+    "OperationalOverlayPlan",
+    "OverlayBinding",
+    "build_operational_overlay_write_plan",
 ]
