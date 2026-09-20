@@ -1,6 +1,13 @@
-Compact replacement overlay patch
+Patch: provider capacity + patient-line formatting
 
-- Removes the redundant [weekday dd/mm] suffix from replacement arrows in the original therapist cell.
-- Keeps the temporary date marker on the destination assignment.
-- Preserves italic/muted semantics for replaced sessions and strikethrough for true absences/cancellations.
-- Does not change replacement ranking, workload, availability, or base schedule data.
+Adds hard capacity rules:
+- Physiotherapist: max 6 distinct daily timeslots
+- Student: max 5 distinct daily timeslots
+
+Applies the therapist limit to replacement candidate generation and replacement creation.
+Adds a reusable recurring-capacity validator intended for new-patient/permanent schedule placement.
+
+Also fixes patient-centric destination rendering:
+- existing patient keeps day-pattern text when a temporary patient is added,
+- robotic orange is applied per patient line rather than inherited by the whole inserted text,
+- v27 robotic orange uses RGB #FF8C00.

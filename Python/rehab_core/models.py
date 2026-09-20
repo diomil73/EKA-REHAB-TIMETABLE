@@ -31,6 +31,11 @@ class Therapist:
     therapist_id: str
     display_name: str
     robotic_capable: bool = False
+    # Confirmed operational rule: a physiotherapist may occupy at most six
+    # distinct timeslots on any one day. The field lives on the provider model
+    # so exceptional staff limits can be represented later without changing the
+    # scheduling engine.
+    max_daily_timeslots: int = 6
 
 
 @dataclass(frozen=True)
@@ -62,7 +67,7 @@ class Student:
     """Student placement kept separate from the Therapist registry.
 
     Students may receive patients/replacements when they are active and
-    replacement-capable. Their daily capacity is expressed in timeslots.
+    replacement-capable. Their confirmed daily capacity is five timeslots.
     """
 
     student_id: str

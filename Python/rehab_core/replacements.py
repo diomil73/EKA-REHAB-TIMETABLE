@@ -180,6 +180,13 @@ def find_replacement_candidates(
             patients=patients,
             replacements=replacements,
         )
+        # Hard capacity rule: normal physiotherapists may occupy at most six
+        # distinct timeslots per day (or an explicitly configured limit on the
+        # Therapist model). A free-looking seventh slot is therefore not a
+        # valid replacement option.
+        if workload.active_timeslots >= therapist.max_daily_timeslots:
+            continue
+
         candidates.append(
             ReplacementCandidate(
                 therapist_id=therapist.therapist_id,
@@ -191,6 +198,9 @@ def find_replacement_candidates(
                 replacement_sessions=workload.replacement_sessions,
                 exact_time_available=requested_time in available_slots,
                 available_timeslots=available_slots,
+                capacity_limit=therapist.max_daily_timeslots,
+                capacity_remaining=therapist.max_daily_timeslots
+                - workload.active_timeslots,
             )
         )
 
@@ -211,7 +221,7 @@ def find_replacement_candidates(
             patients=patients,
             replacements=replacements,
         )
-        if workload.active_sessions >= student.max_daily_timeslots:
+        if workload.active_timeslots >= student.max_daily_timeslots:
             continue
 
         available_slots = tuple(
@@ -243,7 +253,7 @@ def find_replacement_candidates(
                 available_timeslots=available_slots,
                 capacity_limit=student.max_daily_timeslots,
                 capacity_remaining=student.max_daily_timeslots
-                - workload.active_sessions,
+                - workload.active_timeslots,
             )
         )
 
@@ -312,6 +322,16 @@ def create_replacement_assignment(
             raise ValueError("Replacement therapist cannot be the original therapist")
         if target_session.robotic and not therapist.robotic_capable:
             raise ValueError("Replacement therapist is not robotic-capable")
+        therapist_workload = calculate_therapist_workload(
+            therapist_id=therapist.therapist_id,
+            target_date=target_session.session_date,
+            sessions=sessions,
+            absences=absences,
+            patients=patients,
+            replacements=replacements,
+        )
+        if therapist_workload.active_timeslots >= therapist.max_daily_timeslots:
+            raise ValueError("Therapist has reached daily timeslot capacity")
         provider_kind = ReplacementProviderKind.THERAPIST
     else:
         assert student is not None
@@ -330,7 +350,7 @@ def create_replacement_assignment(
             patients=patients,
             replacements=replacements,
         )
-        if student_workload.active_sessions >= student.max_daily_timeslots:
+        if student_workload.active_timeslots >= student.max_daily_timeslots:
             raise ValueError("Student has reached daily timeslot capacity")
         provider_kind = ReplacementProviderKind.STUDENT
 

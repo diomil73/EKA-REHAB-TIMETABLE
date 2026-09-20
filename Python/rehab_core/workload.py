@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, time
 from typing import Iterable
 
 from .models import (
@@ -20,6 +20,7 @@ class TherapistWorkload:
     therapist_id: str
     workload_date: date
     active_sessions: int = 0
+    active_timeslots: int = 0
     infectious_sessions: int = 0
     robotic_sessions: int = 0
     replacement_sessions: int = 0
@@ -30,6 +31,7 @@ class StudentWorkload:
     student_id: str
     workload_date: date
     active_sessions: int = 0
+    active_timeslots: int = 0
     infectious_sessions: int = 0
     robotic_sessions: int = 0
     replacement_sessions: int = 0
@@ -38,7 +40,7 @@ class StudentWorkload:
 def _patient_absent(
     patient_id: str,
     target_date: date,
-    target_time,
+    target_time: time,
     absences: Iterable[DailyAbsence],
 ) -> bool:
     return any(
@@ -57,7 +59,14 @@ def calculate_therapist_workload(
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
 ) -> TherapistWorkload:
-    """Calculate a therapist's real operational workload for a day."""
+    """Calculate the real operational workload for one therapist/day.
+
+    ``active_sessions`` remains a patient/session count because it is useful for
+    load balancing. ``active_timeslots`` is deliberately separate and is the
+    authoritative number used for the hard capacity rule (max 6 for a normal
+    physiotherapist). Two patients that genuinely share one clock slot count as
+    two sessions but only one occupied timeslot.
+    """
 
     sessions = tuple(sessions)
     absences = tuple(absences)
@@ -69,6 +78,7 @@ def calculate_therapist_workload(
     }
 
     active_sessions = 0
+    occupied_times: set[time] = set()
     infectious_sessions = 0
     robotic_sessions = 0
     replacement_sessions = 0
@@ -87,6 +97,7 @@ def calculate_therapist_workload(
             continue
 
         active_sessions += 1
+        occupied_times.add(session.start_time)
         patient = patient_by_id.get(session.patient_id)
         if patient is not None and patient.infectious:
             infectious_sessions += 1
@@ -110,6 +121,7 @@ def calculate_therapist_workload(
             continue
 
         active_sessions += 1
+        occupied_times.add(replacement.replacement_time)
         replacement_sessions += 1
         patient = patient_by_id.get(replacement.patient_id)
         if patient is not None and patient.infectious:
@@ -123,6 +135,7 @@ def calculate_therapist_workload(
         therapist_id=therapist_id,
         workload_date=target_date,
         active_sessions=active_sessions,
+        active_timeslots=len(occupied_times),
         infectious_sessions=infectious_sessions,
         robotic_sessions=robotic_sessions,
         replacement_sessions=replacement_sessions,
@@ -138,7 +151,7 @@ def calculate_student_workload(
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
 ) -> StudentWorkload:
-    """Calculate patient/timeslot load assigned to a student for one day."""
+    """Calculate patient/session load and occupied timeslots for a student."""
 
     sessions = tuple(sessions)
     student_assignments = tuple(student_assignments)
@@ -148,6 +161,7 @@ def calculate_student_workload(
     session_by_id = {session.session_id: session for session in sessions}
 
     active_sessions = 0
+    occupied_times: set[time] = set()
     infectious_sessions = 0
     robotic_sessions = 0
     replacement_sessions = 0
@@ -167,6 +181,7 @@ def calculate_student_workload(
             continue
 
         active_sessions += 1
+        occupied_times.add(session.start_time)
         patient = patient_by_id.get(session.patient_id)
         if patient is not None and patient.infectious:
             infectious_sessions += 1
@@ -190,6 +205,7 @@ def calculate_student_workload(
             continue
 
         active_sessions += 1
+        occupied_times.add(replacement.replacement_time)
         replacement_sessions += 1
         patient = patient_by_id.get(replacement.patient_id)
         if patient is not None and patient.infectious:
@@ -202,6 +218,7 @@ def calculate_student_workload(
         student_id=student_id,
         workload_date=target_date,
         active_sessions=active_sessions,
+        active_timeslots=len(occupied_times),
         infectious_sessions=infectious_sessions,
         robotic_sessions=robotic_sessions,
         replacement_sessions=replacement_sessions,

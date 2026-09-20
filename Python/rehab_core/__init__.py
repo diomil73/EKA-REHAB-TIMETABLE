@@ -1,5 +1,14 @@
 """Core scheduling logic for the Rehab Center system."""
 
+from .capacity import (
+    DailyCapacityStatus,
+    RecurringCapacityCheck,
+    RecurringCapacityIssue,
+    student_daily_capacity,
+    therapist_daily_capacity,
+    validate_new_patient_assignment_capacity,
+    validate_recurring_timeslot_capacity,
+)
 from .availability import (
     is_patient_available,
     is_student_available,
@@ -56,6 +65,9 @@ from .workload import (
 
 __all__ = [
     "AbsenceKind",
+    "DailyCapacityStatus",
+    "RecurringCapacityCheck",
+    "RecurringCapacityIssue",
     "BaseScheduleEntry",
     "ConflictKind",
     "DailyAbsence",
@@ -92,11 +104,9 @@ __all__ = [
     "patterns_overlap",
     "pattern_applies_on_date",
     "student_display_state",
+    "student_daily_capacity",
     "students_for_session",
+    "therapist_daily_capacity",
+    "validate_new_patient_assignment_capacity",
+    "validate_recurring_timeslot_capacity",
 ]
-from .therapist_absence_queue import (
-    TherapistAbsenceReplacementItem,
-    TherapistAbsenceReplacementQueue,
-    build_therapist_absence_replacement_queue,
-)
-

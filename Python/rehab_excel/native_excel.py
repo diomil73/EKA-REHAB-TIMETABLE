@@ -42,6 +42,7 @@ class NativeStylePalette:
 
     infectious_yellow: int = excel_rgb(255, 255, 67)   # FFFFFF43
     robotic_pink: int = excel_rgb(248, 203, 173)       # FFF8CBAD in v27
+    robotic_orange: int = excel_rgb(255, 140, 0)        # FFFF8C00 in v27 font
     student_green: int = excel_rgb(0, 128, 0)
     muted_gray: int = excel_rgb(102, 102, 102)
     default_black: int = excel_rgb(0, 0, 0)
@@ -80,6 +81,7 @@ class Win32ComExcelBackend:
     def _font_color_for_role(role: str | None, palette: NativeStylePalette) -> int | None:
         return {
             "student_active_green": palette.student_green,
+            "robotic_orange": palette.robotic_orange,
             "muted": palette.muted_gray,
             "default": palette.default_black,
         }.get(role)

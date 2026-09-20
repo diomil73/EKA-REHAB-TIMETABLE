@@ -108,6 +108,8 @@ def render_base_slot(
     start_time: time,
     entries: Iterable[BaseScheduleEntry],
     patients: Mapping[str, Patient],
+    *,
+    force_day_patterns: bool = False,
 ) -> SlotRender:
     """Render a therapist/time cell from patient-owned assignments.
 
@@ -130,9 +132,15 @@ def render_base_slot(
         if len(patient_entries) == 1:
             entry = patient_entries[0]
             label = patient.display_name
-            if distinct_patient_count > 1:
+            if distinct_patient_count > 1 or force_day_patterns:
                 label += f" [{entry.day_pattern}]"
-            lines.append(VisualLine(label, patient_id=patient_id))
+            lines.append(
+                VisualLine(
+                    label,
+                    patient_id=patient_id,
+                    font_role="robotic_orange" if entry.robotic else None,
+                )
+            )
             continue
 
         # Same patient, same therapist/time, multiple recurring assignments.
@@ -404,11 +412,23 @@ def build_patient_centric_preview_plan(
             renders[source_key] = source_render
 
             destination_key = (state.effective_therapist_id, state.effective_time)
-            destination_render = ensure_render(destination_key)
+            destination_entries = grouped.get(destination_key, ())
+            # A temporary insertion makes a previously single-patient cell a
+            # multi-line operational cell. Rebuild the BASE lines with explicit
+            # day patterns before adding the replacement so we never lose the
+            # existing patient's recurring-day information.
+            destination_render = render_base_slot(
+                destination_key[0],
+                destination_key[1],
+                destination_entries,
+                patient_map,
+                force_day_patterns=bool(destination_entries),
+            )
+            renders[destination_key] = destination_render
             if destination_key != source_key:
                 active_entries = [
                     entry
-                    for entry in grouped.get(destination_key, ())
+                    for entry in destination_entries
                     if pattern_applies_on_date(entry.day_pattern, target_date)
                 ]
                 if active_entries:
@@ -427,6 +447,7 @@ def build_patient_centric_preview_plan(
                     VisualLine(
                         f"{patient.display_name} [{date_label}]",
                         patient_id=patient.patient_id,
+                        font_role="robotic_orange" if session.robotic else None,
                     ),
                 )
                 renders[destination_key] = destination_render
