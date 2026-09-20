@@ -1,6 +1,7 @@
-Implicit daily-pattern + provider capacity audit
+Capacity rebalance planning patch
 
-- Timed PATIENT_PLANNER rows with an empty day-pattern are now imported as Καθ/να.
-- Audit no longer treats these as missing schedule rows; it records an informational timed_entries_assumed_daily finding.
-- Added audit_provider_capacity.py to report providers at 6/6 (or students 5/5) and providers already over capacity.
-- Unknown non-empty patterns are still rejected/reported.
+Adds a read-only planning layer for existing over-capacity base schedules.
+It does NOT rewrite the workbook and does NOT automatically choose a patient to move.
+
+Run example:
+  python Python/tools/plan_capacity_rebalance.py --date 2026-09-18 --provider "Σκαρώνης"
