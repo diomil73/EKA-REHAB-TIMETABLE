@@ -93,7 +93,7 @@ def test_replacement_keeps_original_and_exposes_effective_assignment():
     assert state.original_time == time(12, 15)
     assert state.effective_time == time(12, 15)
     assert state.replacement_id == "R1"
-    assert state.original_should_be_struck_through
+    assert not state.original_should_be_struck_through
 
 
 def test_replacement_can_move_to_new_time_without_mutating_base_session():

@@ -1,1 +1,8 @@
-Read-only diagnostic for DAILY_INPUT therapist rows. It does not modify any workbook.
+Sequential therapist-absence replacement workflow.
+
+Adds:
+- Python/tools/apply_daily_input_replacements.py
+- Tests/test_sequential_replacement_planning.py
+- Documentation/SEQUENTIAL_THERAPIST_REPLACEMENTS.md
+
+Key rule: after each accepted replacement, the next ranking is recalculated using the new operational workload and occupied timeslots.
