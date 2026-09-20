@@ -19,6 +19,8 @@ warnings.filterwarnings(
 )
 
 
+IMPLICIT_DAILY_PATTERN = "Καθ/να"
+
 REQUIRED_SHEETS = {
     "PATIENTS",
     "PATIENT_PLANNER",
@@ -230,8 +232,9 @@ def _planner_blocks(headers: dict[str, int]) -> list[tuple[str, int, int, int | 
 def read_base_schedule(path: str | Path) -> list[BaseScheduleEntry]:
     """Read recurring programme entries from PATIENT_PLANNER.
 
-    A timed entry without a day pattern is not silently interpreted. It is
-    omitted here and surfaced by audit_workbook instead.
+    A timed entry with an empty day pattern is interpreted as the confirmed
+    operational convention ``Καθ/να`` (Monday-Friday). This rule is explicit
+    and audited; unknown non-empty patterns still raise/are reported.
     """
 
     wb = _load(path)
@@ -256,9 +259,7 @@ def read_base_schedule(path: str | Path) -> list[BaseScheduleEntry]:
                 start_time = _as_time(row[time_col])
                 if start_time is None:
                     continue
-                day_pattern = _clean_text(row[days_col])
-                if day_pattern is None:
-                    continue
+                day_pattern = _clean_text(row[days_col]) or IMPLICIT_DAILY_PATTERN
                 therapist_id = (
                     _clean_text(row[therapist_col])
                     if therapist_col is not None
@@ -320,7 +321,7 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
         headers = _planner_header_map(planner_ws)
         blocks = _planner_blocks(headers)
         planner_map: dict[str, str] = {}
-        missing_day = 0
+        implicit_daily = 0
         missing_provider = 0
         invalid_pattern = 0
         entry_count = 0
@@ -337,8 +338,8 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                     continue
                 day_pattern = _clean_text(row[days_col])
                 if day_pattern is None:
-                    missing_day += 1
-                    continue
+                    implicit_daily += 1
+                    day_pattern = IMPLICIT_DAILY_PATTERN
                 try:
                     parse_day_pattern(day_pattern)
                 except ValueError:
@@ -364,12 +365,16 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                     severity="error",
                 )
             )
-        if missing_day:
+        if implicit_daily:
             issues.append(
                 AuditIssue(
-                    code="timed_entries_missing_day_pattern",
-                    message="Timed PATIENT_PLANNER entries have no day pattern",
-                    count=missing_day,
+                    code="timed_entries_assumed_daily",
+                    message=(
+                        "Timed PATIENT_PLANNER entries with an empty day pattern "
+                        "are interpreted as Καθ/να (Monday-Friday) by confirmed rule"
+                    ),
+                    count=implicit_daily,
+                    severity="info",
                 )
             )
         if invalid_pattern:

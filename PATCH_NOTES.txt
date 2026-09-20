@@ -1,13 +1,6 @@
-Patch: provider capacity + patient-line formatting
+Implicit daily-pattern + provider capacity audit
 
-Adds hard capacity rules:
-- Physiotherapist: max 6 distinct daily timeslots
-- Student: max 5 distinct daily timeslots
-
-Applies the therapist limit to replacement candidate generation and replacement creation.
-Adds a reusable recurring-capacity validator intended for new-patient/permanent schedule placement.
-
-Also fixes patient-centric destination rendering:
-- existing patient keeps day-pattern text when a temporary patient is added,
-- robotic orange is applied per patient line rather than inherited by the whole inserted text,
-- v27 robotic orange uses RGB #FF8C00.
+- Timed PATIENT_PLANNER rows with an empty day-pattern are now imported as Καθ/να.
+- Audit no longer treats these as missing schedule rows; it records an informational timed_entries_assumed_daily finding.
+- Added audit_provider_capacity.py to report providers at 6/6 (or students 5/5) and providers already over capacity.
+- Unknown non-empty patterns are still rejected/reported.
