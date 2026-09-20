@@ -388,10 +388,16 @@ def build_patient_centric_preview_plan(
                 target_date=target_date,
             )
             date_label = _temporary_date_label(target_date)
+            # THERAPIST_DAILY is already a dated operational view.  Repeating the
+            # date on the source replacement note makes narrow cells wrap into
+            # three or four visual lines when several replacements are present.
+            # Keep the source overlay compact; retain the date on the destination
+            # assignment where it is needed to distinguish a temporary insertion
+            # from the recurring base programme.
             source_render = _append_line(
                 source_render,
                 VisualLine(
-                    f"→ {provider_name} {state.effective_time.strftime('%H:%M')} [{date_label}]",
+                    f"→ {provider_name} {state.effective_time.strftime('%H:%M')}",
                     font_role=provider_font,
                 ),
             )

@@ -1,8 +1,6 @@
-Sequential therapist-absence replacement workflow.
+Compact replacement overlay patch
 
-Adds:
-- Python/tools/apply_daily_input_replacements.py
-- Tests/test_sequential_replacement_planning.py
-- Documentation/SEQUENTIAL_THERAPIST_REPLACEMENTS.md
-
-Key rule: after each accepted replacement, the next ranking is recalculated using the new operational workload and occupied timeslots.
+- Removes the redundant [weekday dd/mm] suffix from replacement arrows in the original therapist cell.
+- Keeps the temporary date marker on the destination assignment.
+- Preserves italic/muted semantics for replaced sessions and strikethrough for true absences/cancellations.
+- Does not change replacement ranking, workload, availability, or base schedule data.
