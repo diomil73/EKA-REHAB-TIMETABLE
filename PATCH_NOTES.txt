@@ -1,8 +1,1 @@
-Milestone: DAILY_INPUT therapist absence -> affected patient sessions -> ranked replacement suggestions.
-
-New command:
-  python Python/tools/plan_daily_input_replacements.py
-
-Read-only. It does not modify any workbook.
-Patient absence has priority over therapist absence.
-Each affected patient receives an independent replacement ranking.
+Read-only diagnostic for DAILY_INPUT therapist rows. It does not modify any workbook.
