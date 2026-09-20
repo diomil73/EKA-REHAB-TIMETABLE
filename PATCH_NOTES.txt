@@ -1,2 +1,8 @@
-Diagnostic only. Does not write to Excel.
-Prints the DAILY_INPUT date, parsed absence rows, sessions materialized for that date, and exact match counts.
+Milestone: DAILY_INPUT therapist absence -> affected patient sessions -> ranked replacement suggestions.
+
+New command:
+  python Python/tools/plan_daily_input_replacements.py
+
+Read-only. It does not modify any workbook.
+Patient absence has priority over therapist absence.
+Each affected patient receives an independent replacement ranking.

@@ -5,6 +5,7 @@ from .availability import (
     is_student_available,
     is_therapist_available,
 )
+from .base_schedule import materialize_sessions_for_date, pattern_applies_on_date
 from .conflicts import (
     ConflictKind,
     OperationalOccurrence,
@@ -25,6 +26,7 @@ from .day_patterns import (
 )
 from .models import (
     AbsenceKind,
+    BaseScheduleEntry,
     DailyAbsence,
     Patient,
     ReplacementAssignment,
@@ -54,6 +56,7 @@ from .workload import (
 
 __all__ = [
     "AbsenceKind",
+    "BaseScheduleEntry",
     "ConflictKind",
     "DailyAbsence",
     "DailySessionStatus",
@@ -83,9 +86,17 @@ __all__ = [
     "is_patient_available",
     "is_student_available",
     "is_therapist_available",
+    "materialize_sessions_for_date",
     "parse_day_pattern",
     "patterns_are_complementary",
     "patterns_overlap",
+    "pattern_applies_on_date",
     "student_display_state",
     "students_for_session",
 ]
+from .therapist_absence_queue import (
+    TherapistAbsenceReplacementItem,
+    TherapistAbsenceReplacementQueue,
+    build_therapist_absence_replacement_queue,
+)
+
