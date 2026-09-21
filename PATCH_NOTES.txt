@@ -1,6 +1,8 @@
-Permanent rebalance suggestion patch
-- Read-only weekly rebalance planner.
-- Shows only moves that reduce source over-capacity.
-- Validates destination capacity/conflicts across the full recurring day-pattern.
-- Keeps complementary-day pair semantics patient-centric.
-- Does not modify Excel or choose a patient automatically.
+Permanent assignment preview patch
+
+Adds:
+- safe native Excel copy-write for one permanent ΦΘ assignment
+- weekly capacity/conflict safety gate before write
+- source SHA-256 protection
+- VBA preservation check
+- preview-only workflow; baseline remains untouched
