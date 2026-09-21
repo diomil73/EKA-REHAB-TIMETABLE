@@ -1,6 +1,6 @@
-Adds read-only weekly validation for permanent patient assignments.
-
-Use:
-  python Python/tools/check_permanent_assignment.py --patient "ΣΑΚΕΡΛΗΣ" --to-provider "Πέτσιος" --to-time 13:00
-
-The tool checks every weekday in the patient's recurring pattern against the 6-slot physiotherapist / 5-slot student hard limits and also reports same-day destination conflicts.
+Permanent rebalance suggestion patch
+- Read-only weekly rebalance planner.
+- Shows only moves that reduce source over-capacity.
+- Validates destination capacity/conflicts across the full recurring day-pattern.
+- Keeps complementary-day pair semantics patient-centric.
+- Does not modify Excel or choose a patient automatically.
