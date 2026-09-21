@@ -1,7 +1,6 @@
-Capacity rebalance planning patch
+Adds read-only weekly validation for permanent patient assignments.
 
-Adds a read-only planning layer for existing over-capacity base schedules.
-It does NOT rewrite the workbook and does NOT automatically choose a patient to move.
+Use:
+  python Python/tools/check_permanent_assignment.py --patient "ΣΑΚΕΡΛΗΣ" --to-provider "Πέτσιος" --to-time 13:00
 
-Run example:
-  python Python/tools/plan_capacity_rebalance.py --date 2026-09-18 --provider "Σκαρώνης"
+The tool checks every weekday in the patient's recurring pattern against the 6-slot physiotherapist / 5-slot student hard limits and also reports same-day destination conflicts.
