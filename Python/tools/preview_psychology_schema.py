@@ -45,6 +45,17 @@ def _header_map(ws) -> dict[str, int]:
     return result
 
 
+def _column_letter(column: int) -> str:
+    if column < 1:
+        raise ValueError("Excel column index must be >= 1")
+    letters: list[str] = []
+    value = column
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        letters.append(chr(65 + remainder))
+    return "".join(reversed(letters))
+
+
 def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
     # xlPasteFormats = -4122. Copy only the header cell so we do not inflate
     # the used range or touch data/validation in any existing source column.
@@ -53,39 +64,16 @@ def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
     ws.Columns(target_col).ColumnWidth = ws.Columns(source_col).ColumnWidth
 
 
-def _replace_workbook_name_r1c1(
-    workbook, *, name: str, sheet_name: str, column: int
-) -> None:
-    """Create a workbook name using R1C1 references only.
-
-    RefersToR1C1 avoids localized A1 formula parsing in non-English Excel.
-    """
-
-    try:
-        workbook.Names(name).Delete()
-    except Exception:
-        pass
-    workbook.Names.Add(
-        Name=name,
-        RefersToR1C1=(
-            f"='{sheet_name}'!R2C{column}:R{VALIDATION_LAST_ROW}C{column}"
-        ),
-    )
-
-
 def _set_list_validation(ws, column: int, formula1: str) -> None:
     target = ws.Range(ws.Cells(2, column), ws.Cells(VALIDATION_LAST_ROW, column))
     try:
         target.Validation.Delete()
     except Exception:
         pass
-    # xlValidateList = 3, xlValidAlertStop = 1, xlBetween = 1
-    target.Validation.Add(
-        Type=3,
-        AlertStyle=1,
-        Operator=1,
-        Formula1=formula1,
-    )
+
+    # Mirror the validation contract already present in PATIENT_PLANNER:
+    # Type=3 (list) with a direct SETTINGS sheet range in Formula1.
+    target.Validation.Add(Type=3, Formula1=formula1)
     target.Validation.IgnoreBlank = True
     target.Validation.InCellDropdown = True
     target.Validation.ShowError = True
@@ -95,29 +83,32 @@ def _set_list_validation(ws, column: int, formula1: str) -> None:
 
 def _apply_dropdowns(workbook, planner_cols: tuple[int, int, int], settings_col: int) -> None:
     planner = workbook.Worksheets("PATIENT_PLANNER")
+    settings_letter = _column_letter(settings_col)
 
+    # These formulas deliberately match the existing workbook's working
+    # validations exactly: hours use B2:B20, days use D2:D100, and provider
+    # registries use rows 2:100. No workbook names are introduced.
     stages = (
-        ("name PSYCH_HOURS_LIST", lambda: _replace_workbook_name_r1c1(
-            workbook, name="PSYCH_HOURS_LIST", sheet_name="SETTINGS", column=2
-        )),
-        ("name PSYCH_DAYS_LIST", lambda: _replace_workbook_name_r1c1(
-            workbook, name="PSYCH_DAYS_LIST", sheet_name="SETTINGS", column=4
-        )),
-        ("name PSYCHOLOGISTS_LIST", lambda: _replace_workbook_name_r1c1(
-            workbook,
-            name="PSYCHOLOGISTS_LIST",
-            sheet_name="SETTINGS",
-            column=settings_col,
-        )),
-        ("validation Ψυχ_Ώρα", lambda: _set_list_validation(
-            planner, planner_cols[0], "=PSYCH_HOURS_LIST"
-        )),
-        ("validation Ψυχ_Ημέρες", lambda: _set_list_validation(
-            planner, planner_cols[1], "=PSYCH_DAYS_LIST"
-        )),
-        ("validation Ψυχ_Ψυχολόγος", lambda: _set_list_validation(
-            planner, planner_cols[2], "=PSYCHOLOGISTS_LIST"
-        )),
+        (
+            "validation Ψυχ_Ώρα",
+            lambda: _set_list_validation(
+                planner, planner_cols[0], "=SETTINGS!$B$2:$B$20"
+            ),
+        ),
+        (
+            "validation Ψυχ_Ημέρες",
+            lambda: _set_list_validation(
+                planner, planner_cols[1], "=SETTINGS!$D$2:$D$100"
+            ),
+        ),
+        (
+            "validation Ψυχ_Ψυχολόγος",
+            lambda: _set_list_validation(
+                planner,
+                planner_cols[2],
+                f"=SETTINGS!${settings_letter}$2:${settings_letter}$100",
+            ),
+        ),
     )
 
     for stage, action in stages:
