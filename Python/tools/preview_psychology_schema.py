@@ -45,6 +45,12 @@ def _header_map(ws) -> dict[str, int]:
     return result
 
 
+def _column_letter(ws, column: int) -> str:
+    # Address(False, False) returns e.g. I1; strip the row number.
+    address = str(ws.Cells(1, column).Address(False, False))
+    return "".join(ch for ch in address if ch.isalpha())
+
+
 def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
     # xlPasteFormats = -4122. Copy only the header cell so we do not inflate
     # the used range or touch data/validation in any existing source column.
@@ -78,33 +84,27 @@ def _set_list_validation(ws, column: int, formula1: str) -> None:
 
 def _apply_dropdowns(workbook, planner_cols: tuple[int, int, int], settings_col: int) -> None:
     planner = workbook.Worksheets("PATIENT_PLANNER")
+    settings = workbook.Worksheets("SETTINGS")
 
-    # Dynamic workbook names keep the dropdowns in sync with SETTINGS as rows
-    # are added later. Header row is excluded; when a list is empty, row 2 is
-    # still a valid blank target so Excel keeps the dropdown definition alive.
+    # Use deliberately simple workbook names instead of INDEX/MAX/COUNTA formulas.
+    # The latter can fail on localized Excel installations because COM formula
+    # parsing follows Excel locale rules. Fixed ranges are robust and still grow
+    # naturally as users add values anywhere through row 500.
     _replace_workbook_name(
         workbook,
         "PSYCH_HOURS_LIST",
-        "=SETTINGS!$B$2:INDEX(SETTINGS!$B:$B,MAX(2,COUNTA(SETTINGS!$B:$B)))",
+        f"=SETTINGS!$B$2:$B${VALIDATION_LAST_ROW}",
     )
     _replace_workbook_name(
         workbook,
         "PSYCH_DAYS_LIST",
-        "=SETTINGS!$D$2:INDEX(SETTINGS!$D:$D,MAX(2,COUNTA(SETTINGS!$D:$D)))",
+        f"=SETTINGS!$D$2:$D${VALIDATION_LAST_ROW}",
     )
-    settings_letter = workbook.Application.ConvertFormula(
-        workbook.Worksheets("SETTINGS").Cells(1, settings_col).Address,
-        1,
-        1,
-        1,
-    ).replace("$1", "")
+    settings_letter = _column_letter(settings, settings_col)
     _replace_workbook_name(
         workbook,
         "PSYCHOLOGISTS_LIST",
-        (
-            f"=SETTINGS!{settings_letter}$2:INDEX(SETTINGS!{settings_letter}:{settings_letter},"
-            f"MAX(2,COUNTA(SETTINGS!{settings_letter}:{settings_letter})))"
-        ),
+        f"=SETTINGS!${settings_letter}$2:${settings_letter}${VALIDATION_LAST_ROW}",
     )
 
     _set_list_validation(planner, planner_cols[0], "=PSYCH_HOURS_LIST")
