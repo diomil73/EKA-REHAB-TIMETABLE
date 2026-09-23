@@ -50,6 +50,14 @@ from .replacements import (
     create_replacement_assignment,
     find_replacement_candidates,
 )
+from .student_transition import (
+    StudentEndAffectedEntry,
+    StudentEndReassignmentOption,
+    StudentEndTransitionPlan,
+    expired_student_label,
+    plan_student_end_transition,
+    resolve_student_base_entries,
+)
 from .students import (
     StudentDisplayState,
     build_student_display_map,
@@ -84,6 +92,9 @@ __all__ = [
     "Student",
     "StudentAssignment",
     "StudentDisplayState",
+    "StudentEndAffectedEntry",
+    "StudentEndReassignmentOption",
+    "StudentEndTransitionPlan",
     "StudentWorkload",
     "Therapist",
     "TherapistWorkload",
@@ -93,6 +104,7 @@ __all__ = [
     "calculate_student_workload",
     "calculate_therapist_workload",
     "create_replacement_assignment",
+    "expired_student_label",
     "find_operational_conflicts",
     "find_replacement_candidates",
     "is_patient_available",
@@ -103,6 +115,8 @@ __all__ = [
     "patterns_are_complementary",
     "patterns_overlap",
     "pattern_applies_on_date",
+    "plan_student_end_transition",
+    "resolve_student_base_entries",
     "student_display_state",
     "student_daily_capacity",
     "students_for_session",
