@@ -521,10 +521,9 @@ def main() -> int:
     source_after = _sha256(source)
     source_unchanged = source_before == source_after
     output_vba_hash = _zip_member_sha256(output, "xl/vbaProject.bin")
-    vba_preserved = (
-        source_vba_hash is not None
-        and output_vba_hash is not None
-        and source_vba_hash == output_vba_hash
+    vba_project_present = source_vba_hash is not None and output_vba_hash is not None
+    vba_binary_identical = (
+        vba_project_present and source_vba_hash == output_vba_hash
     )
 
     print("PSYCHOLOGY SCHEMA PREVIEW OK")
@@ -539,9 +538,11 @@ def main() -> int:
     print(f"SETTINGS appended registry: {SETTINGS_HEADER}=col {settings_col}")
     print("Dropdowns verified: Ψυχ_Ώρα, Ψυχ_Ημέρες, Ψυχ_Ψυχολόγος")
     print(f"Source unchanged: {source_unchanged}")
-    print(f"VBA preserved: {vba_preserved}")
+    print(f"VBA project present: {vba_project_present}")
+    print(f"VBA binary identical: {vba_binary_identical}")
+    print("NOTE: Excel may rewrite vbaProject.bin during save even when the VBA project remains present and functional.")
     print("NOTE: no final visual timetable/layout changes are made by this tool.")
-    return 0 if source_unchanged and vba_preserved else 3
+    return 0 if source_unchanged and vba_project_present else 3
 
 
 if __name__ == "__main__":
