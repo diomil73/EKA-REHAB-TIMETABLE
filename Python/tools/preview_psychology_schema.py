@@ -45,10 +45,11 @@ def _header_map(ws) -> dict[str, int]:
     return result
 
 
-def _paste_format(ws, source_col: int, target_col: int) -> None:
-    # xlPasteFormats = -4122
-    ws.Columns(source_col).Copy()
-    ws.Columns(target_col).PasteSpecial(Paste=-4122)
+def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
+    # xlPasteFormats = -4122. Copy only the header cell so we do not inflate
+    # the used range or touch data/validation in any existing source column.
+    ws.Cells(1, source_col).Copy()
+    ws.Cells(1, target_col).PasteSpecial(Paste=-4122)
     ws.Columns(target_col).ColumnWidth = ws.Columns(source_col).ColumnWidth
 
 
@@ -69,14 +70,20 @@ def _apply_schema(workbook) -> tuple[tuple[int, int, int], int]:
         start = _last_header_column(planner) + 1
         planner_cols = (start, start + 1, start + 2)
 
-        # Copy only presentation formats/widths. No existing source column moves.
-        # Time + day styles follow EFA; provider style follows ΦΘ provider.
+        # No existing source column is moved. We only borrow header styling and
+        # widths so the preview remains legible; final UI/layout is out of scope.
         if "ΕΦΑ_Ώρα" in planner_headers:
-            _paste_format(planner, planner_headers["ΕΦΑ_Ώρα"], planner_cols[0])
+            _copy_header_style_and_width(
+                planner, planner_headers["ΕΦΑ_Ώρα"], planner_cols[0]
+            )
         if "ΕΦΑ_Ημέρες" in planner_headers:
-            _paste_format(planner, planner_headers["ΕΦΑ_Ημέρες"], planner_cols[1])
+            _copy_header_style_and_width(
+                planner, planner_headers["ΕΦΑ_Ημέρες"], planner_cols[1]
+            )
         if "ΦΘ_Θεραπευτής" in planner_headers:
-            _paste_format(planner, planner_headers["ΦΘ_Θεραπευτής"], planner_cols[2])
+            _copy_header_style_and_width(
+                planner, planner_headers["ΦΘ_Θεραπευτής"], planner_cols[2]
+            )
 
         for col, header in zip(planner_cols, PLANNER_HEADERS):
             planner.Cells(1, col).Value = header
@@ -86,14 +93,11 @@ def _apply_schema(workbook) -> tuple[tuple[int, int, int], int]:
         settings_col = settings_headers[SETTINGS_HEADER]
     else:
         settings_col = _last_header_column(settings) + 1
-        # Keep existing SETTINGS columns untouched and append registry at the end.
         if "THERAPISTS_FTH" in settings_headers:
-            _paste_format(settings, settings_headers["THERAPISTS_FTH"], settings_col)
+            _copy_header_style_and_width(
+                settings, settings_headers["THERAPISTS_FTH"], settings_col
+            )
         settings.Cells(1, settings_col).Value = SETTINGS_HEADER
-        # Clear copied therapist names; this is a new empty registry.
-        settings.Range(
-            settings.Cells(2, settings_col), settings.Cells(settings.Rows.Count, settings_col)
-        ).ClearContents()
 
     workbook.Application.CutCopyMode = False
     return planner_cols, settings_col
@@ -162,7 +166,10 @@ def main() -> int:
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(output), UpdateLinks=0, ReadOnly=False)
 
-        sheet_names = {str(workbook.Worksheets(i).Name) for i in range(1, workbook.Worksheets.Count + 1)}
+        sheet_names = {
+            str(workbook.Worksheets(i).Name)
+            for i in range(1, workbook.Worksheets.Count + 1)
+        }
         required = {"PATIENT_PLANNER", "SETTINGS"}
         missing = sorted(required - sheet_names)
         if missing:
