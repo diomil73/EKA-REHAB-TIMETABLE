@@ -51,8 +51,8 @@ def _resolve_provider(requested: str, provider_names: tuple[str, ...]) -> str | 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Read-only weekly capacity/conflict check before a permanent patient "
-            "therapist/time assignment."
+            "Read-only weekly provider capacity and patient cross-specialty conflict "
+            "check before a permanent therapist/time assignment."
         )
     )
     parser.add_argument(
@@ -130,7 +130,7 @@ def main() -> int:
     entry_map = {entry.base_entry_id: entry for entry in entries}
     patient_name_by_id = {p.patient_id: p.display_name for p in patients}
 
-    print("PERMANENT ASSIGNMENT CAPACITY CHECK")
+    print("PERMANENT ASSIGNMENT CAPACITY / PATIENT-SCHEDULE CHECK")
     print(f"Workbook: {workbook}")
     print(f"Patient: {patient_name} (id={source.patient_id})")
     print(
@@ -158,7 +158,18 @@ def main() -> int:
                     names.append(
                         patient_name_by_id.get(conflict_entry.patient_id, conflict_entry.patient_id)
                     )
-            status_parts.append("CONFLICT: " + ", ".join(names))
+            status_parts.append("PROVIDER CONFLICT: " + ", ".join(names))
+        if day.has_patient_conflict:
+            therapies = []
+            for entry_id in day.patient_conflicting_entry_ids:
+                conflict_entry = entry_map.get(entry_id)
+                if conflict_entry is None:
+                    therapies.append(entry_id)
+                else:
+                    therapies.append(
+                        f"{conflict_entry.treatment} {conflict_entry.start_time.strftime('%H:%M')}"
+                    )
+            status_parts.append("PATIENT CONFLICT: " + ", ".join(therapies))
         status = "OK" if not status_parts else " | ".join(status_parts)
         print(
             f"  {DAY_LABELS[day.weekday]}: "
@@ -168,11 +179,14 @@ def main() -> int:
 
     print()
     if result.allowed:
-        print("RESULT: ALLOWED by weekly capacity/conflict rules.")
+        print("RESULT: ALLOWED by provider capacity and patient-schedule rules.")
         print("NOTE: this is validation only; the base programme was not changed.")
         return 0
 
-    print("RESULT: BLOCKED. Permanent assignment would violate capacity and/or create a same-day time conflict.")
+    print(
+        "RESULT: BLOCKED. Permanent assignment would violate provider capacity/time "
+        "or overlap another treatment of the same patient."
+    )
     return 1
 
 
