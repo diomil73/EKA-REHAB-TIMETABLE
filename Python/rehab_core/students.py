@@ -17,7 +17,7 @@ class StudentDisplayState:
 
 def student_display_state(student: Student, target_date: date) -> StudentDisplayState:
     active = student.is_active(target_date)
-    label = student.display_name if active else f"φοιτητής {student.student_number}"
+    label = student.display_name if active else f"Φοιτ.{student.student_number}"
     return StudentDisplayState(
         student_id=student.student_id,
         label=label,
