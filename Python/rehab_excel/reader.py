@@ -38,6 +38,7 @@ class WorkbookSettings:
     patient_statuses: tuple[str, ...]
     yes_no_values: tuple[str, ...]
     rooms: tuple[str, ...]
+    psychologist_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,12 @@ def _column_values(ws, column_index: int) -> tuple[str, ...]:
     return tuple(values)
 
 
+def _optional_column_values(ws, column_index: int) -> tuple[str, ...]:
+    if ws.max_column < column_index:
+        return ()
+    return _column_values(ws, column_index)
+
+
 def read_settings(path: str | Path) -> WorkbookSettings:
     wb = _load(path)
     try:
@@ -190,6 +197,7 @@ def read_settings(path: str | Path) -> WorkbookSettings:
             patient_statuses=_column_values(ws, 6),
             yes_no_values=_column_values(ws, 7),
             rooms=_column_values(ws, 8),
+            psychologist_names=_optional_column_values(ws, 9),
         )
     finally:
         wb.close()
@@ -213,6 +221,7 @@ def _planner_blocks(headers: dict[str, int]) -> list[tuple[str, int, int, int | 
         ("Εργο", "Εργο_Ώρα", "Εργο_Ημέρες", None),
         ("Λογο", "Λογο_Ώρα", "Λογο_Ημέρες", None),
         ("ΕΦΑ", "ΕΦΑ_Ώρα", "ΕΦΑ_Ημέρες", None),
+        ("Ψυχ", "Ψυχ_Ώρα", "Ψυχ_Ημέρες", "Ψυχ_Ψυχολόγος"),
     ]
     blocks: list[tuple[str, int, int, int | None]] = []
     for treatment, time_name, days_name, therapist_name in definitions:
@@ -390,7 +399,9 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
             issues.append(
                 AuditIssue(
                     code="provider_entries_missing_therapist",
-                    message="ΦΘ/Ρομποτικό entries have no therapist",
+                    message=(
+                        "Provider-owned entries (ΦΘ/Ρομποτικό/Ψυχ) have no provider"
+                    ),
                     count=missing_provider,
                 )
             )
