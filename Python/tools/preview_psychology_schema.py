@@ -45,19 +45,6 @@ def _header_map(ws) -> dict[str, int]:
     return result
 
 
-def _column_letter(column: int) -> str:
-    """Convert a 1-based Excel column number to letters without COM calls."""
-
-    if column < 1:
-        raise ValueError("Excel column index must be >= 1")
-    letters: list[str] = []
-    value = column
-    while value:
-        value, remainder = divmod(value - 1, 26)
-        letters.append(chr(65 + remainder))
-    return "".join(reversed(letters))
-
-
 def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
     # xlPasteFormats = -4122. Copy only the header cell so we do not inflate
     # the used range or touch data/validation in any existing source column.
@@ -66,12 +53,24 @@ def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
     ws.Columns(target_col).ColumnWidth = ws.Columns(source_col).ColumnWidth
 
 
-def _replace_workbook_name(workbook, name: str, refers_to: str) -> None:
+def _replace_workbook_name_r1c1(
+    workbook, *, name: str, sheet_name: str, column: int
+) -> None:
+    """Create a workbook name using R1C1 references only.
+
+    RefersToR1C1 avoids localized A1 formula parsing in non-English Excel.
+    """
+
     try:
         workbook.Names(name).Delete()
     except Exception:
         pass
-    workbook.Names.Add(Name=name, RefersTo=refers_to)
+    workbook.Names.Add(
+        Name=name,
+        RefersToR1C1=(
+            f"='{sheet_name}'!R2C{column}:R{VALIDATION_LAST_ROW}C{column}"
+        ),
+    )
 
 
 def _set_list_validation(ws, column: int, formula1: str) -> None:
@@ -80,8 +79,13 @@ def _set_list_validation(ws, column: int, formula1: str) -> None:
         target.Validation.Delete()
     except Exception:
         pass
-    # xlValidateList = 3, xlValidAlertStop = 1
-    target.Validation.Add(Type=3, AlertStyle=1, Formula1=formula1)
+    # xlValidateList = 3, xlValidAlertStop = 1, xlBetween = 1
+    target.Validation.Add(
+        Type=3,
+        AlertStyle=1,
+        Operator=1,
+        Formula1=formula1,
+    )
     target.Validation.IgnoreBlank = True
     target.Validation.InCellDropdown = True
     target.Validation.ShowError = True
@@ -92,28 +96,35 @@ def _set_list_validation(ws, column: int, formula1: str) -> None:
 def _apply_dropdowns(workbook, planner_cols: tuple[int, int, int], settings_col: int) -> None:
     planner = workbook.Worksheets("PATIENT_PLANNER")
 
-    # Use deliberately simple workbook names instead of INDEX/MAX/COUNTA formulas.
-    # Fixed ranges avoid localized formula parsing problems in Excel COM.
-    _replace_workbook_name(
-        workbook,
-        "PSYCH_HOURS_LIST",
-        f"=SETTINGS!$B$2:$B${VALIDATION_LAST_ROW}",
-    )
-    _replace_workbook_name(
-        workbook,
-        "PSYCH_DAYS_LIST",
-        f"=SETTINGS!$D$2:$D${VALIDATION_LAST_ROW}",
-    )
-    settings_letter = _column_letter(settings_col)
-    _replace_workbook_name(
-        workbook,
-        "PSYCHOLOGISTS_LIST",
-        f"=SETTINGS!${settings_letter}$2:${settings_letter}${VALIDATION_LAST_ROW}",
+    stages = (
+        ("name PSYCH_HOURS_LIST", lambda: _replace_workbook_name_r1c1(
+            workbook, name="PSYCH_HOURS_LIST", sheet_name="SETTINGS", column=2
+        )),
+        ("name PSYCH_DAYS_LIST", lambda: _replace_workbook_name_r1c1(
+            workbook, name="PSYCH_DAYS_LIST", sheet_name="SETTINGS", column=4
+        )),
+        ("name PSYCHOLOGISTS_LIST", lambda: _replace_workbook_name_r1c1(
+            workbook,
+            name="PSYCHOLOGISTS_LIST",
+            sheet_name="SETTINGS",
+            column=settings_col,
+        )),
+        ("validation Ψυχ_Ώρα", lambda: _set_list_validation(
+            planner, planner_cols[0], "=PSYCH_HOURS_LIST"
+        )),
+        ("validation Ψυχ_Ημέρες", lambda: _set_list_validation(
+            planner, planner_cols[1], "=PSYCH_DAYS_LIST"
+        )),
+        ("validation Ψυχ_Ψυχολόγος", lambda: _set_list_validation(
+            planner, planner_cols[2], "=PSYCHOLOGISTS_LIST"
+        )),
     )
 
-    _set_list_validation(planner, planner_cols[0], "=PSYCH_HOURS_LIST")
-    _set_list_validation(planner, planner_cols[1], "=PSYCH_DAYS_LIST")
-    _set_list_validation(planner, planner_cols[2], "=PSYCHOLOGISTS_LIST")
+    for stage, action in stages:
+        try:
+            action()
+        except Exception as exc:
+            raise RuntimeError(f"Dropdown stage failed [{stage}]: {exc}") from exc
 
 
 def _apply_schema(workbook) -> tuple[tuple[int, int, int], int]:
