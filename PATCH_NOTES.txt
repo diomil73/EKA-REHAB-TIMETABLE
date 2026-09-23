@@ -1,8 +1,5 @@
-Permanent assignment preview patch
+Provider Policy Patch - Stage 1
 
-Adds:
-- safe native Excel copy-write for one permanent ΦΘ assignment
-- weekly capacity/conflict safety gate before write
-- source SHA-256 protection
-- VBA preservation check
-- preview-only workflow; baseline remains untouched
+Adds provider profiles, therapist/student defaults, temporary replacement exclusion, temporary custom max load, blocked times, Manager/Acting Manager roles, explicit manager replacement times, JSON persistence, CLI, and tests.
+
+This is intentionally additive. Next step is wiring this policy into live replacement ranking, then patient cross-specialty availability.
