@@ -45,10 +45,17 @@ def _header_map(ws) -> dict[str, int]:
     return result
 
 
-def _column_letter(ws, column: int) -> str:
-    # Address(False, False) returns e.g. I1; strip the row number.
-    address = str(ws.Cells(1, column).Address(False, False))
-    return "".join(ch for ch in address if ch.isalpha())
+def _column_letter(column: int) -> str:
+    """Convert a 1-based Excel column number to letters without COM calls."""
+
+    if column < 1:
+        raise ValueError("Excel column index must be >= 1")
+    letters: list[str] = []
+    value = column
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        letters.append(chr(65 + remainder))
+    return "".join(reversed(letters))
 
 
 def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
@@ -84,12 +91,9 @@ def _set_list_validation(ws, column: int, formula1: str) -> None:
 
 def _apply_dropdowns(workbook, planner_cols: tuple[int, int, int], settings_col: int) -> None:
     planner = workbook.Worksheets("PATIENT_PLANNER")
-    settings = workbook.Worksheets("SETTINGS")
 
     # Use deliberately simple workbook names instead of INDEX/MAX/COUNTA formulas.
-    # The latter can fail on localized Excel installations because COM formula
-    # parsing follows Excel locale rules. Fixed ranges are robust and still grow
-    # naturally as users add values anywhere through row 500.
+    # Fixed ranges avoid localized formula parsing problems in Excel COM.
     _replace_workbook_name(
         workbook,
         "PSYCH_HOURS_LIST",
@@ -100,7 +104,7 @@ def _apply_dropdowns(workbook, planner_cols: tuple[int, int, int], settings_col:
         "PSYCH_DAYS_LIST",
         f"=SETTINGS!$D$2:$D${VALIDATION_LAST_ROW}",
     )
-    settings_letter = _column_letter(settings, settings_col)
+    settings_letter = _column_letter(settings_col)
     _replace_workbook_name(
         workbook,
         "PSYCHOLOGISTS_LIST",
