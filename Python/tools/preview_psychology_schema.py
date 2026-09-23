@@ -9,9 +9,9 @@ from zipfile import ZipFile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-
 PLANNER_HEADERS = ("Ψυχ_Ώρα", "Ψυχ_Ημέρες", "Ψυχ_Ψυχολόγος")
 SETTINGS_HEADER = "PSYCHOLOGISTS"
+VALIDATION_LAST_ROW = 500
 
 
 def _sha256(path: Path) -> str:
@@ -51,6 +51,65 @@ def _copy_header_style_and_width(ws, source_col: int, target_col: int) -> None:
     ws.Cells(1, source_col).Copy()
     ws.Cells(1, target_col).PasteSpecial(Paste=-4122)
     ws.Columns(target_col).ColumnWidth = ws.Columns(source_col).ColumnWidth
+
+
+def _replace_workbook_name(workbook, name: str, refers_to: str) -> None:
+    try:
+        workbook.Names(name).Delete()
+    except Exception:
+        pass
+    workbook.Names.Add(Name=name, RefersTo=refers_to)
+
+
+def _set_list_validation(ws, column: int, formula1: str) -> None:
+    target = ws.Range(ws.Cells(2, column), ws.Cells(VALIDATION_LAST_ROW, column))
+    try:
+        target.Validation.Delete()
+    except Exception:
+        pass
+    # xlValidateList = 3, xlValidAlertStop = 1
+    target.Validation.Add(Type=3, AlertStyle=1, Formula1=formula1)
+    target.Validation.IgnoreBlank = True
+    target.Validation.InCellDropdown = True
+    target.Validation.ShowError = True
+    target.Validation.ErrorTitle = "Μη έγκυρη επιλογή"
+    target.Validation.ErrorMessage = "Επίλεξε τιμή από την αναπτυσσόμενη λίστα."
+
+
+def _apply_dropdowns(workbook, planner_cols: tuple[int, int, int], settings_col: int) -> None:
+    planner = workbook.Worksheets("PATIENT_PLANNER")
+
+    # Dynamic workbook names keep the dropdowns in sync with SETTINGS as rows
+    # are added later. Header row is excluded; when a list is empty, row 2 is
+    # still a valid blank target so Excel keeps the dropdown definition alive.
+    _replace_workbook_name(
+        workbook,
+        "PSYCH_HOURS_LIST",
+        "=SETTINGS!$B$2:INDEX(SETTINGS!$B:$B,MAX(2,COUNTA(SETTINGS!$B:$B)))",
+    )
+    _replace_workbook_name(
+        workbook,
+        "PSYCH_DAYS_LIST",
+        "=SETTINGS!$D$2:INDEX(SETTINGS!$D:$D,MAX(2,COUNTA(SETTINGS!$D:$D)))",
+    )
+    settings_letter = workbook.Application.ConvertFormula(
+        workbook.Worksheets("SETTINGS").Cells(1, settings_col).Address,
+        1,
+        1,
+        1,
+    ).replace("$1", "")
+    _replace_workbook_name(
+        workbook,
+        "PSYCHOLOGISTS_LIST",
+        (
+            f"=SETTINGS!{settings_letter}$2:INDEX(SETTINGS!{settings_letter}:{settings_letter},"
+            f"MAX(2,COUNTA(SETTINGS!{settings_letter}:{settings_letter})))"
+        ),
+    )
+
+    _set_list_validation(planner, planner_cols[0], "=PSYCH_HOURS_LIST")
+    _set_list_validation(planner, planner_cols[1], "=PSYCH_DAYS_LIST")
+    _set_list_validation(planner, planner_cols[2], "=PSYCHOLOGISTS_LIST")
 
 
 def _apply_schema(workbook) -> tuple[tuple[int, int, int], int]:
@@ -99,6 +158,7 @@ def _apply_schema(workbook) -> tuple[tuple[int, int, int], int]:
             )
         settings.Cells(1, settings_col).Value = SETTINGS_HEADER
 
+    _apply_dropdowns(workbook, planner_cols, settings_col)
     workbook.Application.CutCopyMode = False
     return planner_cols, settings_col
 
@@ -106,9 +166,9 @@ def _apply_schema(workbook) -> tuple[tuple[int, int, int], int]:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Create a safe .xlsm preview that appends psychology source columns to "
-            "PATIENT_PLANNER and a PSYCHOLOGISTS registry to SETTINGS. The source "
-            "workbook is never edited."
+            "Create a safe .xlsm preview that appends psychology source columns, "
+            "their Excel dropdown validations, and a PSYCHOLOGISTS registry. "
+            "The source workbook is never edited."
         )
     )
     parser.add_argument(
@@ -211,6 +271,7 @@ def main() -> int:
         )
     )
     print(f"SETTINGS appended registry: {SETTINGS_HEADER}=col {settings_col}")
+    print("Dropdowns added: Ψυχ_Ώρα, Ψυχ_Ημέρες, Ψυχ_Ψυχολόγος")
     print(f"Source unchanged: {source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
     print("NOTE: no final visual timetable/layout changes are made by this tool.")
