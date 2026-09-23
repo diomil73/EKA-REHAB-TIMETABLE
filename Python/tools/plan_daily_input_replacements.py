@@ -13,6 +13,7 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from openpyxl import load_workbook  # noqa: E402
 
+from rehab_config.provider_policy_store import load_policy_book  # noqa: E402
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
 from rehab_core.therapist_absence_queue import (  # noqa: E402
@@ -61,7 +62,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Read therapist absences from DAILY_INPUT and show the affected patients "
-            "with ranked replacement suggestions. Read-only: no workbook is written."
+            "with ranked replacement suggestions. Provider policy overrides are applied. "
+            "Read-only: no workbook is written."
         )
     )
     parser.add_argument(
@@ -84,6 +86,7 @@ def main() -> int:
         base_entries = read_base_schedule(input_book)
         sessions = materialize_sessions_for_date(base_entries, target_date)
         daily = read_daily_input(input_book, patients=patients, sessions=sessions)
+        policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
 
         therapist_absences = tuple(
             absence
@@ -106,6 +109,7 @@ def main() -> int:
             therapists=therapists,
             patients=patients,
             timeslots=settings.standard_timeslots,
+            policy_book=policy_book,
         )
     except (DailyInputReadError, ValueError, KeyError) as exc:
         print(f"SAFETY STOP: {exc}")
@@ -139,12 +143,16 @@ def main() -> int:
         if item.robotic:
             print("   ROBOTIC SESSION: capability data must be authoritative before accepting a candidate.")
         if not item.options:
-            print("   No feasible replacement provider/timeslot found.")
+            print("   No feasible replacement provider/timeslot found after provider-policy checks.")
             continue
         for rank, option in enumerate(item.options[:limit], start=1):
             exact = "exact" if option.exact_time_available else "alternative"
+            capacity = ""
+            if option.capacity_limit is not None and option.capacity_remaining is not None:
+                used = option.capacity_limit - option.capacity_remaining
+                capacity = f" | slots {used}/{option.capacity_limit}"
             print(
-                f"   {rank}. {option.display_name} | load {option.active_sessions} | "
+                f"   {rank}. {option.display_name} | load {option.active_sessions}{capacity} | "
                 f"recommended {option.recommended_time.strftime('%H:%M')} ({exact}) | "
                 f"free: {_fmt_times(option.available_timeslots)}"
             )
@@ -156,6 +164,10 @@ def main() -> int:
     print(
         "RULE: candidates are load-first; exact time is preferred at equal load, "
         "otherwise another common free timeslot is suggested."
+    )
+    print(
+        "RULE: provider-policy overrides are active: temporary replacement exclusion, "
+        "custom max load, blocked times, and Manager/Acting Manager explicit open times."
     )
     print("READ-ONLY: no Excel file was modified.")
     return 0
