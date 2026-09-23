@@ -61,9 +61,9 @@ def _fmt_times(slots: tuple[time, ...]) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Read therapist absences from DAILY_INPUT and show the affected patients "
-            "with ranked replacement suggestions. Provider policy overrides are applied. "
-            "Read-only: no workbook is written."
+            "Read therapist absences from DAILY_INPUT and show ranked replacement "
+            "suggestions. Provider policy and patient cross-specialty availability "
+            "are applied. Read-only: no workbook is written."
         )
     )
     parser.add_argument(
@@ -110,6 +110,7 @@ def main() -> int:
             patients=patients,
             timeslots=settings.standard_timeslots,
             policy_book=policy_book,
+            base_entries=base_entries,
         )
     except (DailyInputReadError, ValueError, KeyError) as exc:
         print(f"SAFETY STOP: {exc}")
@@ -143,7 +144,10 @@ def main() -> int:
         if item.robotic:
             print("   ROBOTIC SESSION: capability data must be authoritative before accepting a candidate.")
         if not item.options:
-            print("   No feasible replacement provider/timeslot found after provider-policy checks.")
+            print(
+                "   No feasible replacement provider/timeslot found after provider-policy "
+                "and patient-schedule checks."
+            )
             continue
         for rank, option in enumerate(item.options[:limit], start=1):
             exact = "exact" if option.exact_time_available else "alternative"
@@ -168,6 +172,10 @@ def main() -> int:
     print(
         "RULE: provider-policy overrides are active: temporary replacement exclusion, "
         "custom max load, blocked times, and Manager/Acting Manager explicit open times."
+    )
+    print(
+        "RULE: patient availability includes all PATIENT_PLANNER specialties; a time "
+        "already used by another treatment for the same patient is not offered."
     )
     print("READ-ONLY: no Excel file was modified.")
     return 0

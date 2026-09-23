@@ -6,6 +6,7 @@ from typing import Iterable
 
 from .daily_state import DailySessionStatus, build_daily_session_states
 from .models import (
+    BaseScheduleEntry,
     DailyAbsence,
     Patient,
     ReplacementAssignment,
@@ -14,6 +15,7 @@ from .models import (
     StudentAssignment,
     Therapist,
 )
+from .patient_schedule import filter_replacement_options_for_patient_schedule
 from .provider_policy import ProviderPolicyBook
 from .replacement_options import ReplacementProviderOption, find_replacement_options
 from .replacement_policy import find_policy_replacement_options
@@ -54,15 +56,13 @@ def build_therapist_absence_replacement_queue(
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
     policy_book: ProviderPolicyBook | None = None,
+    base_entries: Iterable[BaseScheduleEntry] = (),
 ) -> TherapistAbsenceReplacementQueue:
-    """Build replacement suggestions for every session affected by therapist absence.
+    """Build replacement suggestions for sessions affected by therapist absence.
 
-    Patient absence has priority. If both the patient and therapist are absent for the
-    same session, that session is not placed in the replacement queue. All declared
-    absences are also passed to the replacement engine, so another absent therapist
-    cannot be suggested as a candidate. When a provider policy book is supplied, its
-    replacement exclusions, temporary maximum loads, blocked times and leadership
-    rules are applied to the returned options.
+    Patient absence has priority. Provider policy is optional. When recurring
+    base entries are supplied, times occupied by any other specialty for the
+    same patient are removed from replacement options as well.
     """
 
     session_list = tuple(sessions)
@@ -73,6 +73,7 @@ def build_therapist_absence_replacement_queue(
     student_list = tuple(students)
     student_assignment_list = tuple(student_assignments)
     timeslot_list = tuple(timeslots)
+    base_entry_list = tuple(base_entries)
 
     patient_by_id = {patient.patient_id: patient for patient in patient_list}
     session_by_id = {session.session_id: session for session in session_list}
@@ -107,6 +108,11 @@ def build_therapist_absence_replacement_queue(
                 students=student_list,
                 student_assignments=student_assignment_list,
             )
+            options = filter_replacement_options_for_patient_schedule(
+                options,
+                target_session=session,
+                base_entries=base_entry_list,
+            )
         else:
             options = find_policy_replacement_options(
                 target_session=session,
@@ -120,6 +126,7 @@ def build_therapist_absence_replacement_queue(
                 timeslots=timeslot_list,
                 students=student_list,
                 student_assignments=student_assignment_list,
+                base_entries=base_entry_list,
             )
         items.append(
             TherapistAbsenceReplacementItem(

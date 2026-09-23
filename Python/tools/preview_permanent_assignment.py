@@ -19,8 +19,6 @@ from rehab_excel.reader import read_base_schedule
 
 
 def _find_entry(entries, patient_name, from_provider, from_time):
-    # patient_name is resolved through PATIENT_PLANNER by permanent_preview.
-    # Here we match provider/time first and then validate after locating the row.
     return tuple(
         e for e in entries
         if e.therapist_id == from_provider
@@ -53,7 +51,6 @@ def main() -> int:
         from_time = parse_hhmm(args.from_time)
         to_time = parse_hhmm(args.to_time)
 
-        # Locate exact source entry through the same source workbook.
         from rehab_excel.permanent_preview import locate_physio_assignment
         located = locate_physio_assignment(
             args.source,
@@ -73,9 +70,6 @@ def main() -> int:
                 f"Could not resolve {source_entry_id} in imported base schedule"
             )
 
-        # Current permanent preview supports therapist destinations. Student
-        # limits will use the same validator when the real student registry is
-        # connected.
         check = check_permanent_assignment(
             provider_id=args.to_provider,
             max_daily_timeslots=6,
@@ -87,6 +81,7 @@ def main() -> int:
         )
         if not check.allowed:
             print("SAFETY STOP: proposed permanent assignment is not allowed.")
+            entry_map = {entry.base_entry_id: entry for entry in entries}
             for day in check.days:
                 status = []
                 if day.over_capacity:
@@ -94,7 +89,17 @@ def main() -> int:
                         f"capacity {day.used_timeslots_before}/6 -> {day.used_timeslots_after}/6"
                     )
                 if day.has_conflict:
-                    status.append("same-day conflict")
+                    status.append("provider same-day conflict")
+                if day.has_patient_conflict:
+                    therapies = []
+                    for entry_id in day.patient_conflicting_entry_ids:
+                        conflict = entry_map.get(entry_id)
+                        therapies.append(
+                            entry_id
+                            if conflict is None
+                            else f"{conflict.treatment} {conflict.start_time.strftime('%H:%M')}"
+                        )
+                    status.append("patient conflict: " + ", ".join(therapies))
                 if status:
                     print(f"  {day.weekday.name}: " + ", ".join(status))
             return 2
