@@ -14,6 +14,7 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from openpyxl import load_workbook  # noqa: E402
 
+from rehab_config.provider_policy_store import load_policy_book  # noqa: E402
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_core.models import (  # noqa: E402
@@ -21,7 +22,10 @@ from rehab_core.models import (  # noqa: E402
     ReplacementAssignment,
     Therapist,
 )
-from rehab_core.replacement_options import find_replacement_options  # noqa: E402
+from rehab_core.replacement_policy import (  # noqa: E402
+    find_policy_replacement_options,
+    validate_policy_replacement_time,
+)
 from rehab_core.replacements import create_replacement_assignment  # noqa: E402
 from rehab_core.therapist_absence_queue import (  # noqa: E402
     build_therapist_absence_replacement_queue,
@@ -105,8 +109,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Read therapist absences from DAILY_INPUT, choose replacements one by one, "
-            "recalculate load/availability after every accepted choice, and create a new "
-            "patient-centric Excel preview."
+            "recalculate load/availability after every accepted choice, apply provider "
+            "policy overrides, and create a new patient-centric Excel preview."
         )
     )
     parser.add_argument(
@@ -136,6 +140,7 @@ def main() -> int:
         base_entries = read_base_schedule(input_book)
         sessions = materialize_sessions_for_date(base_entries, target_date)
         daily = read_daily_input(input_book, patients=patients, sessions=sessions)
+        policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
 
         therapist_absences = tuple(
             absence
@@ -180,16 +185,21 @@ def main() -> int:
             "IMPORTANT: ranking is recalculated after every accepted replacement, "
             "so load and occupied timeslots update immediately."
         )
+        print(
+            "PROVIDER POLICY: replacement exclusions, temporary max load, blocked times, "
+            "and Manager/Acting Manager open times are active."
+        )
 
         for index, session_id in enumerate(pending_ids, start=1):
             target = session_by_id[session_id]
             patient = patient_by_id.get(target.patient_id)
             patient_name = patient.display_name if patient is not None else target.patient_id
 
-            options = find_replacement_options(
+            options = find_policy_replacement_options(
                 target_session=target,
                 therapists=therapists,
                 sessions=sessions,
+                policy_book=policy_book,
                 absences=daily.absences,
                 patients=patients,
                 replacements=replacements,
@@ -208,7 +218,10 @@ def main() -> int:
                 )
             visible = options[: max(args.limit, 1)]
             if not visible:
-                print("   No feasible provider/timeslot remains after previous choices.")
+                print(
+                    "   No feasible provider/timeslot remains after capacity, availability, "
+                    "and provider-policy checks."
+                )
                 unresolved.append(session_id)
                 continue
 
@@ -232,6 +245,12 @@ def main() -> int:
                 continue
 
             option = visible[rank - 1]
+            validate_policy_replacement_time(
+                provider_id=option.provider_id,
+                target_date=target.session_date,
+                replacement_time=option.recommended_time,
+                policy_book=policy_book,
+            )
             replacement = create_replacement_assignment(
                 replacement_id=f"daily-input-{len(replacements) + 1}",
                 target_session=target,

@@ -14,7 +14,9 @@ from .models import (
     StudentAssignment,
     Therapist,
 )
+from .provider_policy import ProviderPolicyBook
 from .replacement_options import ReplacementProviderOption, find_replacement_options
+from .replacement_policy import find_policy_replacement_options
 
 
 @dataclass(frozen=True)
@@ -51,13 +53,16 @@ def build_therapist_absence_replacement_queue(
     replacements: Iterable[ReplacementAssignment] = (),
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
+    policy_book: ProviderPolicyBook | None = None,
 ) -> TherapistAbsenceReplacementQueue:
     """Build replacement suggestions for every session affected by therapist absence.
 
     Patient absence has priority. If both the patient and therapist are absent for the
     same session, that session is not placed in the replacement queue. All declared
     absences are also passed to the replacement engine, so another absent therapist
-    cannot be suggested as a candidate.
+    cannot be suggested as a candidate. When a provider policy book is supplied, its
+    replacement exclusions, temporary maximum loads, blocked times and leadership
+    rules are applied to the returned options.
     """
 
     session_list = tuple(sessions)
@@ -89,18 +94,33 @@ def build_therapist_absence_replacement_queue(
         patient = patient_by_id.get(session.patient_id)
         patient_name = patient.display_name if patient is not None else session.patient_id
 
-        options = find_replacement_options(
-            target_session=session,
-            therapists=therapist_list,
-            sessions=session_list,
-            absences=absence_list,
-            patients=patient_list,
-            replacements=replacement_list,
-            requested_time=session.start_time,
-            timeslots=timeslot_list,
-            students=student_list,
-            student_assignments=student_assignment_list,
-        )
+        if policy_book is None:
+            options = find_replacement_options(
+                target_session=session,
+                therapists=therapist_list,
+                sessions=session_list,
+                absences=absence_list,
+                patients=patient_list,
+                replacements=replacement_list,
+                requested_time=session.start_time,
+                timeslots=timeslot_list,
+                students=student_list,
+                student_assignments=student_assignment_list,
+            )
+        else:
+            options = find_policy_replacement_options(
+                target_session=session,
+                therapists=therapist_list,
+                sessions=session_list,
+                policy_book=policy_book,
+                absences=absence_list,
+                patients=patient_list,
+                replacements=replacement_list,
+                requested_time=session.start_time,
+                timeslots=timeslot_list,
+                students=student_list,
+                student_assignments=student_assignment_list,
+            )
         items.append(
             TherapistAbsenceReplacementItem(
                 session_id=session.session_id,
