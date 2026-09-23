@@ -17,11 +17,8 @@ from openpyxl import load_workbook  # noqa: E402
 from rehab_config.provider_policy_store import load_policy_book  # noqa: E402
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
-from rehab_core.models import (  # noqa: E402
-    AbsenceKind,
-    ReplacementAssignment,
-    Therapist,
-)
+from rehab_core.models import AbsenceKind, ReplacementAssignment, Therapist  # noqa: E402
+from rehab_core.patient_schedule import validate_patient_cross_specialty_time  # noqa: E402
 from rehab_core.replacement_policy import (  # noqa: E402
     find_policy_replacement_options,
     validate_policy_replacement_time,
@@ -110,7 +107,7 @@ def main() -> int:
         description=(
             "Read therapist absences from DAILY_INPUT, choose replacements one by one, "
             "recalculate load/availability after every accepted choice, apply provider "
-            "policy overrides, and create a new patient-centric Excel preview."
+            "policy and patient cross-specialty availability, then create a preview."
         )
     )
     parser.add_argument(
@@ -161,6 +158,8 @@ def main() -> int:
             therapists=therapists,
             patients=patients,
             timeslots=settings.standard_timeslots,
+            policy_book=policy_book,
+            base_entries=base_entries,
         )
         if not initial_queue.items:
             raise DailyInputReadError(
@@ -189,6 +188,10 @@ def main() -> int:
             "PROVIDER POLICY: replacement exclusions, temporary max load, blocked times, "
             "and Manager/Acting Manager open times are active."
         )
+        print(
+            "PATIENT SCHEDULE: all PATIENT_PLANNER specialties are checked before a "
+            "replacement time is offered."
+        )
 
         for index, session_id in enumerate(pending_ids, start=1):
             target = session_by_id[session_id]
@@ -205,6 +208,7 @@ def main() -> int:
                 replacements=replacements,
                 requested_time=target.start_time,
                 timeslots=settings.standard_timeslots,
+                base_entries=base_entries,
             )
 
             print(
@@ -219,8 +223,8 @@ def main() -> int:
             visible = options[: max(args.limit, 1)]
             if not visible:
                 print(
-                    "   No feasible provider/timeslot remains after capacity, availability, "
-                    "and provider-policy checks."
+                    "   No feasible provider/timeslot remains after capacity, provider-policy, "
+                    "and patient cross-specialty checks."
                 )
                 unresolved.append(session_id)
                 continue
@@ -250,6 +254,12 @@ def main() -> int:
                 target_date=target.session_date,
                 replacement_time=option.recommended_time,
                 policy_book=policy_book,
+            )
+            validate_patient_cross_specialty_time(
+                patient_id=target.patient_id,
+                target_date=target.session_date,
+                target_time=option.recommended_time,
+                base_entries=base_entries,
             )
             replacement = create_replacement_assignment(
                 replacement_id=f"daily-input-{len(replacements) + 1}",
