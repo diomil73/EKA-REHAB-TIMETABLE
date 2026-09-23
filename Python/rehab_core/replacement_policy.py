@@ -5,6 +5,7 @@ from datetime import date, time
 from typing import Iterable
 
 from .models import (
+    BaseScheduleEntry,
     DailyAbsence,
     Patient,
     ReplacementAssignment,
@@ -13,6 +14,7 @@ from .models import (
     StudentAssignment,
     Therapist,
 )
+from .patient_schedule import filter_replacement_options_for_patient_schedule
 from .provider_policy import ProviderPolicyBook, ProviderProfile, ProviderType
 from .replacement_options import (
     ReplacementProviderOption,
@@ -27,12 +29,7 @@ def policy_adjusted_therapists(
     policy_book: ProviderPolicyBook,
     target_date: date,
 ) -> tuple[Therapist, ...]:
-    """Return therapist models adjusted for the effective policy on one date.
-
-    The normal replacement engine remains the source of truth for workload,
-    absences, availability and sequential replacement occupancy.  This adapter
-    changes only provider eligibility/capacity before the engine ranks them.
-    """
+    """Return therapist models adjusted for the effective policy on one date."""
 
     adjusted: list[Therapist] = []
     for therapist in therapists:
@@ -49,9 +46,6 @@ def policy_adjusted_therapists(
             continue
 
         if state.is_active_leader:
-            # The active manager/acting manager has no normal patient load and
-            # is excluded unless at least one replacement slot is explicitly
-            # opened. Capacity equals the number of opened slots for that day.
             if not state.explicitly_open_replacement_times:
                 continue
             effective_limit = len(state.explicitly_open_replacement_times)
@@ -115,12 +109,13 @@ def find_policy_replacement_options(
     timeslots: Iterable[time] = (),
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
+    base_entries: Iterable[BaseScheduleEntry] = (),
 ) -> list[ReplacementProviderOption]:
-    """Run the existing replacement ranking with provider policy applied.
+    """Run replacement ranking with provider and patient-schedule policy applied.
 
-    The confirmed ranking itself is unchanged: daily load first, exact requested
-    time second, then the existing tie-breakers. Policy acts as an eligibility,
-    capacity and per-timeslot gate around that ranking.
+    Ranking remains unchanged: daily load first, exact requested time second,
+    then the existing tie-breakers. Provider policy and the patient's other
+    specialties act only as eligibility/timeslot gates around that ranking.
     """
 
     adjusted = policy_adjusted_therapists(
@@ -141,7 +136,7 @@ def find_policy_replacement_options(
         student_assignments=student_assignments,
     )
 
-    filtered: list[ReplacementProviderOption] = []
+    policy_filtered: list[ReplacementProviderOption] = []
     for option in options:
         revised = _filter_option_times(
             option,
@@ -149,8 +144,13 @@ def find_policy_replacement_options(
             target_date=target_session.session_date,
         )
         if revised is not None:
-            filtered.append(revised)
-    return filtered
+            policy_filtered.append(revised)
+
+    return filter_replacement_options_for_patient_schedule(
+        policy_filtered,
+        target_session=target_session,
+        base_entries=base_entries,
+    )
 
 
 def validate_policy_replacement_time(
