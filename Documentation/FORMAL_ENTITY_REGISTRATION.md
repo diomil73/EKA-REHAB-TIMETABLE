@@ -37,18 +37,35 @@ Robotic capability is not persisted in this stage because the workbook has no co
 
 ## Student
 
-The domain model already has stable `student_id`, `student_number`, placement dates, supervisor, replacement capability and robotic capability.
+The authoritative student registry is a dedicated `STUDENTS` sheet. This is intentionally separate from `SETTINGS`: a student is a multi-field operational entity with identity, placement dates and supervisor, not a one-dimensional settings list.
 
-Validated before write:
+Authoritative columns A:H are fixed as:
+
+1. `StudentID`
+2. `Φοιτητής`
+3. `StudentNumber`
+4. `PlacementStart`
+5. `PlacementEnd`
+6. `SupervisorTherapist`
+7. `ReplacementCapable`
+8. `RoboticCapable`
+
+The baseline workbook remains compatible before migration: if `STUDENTS` does not exist, the Python reader returns an empty student registry. Once the sheet exists, the headers are validated strictly.
+
+Validated registry semantics:
 - non-empty stable student ID
 - unique student ID
 - non-empty display name
 - positive and unique student number
 - placement end cannot be before placement start
-- supervisor, when provided and a therapist registry is supplied, must exist
+- replacement capability defaults to `True` when blank
+- robotic capability defaults to `False` when blank
+- confirmed student capacity remains five daily timeslots and is not exposed as a new workbook field
 
-Duplicate student display names are allowed because identity is kept separately.
+The registration validator also checks the supervisor against the therapist registry when therapist IDs are supplied. Duplicate student display names remain allowed because identity is kept separately.
+
+The schema migration workflow creates `STUDENTS` only in a copied `.xlsm`, verifies the exact headers by reading the copy back, and proves the source workbook remained unchanged. Actual student-row writeback is a separate next stage after this schema preview is confirmed on the real workbook.
 
 ## Important boundary
 
-Preview writeback never changes the baseline workbook. Student Excel storage is still deliberately undefined until an authoritative registry location is agreed explicitly. Final menu/form UI is also deferred until these source/write contracts are stable.
+Preview writeback never changes the baseline workbook. Final menu/form UI remains deferred until these source/write contracts are stable.
