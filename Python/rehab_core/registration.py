@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from typing import Iterable
+import unicodedata
 
 from .models import Patient, Student, Therapist
 
@@ -51,7 +52,15 @@ class NewStudentRequest:
 
 
 def _key(value: object) -> str:
-    return str(value).strip().casefold()
+    """Return a comparison key that is whitespace/case/accent insensitive.
+
+    Greek registries commonly mix accented and unaccented uppercase/lowercase
+    spellings (for example ``Πέτσιος`` and ``ΠΕΤΣΙΟΣ``). Those must resolve to
+    the same logical provider when checking duplicates.
+    """
+
+    text = unicodedata.normalize("NFD", str(value).strip().casefold())
+    return "".join(char for char in text if not unicodedata.combining(char))
 
 
 def _nonblank(value: object) -> bool:
