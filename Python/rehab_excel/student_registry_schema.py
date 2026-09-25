@@ -127,7 +127,12 @@ class Win32ComStudentRegistrySchemaBackend:
             ws.Name = STUDENT_REGISTRY_SHEET
             ws.Range("A1:H1").Value = (STUDENT_REGISTRY_HEADERS,)
             ws.Range("A1:H1").Font.Bold = True
-            ws.Range("D:E").NumberFormat = "dd/mm/yyyy"
+
+            # Do not set NumberFormat on whole date columns during schema
+            # creation. Localized Excel installations can reject a format token
+            # at the COM boundary even on a brand-new sheet. The schema itself
+            # is data structure, not presentation; date-cell formatting belongs
+            # to the later student-row writeback where the exact cells are known.
             ws.Columns("A:H").AutoFit()
             workbook.Save()
             return True
