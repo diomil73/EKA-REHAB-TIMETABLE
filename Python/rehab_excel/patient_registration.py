@@ -61,14 +61,7 @@ def choose_patient_target_row(
     table_first_data_row: int | None = None,
     table_last_data_row: int | None = None,
 ) -> int:
-    """Return the next logical PATIENTS row, not the physical end of a blank table.
-
-    The baseline workbook can contain a pre-sized Excel table whose formatting
-    extends hundreds of rows below the real patient list. In that case a raw
-    ``ListRows.Add()`` would append after the whole table (for example row 551)
-    even though actual patients stop around row 98. Reuse the first existing
-    blank table row immediately after the last real PatientID/name instead.
-    """
+    """Return the next logical PATIENTS row, not the physical end of a blank table."""
 
     logical_row = max(2, max(last_patient_id_row, last_patient_name_row, 1) + 1)
     if table_first_data_row is None or table_last_data_row is None:
@@ -114,17 +107,50 @@ class Win32ComPatientRegistrationBackend:
 
     @staticmethod
     def _last_used_row(ws, column: int) -> int:
-        # xlUp = -4162
+        # xlUp = -4162. This reports formulas as used even when they display
+        # blank, so it is only an upper bound for the value scan below.
         return int(ws.Cells(ws.Rows.Count, column).End(-4162).Row)
 
+    @staticmethod
+    def _last_nonblank_value_row(ws, column: int, upper_row: int) -> int:
+        """Find the last row whose calculated/display value is genuinely nonblank.
+
+        PATIENTS contains a pre-sized table. Cells below the visible patient
+        list may contain formulas or table structure that make End(xlUp) report
+        row 550 even though the last real patient is around row 98. Reading
+        Value2 in one block lets us ignore formulas that currently evaluate to
+        an empty string.
+        """
+
+        upper_row = max(1, int(upper_row))
+        values = ws.Range(ws.Cells(1, column), ws.Cells(upper_row, column)).Value2
+        if upper_row == 1:
+            sequence = ((values,),)
+        else:
+            sequence = values
+
+        last = 1
+        for row_index, item in enumerate(sequence, start=1):
+            value = item[0] if isinstance(item, tuple) else item
+            if value is None:
+                continue
+            if isinstance(value, str) and not value.strip():
+                continue
+            last = row_index
+        return last
+
     def _target_row(self, ws) -> int:
-        last_id_row = self._last_used_row(ws, 1)
-        last_name_row = self._last_used_row(ws, 3)
+        physical_id_row = self._last_used_row(ws, 1)
+        physical_name_row = self._last_used_row(ws, 3)
+        scan_bottom = max(physical_id_row, physical_name_row, 1)
+
+        last_id_row = self._last_nonblank_value_row(ws, 1, scan_bottom)
+        last_name_row = self._last_nonblank_value_row(ws, 3, scan_bottom)
         logical_row = choose_patient_target_row(last_id_row, last_name_row)
 
-        # PATIENTS may be a pre-sized Excel table with many blank styled rows.
-        # If the logical next patient row already lies inside that table, write
-        # there instead of extending the table at its physical bottom.
+        # PATIENTS may be a pre-sized Excel table with many blank/formula rows.
+        # If the logical next patient row is already inside that table, write
+        # directly there instead of extending the table at its physical bottom.
         try:
             count = int(ws.ListObjects.Count)
         except Exception:
