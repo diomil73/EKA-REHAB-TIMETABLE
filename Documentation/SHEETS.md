@@ -1,6 +1,6 @@
 # Workbook Sheets
 
-Τα 13 φύλλα που επιβεβαιώνονται από τον baseline validator είναι:
+Τα 13 φύλλα που επιβεβαιώνονται από τον immutable baseline validator είναι:
 
 - PATIENT_PLANNER
 - MASTER_SCHEDULE
@@ -16,12 +16,30 @@
 - CONFLICT_LOG
 - THERAPIST_DAILY
 
+## Schema evolution
+
+Το νέο `STUDENTS` ορίζεται ως authoritative registry για τους φοιτητές. Δεν θεωρείται μέρος του immutable baseline των 13 φύλλων. Προστίθεται μόνο μέσω explicit preview/schema migration σε αντίγραφο του `.xlsm` και, αφού επιβεβαιωθεί, θα χρησιμοποιείται από το formal student-registration workflow.
+
+Authoritative columns A:H:
+
+- StudentID
+- Φοιτητής
+- StudentNumber
+- PlacementStart
+- PlacementEnd
+- SupervisorTherapist
+- ReplacementCapable
+- RoboticCapable
+
+Workbooks χωρίς `STUDENTS` παραμένουν αναγνώσιμα και επιστρέφουν κενό student registry.
+
 ## Working classification
 
 ### Source / input oriented
 - PATIENTS
 - SETTINGS
 - PATIENT_PLANNER
+- STUDENTS (after explicit schema migration)
 - NEW_PATIENT
 
 ### Daily operations
@@ -39,4 +57,4 @@
 ### Structured session data
 - SESSIONS
 
-Η ταξινόμηση αυτή είναι προσωρινή και θα επιβεβαιώνεται sheet-by-sheet πριν αλλάξει συμπεριφορά.
+Η ταξινόμηση αυτή επιβεβαιώνεται sheet-by-sheet πριν αλλάξει συμπεριφορά.
