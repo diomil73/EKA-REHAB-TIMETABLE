@@ -60,6 +60,32 @@ def test_students_registry_imports_identity_placement_and_capabilities(tmp_path)
     assert student.max_daily_timeslots == 5
 
 
+def test_students_registry_accepts_native_excel_date_serials(tmp_path):
+    path = tmp_path / "serial_dates.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "STUDENTS"
+    ws.append(STUDENT_REGISTRY_HEADERS)
+    ws.append(
+        [
+            "STU-SERIAL",
+            "Δοκιμαστικός Φοιτητής",
+            1,
+            46296,
+            46387,
+            "Πέτσιος",
+            "ΝΑΙ",
+            "ΟΧΙ",
+        ]
+    )
+    wb.save(path)
+
+    student = read_students(path)[0]
+
+    assert student.placement_start == date(2026, 10, 1)
+    assert student.placement_end == date(2026, 12, 31)
+
+
 def test_blank_capabilities_use_confirmed_student_defaults(tmp_path):
     path = tmp_path / "defaults.xlsx"
     wb = Workbook()
