@@ -45,6 +45,16 @@ from .models import (
     StudentAssignment,
     Therapist,
 )
+from .registration import (
+    NewPatientRequest,
+    NewStudentRequest,
+    NewTherapistRequest,
+    RegistrationCheck,
+    RegistrationIssue,
+    validate_new_patient,
+    validate_new_student,
+    validate_new_therapist,
+)
 from .replacements import (
     ReplacementCandidate,
     create_replacement_assignment,
@@ -81,9 +91,14 @@ __all__ = [
     "DailyAbsence",
     "DailySessionStatus",
     "DailySessionState",
+    "NewPatientRequest",
+    "NewStudentRequest",
+    "NewTherapistRequest",
     "OperationalOccurrence",
     "Patient",
     "RehabWeekday",
+    "RegistrationCheck",
+    "RegistrationIssue",
     "ReplacementAssignment",
     "ReplacementCandidate",
     "ReplacementProviderKind",
@@ -121,6 +136,9 @@ __all__ = [
     "student_daily_capacity",
     "students_for_session",
     "therapist_daily_capacity",
+    "validate_new_patient",
     "validate_new_patient_assignment_capacity",
+    "validate_new_student",
+    "validate_new_therapist",
     "validate_recurring_timeslot_capacity",
 ]
