@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import date
 from hashlib import sha256
 from pathlib import Path
 import shutil
@@ -62,6 +62,19 @@ def resolve_boolean_cell_value(
         if matcher(item):
             return item
     return "ΝΑΙ" if value else "ΟΧΙ"
+
+
+def excel_date_serial(value: date) -> int:
+    """Return the 1900-date-system serial Excel stores in Value2.
+
+    Sending a Python midnight ``datetime`` through COM can be timezone-normalized
+    by pywin32/Excel on some systems, which shifted the real workbook smoke-test
+    dates back by one calendar day. Writing the date-only Excel serial to
+    ``Value2`` avoids any timezone conversion while still storing a native Excel
+    date value once a date number format is applied.
+    """
+
+    return (value - date(1899, 12, 30)).days
 
 
 def choose_student_target_row(
@@ -255,8 +268,8 @@ class Win32ComStudentRegistrationBackend:
             ws.Cells(target_row, 1).Value = request.student_id.strip()
             ws.Cells(target_row, 2).Value = request.display_name.strip()
             ws.Cells(target_row, 3).Value = int(request.student_number)
-            ws.Cells(target_row, 4).Value = datetime.combine(request.placement_start, time.min)
-            ws.Cells(target_row, 5).Value = datetime.combine(request.placement_end, time.min)
+            ws.Cells(target_row, 4).Value2 = excel_date_serial(request.placement_start)
+            ws.Cells(target_row, 5).Value2 = excel_date_serial(request.placement_end)
             ws.Cells(target_row, 6).Value = (request.supervisor_therapist_id or "").strip()
             ws.Cells(target_row, 7).Value = replacement_cell_value
             ws.Cells(target_row, 8).Value = robotic_cell_value
