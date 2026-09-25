@@ -1,0 +1,266 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from hashlib import sha256
+from pathlib import Path
+import shutil
+import sys
+from typing import Protocol
+
+from rehab_core.registration import NewPatientRequest, validate_new_patient
+
+from .reader import read_patients, read_settings
+
+
+class PatientRegistrationWriteError(RuntimeError):
+    """Raised when a safe patient-registration preview cannot be produced."""
+
+
+def _sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _norm(value: object) -> str:
+    return str(value or "").strip().casefold()
+
+
+def _is_yes_token(value: object) -> bool:
+    return _norm(value) in {"ν", "ναι", "n", "yes", "y", "true", "1"}
+
+
+def resolve_infectious_cell_value(
+    infectious: bool,
+    configured_values: tuple[str, ...],
+) -> str:
+    """Use the workbook's own yes/no labels whenever possible.
+
+    If the current workbook does not expose a usable yes/no list, True falls
+    back to ``Ν`` (already understood by the reader) and False remains blank.
+    """
+
+    if infectious:
+        for value in configured_values:
+            if _is_yes_token(value):
+                return value
+        return "Ν"
+
+    for value in configured_values:
+        if not _is_yes_token(value):
+            return value
+    return ""
+
+
+class PatientRegistrationBackend(Protocol):
+    def append_patient(
+        self,
+        workbook_path: Path,
+        request: NewPatientRequest,
+        *,
+        infectious_cell_value: str,
+    ) -> int:
+        """Append to PATIENTS and return the Excel row that was written."""
+        ...
+
+
+class Win32ComPatientRegistrationBackend:
+    """Append one patient using Excel itself, on an already-created copy only."""
+
+    @staticmethod
+    def _last_used_row(ws, column: int) -> int:
+        # xlUp = -4162
+        return int(ws.Cells(ws.Rows.Count, column).End(-4162).Row)
+
+    def _target_row(self, ws) -> int:
+        # Prefer an existing Excel table covering A:E so its formatting and
+        # table semantics expand natively. Fall back to the first row after the
+        # last PatientID/name value.
+        try:
+            count = int(ws.ListObjects.Count)
+        except Exception:
+            count = 0
+        for index in range(1, count + 1):
+            table = ws.ListObjects(index)
+            first_col = int(table.Range.Column)
+            last_col = first_col + int(table.Range.Columns.Count) - 1
+            if int(table.HeaderRowRange.Row) == 1 and first_col <= 1 and last_col >= 5:
+                return int(table.ListRows.Add().Range.Row)
+
+        last_row = max(self._last_used_row(ws, 1), self._last_used_row(ws, 3), 1)
+        return max(2, last_row + 1)
+
+    def append_patient(
+        self,
+        workbook_path: Path,
+        request: NewPatientRequest,
+        *,
+        infectious_cell_value: str,
+    ) -> int:
+        if sys.platform != "win32":
+            raise PatientRegistrationWriteError(
+                "Patient preview write-back requires Windows with Microsoft Excel"
+            )
+        try:
+            import win32com.client  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise PatientRegistrationWriteError(
+                "pywin32 is required for patient preview write-back"
+            ) from exc
+
+        excel = None
+        workbook = None
+        try:
+            excel = win32com.client.DispatchEx("Excel.Application")
+            excel.Visible = False
+            excel.DisplayAlerts = False
+            excel.ScreenUpdating = False
+            excel.EnableEvents = False
+            workbook = excel.Workbooks.Open(
+                str(workbook_path.resolve()),
+                UpdateLinks=0,
+                ReadOnly=False,
+            )
+            try:
+                ws = workbook.Worksheets("PATIENTS")
+            except Exception as exc:
+                raise PatientRegistrationWriteError("Workbook has no PATIENTS sheet") from exc
+
+            target_row = self._target_row(ws)
+
+            # For a plain range, borrow formats from the previous data row. If
+            # a ListObject was used above, Excel already expands table styling.
+            if target_row > 2:
+                try:
+                    target = ws.Range(f"A{target_row}:E{target_row}")
+                    if int(target.ListObject is None):
+                        ws.Range(f"A{target_row - 1}:E{target_row - 1}").Copy()
+                        target.PasteSpecial(Paste=-4122)  # xlPasteFormats
+                except Exception:
+                    # Formatting is secondary to data safety. Never copy values
+                    # from the previous row merely to obtain a style.
+                    pass
+
+            ws.Cells(target_row, 1).Value = request.patient_id.strip()
+            ws.Cells(target_row, 2).Value = (request.room or "").strip()
+            ws.Cells(target_row, 3).Value = request.display_name.strip()
+            ws.Cells(target_row, 4).Value = infectious_cell_value
+            ws.Cells(target_row, 5).Value = (request.status or "").strip()
+            workbook.Application.CutCopyMode = False
+            workbook.Save()
+            return target_row
+        except PatientRegistrationWriteError:
+            raise
+        except Exception as exc:
+            raise PatientRegistrationWriteError(
+                f"Excel patient registration failed: {exc}"
+            ) from exc
+        finally:
+            if workbook is not None:
+                try:
+                    workbook.Close(SaveChanges=False)
+                except Exception:
+                    pass
+            if excel is not None:
+                try:
+                    excel.Quit()
+                except Exception:
+                    pass
+
+
+@dataclass(frozen=True)
+class PatientRegistrationPreviewReport:
+    source_path: str
+    output_path: str
+    patient_id: str
+    excel_row: int
+    source_unchanged: bool
+    verified_in_output: bool
+
+
+def create_patient_registration_preview(
+    source_path: str | Path,
+    output_path: str | Path,
+    request: NewPatientRequest,
+    *,
+    backend: PatientRegistrationBackend | None = None,
+    overwrite: bool = False,
+) -> PatientRegistrationPreviewReport:
+    """Register one patient in a NEW .xlsm copy and verify the result.
+
+    PATIENTS is authoritative, but the baseline workbook is never opened for
+    writing. PATIENT_PLANNER is intentionally untouched in this first stage.
+    """
+
+    source = Path(source_path).resolve()
+    output = Path(output_path).resolve()
+    if not source.exists():
+        raise PatientRegistrationWriteError(f"Source workbook not found: {source}")
+    if source == output:
+        raise PatientRegistrationWriteError("Output must be different from source workbook")
+    if source.suffix.casefold() != ".xlsm" or output.suffix.casefold() != ".xlsm":
+        raise PatientRegistrationWriteError("Source and output must both be .xlsm files")
+    if output.exists() and not overwrite:
+        raise PatientRegistrationWriteError(f"Output already exists: {output}")
+
+    existing = read_patients(source)
+    settings = read_settings(source)
+    check = validate_new_patient(
+        request,
+        existing_patients=existing,
+        allowed_statuses=settings.patient_statuses,
+        allowed_rooms=settings.rooms,
+    )
+    if not check.allowed:
+        detail = "; ".join(f"{issue.field}: {issue.message}" for issue in check.issues)
+        raise PatientRegistrationWriteError(f"Patient validation failed: {detail}")
+
+    source_before = _sha256(source)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        output.unlink()
+    shutil.copy2(source, output)
+
+    selected_backend = backend or Win32ComPatientRegistrationBackend()
+    infectious_value = resolve_infectious_cell_value(
+        request.infectious,
+        settings.yes_no_values,
+    )
+    try:
+        excel_row = selected_backend.append_patient(
+            output,
+            request,
+            infectious_cell_value=infectious_value,
+        )
+    except Exception:
+        output.unlink(missing_ok=True)
+        raise
+
+    source_after = _sha256(source)
+    if source_before != source_after:
+        output.unlink(missing_ok=True)
+        raise PatientRegistrationWriteError("Source workbook changed during preview creation")
+
+    matches = [
+        patient
+        for patient in read_patients(output)
+        if str(patient.patient_id).strip().casefold()
+        == request.patient_id.strip().casefold()
+    ]
+    verified = len(matches) == 1 and matches[0].display_name.strip() == request.display_name.strip()
+    if not verified:
+        output.unlink(missing_ok=True)
+        raise PatientRegistrationWriteError(
+            "Preview verification failed: new patient was not read back exactly once"
+        )
+
+    return PatientRegistrationPreviewReport(
+        source_path=str(source),
+        output_path=str(output),
+        patient_id=request.patient_id.strip(),
+        excel_row=excel_row,
+        source_unchanged=True,
+        verified_in_output=True,
+    )
