@@ -19,7 +19,7 @@ class PatientRegistrationWriteError(RuntimeError):
 def _sha256(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
+        for block in iter(lambda: handle.read(1024 * 1024, b""), b""):
             digest.update(block)
     return digest.hexdigest()
 
@@ -78,6 +78,23 @@ def choose_patient_target_row(
     if logical_row <= table_last_data_row:
         return logical_row
     return logical_row
+
+
+def _remove_preview_file(path: Path, *, required: bool) -> None:
+    """Remove an old/failed preview without leaking raw WinError 32 tracebacks."""
+
+    if not path.exists():
+        return
+    try:
+        path.unlink()
+    except PermissionError as exc:
+        if required:
+            raise PatientRegistrationWriteError(
+                "Preview workbook is currently open or locked by Excel. "
+                f"Close it and retry: {path}"
+            ) from exc
+        # Best-effort cleanup after another failure. Do not hide the original
+        # exception merely because Excel still owns a handle to the preview.
 
 
 class PatientRegistrationBackend(Protocol):
@@ -268,7 +285,7 @@ def create_patient_registration_preview(
     source_before = _sha256(source)
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
-        output.unlink()
+        _remove_preview_file(output, required=True)
     shutil.copy2(source, output)
 
     selected_backend = backend or Win32ComPatientRegistrationBackend()
@@ -283,12 +300,12 @@ def create_patient_registration_preview(
             infectious_cell_value=infectious_value,
         )
     except Exception:
-        output.unlink(missing_ok=True)
+        _remove_preview_file(output, required=False)
         raise
 
     source_after = _sha256(source)
     if source_before != source_after:
-        output.unlink(missing_ok=True)
+        _remove_preview_file(output, required=False)
         raise PatientRegistrationWriteError("Source workbook changed during preview creation")
 
     matches = [
@@ -299,7 +316,7 @@ def create_patient_registration_preview(
     ]
     verified = len(matches) == 1 and matches[0].display_name.strip() == request.display_name.strip()
     if not verified:
-        output.unlink(missing_ok=True)
+        _remove_preview_file(output, required=False)
         raise PatientRegistrationWriteError(
             "Preview verification failed: new patient was not read back exactly once"
         )
