@@ -1,6 +1,6 @@
-# Formal entity registration - validation stage
+# Formal entity registration
 
-This stage defines the validation contract that future menu/forms must pass before they write authoritative data.
+This area defines the validation and safe preview-write contracts that future menu/forms must pass before authoritative workbook data is changed.
 
 ## Patient
 
@@ -15,15 +15,25 @@ Validated before write:
 
 Duplicate visible patient names are allowed. Identity is based on `PatientID`, not on the display name.
 
+A native Excel preview workflow now writes only to a copied `.xlsm`, verifies the new patient by reading the copy back, and proves the source workbook remained unchanged.
+
 ## Therapist
 
-The current workbook provider registry remains `SETTINGS` / `THERAPISTS_FTH` for this stage.
+The current physiotherapist registry is `SETTINGS` column A, headed `THERAPISTS_FTH`.
 
 Validated before write:
 - non-empty therapist name
-- no case-insensitive duplicate therapist name in the current registry
+- no case- or accent-insensitive duplicate therapist name in the current registry
 
-No workbook write is added here yet.
+The therapist preview workflow:
+- creates a new `.xlsm` copy
+- opens only the copy for native Excel COM writeback
+- appends the name to the next logical `THERAPISTS_FTH` row
+- verifies the resulting therapist registry by reading the copy back
+- verifies the other configured SETTINGS value lists are unchanged
+- hashes the source before and after the operation
+
+Robotic capability is not persisted in this stage because the workbook has no confirmed authoritative therapist-capability storage location yet. Requests that attempt to persist it stop safely instead of silently dropping the flag.
 
 ## Student
 
@@ -41,4 +51,4 @@ Duplicate student display names are allowed because identity is kept separately.
 
 ## Important boundary
 
-This PR is validation-only. It does not yet invent a new Excel storage location for students and it does not write to the baseline workbook. The next stage can add the actual Excel menu/form writeback once the student authoritative registry location is fixed explicitly.
+Preview writeback never changes the baseline workbook. Student Excel storage is still deliberately undefined until an authoritative registry location is agreed explicitly. Final menu/form UI is also deferred until these source/write contracts are stable.
