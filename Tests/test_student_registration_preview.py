@@ -1,5 +1,8 @@
+from datetime import date
+
 from rehab_excel.student_registration import (
     choose_student_target_row,
+    excel_date_serial,
     resolve_boolean_cell_value,
 )
 
@@ -25,3 +28,8 @@ def test_student_boolean_values_use_configured_yes_no_labels():
 def test_student_boolean_values_have_safe_fallbacks():
     assert resolve_boolean_cell_value(True, ()) == "ΝΑΙ"
     assert resolve_boolean_cell_value(False, ()) == "ΟΧΙ"
+
+
+def test_excel_date_serial_preserves_calendar_day_without_datetime_conversion():
+    assert excel_date_serial(date(2026, 10, 1)) == 46296
+    assert excel_date_serial(date(2026, 12, 31)) == 46387
