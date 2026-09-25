@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 from openpyxl import load_workbook
+from openpyxl.utils.datetime import from_excel
 
 from rehab_core.models import Student
 
@@ -33,11 +34,25 @@ def _clean(value: object) -> str | None:
     return text or None
 
 
-def _as_date(value: object, *, field: str, row: int) -> date:
+def _as_date(value: object, *, field: str, row: int, epoch) -> date:
     if isinstance(value, datetime):
         return value.date()
     if isinstance(value, date):
         return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            converted = from_excel(value, epoch=epoch)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise StudentRegistryError(
+                f"STUDENTS row {row}: invalid {field} Excel date {value!r}"
+            ) from exc
+        if isinstance(converted, datetime):
+            return converted.date()
+        if isinstance(converted, date):
+            return converted
+        raise StudentRegistryError(
+            f"STUDENTS row {row}: invalid {field} Excel date {value!r}"
+        )
     text = _clean(value)
     if text is None:
         raise StudentRegistryError(f"STUDENTS row {row}: {field} is required")
@@ -154,10 +169,10 @@ def read_students(path: str | Path) -> list[Student]:
                 values[2], field="StudentNumber", row=excel_row
             )
             placement_start = _as_date(
-                values[3], field="PlacementStart", row=excel_row
+                values[3], field="PlacementStart", row=excel_row, epoch=wb.epoch
             )
             placement_end = _as_date(
-                values[4], field="PlacementEnd", row=excel_row
+                values[4], field="PlacementEnd", row=excel_row, epoch=wb.epoch
             )
             if placement_end < placement_start:
                 raise StudentRegistryError(
