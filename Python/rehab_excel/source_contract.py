@@ -45,6 +45,12 @@ SOURCE_RULES: dict[str, SheetSourceRule] = {
         purpose="Workbook configuration, status lists, day patterns and timeslots",
         python_import=True,
     ),
+    "STUDENTS": SheetSourceRule(
+        sheet="STUDENTS",
+        authority=SheetAuthority.AUTHORITATIVE,
+        purpose="Student identity, placement dates, supervisor and capabilities",
+        python_import=True,
+    ),
     "SESSIONS": SheetSourceRule(
         sheet="SESSIONS",
         authority=SheetAuthority.AUDIT_ONLY,

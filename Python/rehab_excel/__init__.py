@@ -24,6 +24,13 @@ from .reader import (
     read_patients,
     read_settings,
 )
+from .student_registry import (
+    STUDENT_REGISTRY_HEADERS,
+    STUDENT_REGISTRY_SHEET,
+    StudentRegistryError,
+    read_students,
+    validate_student_registry_headers,
+)
 from .snapshot import SourceContractError, WorkbookSnapshot, build_snapshot
 from .writeback import (
     CellPatch,
@@ -88,9 +95,12 @@ __all__ = [
     "AUTHORITATIVE_SHEETS",
     "AuditIssue",
     "SOURCE_RULES",
+    "STUDENT_REGISTRY_HEADERS",
+    "STUDENT_REGISTRY_SHEET",
     "SheetAuthority",
     "SheetSourceRule",
     "SourceContractError",
+    "StudentRegistryError",
     "WorkbookAudit",
     "WorkbookSettings",
     "WorkbookSnapshot",
@@ -121,6 +131,8 @@ __all__ = [
     "read_base_schedule",
     "read_patients",
     "read_settings",
+    "read_students",
+    "validate_student_registry_headers",
     "MASTER_SCHEDULE_HEADERS",
     "THERAPIST_DAILY_GRID_RANGES",
     "THERAPIST_DAILY_HEADER_RANGES",
