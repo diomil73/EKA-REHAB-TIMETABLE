@@ -83,6 +83,61 @@ def choose_student_target_row(
     )
 
 
+def _student_mismatch_detail(
+    expected: list[Student],
+    actual: list[Student],
+    *,
+    target_student_id: str,
+) -> str:
+    """Return a compact read-back diagnostic without dumping unrelated rows."""
+
+    target_key = _key(target_student_id)
+    expected_target = next(
+        (student for student in expected if _key(student.student_id) == target_key),
+        None,
+    )
+    actual_target = next(
+        (student for student in actual if _key(student.student_id) == target_key),
+        None,
+    )
+
+    if actual_target is None:
+        actual_ids = [student.student_id for student in actual]
+        return (
+            f"target StudentID {target_student_id!r} was not found after read-back; "
+            f"actual StudentIDs={actual_ids!r}"
+        )
+    if expected_target is None:
+        return "internal verification error: expected target student is missing"
+
+    fields = (
+        "student_id",
+        "display_name",
+        "student_number",
+        "placement_start",
+        "placement_end",
+        "supervisor_therapist_id",
+        "replacement_capable",
+        "robotic_capable",
+        "max_daily_timeslots",
+    )
+    differences = []
+    for field in fields:
+        expected_value = getattr(expected_target, field)
+        actual_value = getattr(actual_target, field)
+        if expected_value != actual_value:
+            differences.append(
+                f"{field}: expected={expected_value!r}, actual={actual_value!r}"
+            )
+
+    if differences:
+        return "; ".join(differences)
+    return (
+        f"target student matches, but registry sequence/count differs: "
+        f"expected_count={len(expected)}, actual_count={len(actual)}"
+    )
+
+
 def _remove_preview(path: Path, *, required: bool) -> None:
     if not path.exists():
         return
@@ -206,9 +261,6 @@ class Win32ComStudentRegistrationBackend:
             ws.Cells(target_row, 7).Value = replacement_cell_value
             ws.Cells(target_row, 8).Value = robotic_cell_value
 
-            # Date formatting is presentation-only. Some localized Excel COM
-            # installations reject NumberFormat assignments, so never let a
-            # formatting failure invalidate otherwise-safe registry data.
             try:
                 ws.Range(f"D{target_row}:E{target_row}").NumberFormat = "dd/mm/yyyy"
             except Exception:
@@ -345,9 +397,14 @@ def create_student_registration_preview(
     )
     verified = output_students == expected_students and normalized_matches == 1
     if not verified:
+        detail = _student_mismatch_detail(
+            expected_students,
+            output_students,
+            target_student_id=request.student_id,
+        )
         _remove_preview(output, required=False)
         raise StudentRegistrationWriteError(
-            "Preview verification failed: student registry did not read back exactly as expected"
+            "Preview verification failed: " + detail
         )
 
     return StudentRegistrationPreviewReport(
