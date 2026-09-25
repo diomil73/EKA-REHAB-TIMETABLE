@@ -16,6 +16,7 @@ from rehab_excel.student_registration import (  # noqa: E402
     StudentRegistrationWriteError,
     create_student_registration_preview,
 )
+from rehab_excel.student_registry_schema import StudentRegistrySchemaError  # noqa: E402
 
 
 def _parse_date(value: str):
@@ -84,7 +85,7 @@ def main() -> int:
             request,
             overwrite=args.overwrite,
         )
-    except StudentRegistrationWriteError as exc:
+    except (StudentRegistrationWriteError, StudentRegistrySchemaError) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
