@@ -1,0 +1,33 @@
+from rehab_excel.patient_registration import (
+    choose_patient_target_row,
+    resolve_infectious_cell_value,
+)
+
+
+def test_infectious_true_uses_configured_yes_value():
+    assert resolve_infectious_cell_value(True, ("ΝΑΙ", "ΟΧΙ")) == "ΝΑΙ"
+
+
+def test_infectious_false_uses_configured_no_value():
+    assert resolve_infectious_cell_value(False, ("ΝΑΙ", "ΟΧΙ")) == "ΟΧΙ"
+
+
+def test_infectious_true_has_safe_reader_compatible_fallback():
+    assert resolve_infectious_cell_value(True, ()) == "Ν"
+
+
+def test_infectious_false_can_fall_back_to_blank():
+    assert resolve_infectious_cell_value(False, ()) == ""
+
+
+def test_patient_target_row_follows_last_real_patient_not_table_bottom():
+    assert choose_patient_target_row(
+        98,
+        98,
+        table_first_data_row=2,
+        table_last_data_row=550,
+    ) == 99
+
+
+def test_patient_target_row_without_table_is_next_real_row():
+    assert choose_patient_target_row(98, 98) == 99
