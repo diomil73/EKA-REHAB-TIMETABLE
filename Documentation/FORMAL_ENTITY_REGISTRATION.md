@@ -62,9 +62,16 @@ Validated registry semantics:
 - robotic capability defaults to `False` when blank
 - confirmed student capacity remains five daily timeslots and is not exposed as a new workbook field
 
-The registration validator also checks the supervisor against the therapist registry when therapist IDs are supplied. Duplicate student display names remain allowed because identity is kept separately.
+The registration validator also checks the supervisor against the therapist registry when a supervisor is supplied. Duplicate student display names remain allowed because identity is kept separately.
 
-The schema migration workflow creates `STUDENTS` only in a copied `.xlsm`, verifies the exact headers by reading the copy back, and proves the source workbook remained unchanged. Actual student-row writeback is a separate next stage after this schema preview is confirmed on the real workbook.
+The student registration preview workflow:
+- creates a new `.xlsm` copy and never opens the baseline for writing
+- creates the authoritative `STUDENTS` schema in the copy when it is not already present
+- appends the validated student to the next logical row
+- writes placement dates as real Excel date values; date display formatting is best-effort only so localized COM formatting cannot block safe data writeback
+- uses the workbook's configured yes/no labels for replacement and robotic capability when possible
+- verifies the complete student registry by reading the preview back
+- hashes the source before and after the operation
 
 ## Important boundary
 
