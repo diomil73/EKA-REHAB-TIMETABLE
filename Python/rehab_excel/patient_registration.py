@@ -54,6 +54,32 @@ def resolve_infectious_cell_value(
     return ""
 
 
+def choose_patient_target_row(
+    last_patient_id_row: int,
+    last_patient_name_row: int,
+    *,
+    table_first_data_row: int | None = None,
+    table_last_data_row: int | None = None,
+) -> int:
+    """Return the next logical PATIENTS row, not the physical end of a blank table.
+
+    The baseline workbook can contain a pre-sized Excel table whose formatting
+    extends hundreds of rows below the real patient list. In that case a raw
+    ``ListRows.Add()`` would append after the whole table (for example row 551)
+    even though actual patients stop around row 98. Reuse the first existing
+    blank table row immediately after the last real PatientID/name instead.
+    """
+
+    logical_row = max(2, max(last_patient_id_row, last_patient_name_row, 1) + 1)
+    if table_first_data_row is None or table_last_data_row is None:
+        return logical_row
+    if logical_row < table_first_data_row:
+        return table_first_data_row
+    if logical_row <= table_last_data_row:
+        return logical_row
+    return logical_row
+
+
 class PatientRegistrationBackend(Protocol):
     def append_patient(
         self,
@@ -75,9 +101,13 @@ class Win32ComPatientRegistrationBackend:
         return int(ws.Cells(ws.Rows.Count, column).End(-4162).Row)
 
     def _target_row(self, ws) -> int:
-        # Prefer an existing Excel table covering A:E so its formatting and
-        # table semantics expand natively. Fall back to the first row after the
-        # last PatientID/name value.
+        last_id_row = self._last_used_row(ws, 1)
+        last_name_row = self._last_used_row(ws, 3)
+        logical_row = choose_patient_target_row(last_id_row, last_name_row)
+
+        # PATIENTS may be a pre-sized Excel table with many blank styled rows.
+        # If the logical next patient row already lies inside that table, write
+        # there instead of extending the table at its physical bottom.
         try:
             count = int(ws.ListObjects.Count)
         except Exception:
@@ -86,11 +116,29 @@ class Win32ComPatientRegistrationBackend:
             table = ws.ListObjects(index)
             first_col = int(table.Range.Column)
             last_col = first_col + int(table.Range.Columns.Count) - 1
-            if int(table.HeaderRowRange.Row) == 1 and first_col <= 1 and last_col >= 5:
-                return int(table.ListRows.Add().Range.Row)
+            if int(table.HeaderRowRange.Row) != 1 or first_col > 1 or last_col < 5:
+                continue
 
-        last_row = max(self._last_used_row(ws, 1), self._last_used_row(ws, 3), 1)
-        return max(2, last_row + 1)
+            try:
+                data_body = table.DataBodyRange
+            except Exception:
+                data_body = None
+
+            if data_body is not None:
+                first_data_row = int(data_body.Row)
+                last_data_row = first_data_row + int(data_body.Rows.Count) - 1
+                target = choose_patient_target_row(
+                    last_id_row,
+                    last_name_row,
+                    table_first_data_row=first_data_row,
+                    table_last_data_row=last_data_row,
+                )
+                if first_data_row <= target <= last_data_row:
+                    return target
+                if target == last_data_row + 1:
+                    return int(table.ListRows.Add().Range.Row)
+
+        return logical_row
 
     def append_patient(
         self,
@@ -131,11 +179,11 @@ class Win32ComPatientRegistrationBackend:
             target_row = self._target_row(ws)
 
             # For a plain range, borrow formats from the previous data row. If
-            # a ListObject was used above, Excel already expands table styling.
+            # the target is already inside a ListObject, the table owns styling.
             if target_row > 2:
                 try:
                     target = ws.Range(f"A{target_row}:E{target_row}")
-                    if int(target.ListObject is None):
+                    if target.ListObject is None:
                         ws.Range(f"A{target_row - 1}:E{target_row - 1}").Copy()
                         target.PasteSpecial(Paste=-4122)  # xlPasteFormats
                 except Exception:
