@@ -7,13 +7,27 @@ import shutil
 import sys
 from typing import Protocol
 
+from rehab_core.models import PatientType
 from rehab_core.registration import NewPatientRequest, validate_new_patient
 
-from .reader import read_patients, read_settings
+from .patient_registry_source import read_patient_registry
+from .reader import read_settings
 
 
 class PatientRegistrationWriteError(RuntimeError):
     """Raised when a safe patient-registration preview cannot be produced."""
+
+
+PATIENT_TYPE_HEADERS = ("PatientType", "ΤύποςΑσθενή", "Τύπος Ασθενή")
+HOSPITAL_MRN_HEADERS = ("HospitalMRN", "ΑΜ Νοσοκομείου", "ΑΜΝοσοκομείου")
+OUTPATIENT_SCHEDULE_HEADERS = (
+    "PatientID",
+    "Ασθενής",
+    "Θεραπεία",
+    "Ώρα",
+    "Ημέρες",
+    "Θεραπευτής",
+)
 
 
 def _sha256(path: Path) -> str:
@@ -36,11 +50,7 @@ def resolve_infectious_cell_value(
     infectious: bool,
     configured_values: tuple[str, ...],
 ) -> str:
-    """Use the workbook's own yes/no labels whenever possible.
-
-    If the current workbook does not expose a usable yes/no list, True falls
-    back to ``Ν`` (already understood by the reader) and False remains blank.
-    """
+    """Use the workbook's own yes/no labels whenever possible."""
 
     if infectious:
         for value in configured_values:
@@ -74,8 +84,6 @@ def choose_patient_target_row(
 
 
 def _remove_preview_file(path: Path, *, required: bool) -> None:
-    """Remove an old/failed preview without leaking raw WinError 32 tracebacks."""
-
     if not path.exists():
         return
     try:
@@ -86,8 +94,6 @@ def _remove_preview_file(path: Path, *, required: bool) -> None:
                 "Preview workbook is currently open or locked by Excel. "
                 f"Close it and retry: {path}"
             ) from exc
-        # Best-effort cleanup after another failure. Do not hide the original
-        # exception merely because Excel still owns a handle to the preview.
 
 
 class PatientRegistrationBackend(Protocol):
@@ -107,21 +113,10 @@ class Win32ComPatientRegistrationBackend:
 
     @staticmethod
     def _last_used_row(ws, column: int) -> int:
-        # xlUp = -4162. This reports formulas as used even when they display
-        # blank, so it is only an upper bound for the value scan below.
         return int(ws.Cells(ws.Rows.Count, column).End(-4162).Row)
 
     @staticmethod
     def _last_nonblank_value_row(ws, column: int, upper_row: int) -> int:
-        """Find the last row whose calculated/display value is genuinely nonblank.
-
-        PATIENTS contains a pre-sized table. Cells below the visible patient
-        list may contain formulas or table structure that make End(xlUp) report
-        row 550 even though the last real patient is around row 98. Reading
-        Value2 in one block lets us ignore formulas that currently evaluate to
-        an empty string.
-        """
-
         upper_row = max(1, int(upper_row))
         values = ws.Range(ws.Cells(1, column), ws.Cells(upper_row, column)).Value2
         if upper_row == 1:
@@ -148,9 +143,6 @@ class Win32ComPatientRegistrationBackend:
         last_name_row = self._last_nonblank_value_row(ws, 3, scan_bottom)
         logical_row = choose_patient_target_row(last_id_row, last_name_row)
 
-        # PATIENTS may be a pre-sized Excel table with many blank/formula rows.
-        # If the logical next patient row is already inside that table, write
-        # directly there instead of extending the table at its physical bottom.
         try:
             count = int(ws.ListObjects.Count)
         except Exception:
@@ -182,6 +174,71 @@ class Win32ComPatientRegistrationBackend:
                     return int(table.ListRows.Add().Range.Row)
 
         return logical_row
+
+    @staticmethod
+    def _header_columns(ws) -> dict[str, int]:
+        try:
+            used_columns = int(ws.UsedRange.Columns.Count)
+            first_column = int(ws.UsedRange.Column)
+            last_column = first_column + used_columns - 1
+        except Exception:
+            last_column = 7
+        last_column = max(last_column, 7)
+        result: dict[str, int] = {}
+        for column in range(1, last_column + 1):
+            value = ws.Cells(1, column).Value2
+            text = str(value or "").strip()
+            if text:
+                result[text] = column
+        return result
+
+    @staticmethod
+    def _find_header(headers: dict[str, int], names: tuple[str, ...]) -> int | None:
+        for name in names:
+            if name in headers:
+                return headers[name]
+        return None
+
+    def _ensure_patient_extension_columns(self, ws) -> tuple[int, int]:
+        headers = self._header_columns(ws)
+        type_col = self._find_header(headers, PATIENT_TYPE_HEADERS)
+        mrn_col = self._find_header(headers, HOSPITAL_MRN_HEADERS)
+
+        occupied = set(headers.values())
+        next_col = max(occupied or {5}) + 1
+        if type_col is None:
+            while next_col in occupied:
+                next_col += 1
+            type_col = next_col
+            ws.Cells(1, type_col).Value = "PatientType"
+            occupied.add(type_col)
+            next_col += 1
+        if mrn_col is None:
+            while next_col in occupied:
+                next_col += 1
+            mrn_col = next_col
+            ws.Cells(1, mrn_col).Value = "HospitalMRN"
+
+        return type_col, mrn_col
+
+    @staticmethod
+    def _ensure_outpatient_schedule_sheet(workbook) -> None:
+        try:
+            ws = workbook.Worksheets("OUTPATIENT_SCHEDULE")
+        except Exception:
+            ws = workbook.Worksheets.Add(
+                After=workbook.Worksheets(workbook.Worksheets.Count)
+            )
+            ws.Name = "OUTPATIENT_SCHEDULE"
+
+        for column, header in enumerate(OUTPATIENT_SCHEDULE_HEADERS, start=1):
+            current = str(ws.Cells(1, column).Value2 or "").strip()
+            if current and current != header:
+                raise PatientRegistrationWriteError(
+                    "OUTPATIENT_SCHEDULE exists but its header schema is incompatible"
+                )
+            if not current:
+                ws.Cells(1, column).Value = header
 
     def append_patient(
         self,
@@ -219,26 +276,29 @@ class Win32ComPatientRegistrationBackend:
             except Exception as exc:
                 raise PatientRegistrationWriteError("Workbook has no PATIENTS sheet") from exc
 
+            type_col, mrn_col = self._ensure_patient_extension_columns(ws)
+            self._ensure_outpatient_schedule_sheet(workbook)
             target_row = self._target_row(ws)
 
-            # For a plain range, borrow formats from the previous data row. If
-            # the target is already inside a ListObject, the table owns styling.
             if target_row > 2:
                 try:
                     target = ws.Range(f"A{target_row}:E{target_row}")
                     if target.ListObject is None:
                         ws.Range(f"A{target_row - 1}:E{target_row - 1}").Copy()
-                        target.PasteSpecial(Paste=-4122)  # xlPasteFormats
+                        target.PasteSpecial(Paste=-4122)
                 except Exception:
-                    # Formatting is secondary to data safety. Never copy values
-                    # from the previous row merely to obtain a style.
                     pass
 
+            is_outpatient = request.patient_type == PatientType.OUTPATIENT
             ws.Cells(target_row, 1).Value = request.patient_id.strip()
-            ws.Cells(target_row, 2).Value = (request.room or "").strip()
+            ws.Cells(target_row, 2).Value = "" if is_outpatient else (request.room or "").strip()
             ws.Cells(target_row, 3).Value = request.display_name.strip()
-            ws.Cells(target_row, 4).Value = infectious_cell_value
-            ws.Cells(target_row, 5).Value = (request.status or "").strip()
+            ws.Cells(target_row, 4).Value = "" if is_outpatient else infectious_cell_value
+            ws.Cells(target_row, 5).Value = "" if is_outpatient else (request.status or "").strip()
+            ws.Cells(target_row, type_col).Value = (
+                "Εξωτερικός" if is_outpatient else "Εσωτερικός"
+            )
+            ws.Cells(target_row, mrn_col).Value = (request.hospital_mrn or "").strip()
             workbook.Application.CutCopyMode = False
             workbook.Save()
             return target_row
@@ -279,11 +339,7 @@ def create_patient_registration_preview(
     backend: PatientRegistrationBackend | None = None,
     overwrite: bool = False,
 ) -> PatientRegistrationPreviewReport:
-    """Register one patient in a NEW .xlsm copy and verify the result.
-
-    PATIENTS is authoritative, but the baseline workbook is never opened for
-    writing. PATIENT_PLANNER is intentionally untouched in this first stage.
-    """
+    """Register one patient in a NEW .xlsm copy and verify the result."""
 
     source = Path(source_path).resolve()
     output = Path(output_path).resolve()
@@ -296,7 +352,7 @@ def create_patient_registration_preview(
     if output.exists() and not overwrite:
         raise PatientRegistrationWriteError(f"Output already exists: {output}")
 
-    existing = read_patients(source)
+    existing = read_patient_registry(source)
     settings = read_settings(source)
     check = validate_new_patient(
         request,
@@ -336,15 +392,21 @@ def create_patient_registration_preview(
 
     matches = [
         patient
-        for patient in read_patients(output)
+        for patient in read_patient_registry(output)
         if str(patient.patient_id).strip().casefold()
         == request.patient_id.strip().casefold()
     ]
-    verified = len(matches) == 1 and matches[0].display_name.strip() == request.display_name.strip()
+    expected_mrn = (request.hospital_mrn or "").strip() or None
+    verified = (
+        len(matches) == 1
+        and matches[0].display_name.strip() == request.display_name.strip()
+        and matches[0].patient_type == request.patient_type
+        and matches[0].hospital_mrn == expected_mrn
+    )
     if not verified:
         _remove_preview_file(output, required=False)
         raise PatientRegistrationWriteError(
-            "Preview verification failed: new patient was not read back exactly once"
+            "Preview verification failed: patient metadata did not read back exactly"
         )
 
     return PatientRegistrationPreviewReport(

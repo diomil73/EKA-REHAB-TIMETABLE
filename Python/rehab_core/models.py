@@ -17,6 +17,24 @@ class ReplacementProviderKind(str, Enum):
     STUDENT = "student"
 
 
+class PatientType(str, Enum):
+    """Operational patient classification.
+
+    Patient type controls visibility/presentation. It must not remove an
+    outpatient from workload, capacity, replacement, or productivity logic.
+    """
+
+    INPATIENT = "inpatient"
+    OUTPATIENT = "outpatient"
+
+
+class SessionCancellationKind(str, Enum):
+    """Why one scheduled treatment did not take place on a specific day."""
+
+    DEPARTMENT_POSTPONED = "department_postponed"
+    PATIENT_NO_SHOW = "patient_no_show"
+
+
 @dataclass(frozen=True)
 class Patient:
     patient_id: str
@@ -24,6 +42,19 @@ class Patient:
     room: Optional[str] = None
     infectious: bool = False
     status: Optional[str] = None
+    patient_type: PatientType = PatientType.INPATIENT
+    hospital_mrn: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        # Confirmed business rule: an outpatient is never classified/rendered
+        # as infectious. Keep this impossible state out of the domain model,
+        # not only out of the registration UI.
+        if self.patient_type == PatientType.OUTPATIENT and self.infectious:
+            raise ValueError("Outpatient patient cannot be marked infectious")
+
+    @property
+    def is_outpatient(self) -> bool:
+        return self.patient_type == PatientType.OUTPATIENT
 
 
 @dataclass(frozen=True)
@@ -60,6 +91,27 @@ class Session:
     start_time: time
     treatment: Optional[str] = None
     robotic: bool = False
+
+
+@dataclass(frozen=True)
+class DailySessionCancellation:
+    """Cancel one concrete daily session without changing its recurring plan.
+
+    The therapist slot becomes operationally free for other work/replacements,
+    while the immutable Session remains available for audit/history.
+    """
+
+    cancellation_id: str
+    target_session_id: str
+    cancellation_date: date
+    kind: SessionCancellationKind
+    reason: Optional[str] = None
+
+    def applies_to(self, session: Session) -> bool:
+        return (
+            self.target_session_id == session.session_id
+            and self.cancellation_date == session.session_date
+        )
 
 
 @dataclass(frozen=True)

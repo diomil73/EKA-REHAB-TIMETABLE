@@ -13,12 +13,24 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_preview_composer import (  # noqa: E402
+    DailyPreviewCompositionError,
+    compose_outpatient_daily_plan,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
+from rehab_excel.outpatient_schedule_source import (  # noqa: E402
+    OutpatientScheduleSourceError,
+    read_unified_base_schedule,
+)
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.reader import read_base_schedule, read_patients  # noqa: E402
+from rehab_excel.patient_registry_source import (  # noqa: E402
+    PatientRegistrySourceError,
+    read_patient_registry,
+)
 
 
 def _has_vba(path: Path) -> bool:
@@ -54,14 +66,9 @@ def main() -> int:
         return 2
 
     try:
-        # DAILY_INPUT date is read first only after loading patient/base data.
-        patients = read_patients(input_book)
-        base_entries = read_base_schedule(input_book)
+        patients = read_patient_registry(input_book)
+        base_entries = read_unified_base_schedule(input_book)
 
-        # Sessions are needed to resolve therapist labels. Read the date from
-        # DAILY_INPUT with a temporary all-date materialization strategy: the
-        # reader itself validates B2, then we materialize the exact date and
-        # read once more with the correct dated sessions.
         from openpyxl import load_workbook
         from datetime import datetime, date
 
@@ -86,6 +93,7 @@ def main() -> int:
             sessions,
             absences=daily.absences,
             replacements=(),
+            cancellations=daily.cancellations,
             target_date=daily.target_date,
         )
         changed = [state for state in states if state.status.value != "active"]
@@ -102,12 +110,26 @@ def main() -> int:
             patients=patients,
             rebuild_multi_member_groups=True,
         )
-        report = apply_write_plan_to_copy(
+        composed_plan = compose_outpatient_daily_plan(
             preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        report = apply_write_plan_to_copy(
+            composed_plan,
             output,
             overwrite=args.overwrite,
         )
-    except (DailyInputReadError, PatientCentricPreviewError, ValueError, KeyError) as exc:
+    except (
+        DailyInputReadError,
+        DailyPreviewCompositionError,
+        OutpatientPresentationError,
+        OutpatientScheduleSourceError,
+        PatientCentricPreviewError,
+        PatientRegistrySourceError,
+        ValueError,
+        KeyError,
+    ) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
@@ -119,6 +141,7 @@ def main() -> int:
     print(f"Therapist rows read: {daily.therapist_rows_used}")
     print(f"Patient rows read: {daily.patient_rows_used}")
     print(f"Operational absences: {len(daily.absences)}")
+    print(f"Session cancellations: {len(daily.cancellations)}")
     print(f"Changed sessions: {len(preview.bindings)}")
     for warning in daily.warnings:
         print(f"WARNING: {warning}")

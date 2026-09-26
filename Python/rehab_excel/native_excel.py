@@ -33,24 +33,18 @@ def excel_rgb(red: int, green: int, blue: int) -> int:
 
 @dataclass(frozen=True)
 class NativeStylePalette:
-    """Semantic colors used by the current v27 presentation contract.
+    """Semantic colors used by the current v27 presentation contract."""
 
-    Infectious yellow and robotic salmon/pink are taken from existing workbook
-    styles rather than invented during Python migration. Student green is a
-    dedicated future presentation role.
-    """
-
-    infectious_yellow: int = excel_rgb(255, 255, 67)   # FFFFFF43
-    robotic_pink: int = excel_rgb(248, 203, 173)       # FFF8CBAD in v27
-    robotic_orange: int = excel_rgb(255, 140, 0)        # FFFF8C00 in v27 font
+    infectious_yellow: int = excel_rgb(255, 255, 67)
+    robotic_pink: int = excel_rgb(248, 203, 173)
+    outpatient_light_blue: int = excel_rgb(221, 235, 247)
+    robotic_orange: int = excel_rgb(255, 140, 0)
     student_green: int = excel_rgb(0, 128, 0)
     muted_gray: int = excel_rgb(102, 102, 102)
     default_black: int = excel_rgb(0, 0, 0)
 
 
 class ExcelPatchBackend(Protocol):
-    """Backend contract so native Excel behavior can be unit-tested safely."""
-
     def apply(self, workbook_path: Path, patches: tuple[CellPatch, ...]) -> None:
         ...
 
@@ -67,12 +61,7 @@ class NativeWriteReport:
 
 
 class Win32ComExcelBackend:
-    """Apply CellPatch objects using Microsoft Excel itself on Windows.
-
-    The workbook is opened only after a copy has been created. Excel performs
-    the save, preserving VBA, drawings and native workbook structures that are
-    unsafe to rewrite with openpyxl.
-    """
+    """Apply CellPatch objects using Microsoft Excel itself on Windows."""
 
     def __init__(self, palette: NativeStylePalette | None = None) -> None:
         self.palette = palette or NativeStylePalette()
@@ -88,12 +77,6 @@ class Win32ComExcelBackend:
 
     @staticmethod
     def _characters(cell, start: int, length: int):
-        # With pywin32's dynamic Excel dispatch, Range.Characters(Start, Length)
-        # is exposed as an indexed COM property and calling it directly can raise
-        # DISP_E_MEMBERNOTFOUND. pywin32 exposes the property getter as
-        # GetCharacters(Start, Length), which is the compatible route on these
-        # Office installs. Keep a direct Characters fallback for generated/static
-        # wrappers where that syntax is callable.
         getter = getattr(cell, "GetCharacters", None)
         if callable(getter):
             try:
@@ -130,8 +113,10 @@ class Win32ComExcelBackend:
 
         if patch.intent == WriteIntent.CLEAR:
             cell.ClearContents()
-        else:
+        elif patch.intent == WriteIntent.VALUE:
             cell.Value = patch.value
+        elif patch.intent != WriteIntent.PRESENTATION:
+            raise NativeExcelWriteError(f"Unsupported write intent: {patch.intent!r}")
 
         if patch.wrap_text is not None:
             cell.WrapText = bool(patch.wrap_text)
@@ -155,17 +140,20 @@ class Win32ComExcelBackend:
             cell.Interior.Color = self.palette.infectious_yellow
         elif patch.fill_role == "robotic_pink":
             cell.Interior.Color = self.palette.robotic_pink
+        elif patch.fill_role == "outpatient_light_blue":
+            cell.Interior.Color = self.palette.outpatient_light_blue
+        elif patch.fill_role == "clear_fill":
+            # xlPatternNone = -4142. Removing the previous day's outpatient
+            # blue must not alter the cell value or other daily text.
+            cell.Interior.Pattern = -4142
 
         if patch.border_role == "infectious_yellow":
-            # xlContinuous = 1, xlThin = 2. Apply the four outside edges only.
-            for edge in (7, 8, 9, 10):  # left, top, bottom, right
+            for edge in (7, 8, 9, 10):
                 border = cell.Borders(edge)
                 border.LineStyle = 1
                 border.Weight = 2
                 border.Color = self.palette.infectious_yellow
 
-        # Reset whole-string rich-text state first. Then format individual
-        # lines/runs. This prevents stale presentation from a previous day.
         if patch.text_runs:
             cell.Font.Strikethrough = False
             cell.Font.Italic = False
@@ -186,8 +174,7 @@ class Win32ComExcelBackend:
             import win32com.client  # type: ignore[import-not-found]
         except ImportError as exc:
             raise NativeExcelWriteError(
-                "pywin32 is required for native Excel write-back. "
-                "Install with: pip install pywin32"
+                "pywin32 is required for native Excel write-back. Install with: pip install pywin32"
             ) from exc
 
         excel = None
@@ -228,12 +215,7 @@ def apply_write_plan_to_copy(
     backend: ExcelPatchBackend | None = None,
     overwrite: bool = False,
 ) -> NativeWriteReport:
-    """Apply a validated plan to a NEW workbook copy, never to the source.
-
-    The source workbook is hashed before and after the operation. If the source
-    bytes change for any reason, the function raises even if Excel saved the
-    output successfully.
-    """
+    """Apply a validated plan to a NEW workbook copy, never to the source."""
 
     validate_write_plan(plan)
     source = Path(plan.workbook_path).resolve()
@@ -257,8 +239,6 @@ def apply_write_plan_to_copy(
     try:
         selected_backend.apply(output, plan.patches)
     except Exception:
-        # Never leave a file that looks like a successful preview when native
-        # Excel failed part-way through the operation.
         output.unlink(missing_ok=True)
         raise
 
