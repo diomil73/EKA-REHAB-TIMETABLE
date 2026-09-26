@@ -28,12 +28,25 @@ from rehab_core.therapist_absence_queue import (  # noqa: E402
     build_therapist_absence_replacement_queue,
 )
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_preview_composer import (  # noqa: E402
+    DailyPreviewCompositionError,
+    compose_outpatient_daily_plan,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
+from rehab_excel.outpatient_schedule_source import (  # noqa: E402
+    OutpatientScheduleSourceError,
+    read_unified_base_schedule,
+)
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.reader import read_base_schedule, read_patients, read_settings  # noqa: E402
+from rehab_excel.patient_registry_source import (  # noqa: E402
+    PatientRegistrySourceError,
+    read_patient_registry,
+)
+from rehab_excel.reader import read_settings  # noqa: E402
 
 
 def _norm(value: str) -> str:
@@ -132,9 +145,9 @@ def main() -> int:
 
     try:
         target_date = _read_daily_input_date(input_book)
-        patients = read_patients(input_book)
+        patients = read_patient_registry(input_book)
         settings = read_settings(input_book)
-        base_entries = read_base_schedule(input_book)
+        base_entries = read_unified_base_schedule(input_book)
         sessions = materialize_sessions_for_date(base_entries, target_date)
         daily = read_daily_input(input_book, patients=patients, sessions=sessions)
         policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
@@ -189,7 +202,7 @@ def main() -> int:
             "and Manager/Acting Manager open times are active."
         )
         print(
-            "PATIENT SCHEDULE: all PATIENT_PLANNER specialties are checked before a "
+            "PATIENT SCHEDULE: all recurring specialties are checked before a "
             "replacement time is offered."
         )
 
@@ -293,12 +306,26 @@ def main() -> int:
             patients=patients,
             rebuild_multi_member_groups=True,
         )
-        report = apply_write_plan_to_copy(
+        composed_plan = compose_outpatient_daily_plan(
             preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        report = apply_write_plan_to_copy(
+            composed_plan,
             output,
             overwrite=args.overwrite,
         )
-    except (DailyInputReadError, PatientCentricPreviewError, ValueError, KeyError) as exc:
+    except (
+        DailyInputReadError,
+        PatientCentricPreviewError,
+        PatientRegistrySourceError,
+        OutpatientScheduleSourceError,
+        OutpatientPresentationError,
+        DailyPreviewCompositionError,
+        ValueError,
+        KeyError,
+    ) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
