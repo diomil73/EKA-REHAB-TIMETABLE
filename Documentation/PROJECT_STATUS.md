@@ -21,7 +21,7 @@ Branch: `feature/outpatient-scheduling`
 PR #15: `Add outpatient scheduling domain support`
 Status: draft / implementation in progress.
 
-Latest confirmed full suite on this branch: `303 passed, 3 warnings in 3.85s`.
+Latest confirmed full suite on this branch: `310 passed, 3 warnings in 3.69s`.
 
 The three warnings remain the known openpyxl/zipfile warnings already seen in prior checkpoints; no new test regression is represented by them.
 
@@ -46,18 +46,20 @@ The three warnings remain the known openpyxl/zipfile warnings already seen in pr
 - Active outpatient sessions create a blue daily target.
 - Replaced outpatient sessions make the replacement destination blue.
 - Cancelled/no-show outpatient sessions release the slot and do not claim an active blue target.
+- Stale outpatient blue is cleared only when the existing fill is exactly the outpatient light-blue role; yellow, pink and unrelated fills are left untouched.
 
 Implementation added:
 - `Python/rehab_excel/outpatient_presentation.py`
 - daily outpatient target calculation
 - strict robotic-assignment validation for outpatients
 - presentation-only `outpatient_light_blue` patch builder
+- stale-blue cleanup patches using `clear_fill`
 - `Tests/test_outpatient_presentation.py`
 
 ## Daily preview integration completed on this branch
 
 - `WriteIntent.PRESENTATION` in the native Excel backend is formatting-only and never writes `cell.Value`.
-- Added semantic `clear_fill` support for future cleanup of stale outpatient blue formatting.
+- Added semantic `clear_fill` support for safe stale outpatient-blue cleanup.
 - Added `Python/rehab_excel/daily_preview_composer.py`.
 - Presentation patches are merged into existing cell value patches instead of creating conflicting duplicate writes.
 - If a replacement/cancellation patch already changes cell text, outpatient blue is folded into that same patch.
@@ -101,7 +103,7 @@ Added `Tests/test_patient_registry_source.py`.
 
 ## Real operational caller migration
 
-`Python/tools/apply_daily_input.py`, `Python/tools/apply_daily_input_replacements.py`, and `Python/tools/apply_replacement_choice.py` now use the same unified outpatient flow:
+`Python/tools/apply_daily_input.py`, `Python/tools/apply_daily_input_replacements.py`, and `Python/tools/apply_replacement_choice.py` use the unified outpatient flow:
 - patients via `read_patient_registry()`
 - recurring programme via `read_unified_base_schedule()`
 - outpatient blue composition through `compose_outpatient_daily_plan()` before native Excel writeback
@@ -115,9 +117,9 @@ Existing workbooks without the new `OUTPATIENT_SCHEDULE` sheet continue to behav
 
 ## Patient registration preview schema integration
 
-`NewPatientRequest` now carries optional `patient_type` and `hospital_mrn` while defaulting to `INPATIENT` for legacy callers.
+`NewPatientRequest` carries optional `patient_type` and `hospital_mrn` while defaulting to `INPATIENT` for legacy callers.
 
-`Python/rehab_excel/patient_registration.py` now prepares outpatient-compatible storage only on the copied preview workbook:
+`Python/rehab_excel/patient_registration.py` prepares outpatient-compatible storage only on the copied preview workbook:
 - locates or creates PATIENTS extension columns for `PatientType` and `HospitalMRN`
 - creates `OUTPATIENT_SCHEDULE` if missing, with the authoritative six-column header contract
 - writes `Εσωτερικός` / `Εξωτερικός` and optional hospital MRN
@@ -125,39 +127,56 @@ Existing workbooks without the new `OUTPATIENT_SCHEDULE` sheet continue to behav
 - verifies the new patient through `read_patient_registry()` including patient type and MRN
 - continues hashing the source before/after so the baseline remains unchanged
 
-Registration validation now rejects outpatient + infectious and outpatient + inpatient-room combinations before Excel writeback.
+Registration validation rejects outpatient + infectious and outpatient + inpatient-room combinations before Excel writeback.
 
 Added `Tests/test_patient_registration_outpatient_contract.py`.
 
-The newest registration-schema changes still need their targeted tests and full suite rerun.
+## Inpatient-only visibility boundary
 
-## Daily treatment cancellation work completed on this branch
+No additional filter was added to `THERAPIST_DAILY` or `DAILY_INPUT` because those are operational views and must include outpatients.
+
+The inpatient-only boundary is structural:
+- `PATIENT_PLANNER` remains the hospitalized/inpatient recurring source
+- outpatient recurring rows live only in `OUTPATIENT_SCHEDULE`
+- operational callers merge both sources only where scheduling/workload/replacement logic requires them
+
+This avoids accidentally removing outpatients from operational calculations while keeping them out of the hospitalized planner.
+
+## Daily treatment cancellation work
 
 A daily cancellation is a session-specific overlay. It does not modify the recurring/base schedule.
 
-Added:
+Core domain already includes:
 - `DailySessionCancellation`
 - `SessionCancellationKind.DEPARTMENT_POSTPONED`
 - `SessionCancellationKind.PATIENT_NO_SHOW`
 - `DailySessionStatus.CANCELLED`
 - `DailySessionState.releases_provider_slot`
 
-Rules implemented:
-- a cancellation targets one concrete session on one date
+Operational input integration now added, pending test confirmation:
+- `DAILY_INPUT` patient status `ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ` maps to `DEPARTMENT_POSTPONED`
+- `DAILY_INPUT` patient status `ΔΕΝ ΠΡΟΣΗΛΘΕ` maps to `PATIENT_NO_SHOW`
+- both statuses require one concrete time and must resolve to exactly one scheduled session for that patient/date/time
+- cancellation rows cannot use `Όλη ημέρα`
+- cancellation has priority over therapist absence in the replacement queue, so a cancelled/no-show session is not sent for therapist replacement
+- `apply_daily_input.py` and `apply_daily_input_replacements.py` now pass cancellation overlays into daily state construction
+
+Added `Tests/test_daily_input_cancellations.py`.
+
+Rules preserved:
 - another treatment for the same patient on the same day remains active unless separately cancelled
 - cancellation has priority over a replacement overlay for the cancelled session
 - cancelled/no-show treatment has no effective therapist/time for that session
 - original recurring Session remains immutable
-- the original therapist/time is released for use by another patient/replacement
-- cancellation reason and kind remain available for future audit/statistics/rendering
+- original therapist/time is released operationally
+- cancellation reason and kind remain available for audit/statistics/rendering
 
 ## Outpatient rules still to integrate
 
-Outpatients must:
-- continue counting in time-share / productivity accounting
-- be excluded from inpatient-only / hospitalized-patient views
-- persist through actual schedule entry/update workflows, not only source creation/read contracts
-- support daily postponement/no-show input through the operational Excel workflow
+Remaining work includes:
+- ensure released cancellation slots are reflected in replacement capacity/availability calculations, not only daily state/queue priority
+- add the actual outpatient recurring schedule entry/update workflow for `OUTPATIENT_SCHEDULE`
+- smoke-test outpatient registration and operational previews on the target Excel installation
 
 Important principle: outpatient status changes visibility/presentation/storage routing, not whether a session counts operationally.
 
@@ -165,13 +184,11 @@ Operational expectation: outpatients are about 15% max of the patient population
 
 ## Next steps
 
-1. Run the new patient-registration outpatient contract tests plus the existing registration tests and full suite.
-2. Smoke-test an outpatient registration preview on the target Excel installation and verify source hash/VBA preservation/new columns/new sheet.
+1. Run `Tests/test_daily_input_cancellations.py` plus related daily-input/queue tests and the full suite.
+2. Integrate explicit cancellation slot release into replacement option capacity/availability calculations.
 3. Add the actual outpatient recurring schedule entry/update workflow for `OUTPATIENT_SCHEDULE`.
-4. Implement stale-blue cleanup when a cell changes from outpatient-active to inpatient-active on another date.
-5. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
-6. Expose daily cancellation/no-show input in the operational Excel workflow.
-7. Smoke-test the resulting operational preview workbook on the target Excel installation.
+4. Smoke-test an outpatient registration preview on the target Excel installation and verify source hash/VBA preservation/new columns/new sheet.
+5. Smoke-test a daily cancellation/no-show operational preview on the target Excel installation.
 
 ## Safety constraints
 
