@@ -53,6 +53,17 @@ Implementation added:
 - presentation-only `outpatient_light_blue` patch builder
 - `Tests/test_outpatient_presentation.py`
 
+## Daily preview integration completed on this branch
+
+- `WriteIntent.PRESENTATION` in the native Excel backend is now formatting-only and no longer writes `cell.Value`.
+- Added semantic `clear_fill` support for future cleanup of stale daily outpatient blue formatting.
+- Added `Python/rehab_excel/daily_preview_composer.py`.
+- Presentation patches are merged into existing cell value patches instead of creating conflicting duplicate writes.
+- If a replacement/cancellation patch already changes the cell text, outpatient blue is folded into that same patch.
+- Added dedicated tests in `Tests/test_presentation_write_intent.py` and `Tests/test_daily_preview_composer.py`.
+
+These newest integration tests still need to be rerun after the latest commits.
+
 ## Recurring outpatient storage decision
 
 `PATIENT_PLANNER` is an inpatient/hospitalized-patient planner and should not visibly contain outpatients.
@@ -92,7 +103,7 @@ Outpatients must:
 - persist safely through workbook reader/storage
 - be excluded from inpatient-only / hospitalized-patient views
 - be excluded from the inpatient patient-planner view
-- be rendered through the actual `THERAPIST DAILY` preview/write workflow with light-blue fill
+- receive blue formatting through the final preview-generation entry point
 
 Important principle: outpatient status changes visibility/presentation/storage routing, not whether a session counts operationally.
 
@@ -100,13 +111,14 @@ Operational expectation: outpatients are about 15% max of the patient population
 
 ## Next steps
 
-1. Integrate outpatient blue presentation patches into the existing `THERAPIST DAILY` preview/write pipeline.
-2. Ensure presentation-only Excel patches never overwrite cell values.
-3. Add the `OUTPATIENT_SCHEDULE` read/merge contract without changing the current workbook yet.
-4. Make reader/storage changes needed to persist patient type / hospital MRN safely.
-5. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
-6. Expose daily cancellation/no-show input in the operational Excel workflow.
-7. Smoke-test the resulting preview workbook on the target Excel installation.
+1. Rerun the presentation-only and daily preview composer tests plus the full suite.
+2. Wire `compose_outpatient_daily_plan()` into the final daily preview-generation entry point.
+3. Implement stale-blue cleanup using `clear_fill` when a cell changes from outpatient-active to inpatient-active on another date.
+4. Add the `OUTPATIENT_SCHEDULE` read/merge contract without changing the current workbook yet.
+5. Make reader/storage changes needed to persist patient type / hospital MRN safely.
+6. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
+7. Expose daily cancellation/no-show input in the operational Excel workflow.
+8. Smoke-test the resulting preview workbook on the target Excel installation.
 
 ## Safety constraints
 
