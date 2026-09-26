@@ -84,8 +84,11 @@ class RegistrationMenuInstallerBackend(Protocol):
 class Win32ComRegistrationMenuInstaller:
     """Install the central registration menu into an already-created workbook copy.
 
-    Excel's "Trust access to the VBA project object model" setting must be enabled
-    for programmatic VBProject editing. The source workbook is never opened here.
+    This implementation intentionally avoids writing Width/Height properties.
+    Some Office/pywin32 combinations expose MSForms geometry properties as
+    non-settable and fail with ``Property '<unknown>.Width' can not be set``.
+    The shell only needs to prove that the form, controls and code can be safely
+    installed; visual sizing can be refined later after this compatibility gate.
     """
 
     @staticmethod
@@ -97,45 +100,23 @@ class Win32ComRegistrationMenuInstaller:
         vbproject.VBComponents.Remove(component)
 
     @staticmethod
-    def _move_control(control, left: float, top: float, width: float, height: float) -> None:
-        """Set control geometry through MSForms.Move for broad COM compatibility."""
+    def _position_control(control, left: float, top: float) -> None:
+        """Position a control without touching Width or Height."""
 
-        control.Move(left, top, width, height)
-
-    @staticmethod
-    def _set_designer_property(designer, name: str, value: object) -> None:
-        """Set a UserForm property through the VBIDE property bag.
-
-        Some Office builds expose UserForm geometry through the VBIDE designer but
-        reject direct pywin32 assignments such as ``designer.Width = 285`` with
-        ``Property '<unknown>.Width' can not be set``. The VBComponent property bag
-        is more stable across localized/Office versions.
-        """
-
-        try:
-            designer.Properties(name).Value = value
-            return
-        except Exception:
-            pass
-
-        # Fallback for builds that do expose the property directly.
-        setattr(designer, name, value)
+        control.Left = left
+        control.Top = top
 
     @classmethod
     def _add_command_button(cls, designer, name: str, caption: str, top: float) -> None:
         button = designer.Controls.Add("Forms.CommandButton.1", name, True)
         button.Caption = caption
-        cls._move_control(button, 24, top, 220, 30)
-        button.Font.Size = 11
+        cls._position_control(button, 24, top)
 
     @classmethod
     def _add_label(cls, designer, name: str, caption: str, top: float) -> None:
         label = designer.Controls.Add("Forms.Label.1", name, True)
         label.Caption = caption
-        cls._move_control(label, 24, top, 220, 22)
-        label.Font.Size = 12
-        label.Font.Bold = True
-        label.TextAlign = 2  # fmTextAlignCenter
+        cls._position_control(label, 24, top)
 
     def install(self, workbook_path: Path) -> tuple[bool, bool]:
         if sys.platform != "win32":
@@ -187,16 +168,8 @@ class Win32ComRegistrationMenuInstaller:
             form.Name = MENU_FORM_NAME
             designer = form.Designer
             designer.Caption = "Κεντρικό Μενού Εγγραφών"
-            self._set_designer_property(designer, "Width", 285)
-            self._set_designer_property(designer, "Height", 245)
-            self._set_designer_property(designer, "StartUpPosition", 1)  # CenterOwner
 
-            self._add_label(
-                designer,
-                "lblTitle",
-                "Επιλέξτε νέα εγγραφή",
-                18,
-            )
+            self._add_label(designer, "lblTitle", "Επιλέξτε νέα εγγραφή", 18)
             self._add_command_button(designer, "cmdPatient", "Νέος ασθενής", 55)
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
