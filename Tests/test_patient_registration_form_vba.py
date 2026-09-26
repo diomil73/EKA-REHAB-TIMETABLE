@@ -30,6 +30,12 @@ def test_patient_form_supports_inpatient_and_outpatient_types():
     assert 'cboPatientType.Value <> "Εξωτερικός"' in PATIENT_FORM_CODE
 
 
+def test_patient_type_defaults_to_inpatient_for_fewer_clicks():
+    assert 'cboPatientType.AddItem "Εσωτερικός"' in PATIENT_FORM_CODE
+    assert 'cboPatientType.AddItem "Εξωτερικός"' in PATIENT_FORM_CODE
+    assert "cboPatientType.ListIndex = 0" in PATIENT_FORM_CODE
+
+
 def test_patient_form_exposes_optional_hospital_mrn():
     assert "txtHospitalMRN" in PATIENT_FORM_CODE
     assert "ΑΜ Νοσοκομείου" in PATIENT_FORM_CODE
