@@ -4,39 +4,50 @@ Last updated: 2026-09-26
 
 ## Current stage
 
-The project is in the registration UI integration phase.
+The project is now in the outpatient scheduling integration phase.
 
 Completed milestones:
 - unified Python registration orchestration for patient, therapist and student previews
 - registration menu/form contract in Python
 - safe preview-only VBA registration menu installer
 - central `frmRegistrationMenu` UserForm with buttons for patient, therapist, student and close
-- real Excel smoke test confirmed the menu renders correctly on the target Windows/Excel installation
-- patient registration UserForm (`frmNewPatient`) added behind the `Νέος ασθενής` menu action
-- real Excel smoke test confirmed the patient form renders correctly, defaults to `Εσωτερικός`, can switch to `Εξωτερικός`, shows automatic locked PatientID, exposes optional hospital MRN, and disables inpatient-only fields for outpatients
-- full test suite confirmed green for PR #14: `262 passed, 3 warnings in 2.94s`
+- patient registration UserForm (`frmNewPatient`) validated on the target Windows/Excel installation
+- PR #14 merged into `main`
+- full suite at PR #14 validation point: `262 passed, 3 warnings in 2.94s`
 
-## Current pull request
+## Current branch / pull request stage
 
-PR #14: `Add patient registration UserForm`
-Branch: `feature/patient-registration-userform`
-Status: Excel smoke test passed and full pytest suite green; ready for review/merge.
+Branch: `feature/outpatient-scheduling`
+Status: implementation in progress; draft PR to be opened.
 
-The current patient form is preview-only and deliberately performs no workbook write yet.
+## Outpatient domain work completed on this branch
 
-## Current patient-registration decisions
+- Added `PatientType` with values `INPATIENT` and `OUTPATIENT`.
+- Existing/legacy `Patient(...)` objects default to `INPATIENT` for backward compatibility.
+- Added optional `hospital_mrn` to the patient model while keeping `patient_id` as the permanent internal identifier.
+- Added `Patient.is_outpatient` convenience property.
 
-- Patient type is a combo box.
-- Default patient type is `Εσωτερικός` to minimize clicks.
-- User may switch to `Εξωτερικός` from the combo box.
-- Outpatients are operationally expected to be a minority, about 15% max, but this is not a hard registration limit.
-- `PatientID` should be generated automatically and remain a permanent internal system identifier.
-- The hospital registry number (`ΑΜ Νοσοκομείου` / Hospital MRN) is a separate optional field.
-- Hospital MRN may be filled in later without changing PatientID.
-- Room and patient status choices come from `SETTINGS` columns H and F.
-- Inpatient-only fields are disabled/cleared when patient type is switched to outpatient.
+## Daily treatment cancellation work completed on this branch
 
-## Outpatient rules that still need implementation
+A daily cancellation is a session-specific overlay. It does not modify the recurring/base schedule.
+
+Added:
+- `DailySessionCancellation`
+- `SessionCancellationKind.DEPARTMENT_POSTPONED`
+- `SessionCancellationKind.PATIENT_NO_SHOW`
+- `DailySessionStatus.CANCELLED`
+- `DailySessionState.releases_provider_slot`
+
+Rules implemented:
+- a cancellation targets one concrete session on one date
+- another treatment for the same patient on the same day remains active unless separately cancelled
+- cancellation has priority over a replacement overlay for the cancelled session
+- cancelled/no-show treatment has no effective therapist/time for that session
+- original recurring Session remains immutable
+- the original therapist/time is released for use by another patient/replacement
+- cancellation reason and kind remain available for future audit/statistics/rendering
+
+## Outpatient rules still to implement
 
 Outpatients must:
 - participate normally in scheduling
@@ -54,11 +65,18 @@ Outpatients must not:
 
 Important principle: outpatient status changes visibility/presentation, not whether a session counts operationally.
 
+Operational expectation: outpatients are about 15% max of the patient population, but this is not a hard validation ceiling.
+
 ## Next steps
 
-1. Merge PR #14.
-2. Start a separate outpatient scheduling PR touching the domain model, readers, schedule generation, workload/capacity/replacements and `THERAPIST DAILY` rendering.
-3. After scheduling rules are stable, connect the patient UserForm to the existing safe Python registration backend.
+1. Run focused tests for patient type and daily session-state changes.
+2. Run the full pytest suite and fix any compatibility regressions.
+3. Make reader/storage changes needed to persist patient type / hospital MRN safely.
+4. Ensure outpatient sessions participate unchanged in workload, capacity and replacement calculations.
+5. Filter outpatients only from inpatient-only patient/planner views.
+6. Render outpatient sessions in `THERAPIST DAILY` with light-blue fill.
+7. Expose daily cancellation/no-show input in the operational Excel workflow.
+8. Smoke-test the resulting preview workbook on the target Excel installation.
 
 ## Safety constraints
 
@@ -66,7 +84,7 @@ Important principle: outpatient status changes visibility/presentation, not whet
 - Preview workflows must operate on copied `.xlsm` files only.
 - Verify source workbook hash remains unchanged.
 - Preserve and verify `xl/vbaProject.bin`.
-- Keep Excel/VBA compatibility with the target Office installation. The target setup rejected COM writes to some MSForms `Width`/`Height` properties, so final form sizing/styling is performed inside VBA `UserForm_Initialize`.
+- Keep existing scheduling behaviour backward-compatible unless an explicit business rule changes it.
 
 ## Recovery note
 
