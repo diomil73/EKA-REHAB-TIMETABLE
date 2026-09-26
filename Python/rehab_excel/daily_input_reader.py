@@ -8,7 +8,14 @@ from typing import Iterable
 
 from openpyxl import load_workbook
 
-from rehab_core.models import AbsenceKind, DailyAbsence, Patient, Session
+from rehab_core.models import (
+    AbsenceKind,
+    DailyAbsence,
+    DailySessionCancellation,
+    Patient,
+    Session,
+    SessionCancellationKind,
+)
 
 
 SHEET_NAME = "DAILY_INPUT"
@@ -70,6 +77,15 @@ def _is_present_status(value: object) -> bool:
     return _norm(value) in {"ΠΑΡΩΝ", "PARON", "PRESENT"}
 
 
+def _cancellation_kind(value: object) -> SessionCancellationKind | None:
+    normalized = _norm(value)
+    if normalized in {"ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ", "DEPARTMENT POSTPONED"}:
+        return SessionCancellationKind.DEPARTMENT_POSTPONED
+    if normalized in {"ΔΕΝ ΠΡΟΣΗΛΘΕ", "PATIENT NO SHOW", "NO SHOW"}:
+        return SessionCancellationKind.PATIENT_NO_SHOW
+    return None
+
+
 def _one_minute_after(value: time) -> time:
     stamp = datetime.combine(date(2000, 1, 1), value) + timedelta(minutes=1)
     return stamp.time()
@@ -105,6 +121,29 @@ def _provider_id(sessions: Iterable[Session], display_name: str) -> str:
     return matches[0]
 
 
+def _unique_session_for_patient_at(
+    sessions: Iterable[Session],
+    *,
+    patient_id: str,
+    target_date: date,
+    target_time: time,
+) -> Session:
+    matches = [
+        session
+        for session in sessions
+        if session.patient_id == patient_id
+        and session.session_date == target_date
+        and session.start_time == target_time
+    ]
+    if len(matches) != 1:
+        raise DailyInputReadError(
+            f"Expected exactly one session for patient {patient_id!r} at "
+            f"{target_time.strftime('%H:%M')} on {target_date.isoformat()}; "
+            f"found {len(matches)}"
+        )
+    return matches[0]
+
+
 @dataclass(frozen=True)
 class DailyInputReadResult:
     target_date: date
@@ -112,6 +151,7 @@ class DailyInputReadResult:
     therapist_rows_used: int
     patient_rows_used: int
     warnings: tuple[str, ...] = ()
+    cancellations: tuple[DailySessionCancellation, ...] = ()
 
 
 def read_daily_input(
@@ -120,11 +160,15 @@ def read_daily_input(
     patients: Iterable[Patient],
     sessions: Iterable[Session],
 ) -> DailyInputReadResult:
-    """Read DAILY_INPUT into patient/therapist absence overlays.
+    """Read DAILY_INPUT into absence and session-cancellation overlays.
 
     The workbook is never saved by this function. A selected name activates a
     row. Whole-day rows ignore time fields. A therapist row with only a start
     time (or equal start/end) means exactly that timeslot.
+
+    Patient statuses ``ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ`` and ``ΔΕΝ ΠΡΟΣΗΛΘΕ`` are explicit
+    session-specific cancellations. They require one concrete time and must
+    resolve to exactly one scheduled session for that patient/date/time.
     """
 
     workbook_path = Path(workbook_path)
@@ -147,6 +191,7 @@ def read_daily_input(
             raise DailyInputReadError("Patient section appears before therapist section")
 
         absences: list[DailyAbsence] = []
+        cancellations: list[DailySessionCancellation] = []
         warnings: list[str] = []
         therapist_rows_used = 0
         patient_rows_used = 0
@@ -172,8 +217,6 @@ def read_daily_input(
                     raise DailyInputReadError(
                         f"Therapist row {row}: choose Όλη ημέρα=ΝΑΙ or provide Από"
                     )
-                # One selected timeslot is a valid absence. Do not force users
-                # to invent 08:30-08:31 in the final UI.
                 if end is None or end == start:
                     end = _one_minute_after(start)
                 elif end < start:
@@ -209,6 +252,35 @@ def read_daily_input(
                 continue
 
             patient = _unique_patient(patient_list, patient_name)
+            cancellation_kind = _cancellation_kind(status)
+            if cancellation_kind is not None:
+                if all_day:
+                    raise DailyInputReadError(
+                        f"Patient row {row}: {status} must target one session, not Όλη ημέρα"
+                    )
+                start = _parse_time(ws.cell(row, 3).value, field="patient cancellation")
+                if start is None:
+                    raise DailyInputReadError(
+                        f"Patient row {row}: {status} requires Ώρα"
+                    )
+                session = _unique_session_for_patient_at(
+                    session_list,
+                    patient_id=patient.patient_id,
+                    target_date=target_date,
+                    target_time=start,
+                )
+                reason = status if not comment else f"{status} | {comment}"
+                cancellations.append(
+                    DailySessionCancellation(
+                        cancellation_id=f"daily-input:{row}",
+                        target_session_id=session.session_id,
+                        cancellation_date=target_date,
+                        kind=cancellation_kind,
+                        reason=reason,
+                    )
+                )
+                continue
+
             if all_day:
                 start = end = None
             else:
@@ -231,7 +303,7 @@ def read_daily_input(
                 )
             )
 
-        if not absences:
+        if not absences and not cancellations:
             raise DailyInputReadError("DAILY_INPUT contains no active absence/cancellation rows")
 
         return DailyInputReadResult(
@@ -240,6 +312,7 @@ def read_daily_input(
             therapist_rows_used=therapist_rows_used,
             patient_rows_used=patient_rows_used,
             warnings=tuple(warnings),
+            cancellations=tuple(cancellations),
         )
     finally:
         wb.close()
