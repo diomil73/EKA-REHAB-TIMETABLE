@@ -94,7 +94,7 @@ def main() -> int:
     print(f"Read-back verified: {report.verified_in_output}")
     print(f"VBA project present: {vba_present}")
     print("PATIENT_PLANNER changed: False")
-    print("NEXT: open only NEW_PATIENT_PREVIEW.xlsm and inspect the appended PATIENTS row.")
+    print(f"NEXT: open only {output.name} and inspect the appended PATIENTS row.")
     return 0 if report.source_unchanged and report.verified_in_output and vba_present else 3
 
 
