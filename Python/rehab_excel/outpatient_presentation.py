@@ -5,6 +5,8 @@ from datetime import date, time
 from pathlib import Path
 from typing import Iterable, Mapping
 
+from openpyxl import load_workbook
+
 from rehab_core.daily_state import DailySessionState, DailySessionStatus
 from rehab_core.models import (
     BaseScheduleEntry,
@@ -20,6 +22,9 @@ from .writeback import CellPatch, WriteIntent
 
 class OutpatientPresentationError(RuntimeError):
     """Raised when outpatient presentation would require an unsafe guess."""
+
+
+OUTPATIENT_LIGHT_BLUE_RGB = "DDEBF7"
 
 
 @dataclass(frozen=True)
@@ -187,6 +192,40 @@ def _provider_cell(
     )
 
 
+def _normalized_fill_rgb(cell) -> str | None:
+    fill = cell.fill
+    if fill is None or fill.fill_type != "solid":
+        return None
+    color = fill.fgColor
+    if color.type != "rgb" or not color.rgb:
+        return None
+    return str(color.rgb).upper()[-6:]
+
+
+def existing_outpatient_blue_cells(workbook_path: str | Path) -> tuple[str, ...]:
+    """Return THERAPIST_DAILY cells carrying exactly the outpatient blue fill.
+
+    This deliberately ignores every other colour, including infectious yellow
+    and robotic pink, so stale-blue cleanup cannot erase unrelated semantics.
+    """
+
+    path = Path(workbook_path)
+    wb = load_workbook(path, read_only=False, data_only=False, keep_vba=path.suffix.casefold() == ".xlsm")
+    try:
+        if "THERAPIST_DAILY" not in wb.sheetnames:
+            return ()
+        ws = wb["THERAPIST_DAILY"]
+        cells = [
+            cell.coordinate
+            for row in ws.iter_rows()
+            for cell in row
+            if _normalized_fill_rgb(cell) == OUTPATIENT_LIGHT_BLUE_RGB
+        ]
+    finally:
+        wb.close()
+    return tuple(sorted(cells))
+
+
 def build_outpatient_daily_patches(
     workbook_path: str | Path,
     *,
@@ -194,8 +233,9 @@ def build_outpatient_daily_patches(
     patients: Iterable[Patient],
     provider_labels: Mapping[str, str] | None = None,
     students: Iterable[Student] = (),
+    existing_blue_cells: Iterable[str] | None = None,
 ) -> tuple[CellPatch, ...]:
-    """Build presentation-only blue-fill patches for active outpatient slots."""
+    """Build date-aware outpatient fill patches, including stale-blue cleanup."""
 
     state_list = tuple(states)
     dates = {state.session_date for state in state_list}
@@ -209,20 +249,42 @@ def build_outpatient_daily_patches(
     path = Path(workbook_path)
 
     patches: list[CellPatch] = []
+    target_cells: set[str] = set()
     for target in outpatient_daily_targets(state_list, patients):
+        cell = _provider_cell(
+            path,
+            target,
+            provider_labels=labels,
+            students=student_map,
+            target_date=target_date,
+        )
+        target_cells.add(cell.upper())
         patches.append(
             CellPatch(
                 sheet="THERAPIST_DAILY",
-                cell=_provider_cell(
-                    path,
-                    target,
-                    provider_labels=labels,
-                    students=student_map,
-                    target_date=target_date,
-                ),
+                cell=cell,
                 intent=WriteIntent.PRESENTATION,
                 fill_role="outpatient_light_blue",
                 source_tag="outpatient_daily_presentation",
             )
         )
+
+    previous_blue = (
+        tuple(existing_blue_cells)
+        if existing_blue_cells is not None
+        else existing_outpatient_blue_cells(path)
+    )
+    for cell in previous_blue:
+        if cell.upper() in target_cells:
+            continue
+        patches.append(
+            CellPatch(
+                sheet="THERAPIST_DAILY",
+                cell=cell,
+                intent=WriteIntent.PRESENTATION,
+                fill_role="clear_fill",
+                source_tag="outpatient_daily_stale_blue_cleanup",
+            )
+        )
+
     return tuple(patches)
