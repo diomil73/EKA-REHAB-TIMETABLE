@@ -168,6 +168,7 @@ def main() -> int:
         initial_queue = build_therapist_absence_replacement_queue(
             sessions=sessions,
             absences=daily.absences,
+            cancellations=daily.cancellations,
             therapists=therapists,
             patients=patients,
             timeslots=settings.standard_timeslots,
@@ -176,7 +177,7 @@ def main() -> int:
         )
         if not initial_queue.items:
             raise DailyInputReadError(
-                "No session needs replacement after applying patient/therapist absences"
+                "No session needs replacement after applying patient/therapist absences and cancellations"
             )
 
         session_by_id = {session.session_id: session for session in sessions}
@@ -193,6 +194,8 @@ def main() -> int:
                 "Patient-absent sessions excluded: "
                 f"{initial_queue.skipped_patient_absent}"
             )
+        if initial_queue.skipped_cancelled:
+            print(f"Cancelled/no-show sessions excluded: {initial_queue.skipped_cancelled}")
         print(
             "IMPORTANT: ranking is recalculated after every accepted replacement, "
             "so load and occupied timeslots update immediately."
@@ -296,6 +299,7 @@ def main() -> int:
             sessions,
             absences=daily.absences,
             replacements=replacements,
+            cancellations=daily.cancellations,
             target_date=target_date,
         )
         preview = build_patient_centric_preview_plan(
@@ -333,6 +337,7 @@ def main() -> int:
     print("\nDAILY REPLACEMENTS PREVIEW OK")
     print(f"Input: {report.source_path}")
     print(f"Preview: {report.output_path}")
+    print(f"Session cancellations: {len(daily.cancellations)}")
     print(f"Accepted replacements: {len(replacements)}")
     print(f"Unresolved sessions: {len(unresolved)}")
     for replacement in replacements:
