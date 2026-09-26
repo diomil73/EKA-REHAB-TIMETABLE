@@ -73,6 +73,20 @@ The student registration preview workflow:
 - verifies the complete student registry by reading the preview back
 - hashes the source before and after the operation
 
+## Unified registration orchestration
+
+The three proven entity-specific preview workflows now sit behind one backend entry point: `create_registration_preview()` in `rehab_excel.registration_orchestrator`.
+
+The orchestrator:
+- accepts the existing `NewPatientRequest`, `NewTherapistRequest`, or `NewStudentRequest` domain request
+- routes it to the correct validated preview workflow
+- chooses a stable preview filename for each entity
+- normalizes the result to one `RegistrationPreviewResult` shape for a future Excel menu or Windows UI
+- converts entity-specific write errors to one menu-facing `RegistrationOrchestrationError`
+- does not weaken or duplicate the underlying validation, source hashing, COM safety, or read-back verification
+
+A single command-line smoke-test entry point is also available at `Python/tools/preview_registration.py` with `patient`, `therapist`, and `student` subcommands. The older entity-specific preview tools remain valid and are not removed.
+
 ## Important boundary
 
-Preview writeback never changes the baseline workbook. Final menu/form UI remains deferred until these source/write contracts are stable.
+Preview writeback never changes the baseline workbook. The orchestration layer is backend plumbing for the future menu/form UI; it does not yet add buttons, forms, or automatic patient assignment.
