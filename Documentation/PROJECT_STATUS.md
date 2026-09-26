@@ -18,7 +18,10 @@ Completed milestones:
 ## Current branch / pull request stage
 
 Branch: `feature/outpatient-scheduling`
-Status: implementation in progress; draft PR to be opened.
+PR #15: `Add outpatient scheduling domain support`
+Status: draft / implementation in progress.
+
+Latest confirmed full suite on this branch: `268 passed, 3 warnings in 3.35s`.
 
 ## Outpatient domain work completed on this branch
 
@@ -26,6 +29,7 @@ Status: implementation in progress; draft PR to be opened.
 - Existing/legacy `Patient(...)` objects default to `INPATIENT` for backward compatibility.
 - Added optional `hospital_mrn` to the patient model while keeping `patient_id` as the permanent internal identifier.
 - Added `Patient.is_outpatient` convenience property.
+- Added explicit operational-semantics tests confirming that outpatient status does not remove a session from therapist workload, daily capacity, or replacement-candidate logic. These newest tests still need to be rerun after the latest commit.
 
 ## Daily treatment cancellation work completed on this branch
 
@@ -69,14 +73,13 @@ Operational expectation: outpatients are about 15% max of the patient population
 
 ## Next steps
 
-1. Run focused tests for patient type and daily session-state changes.
-2. Run the full pytest suite and fix any compatibility regressions.
+1. Rerun the new outpatient operational-semantics tests and the full suite.
+2. Map the existing time-share/productivity output so no duplicate accounting engine is introduced.
 3. Make reader/storage changes needed to persist patient type / hospital MRN safely.
-4. Ensure outpatient sessions participate unchanged in workload, capacity and replacement calculations.
-5. Filter outpatients only from inpatient-only patient/planner views.
-6. Render outpatient sessions in `THERAPIST DAILY` with light-blue fill.
-7. Expose daily cancellation/no-show input in the operational Excel workflow.
-8. Smoke-test the resulting preview workbook on the target Excel installation.
+4. Filter outpatients only from inpatient-only patient/planner views.
+5. Render outpatient sessions in `THERAPIST DAILY` with light-blue fill.
+6. Expose daily cancellation/no-show input in the operational Excel workflow.
+7. Smoke-test the resulting preview workbook on the target Excel installation.
 
 ## Safety constraints
 
