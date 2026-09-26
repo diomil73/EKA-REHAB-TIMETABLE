@@ -97,23 +97,42 @@ class Win32ComRegistrationMenuInstaller:
         vbproject.VBComponents.Remove(component)
 
     @staticmethod
-    def _add_command_button(designer, name: str, caption: str, top: float) -> None:
-        button = designer.Controls.Add("Forms.CommandButton.1", name, True)
-        button.Caption = caption
-        button.Left = 24
-        button.Top = top
-        button.Width = 220
-        button.Height = 30
-        button.Font.Size = 11
+    def _move_control(control, left: float, top: float, width: float, height: float) -> None:
+        """Set control geometry through MSForms.Move for broad COM compatibility."""
+
+        control.Move(left, top, width, height)
 
     @staticmethod
-    def _add_label(designer, name: str, caption: str, top: float) -> None:
+    def _set_designer_property(designer, name: str, value: object) -> None:
+        """Set a UserForm property through the VBIDE property bag.
+
+        Some Office builds expose UserForm geometry through the VBIDE designer but
+        reject direct pywin32 assignments such as ``designer.Width = 285`` with
+        ``Property '<unknown>.Width' can not be set``. The VBComponent property bag
+        is more stable across localized/Office versions.
+        """
+
+        try:
+            designer.Properties(name).Value = value
+            return
+        except Exception:
+            pass
+
+        # Fallback for builds that do expose the property directly.
+        setattr(designer, name, value)
+
+    @classmethod
+    def _add_command_button(cls, designer, name: str, caption: str, top: float) -> None:
+        button = designer.Controls.Add("Forms.CommandButton.1", name, True)
+        button.Caption = caption
+        cls._move_control(button, 24, top, 220, 30)
+        button.Font.Size = 11
+
+    @classmethod
+    def _add_label(cls, designer, name: str, caption: str, top: float) -> None:
         label = designer.Controls.Add("Forms.Label.1", name, True)
         label.Caption = caption
-        label.Left = 24
-        label.Top = top
-        label.Width = 220
-        label.Height = 22
+        cls._move_control(label, 24, top, 220, 22)
         label.Font.Size = 12
         label.Font.Bold = True
         label.TextAlign = 2  # fmTextAlignCenter
@@ -168,9 +187,9 @@ class Win32ComRegistrationMenuInstaller:
             form.Name = MENU_FORM_NAME
             designer = form.Designer
             designer.Caption = "Κεντρικό Μενού Εγγραφών"
-            designer.Width = 285
-            designer.Height = 245
-            designer.StartUpPosition = 1  # CenterOwner
+            self._set_designer_property(designer, "Width", 285)
+            self._set_designer_property(designer, "Height", 245)
+            self._set_designer_property(designer, "StartUpPosition", 1)  # CenterOwner
 
             self._add_label(
                 designer,
