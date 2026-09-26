@@ -21,7 +21,7 @@ Branch: `feature/outpatient-scheduling`
 PR #15: `Add outpatient scheduling domain support`
 Status: draft / implementation in progress.
 
-Latest confirmed full suite on this branch: `272 passed, 3 warnings in 3.19s`.
+Latest confirmed full suite on this branch: `282 passed, 3 warnings in 2.93s`.
 
 ## Outpatient domain work completed on this branch
 
@@ -53,6 +53,18 @@ Implementation added:
 - presentation-only `outpatient_light_blue` patch builder
 - `Tests/test_outpatient_presentation.py`
 
+## Recurring outpatient storage decision
+
+`PATIENT_PLANNER` is an inpatient/hospitalized-patient planner and should not visibly contain outpatients.
+
+Outpatients still need authoritative recurring source data. They cannot exist only in `THERAPIST DAILY` text because recurring materialization, workload, capacity, replacements and cancellations depend on persistent schedule rows.
+
+Decision recorded in `Documentation/DECISIONS.md`:
+- inpatient recurring rows remain in `PATIENT_PLANNER`
+- outpatient recurring rows will use a separate authoritative source, provisionally `OUTPATIENT_SCHEDULE`
+- the scheduling engine merges both into one `BaseScheduleEntry` stream
+- patient type affects storage/view routing, not operational scheduling semantics
+
 ## Daily treatment cancellation work completed on this branch
 
 A daily cancellation is a session-specific overlay. It does not modify the recurring/base schedule.
@@ -82,17 +94,17 @@ Outpatients must:
 - be excluded from the inpatient patient-planner view
 - be rendered through the actual `THERAPIST DAILY` preview/write workflow with light-blue fill
 
-Important principle: outpatient status changes visibility/presentation, not whether a session counts operationally.
+Important principle: outpatient status changes visibility/presentation/storage routing, not whether a session counts operationally.
 
 Operational expectation: outpatients are about 15% max of the patient population, but this is not a hard validation ceiling.
 
 ## Next steps
 
-1. Run the new outpatient presentation tests and full suite.
-2. Integrate outpatient blue presentation patches into the existing `THERAPIST DAILY` preview/write pipeline.
-3. Ensure `WriteIntent.PRESENTATION` changes formatting only and never rewrites cell value.
+1. Integrate outpatient blue presentation patches into the existing `THERAPIST DAILY` preview/write pipeline.
+2. Ensure presentation-only Excel patches never overwrite cell values.
+3. Add the `OUTPATIENT_SCHEDULE` read/merge contract without changing the current workbook yet.
 4. Make reader/storage changes needed to persist patient type / hospital MRN safely.
-5. Filter outpatients only from inpatient-only patient/planner views.
+5. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
 6. Expose daily cancellation/no-show input in the operational Excel workflow.
 7. Smoke-test the resulting preview workbook on the target Excel installation.
 
