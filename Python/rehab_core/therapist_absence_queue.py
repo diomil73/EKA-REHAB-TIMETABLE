@@ -24,8 +24,6 @@ from .replacement_policy import find_policy_replacement_options
 
 @dataclass(frozen=True)
 class TherapistAbsenceReplacementItem:
-    """One patient session that needs a replacement because its therapist is absent."""
-
     session_id: str
     patient_id: str
     patient_name: str
@@ -61,14 +59,6 @@ def build_therapist_absence_replacement_queue(
     policy_book: ProviderPolicyBook | None = None,
     base_entries: Iterable[BaseScheduleEntry] = (),
 ) -> TherapistAbsenceReplacementQueue:
-    """Build replacement suggestions for sessions affected by therapist absence.
-
-    Explicit session cancellation/no-show has highest priority, followed by
-    patient absence. Provider policy is optional. When recurring base entries
-    are supplied, times occupied by any other specialty for the same patient
-    are removed from replacement options as well.
-    """
-
     session_list = tuple(sessions)
     absence_list = tuple(absences)
     patient_list = tuple(patients)
@@ -112,6 +102,7 @@ def build_therapist_absence_replacement_queue(
                 absences=absence_list,
                 patients=patient_list,
                 replacements=replacement_list,
+                cancellations=cancellation_list,
                 requested_time=session.start_time,
                 timeslots=timeslot_list,
                 students=student_list,
@@ -131,6 +122,7 @@ def build_therapist_absence_replacement_queue(
                 absences=absence_list,
                 patients=patient_list,
                 replacements=replacement_list,
+                cancellations=cancellation_list,
                 requested_time=session.start_time,
                 timeslots=timeslot_list,
                 students=student_list,
