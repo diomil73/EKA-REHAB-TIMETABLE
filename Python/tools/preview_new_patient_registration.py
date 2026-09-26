@@ -10,6 +10,7 @@ PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
+from rehab_core.models import PatientType  # noqa: E402
 from rehab_core.registration import NewPatientRequest  # noqa: E402
 from rehab_excel.patient_registration import (  # noqa: E402
     PatientRegistrationWriteError,
@@ -47,6 +48,13 @@ def main() -> int:
     parser.add_argument("--room")
     parser.add_argument("--status")
     parser.add_argument("--infectious", action="store_true")
+    parser.add_argument(
+        "--patient-type",
+        choices=(PatientType.INPATIENT.value, PatientType.OUTPATIENT.value),
+        default=PatientType.INPATIENT.value,
+        help="Patient classification; defaults to inpatient for backward compatibility",
+    )
+    parser.add_argument("--hospital-mrn")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
@@ -56,6 +64,8 @@ def main() -> int:
         room=args.room,
         infectious=args.infectious,
         status=args.status,
+        patient_type=PatientType(args.patient_type),
+        hospital_mrn=args.hospital_mrn,
     )
 
     try:
@@ -65,7 +75,7 @@ def main() -> int:
             request,
             overwrite=args.overwrite,
         )
-    except PatientRegistrationWriteError as exc:
+    except (PatientRegistrationWriteError, ValueError) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
@@ -77,6 +87,8 @@ def main() -> int:
     print(f"Source: {source}")
     print(f"Preview: {output}")
     print(f"PatientID: {report.patient_id}")
+    print(f"Patient type: {args.patient_type}")
+    print(f"Hospital MRN: {args.hospital_mrn or ''}")
     print(f"PATIENTS row: {report.excel_row}")
     print(f"Source unchanged: {report.source_unchanged}")
     print(f"Read-back verified: {report.verified_in_output}")
