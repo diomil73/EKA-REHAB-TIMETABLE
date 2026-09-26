@@ -12,6 +12,7 @@ from rehab_core import (
 )
 from rehab_excel.outpatient_presentation import (
     OutpatientPresentationError,
+    build_outpatient_daily_patches,
     outpatient_daily_targets,
     validate_outpatient_base_entries,
 )
@@ -187,3 +188,45 @@ def test_inpatient_robotic_assignment_remains_allowed():
     )
 
     validate_outpatient_base_entries([entry], [inpatient()])
+
+
+def test_stale_blue_cell_is_cleared_when_today_is_inpatient(monkeypatch):
+    patches = build_outpatient_daily_patches(
+        "dummy.xlsm",
+        states=[state("S-IN", "P-IN")],
+        patients=[inpatient()],
+        existing_blue_cells=("C10",),
+    )
+
+    assert len(patches) == 1
+    assert patches[0].cell == "C10"
+    assert patches[0].fill_role == "clear_fill"
+
+
+def test_active_outpatient_target_is_not_cleared_as_stale(monkeypatch):
+    monkeypatch.setattr(
+        "rehab_excel.outpatient_presentation._provider_cell",
+        lambda *args, **kwargs: "C10",
+    )
+
+    patches = build_outpatient_daily_patches(
+        "dummy.xlsm",
+        states=[state("S-OUT", "P-OUT")],
+        patients=[outpatient()],
+        existing_blue_cells=("C10", "D10"),
+    )
+
+    by_cell = {patch.cell: patch for patch in patches}
+    assert by_cell["C10"].fill_role == "outpatient_light_blue"
+    assert by_cell["D10"].fill_role == "clear_fill"
+
+
+def test_cleanup_never_creates_non_blue_semantic_fill(monkeypatch):
+    patches = build_outpatient_daily_patches(
+        "dummy.xlsm",
+        states=[state("S-IN", "P-IN")],
+        patients=[inpatient()],
+        existing_blue_cells=("A1", "B2"),
+    )
+
+    assert {patch.fill_role for patch in patches} == {"clear_fill"}
