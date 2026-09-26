@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import unicodedata
 
 from openpyxl import load_workbook
 
@@ -49,27 +50,36 @@ def _first_header(headers: dict[str, int], *names: str) -> int | None:
     return None
 
 
+def _normalize_label(value: str) -> str:
+    """Normalize user-facing labels for robust Greek/Unicode comparison.
+
+    Greek casefolding converts final sigma (ς) to sigma (σ), while accented
+    characters may be represented as composed or decomposed Unicode. Normalize
+    to decomposed form and remove combining marks so labels such as
+    ``Εξωτερικός``, ``ΕΞΩΤΕΡΙΚΟΣ`` and ``Εξωτερικος`` compare identically.
+    """
+
+    decomposed = unicodedata.normalize("NFD", value.casefold())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
 def _patient_type(value: object, *, row_number: int) -> PatientType:
     text = _clean(value)
     if text is None:
         return PatientType.INPATIENT
 
-    normalized = text.casefold()
+    normalized = _normalize_label(text)
     if normalized in {
         "inpatient",
         "internal",
-        "εσωτερικός",
-        "εσωτερικος",
-        "εσωτερική",
+        "εσωτερικοσ",
         "εσωτερικη",
     }:
         return PatientType.INPATIENT
     if normalized in {
         "outpatient",
         "external",
-        "εξωτερικός",
-        "εξωτερικος",
-        "εξωτερική",
+        "εξωτερικοσ",
         "εξωτερικη",
     }:
         return PatientType.OUTPATIENT
