@@ -53,6 +53,18 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _excel_time_serial(value: time) -> float:
+    """Convert ``datetime.time`` to Excel's fraction-of-a-day representation."""
+
+    seconds = (
+        value.hour * 60 * 60
+        + value.minute * 60
+        + value.second
+        + value.microsecond / 1_000_000
+    )
+    return seconds / (24 * 60 * 60)
+
+
 def _target_row_from_entry_id(value: str) -> int:
     prefix = "outpatient:"
     if not value.startswith(prefix):
@@ -209,7 +221,7 @@ class Win32ComOutpatientScheduleBackend:
                 request.patient_id.strip(),
                 patient_name.strip(),
                 request.treatment.strip(),
-                request.start_time,
+                _excel_time_serial(request.start_time),
                 request.day_pattern.strip(),
                 (request.therapist_id or "").strip(),
             )
@@ -261,7 +273,6 @@ def create_outpatient_schedule_preview(
     patients = read_patient_registry(source)
     patient = validate_outpatient_schedule_request(request, patients=patients)
 
-    # Validate update identity against authoritative source before copying/writing.
     if request.target_base_entry_id:
         existing = {
             entry.base_entry_id: entry
