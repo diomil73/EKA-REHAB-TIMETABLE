@@ -45,6 +45,13 @@ class Patient:
     patient_type: PatientType = PatientType.INPATIENT
     hospital_mrn: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        # Confirmed business rule: an outpatient is never classified/rendered
+        # as infectious. Keep this impossible state out of the domain model,
+        # not only out of the registration UI.
+        if self.patient_type == PatientType.OUTPATIENT and self.infectious:
+            raise ValueError("Outpatient patient cannot be marked infectious")
+
     @property
     def is_outpatient(self) -> bool:
         return self.patient_type == PatientType.OUTPATIENT
