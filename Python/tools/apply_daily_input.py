@@ -13,12 +13,14 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_preview_composer import compose_outpatient_daily_plan  # noqa: E402
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.reader import read_base_schedule, read_patients  # noqa: E402
+from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
 
 
 def _has_vba(path: Path) -> bool:
@@ -54,9 +56,14 @@ def main() -> int:
         return 2
 
     try:
-        # DAILY_INPUT date is read first only after loading patient/base data.
-        patients = read_patients(input_book)
-        base_entries = read_base_schedule(input_book)
+        # PATIENTS remains the identity source. The enhanced registry reader is
+        # backward-compatible with the legacy five-column sheet while also
+        # understanding PatientType/HospitalMRN extension columns.
+        patients = read_patient_registry(input_book)
+
+        # Scheduling now sees one recurring stream. Existing workbooks without
+        # OUTPATIENT_SCHEDULE behave exactly as before because that source is optional.
+        base_entries = read_unified_base_schedule(input_book)
 
         # Sessions are needed to resolve therapist labels. Read the date from
         # DAILY_INPUT with a temporary all-date materialization strategy: the
@@ -102,8 +109,13 @@ def main() -> int:
             patients=patients,
             rebuild_multi_member_groups=True,
         )
-        report = apply_write_plan_to_copy(
+        composed_plan = compose_outpatient_daily_plan(
             preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        report = apply_write_plan_to_copy(
+            composed_plan,
             output,
             overwrite=args.overwrite,
         )
