@@ -43,19 +43,17 @@ Outpatients should not appear in inpatient-only patient views or the inpatient p
 
 Outpatients should appear in `THERAPIST DAILY`.
 
-### Exclusive outpatient classification / presentation rule
-An outpatient is always represented only as an outpatient for clinical/presentation classification:
+### Strict visual / clinical rule
+An outpatient is **light blue only** in `THERAPIST DAILY`.
 
-- outpatient `infectious` must be false; an outpatient is never rendered infectious/yellow
-- an outpatient cannot receive robotic treatment as an extra programme; it is never rendered robotic/pink/orange
-- outpatient presence in `THERAPIST DAILY` uses only the dedicated light-blue outpatient presentation
-- the intended outpatient light-blue fill is `DDEBF7`
+An outpatient:
+- is never infectious/yellow
+- never receives robotic treatment / robotic extra programme
+- must not inherit yellow, pink, or any other patient colour from another patient who shares the same recurring therapist/time slot on other weekdays
 
-An outpatient may share the same recurring therapist/time position with another patient on different/complementary weekdays. The other patient may independently be normal, infectious, robotic, or otherwise classified.
+When a therapist/time slot is shared by different patients on different weekdays, `THERAPIST DAILY` presentation is determined by the patient actually active on the concrete date.
 
-For `THERAPIST DAILY`, cell presentation must be determined from the patient who is actually active on the target date. An inactive patient sharing the same recurring weekly cell must not impose their color on the active patient's daily presentation.
-
-Therefore there is no mixed outpatient + infectious/robotic state for the outpatient himself. On a day when the outpatient is the active patient, the daily cell is light blue only.
+If the same effective daily cell would contain both an inpatient and an outpatient simultaneously, cell-level colouring is ambiguous and the renderer must reject the situation rather than guess a colour.
 
 ### Daily postponement / no-show rule
 The recurring outpatient appointment remains in the base schedule, but any specific occurrence may be cancelled for that date without deleting or moving the recurring slot.
