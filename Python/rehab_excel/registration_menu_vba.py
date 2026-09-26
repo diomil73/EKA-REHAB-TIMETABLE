@@ -8,6 +8,8 @@ import sys
 from typing import Protocol
 from zipfile import ZipFile
 
+from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
+
 
 MENU_FORM_NAME = "frmRegistrationMenu"
 MENU_MODULE_NAME = "modRegistrationMenu"
@@ -26,9 +28,6 @@ End Sub
 USERFORM_CODE = '''Option Explicit
 
 Private Sub UserForm_Initialize()
-    ' Do visual sizing inside VBA itself rather than through Python COM.
-    ' Some Office/pywin32 builds reject programmatic Width/Height assignments
-    ' from COM even though the same properties are writable from VBA.
     With Me
         .Caption = "Κεντρικό Μενού Εγγραφών"
         .Width = 330
@@ -82,15 +81,15 @@ Private Sub StyleMenuButton(ByVal button As MSForms.CommandButton, ByVal text As
 End Sub
 
 Private Sub cmdPatient_Click()
-    MsgBox "Η φόρμα εγγραφής νέου ασθενή θα συνδεθεί στο ασφαλές registration backend στο επόμενο βήμα.", vbInformation, "Νέος ασθενής"
+    frmNewPatient.Show
 End Sub
 
 Private Sub cmdTherapist_Click()
-    MsgBox "Η φόρμα εγγραφής νέου θεραπευτή θα συνδεθεί στο ασφαλές registration backend στο επόμενο βήμα.", vbInformation, "Νέος θεραπευτής"
+    MsgBox "Η φόρμα εγγραφής νέου θεραπευτή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος θεραπευτής"
 End Sub
 
 Private Sub cmdStudent_Click()
-    MsgBox "Η φόρμα εγγραφής νέου φοιτητή θα συνδεθεί στο ασφαλές registration backend στο επόμενο βήμα.", vbInformation, "Νέος φοιτητής"
+    MsgBox "Η φόρμα εγγραφής νέου φοιτητή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος φοιτητής"
 End Sub
 
 Private Sub cmdClose_Click()
@@ -155,8 +154,6 @@ class Win32ComRegistrationMenuInstaller:
 
     @staticmethod
     def _position_control(control, left: float, top: float) -> None:
-        """Give newly-created controls safe initial positions only."""
-
         control.Left = left
         control.Top = top
 
@@ -171,6 +168,14 @@ class Win32ComRegistrationMenuInstaller:
         label = designer.Controls.Add("Forms.Label.1", name, True)
         label.Caption = caption
         cls._position_control(label, 24, top)
+
+    @staticmethod
+    def _component_present(vbproject, name: str) -> bool:
+        try:
+            _ = vbproject.VBComponents(name)
+            return True
+        except Exception:
+            return False
 
     def install(self, workbook_path: Path) -> tuple[bool, bool]:
         if sys.platform != "win32":
@@ -211,13 +216,12 @@ class Win32ComRegistrationMenuInstaller:
 
             self._remove_component_if_present(vbproject, MENU_MODULE_NAME)
             self._remove_component_if_present(vbproject, MENU_FORM_NAME)
+            self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
 
-            # vbext_ct_StdModule = 1
             module = vbproject.VBComponents.Add(1)
             module.Name = MENU_MODULE_NAME
             module.CodeModule.AddFromString(STANDARD_MODULE_CODE)
 
-            # vbext_ct_MSForm = 3
             form = vbproject.VBComponents.Add(3)
             form.Name = MENU_FORM_NAME
             designer = form.Designer
@@ -228,17 +232,18 @@ class Win32ComRegistrationMenuInstaller:
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
             self._add_command_button(designer, "cmdClose", "Κλείσιμο", 176)
-
             form.CodeModule.AddFromString(USERFORM_CODE)
+
+            install_patient_form(vbproject, position_control=self._position_control)
             workbook.Save()
 
-            module_present = False
-            form_present = False
-            for index in range(1, int(vbproject.VBComponents.Count) + 1):
-                component = vbproject.VBComponents(index)
-                name = str(component.Name)
-                module_present = module_present or name == MENU_MODULE_NAME
-                form_present = form_present or name == MENU_FORM_NAME
+            module_present = self._component_present(vbproject, MENU_MODULE_NAME)
+            form_present = self._component_present(vbproject, MENU_FORM_NAME)
+            patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
+            if not patient_form_present:
+                raise RegistrationMenuVbaError(
+                    "Patient registration form was not confirmed in the preview VBA project"
+                )
 
             return module_present, form_present
         except RegistrationMenuVbaError:
