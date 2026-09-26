@@ -6,6 +6,7 @@ from typing import Iterable
 
 from .models import (
     DailyAbsence,
+    DailySessionCancellation,
     Patient,
     ReplacementAssignment,
     ReplacementProviderKind,
@@ -24,13 +25,6 @@ def _minutes(value: time) -> int:
 def order_timeslots_by_preference(
     timeslots: Iterable[time], requested_time: time
 ) -> tuple[time, ...]:
-    """Order free slots for one provider.
-
-    Exact requested time wins. Other slots are ordered by distance from the
-    requested time, then chronologically. This makes the recommendation useful
-    without hiding any of the other feasible choices.
-    """
-
     unique = set(timeslots)
     return tuple(
         sorted(
@@ -97,19 +91,14 @@ def find_replacement_options(
     absences: Iterable[DailyAbsence] = (),
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
     *,
     requested_time: time | None = None,
     timeslots: Iterable[time] = (),
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
 ) -> list[ReplacementProviderOption]:
-    """Return ranked providers together with a recommended feasible timeslot.
-
-    Provider order is inherited from ``find_replacement_candidates`` and thus
-    preserves the confirmed policy: lower daily load first, exact-time match
-    second, then the remaining operational tie-breakers. A provider who is busy
-    at the requested time is retained when another common free slot exists.
-    """
+    """Return ranked providers together with a recommended feasible timeslot."""
 
     preferred_time = requested_time or target_session.start_time
     candidates = find_replacement_candidates(
@@ -119,6 +108,7 @@ def find_replacement_options(
         absences=absences,
         patients=patients,
         replacements=replacements,
+        cancellations=cancellations,
         replacement_time=preferred_time,
         timeslots=timeslots,
         students=students,
