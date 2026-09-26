@@ -21,7 +21,7 @@ Branch: `feature/outpatient-scheduling`
 PR #15: `Add outpatient scheduling domain support`
 Status: draft / implementation in progress.
 
-Latest confirmed full suite on this branch: `300 passed, 3 warnings in 3.82s`.
+Latest confirmed full suite on this branch: `303 passed, 3 warnings in 3.85s`.
 
 The three warnings remain the known openpyxl/zipfile warnings already seen in prior checkpoints; no new test regression is represented by them.
 
@@ -101,16 +101,10 @@ Added `Tests/test_patient_registry_source.py`.
 
 ## Real operational caller migration
 
-`Python/tools/apply_daily_input.py` now:
-- reads patients through `read_patient_registry()`
-- reads recurring programme through `read_unified_base_schedule()`
-- composes outpatient blue presentation through `compose_outpatient_daily_plan()` before native Excel writeback
-- catches outpatient registry/schedule/presentation/composition errors and converts them to a clean `SAFETY STOP` instead of a traceback
-
-`Python/tools/apply_daily_input_replacements.py` and `Python/tools/apply_replacement_choice.py` have now been migrated to the same unified outpatient flow:
-- enhanced patient registry
-- unified inpatient + outpatient recurring source
-- outpatient blue composition on the final preview plan
+`Python/tools/apply_daily_input.py`, `Python/tools/apply_daily_input_replacements.py`, and `Python/tools/apply_replacement_choice.py` now use the same unified outpatient flow:
+- patients via `read_patient_registry()`
+- recurring programme via `read_unified_base_schedule()`
+- outpatient blue composition through `compose_outpatient_daily_plan()` before native Excel writeback
 - clean safety handling for outpatient registry/schedule/presentation/composition errors
 
 Added integration wiring tests:
@@ -118,6 +112,24 @@ Added integration wiring tests:
 - `Tests/test_replacement_tools_outpatient_integration.py`
 
 Existing workbooks without the new `OUTPATIENT_SCHEDULE` sheet continue to behave as before because the outpatient source is optional.
+
+## Patient registration preview schema integration
+
+`NewPatientRequest` now carries optional `patient_type` and `hospital_mrn` while defaulting to `INPATIENT` for legacy callers.
+
+`Python/rehab_excel/patient_registration.py` now prepares outpatient-compatible storage only on the copied preview workbook:
+- locates or creates PATIENTS extension columns for `PatientType` and `HospitalMRN`
+- creates `OUTPATIENT_SCHEDULE` if missing, with the authoritative six-column header contract
+- writes `Εσωτερικός` / `Εξωτερικός` and optional hospital MRN
+- clears inpatient-only room/infectious/status fields for outpatient registrations
+- verifies the new patient through `read_patient_registry()` including patient type and MRN
+- continues hashing the source before/after so the baseline remains unchanged
+
+Registration validation now rejects outpatient + infectious and outpatient + inpatient-room combinations before Excel writeback.
+
+Added `Tests/test_patient_registration_outpatient_contract.py`.
+
+The newest registration-schema changes still need their targeted tests and full suite rerun.
 
 ## Daily treatment cancellation work completed on this branch
 
@@ -144,7 +156,7 @@ Rules implemented:
 Outpatients must:
 - continue counting in time-share / productivity accounting
 - be excluded from inpatient-only / hospitalized-patient views
-- persist through the actual workbook-generation/update flow, not only the read contract
+- persist through actual schedule entry/update workflows, not only source creation/read contracts
 - support daily postponement/no-show input through the operational Excel workflow
 
 Important principle: outpatient status changes visibility/presentation/storage routing, not whether a session counts operationally.
@@ -153,12 +165,13 @@ Operational expectation: outpatients are about 15% max of the patient population
 
 ## Next steps
 
-1. Run the new replacement-tool outpatient integration tests plus the full suite.
-2. Add safe preview creation/update support for the `PATIENTS` extension columns and `OUTPATIENT_SCHEDULE` sheet without touching the baseline workbook directly.
-3. Implement stale-blue cleanup when a cell changes from outpatient-active to inpatient-active on another date.
-4. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
-5. Expose daily cancellation/no-show input in the operational Excel workflow.
-6. Smoke-test the resulting preview workbook on the target Excel installation.
+1. Run the new patient-registration outpatient contract tests plus the existing registration tests and full suite.
+2. Smoke-test an outpatient registration preview on the target Excel installation and verify source hash/VBA preservation/new columns/new sheet.
+3. Add the actual outpatient recurring schedule entry/update workflow for `OUTPATIENT_SCHEDULE`.
+4. Implement stale-blue cleanup when a cell changes from outpatient-active to inpatient-active on another date.
+5. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
+6. Expose daily cancellation/no-show input in the operational Excel workflow.
+7. Smoke-test the resulting operational preview workbook on the target Excel installation.
 
 ## Safety constraints
 
