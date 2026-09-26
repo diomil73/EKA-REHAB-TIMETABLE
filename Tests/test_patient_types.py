@@ -1,3 +1,5 @@
+import pytest
+
 from rehab_core import Patient, PatientType
 
 
@@ -21,3 +23,14 @@ def test_outpatient_is_explicit_without_changing_identity():
     assert patient.patient_type == PatientType.OUTPATIENT
     assert patient.is_outpatient is True
     assert patient.hospital_mrn == "MRN-7788"
+    assert patient.infectious is False
+
+
+def test_outpatient_cannot_be_marked_infectious():
+    with pytest.raises(ValueError, match="cannot be marked infectious"):
+        Patient(
+            patient_id="P200",
+            display_name="Εξωτερικός λοιμώδης",
+            patient_type=PatientType.OUTPATIENT,
+            infectious=True,
+        )
