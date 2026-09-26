@@ -66,19 +66,9 @@ def main() -> int:
         return 2
 
     try:
-        # PATIENTS remains the identity source. The enhanced registry reader is
-        # backward-compatible with the legacy five-column sheet while also
-        # understanding PatientType/HospitalMRN extension columns.
         patients = read_patient_registry(input_book)
-
-        # Scheduling now sees one recurring stream. Existing workbooks without
-        # OUTPATIENT_SCHEDULE behave exactly as before because that source is optional.
         base_entries = read_unified_base_schedule(input_book)
 
-        # Sessions are needed to resolve therapist labels. Read the date from
-        # DAILY_INPUT with a temporary all-date materialization strategy: the
-        # reader itself validates B2, then we materialize the exact date and
-        # read once more with the correct dated sessions.
         from openpyxl import load_workbook
         from datetime import datetime, date
 
@@ -103,6 +93,7 @@ def main() -> int:
             sessions,
             absences=daily.absences,
             replacements=(),
+            cancellations=daily.cancellations,
             target_date=daily.target_date,
         )
         changed = [state for state in states if state.status.value != "active"]
@@ -150,6 +141,7 @@ def main() -> int:
     print(f"Therapist rows read: {daily.therapist_rows_used}")
     print(f"Patient rows read: {daily.patient_rows_used}")
     print(f"Operational absences: {len(daily.absences)}")
+    print(f"Session cancellations: {len(daily.cancellations)}")
     print(f"Changed sessions: {len(preview.bindings)}")
     for warning in daily.warnings:
         print(f"WARNING: {warning}")
