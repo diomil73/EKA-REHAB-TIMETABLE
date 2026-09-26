@@ -13,14 +13,24 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
-from rehab_excel.daily_preview_composer import compose_outpatient_daily_plan  # noqa: E402
+from rehab_excel.daily_preview_composer import (  # noqa: E402
+    DailyPreviewCompositionError,
+    compose_outpatient_daily_plan,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
-from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
+from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
+from rehab_excel.outpatient_schedule_source import (  # noqa: E402
+    OutpatientScheduleSourceError,
+    read_unified_base_schedule,
+)
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
+from rehab_excel.patient_registry_source import (  # noqa: E402
+    PatientRegistrySourceError,
+    read_patient_registry,
+)
 
 
 def _has_vba(path: Path) -> bool:
@@ -119,7 +129,16 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
-    except (DailyInputReadError, PatientCentricPreviewError, ValueError, KeyError) as exc:
+    except (
+        DailyInputReadError,
+        DailyPreviewCompositionError,
+        OutpatientPresentationError,
+        OutpatientScheduleSourceError,
+        PatientCentricPreviewError,
+        PatientRegistrySourceError,
+        ValueError,
+        KeyError,
+    ) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
