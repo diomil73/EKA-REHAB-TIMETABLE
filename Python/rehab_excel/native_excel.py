@@ -36,13 +36,14 @@ class NativeStylePalette:
     """Semantic colors used by the current v27 presentation contract.
 
     Infectious yellow and robotic salmon/pink are taken from existing workbook
-    styles rather than invented during Python migration. Student green is a
-    dedicated future presentation role.
+    styles rather than invented during Python migration. Student green and
+    outpatient blue are dedicated future presentation roles.
     """
 
     infectious_yellow: int = excel_rgb(255, 255, 67)   # FFFFFF43
     robotic_pink: int = excel_rgb(248, 203, 173)       # FFF8CBAD in v27
-    robotic_orange: int = excel_rgb(255, 140, 0)        # FFFF8C00 in v27 font
+    outpatient_light_blue: int = excel_rgb(221, 235, 247)  # DDEBF7
+    robotic_orange: int = excel_rgb(255, 140, 0)       # FFFF8C00 in v27 font
     student_green: int = excel_rgb(0, 128, 0)
     muted_gray: int = excel_rgb(102, 102, 102)
     default_black: int = excel_rgb(0, 0, 0)
@@ -155,6 +156,8 @@ class Win32ComExcelBackend:
             cell.Interior.Color = self.palette.infectious_yellow
         elif patch.fill_role == "robotic_pink":
             cell.Interior.Color = self.palette.robotic_pink
+        elif patch.fill_role == "outpatient_light_blue":
+            cell.Interior.Color = self.palette.outpatient_light_blue
 
         if patch.border_role == "infectious_yellow":
             # xlContinuous = 1, xlThin = 2. Apply the four outside edges only.
