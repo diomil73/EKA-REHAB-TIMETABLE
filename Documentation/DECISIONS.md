@@ -46,6 +46,18 @@ Outpatients should appear in `THERAPIST DAILY`.
 ### Visual rule
 Outpatient cells in `THERAPIST DAILY` must use a light-blue fill so they are visually distinguishable from inpatients.
 
+### Daily postponement / no-show rule
+The recurring outpatient appointment remains in the base schedule, but any specific occurrence may be cancelled for that date without deleting or moving the recurring slot.
+
+A daily cancelled occurrence must:
+- be marked with a reason, distinguishing at least `department_cancelled` from `patient_no_show`
+- stop counting as delivered treatment for that date
+- release the therapist timeslot so it can be used for replacement work if needed
+- preserve the original recurring appointment for future dates
+- remain auditable in daily history/statistics
+
+This is a daily operational override, not a change to the patient's base programme.
+
 ## Registration UI
 
 - Central UserForm: `frmRegistrationMenu`
