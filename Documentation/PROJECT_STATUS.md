@@ -14,12 +14,13 @@ Completed milestones:
 - real Excel smoke test confirmed the menu renders correctly on the target Windows/Excel installation
 - patient registration UserForm (`frmNewPatient`) added behind the `Νέος ασθενής` menu action
 - real Excel smoke test confirmed the patient form renders correctly, defaults to `Εσωτερικός`, can switch to `Εξωτερικός`, shows automatic locked PatientID, exposes optional hospital MRN, and disables inpatient-only fields for outpatients
+- full test suite confirmed green for PR #14: `262 passed, 3 warnings in 2.94s`
 
 ## Current pull request
 
 PR #14: `Add patient registration UserForm`
 Branch: `feature/patient-registration-userform`
-Status: Excel smoke test passed; ready for review/merge after tests are confirmed.
+Status: Excel smoke test passed and full pytest suite green; ready for review/merge.
 
 The current patient form is preview-only and deliberately performs no workbook write yet.
 
@@ -55,10 +56,9 @@ Important principle: outpatient status changes visibility/presentation, not whet
 
 ## Next steps
 
-1. Confirm focused and full pytest suites for PR #14.
-2. Merge PR #14 once tests are green.
-3. Start a separate outpatient scheduling PR touching the domain model, readers, schedule generation, workload/capacity/replacements and `THERAPIST DAILY` rendering.
-4. After scheduling rules are stable, connect the patient UserForm to the existing safe Python registration backend.
+1. Merge PR #14.
+2. Start a separate outpatient scheduling PR touching the domain model, readers, schedule generation, workload/capacity/replacements and `THERAPIST DAILY` rendering.
+3. After scheduling rules are stable, connect the patient UserForm to the existing safe Python registration backend.
 
 ## Safety constraints
 
