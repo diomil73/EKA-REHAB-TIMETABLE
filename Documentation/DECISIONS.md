@@ -43,8 +43,19 @@ Outpatients should not appear in inpatient-only patient views or the inpatient p
 
 Outpatients should appear in `THERAPIST DAILY`.
 
-### Visual rule
-Outpatient cells in `THERAPIST DAILY` must use a light-blue fill so they are visually distinguishable from inpatients.
+### Exclusive outpatient classification / presentation rule
+An outpatient is always represented only as an outpatient for clinical/presentation classification:
+
+- outpatient `infectious` must be false; an outpatient is never rendered infectious/yellow
+- an outpatient cannot receive robotic treatment as an extra programme; it is never rendered robotic/pink/orange
+- outpatient presence in `THERAPIST DAILY` uses only the dedicated light-blue outpatient presentation
+- the intended outpatient light-blue fill is `DDEBF7`
+
+An outpatient may share the same recurring therapist/time position with another patient on different/complementary weekdays. The other patient may independently be normal, infectious, robotic, or otherwise classified.
+
+For `THERAPIST DAILY`, cell presentation must be determined from the patient who is actually active on the target date. An inactive patient sharing the same recurring weekly cell must not impose their color on the active patient's daily presentation.
+
+Therefore there is no mixed outpatient + infectious/robotic state for the outpatient himself. On a day when the outpatient is the active patient, the daily cell is light blue only.
 
 ### Daily postponement / no-show rule
 The recurring outpatient appointment remains in the base schedule, but any specific occurrence may be cancelled for that date without deleting or moving the recurring slot.
