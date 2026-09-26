@@ -21,7 +21,7 @@ Branch: `feature/outpatient-scheduling`
 PR #15: `Add outpatient scheduling domain support`
 Status: draft / implementation in progress.
 
-Latest confirmed full suite on this branch: `268 passed, 3 warnings in 3.35s`.
+Latest confirmed full suite on this branch: `272 passed, 3 warnings in 3.19s`.
 
 ## Outpatient domain work completed on this branch
 
@@ -29,7 +29,8 @@ Latest confirmed full suite on this branch: `268 passed, 3 warnings in 3.35s`.
 - Existing/legacy `Patient(...)` objects default to `INPATIENT` for backward compatibility.
 - Added optional `hospital_mrn` to the patient model while keeping `patient_id` as the permanent internal identifier.
 - Added `Patient.is_outpatient` convenience property.
-- Added explicit operational-semantics tests confirming that outpatient status does not remove a session from therapist workload, daily capacity, or replacement-candidate logic. These newest tests still need to be rerun after the latest commit.
+- Added explicit operational-semantics tests confirming that outpatient status does not remove a session from therapist workload, daily capacity, or replacement-candidate logic.
+- Operational-semantics tests and full suite have been rerun successfully at the latest checkpoint above.
 
 ## Daily treatment cancellation work completed on this branch
 
@@ -71,13 +72,20 @@ Important principle: outpatient status changes visibility/presentation, not whet
 
 Operational expectation: outpatients are about 15% max of the patient population, but this is not a hard validation ceiling.
 
+## Presentation decision in progress
+
+- Outpatient sessions in `THERAPIST DAILY` will use semantic fill role `outpatient_light_blue`.
+- Proposed light-blue RGB: `DDEBF7`.
+- Clinical presentation has priority: infectious yellow and robotic pink must not be hidden by outpatient blue.
+- Active outpatient sessions must receive the blue presentation even when there is no absence/replacement overlay.
+
 ## Next steps
 
-1. Rerun the new outpatient operational-semantics tests and the full suite.
-2. Map the existing time-share/productivity output so no duplicate accounting engine is introduced.
-3. Make reader/storage changes needed to persist patient type / hospital MRN safely.
-4. Filter outpatients only from inpatient-only patient/planner views.
-5. Render outpatient sessions in `THERAPIST DAILY` with light-blue fill.
+1. Add and test `outpatient_light_blue` support in native Excel write-back.
+2. Make active outpatient sessions trigger a `THERAPIST DAILY` presentation patch.
+3. Map the existing time-share/productivity output so no duplicate accounting engine is introduced.
+4. Make reader/storage changes needed to persist patient type / hospital MRN safely.
+5. Filter outpatients only from inpatient-only patient/planner views.
 6. Expose daily cancellation/no-show input in the operational Excel workflow.
 7. Smoke-test the resulting preview workbook on the target Excel installation.
 
