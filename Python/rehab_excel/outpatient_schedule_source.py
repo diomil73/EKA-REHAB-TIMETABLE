@@ -9,7 +9,8 @@ from rehab_core.day_patterns import parse_day_pattern
 from rehab_core.models import BaseScheduleEntry, Patient
 
 from .outpatient_presentation import validate_outpatient_base_entries
-from .reader import IMPLICIT_DAILY_PATTERN, read_base_schedule, read_patients
+from .patient_registry_source import read_patient_registry
+from .reader import IMPLICIT_DAILY_PATTERN, read_base_schedule
 
 
 OUTPATIENT_SCHEDULE_SHEET = "OUTPATIENT_SCHEDULE"
@@ -71,7 +72,7 @@ def read_outpatient_schedule(
     """
 
     workbook_path = Path(path)
-    patient_list = list(patients) if patients is not None else read_patients(path)
+    patient_list = list(patients) if patients is not None else read_patient_registry(path)
     patient_by_id = {patient.patient_id: patient for patient in patient_list}
 
     wb = load_workbook(
@@ -155,7 +156,7 @@ def read_unified_base_schedule(path: str | Path) -> list[BaseScheduleEntry]:
     capacity, replacement, and daily-state semantics for both patient types.
     """
 
-    patients = read_patients(path)
+    patients = read_patient_registry(path)
     inpatient_entries = read_base_schedule(path)
     outpatient_entries = read_outpatient_schedule(path, patients=patients)
     return [*inpatient_entries, *outpatient_entries]
