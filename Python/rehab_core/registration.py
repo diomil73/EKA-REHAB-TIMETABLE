@@ -5,7 +5,7 @@ from datetime import date
 from typing import Iterable
 import unicodedata
 
-from .models import Patient, Student, Therapist
+from .models import Patient, PatientType, Student, Therapist
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,8 @@ class NewPatientRequest:
     room: str | None = None
     infectious: bool = False
     status: str | None = None
+    patient_type: PatientType = PatientType.INPATIENT
+    hospital_mrn: str | None = None
 
 
 @dataclass(frozen=True)
@@ -83,6 +85,24 @@ def validate_new_patient(
 
     if not _nonblank(request.display_name):
         issues.append(RegistrationIssue("patient_name_required", "display_name", "Patient name is required"))
+
+    if request.patient_type == PatientType.OUTPATIENT:
+        if request.infectious:
+            issues.append(
+                RegistrationIssue(
+                    "outpatient_infectious_not_allowed",
+                    "infectious",
+                    "Outpatient patient cannot be infectious",
+                )
+            )
+        if request.room is not None and str(request.room).strip():
+            issues.append(
+                RegistrationIssue(
+                    "outpatient_room_not_allowed",
+                    "room",
+                    "Outpatient patient must not have an inpatient room",
+                )
+            )
 
     if request.status is not None and allowed_statuses is not None:
         allowed = {_key(value) for value in allowed_statuses}
