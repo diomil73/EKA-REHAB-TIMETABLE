@@ -29,8 +29,29 @@ Latest confirmed full suite on this branch: `272 passed, 3 warnings in 3.19s`.
 - Existing/legacy `Patient(...)` objects default to `INPATIENT` for backward compatibility.
 - Added optional `hospital_mrn` to the patient model while keeping `patient_id` as the permanent internal identifier.
 - Added `Patient.is_outpatient` convenience property.
+- Domain rejects an outpatient marked infectious.
 - Added explicit operational-semantics tests confirming that outpatient status does not remove a session from therapist workload, daily capacity, or replacement-candidate logic.
 - Operational-semantics tests and full suite have been rerun successfully at the latest checkpoint above.
+
+## Strict outpatient presentation rules
+
+- An outpatient is visually **light blue only** in `THERAPIST DAILY`.
+- An outpatient can never be infectious/yellow.
+- An outpatient can never receive robotic treatment or a robotic extra programme.
+- A recurring therapist/time slot may be shared with another patient on different weekdays.
+- The colour shown in `THERAPIST DAILY` is determined by the patient actually active in that slot on the concrete date.
+- Colours from another patient who shares the recurring slot on other weekdays must not leak into the outpatient day.
+- If the same effective daily cell would contain both an inpatient and an outpatient at the same time, the renderer must reject the ambiguous cell-level colour instead of guessing.
+- Active outpatient sessions create a blue daily target.
+- Replaced outpatient sessions make the replacement destination blue.
+- Cancelled/no-show outpatient sessions release the slot and do not claim an active blue target.
+
+Implementation added:
+- `Python/rehab_excel/outpatient_presentation.py`
+- daily outpatient target calculation
+- strict robotic-assignment validation for outpatients
+- presentation-only `outpatient_light_blue` patch builder
+- `Tests/test_outpatient_presentation.py`
 
 ## Daily treatment cancellation work completed on this branch
 
@@ -52,38 +73,24 @@ Rules implemented:
 - the original therapist/time is released for use by another patient/replacement
 - cancellation reason and kind remain available for future audit/statistics/rendering
 
-## Outpatient rules still to implement
+## Outpatient rules still to integrate
 
 Outpatients must:
-- participate normally in scheduling
-- count in therapist workload
-- count in time-share / productivity accounting
-- count in provider capacity checks
-- participate in replacement logic exactly like inpatients
-- follow the same recurring days and treatment times
-- appear in `THERAPIST DAILY`
-- render with a light-blue cell color in `THERAPIST DAILY`
-
-Outpatients must not:
-- appear in inpatient-only / hospitalized-patient views
-- appear in the inpatient patient-planner view
+- continue counting in time-share / productivity accounting
+- persist safely through workbook reader/storage
+- be excluded from inpatient-only / hospitalized-patient views
+- be excluded from the inpatient patient-planner view
+- be rendered through the actual `THERAPIST DAILY` preview/write workflow with light-blue fill
 
 Important principle: outpatient status changes visibility/presentation, not whether a session counts operationally.
 
 Operational expectation: outpatients are about 15% max of the patient population, but this is not a hard validation ceiling.
 
-## Presentation decision in progress
-
-- Outpatient sessions in `THERAPIST DAILY` will use semantic fill role `outpatient_light_blue`.
-- Proposed light-blue RGB: `DDEBF7`.
-- Clinical presentation has priority: infectious yellow and robotic pink must not be hidden by outpatient blue.
-- Active outpatient sessions must receive the blue presentation even when there is no absence/replacement overlay.
-
 ## Next steps
 
-1. Add and test `outpatient_light_blue` support in native Excel write-back.
-2. Make active outpatient sessions trigger a `THERAPIST DAILY` presentation patch.
-3. Map the existing time-share/productivity output so no duplicate accounting engine is introduced.
+1. Run the new outpatient presentation tests and full suite.
+2. Integrate outpatient blue presentation patches into the existing `THERAPIST DAILY` preview/write pipeline.
+3. Ensure `WriteIntent.PRESENTATION` changes formatting only and never rewrites cell value.
 4. Make reader/storage changes needed to persist patient type / hospital MRN safely.
 5. Filter outpatients only from inpatient-only patient/planner views.
 6. Expose daily cancellation/no-show input in the operational Excel workflow.
