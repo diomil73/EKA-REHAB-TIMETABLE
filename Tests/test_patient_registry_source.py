@@ -57,6 +57,28 @@ def test_extended_registry_reads_outpatient_and_hospital_mrn(tmp_path):
     assert patient.room is None
 
 
+@pytest.mark.parametrize(
+    "label",
+    ["Εξωτερικός", "ΕΞΩΤΕΡΙΚΟΣ", "Εξωτερικος"],
+)
+def test_greek_outpatient_labels_normalize_reliably(tmp_path, label):
+    path = _save(
+        tmp_path,
+        [
+            "PatientID",
+            "Θάλαμος",
+            "Ασθενής",
+            "Λοιμώδης",
+            "Κατάσταση",
+            "ΤύποςΑσθενή",
+        ],
+        [["O1", None, "ΕΞΩΤΕΡΙΚΟΣ", "Ο", None, label]],
+    )
+
+    [patient] = read_patient_registry(path)
+    assert patient.patient_type == PatientType.OUTPATIENT
+
+
 def test_unknown_patient_type_is_rejected_instead_of_defaulting(tmp_path):
     path = _save(
         tmp_path,
