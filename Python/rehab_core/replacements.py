@@ -11,6 +11,7 @@ from .availability import (
 )
 from .models import (
     DailyAbsence,
+    DailySessionCancellation,
     Patient,
     ReplacementAssignment,
     ReplacementProviderKind,
@@ -24,11 +25,7 @@ from .workload import calculate_student_workload, calculate_therapist_workload
 
 @dataclass(frozen=True)
 class ReplacementCandidate:
-    """One operational replacement option.
-
-    ``therapist_id`` is kept for backward compatibility. It may contain either
-    a therapist id or a student id; ``provider_kind`` tells which one it is.
-    """
+    """One operational replacement option."""
 
     therapist_id: str
     display_name: str
@@ -53,13 +50,6 @@ def _day_timeslots(
     requested_time: time,
     timeslots: Iterable[time],
 ) -> tuple[time, ...]:
-    """Return the timeslot grid known to the engine for this day.
-
-    Excel will later pass the real slot grid from SETTINGS. Until then, when no
-    explicit grid is supplied, the engine safely derives known slots from the
-    day's sessions and always includes the requested time.
-    """
-
     explicit = tuple(timeslots)
     if explicit:
         values = set(explicit)
@@ -80,6 +70,7 @@ def _patient_can_use_slot(
     sessions: tuple[Session, ...],
     absences: tuple[DailyAbsence, ...],
     replacements: tuple[ReplacementAssignment, ...],
+    cancellations: tuple[DailySessionCancellation, ...],
 ) -> bool:
     return is_patient_available(
         patient_id=target_session.patient_id,
@@ -88,6 +79,7 @@ def _patient_can_use_slot(
         sessions=sessions,
         absences=absences,
         replacements=replacements,
+        cancellations=cancellations,
         ignore_session_id=target_session.session_id,
     )
 
@@ -99,6 +91,7 @@ def find_replacement_candidates(
     absences: Iterable[DailyAbsence] = (),
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
     *,
     replacement_time: time | None = None,
     timeslots: Iterable[time] = (),
@@ -107,20 +100,15 @@ def find_replacement_candidates(
 ) -> list[ReplacementCandidate]:
     """Rank replacement providers using the confirmed operational priority.
 
-    Priority is deliberately lexicographic:
-    1. lower current daily load;
-    2. among equal load, availability at the requested/original time;
-    3. otherwise, the provider remains eligible when another common free
-       timeslot exists for both provider and patient.
-
-    A busy requested time is therefore *not* an automatic exclusion. Students
-    use the same ranking but may not exceed their daily timeslot capacity.
+    Daily cancellations remove only the concrete cancelled occurrence from
+    provider/patient occupancy and workload. The recurring Session stays intact.
     """
 
     sessions = tuple(sessions)
     absences = tuple(absences)
     patients = tuple(patients)
     replacements = tuple(replacements)
+    cancellations = tuple(cancellations)
     therapists = tuple(therapists)
     students = tuple(students)
     student_assignments = tuple(student_assignments)
@@ -133,8 +121,6 @@ def find_replacement_candidates(
     target_patient = patient_by_id.get(target_session.patient_id)
     target_is_infectious = bool(target_patient and target_patient.infectious)
 
-    # If the patient is absent for every known slot, no operational replacement
-    # can be proposed. Other patient conflicts are handled per-slot below.
     patient_usable_slots = tuple(
         slot
         for slot in day_timeslots
@@ -144,6 +130,7 @@ def find_replacement_candidates(
             sessions=sessions,
             absences=absences,
             replacements=replacements,
+            cancellations=cancellations,
         )
     )
     if not patient_usable_slots:
@@ -167,6 +154,7 @@ def find_replacement_candidates(
                 sessions=sessions,
                 absences=absences,
                 replacements=replacements,
+                cancellations=cancellations,
             )
         )
         if not available_slots:
@@ -179,11 +167,8 @@ def find_replacement_candidates(
             absences=absences,
             patients=patients,
             replacements=replacements,
+            cancellations=cancellations,
         )
-        # Hard capacity rule: normal physiotherapists may occupy at most six
-        # distinct timeslots per day (or an explicitly configured limit on the
-        # Therapist model). A free-looking seventh slot is therefore not a
-        # valid replacement option.
         if workload.active_timeslots >= therapist.max_daily_timeslots:
             continue
 
@@ -220,6 +205,7 @@ def find_replacement_candidates(
             absences=absences,
             patients=patients,
             replacements=replacements,
+            cancellations=cancellations,
         )
         if workload.active_timeslots >= student.max_daily_timeslots:
             continue
@@ -235,6 +221,7 @@ def find_replacement_candidates(
                 student_assignments=student_assignments,
                 absences=absences,
                 replacements=replacements,
+                cancellations=cancellations,
             )
         )
         if not available_slots:
@@ -257,9 +244,6 @@ def find_replacement_candidates(
             )
         )
 
-    # Confirmed priority: total load first, exact-time match second. Infectious
-    # load remains an operational tie-breaker, not a higher priority than load
-    # or time matching.
     candidates.sort(
         key=lambda candidate: (
             candidate.active_sessions,
@@ -282,6 +266,7 @@ def create_replacement_assignment(
     sessions: Iterable[Session],
     absences: Iterable[DailyAbsence] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
     replacement_time: time | None = None,
     reason: str | None = None,
     students: Iterable[Student] = (),
@@ -293,11 +278,15 @@ def create_replacement_assignment(
     sessions = tuple(sessions)
     absences = tuple(absences)
     replacements = tuple(replacements)
+    cancellations = tuple(cancellations)
     therapists = tuple(therapists)
     students = tuple(students)
     student_assignments = tuple(student_assignments)
     patients = tuple(patients)
     target_time = replacement_time or target_session.start_time
+
+    if any(cancellation.applies_to(target_session) for cancellation in cancellations):
+        raise ValueError("Cancelled session cannot receive a replacement")
 
     if any(
         replacement.target_session_id == target_session.session_id
@@ -329,6 +318,7 @@ def create_replacement_assignment(
             absences=absences,
             patients=patients,
             replacements=replacements,
+            cancellations=cancellations,
         )
         if therapist_workload.active_timeslots >= therapist.max_daily_timeslots:
             raise ValueError("Therapist has reached daily timeslot capacity")
@@ -349,6 +339,7 @@ def create_replacement_assignment(
             absences=absences,
             patients=patients,
             replacements=replacements,
+            cancellations=cancellations,
         )
         if student_workload.active_timeslots >= student.max_daily_timeslots:
             raise ValueError("Student has reached daily timeslot capacity")
@@ -361,6 +352,7 @@ def create_replacement_assignment(
         sessions=sessions,
         absences=absences,
         replacements=replacements,
+        cancellations=cancellations,
         ignore_session_id=target_session.session_id,
     ):
         raise ValueError("Patient is not available")
@@ -373,6 +365,7 @@ def create_replacement_assignment(
             sessions=sessions,
             absences=absences,
             replacements=replacements,
+            cancellations=cancellations,
         )
     else:
         provider_available = is_student_available(
@@ -383,6 +376,7 @@ def create_replacement_assignment(
             student_assignments=student_assignments,
             absences=absences,
             replacements=replacements,
+            cancellations=cancellations,
         )
 
     if not provider_available:
