@@ -21,7 +21,7 @@ Branch: `feature/outpatient-scheduling`
 PR #15: `Add outpatient scheduling domain support`
 Status: draft / implementation in progress.
 
-Latest confirmed full suite on this branch: `286 passed, 3 warnings in 3.11s`.
+Latest confirmed full suite on this branch: `297 passed, 3 warnings in 4.31s`.
 
 ## Outpatient domain work completed on this branch
 
@@ -31,7 +31,6 @@ Latest confirmed full suite on this branch: `286 passed, 3 warnings in 3.11s`.
 - Added `Patient.is_outpatient` convenience property.
 - Domain rejects an outpatient marked infectious.
 - Added explicit operational-semantics tests confirming that outpatient status does not remove a session from therapist workload, daily capacity, or replacement-candidate logic.
-- Operational-semantics tests and full suite have been rerun successfully at the latest checkpoint above.
 
 ## Strict outpatient presentation rules
 
@@ -41,7 +40,7 @@ Latest confirmed full suite on this branch: `286 passed, 3 warnings in 3.11s`.
 - A recurring therapist/time slot may be shared with another patient on different weekdays.
 - The colour shown in `THERAPIST DAILY` is determined by the patient actually active in that slot on the concrete date.
 - Colours from another patient who shares the recurring slot on other weekdays must not leak into the outpatient day.
-- If the same effective daily cell would contain both an inpatient and an outpatient at the same time, the renderer must reject the ambiguous cell-level colour instead of guessing.
+- If the same effective daily cell would contain both an inpatient and an outpatient simultaneously, the renderer rejects the ambiguous cell instead of guessing.
 - Active outpatient sessions create a blue daily target.
 - Replaced outpatient sessions make the replacement destination blue.
 - Cancelled/no-show outpatient sessions release the slot and do not claim an active blue target.
@@ -55,13 +54,12 @@ Implementation added:
 
 ## Daily preview integration completed on this branch
 
-- `WriteIntent.PRESENTATION` in the native Excel backend is now formatting-only and no longer writes `cell.Value`.
-- Added semantic `clear_fill` support for future cleanup of stale daily outpatient blue formatting.
+- `WriteIntent.PRESENTATION` in the native Excel backend is formatting-only and never writes `cell.Value`.
+- Added semantic `clear_fill` support for future cleanup of stale outpatient blue formatting.
 - Added `Python/rehab_excel/daily_preview_composer.py`.
 - Presentation patches are merged into existing cell value patches instead of creating conflicting duplicate writes.
-- If a replacement/cancellation patch already changes the cell text, outpatient blue is folded into that same patch.
+- If a replacement/cancellation patch already changes cell text, outpatient blue is folded into that same patch.
 - Added dedicated tests in `Tests/test_presentation_write_intent.py` and `Tests/test_daily_preview_composer.py`.
-- These integration changes are included in the latest confirmed `286 passed` checkpoint above.
 
 ## Recurring outpatient storage contract
 
@@ -74,14 +72,14 @@ Decision recorded in `Documentation/DECISIONS.md`:
 - outpatient recurring rows use a separate authoritative source named `OUTPATIENT_SCHEDULE`
 - `OUTPATIENT_SCHEDULE` is one row per recurring treatment with columns `PatientID`, `Ασθενής`, `Θεραπεία`, `Ώρα`, `Ημέρες`, `Θεραπευτής`
 - absence of `OUTPATIENT_SCHEDULE` is backward-compatible and returns no outpatient rows
-- the scheduling layer can merge inpatient and outpatient rows into one `BaseScheduleEntry` stream
+- the scheduling layer merges inpatient and outpatient rows into one `BaseScheduleEntry` stream
 - patient type affects storage/view routing, not operational scheduling semantics
 
 Implementation added:
 - `Python/rehab_excel/outpatient_schedule_source.py`
 - `read_outpatient_schedule()`
 - `read_unified_base_schedule()`
-- strict identity, day-pattern, outpatient-only, and no-robotic validation
+- strict identity, day-pattern, outpatient-only and no-robotic validation
 - `Tests/test_outpatient_schedule_source.py`
 
 ## Patient registry storage extension
@@ -93,12 +91,23 @@ Rules:
 - legacy rows default to `PatientType.INPATIENT`
 - optional patient type headers accepted: `PatientType`, `ΤύποςΑσθενή`, `Τύπος Ασθενή`
 - optional hospital MRN headers accepted: `HospitalMRN`, `ΑΜ Νοσοκομείου`, `ΑΜΝοσοκομείου`
+- Greek patient-type labels are Unicode-normalized so accented/case/final-sigma variants are accepted safely
 - unknown patient-type text raises instead of silently defaulting to inpatient
 - outpatient + infectious remains impossible through domain validation
 
 Added `Tests/test_patient_registry_source.py`.
 
-The existing legacy `reader.read_patients()` has not yet been replaced globally. The unified outpatient pipeline uses the new registry source first; production callers should not be migrated until the new storage tests pass.
+## Real operational caller migration started
+
+`Python/tools/apply_daily_input.py` now:
+- reads patients through `read_patient_registry()`
+- reads recurring programme through `read_unified_base_schedule()`
+- composes outpatient blue presentation through `compose_outpatient_daily_plan()` before native Excel writeback
+- catches outpatient registry/schedule/presentation/composition errors and converts them to a clean `SAFETY STOP` instead of a traceback
+
+Added `Tests/test_apply_daily_input_outpatient_integration.py` to lock this wiring.
+
+Existing workbooks without the new `OUTPATIENT_SCHEDULE` sheet continue to behave as before because the outpatient source is optional.
 
 ## Daily treatment cancellation work completed on this branch
 
@@ -125,8 +134,8 @@ Rules implemented:
 Outpatients must:
 - continue counting in time-share / productivity accounting
 - be excluded from inpatient-only / hospitalized-patient views
-- receive blue formatting through the final preview-generation entry point
-- persist through the actual workbook-generation/update flow, not only the new read contract
+- persist through the actual workbook-generation/update flow, not only the read contract
+- support daily postponement/no-show input through the operational Excel workflow
 
 Important principle: outpatient status changes visibility/presentation/storage routing, not whether a session counts operationally.
 
@@ -134,14 +143,13 @@ Operational expectation: outpatients are about 15% max of the patient population
 
 ## Next steps
 
-1. Run the new patient-registry and outpatient-schedule source tests plus the full suite.
-2. After those pass, migrate the appropriate scheduling callers to `read_unified_base_schedule()`.
-3. Wire `compose_outpatient_daily_plan()` into the final daily preview-generation entry point.
-4. Implement stale-blue cleanup using `clear_fill` when a cell changes from outpatient-active to inpatient-active on another date.
-5. Add safe preview creation/update support for the new `PATIENTS` extension columns and `OUTPATIENT_SCHEDULE` sheet without touching the baseline workbook directly.
-6. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
-7. Expose daily cancellation/no-show input in the operational Excel workflow.
-8. Smoke-test the resulting preview workbook on the target Excel installation.
+1. Run the new `apply_daily_input` outpatient integration test and full suite.
+2. Migrate the replacement/apply tools that still consume the old recurring source.
+3. Add safe preview creation/update support for the `PATIENTS` extension columns and `OUTPATIENT_SCHEDULE` sheet without touching the baseline workbook directly.
+4. Implement stale-blue cleanup when a cell changes from outpatient-active to inpatient-active on another date.
+5. Filter outpatients from inpatient-only views while preserving them in the unified scheduling stream.
+6. Expose daily cancellation/no-show input in the operational Excel workflow.
+7. Smoke-test the resulting preview workbook on the target Excel installation.
 
 ## Safety constraints
 
