@@ -25,6 +25,62 @@ End Sub
 
 USERFORM_CODE = '''Option Explicit
 
+Private Sub UserForm_Initialize()
+    ' Do visual sizing inside VBA itself rather than through Python COM.
+    ' Some Office/pywin32 builds reject programmatic Width/Height assignments
+    ' from COM even though the same properties are writable from VBA.
+    With Me
+        .Caption = "Κεντρικό Μενού Εγγραφών"
+        .Width = 330
+        .Height = 310
+        .StartUpPosition = 1
+        .BackColor = RGB(245, 247, 250)
+    End With
+
+    With lblTitle
+        .Caption = "Επιλέξτε νέα εγγραφή"
+        .Left = 35
+        .Top = 24
+        .Width = 250
+        .Height = 26
+        .TextAlign = 2
+        .Font.Name = "Calibri"
+        .Font.Size = 14
+        .Font.Bold = True
+        .ForeColor = RGB(45, 55, 72)
+        .BackStyle = 0
+    End With
+
+    StyleMenuButton cmdPatient, "Νέος ασθενής", 68
+    StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 113
+    StyleMenuButton cmdStudent, "Νέος φοιτητής", 158
+
+    With cmdClose
+        .Caption = "Κλείσιμο"
+        .Left = 105
+        .Top = 220
+        .Width = 110
+        .Height = 30
+        .Font.Name = "Calibri"
+        .Font.Size = 10
+        .Cancel = True
+    End With
+End Sub
+
+Private Sub StyleMenuButton(ByVal button As MSForms.CommandButton, ByVal text As String, ByVal topPosition As Single)
+    With button
+        .Caption = text
+        .Left = 45
+        .Top = topPosition
+        .Width = 230
+        .Height = 34
+        .Font.Name = "Calibri"
+        .Font.Size = 11
+        .Font.Bold = True
+        .TakeFocusOnClick = False
+    End With
+End Sub
+
 Private Sub cmdPatient_Click()
     MsgBox "Η φόρμα εγγραφής νέου ασθενή θα συνδεθεί στο ασφαλές registration backend στο επόμενο βήμα.", vbInformation, "Νέος ασθενής"
 End Sub
@@ -84,11 +140,9 @@ class RegistrationMenuInstallerBackend(Protocol):
 class Win32ComRegistrationMenuInstaller:
     """Install the central registration menu into an already-created workbook copy.
 
-    This implementation intentionally avoids writing Width/Height properties.
-    Some Office/pywin32 combinations expose MSForms geometry properties as
-    non-settable and fail with ``Property '<unknown>.Width' can not be set``.
-    The shell only needs to prove that the form, controls and code can be safely
-    installed; visual sizing can be refined later after this compatibility gate.
+    The COM layer deliberately avoids Width/Height styling because some
+    Office/pywin32 combinations reject those assignments. Visual sizing and
+    styling are applied by VBA in UserForm_Initialize when the form opens.
     """
 
     @staticmethod
@@ -101,7 +155,7 @@ class Win32ComRegistrationMenuInstaller:
 
     @staticmethod
     def _position_control(control, left: float, top: float) -> None:
-        """Position a control without touching Width or Height."""
+        """Give newly-created controls safe initial positions only."""
 
         control.Left = left
         control.Top = top
