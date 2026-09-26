@@ -12,13 +12,14 @@ Completed milestones:
 - safe preview-only VBA registration menu installer
 - central `frmRegistrationMenu` UserForm with buttons for patient, therapist, student and close
 - real Excel smoke test confirmed the menu renders correctly on the target Windows/Excel installation
-- draft patient registration UserForm (`frmNewPatient`) added behind the `Νέος ασθενής` menu action
+- patient registration UserForm (`frmNewPatient`) added behind the `Νέος ασθενής` menu action
+- real Excel smoke test confirmed the patient form renders correctly, defaults to `Εσωτερικός`, can switch to `Εξωτερικός`, shows automatic locked PatientID, exposes optional hospital MRN, and disables inpatient-only fields for outpatients
 
 ## Current pull request
 
 PR #14: `Add patient registration UserForm`
 Branch: `feature/patient-registration-userform`
-Status: draft / under Excel smoke testing
+Status: Excel smoke test passed; ready for review/merge after tests are confirmed.
 
 The current patient form is preview-only and deliberately performs no workbook write yet.
 
@@ -54,12 +55,10 @@ Important principle: outpatient status changes visibility/presentation, not whet
 
 ## Next steps
 
-1. Smoke-test PR #14 in the real target Excel installation.
-2. Confirm the patient form layout and inpatient/outpatient switching behavior.
-3. Run focused and full pytest suites.
-4. Merge PR #14 once validated.
-5. Start a separate outpatient scheduling PR touching the domain model, readers, schedule generation, workload/capacity/replacements and `THERAPIST DAILY` rendering.
-6. After scheduling rules are stable, connect the patient UserForm to the existing safe Python registration backend.
+1. Confirm focused and full pytest suites for PR #14.
+2. Merge PR #14 once tests are green.
+3. Start a separate outpatient scheduling PR touching the domain model, readers, schedule generation, workload/capacity/replacements and `THERAPIST DAILY` rendering.
+4. After scheduling rules are stable, connect the patient UserForm to the existing safe Python registration backend.
 
 ## Safety constraints
 
