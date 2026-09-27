@@ -23,8 +23,8 @@ from rehab_excel.student_registration import StudentRegistrationPreviewReport
 from rehab_excel.therapist_registration import TherapistRegistrationPreviewReport
 
 
-def _patient_request():
-    return NewPatientRequest("P-NEW", "ΝΕΟΣ ΑΣΘΕΝΗΣ")
+def _patient_request(patient_id: str = "P-NEW"):
+    return NewPatientRequest(patient_id, "ΝΕΟΣ ΑΣΘΕΝΗΣ")
 
 
 def _therapist_request():
@@ -62,7 +62,7 @@ def test_patient_registration_is_routed_and_normalized(tmp_path):
         return PatientRegistrationPreviewReport(
             source_path=str(source),
             output_path=str(output),
-            patient_id=request.patient_id,
+            patient_id="98" if not request.patient_id else request.patient_id,
             excel_row=99,
             source_unchanged=True,
             verified_in_output=True,
@@ -73,7 +73,7 @@ def test_patient_registration_is_routed_and_normalized(tmp_path):
         therapist=lambda *args, **kwargs: pytest.fail("wrong therapist route"),
         student=lambda *args, **kwargs: pytest.fail("wrong student route"),
     )
-    request = _patient_request()
+    request = _patient_request("")
 
     result = create_registration_preview(
         "baseline.xlsm",
@@ -84,12 +84,33 @@ def test_patient_registration_is_routed_and_normalized(tmp_path):
     )
 
     assert result.kind is RegistrationKind.PATIENT
-    assert result.subject_key == "P-NEW"
+    assert result.subject_key == "98"
     assert result.display_name == "ΝΕΟΣ ΑΣΘΕΝΗΣ"
     assert result.excel_row == 99
     assert result.schema_created is None
     assert calls[0][1].name == "NEW_PATIENT_PREVIEW.xlsm"
+    assert calls[0][2].patient_id == ""
     assert calls[0][3] is True
+
+
+def test_explicit_patient_id_remains_supported(tmp_path):
+    def patient_service(source, output, request, *, overwrite):
+        return PatientRegistrationPreviewReport(
+            source_path=str(source),
+            output_path=str(output),
+            patient_id=request.patient_id,
+            excel_row=99,
+            source_unchanged=True,
+            verified_in_output=True,
+        )
+
+    result = create_registration_preview(
+        "baseline.xlsm",
+        tmp_path,
+        _patient_request("LEGACY-1"),
+        services=RegistrationPreviewServices(patient=patient_service),
+    )
+    assert result.subject_key == "LEGACY-1"
 
 
 def test_therapist_registration_is_routed_and_normalized(tmp_path):
