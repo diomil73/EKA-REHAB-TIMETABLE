@@ -11,17 +11,17 @@ def test_bridge_targets_existing_patient_form():
 
 def test_bridge_calls_json_cli_and_keeps_preview_only_source_path():
     assert "registration_bridge_cli.py" in FORM_BRIDGE_CODE
-    assert '"source_path"' in FORM_BRIDGE_CODE
+    assert r'\"source_path\"' in FORM_BRIDGE_CODE
     assert "ThisWorkbook.FullName" in FORM_BRIDGE_CODE
-    assert '"preview_dir"' in FORM_BRIDGE_CODE
+    assert r'\"preview_dir\"' in FORM_BRIDGE_CODE
     assert "ThisWorkbook.Path" in FORM_BRIDGE_CODE
-    assert '"overwrite":true' in FORM_BRIDGE_CODE
+    assert r'\"overwrite\":true' in FORM_BRIDGE_CODE
 
 
 def test_bridge_sends_patient_type_mrn_and_auto_id_request():
-    assert '"patient_id":""' in FORM_BRIDGE_CODE
-    assert '"patient_type"' in FORM_BRIDGE_CODE
-    assert '"hospital_mrn"' in FORM_BRIDGE_CODE
+    assert r'\"patient_id\":\"\"' in FORM_BRIDGE_CODE
+    assert r'\"patient_type\"' in FORM_BRIDGE_CODE
+    assert r'\"hospital_mrn\"' in FORM_BRIDGE_CODE
     assert "txtHospitalMRN.Text" in FORM_BRIDGE_CODE
     assert "txtDisplayName.Text" in FORM_BRIDGE_CODE
 
