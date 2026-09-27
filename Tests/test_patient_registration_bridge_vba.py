@@ -11,19 +11,25 @@ def test_bridge_targets_existing_patient_form():
 
 def test_bridge_calls_json_cli_and_keeps_preview_only_source_path():
     assert "registration_bridge_cli.py" in FORM_BRIDGE_CODE
-    assert r'\"source_path\"' in FORM_BRIDGE_CODE
+    assert 'q & "source_path" & q' in FORM_BRIDGE_CODE
     assert "ThisWorkbook.FullName" in FORM_BRIDGE_CODE
-    assert r'\"preview_dir\"' in FORM_BRIDGE_CODE
+    assert 'q & "preview_dir" & q' in FORM_BRIDGE_CODE
     assert "ThisWorkbook.Path" in FORM_BRIDGE_CODE
-    assert r'\"overwrite\":true' in FORM_BRIDGE_CODE
+    assert 'q & "overwrite" & q & ":true,"' in FORM_BRIDGE_CODE
 
 
 def test_bridge_sends_patient_type_mrn_and_auto_id_request():
-    assert r'\"patient_id\":\"\"' in FORM_BRIDGE_CODE
-    assert r'\"patient_type\"' in FORM_BRIDGE_CODE
-    assert r'\"hospital_mrn\"' in FORM_BRIDGE_CODE
+    assert 'q & "patient_id" & q & ":" & q & q' in FORM_BRIDGE_CODE
+    assert 'q & "patient_type" & q' in FORM_BRIDGE_CODE
+    assert 'q & "hospital_mrn" & q' in FORM_BRIDGE_CODE
     assert "txtHospitalMRN.Text" in FORM_BRIDGE_CODE
     assert "txtDisplayName.Text" in FORM_BRIDGE_CODE
+
+
+def test_bridge_uses_vba_safe_quotes_not_c_style_json_literals():
+    assert 'Chr$(34) & "ok" & Chr$(34) & ": false"' in FORM_BRIDGE_CODE
+    assert r'\"ok\": false' not in FORM_BRIDGE_CODE
+    assert 'q = Chr$(34)' in FORM_BRIDGE_CODE
 
 
 def test_bridge_forces_inpatient_only_fields_blank_for_outpatient():
