@@ -1,9 +1,12 @@
 from datetime import date, time
 
-from rehab_excel.daily_input_sheet import build_daily_input_spec
+from rehab_excel.daily_input_sheet import (
+    PATIENT_CANCELLATION_STATUSES,
+    build_daily_input_spec,
+)
 
 
-def test_daily_input_spec_keeps_patient_status_options_exactly():
+def test_daily_input_spec_keeps_existing_statuses_and_appends_cancellation_options():
     statuses = ("ΠΑΡΩΝ", "εκτός κλινικής", "Αναβολή ΦΘ")
     spec = build_daily_input_spec(
         target_date=date(2026, 9, 19),
@@ -12,7 +15,7 @@ def test_daily_input_spec_keeps_patient_status_options_exactly():
         patient_statuses=statuses,
         timeslots=(time(8, 30), time(9, 15)),
     )
-    assert spec.patient_statuses == statuses
+    assert spec.patient_statuses == (*statuses, *PATIENT_CANCELLATION_STATUSES)
 
 
 def test_daily_input_spec_deduplicates_dropdown_values_without_reordering():
@@ -20,12 +23,22 @@ def test_daily_input_spec_deduplicates_dropdown_values_without_reordering():
         target_date=date(2026, 9, 19),
         therapist_names=("Α", "Α", "Β"),
         patient_names=("Π1", "Π2", "Π1"),
-        patient_statuses=("ΠΑΡΩΝ", "ΠΑΡΩΝ", "ΑΠΩΝ"),
+        patient_statuses=(
+            "ΠΑΡΩΝ",
+            "ΠΑΡΩΝ",
+            "ΑΠΩΝ",
+            "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
+        ),
         timeslots=(time(8, 30), time(9, 15)),
     )
     assert spec.therapist_names == ("Α", "Β")
     assert spec.patient_names == ("Π1", "Π2")
-    assert spec.patient_statuses == ("ΠΑΡΩΝ", "ΑΠΩΝ")
+    assert spec.patient_statuses == (
+        "ΠΑΡΩΝ",
+        "ΑΠΩΝ",
+        "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
+        "ΔΕΝ ΠΡΟΣΗΛΘΕ",
+    )
 
 
 def test_daily_input_layout_has_separate_therapist_and_patient_sections():
