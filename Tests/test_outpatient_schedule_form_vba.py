@@ -25,7 +25,7 @@ def test_form_calls_json_bridge_and_uses_preview_only_source():
     assert "outpatient_schedule_bridge_cli.py" in FORM_CODE
     assert "ThisWorkbook.FullName" in FORM_CODE
     assert "ThisWorkbook.Path" in FORM_CODE
-    assert 'q & "overwrite" & q & ":true"' in FORM_CODE
+    assert 'q & "overwrite" & q & ":true,"' in FORM_CODE
 
 
 def test_form_sends_patient_treatment_time_days_and_therapist():
