@@ -12,9 +12,9 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from rehab_core.models import PatientType  # noqa: E402
 from rehab_core.registration import NewPatientRequest  # noqa: E402
-from rehab_excel.patient_registration import (  # noqa: E402
-    PatientRegistrationWriteError,
-    create_patient_registration_preview,
+from rehab_excel.patient_registration import PatientRegistrationWriteError  # noqa: E402
+from rehab_excel.patient_registration_auto import (  # noqa: E402
+    create_auto_patient_registration_preview,
 )
 
 
@@ -43,7 +43,13 @@ def main() -> int:
         type=Path,
         default=REPO_ROOT / "Excel" / "previews" / "NEW_PATIENT_PREVIEW.xlsm",
     )
-    parser.add_argument("--patient-id", required=True)
+    parser.add_argument(
+        "--patient-id",
+        default="",
+        help=(
+            "Optional legacy/import override. Leave blank for automatic sequential PatientID."
+        ),
+    )
     parser.add_argument("--name", required=True)
     parser.add_argument("--room")
     parser.add_argument("--status")
@@ -69,7 +75,7 @@ def main() -> int:
     )
 
     try:
-        report = create_patient_registration_preview(
+        report = create_auto_patient_registration_preview(
             args.source,
             args.output,
             request,
@@ -87,6 +93,7 @@ def main() -> int:
     print(f"Source: {source}")
     print(f"Preview: {output}")
     print(f"PatientID: {report.patient_id}")
+    print(f"PatientID mode: {'manual override' if args.patient_id.strip() else 'automatic sequential'}")
     print(f"Patient type: {args.patient_type}")
     print(f"Hospital MRN: {args.hospital_mrn or ''}")
     print(f"PATIENTS row: {report.excel_row}")
