@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 from typing import Mapping
+import unicodedata
 
 from rehab_core.models import PatientType
 from rehab_core.registration import (
@@ -247,6 +248,16 @@ def _boolean(values: Mapping[str, object], key: str, default: bool) -> bool:
     raise ValueError(f"{key} must be a boolean value")
 
 
+def _normalize_patient_type_text(value: object) -> str:
+    """Normalize Greek/Latin UI text without depending on accents/final sigma."""
+
+    decomposed = unicodedata.normalize("NFKD", str(value).strip())
+    without_marks = "".join(
+        char for char in decomposed if not unicodedata.combining(char)
+    )
+    return without_marks.casefold().replace("ς", "σ")
+
+
 def _patient_type(values: Mapping[str, object]) -> PatientType:
     value = values.get("patient_type", PatientType.INPATIENT)
     if value is None or value == "":
@@ -254,14 +265,12 @@ def _patient_type(values: Mapping[str, object]) -> PatientType:
     if isinstance(value, PatientType):
         return value
 
-    normalized = str(value).strip().casefold()
+    normalized = _normalize_patient_type_text(value)
     aliases = {
         "inpatient": PatientType.INPATIENT,
-        "εσωτερικός": PatientType.INPATIENT,
-        "εσωτερικος": PatientType.INPATIENT,
+        "εσωτερικοσ": PatientType.INPATIENT,
         "outpatient": PatientType.OUTPATIENT,
-        "εξωτερικός": PatientType.OUTPATIENT,
-        "εξωτερικος": PatientType.OUTPATIENT,
+        "εξωτερικοσ": PatientType.OUTPATIENT,
     }
     try:
         return aliases[normalized]
