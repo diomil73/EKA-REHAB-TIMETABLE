@@ -149,7 +149,7 @@ def main() -> int:
         print(f"  {binding.status.value}: {binding.session_id} [{binding.original_cell}]")
     print(f"Input unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
-    print("NEXT: open only DAILY_INPUT_APPLIED_PREVIEW.xlsm and inspect the affected patient line.")
+    print(f"NEXT: open only {Path(report.output_path).name} and inspect the affected patient line.")
     return 0 if report.source_unchanged and vba_preserved else 3
 
 
