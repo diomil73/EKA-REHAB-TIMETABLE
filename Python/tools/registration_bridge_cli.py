@@ -25,6 +25,12 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _read_request(path: Path) -> object:
+    """Read VBA-produced JSON, accepting both plain UTF-8 and UTF-8 BOM."""
+
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
 def _write_response(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -37,7 +43,7 @@ def main() -> int:
     args = _build_parser().parse_args()
 
     try:
-        payload = json.loads(args.request.read_text(encoding="utf-8"))
+        payload = _read_request(args.request)
         if not isinstance(payload, dict):
             raise RegistrationBridgeError("request JSON must be an object")
         response = run_registration_bridge(payload)
