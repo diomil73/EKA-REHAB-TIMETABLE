@@ -11,6 +11,10 @@ from typing import Iterable, Sequence
 
 SHEET_NAME = "DAILY_INPUT"
 LISTS_SHEET_NAME = "_PY_LISTS"
+PATIENT_CANCELLATION_STATUSES = (
+    "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
+    "ΔΕΝ ΠΡΟΣΗΛΘΕ",
+)
 
 
 class DailyInputSheetError(RuntimeError):
@@ -94,7 +98,9 @@ def build_daily_input_spec(
         target_date=target_date,
         therapist_names=_unique_nonblank(therapist_names),
         patient_names=_unique_nonblank(patient_names),
-        patient_statuses=_unique_nonblank(patient_statuses),
+        patient_statuses=_unique_nonblank(
+            (*patient_statuses, *PATIENT_CANCELLATION_STATUSES)
+        ),
         timeslots=tuple(_time_text(value) for value in timeslots),
         therapist_rows=therapist_rows,
         patient_rows=patient_rows,
