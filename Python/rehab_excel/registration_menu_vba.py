@@ -29,15 +29,15 @@ USERFORM_CODE = '''Option Explicit
 
 Private Sub UserForm_Initialize()
     With Me
-        .Caption = "Κεντρικό Μενού Εγγραφών"
+        .Caption = "Κεντρικό Μενού"
         .Width = 330
-        .Height = 310
+        .Height = 355
         .StartUpPosition = 1
         .BackColor = RGB(245, 247, 250)
     End With
 
     With lblTitle
-        .Caption = "Επιλέξτε νέα εγγραφή"
+        .Caption = "Επιλέξτε ενέργεια"
         .Left = 35
         .Top = 24
         .Width = 250
@@ -53,11 +53,12 @@ Private Sub UserForm_Initialize()
     StyleMenuButton cmdPatient, "Νέος ασθενής", 68
     StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 113
     StyleMenuButton cmdStudent, "Νέος φοιτητής", 158
+    StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή", 203
 
     With cmdClose
         .Caption = "Κλείσιμο"
         .Left = 105
-        .Top = 220
+        .Top = 265
         .Width = 110
         .Height = 30
         .Font.Name = "Calibri"
@@ -90,6 +91,14 @@ End Sub
 
 Private Sub cmdStudent_Click()
     MsgBox "Η φόρμα εγγραφής νέου φοιτητή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος φοιτητής"
+End Sub
+
+Private Sub cmdOutpatientSchedule_Click()
+    On Error GoTo MissingForm
+    frmOutpatientSchedule.Show
+    Exit Sub
+MissingForm:
+    MsgBox "Η φόρμα προγράμματος εξωτερικού ασθενή δεν είναι εγκατεστημένη σε αυτό το αρχείο.", vbExclamation, "Πρόγραμμα εξωτερικού ασθενή"
 End Sub
 
 Private Sub cmdClose_Click()
@@ -225,13 +234,19 @@ class Win32ComRegistrationMenuInstaller:
             form = vbproject.VBComponents.Add(3)
             form.Name = MENU_FORM_NAME
             designer = form.Designer
-            designer.Caption = "Κεντρικό Μενού Εγγραφών"
+            designer.Caption = "Κεντρικό Μενού"
 
-            self._add_label(designer, "lblTitle", "Επιλέξτε νέα εγγραφή", 18)
+            self._add_label(designer, "lblTitle", "Επιλέξτε ενέργεια", 18)
             self._add_command_button(designer, "cmdPatient", "Νέος ασθενής", 55)
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
-            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 176)
+            self._add_command_button(
+                designer,
+                "cmdOutpatientSchedule",
+                "Πρόγραμμα εξωτερικού ασθενή",
+                166,
+            )
+            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 213)
             form.CodeModule.AddFromString(USERFORM_CODE)
 
             install_patient_form(vbproject, position_control=self._position_control)
