@@ -87,16 +87,22 @@ def run_outpatient_schedule_suggestion_bridge(
     except ValueError as exc:
         raise OutpatientScheduleSuggestionBridgeError(str(exc)) from exc
 
+    rows = [
+        {
+            "therapist": item.therapist_id,
+            "time": item.start_time.strftime("%H:%M"),
+            "days": item.day_pattern,
+        }
+        for item in suggestions
+    ]
+    suggestion_lines = "\n".join(
+        f"{row['therapist']} | {row['time']} | {row['days']}" for row in rows
+    )
+
     return {
         "ok": True,
         "mode": int(mode),
         "mode_label": SUGGESTION_MODE_LABELS[int(mode) - 1],
-        "suggestions": [
-            {
-                "therapist": item.therapist_id,
-                "time": item.start_time.strftime("%H:%M"),
-                "days": item.day_pattern,
-            }
-            for item in suggestions
-        ],
+        "suggestions": rows,
+        "suggestion_lines": suggestion_lines,
     }
