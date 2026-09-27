@@ -54,3 +54,32 @@ Design direction:
 - prevent one user's save from silently overwriting another user's changes.
 
 Exact storage technology is intentionally undecided at this stage. The requirement is retained so current design choices do not block a later multi-user implementation.
+
+## 5. Final app-like UI / UX
+
+The production user interface must not look or feel like a normal Excel workbook. Excel may remain the technical host, but ordinary users should experience the system as a focused application.
+
+Final UI goals:
+
+- hide the Excel Ribbon and standard command surface from ordinary users;
+- hide the formula bar;
+- hide row numbers and column letters;
+- hide worksheet gridlines;
+- hide sheet tabs where navigation is provided by the application UI;
+- hide unnecessary scrollbars and other spreadsheet chrome where practical;
+- open users into a custom home/dashboard screen rather than a raw worksheet;
+- use clear navigation, large action buttons/cards and guided forms instead of asking users to find and edit cells manually;
+- keep visual language consistent across registration, daily changes, replacements, outpatient scheduling, reports and settings;
+- use a modern, calm and readable design with restrained colour, clear hierarchy and accessible typography;
+- reserve warning/error colours for actual operational meaning rather than decoration;
+- preserve all workbook safety and authoritative-data rules behind the visual layer.
+
+The preferred interaction pattern is:
+
+`Home / Menu -> choose task -> guided form -> validation -> confirmation / preview -> apply`
+
+rather than direct free-form spreadsheet editing.
+
+Before the final UI is implemented, review visual and interaction ideas from comparable systems such as clinic scheduling dashboards, hospital administration software, booking systems, internal ERP tools and polished Excel-based applications. These references are for inspiration only; the final design should be tailored to this rehabilitation workflow rather than copied.
+
+UI/UX work is intentionally scheduled near the end of the project, after the core workflows and VBA/Python integration are stable. It will be followed by full-system testing and one integrated beta evaluation of the complete product, not fragmented beta testing of individual features.
