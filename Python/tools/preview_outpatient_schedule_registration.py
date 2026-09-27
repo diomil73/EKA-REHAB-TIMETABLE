@@ -16,6 +16,12 @@ from rehab_excel.outpatient_schedule_registration import (  # noqa: E402
     OutpatientScheduleWriteError,
     create_outpatient_schedule_preview,
 )
+from rehab_excel.outpatient_slot_validation import (  # noqa: E402
+    OutpatientSlotConflictError,
+    validate_outpatient_slot_compatibility,
+)
+from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
+from rehab_excel.reader import read_base_schedule  # noqa: E402
 
 
 def _parse_time(value: str) -> time:
@@ -61,13 +67,23 @@ def main() -> int:
     )
 
     try:
+        patients = read_patient_registry(args.source)
+        inpatient_entries = read_base_schedule(args.source)
+        validate_outpatient_slot_compatibility(
+            outpatient_patient_id=request.patient_id,
+            therapist_id=request.therapist_id,
+            start_time=request.start_time,
+            day_pattern=request.day_pattern,
+            existing_entries=inpatient_entries,
+            patients=patients,
+        )
         report = create_outpatient_schedule_preview(
             args.source,
             args.output,
             request,
             overwrite=args.overwrite,
         )
-    except OutpatientScheduleWriteError as exc:
+    except (OutpatientScheduleWriteError, OutpatientSlotConflictError, ValueError) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
