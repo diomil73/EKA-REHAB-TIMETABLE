@@ -58,7 +58,12 @@ def test_request_rejects_robotic_treatment():
         validate_outpatient_schedule_request(request, patients=[outpatient()])
 
 
-def _baseline(path: Path, *, second_outpatient: bool = False) -> None:
+def _baseline(
+    path: Path,
+    *,
+    second_outpatient: bool = False,
+    inpatient_overlap: bool = False,
+) -> None:
     wb = Workbook()
     patients = wb.active
     patients.title = "PATIENTS"
@@ -68,8 +73,14 @@ def _baseline(path: Path, *, second_outpatient: bool = False) -> None:
     ):
         patients.cell(1, col, value)
     patients.append(["P-OUT", "", "Εξωτερικός Ασθενής", "", "", "Εξωτερικός", "MRN1"])
+    patients.append(["P-IN", "101", "Εσωτερικός Ασθενής", "", "", "Εσωτερικός", ""])
     if second_outpatient:
         patients.append(["P-OTHER", "", "Άλλος Εξωτερικός", "", "", "Εξωτερικός", "MRN2"])
+
+    planner = wb.create_sheet("PATIENT_PLANNER")
+    planner.append(["PatientID", "Ασθενής", "ΦΘ_Ώρα", "ΦΘ_Ημέρες", "ΦΘ_Θεραπευτής"])
+    if inpatient_overlap:
+        planner.append(["P-IN", "Εσωτερικός Ασθενής", time(10, 0), "Δε-Τε", "T2"])
 
     schedule = wb.create_sheet("OUTPATIENT_SCHEDULE")
     schedule.append(["PatientID", "Ασθενής", "Θεραπεία", "Ώρα", "Ημέρες", "Θεραπευτής"])
@@ -125,6 +136,52 @@ def test_preview_append_is_verified_and_source_stays_unchanged(tmp_path):
     assert report.verified_in_output is True
     assert report.source_unchanged is True
     assert source.read_bytes() == before
+
+
+def test_authoritative_writer_rejects_mixed_type_weekday_overlap(tmp_path):
+    source = tmp_path / "source.xlsm"
+    output = tmp_path / "preview.xlsm"
+    _baseline(source, inpatient_overlap=True)
+
+    with pytest.raises(
+        OutpatientScheduleWriteError,
+        match="overlaps an inpatient in the same THERAPIST_DAILY cell",
+    ):
+        create_outpatient_schedule_preview(
+            source,
+            output,
+            OutpatientScheduleRequest(
+                patient_id="P-OUT",
+                treatment="ΦΘ",
+                start_time=time(10, 0),
+                day_pattern="Τε-Πα",
+                therapist_id="T2",
+            ),
+            backend=FakeBackend(),
+        )
+
+    assert not output.exists()
+
+
+def test_authoritative_writer_allows_complementary_weekdays(tmp_path):
+    source = tmp_path / "source.xlsm"
+    output = tmp_path / "preview.xlsm"
+    _baseline(source, inpatient_overlap=True)
+
+    report = create_outpatient_schedule_preview(
+        source,
+        output,
+        OutpatientScheduleRequest(
+            patient_id="P-OUT",
+            treatment="ΦΘ",
+            start_time=time(10, 0),
+            day_pattern="Τρ-Πε-Πα",
+            therapist_id="T2",
+        ),
+        backend=FakeBackend(),
+    )
+
+    assert report.verified_in_output is True
 
 
 def test_update_cannot_move_authoritative_row_to_another_patient(tmp_path):
