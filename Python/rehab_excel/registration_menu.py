@@ -5,6 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Mapping
 
+from rehab_core.models import PatientType
 from rehab_core.registration import (
     NewPatientRequest,
     NewStudentRequest,
@@ -56,7 +57,21 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
                 "patient_id",
                 "Patient ID",
                 FormFieldType.TEXT,
+                required=False,
+                help_text="Αφήνεται κενό για αυτόματη σειριακή εκχώρηση",
+            ),
+            RegistrationFormField(
+                "patient_type",
+                "Τύπος ασθενή",
+                FormFieldType.TEXT,
                 required=True,
+                default=PatientType.INPATIENT.value,
+                source="patient_types",
+            ),
+            RegistrationFormField(
+                "hospital_mrn",
+                "ΑΜ Νοσοκομείου",
+                FormFieldType.TEXT,
             ),
             RegistrationFormField(
                 "display_name",
@@ -232,6 +247,28 @@ def _boolean(values: Mapping[str, object], key: str, default: bool) -> bool:
     raise ValueError(f"{key} must be a boolean value")
 
 
+def _patient_type(values: Mapping[str, object]) -> PatientType:
+    value = values.get("patient_type", PatientType.INPATIENT)
+    if value is None or value == "":
+        return PatientType.INPATIENT
+    if isinstance(value, PatientType):
+        return value
+
+    normalized = str(value).strip().casefold()
+    aliases = {
+        "inpatient": PatientType.INPATIENT,
+        "εσωτερικός": PatientType.INPATIENT,
+        "εσωτερικος": PatientType.INPATIENT,
+        "outpatient": PatientType.OUTPATIENT,
+        "εξωτερικός": PatientType.OUTPATIENT,
+        "εξωτερικος": PatientType.OUTPATIENT,
+    }
+    try:
+        return aliases[normalized]
+    except KeyError as exc:
+        raise ValueError("patient_type must be inpatient/outpatient or Εσωτερικός/Εξωτερικός") from exc
+
+
 def build_registration_request(
     action: RegistrationMenuAction | str,
     values: Mapping[str, object],
@@ -247,11 +284,13 @@ def build_registration_request(
 
     if resolved is RegistrationMenuAction.NEW_PATIENT:
         return NewPatientRequest(
-            patient_id=_text(values, "patient_id", required=True) or "",
+            patient_id=_text(values, "patient_id") or "",
             display_name=_text(values, "display_name", required=True) or "",
             room=_text(values, "room"),
             infectious=_boolean(values, "infectious", False),
             status=_text(values, "status"),
+            patient_type=_patient_type(values),
+            hospital_mrn=_text(values, "hospital_mrn"),
         )
 
     if resolved is RegistrationMenuAction.NEW_THERAPIST:
