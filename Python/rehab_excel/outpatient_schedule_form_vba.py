@@ -22,8 +22,8 @@ FORM_CODE = r'''Option Explicit
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Πρόγραμμα εξωτερικού ασθενή"
-    Me.Width = 520
-    Me.Height = 430
+    Me.Width = 560
+    Me.Height = 625
     Me.StartUpPosition = 1
     Me.BackColor = RGB(245, 247, 250)
 
@@ -35,13 +35,15 @@ Private Sub UserForm_Initialize()
     StyleCombo cboTime, 132
     StyleLabel lblDays, "Ημέρες *", 180
     StyleCombo cboDays, 176
-    StyleLabel lblTherapist, "Θεραπευτής", 224
+    StyleLabel lblTherapist, "Θεραπευτής *", 224
     StyleCombo cboTherapist, 220
+    StyleLabel lblSuggestMode, "Τι θα θέλατε να σας προτείνω;", 268
+    StyleCombo cboSuggestMode, 288
 
     lblTitle.Caption = "Επαναλαμβανόμενο πρόγραμμα εξωτερικού ασθενή"
     lblTitle.Left = 35
     lblTitle.Top = 15
-    lblTitle.Width = 440
+    lblTitle.Width = 470
     lblTitle.Height = 24
     lblTitle.TextAlign = 2
     lblTitle.Font.Name = "Calibri"
@@ -49,30 +51,50 @@ Private Sub UserForm_Initialize()
     lblTitle.Font.Bold = True
     lblTitle.BackStyle = 0
 
-    lblInfo.Caption = "Το σύστημα ελέγχει αυτόματα συγκρούσεις με εσωτερικούς ασθενείς στην ίδια ώρα/θεραπευτή/ημέρα."
+    cmdSuggest.Caption = "Βρες εναλλακτικές"
+    cmdSuggest.Left = 190
+    cmdSuggest.Top = 323
+    cmdSuggest.Width = 180
+    cmdSuggest.Height = 30
+
+    lstSuggestions.Left = 38
+    lstSuggestions.Top = 365
+    lstSuggestions.Width = 475
+    lstSuggestions.Height = 95
+    lstSuggestions.Font.Name = "Calibri"
+    lstSuggestions.Font.Size = 10
+
+    cmdUseSuggestion.Caption = "Χρήση επιλογής"
+    cmdUseSuggestion.Left = 190
+    cmdUseSuggestion.Top = 470
+    cmdUseSuggestion.Width = 180
+    cmdUseSuggestion.Height = 28
+
+    lblInfo.Caption = "Οι προτάσεις κρατούν σταθερά όσα δεν επιλέξατε να αλλάξουν και ελέγχονται απέναντι στο υπάρχον πρόγραμμα."
     lblInfo.Left = 38
-    lblInfo.Top = 268
-    lblInfo.Width = 420
-    lblInfo.Height = 36
+    lblInfo.Top = 505
+    lblInfo.Width = 475
+    lblInfo.Height = 32
     lblInfo.WordWrap = True
     lblInfo.BackStyle = 0
 
     cmdCancel.Caption = "Ακύρωση"
-    cmdCancel.Left = 100
-    cmdCancel.Top = 325
+    cmdCancel.Left = 125
+    cmdCancel.Top = 550
     cmdCancel.Width = 125
     cmdCancel.Height = 32
     cmdCancel.Cancel = True
 
     cmdSave.Caption = "Έλεγχος και preview"
-    cmdSave.Left = 245
-    cmdSave.Top = 325
+    cmdSave.Left = 280
+    cmdSave.Top = 550
     cmdSave.Width = 170
     cmdSave.Height = 32
     cmdSave.Default = True
 
     LoadPatients
     LoadSettings
+    LoadSuggestionModes
 End Sub
 
 Private Sub StyleLabel(ByVal control As MSForms.Label, ByVal text As String, ByVal topPosition As Single)
@@ -80,6 +102,7 @@ Private Sub StyleLabel(ByVal control As MSForms.Label, ByVal text As String, ByV
     control.Left = 38
     control.Top = topPosition
     control.Width = 145
+    If control.Name = "lblSuggestMode" Then control.Width = 230
     control.Height = 20
     control.Font.Name = "Calibri"
     control.Font.Size = 10
@@ -89,11 +112,23 @@ End Sub
 Private Sub StyleCombo(ByVal control As MSForms.ComboBox, ByVal topPosition As Single)
     control.Left = 190
     control.Top = topPosition
-    control.Width = 275
+    control.Width = 323
     control.Height = 24
     control.Font.Name = "Calibri"
     control.Font.Size = 10
     control.Style = 2
+End Sub
+
+Private Sub LoadSuggestionModes()
+    cboSuggestMode.Clear
+    cboSuggestMode.AddItem "Αλλαγή ώρας"
+    cboSuggestMode.AddItem "Αλλαγή ημερών"
+    cboSuggestMode.AddItem "Αλλαγή ώρας και ημερών"
+    cboSuggestMode.AddItem "Αλλαγή θεραπευτή"
+    cboSuggestMode.AddItem "Αλλαγή θεραπευτή και ώρας"
+    cboSuggestMode.AddItem "Αλλαγή θεραπευτή και ημερών"
+    cboSuggestMode.AddItem "Αλλαγή θεραπευτή, ώρας και ημερών"
+    cboSuggestMode.ListIndex = 0
 End Sub
 
 Private Sub LoadPatients()
@@ -171,8 +206,105 @@ Private Function ValidateForm() As Boolean
     If Len(Trim$(cboTreatment.Value)) = 0 Then MsgBox "Επιλέξτε θεραπεία.", vbExclamation: Exit Function
     If Len(Trim$(cboTime.Value)) = 0 Then MsgBox "Επιλέξτε ώρα.", vbExclamation: Exit Function
     If Len(Trim$(cboDays.Value)) = 0 Then MsgBox "Επιλέξτε ημέρες.", vbExclamation: Exit Function
+    If Len(Trim$(cboTherapist.Value)) = 0 Then MsgBox "Επιλέξτε θεραπευτή.", vbExclamation: Exit Function
     ValidateForm = True
 End Function
+
+Private Function ValidateSuggestionRequest() As Boolean
+    If Len(Trim$(cboTherapist.Value)) = 0 Then MsgBox "Επιλέξτε πρώτα θεραπευτή προτίμησης.", vbExclamation: Exit Function
+    If Len(Trim$(cboTime.Value)) = 0 Then MsgBox "Επιλέξτε πρώτα ώρα προτίμησης.", vbExclamation: Exit Function
+    If Len(Trim$(cboDays.Value)) = 0 Then MsgBox "Επιλέξτε πρώτα ημέρες προτίμησης.", vbExclamation: Exit Function
+    If cboSuggestMode.ListIndex < 0 Then MsgBox "Επιλέξτε τι θέλετε να αλλάξει.", vbExclamation: Exit Function
+    ValidateSuggestionRequest = True
+End Function
+
+Private Sub cmdSuggest_Click()
+    Dim requestPath As String
+    Dim responsePath As String
+    Dim bridgeScript As String
+    Dim commandLine As String
+    Dim responseText As String
+    Dim linesText As String
+    Dim rows() As String
+    Dim row As Variant
+    Dim exitCode As Long
+
+    If Not ValidateSuggestionRequest() Then Exit Sub
+
+    bridgeScript = ResolveSuggestionBridgeScript()
+    If Len(bridgeScript) = 0 Then
+        MsgBox "Δεν βρέθηκε το suggestion bridge.", vbCritical
+        Exit Sub
+    End If
+
+    requestPath = Environ$("TEMP") & "\eka_outpatient_suggestion_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    responsePath = Environ$("TEMP") & "\eka_outpatient_suggestion_response_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    WriteUtf8Text requestPath, BuildSuggestionRequestJson()
+
+    commandLine = QuoteArg("python") & " " & QuoteArg(bridgeScript) & _
+                  " --request " & QuoteArg(requestPath) & _
+                  " --response " & QuoteArg(responsePath)
+
+    On Error GoTo SuggestionError
+    exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
+    If Dir$(responsePath) = "" Then
+        MsgBox "Το suggestion backend δεν επέστρεψε αποτέλεσμα.", vbCritical
+        GoTo SuggestionCleanUp
+    End If
+
+    responseText = ReadUtf8Text(responsePath)
+    If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
+        MsgBox "Δεν ήταν δυνατή η εύρεση εναλλακτικών:" & vbCrLf & vbCrLf & JsonStringValue(responseText, "error"), vbExclamation
+        GoTo SuggestionCleanUp
+    End If
+
+    lstSuggestions.Clear
+    linesText = JsonStringValue(responseText, "suggestion_lines")
+    If Len(linesText) = 0 Then
+        MsgBox "Δεν βρέθηκαν ασφαλείς εναλλακτικές με αυτά τα κριτήρια.", vbInformation
+        GoTo SuggestionCleanUp
+    End If
+
+    rows = Split(linesText, vbLf)
+    For Each row In rows
+        If Len(Trim$(CStr(row))) > 0 Then lstSuggestions.AddItem CStr(row)
+    Next row
+
+SuggestionCleanUp:
+    On Error Resume Next
+    Kill requestPath
+    Kill responsePath
+    On Error GoTo 0
+    Exit Sub
+
+SuggestionError:
+    MsgBox "Δεν ήταν δυνατή η εκτέλεση του suggestion backend: " & Err.Description, vbCritical
+    Resume SuggestionCleanUp
+End Sub
+
+Private Sub cmdUseSuggestion_Click()
+    ApplySelectedSuggestion
+End Sub
+
+Private Sub lstSuggestions_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
+    ApplySelectedSuggestion
+End Sub
+
+Private Sub ApplySelectedSuggestion()
+    Dim parts() As String
+    If lstSuggestions.ListIndex < 0 Then
+        MsgBox "Επιλέξτε πρώτα μία πρόταση.", vbExclamation
+        Exit Sub
+    End If
+    parts = Split(CStr(lstSuggestions.Value), " | ")
+    If UBound(parts) <> 2 Then
+        MsgBox "Η πρόταση δεν έχει αναμενόμενη μορφή.", vbCritical
+        Exit Sub
+    End If
+    cboTherapist.Value = Trim$(parts(0))
+    cboTime.Value = Trim$(parts(1))
+    cboDays.Value = Trim$(parts(2))
+End Sub
 
 Private Sub cmdSave_Click()
     Dim requestPath As String
@@ -243,12 +375,36 @@ Private Function BuildRequestJson() As String
         "}}"
 End Function
 
+Private Function BuildSuggestionRequestJson() As String
+    Dim q As String
+    Dim modeNumber As Long
+    q = Chr$(34)
+    modeNumber = cboSuggestMode.ListIndex + 1
+    BuildSuggestionRequestJson = "{" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "values" & q & ":{" & _
+        q & "mode" & q & ":" & CStr(modeNumber) & "," & _
+        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & "," & _
+        q & "time" & q & ":" & q & JsonEscape(cboTime.Value) & q & "," & _
+        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _
+        q & "limit" & q & ":5" & _
+        "}}"
+End Function
+
 Private Function ResolveBridgeScript() As String
     Dim candidate As String
     candidate = ThisWorkbook.Path & "\Python\tools\outpatient_schedule_bridge_cli.py"
     If Dir$(candidate) <> "" Then ResolveBridgeScript = candidate: Exit Function
     candidate = ThisWorkbook.Path & "\..\..\Python\tools\outpatient_schedule_bridge_cli.py"
     If Dir$(candidate) <> "" Then ResolveBridgeScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
+End Function
+
+Private Function ResolveSuggestionBridgeScript() As String
+    Dim candidate As String
+    candidate = ThisWorkbook.Path & "\Python\tools\outpatient_schedule_suggestion_bridge_cli.py"
+    If Dir$(candidate) <> "" Then ResolveSuggestionBridgeScript = candidate: Exit Function
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\outpatient_schedule_suggestion_bridge_cli.py"
+    If Dir$(candidate) <> "" Then ResolveSuggestionBridgeScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
 End Function
 
 Private Function QuoteArg(ByVal value As String) As String
@@ -275,7 +431,12 @@ Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) 
     For i = startPos + 1 To Len(jsonText)
         ch = Mid$(jsonText, i, 1)
         If escaped Then
-            If ch = "n" Then value = value & vbLf Else value = value & ch
+            Select Case ch
+                Case "n": value = value & vbLf
+                Case "r": value = value & vbCr
+                Case "t": value = value & vbTab
+                Case Else: value = value & ch
+            End Select
             escaped = False
         ElseIf ch = "\" Then
             escaped = True
@@ -397,9 +558,14 @@ def create_outpatient_schedule_form_preview(source_path: str | Path, output_path
             ("Forms.ComboBox.1", "cboDays", "", 176),
             ("Forms.Label.1", "lblTherapist", "", 224),
             ("Forms.ComboBox.1", "cboTherapist", "", 220),
-            ("Forms.Label.1", "lblInfo", "", 268),
-            ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 325),
-            ("Forms.CommandButton.1", "cmdSave", "Έλεγχος και preview", 325),
+            ("Forms.Label.1", "lblSuggestMode", "", 268),
+            ("Forms.ComboBox.1", "cboSuggestMode", "", 288),
+            ("Forms.CommandButton.1", "cmdSuggest", "Βρες εναλλακτικές", 323),
+            ("Forms.ListBox.1", "lstSuggestions", "", 365),
+            ("Forms.CommandButton.1", "cmdUseSuggestion", "Χρήση επιλογής", 470),
+            ("Forms.Label.1", "lblInfo", "", 505),
+            ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 550),
+            ("Forms.CommandButton.1", "cmdSave", "Έλεγχος και preview", 550),
         ):
             control = form.Designer.Controls.Add(prog_id, name, True)
             if caption:
@@ -419,11 +585,15 @@ def create_outpatient_schedule_form_preview(source_path: str | Path, output_path
         raise OutpatientScheduleFormVbaError(str(exc)) from exc
     finally:
         if workbook is not None:
-            try: workbook.Close(SaveChanges=False)
-            except Exception: pass
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
         if excel is not None:
-            try: excel.Quit()
-            except Exception: pass
+            try:
+                excel.Quit()
+            except Exception:
+                pass
 
     if _sha256(source) != before:
         output.unlink(missing_ok=True)
