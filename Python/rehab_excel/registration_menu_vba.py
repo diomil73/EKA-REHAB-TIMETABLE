@@ -232,10 +232,13 @@ class Win32ComRegistrationMenuInstaller:
             module.Name = MENU_MODULE_NAME
             module.CodeModule.AddFromString(STANDARD_MODULE_CODE)
 
-            stage = "creating menu form"
+            stage = "adding blank menu UserForm"
             form = vbproject.VBComponents.Add(3)
+            stage = "naming menu UserForm"
             form.Name = MENU_FORM_NAME
+            stage = "accessing menu designer"
             designer = form.Designer
+            stage = "setting menu caption"
             designer.Caption = "Κεντρικό Μενού"
 
             stage = "adding menu title"
