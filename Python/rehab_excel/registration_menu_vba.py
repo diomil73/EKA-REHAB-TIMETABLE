@@ -146,12 +146,7 @@ class RegistrationMenuInstallerBackend(Protocol):
 
 
 class Win32ComRegistrationMenuInstaller:
-    """Install the central registration menu into an already-created workbook copy.
-
-    The COM layer deliberately avoids Width/Height styling because some
-    Office/pywin32 combinations reject those assignments. Visual sizing and
-    styling are applied by VBA in UserForm_Initialize when the form opens.
-    """
+    """Install the central registration menu into an already-created workbook copy."""
 
     @staticmethod
     def _remove_component_if_present(vbproject, name: str) -> None:
@@ -200,18 +195,20 @@ class Win32ComRegistrationMenuInstaller:
 
         excel = None
         workbook = None
+        stage = "starting Excel"
         try:
             excel = win32com.client.DispatchEx("Excel.Application")
             excel.Visible = False
             excel.DisplayAlerts = False
             excel.ScreenUpdating = False
             excel.EnableEvents = False
+
+            stage = "opening workbook"
             workbook = excel.Workbooks.Open(
-                str(workbook_path.resolve()),
-                UpdateLinks=0,
-                ReadOnly=False,
+                str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
             )
 
+            stage = "accessing VBA project"
             try:
                 vbproject = workbook.VBProject
                 _ = vbproject.VBComponents.Count
@@ -223,35 +220,52 @@ class Win32ComRegistrationMenuInstaller:
                     "then retry on the preview copy."
                 ) from exc
 
+            stage = "removing old menu module"
             self._remove_component_if_present(vbproject, MENU_MODULE_NAME)
+            stage = "removing old menu form"
             self._remove_component_if_present(vbproject, MENU_FORM_NAME)
+            stage = "removing old patient form"
             self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
 
+            stage = "creating menu module"
             module = vbproject.VBComponents.Add(1)
             module.Name = MENU_MODULE_NAME
             module.CodeModule.AddFromString(STANDARD_MODULE_CODE)
 
+            stage = "creating menu form"
             form = vbproject.VBComponents.Add(3)
             form.Name = MENU_FORM_NAME
             designer = form.Designer
             designer.Caption = "Κεντρικό Μενού"
 
+            stage = "adding menu title"
             self._add_label(designer, "lblTitle", "Επιλέξτε ενέργεια", 18)
+            stage = "adding patient menu button"
             self._add_command_button(designer, "cmdPatient", "Νέος ασθενής", 55)
+            stage = "adding therapist menu button"
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
+            stage = "adding student menu button"
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
+            stage = "adding outpatient schedule menu button"
             self._add_command_button(
                 designer,
                 "cmdOutpatientSchedule",
                 "Πρόγραμμα εξωτερικού ασθενή",
                 166,
             )
+            stage = "adding close menu button"
             self._add_command_button(designer, "cmdClose", "Κλείσιμο", 213)
+
+            stage = "writing menu form code"
             form.CodeModule.AddFromString(USERFORM_CODE)
 
+            stage = "installing patient form"
             install_patient_form(vbproject, position_control=self._position_control)
+
+            stage = "saving workbook"
             workbook.Save()
 
+            stage = "verifying menu components"
             module_present = self._component_present(vbproject, MENU_MODULE_NAME)
             form_present = self._component_present(vbproject, MENU_FORM_NAME)
             patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
@@ -259,13 +273,12 @@ class Win32ComRegistrationMenuInstaller:
                 raise RegistrationMenuVbaError(
                     "Patient registration form was not confirmed in the preview VBA project"
                 )
-
             return module_present, form_present
         except RegistrationMenuVbaError:
             raise
         except Exception as exc:
             raise RegistrationMenuVbaError(
-                f"Excel registration menu installation failed: {exc}"
+                f"Excel registration menu installation failed during {stage}: {exc}"
             ) from exc
         finally:
             if workbook is not None:
@@ -287,8 +300,6 @@ def create_registration_menu_preview(
     backend: RegistrationMenuInstallerBackend | None = None,
     overwrite: bool = False,
 ) -> RegistrationMenuPreviewReport:
-    """Install the menu into a NEW .xlsm copy while proving source immutability."""
-
     source = Path(source_path).resolve()
     output = Path(output_path).resolve()
 
