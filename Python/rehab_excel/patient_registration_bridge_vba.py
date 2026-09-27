@@ -54,7 +54,7 @@ Private Sub cmdSave_Click()
 
     responseText = ReadUtf8Text(responsePath)
 
-    If exitCode <> 0 Or InStr(1, responseText, "\"ok\": false", vbTextCompare) > 0 Then
+    If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
         MsgBox "Η εγγραφή δεν ολοκληρώθηκε:" & vbCrLf & vbCrLf & _
                JsonStringValue(responseText, "error"), vbExclamation, "Νέος ασθενής"
         GoTo CleanUp
@@ -83,6 +83,9 @@ Private Function BuildPatientRegistrationJson(ByVal patientType As String) As St
     Dim roomValue As String
     Dim statusValue As String
     Dim infectiousValue As String
+    Dim q As String
+
+    q = Chr$(34)
 
     If patientType = "Εξωτερικός" Then
         roomValue = ""
@@ -96,18 +99,18 @@ Private Function BuildPatientRegistrationJson(ByVal patientType As String) As St
 
     BuildPatientRegistrationJson = _
         "{" & _
-        "\"source_path\":\"" & JsonEscape(ThisWorkbook.FullName) & "\"," & _
-        "\"preview_dir\":\"" & JsonEscape(ThisWorkbook.Path) & "\"," & _
-        "\"action\":\"new_patient\"," & _
-        "\"overwrite\":true," & _
-        "\"values\":{" & _
-        "\"patient_id\":\"\"," & _
-        "\"patient_type\":\"" & JsonEscape(patientType) & "\"," & _
-        "\"hospital_mrn\":\"" & JsonEscape(Trim$(txtHospitalMRN.Text)) & "\"," & _
-        "\"display_name\":\"" & JsonEscape(Trim$(txtDisplayName.Text)) & "\"," & _
-        "\"room\":\"" & JsonEscape(roomValue) & "\"," & _
-        "\"infectious\":" & infectiousValue & "," & _
-        "\"status\":\"" & JsonEscape(statusValue) & "\"" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "preview_dir" & q & ":" & q & JsonEscape(ThisWorkbook.Path) & q & "," & _
+        q & "action" & q & ":" & q & "new_patient" & q & "," & _
+        q & "overwrite" & q & ":true," & _
+        q & "values" & q & ":{" & _
+        q & "patient_id" & q & ":" & q & q & "," & _
+        q & "patient_type" & q & ":" & q & JsonEscape(patientType) & q & "," & _
+        q & "hospital_mrn" & q & ":" & q & JsonEscape(Trim$(txtHospitalMRN.Text)) & q & "," & _
+        q & "display_name" & q & ":" & q & JsonEscape(Trim$(txtDisplayName.Text)) & q & "," & _
+        q & "room" & q & ":" & q & JsonEscape(roomValue) & q & "," & _
+        q & "infectious" & q & ":" & infectiousValue & "," & _
+        q & "status" & q & ":" & q & JsonEscape(statusValue) & q & _
         "}}"
 End Function
 
@@ -243,6 +246,19 @@ def _replace_procedure(code_module, procedure_name: str, replacement: str) -> No
     code_module.InsertLines(start_line, replacement)
 
 
+def _replace_bridge_helpers(code_module, helper_code: str) -> None:
+    helper_name = "BuildPatientRegistrationJson"
+    try:
+        helper_start = code_module.ProcStartLine(helper_name, 0)
+    except Exception:
+        helper_start = 0
+
+    if helper_start:
+        code_module.DeleteLines(helper_start, code_module.CountOfLines - helper_start + 1)
+
+    code_module.AddFromString(helper_code)
+
+
 def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
@@ -266,17 +282,25 @@ def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
         component = vbproject.VBComponents(PATIENT_FORM_NAME)
         code_module = component.CodeModule
 
-        save_proc_marker = "Private Sub cmdSave_Click()"
-        helper_marker = "Private Function BuildPatientRegistrationJson"
         bridge_text = FORM_BRIDGE_CODE
         save_end = bridge_text.index("Private Function BuildPatientRegistrationJson")
         save_proc = bridge_text[:save_end].rstrip()
         helper_code = bridge_text[save_end:].lstrip()
 
         _replace_procedure(code_module, "cmdSave_Click", save_proc)
-        existing_text = code_module.Lines(1, code_module.CountOfLines)
-        if helper_marker not in existing_text:
-            code_module.AddFromString(helper_code)
+        _replace_bridge_helpers(code_module, helper_code)
+
+        stored_text = code_module.Lines(1, code_module.CountOfLines)
+        required_markers = (
+            "registration_bridge_cli.py",
+            "BuildPatientRegistrationJson",
+            "ResolveRegistrationBridgeScript",
+            'Chr$(34) & "ok" & Chr$(34)',
+        )
+        if not all(marker in stored_text for marker in required_markers):
+            raise PatientRegistrationBridgeVbaError(
+                "Patient registration bridge verification failed before workbook save"
+            )
 
         workbook.Save()
     except PatientRegistrationBridgeVbaError:
