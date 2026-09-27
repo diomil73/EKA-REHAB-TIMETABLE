@@ -17,7 +17,12 @@ from .outpatient_schedule_source import (
     OUTPATIENT_SCHEDULE_SHEET,
     read_outpatient_schedule,
 )
+from .outpatient_slot_validation import (
+    OutpatientSlotConflictError,
+    validate_outpatient_slot_compatibility,
+)
 from .patient_registry_source import read_patient_registry
+from .reader import read_base_schedule
 
 
 class OutpatientScheduleWriteError(RuntimeError):
@@ -272,6 +277,18 @@ def create_outpatient_schedule_preview(
 
     patients = read_patient_registry(source)
     patient = validate_outpatient_schedule_request(request, patients=patients)
+
+    try:
+        validate_outpatient_slot_compatibility(
+            outpatient_patient_id=request.patient_id.strip(),
+            therapist_id=request.therapist_id,
+            start_time=request.start_time,
+            day_pattern=request.day_pattern.strip(),
+            existing_entries=read_base_schedule(source),
+            patients=patients,
+        )
+    except OutpatientSlotConflictError as exc:
+        raise OutpatientScheduleWriteError(str(exc)) from exc
 
     if request.target_base_entry_id:
         existing = {
