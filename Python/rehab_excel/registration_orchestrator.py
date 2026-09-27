@@ -14,8 +14,8 @@ from rehab_core.registration import (
 from .patient_registration import (
     PatientRegistrationPreviewReport,
     PatientRegistrationWriteError,
-    create_patient_registration_preview,
 )
+from .patient_registration_auto import create_auto_patient_registration_preview
 from .student_registration import (
     StudentRegistrationPreviewReport,
     StudentRegistrationWriteError,
@@ -69,7 +69,7 @@ class RegistrationPreviewResult:
 class RegistrationPreviewServices:
     """Injectable preview services keep orchestration testable without Excel COM."""
 
-    patient: Callable[..., PatientRegistrationPreviewReport] = create_patient_registration_preview
+    patient: Callable[..., PatientRegistrationPreviewReport] = create_auto_patient_registration_preview
     therapist: Callable[..., TherapistRegistrationPreviewReport] = create_therapist_registration_preview
     student: Callable[..., StudentRegistrationPreviewReport] = create_student_registration_preview
 
@@ -103,7 +103,7 @@ def _normalize_result(
         assert isinstance(report, PatientRegistrationPreviewReport)
         return RegistrationPreviewResult(
             kind=kind,
-            subject_key=request.patient_id.strip(),
+            subject_key=report.patient_id.strip(),
             display_name=request.display_name.strip(),
             output_path=report.output_path,
             excel_row=report.excel_row,
@@ -148,10 +148,11 @@ def create_registration_preview(
 ) -> RegistrationPreviewResult:
     """Route one formal registration through its proven safe preview workflow.
 
-    This is the single backend entry point intended for the future Excel menu or
+    This is the single backend entry point intended for the Excel menu or
     Windows UI. It deliberately creates preview copies only. The three existing
     entity-specific workflows remain responsible for validation, COM writeback,
-    source hashing, and read-back verification.
+    source hashing, and read-back verification. Interactive patient requests may
+    leave PatientID blank; the patient service allocates the next sequential ID.
     """
 
     kind = registration_kind(request)
