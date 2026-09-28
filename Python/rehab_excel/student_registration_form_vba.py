@@ -8,7 +8,7 @@ Private Sub UserForm_Initialize()
     With Me
         .Caption = "Νέος φοιτητής"
         .Width = 520
-        .Height = 540
+        .Height = 500
         .StartUpPosition = 1
         .BackColor = RGB(245, 247, 250)
     End With
@@ -18,23 +18,21 @@ Private Sub UserForm_Initialize()
     StyleTextBox txtStudentID, 58
     StyleLabel lblDisplayName, "Ονοματεπώνυμο *", 106
     StyleTextBox txtDisplayName, 102
-    StyleLabel lblStudentNumber, "Αριθμός φοιτητή *", 150
-    StyleTextBox txtStudentNumber, 146
-    StyleLabel lblPlacementStart, "Έναρξη πρακτικής *", 194
-    StyleTextBox txtPlacementStart, 190
-    StyleLabel lblPlacementEnd, "Λήξη πρακτικής *", 238
-    StyleTextBox txtPlacementEnd, 234
-    StyleLabel lblSupervisor, "Επόπτης θεραπευτής", 282
-    StyleComboBox cboSupervisor, 278
-    StyleLabel lblReplacement, "Αναπληρώσεις", 326
-    StyleCheckBox chkReplacement, "Ναι", 322, True
-    StyleLabel lblRobotic, "Ρομποτική αποκατάσταση", 366
-    StyleCheckBox chkRobotic, "Ναι", 362, False
+    StyleLabel lblPlacementStart, "Έναρξη πρακτικής *", 150
+    StyleTextBox txtPlacementStart, 146
+    StyleLabel lblPlacementEnd, "Λήξη πρακτικής *", 194
+    StyleTextBox txtPlacementEnd, 190
+    StyleLabel lblSupervisor, "Επόπτης θεραπευτής", 238
+    StyleComboBox cboSupervisor, 234
+    StyleLabel lblReplacement, "Αναπληρώσεις", 282
+    StyleCheckBox chkReplacement, "Ναι", 278, True
+    StyleLabel lblRobotic, "Ρομποτική αποκατάσταση", 322
+    StyleCheckBox chkRobotic, "Ναι", 318, False
 
     With lblInfo
         .Caption = "Ημερομηνίες: ΗΗ/ΜΜ/ΕΕΕΕ. Ο επόπτης, αν δηλωθεί, πρέπει να υπάρχει στους θεραπευτές."
         .Left = 38
-        .Top = 400
+        .Top = 356
         .Width = 440
         .Height = 32
         .WordWrap = True
@@ -47,7 +45,7 @@ Private Sub UserForm_Initialize()
     With cmdCancel
         .Caption = "Ακύρωση"
         .Left = 105
-        .Top = 448
+        .Top = 408
         .Width = 125
         .Height = 34
         .Cancel = True
@@ -56,7 +54,7 @@ Private Sub UserForm_Initialize()
     With cmdSave
         .Caption = "Έλεγχος και preview"
         .Left = 250
-        .Top = 448
+        .Top = 408
         .Width = 175
         .Height = 34
         .Default = True
@@ -163,16 +161,6 @@ Private Function ValidateForm() As Boolean
         txtDisplayName.SetFocus
         Exit Function
     End If
-    If Len(Trim$(txtStudentNumber.Text)) = 0 Or Not IsNumeric(Trim$(txtStudentNumber.Text)) Then
-        MsgBox "Ο αριθμός φοιτητή πρέπει να είναι θετικός ακέραιος.", vbExclamation, "Νέος φοιτητής"
-        txtStudentNumber.SetFocus
-        Exit Function
-    End If
-    If CLng(txtStudentNumber.Text) < 1 Then
-        MsgBox "Ο αριθμός φοιτητή πρέπει να είναι θετικός ακέραιος.", vbExclamation, "Νέος φοιτητής"
-        txtStudentNumber.SetFocus
-        Exit Function
-    End If
     If Not IsDate(txtPlacementStart.Text) Then
         MsgBox "Η ημερομηνία έναρξης δεν είναι έγκυρη.", vbExclamation, "Νέος φοιτητής"
         txtPlacementStart.SetFocus
@@ -207,8 +195,8 @@ Private Sub cmdSave_Click()
         Exit Sub
     End If
 
-    requestPath = Environ$("TEMP") & "\\eka_student_registration_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
-    responsePath = Environ$("TEMP") & "\\eka_student_registration_response_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    requestPath = Environ$("TEMP") & "\eka_student_registration_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    responsePath = Environ$("TEMP") & "\eka_student_registration_response_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
     WriteUtf8Text requestPath, BuildStudentRegistrationJson()
 
     commandLine = QuoteArg("python") & " " & QuoteArg(bridgeScript) & _
@@ -264,7 +252,6 @@ Private Function BuildStudentRegistrationJson() As String
         q & "values" & q & ":{" & _
         q & "student_id" & q & ":" & q & JsonEscape(Trim$(txtStudentID.Text)) & q & "," & _
         q & "display_name" & q & ":" & q & JsonEscape(Trim$(txtDisplayName.Text)) & q & "," & _
-        q & "student_number" & q & ":" & CStr(CLng(txtStudentNumber.Text)) & "," & _
         q & "placement_start" & q & ":" & q & Format$(CDate(txtPlacementStart.Text), "dd/mm/yyyy") & q & "," & _
         q & "placement_end" & q & ":" & q & Format$(CDate(txtPlacementEnd.Text), "dd/mm/yyyy") & q & "," & _
         q & "supervisor_therapist_id" & q & ":" & q & JsonEscape(supervisorValue) & q & "," & _
@@ -275,9 +262,9 @@ End Function
 
 Private Function ResolveRegistrationBridgeScript() As String
     Dim candidate As String
-    candidate = ThisWorkbook.Path & "\\Python\\tools\\registration_bridge_cli.py"
+    candidate = ThisWorkbook.Path & "\Python\tools\registration_bridge_cli.py"
     If Dir$(candidate) <> "" Then ResolveRegistrationBridgeScript = candidate: Exit Function
-    candidate = ThisWorkbook.Path & "\\..\\..\\Python\\tools\\registration_bridge_cli.py"
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\registration_bridge_cli.py"
     If Dir$(candidate) <> "" Then ResolveRegistrationBridgeScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
 End Function
 
@@ -287,11 +274,11 @@ End Function
 
 Private Function JsonEscape(ByVal value As String) As String
     Dim text As String
-    text = Replace(value, "\\", "\\\\")
-    text = Replace(text, Chr$(34), "\\" & Chr$(34))
-    text = Replace(text, vbCrLf, "\\n")
-    text = Replace(text, vbCr, "\\n")
-    text = Replace(text, vbLf, "\\n")
+    text = Replace(value, "\", "\\")
+    text = Replace(text, Chr$(34), "\" & Chr$(34))
+    text = Replace(text, vbCrLf, "\n")
+    text = Replace(text, vbCr, "\n")
+    text = Replace(text, vbLf, "\n")
     JsonEscape = text
 End Function
 
@@ -307,7 +294,7 @@ Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) 
         If escaped Then
             If ch = "n" Then value = value & vbLf Else value = value & ch
             escaped = False
-        ElseIf ch = "\\" Then
+        ElseIf ch = "\" Then
             escaped = True
         ElseIf ch = Chr$(34) Then
             Exit For
@@ -365,21 +352,19 @@ def install_student_form(vbproject, *, position_control) -> None:
         ("Forms.TextBox.1", "txtStudentID", None, 58),
         ("Forms.Label.1", "lblDisplayName", "Ονοματεπώνυμο *", 106),
         ("Forms.TextBox.1", "txtDisplayName", None, 102),
-        ("Forms.Label.1", "lblStudentNumber", "Αριθμός φοιτητή *", 150),
-        ("Forms.TextBox.1", "txtStudentNumber", None, 146),
-        ("Forms.Label.1", "lblPlacementStart", "Έναρξη πρακτικής *", 194),
-        ("Forms.TextBox.1", "txtPlacementStart", None, 190),
-        ("Forms.Label.1", "lblPlacementEnd", "Λήξη πρακτικής *", 238),
-        ("Forms.TextBox.1", "txtPlacementEnd", None, 234),
-        ("Forms.Label.1", "lblSupervisor", "Επόπτης θεραπευτής", 282),
-        ("Forms.ComboBox.1", "cboSupervisor", None, 278),
-        ("Forms.Label.1", "lblReplacement", "Αναπληρώσεις", 326),
-        ("Forms.CheckBox.1", "chkReplacement", "Ναι", 322),
-        ("Forms.Label.1", "lblRobotic", "Ρομποτική αποκατάσταση", 366),
-        ("Forms.CheckBox.1", "chkRobotic", "Ναι", 362),
-        ("Forms.Label.1", "lblInfo", "", 400),
-        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 448),
-        ("Forms.CommandButton.1", "cmdSave", "Έλεγχος και preview", 448),
+        ("Forms.Label.1", "lblPlacementStart", "Έναρξη πρακτικής *", 150),
+        ("Forms.TextBox.1", "txtPlacementStart", None, 146),
+        ("Forms.Label.1", "lblPlacementEnd", "Λήξη πρακτικής *", 194),
+        ("Forms.TextBox.1", "txtPlacementEnd", None, 190),
+        ("Forms.Label.1", "lblSupervisor", "Επόπτης θεραπευτής", 238),
+        ("Forms.ComboBox.1", "cboSupervisor", None, 234),
+        ("Forms.Label.1", "lblReplacement", "Αναπληρώσεις", 282),
+        ("Forms.CheckBox.1", "chkReplacement", "Ναι", 278),
+        ("Forms.Label.1", "lblRobotic", "Ρομποτική αποκατάσταση", 322),
+        ("Forms.CheckBox.1", "chkRobotic", "Ναι", 318),
+        ("Forms.Label.1", "lblInfo", "", 356),
+        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 408),
+        ("Forms.CommandButton.1", "cmdSave", "Έλεγχος και preview", 408),
     )
 
     for prog_id, name, caption, top in controls:
