@@ -51,12 +51,7 @@ def _is_no_token(value: object) -> bool:
     return _key(value) in {"οχι", "no", "n", "false", "0"}
 
 
-def resolve_boolean_cell_value(
-    value: bool,
-    configured_values: tuple[str, ...],
-) -> str:
-    """Use the workbook's configured yes/no labels when possible."""
-
+def resolve_boolean_cell_value(value: bool, configured_values: tuple[str, ...]) -> str:
     matcher = _is_yes_token if value else _is_no_token
     for item in configured_values:
         if matcher(item):
@@ -65,35 +60,11 @@ def resolve_boolean_cell_value(
 
 
 def excel_date_serial(value: date) -> int:
-    """Return the 1900-date-system serial Excel stores in Value2.
-
-    Sending a Python midnight ``datetime`` through COM can be timezone-normalized
-    by pywin32/Excel on some systems, which shifted the real workbook smoke-test
-    dates back by one calendar day. Writing the date-only Excel serial to
-    ``Value2`` avoids any timezone conversion while still storing a native Excel
-    date value once a date number format is applied.
-    """
-
     return (value - date(1899, 12, 30)).days
 
 
-def choose_student_target_row(
-    last_student_id_row: int,
-    last_student_name_row: int,
-    last_student_number_row: int,
-) -> int:
-    """Return the next logical STUDENTS data row."""
-
-    return max(
-        2,
-        max(
-            int(last_student_id_row),
-            int(last_student_name_row),
-            int(last_student_number_row),
-            1,
-        )
-        + 1,
-    )
+def choose_student_target_row(last_student_id_row: int, last_student_name_row: int) -> int:
+    return max(2, max(int(last_student_id_row), int(last_student_name_row), 1) + 1)
 
 
 def _student_mismatch_detail(
@@ -102,23 +73,14 @@ def _student_mismatch_detail(
     *,
     target_student_id: str,
 ) -> str:
-    """Return a compact read-back diagnostic without dumping unrelated rows."""
-
     target_key = _key(target_student_id)
-    expected_target = next(
-        (student for student in expected if _key(student.student_id) == target_key),
-        None,
-    )
-    actual_target = next(
-        (student for student in actual if _key(student.student_id) == target_key),
-        None,
-    )
+    expected_target = next((s for s in expected if _key(s.student_id) == target_key), None)
+    actual_target = next((s for s in actual if _key(s.student_id) == target_key), None)
 
     if actual_target is None:
-        actual_ids = [student.student_id for student in actual]
         return (
             f"target StudentID {target_student_id!r} was not found after read-back; "
-            f"actual StudentIDs={actual_ids!r}"
+            f"actual StudentIDs={[student.student_id for student in actual]!r}"
         )
     if expected_target is None:
         return "internal verification error: expected target student is missing"
@@ -126,7 +88,6 @@ def _student_mismatch_detail(
     fields = (
         "student_id",
         "display_name",
-        "student_number",
         "placement_start",
         "placement_end",
         "supervisor_therapist_id",
@@ -173,26 +134,19 @@ class StudentRegistrationBackend(Protocol):
         replacement_cell_value: str,
         robotic_cell_value: str,
     ) -> int:
-        """Append one student and return the Excel row written."""
         ...
 
 
 class Win32ComStudentRegistrationBackend:
-    """Append one validated student to STUDENTS on an already-created copy."""
-
     @staticmethod
     def _last_used_row(ws, column: int) -> int:
-        return int(ws.Cells(ws.Rows.Count, column).End(-4162).Row)  # xlUp
+        return int(ws.Cells(ws.Rows.Count, column).End(-4162).Row)
 
     @staticmethod
     def _last_nonblank_value_row(ws, column: int, upper_row: int) -> int:
         upper_row = max(1, int(upper_row))
         values = ws.Range(ws.Cells(1, column), ws.Cells(upper_row, column)).Value2
-        if upper_row == 1:
-            sequence = ((values,),)
-        else:
-            sequence = values
-
+        sequence = ((values,),) if upper_row == 1 else values
         last = 1
         for row_index, item in enumerate(sequence, start=1):
             value = item[0] if isinstance(item, tuple) else item
@@ -204,16 +158,10 @@ class Win32ComStudentRegistrationBackend:
         return last
 
     def _target_row(self, ws) -> int:
-        upper = max(
-            self._last_used_row(ws, 1),
-            self._last_used_row(ws, 2),
-            self._last_used_row(ws, 3),
-            1,
-        )
+        upper = max(self._last_used_row(ws, 1), self._last_used_row(ws, 2), 1)
         return choose_student_target_row(
             self._last_nonblank_value_row(ws, 1, upper),
             self._last_nonblank_value_row(ws, 2, upper),
-            self._last_nonblank_value_row(ws, 3, upper),
         )
 
     def append_student(
@@ -244,9 +192,7 @@ class Win32ComStudentRegistrationBackend:
             excel.ScreenUpdating = False
             excel.EnableEvents = False
             workbook = excel.Workbooks.Open(
-                str(workbook_path.resolve()),
-                UpdateLinks=0,
-                ReadOnly=False,
+                str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
             )
             try:
                 ws = workbook.Worksheets(STUDENT_REGISTRY_SHEET)
@@ -267,19 +213,18 @@ class Win32ComStudentRegistrationBackend:
             target_row = self._target_row(ws)
             ws.Cells(target_row, 1).Value = request.student_id.strip()
             ws.Cells(target_row, 2).Value = request.display_name.strip()
-            ws.Cells(target_row, 3).Value = int(request.student_number)
-            ws.Cells(target_row, 4).Value2 = excel_date_serial(request.placement_start)
-            ws.Cells(target_row, 5).Value2 = excel_date_serial(request.placement_end)
-            ws.Cells(target_row, 6).Value = (request.supervisor_therapist_id or "").strip()
-            ws.Cells(target_row, 7).Value = replacement_cell_value
-            ws.Cells(target_row, 8).Value = robotic_cell_value
+            ws.Cells(target_row, 3).Value2 = excel_date_serial(request.placement_start)
+            ws.Cells(target_row, 4).Value2 = excel_date_serial(request.placement_end)
+            ws.Cells(target_row, 5).Value = (request.supervisor_therapist_id or "").strip()
+            ws.Cells(target_row, 6).Value = replacement_cell_value
+            ws.Cells(target_row, 7).Value = robotic_cell_value
 
             try:
-                ws.Range(f"D{target_row}:E{target_row}").NumberFormat = "dd/mm/yyyy"
+                ws.Range(f"C{target_row}:D{target_row}").NumberFormat = "dd/mm/yyyy"
             except Exception:
                 pass
 
-            ws.Columns("A:H").AutoFit()
+            ws.Columns("A:G").AutoFit()
             workbook.Save()
             return target_row
         except StudentRegistrationWriteError:
@@ -321,8 +266,6 @@ def create_student_registration_preview(
     backend: StudentRegistrationBackend | None = None,
     overwrite: bool = False,
 ) -> StudentRegistrationPreviewReport:
-    """Create a copied .xlsm, ensure STUDENTS exists, append and verify one student."""
-
     source = Path(source_path).resolve()
     output = Path(output_path).resolve()
     if not source.exists():
@@ -340,6 +283,7 @@ def create_student_registration_preview(
         raise StudentRegistrationWriteError(
             f"Existing STUDENTS registry is invalid: {exc}"
         ) from exc
+
     settings = read_settings(source)
     check = validate_new_student(
         request,
@@ -358,14 +302,8 @@ def create_student_registration_preview(
 
     selected_schema_backend = schema_backend or Win32ComStudentRegistrySchemaBackend()
     selected_backend = backend or Win32ComStudentRegistrationBackend()
-    replacement_value = resolve_boolean_cell_value(
-        request.replacement_capable,
-        settings.yes_no_values,
-    )
-    robotic_value = resolve_boolean_cell_value(
-        request.robotic_capable,
-        settings.yes_no_values,
-    )
+    replacement_value = resolve_boolean_cell_value(request.replacement_capable, settings.yes_no_values)
+    robotic_value = resolve_boolean_cell_value(request.robotic_capable, settings.yes_no_values)
 
     try:
         schema_created = selected_schema_backend.ensure_schema(output)
@@ -379,8 +317,7 @@ def create_student_registration_preview(
         _remove_preview(output, required=False)
         raise
 
-    source_after = _sha256(source)
-    if source_before != source_after:
+    if source_before != _sha256(source):
         _remove_preview(output, required=False)
         raise StudentRegistrationWriteError(
             "Source workbook changed during student registration preview"
@@ -397,7 +334,6 @@ def create_student_registration_preview(
     expected_student = Student(
         student_id=request.student_id.strip(),
         display_name=request.display_name.strip(),
-        student_number=request.student_number,
         placement_start=request.placement_start,
         placement_end=request.placement_end,
         supervisor_therapist_id=(request.supervisor_therapist_id or "").strip() or None,
@@ -416,9 +352,7 @@ def create_student_registration_preview(
             target_student_id=request.student_id,
         )
         _remove_preview(output, required=False)
-        raise StudentRegistrationWriteError(
-            "Preview verification failed: " + detail
-        )
+        raise StudentRegistrationWriteError("Preview verification failed: " + detail)
 
     return StudentRegistrationPreviewReport(
         source_path=str(source),
