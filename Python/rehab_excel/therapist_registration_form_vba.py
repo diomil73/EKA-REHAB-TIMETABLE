@@ -132,6 +132,8 @@ Private Sub cmdSave_Click()
            "Αρχείο: " & JsonStringValue(responseText, "output_path"), _
            vbInformation, "Νέος θεραπευτής"
 
+    Unload Me
+
 CleanUp:
     On Error Resume Next
     If Len(requestPath) > 0 Then Kill requestPath
