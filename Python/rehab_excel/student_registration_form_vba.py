@@ -16,7 +16,7 @@ Private Sub UserForm_Initialize()
     StyleTitle lblTitle, "Εγγραφή νέου φοιτητή", 18
     StyleLabel lblStudentID, "Student ID", 62
     StyleTextBox txtStudentID, 58
-    txtStudentID.Text = "Αυτόματο κατά την αποθήκευση"
+    txtStudentID.Text = "Αυτόματο"
     txtStudentID.Locked = True
     txtStudentID.TabStop = False
     txtStudentID.BackColor = RGB(238, 242, 247)
@@ -57,7 +57,7 @@ Private Sub UserForm_Initialize()
     End With
 
     With cmdSave
-        .Caption = "Έλεγχος και preview"
+        .Caption = "Αποθήκευση"
         .Left = 250
         .Top = 408
         .Width = 175
@@ -364,7 +364,7 @@ def install_student_form(vbproject, *, position_control) -> None:
         ("Forms.CheckBox.1", "chkRobotic", "Ναι", 318),
         ("Forms.Label.1", "lblInfo", "", 356),
         ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 408),
-        ("Forms.CommandButton.1", "cmdSave", "Έλεγχος και preview", 408),
+        ("Forms.CommandButton.1", "cmdSave", "Αποθήκευση", 408),
     )
 
     for prog_id, name, caption, top in controls:
