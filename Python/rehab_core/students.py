@@ -17,7 +17,7 @@ class StudentDisplayState:
 
 def student_display_state(student: Student, target_date: date) -> StudentDisplayState:
     active = student.is_active(target_date)
-    label = student.display_name if active else f"Φοιτ.{student.student_number}"
+    label = student.display_name if active else f"Φοιτ.{student.student_id}"
     return StudentDisplayState(
         student_id=student.student_id,
         label=label,
@@ -46,5 +46,5 @@ def students_for_session(
         student = student_by_id.get(assignment.student_id)
         if student is not None:
             result.append(student)
-    result.sort(key=lambda student: (student.student_number, student.student_id))
+    result.sort(key=lambda student: student.student_id)
     return result
