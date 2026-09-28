@@ -89,7 +89,13 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
         kind=RegistrationKind.STUDENT,
         title="Νέος φοιτητής",
         fields=(
-            RegistrationFormField("student_id", "Student ID", FormFieldType.TEXT, required=True),
+            RegistrationFormField(
+                "student_id",
+                "Student ID",
+                FormFieldType.TEXT,
+                required=False,
+                help_text="Αυτόματο κατά την αποθήκευση",
+            ),
             RegistrationFormField("display_name", "Ονοματεπώνυμο", FormFieldType.TEXT, required=True),
             RegistrationFormField("placement_start", "Έναρξη πρακτικής", FormFieldType.DATE, required=True),
             RegistrationFormField("placement_end", "Λήξη πρακτικής", FormFieldType.DATE, required=True),
@@ -229,7 +235,7 @@ def build_registration_request(
         )
 
     return NewStudentRequest(
-        student_id=_text(values, "student_id", required=True) or "",
+        student_id=_text(values, "student_id") or "",
         display_name=_text(values, "display_name", required=True) or "",
         placement_start=_date(values, "placement_start"),
         placement_end=_date(values, "placement_end"),
