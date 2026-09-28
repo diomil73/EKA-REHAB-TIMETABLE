@@ -8,15 +8,15 @@ from rehab_excel.student_registration import (
 
 
 def test_student_target_row_starts_at_first_data_row():
-    assert choose_student_target_row(1, 1, 1) == 2
+    assert choose_student_target_row(1, 1) == 2
 
 
 def test_student_target_row_follows_last_real_registry_value():
-    assert choose_student_target_row(7, 7, 7) == 8
+    assert choose_student_target_row(7, 7) == 8
 
 
 def test_student_target_row_uses_furthest_identity_column():
-    assert choose_student_target_row(7, 9, 8) == 10
+    assert choose_student_target_row(7, 9) == 10
 
 
 def test_student_boolean_values_use_configured_yes_no_labels():
