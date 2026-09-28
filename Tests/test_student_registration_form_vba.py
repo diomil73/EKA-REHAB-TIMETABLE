@@ -12,7 +12,6 @@ def test_student_form_collects_required_fields():
     for marker in (
         "txtStudentID",
         "txtDisplayName",
-        "txtStudentNumber",
         "txtPlacementStart",
         "txtPlacementEnd",
         "cboSupervisor",
@@ -20,6 +19,8 @@ def test_student_form_collects_required_fields():
         "chkRobotic",
     ):
         assert marker in STUDENT_FORM_CODE
+    assert "txtStudentNumber" not in STUDENT_FORM_CODE
+    assert "student_number" not in STUDENT_FORM_CODE
 
 
 def test_student_form_loads_supervisors_from_settings():
@@ -31,7 +32,6 @@ def test_student_form_calls_shared_registration_bridge():
     assert "registration_bridge_cli.py" in STUDENT_FORM_CODE
     assert 'q & "action" & q & ":" & q & "new_student" & q' in STUDENT_FORM_CODE
     assert 'q & "student_id" & q' in STUDENT_FORM_CODE
-    assert 'q & "student_number" & q' in STUDENT_FORM_CODE
     assert 'q & "replacement_capable" & q' in STUDENT_FORM_CODE
     assert 'q & "robotic_capable" & q' in STUDENT_FORM_CODE
 
