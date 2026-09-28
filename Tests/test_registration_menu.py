@@ -54,11 +54,12 @@ def test_therapist_form_does_not_offer_unsupported_capability_field():
     assert [field.key for field in spec.fields] == ["display_name"]
 
 
-def test_student_form_declares_single_id_supervisor_source_and_capability_defaults():
+def test_student_form_declares_automatic_single_id_supervisor_and_capabilities():
     spec = registration_form_spec("new_student")
     fields = {field.key: field for field in spec.fields}
     assert "student_number" not in fields
-    assert fields["student_id"].required is True
+    assert fields["student_id"].required is False
+    assert fields["student_id"].help_text == "Αυτόματο κατά την αποθήκευση"
     assert fields["supervisor_therapist_id"].source == "therapists"
     assert fields["replacement_capable"].default is True
     assert fields["robotic_capable"].default is False
@@ -161,6 +162,18 @@ def test_build_student_request_accepts_ui_date_formats_and_boolean_values():
     )
 
 
+def test_build_student_request_allows_blank_id_for_auto_allocation():
+    request = build_registration_request(
+        "new_student",
+        {
+            "display_name": "Student Auto",
+            "placement_start": "01/10/2026",
+            "placement_end": "31/12/2026",
+        },
+    )
+    assert request.student_id == ""
+
+
 def test_build_student_request_uses_capability_defaults_when_omitted():
     request = build_registration_request(
         "new_student",
@@ -185,7 +198,6 @@ def test_student_invalid_date_stops_cleanly():
         build_registration_request(
             "new_student",
             {
-                "student_id": "S-9",
                 "display_name": "Student Nine",
                 "placement_start": "10.01.2026",
                 "placement_end": "01/11/2026",
