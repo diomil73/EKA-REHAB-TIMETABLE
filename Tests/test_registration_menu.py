@@ -54,9 +54,11 @@ def test_therapist_form_does_not_offer_unsupported_capability_field():
     assert [field.key for field in spec.fields] == ["display_name"]
 
 
-def test_student_form_declares_supervisor_source_and_capability_defaults():
+def test_student_form_declares_single_id_supervisor_source_and_capability_defaults():
     spec = registration_form_spec("new_student")
     fields = {field.key: field for field in spec.fields}
+    assert "student_number" not in fields
+    assert fields["student_id"].required is True
     assert fields["supervisor_therapist_id"].source == "therapists"
     assert fields["replacement_capable"].default is True
     assert fields["robotic_capable"].default is False
@@ -140,7 +142,6 @@ def test_build_student_request_accepts_ui_date_formats_and_boolean_values():
         {
             "student_id": " S-7 ",
             "display_name": " Student Seven ",
-            "student_number": "7",
             "placement_start": "01/10/2026",
             "placement_end": "2026-12-31",
             "supervisor_therapist_id": " Therapist A ",
@@ -152,7 +153,6 @@ def test_build_student_request_accepts_ui_date_formats_and_boolean_values():
     assert request == NewStudentRequest(
         student_id="S-7",
         display_name="Student Seven",
-        student_number=7,
         placement_start=date(2026, 10, 1),
         placement_end=date(2026, 12, 31),
         supervisor_therapist_id="Therapist A",
@@ -167,7 +167,6 @@ def test_build_student_request_uses_capability_defaults_when_omitted():
         {
             "student_id": "S-8",
             "display_name": "Student Eight",
-            "student_number": 8,
             "placement_start": date(2026, 10, 1),
             "placement_end": date(2026, 11, 1),
         },
@@ -181,20 +180,6 @@ def test_patient_name_is_the_only_required_text_field_at_ui_boundary():
         build_registration_request("new_patient", {"patient_id": ""})
 
 
-def test_student_invalid_integer_stops_cleanly():
-    with pytest.raises(ValueError, match="student_number must be an integer"):
-        build_registration_request(
-            "new_student",
-            {
-                "student_id": "S-9",
-                "display_name": "Student Nine",
-                "student_number": "nine",
-                "placement_start": "01/10/2026",
-                "placement_end": "01/11/2026",
-            },
-        )
-
-
 def test_student_invalid_date_stops_cleanly():
     with pytest.raises(ValueError, match="placement_start must use"):
         build_registration_request(
@@ -202,7 +187,6 @@ def test_student_invalid_date_stops_cleanly():
             {
                 "student_id": "S-9",
                 "display_name": "Student Nine",
-                "student_number": 9,
                 "placement_start": "10.01.2026",
                 "placement_end": "01/11/2026",
             },
