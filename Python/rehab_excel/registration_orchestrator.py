@@ -19,8 +19,8 @@ from .patient_registration_auto import create_auto_patient_registration_preview
 from .student_registration import (
     StudentRegistrationPreviewReport,
     StudentRegistrationWriteError,
-    create_student_registration_preview,
 )
+from .student_registration_auto import create_auto_student_registration_preview
 from .therapist_registration import (
     TherapistRegistrationPreviewReport,
     TherapistRegistrationWriteError,
@@ -71,7 +71,7 @@ class RegistrationPreviewServices:
 
     patient: Callable[..., PatientRegistrationPreviewReport] = create_auto_patient_registration_preview
     therapist: Callable[..., TherapistRegistrationPreviewReport] = create_therapist_registration_preview
-    student: Callable[..., StudentRegistrationPreviewReport] = create_student_registration_preview
+    student: Callable[..., StudentRegistrationPreviewReport] = create_auto_student_registration_preview
 
 
 def registration_kind(request: RegistrationRequest) -> RegistrationKind:
@@ -128,7 +128,7 @@ def _normalize_result(
     assert isinstance(report, StudentRegistrationPreviewReport)
     return RegistrationPreviewResult(
         kind=kind,
-        subject_key=request.student_id.strip(),
+        subject_key=report.student_id.strip(),
         display_name=request.display_name.strip(),
         output_path=report.output_path,
         excel_row=report.excel_row,
@@ -146,13 +146,11 @@ def create_registration_preview(
     overwrite: bool = False,
     services: RegistrationPreviewServices | None = None,
 ) -> RegistrationPreviewResult:
-    """Route one formal registration through its proven safe preview workflow.
+    """Route one formal registration through its safe preview workflow.
 
-    This is the single backend entry point intended for the Excel menu or
-    Windows UI. It deliberately creates preview copies only. The three existing
-    entity-specific workflows remain responsible for validation, COM writeback,
-    source hashing, and read-back verification. Interactive patient requests may
-    leave PatientID blank; the patient service allocates the next sequential ID.
+    Interactive patient and student requests may leave their internal IDs blank;
+    the corresponding services allocate the next sequential numeric ID before
+    authoritative validation and preview write-back.
     """
 
     kind = registration_kind(request)
