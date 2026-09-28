@@ -14,8 +14,13 @@ Private Sub UserForm_Initialize()
     End With
 
     StyleTitle lblTitle, "Εγγραφή νέου φοιτητή", 18
-    StyleLabel lblStudentID, "Student ID *", 62
+    StyleLabel lblStudentID, "Student ID", 62
     StyleTextBox txtStudentID, 58
+    txtStudentID.Text = "Αυτόματο κατά την αποθήκευση"
+    txtStudentID.Locked = True
+    txtStudentID.TabStop = False
+    txtStudentID.BackColor = RGB(238, 242, 247)
+
     StyleLabel lblDisplayName, "Ονοματεπώνυμο *", 106
     StyleTextBox txtDisplayName, 102
     StyleLabel lblPlacementStart, "Έναρξη πρακτικής *", 150
@@ -30,7 +35,7 @@ Private Sub UserForm_Initialize()
     StyleCheckBox chkRobotic, "Ναι", 318, False
 
     With lblInfo
-        .Caption = "Ημερομηνίες: ΗΗ/ΜΜ/ΕΕΕΕ. Ο επόπτης, αν δηλωθεί, πρέπει να υπάρχει στους θεραπευτές."
+        .Caption = "Το Student ID εκχωρείται αυτόματα ως αύξων αριθμός. Ημερομηνίες: ΗΗ/ΜΜ/ΕΕΕΕ."
         .Left = 38
         .Top = 356
         .Width = 440
@@ -61,7 +66,7 @@ Private Sub UserForm_Initialize()
     End With
 
     LoadTherapists
-    txtStudentID.SetFocus
+    txtDisplayName.SetFocus
 End Sub
 
 Private Sub StyleTitle(ByVal control As MSForms.Label, ByVal text As String, ByVal topPosition As Single)
@@ -151,11 +156,6 @@ SettingsError:
 End Sub
 
 Private Function ValidateForm() As Boolean
-    If Len(Trim$(txtStudentID.Text)) = 0 Then
-        MsgBox "Το Student ID είναι υποχρεωτικό.", vbExclamation, "Νέος φοιτητής"
-        txtStudentID.SetFocus
-        Exit Function
-    End If
     If Len(Trim$(txtDisplayName.Text)) = 0 Then
         MsgBox "Το ονοματεπώνυμο είναι υποχρεωτικό.", vbExclamation, "Νέος φοιτητής"
         txtDisplayName.SetFocus
@@ -250,7 +250,7 @@ Private Function BuildStudentRegistrationJson() As String
         q & "action" & q & ":" & q & "new_student" & q & "," & _
         q & "overwrite" & q & ":true," & _
         q & "values" & q & ":{" & _
-        q & "student_id" & q & ":" & q & JsonEscape(Trim$(txtStudentID.Text)) & q & "," & _
+        q & "student_id" & q & ":" & q & q & "," & _
         q & "display_name" & q & ":" & q & JsonEscape(Trim$(txtDisplayName.Text)) & q & "," & _
         q & "placement_start" & q & ":" & q & Format$(CDate(txtPlacementStart.Text), "dd/mm/yyyy") & q & "," & _
         q & "placement_end" & q & ":" & q & Format$(CDate(txtPlacementEnd.Text), "dd/mm/yyyy") & q & "," & _
@@ -348,7 +348,7 @@ def install_student_form(vbproject, *, position_control) -> None:
 
     controls = (
         ("Forms.Label.1", "lblTitle", "Εγγραφή νέου φοιτητή", 18),
-        ("Forms.Label.1", "lblStudentID", "Student ID *", 62),
+        ("Forms.Label.1", "lblStudentID", "Student ID", 62),
         ("Forms.TextBox.1", "txtStudentID", None, 58),
         ("Forms.Label.1", "lblDisplayName", "Ονοματεπώνυμο *", 106),
         ("Forms.TextBox.1", "txtDisplayName", None, 102),
