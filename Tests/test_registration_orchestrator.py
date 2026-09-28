@@ -35,7 +35,6 @@ def _student_request():
     return NewStudentRequest(
         student_id="STU-NEW",
         display_name="ΝΕΟΣ ΦΟΙΤΗΤΗΣ",
-        student_number=7,
         placement_start=date(2026, 10, 1),
         placement_end=date(2026, 12, 31),
     )
