@@ -69,35 +69,11 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
                 default=PatientType.INPATIENT.value,
                 source="patient_types",
             ),
-            RegistrationFormField(
-                "hospital_mrn",
-                "ΑΜ Νοσοκομείου",
-                FormFieldType.TEXT,
-            ),
-            RegistrationFormField(
-                "display_name",
-                "Ονοματεπώνυμο",
-                FormFieldType.TEXT,
-                required=True,
-            ),
-            RegistrationFormField(
-                "room",
-                "Θάλαμος",
-                FormFieldType.TEXT,
-                source="rooms",
-            ),
-            RegistrationFormField(
-                "infectious",
-                "Λοιμώδης ασθενής",
-                FormFieldType.BOOLEAN,
-                default=False,
-            ),
-            RegistrationFormField(
-                "status",
-                "Κατάσταση",
-                FormFieldType.TEXT,
-                source="patient_statuses",
-            ),
+            RegistrationFormField("hospital_mrn", "ΑΜ Νοσοκομείου", FormFieldType.TEXT),
+            RegistrationFormField("display_name", "Ονοματεπώνυμο", FormFieldType.TEXT, required=True),
+            RegistrationFormField("room", "Θάλαμος", FormFieldType.TEXT, source="rooms"),
+            RegistrationFormField("infectious", "Λοιμώδης ασθενής", FormFieldType.BOOLEAN, default=False),
+            RegistrationFormField("status", "Κατάσταση", FormFieldType.TEXT, source="patient_statuses"),
         ),
     ),
     RegistrationMenuAction.NEW_THERAPIST: RegistrationFormSpec(
@@ -105,12 +81,7 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
         kind=RegistrationKind.THERAPIST,
         title="Νέος θεραπευτής",
         fields=(
-            RegistrationFormField(
-                "display_name",
-                "Ονοματεπώνυμο",
-                FormFieldType.TEXT,
-                required=True,
-            ),
+            RegistrationFormField("display_name", "Ονοματεπώνυμο", FormFieldType.TEXT, required=True),
         ),
     ),
     RegistrationMenuAction.NEW_STUDENT: RegistrationFormSpec(
@@ -118,36 +89,10 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
         kind=RegistrationKind.STUDENT,
         title="Νέος φοιτητής",
         fields=(
-            RegistrationFormField(
-                "student_id",
-                "Student ID",
-                FormFieldType.TEXT,
-                required=True,
-            ),
-            RegistrationFormField(
-                "display_name",
-                "Ονοματεπώνυμο",
-                FormFieldType.TEXT,
-                required=True,
-            ),
-            RegistrationFormField(
-                "student_number",
-                "Αριθμός φοιτητή",
-                FormFieldType.INTEGER,
-                required=True,
-            ),
-            RegistrationFormField(
-                "placement_start",
-                "Έναρξη πρακτικής",
-                FormFieldType.DATE,
-                required=True,
-            ),
-            RegistrationFormField(
-                "placement_end",
-                "Λήξη πρακτικής",
-                FormFieldType.DATE,
-                required=True,
-            ),
+            RegistrationFormField("student_id", "Student ID", FormFieldType.TEXT, required=True),
+            RegistrationFormField("display_name", "Ονοματεπώνυμο", FormFieldType.TEXT, required=True),
+            RegistrationFormField("placement_start", "Έναρξη πρακτικής", FormFieldType.DATE, required=True),
+            RegistrationFormField("placement_end", "Λήξη πρακτικής", FormFieldType.DATE, required=True),
             RegistrationFormField(
                 "supervisor_therapist_id",
                 "Επόπτης θεραπευτής",
@@ -172,14 +117,10 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
 
 
 def registration_menu_actions() -> tuple[RegistrationFormSpec, ...]:
-    """Return the stable registration choices for a central menu."""
-
     return tuple(REGISTRATION_FORMS[action] for action in RegistrationMenuAction)
 
 
-def registration_form_spec(
-    action: RegistrationMenuAction | str,
-) -> RegistrationFormSpec:
+def registration_form_spec(action: RegistrationMenuAction | str) -> RegistrationFormSpec:
     try:
         resolved = (
             action
@@ -201,16 +142,6 @@ def _text(values: Mapping[str, object], key: str, *, required: bool = False) -> 
     if required and not text:
         raise ValueError(f"{key} is required")
     return text or None
-
-
-def _integer(values: Mapping[str, object], key: str) -> int:
-    value = values.get(key)
-    if value is None or str(value).strip() == "":
-        raise ValueError(f"{key} is required")
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{key} must be an integer") from exc
 
 
 def _date(values: Mapping[str, object], key: str) -> date:
@@ -249,12 +180,8 @@ def _boolean(values: Mapping[str, object], key: str, default: bool) -> bool:
 
 
 def _normalize_patient_type_text(value: object) -> str:
-    """Normalize Greek/Latin UI text without depending on accents/final sigma."""
-
     decomposed = unicodedata.normalize("NFKD", str(value).strip())
-    without_marks = "".join(
-        char for char in decomposed if not unicodedata.combining(char)
-    )
+    without_marks = "".join(char for char in decomposed if not unicodedata.combining(char))
     return without_marks.casefold().replace("ς", "σ")
 
 
@@ -282,13 +209,6 @@ def build_registration_request(
     action: RegistrationMenuAction | str,
     values: Mapping[str, object],
 ) -> RegistrationRequest:
-    """Translate menu/form values into the existing domain request objects.
-
-    This layer performs only UI-shape parsing (text, dates, booleans, integers).
-    Authoritative duplicate/configuration/business validation remains in the
-    existing registration workflows.
-    """
-
     resolved = registration_form_spec(action).action
 
     if resolved is RegistrationMenuAction.NEW_PATIENT:
@@ -311,7 +231,6 @@ def build_registration_request(
     return NewStudentRequest(
         student_id=_text(values, "student_id", required=True) or "",
         display_name=_text(values, "display_name", required=True) or "",
-        student_number=_integer(values, "student_number"),
         placement_start=_date(values, "placement_start"),
         placement_end=_date(values, "placement_end"),
         supervisor_therapist_id=_text(values, "supervisor_therapist_id"),
