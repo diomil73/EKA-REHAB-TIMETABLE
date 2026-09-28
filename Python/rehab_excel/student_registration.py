@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from hashlib import sha256
 from pathlib import Path
 import shutil
@@ -61,6 +61,11 @@ def resolve_boolean_cell_value(value: bool, configured_values: tuple[str, ...]) 
 
 def excel_date_serial(value: date) -> int:
     return (value - date(1899, 12, 30)).days
+
+
+def excel_datetime_value(value: date) -> datetime:
+    """Return a midnight datetime suitable for Excel COM date cells."""
+    return datetime(value.year, value.month, value.day)
 
 
 def choose_student_target_row(last_student_id_row: int, last_student_name_row: int) -> int:
@@ -213,16 +218,18 @@ class Win32ComStudentRegistrationBackend:
             target_row = self._target_row(ws)
             ws.Cells(target_row, 1).Value = request.student_id.strip()
             ws.Cells(target_row, 2).Value = request.display_name.strip()
-            ws.Cells(target_row, 3).Value2 = excel_date_serial(request.placement_start)
-            ws.Cells(target_row, 4).Value2 = excel_date_serial(request.placement_end)
+            ws.Cells(target_row, 3).Value = excel_datetime_value(request.placement_start)
+            ws.Cells(target_row, 4).Value = excel_datetime_value(request.placement_end)
             ws.Cells(target_row, 5).Value = (request.supervisor_therapist_id or "").strip()
             ws.Cells(target_row, 6).Value = replacement_cell_value
             ws.Cells(target_row, 7).Value = robotic_cell_value
 
             try:
                 ws.Range(f"C{target_row}:D{target_row}").NumberFormat = "dd/mm/yyyy"
-            except Exception:
-                pass
+            except Exception as exc:
+                raise StudentRegistrationWriteError(
+                    f"Could not apply date format to STUDENTS row {target_row}: {exc}"
+                ) from exc
 
             ws.Columns("A:G").AutoFit()
             workbook.Save()
