@@ -46,9 +46,6 @@ class Patient:
     hospital_mrn: Optional[str] = None
 
     def __post_init__(self) -> None:
-        # Confirmed business rule: an outpatient is never classified/rendered
-        # as infectious. Keep this impossible state out of the domain model,
-        # not only out of the registration UI.
         if self.patient_type == PatientType.OUTPATIENT and self.infectious:
             raise ValueError("Outpatient patient cannot be marked infectious")
 
@@ -62,10 +59,6 @@ class Therapist:
     therapist_id: str
     display_name: str
     robotic_capable: bool = False
-    # Confirmed operational rule: a physiotherapist may occupy at most six
-    # distinct timeslots on any one day. The field lives on the provider model
-    # so exceptional staff limits can be represented later without changing the
-    # scheduling engine.
     max_daily_timeslots: int = 6
 
 
@@ -95,11 +88,7 @@ class Session:
 
 @dataclass(frozen=True)
 class DailySessionCancellation:
-    """Cancel one concrete daily session without changing its recurring plan.
-
-    The therapist slot becomes operationally free for other work/replacements,
-    while the immutable Session remains available for audit/history.
-    """
+    """Cancel one concrete daily session without changing its recurring plan."""
 
     cancellation_id: str
     target_session_id: str
@@ -116,15 +105,10 @@ class DailySessionCancellation:
 
 @dataclass(frozen=True)
 class Student:
-    """Student placement kept separate from the Therapist registry.
-
-    Students may receive patients/replacements when they are active and
-    replacement-capable. Their confirmed daily capacity is five timeslots.
-    """
+    """Student placement kept separate from the Therapist registry."""
 
     student_id: str
     display_name: str
-    student_number: int
     placement_start: date
     placement_end: date
     supervisor_therapist_id: Optional[str] = None
