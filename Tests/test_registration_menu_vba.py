@@ -50,6 +50,7 @@ def test_standard_module_exposes_show_macro():
 def test_userform_code_contains_all_click_handlers():
     assert "Private Sub cmdPatient_Click()" in USERFORM_CODE
     assert "Private Sub cmdTherapist_Click()" in USERFORM_CODE
+    assert "frmNewTherapist.Show" in USERFORM_CODE
     assert "Private Sub cmdStudent_Click()" in USERFORM_CODE
     assert "Private Sub cmdOutpatientSchedule_Click()" in USERFORM_CODE
     assert "frmOutpatientSchedule.Show" in USERFORM_CODE
