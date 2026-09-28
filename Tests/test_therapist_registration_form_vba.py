@@ -31,3 +31,11 @@ def test_form_reports_backend_success_and_error():
     assert 'JsonStringValue(responseText, "error")' in THERAPIST_FORM_CODE
     assert 'JsonStringValue(responseText, "output_path")' in THERAPIST_FORM_CODE
     assert "Δημιουργήθηκε ασφαλές preview εγγραφής." in THERAPIST_FORM_CODE
+
+
+def test_form_closes_after_successful_preview():
+    success_marker = 'vbInformation, "Νέος θεραπευτής"'
+    success_pos = THERAPIST_FORM_CODE.index(success_marker)
+    unload_pos = THERAPIST_FORM_CODE.index("Unload Me", success_pos)
+    cleanup_pos = THERAPIST_FORM_CODE.index("CleanUp:", success_pos)
+    assert success_pos < unload_pos < cleanup_pos
