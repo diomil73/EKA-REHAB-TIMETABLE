@@ -8,7 +8,7 @@ def test_student_form_name_is_stable():
     assert STUDENT_FORM_NAME == "frmNewStudent"
 
 
-def test_student_form_collects_required_fields():
+def test_student_form_collects_required_fields_without_second_number():
     for marker in (
         "txtStudentID",
         "txtDisplayName",
@@ -21,6 +21,14 @@ def test_student_form_collects_required_fields():
         assert marker in STUDENT_FORM_CODE
     assert "txtStudentNumber" not in STUDENT_FORM_CODE
     assert "student_number" not in STUDENT_FORM_CODE
+
+
+def test_student_id_is_locked_and_sent_blank_for_backend_allocation():
+    assert 'txtStudentID.Text = "Αυτόματο κατά την αποθήκευση"' in STUDENT_FORM_CODE
+    assert "txtStudentID.Locked = True" in STUDENT_FORM_CODE
+    assert "txtStudentID.TabStop = False" in STUDENT_FORM_CODE
+    assert 'q & "student_id" & q & ":" & q & q' in STUDENT_FORM_CODE
+    assert "Το Student ID είναι υποχρεωτικό" not in STUDENT_FORM_CODE
 
 
 def test_student_form_loads_supervisors_from_settings():
