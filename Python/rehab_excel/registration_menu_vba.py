@@ -10,6 +10,7 @@ from zipfile import ZipFile
 
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .therapist_registration_form_vba import THERAPIST_FORM_NAME, install_therapist_form
+from .student_registration_form_vba import STUDENT_FORM_NAME, install_student_form
 
 
 MENU_FORM_NAME = "frmRegistrationMenu"
@@ -91,7 +92,7 @@ Private Sub cmdTherapist_Click()
 End Sub
 
 Private Sub cmdStudent_Click()
-    MsgBox "Η φόρμα εγγραφής νέου φοιτητή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος φοιτητής"
+    frmNewStudent.Show
 End Sub
 
 Private Sub cmdOutpatientSchedule_Click()
@@ -229,6 +230,8 @@ class Win32ComRegistrationMenuInstaller:
             self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
             stage = "removing old therapist form"
             self._remove_component_if_present(vbproject, THERAPIST_FORM_NAME)
+            stage = "removing old student form"
+            self._remove_component_if_present(vbproject, STUDENT_FORM_NAME)
 
             stage = "creating menu module"
             module = vbproject.VBComponents.Add(1)
@@ -269,6 +272,8 @@ class Win32ComRegistrationMenuInstaller:
             install_patient_form(vbproject, position_control=self._position_control)
             stage = "installing therapist form"
             install_therapist_form(vbproject, position_control=self._position_control)
+            stage = "installing student form"
+            install_student_form(vbproject, position_control=self._position_control)
 
             stage = "saving workbook"
             workbook.Save()
@@ -278,6 +283,7 @@ class Win32ComRegistrationMenuInstaller:
             form_present = self._component_present(vbproject, MENU_FORM_NAME)
             patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
             therapist_form_present = self._component_present(vbproject, THERAPIST_FORM_NAME)
+            student_form_present = self._component_present(vbproject, STUDENT_FORM_NAME)
             if not patient_form_present:
                 raise RegistrationMenuVbaError(
                     "Patient registration form was not confirmed in the preview VBA project"
@@ -285,6 +291,10 @@ class Win32ComRegistrationMenuInstaller:
             if not therapist_form_present:
                 raise RegistrationMenuVbaError(
                     "Therapist registration form was not confirmed in the preview VBA project"
+                )
+            if not student_form_present:
+                raise RegistrationMenuVbaError(
+                    "Student registration form was not confirmed in the preview VBA project"
                 )
             return module_present, form_present
         except RegistrationMenuVbaError:
