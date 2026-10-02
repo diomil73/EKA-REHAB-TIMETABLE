@@ -16,7 +16,10 @@ from rehab_excel.registration_menu_vba import (  # noqa: E402
     DEFAULT_PREVIEW_FILENAME,
     MENU_FORM_NAME,
     MENU_MODULE_NAME,
+    DAILY_INPUT_MODULE_NAME,
     PATIENT_FORM_NAME,
+    STUDENT_FORM_NAME,
+    THERAPIST_FORM_NAME,
     RegistrationMenuVbaError,
     create_registration_menu_preview,
 )
@@ -100,6 +103,12 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         _remove_component_if_present(vbproject, MENU_FORM_NAME)
         stage = "removing old patient form"
         _remove_component_if_present(vbproject, PATIENT_FORM_NAME)
+        stage = "removing old therapist form"
+        _remove_component_if_present(vbproject, THERAPIST_FORM_NAME)
+        stage = "removing old student form"
+        _remove_component_if_present(vbproject, STUDENT_FORM_NAME)
+        stage = "removing old DAILY_INPUT action module"
+        _remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
 
         stage = "saving temporary workbook"
         workbook.Save()
