@@ -526,6 +526,8 @@ def create_outpatient_schedule_form_preview(source_path: str | Path, output_path
 
     excel = None
     workbook = None
+    failure: Exception | None = None
+    form_present = False
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
@@ -581,8 +583,7 @@ def create_outpatient_schedule_form_preview(source_path: str | Path, output_path
         except Exception:
             form_present = False
     except Exception as exc:
-        output.unlink(missing_ok=True)
-        raise OutpatientScheduleFormVbaError(str(exc)) from exc
+        failure = exc
     finally:
         if workbook is not None:
             try:
@@ -594,6 +595,10 @@ def create_outpatient_schedule_form_preview(source_path: str | Path, output_path
                 excel.Quit()
             except Exception:
                 pass
+
+    if failure is not None:
+        output.unlink(missing_ok=True)
+        raise OutpatientScheduleFormVbaError(str(failure)) from failure
 
     if _sha256(source) != before:
         output.unlink(missing_ok=True)
