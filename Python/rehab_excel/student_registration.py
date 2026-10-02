@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from hashlib import sha256
 from pathlib import Path
 import shutil
@@ -61,11 +61,6 @@ def resolve_boolean_cell_value(value: bool, configured_values: tuple[str, ...]) 
 
 def excel_date_serial(value: date) -> int:
     return (value - date(1899, 12, 30)).days
-
-
-def excel_datetime_value(value: date) -> datetime:
-    """Return a midnight datetime suitable for Excel COM date cells."""
-    return datetime(value.year, value.month, value.day)
 
 
 def apply_excel_date_format(cell_range) -> None:
@@ -235,8 +230,8 @@ class Win32ComStudentRegistrationBackend:
             target_row = self._target_row(ws)
             ws.Cells(target_row, 1).Value = request.student_id.strip()
             ws.Cells(target_row, 2).Value = request.display_name.strip()
-            ws.Cells(target_row, 3).Value = excel_datetime_value(request.placement_start)
-            ws.Cells(target_row, 4).Value = excel_datetime_value(request.placement_end)
+            ws.Cells(target_row, 3).Value2 = excel_date_serial(request.placement_start)
+            ws.Cells(target_row, 4).Value2 = excel_date_serial(request.placement_end)
             ws.Cells(target_row, 5).Value = (request.supervisor_therapist_id or "").strip()
             ws.Cells(target_row, 6).Value = replacement_cell_value
             ws.Cells(target_row, 7).Value = robotic_cell_value
