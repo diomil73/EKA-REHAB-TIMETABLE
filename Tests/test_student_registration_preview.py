@@ -38,3 +38,49 @@ def test_excel_date_serial_preserves_calendar_day_without_datetime_conversion():
 
 def test_excel_datetime_value_uses_midnight_for_com_date_cell():
     assert excel_datetime_value(date(2026, 10, 1)) == datetime(2026, 10, 1, 0, 0)
+
+
+class _RangeStandardFormat:
+    def __init__(self):
+        self.value = None
+
+    @property
+    def NumberFormat(self):
+        return self.value
+
+    @NumberFormat.setter
+    def NumberFormat(self, value):
+        self.value = value
+
+
+class _RangeGreekFallback:
+    def __init__(self):
+        self.local_value = None
+
+    @property
+    def NumberFormat(self):
+        return None
+
+    @NumberFormat.setter
+    def NumberFormat(self, value):
+        raise RuntimeError("standard format rejected")
+
+    @property
+    def NumberFormatLocal(self):
+        return self.local_value
+
+    @NumberFormatLocal.setter
+    def NumberFormatLocal(self, value):
+        self.local_value = value
+
+
+def test_excel_date_format_uses_standard_format_when_supported():
+    target = _RangeStandardFormat()
+    apply_excel_date_format(target)
+    assert target.value == "dd/mm/yyyy"
+
+
+def test_excel_date_format_falls_back_to_greek_local_format():
+    target = _RangeGreekFallback()
+    apply_excel_date_format(target)
+    assert target.local_value == "ηη/μμ/εεεε"
