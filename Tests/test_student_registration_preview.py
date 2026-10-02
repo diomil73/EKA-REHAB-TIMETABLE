@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from rehab_excel.student_registration import (
+    apply_excel_date_format,
     choose_student_target_row,
     excel_date_serial,
     excel_datetime_value,
