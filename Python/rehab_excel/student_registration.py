@@ -68,6 +68,23 @@ def excel_datetime_value(value: date) -> datetime:
     return datetime(value.year, value.month, value.day)
 
 
+def apply_excel_date_format(cell_range) -> None:
+    """Apply a day/month/year display format across Excel locale variants."""
+    try:
+        cell_range.NumberFormat = "dd/mm/yyyy"
+        return
+    except Exception:
+        pass
+
+    try:
+        cell_range.NumberFormatLocal = "ηη/μμ/εεεε"
+        return
+    except Exception as exc:
+        raise StudentRegistrationWriteError(
+            f"Could not apply date format using standard or Greek-local Excel formatting: {exc}"
+        ) from exc
+
+
 def choose_student_target_row(last_student_id_row: int, last_student_name_row: int) -> int:
     return max(2, max(int(last_student_id_row), int(last_student_name_row), 1) + 1)
 
@@ -225,8 +242,8 @@ class Win32ComStudentRegistrationBackend:
             ws.Cells(target_row, 7).Value = robotic_cell_value
 
             try:
-                ws.Range(f"C{target_row}:D{target_row}").NumberFormat = "dd/mm/yyyy"
-            except Exception as exc:
+                apply_excel_date_format(ws.Range(f"C{target_row}:D{target_row}"))
+            except StudentRegistrationWriteError as exc:
                 raise StudentRegistrationWriteError(
                     f"Could not apply date format to STUDENTS row {target_row}: {exc}"
                 ) from exc
