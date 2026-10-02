@@ -8,6 +8,7 @@ import sys
 from typing import Protocol
 from zipfile import ZipFile
 
+from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .therapist_registration_form_vba import THERAPIST_FORM_NAME, install_therapist_form
 from .student_registration_form_vba import STUDENT_FORM_NAME, install_student_form
@@ -33,7 +34,7 @@ Private Sub UserForm_Initialize()
     With Me
         .Caption = "Κεντρικό Μενού"
         .Width = 330
-        .Height = 355
+        .Height = 400
         .StartUpPosition = 1
         .BackColor = RGB(245, 247, 250)
     End With
@@ -56,11 +57,12 @@ Private Sub UserForm_Initialize()
     StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 113
     StyleMenuButton cmdStudent, "Νέος φοιτητής", 158
     StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή", 203
+    StyleMenuButton cmdDailyInput, "Εφαρμογή DAILY_INPUT", 248
 
     With cmdClose
         .Caption = "Κλείσιμο"
         .Left = 105
-        .Top = 265
+        .Top = 310
         .Width = 110
         .Height = 30
         .Font.Name = "Calibri"
@@ -101,6 +103,10 @@ Private Sub cmdOutpatientSchedule_Click()
     Exit Sub
 MissingForm:
     MsgBox "Η φόρμα προγράμματος εξωτερικού ασθενή δεν είναι εγκατεστημένη σε αυτό το αρχείο.", vbExclamation, "Πρόγραμμα εξωτερικού ασθενή"
+End Sub
+
+Private Sub cmdDailyInput_Click()
+    ApplyDailyInputPreview
 End Sub
 
 Private Sub cmdClose_Click()
@@ -226,6 +232,8 @@ class Win32ComRegistrationMenuInstaller:
             self._remove_component_if_present(vbproject, MENU_MODULE_NAME)
             stage = "removing old menu form"
             self._remove_component_if_present(vbproject, MENU_FORM_NAME)
+            stage = "removing old DAILY_INPUT action module"
+            self._remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
             stage = "removing old patient form"
             self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
             stage = "removing old therapist form"
@@ -262,12 +270,21 @@ class Win32ComRegistrationMenuInstaller:
                 "Πρόγραμμα εξωτερικού ασθενή",
                 166,
             )
+            stage = "adding DAILY_INPUT menu button"
+            self._add_command_button(
+                designer,
+                "cmdDailyInput",
+                "Εφαρμογή DAILY_INPUT",
+                203,
+            )
             stage = "adding close menu button"
-            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 213)
+            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 250)
 
             stage = "writing menu form code"
             form.CodeModule.AddFromString(USERFORM_CODE)
 
+            stage = "installing DAILY_INPUT action"
+            install_daily_input_action(vbproject)
             stage = "installing patient form"
             install_patient_form(vbproject, position_control=self._position_control)
             stage = "installing therapist form"
@@ -284,6 +301,7 @@ class Win32ComRegistrationMenuInstaller:
             patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
             therapist_form_present = self._component_present(vbproject, THERAPIST_FORM_NAME)
             student_form_present = self._component_present(vbproject, STUDENT_FORM_NAME)
+            daily_input_action_present = self._component_present(vbproject, DAILY_INPUT_MODULE_NAME)
             if not patient_form_present:
                 raise RegistrationMenuVbaError(
                     "Patient registration form was not confirmed in the preview VBA project"
@@ -295,6 +313,10 @@ class Win32ComRegistrationMenuInstaller:
             if not student_form_present:
                 raise RegistrationMenuVbaError(
                     "Student registration form was not confirmed in the preview VBA project"
+                )
+            if not daily_input_action_present:
+                raise RegistrationMenuVbaError(
+                    "DAILY_INPUT action module was not confirmed in the preview VBA project"
                 )
             return module_present, form_present
         except RegistrationMenuVbaError:
