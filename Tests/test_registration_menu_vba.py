@@ -55,6 +55,8 @@ def test_userform_code_contains_all_click_handlers():
     assert "frmNewStudent.Show" in USERFORM_CODE
     assert "Private Sub cmdOutpatientSchedule_Click()" in USERFORM_CODE
     assert "frmOutpatientSchedule.Show" in USERFORM_CODE
+    assert "Private Sub cmdDailyInput_Click()" in USERFORM_CODE
+    assert "ApplyDailyInputPreview" in USERFORM_CODE
     assert "Private Sub cmdClose_Click()" in USERFORM_CODE
     assert "Unload Me" in USERFORM_CODE
 
