@@ -12,6 +12,10 @@ PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
+from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
+    FORM_NAME as OUTPATIENT_FORM_NAME,
+    MODULE_NAME as OUTPATIENT_MODULE_NAME,
+)
 from rehab_excel.registration_menu_vba import (  # noqa: E402
     DEFAULT_PREVIEW_FILENAME,
     MENU_FORM_NAME,
@@ -109,6 +113,10 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         _remove_component_if_present(vbproject, STUDENT_FORM_NAME)
         stage = "removing old DAILY_INPUT action module"
         _remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
+        stage = "removing old outpatient schedule module"
+        _remove_component_if_present(vbproject, OUTPATIENT_MODULE_NAME)
+        stage = "removing old outpatient schedule form"
+        _remove_component_if_present(vbproject, OUTPATIENT_FORM_NAME)
 
         stage = "saving temporary workbook"
         workbook.Save()
