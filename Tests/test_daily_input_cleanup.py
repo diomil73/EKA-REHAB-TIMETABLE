@@ -14,7 +14,11 @@ def test_clean_layout_spec_still_preserves_status_values_exactly():
         patient_statuses=statuses,
         timeslots=(time(8, 30), time(9, 15)),
     )
-    assert spec.patient_statuses == statuses
+    assert spec.patient_statuses[: len(statuses)] == statuses
+    assert spec.patient_statuses[-2:] == (
+        "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
+        "ΔΕΝ ΠΡΟΣΗΛΘΕ",
+    )
     assert spec.patient_names == ("Π1", "Π2")
 
 
