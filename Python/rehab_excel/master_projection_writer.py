@@ -141,7 +141,7 @@ class Win32ComMasterProjectionBackend:
                     self._apply_infectious_style(ws.Range(f"A{row}:K{row}"))
 
             workbook.Application.CutCopyMode = False
-            workbook.CalculateFull()
+            excel.CalculateFull()
             workbook.Save()
         except MasterProjectionWriteError:
             raise
