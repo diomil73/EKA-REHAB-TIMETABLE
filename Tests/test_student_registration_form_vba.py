@@ -56,9 +56,29 @@ def test_student_form_uses_utf8_and_preview_source():
     assert 'stream.Charset = "utf-8"' in STUDENT_FORM_CODE
 
 
-def test_student_form_closes_after_success():
-    success_marker = 'MsgBox "Δημιουργήθηκε ασφαλές preview εγγραφής."'
-    success_pos = STUDENT_FORM_CODE.index(success_marker)
-    unload_pos = STUDENT_FORM_CODE.index("Unload Me", success_pos)
-    cleanup_pos = STUDENT_FORM_CODE.index("CleanUp:", success_pos)
-    assert success_pos < unload_pos < cleanup_pos
+def test_student_form_wires_authoritative_commit_worker():
+    assert "StartAuthoritativeCommit" in STUDENT_FORM_CODE
+    assert "authoritative_commit_worker_cli.py" in STUDENT_FORM_CODE
+    assert 'JsonStringValue(responseText, "source_sha256_before")' in STUDENT_FORM_CODE
+    assert 'JsonStringValue(responseText, "output_path")' in STUDENT_FORM_CODE
+    assert 'q & "expected_source_sha256" & q' in STUDENT_FORM_CODE
+    assert 'q & "preview_path" & q' in STUDENT_FORM_CODE
+    assert 'q & "reopen" & q & ":true,"' in STUDENT_FORM_CODE
+
+
+def test_student_form_starts_worker_async_then_closes_authoritative_workbook():
+    save_proc_end = STUDENT_FORM_CODE.index("CleanUp:")
+    save_proc = STUDENT_FORM_CODE[:save_proc_end]
+    start_pos = save_proc.index("If Not StartAuthoritativeCommit(")
+    close_pos = save_proc.index("ThisWorkbook.Close SaveChanges:=True")
+    assert start_pos < close_pos
+    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in STUDENT_FORM_CODE
+    assert "Unload Me" in save_proc
+
+
+def test_student_form_sets_returned_student_id_before_close():
+    id_pos = STUDENT_FORM_CODE.index(
+        'txtStudentID.Text = JsonStringValue(responseText, "subject_key")'
+    )
+    start_pos = STUDENT_FORM_CODE.index("If Not StartAuthoritativeCommit(")
+    assert id_pos < start_pos
