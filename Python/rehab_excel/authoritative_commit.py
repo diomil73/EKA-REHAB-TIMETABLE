@@ -156,6 +156,11 @@ def commit_verified_preview(
                 shutil.copy2(backup, source)
             except Exception:
                 pass
+        elif not source_replaced and backup.exists():
+            try:
+                backup.unlink()
+            except OSError:
+                pass
         raise
     finally:
         if staging.exists():
