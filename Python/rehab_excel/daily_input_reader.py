@@ -100,8 +100,15 @@ def _find_header_row(ws, expected: tuple[str, ...]) -> int:
     raise DailyInputReadError(f"Could not locate DAILY_INPUT header: {' | '.join(expected)}")
 
 
+def _patient_display_name(value: str) -> str:
+    text = str(value or "").strip()
+    if text.upper().startswith("ΕΞ |"):
+        return text.split("|", 1)[1].strip()
+    return text
+
+
 def _unique_patient(patients: Iterable[Patient], display_name: str) -> Patient:
-    wanted = _norm(display_name)
+    wanted = _norm(_patient_display_name(display_name))
     matches = [patient for patient in patients if _norm(patient.display_name) == wanted]
     if len(matches) != 1:
         raise DailyInputReadError(
