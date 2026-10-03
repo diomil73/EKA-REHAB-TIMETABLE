@@ -40,7 +40,7 @@ Private Sub UserForm_Initialize()
     StyleLabel lblInfectious, "Λοιμώδης", 282
     StyleCheckBox chkInfectious, "Ναι", 278
 
-    StyleLabel lblStatus, "Κατάσταση", 326
+    StyleLabel lblStatus, "Κατάσταση *", 326
     StyleComboBox cboStatus, 322
 
     With lblInfo
@@ -69,7 +69,7 @@ Private Sub UserForm_Initialize()
     End With
 
     With cmdSave
-        .Caption = "Έλεγχος στοιχείων"
+        .Caption = "Δημιουργία καταχώρησης"
         .Left = 235
         .Top = 452
         .Width = 170
@@ -202,13 +202,12 @@ Private Sub ApplyPatientTypeRules()
     cboRoom.Enabled = isInpatient
     lblInfectious.Enabled = isInpatient
     chkInfectious.Enabled = isInpatient
-    lblStatus.Enabled = isInpatient
-    cboStatus.Enabled = isInpatient
+    lblStatus.Enabled = True
+    cboStatus.Enabled = True
 
     If Not isInpatient Then
         cboRoom.ListIndex = -1
         chkInfectious.Value = False
-        cboStatus.ListIndex = -1
     End If
 End Sub
 
@@ -222,6 +221,12 @@ Private Function ValidateForm() As Boolean
     If Len(Trim$(txtDisplayName.Text)) = 0 Then
         MsgBox "Το ονοματεπώνυμο είναι υποχρεωτικό.", vbExclamation, "Έλεγχος στοιχείων"
         txtDisplayName.SetFocus
+        Exit Function
+    End If
+
+    If Len(Trim$(cboStatus.Value)) = 0 Then
+        MsgBox "Η κατάσταση παρουσίας είναι υποχρεωτική.", vbExclamation, "Έλεγχος στοιχείων"
+        cboStatus.SetFocus
         Exit Function
     End If
 
@@ -246,7 +251,9 @@ Private Sub cmdSave_Click()
                   "Λοιμώδης: " & IIf(chkInfectious.Value, "Ναι", "Όχι") & vbCrLf & _
                   "Κατάσταση: " & IIf(Len(cboStatus.Value) > 0, cboStatus.Value, "-") & vbCrLf
     Else
-        message = message & "Εξωτερικός ασθενής: δεν εμφανίζεται στα φύλλα νοσηλευομένων." & vbCrLf
+        message = message & _
+                  "Εξωτερικός ασθενής: δεν εμφανίζεται στα φύλλα νοσηλευομένων." & vbCrLf & _
+                  "Κατάσταση: " & cboStatus.Value & vbCrLf
     End If
 
     message = message & vbCrLf & _
@@ -299,7 +306,7 @@ def install_patient_form(vbproject, *, position_control) -> None:
         ("Forms.Label.1", "lblInfo", "", 370),
         ("Forms.Label.1", "lblRequired", "* Υποχρεωτικό πεδίο", 414),
         ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 452),
-        ("Forms.CommandButton.1", "cmdSave", "Έλεγχος στοιχείων", 452),
+        ("Forms.CommandButton.1", "cmdSave", "Δημιουργία καταχώρησης", 452),
     )
 
     for prog_id, name, caption, top in controls:
