@@ -35,3 +35,12 @@ def test_apply_daily_input_composes_outpatient_presentation_before_writeback():
     source = SCRIPT.read_text(encoding="utf-8")
     assert "compose_outpatient_daily_plan(" in source
     assert "report = apply_write_plan_to_copy(\n            composed_plan," in source
+
+
+
+def test_apply_daily_input_returns_authoritative_commit_fingerprint_contract():
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "source_sha256_before = file_sha256(input_book)" in source
+    assert '"source_sha256_before": source_sha256_before' in source
+    assert '"output_path": str(Path(report.output_path).resolve())' in source
+    assert 'parser.add_argument(\n        "--response"' in source
