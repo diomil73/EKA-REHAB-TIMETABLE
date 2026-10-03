@@ -48,3 +48,20 @@ def test_bridge_surfaces_backend_error_and_returned_patient_id():
     assert 'JsonStringValue(responseText, "error")' in FORM_BRIDGE_CODE
     assert 'JsonStringValue(responseText, "subject_key")' in FORM_BRIDGE_CODE
     assert 'JsonStringValue(responseText, "output_path")' in FORM_BRIDGE_CODE
+
+
+def test_bridge_wires_authoritative_commit_worker():
+    assert "StartAuthoritativeCommit" in FORM_BRIDGE_CODE
+    assert "authoritative_commit_worker_cli.py" in FORM_BRIDGE_CODE
+    assert 'JsonStringValue(responseText, "source_sha256_before")' in FORM_BRIDGE_CODE
+    assert 'JsonStringValue(responseText, "output_path")' in FORM_BRIDGE_CODE
+    assert 'q & "expected_source_sha256" & q' in FORM_BRIDGE_CODE
+    assert 'q & "preview_path" & q' in FORM_BRIDGE_CODE
+    assert 'q & "reopen" & q & ":true"' in FORM_BRIDGE_CODE
+
+
+def test_bridge_starts_worker_async_then_closes_authoritative_workbook():
+    worker_pos = FORM_BRIDGE_CODE.index('CreateObject("WScript.Shell").Run commandLine, 0, False')
+    close_pos = FORM_BRIDGE_CODE.index("ThisWorkbook.Close SaveChanges:=True")
+    assert worker_pos < close_pos
+    assert "Unload Me" in FORM_BRIDGE_CODE
