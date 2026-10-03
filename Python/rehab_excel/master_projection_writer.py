@@ -276,3 +276,28 @@ def create_master_projection_preview(
         source_unchanged=True,
         verified_in_output=True,
     )
+
+
+
+def refresh_master_projection_in_place(
+    workbook_path: str | Path,
+    *,
+    backend: MasterProjectionBackend | None = None,
+) -> int:
+    """Rebuild MASTER_SCHEDULE inside an already-created working/preview workbook."""
+
+    path = Path(workbook_path).resolve()
+    if not path.exists():
+        raise MasterProjectionWriteError(f"Workbook not found: {path}")
+    if path.suffix.casefold() != ".xlsm":
+        raise MasterProjectionWriteError("MASTER projection refresh requires .xlsm")
+
+    projection = build_master_projection(path)
+    selected = backend or Win32ComMasterProjectionBackend()
+    selected.apply(path, projection)
+
+    if not _verify_projection(path, projection):
+        raise MasterProjectionWriteError(
+            "MASTER projection verification failed after in-place refresh"
+        )
+    return len(projection)
