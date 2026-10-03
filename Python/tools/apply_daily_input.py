@@ -15,6 +15,11 @@ from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_input_preservation import (  # noqa: E402
+    DailyInputPreservationError,
+    assert_daily_input_preserved,
+    snapshot_daily_input,
+)
 from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
     compose_outpatient_daily_plan,
@@ -81,6 +86,7 @@ def main() -> int:
     source_sha256_before = file_sha256(input_book)
 
     try:
+        daily_input_snapshot = snapshot_daily_input(input_book)
         patients = read_patient_registry(input_book)
         base_entries = read_unified_base_schedule(input_book)
 
@@ -135,8 +141,10 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
+        assert_daily_input_preserved(daily_input_snapshot, output)
     except (
         DailyInputReadError,
+        DailyInputPreservationError,
         DailyPreviewCompositionError,
         OutpatientPresentationError,
         OutpatientScheduleSourceError,
