@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping
+
+from .authoritative_commit import file_sha256
 
 from .outpatient_schedule_registration import (
     OutpatientScheduleRequest,
@@ -36,7 +38,14 @@ def _time_value(values: Mapping[str, object], key: str = "time"):
         raise OutpatientScheduleBridgeError("time must use HH:MM") from exc
 
 
-def run_outpatient_schedule_bridge(payload: Mapping[str, object]) -> dict[str, object]:
+FingerprintService = Callable[[str], str]
+
+
+def run_outpatient_schedule_bridge(
+    payload: Mapping[str, object],
+    *,
+    fingerprint_service: FingerprintService = file_sha256,
+) -> dict[str, object]:
     source_path = str(payload.get("source_path", "")).strip()
     preview_dir = str(payload.get("preview_dir", "")).strip()
     overwrite = payload.get("overwrite", False)
@@ -62,6 +71,7 @@ def run_outpatient_schedule_bridge(payload: Mapping[str, object]) -> dict[str, o
 
     output_path = Path(preview_dir) / "OUTPATIENT_SCHEDULE_PREVIEW.xlsm"
     try:
+        source_sha256_before = fingerprint_service(source_path)
         report = create_outpatient_schedule_preview(
             source_path,
             output_path,
@@ -72,5 +82,6 @@ def run_outpatient_schedule_bridge(payload: Mapping[str, object]) -> dict[str, o
         raise OutpatientScheduleBridgeError(str(exc)) from exc
 
     response = asdict(report)
+    response["source_sha256_before"] = source_sha256_before
     response["ok"] = True
     return response
