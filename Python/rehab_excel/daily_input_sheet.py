@@ -8,6 +8,8 @@ import shutil
 import sys
 from typing import Iterable, Sequence
 
+from .outpatient_presentation import OUTPATIENT_LIGHT_BLUE_RGB
+
 
 SHEET_NAME = "DAILY_INPUT"
 LISTS_SHEET_NAME = "_PY_LISTS"
@@ -274,6 +276,22 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
         except Exception:
             pass
     _set_validation(ws.Range(f"D{pr1}:D{pr2}"), "=PY_STATUSES")
+
+    # Mark outpatient selections consistently with THERAPIST_DAILY.
+    try:
+        patient_range = ws.Range(f"A{pr1}:A{pr2}")
+        patient_range.FormatConditions.Delete()
+        condition = patient_range.FormatConditions.Add(
+            Type=2,
+            Formula1=f'=LEFT(A{pr1},2)="ΕΞ"',
+        )
+        rgb = OUTPATIENT_LIGHT_BLUE_RGB
+        red = int(rgb[0:2], 16)
+        green = int(rgb[2:4], 16)
+        blue = int(rgb[4:6], 16)
+        condition.Interior.Color = red + (green << 8) + (blue << 16)
+    except Exception:
+        pass
 
     # Keep unused rows visually empty. Whole-day is chosen only when needed.
     # This avoids a wall of ΟΧΙ values and removes one click per active row.
