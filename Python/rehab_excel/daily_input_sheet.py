@@ -107,11 +107,36 @@ def build_daily_input_spec(
     )
 
 
-def _delete_sheet_if_present(workbook, name: str) -> None:
+def _find_sheet(workbook, name: str):
     for sheet in workbook.Worksheets:
         if str(sheet.Name).casefold() == name.casefold():
-            sheet.Delete()
-            return
+            return sheet
+    return None
+
+
+def _reset_sheet(ws) -> None:
+    try:
+        ws.Cells.UnMerge()
+    except Exception:
+        pass
+    try:
+        ws.Cells.Clear()
+    except Exception:
+        pass
+
+
+def _get_or_create_sheet(workbook, name: str, *, before_first: bool = False):
+    ws = _find_sheet(workbook, name)
+    if ws is not None:
+        _reset_sheet(ws)
+        return ws
+
+    if before_first:
+        ws = workbook.Worksheets.Add(Before=workbook.Worksheets(1))
+    else:
+        ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
+    ws.Name = name
+    return ws
 
 
 def _remove_name_if_present(workbook, name: str) -> None:
@@ -163,9 +188,11 @@ def _set_validation(cell_range, formula1: str) -> None:
 
 
 def _configure_lists(workbook, spec: DailyInputSpec):
-    _delete_sheet_if_present(workbook, LISTS_SHEET_NAME)
-    lists = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
-    lists.Name = LISTS_SHEET_NAME
+    lists = _get_or_create_sheet(workbook, LISTS_SHEET_NAME)
+    try:
+        lists.Visible = -1
+    except Exception:
+        pass
 
     _write_column(lists, 1, spec.therapist_names)
     _write_column(lists, 2, spec.patient_names)
@@ -298,10 +325,8 @@ def create_daily_input_sheet(workbook_path: str | Path, spec: DailyInputSpec) ->
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path), UpdateLinks=0, ReadOnly=False)
 
-        _delete_sheet_if_present(workbook, SHEET_NAME)
+        ws = _get_or_create_sheet(workbook, SHEET_NAME, before_first=True)
         _configure_lists(workbook, spec)
-        ws = workbook.Worksheets.Add(Before=workbook.Worksheets(1))
-        ws.Name = SHEET_NAME
         _format_daily_sheet(ws, spec)
         workbook.Save()
     except Exception as exc:
