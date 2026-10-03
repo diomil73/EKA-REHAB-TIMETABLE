@@ -103,13 +103,13 @@ Private Function BuildPatientRegistrationJson(ByVal patientType As String) As St
 
     q = Chr$(34)
 
+    statusValue = Trim$(cboStatus.Value)
+
     If patientType = "Εξωτερικός" Then
         roomValue = ""
-        statusValue = ""
         infectiousValue = "false"
     Else
         roomValue = Trim$(cboRoom.Value)
-        statusValue = Trim$(cboStatus.Value)
         infectiousValue = LCase$(CStr(chkInfectious.Value))
     End If
 
