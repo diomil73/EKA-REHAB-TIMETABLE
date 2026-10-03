@@ -8,9 +8,15 @@ import shutil
 import sys
 from typing import Iterable, Sequence
 
+from .outpatient_presentation import OUTPATIENT_LIGHT_BLUE_RGB
+
 
 SHEET_NAME = "DAILY_INPUT"
 LISTS_SHEET_NAME = "_PY_LISTS"
+PATIENT_CANCELLATION_STATUSES = (
+    "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
+    "ΔΕΝ ΠΡΟΣΗΛΘΕ",
+)
 
 
 class DailyInputSheetError(RuntimeError):
@@ -94,18 +100,45 @@ def build_daily_input_spec(
         target_date=target_date,
         therapist_names=_unique_nonblank(therapist_names),
         patient_names=_unique_nonblank(patient_names),
-        patient_statuses=_unique_nonblank(patient_statuses),
+        patient_statuses=_unique_nonblank(
+            (*patient_statuses, *PATIENT_CANCELLATION_STATUSES)
+        ),
         timeslots=tuple(_time_text(value) for value in timeslots),
         therapist_rows=therapist_rows,
         patient_rows=patient_rows,
     )
 
 
-def _delete_sheet_if_present(workbook, name: str) -> None:
+def _find_sheet(workbook, name: str):
     for sheet in workbook.Worksheets:
         if str(sheet.Name).casefold() == name.casefold():
-            sheet.Delete()
-            return
+            return sheet
+    return None
+
+
+def _reset_sheet(ws) -> None:
+    try:
+        ws.Cells.UnMerge()
+    except Exception:
+        pass
+    try:
+        ws.Cells.Clear()
+    except Exception:
+        pass
+
+
+def _get_or_create_sheet(workbook, name: str, *, before_first: bool = False):
+    ws = _find_sheet(workbook, name)
+    if ws is not None:
+        _reset_sheet(ws)
+        return ws
+
+    if before_first:
+        ws = workbook.Worksheets.Add(Before=workbook.Worksheets(1))
+    else:
+        ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
+    ws.Name = name
+    return ws
 
 
 def _remove_name_if_present(workbook, name: str) -> None:
@@ -157,9 +190,11 @@ def _set_validation(cell_range, formula1: str) -> None:
 
 
 def _configure_lists(workbook, spec: DailyInputSpec):
-    _delete_sheet_if_present(workbook, LISTS_SHEET_NAME)
-    lists = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
-    lists.Name = LISTS_SHEET_NAME
+    lists = _get_or_create_sheet(workbook, LISTS_SHEET_NAME)
+    try:
+        lists.Visible = -1
+    except Exception:
+        pass
 
     _write_column(lists, 1, spec.therapist_names)
     _write_column(lists, 2, spec.patient_names)
@@ -242,6 +277,22 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
             pass
     _set_validation(ws.Range(f"D{pr1}:D{pr2}"), "=PY_STATUSES")
 
+    # Mark outpatient selections consistently with THERAPIST_DAILY.
+    try:
+        patient_range = ws.Range(f"A{pr1}:A{pr2}")
+        patient_range.FormatConditions.Delete()
+        condition = patient_range.FormatConditions.Add(
+            Type=2,
+            Formula1=f'=LEFT(A{pr1},2)="ΕΞ"',
+        )
+        rgb = OUTPATIENT_LIGHT_BLUE_RGB
+        red = int(rgb[0:2], 16)
+        green = int(rgb[2:4], 16)
+        blue = int(rgb[4:6], 16)
+        condition.Interior.Color = red + (green << 8) + (blue << 16)
+    except Exception:
+        pass
+
     # Keep unused rows visually empty. Whole-day is chosen only when needed.
     # This avoids a wall of ΟΧΙ values and removes one click per active row.
 
@@ -292,10 +343,8 @@ def create_daily_input_sheet(workbook_path: str | Path, spec: DailyInputSpec) ->
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path), UpdateLinks=0, ReadOnly=False)
 
-        _delete_sheet_if_present(workbook, SHEET_NAME)
+        ws = _get_or_create_sheet(workbook, SHEET_NAME, before_first=True)
         _configure_lists(workbook, spec)
-        ws = workbook.Worksheets.Add(Before=workbook.Worksheets(1))
-        ws.Name = SHEET_NAME
         _format_daily_sheet(ws, spec)
         workbook.Save()
     except Exception as exc:

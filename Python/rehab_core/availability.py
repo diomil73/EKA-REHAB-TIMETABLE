@@ -6,6 +6,7 @@ from typing import Iterable
 from .models import (
     AbsenceKind,
     DailyAbsence,
+    DailySessionCancellation,
     ReplacementAssignment,
     ReplacementProviderKind,
     Session,
@@ -39,6 +40,13 @@ def _replacement_for_session(
     return None
 
 
+def _session_cancelled(
+    session: Session,
+    cancellations: Iterable[DailySessionCancellation],
+) -> bool:
+    return any(cancellation.applies_to(session) for cancellation in cancellations)
+
+
 def is_therapist_available(
     therapist_id: str,
     target_date: date,
@@ -46,12 +54,14 @@ def is_therapist_available(
     sessions: Iterable[Session],
     absences: Iterable[DailyAbsence] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
 ) -> bool:
     """Return real operational availability at one exact date/time."""
 
     sessions = tuple(sessions)
     absences = tuple(absences)
     replacements = tuple(replacements)
+    cancellations = tuple(cancellations)
 
     if _is_absent(
         absence_kind=AbsenceKind.THERAPIST,
@@ -64,6 +74,12 @@ def is_therapist_available(
 
     for replacement in replacements:
         if replacement.replacement_provider_kind != ReplacementProviderKind.THERAPIST:
+            continue
+        target_session = next(
+            (session for session in sessions if session.session_id == replacement.target_session_id),
+            None,
+        )
+        if target_session is not None and _session_cancelled(target_session, cancellations):
             continue
         if (
             replacement.replacement_therapist_id == therapist_id
@@ -88,6 +104,8 @@ def is_therapist_available(
         ):
             continue
 
+        if _session_cancelled(session, cancellations):
+            continue
         if _replacement_for_session(session.session_id, replacements) is not None:
             continue
 
@@ -112,6 +130,7 @@ def is_student_available(
     student_assignments: Iterable[StudentAssignment] = (),
     absences: Iterable[DailyAbsence] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
 ) -> bool:
     """Return whether a student is free at one exact operational timeslot."""
 
@@ -119,6 +138,7 @@ def is_student_available(
     student_assignments = tuple(student_assignments)
     absences = tuple(absences)
     replacements = tuple(replacements)
+    cancellations = tuple(cancellations)
     session_by_id = {session.session_id: session for session in sessions}
 
     if _is_absent(
@@ -132,6 +152,9 @@ def is_student_available(
 
     for replacement in replacements:
         if replacement.replacement_provider_kind != ReplacementProviderKind.STUDENT:
+            continue
+        target_session = session_by_id.get(replacement.target_session_id)
+        if target_session is not None and _session_cancelled(target_session, cancellations):
             continue
         if (
             replacement.replacement_therapist_id == student_id
@@ -155,6 +178,8 @@ def is_student_available(
             continue
         if session.session_date != target_date or session.start_time != target_time:
             continue
+        if _session_cancelled(session, cancellations):
+            continue
         if _is_absent(
             absence_kind=AbsenceKind.PATIENT,
             subject_id=session.patient_id,
@@ -175,6 +200,7 @@ def is_patient_available(
     sessions: Iterable[Session],
     absences: Iterable[DailyAbsence] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
     *,
     ignore_session_id: str | None = None,
 ) -> bool:
@@ -183,6 +209,8 @@ def is_patient_available(
     sessions = tuple(sessions)
     absences = tuple(absences)
     replacements = tuple(replacements)
+    cancellations = tuple(cancellations)
+    session_by_id = {session.session_id: session for session in sessions}
 
     if _is_absent(
         absence_kind=AbsenceKind.PATIENT,
@@ -195,6 +223,9 @@ def is_patient_available(
 
     for replacement in replacements:
         if replacement.target_session_id == ignore_session_id:
+            continue
+        target_session = session_by_id.get(replacement.target_session_id)
+        if target_session is not None and _session_cancelled(target_session, cancellations):
             continue
         if (
             replacement.patient_id == patient_id
@@ -213,6 +244,8 @@ def is_patient_available(
         ):
             continue
 
+        if _session_cancelled(session, cancellations):
+            continue
         if _replacement_for_session(session.session_id, replacements) is not None:
             continue
 

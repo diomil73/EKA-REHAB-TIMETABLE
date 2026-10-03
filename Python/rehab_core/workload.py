@@ -7,6 +7,7 @@ from typing import Iterable
 from .models import (
     AbsenceKind,
     DailyAbsence,
+    DailySessionCancellation,
     Patient,
     ReplacementAssignment,
     ReplacementProviderKind,
@@ -51,6 +52,13 @@ def _patient_absent(
     )
 
 
+def _session_cancelled(
+    session: Session,
+    cancellations: Iterable[DailySessionCancellation],
+) -> bool:
+    return any(cancellation.applies_to(session) for cancellation in cancellations)
+
+
 def calculate_therapist_workload(
     therapist_id: str,
     target_date: date,
@@ -58,6 +66,7 @@ def calculate_therapist_workload(
     absences: Iterable[DailyAbsence] = (),
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
 ) -> TherapistWorkload:
     """Calculate the real operational workload for one therapist/day.
 
@@ -65,12 +74,14 @@ def calculate_therapist_workload(
     load balancing. ``active_timeslots`` is deliberately separate and is the
     authoritative number used for the hard capacity rule (max 6 for a normal
     physiotherapist). Two patients that genuinely share one clock slot count as
-    two sessions but only one occupied timeslot.
+    two sessions but only one occupied timeslot. Daily cancellations remove the
+    concrete occurrence from both counts without changing the recurring Session.
     """
 
     sessions = tuple(sessions)
     absences = tuple(absences)
     replacements = tuple(replacements)
+    cancellations = tuple(cancellations)
     patient_by_id = {patient.patient_id: patient for patient in patients}
     session_by_id = {session.session_id: session for session in sessions}
     replaced_session_ids = {
@@ -85,6 +96,8 @@ def calculate_therapist_workload(
 
     for session in sessions:
         if session.therapist_id != therapist_id or session.session_date != target_date:
+            continue
+        if _session_cancelled(session, cancellations):
             continue
         if session.session_id in replaced_session_ids:
             continue
@@ -112,6 +125,9 @@ def calculate_therapist_workload(
             or replacement.replacement_date != target_date
         ):
             continue
+        base_session = session_by_id.get(replacement.target_session_id)
+        if base_session is not None and _session_cancelled(base_session, cancellations):
+            continue
         if _patient_absent(
             replacement.patient_id,
             replacement.replacement_date,
@@ -127,7 +143,6 @@ def calculate_therapist_workload(
         if patient is not None and patient.infectious:
             infectious_sessions += 1
 
-        base_session = session_by_id.get(replacement.target_session_id)
         if base_session is not None and base_session.robotic:
             robotic_sessions += 1
 
@@ -150,6 +165,7 @@ def calculate_student_workload(
     absences: Iterable[DailyAbsence] = (),
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
 ) -> StudentWorkload:
     """Calculate patient/session load and occupied timeslots for a student."""
 
@@ -157,6 +173,7 @@ def calculate_student_workload(
     student_assignments = tuple(student_assignments)
     absences = tuple(absences)
     replacements = tuple(replacements)
+    cancellations = tuple(cancellations)
     patient_by_id = {patient.patient_id: patient for patient in patients}
     session_by_id = {session.session_id: session for session in sessions}
 
@@ -171,6 +188,8 @@ def calculate_student_workload(
             continue
         session = session_by_id.get(assignment.session_id)
         if session is None or session.session_date != target_date:
+            continue
+        if _session_cancelled(session, cancellations):
             continue
         if _patient_absent(
             session.patient_id,
@@ -196,6 +215,9 @@ def calculate_student_workload(
             or replacement.replacement_date != target_date
         ):
             continue
+        base_session = session_by_id.get(replacement.target_session_id)
+        if base_session is not None and _session_cancelled(base_session, cancellations):
+            continue
         if _patient_absent(
             replacement.patient_id,
             replacement.replacement_date,
@@ -210,7 +232,6 @@ def calculate_student_workload(
         patient = patient_by_id.get(replacement.patient_id)
         if patient is not None and patient.infectious:
             infectious_sessions += 1
-        base_session = session_by_id.get(replacement.target_session_id)
         if base_session is not None and base_session.robotic:
             robotic_sessions += 1
 

@@ -43,8 +43,43 @@ Outpatients should not appear in inpatient-only patient views or the inpatient p
 
 Outpatients should appear in `THERAPIST DAILY`.
 
-### Visual rule
-Outpatient cells in `THERAPIST DAILY` must use a light-blue fill so they are visually distinguishable from inpatients.
+### Recurring schedule storage
+`PATIENT_PLANNER` remains the inpatient/hospitalized-patient planner and must not become the visible home of outpatient schedules.
+
+However, outpatient recurring appointments still need an authoritative persistent source. They must not exist only as text in `THERAPIST DAILY`, because workload, capacity, replacements, cancellations and future-day materialization all depend on the recurring source data.
+
+Architecture decision:
+- keep inpatient recurring rows in `PATIENT_PLANNER`
+- store outpatient recurring rows in a separate authoritative source, provisionally named `OUTPATIENT_SCHEDULE`
+- the scheduling engine reads/merges both sources into the same `BaseScheduleEntry` stream
+- after merging, inpatient and outpatient sessions use the same operational scheduling engine
+- `THERAPIST DAILY` remains the only normal operational view where outpatient names are shown
+
+The outpatient source may later be hidden/protected in Excel, but it remains data storage, not a second scheduling engine.
+
+### Strict visual / clinical rule
+An outpatient is **light blue only** in `THERAPIST DAILY`.
+
+An outpatient:
+- is never infectious/yellow
+- never receives robotic treatment / robotic extra programme
+- must not inherit yellow, pink, or any other patient colour from another patient who shares the same recurring therapist/time slot on other weekdays
+
+When a therapist/time slot is shared by different patients on different weekdays, `THERAPIST DAILY` presentation is determined by the patient actually active on the concrete date.
+
+If the same effective daily cell would contain both an inpatient and an outpatient simultaneously, cell-level colouring is ambiguous and the renderer must reject the situation rather than guess a colour.
+
+### Daily postponement / no-show rule
+The recurring outpatient appointment remains in the base schedule, but any specific occurrence may be cancelled for that date without deleting or moving the recurring slot.
+
+A daily cancelled occurrence must:
+- be marked with a reason, distinguishing at least `department_cancelled` from `patient_no_show`
+- stop counting as delivered treatment for that date
+- release the therapist timeslot so it can be used for replacement work if needed
+- preserve the original recurring appointment for future dates
+- remain auditable in daily history/statistics
+
+This is a daily operational override, not a change to the patient's base programme.
 
 ## Registration UI
 

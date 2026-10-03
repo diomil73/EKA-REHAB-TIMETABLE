@@ -8,7 +8,10 @@ import sys
 from typing import Protocol
 from zipfile import ZipFile
 
+from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
+from .therapist_registration_form_vba import THERAPIST_FORM_NAME, install_therapist_form
+from .student_registration_form_vba import STUDENT_FORM_NAME, install_student_form
 
 
 MENU_FORM_NAME = "frmRegistrationMenu"
@@ -29,15 +32,15 @@ USERFORM_CODE = '''Option Explicit
 
 Private Sub UserForm_Initialize()
     With Me
-        .Caption = "Κεντρικό Μενού Εγγραφών"
+        .Caption = "Κεντρικό Μενού"
         .Width = 330
-        .Height = 310
+        .Height = 400
         .StartUpPosition = 1
         .BackColor = RGB(245, 247, 250)
     End With
 
     With lblTitle
-        .Caption = "Επιλέξτε νέα εγγραφή"
+        .Caption = "Επιλέξτε ενέργεια"
         .Left = 35
         .Top = 24
         .Width = 250
@@ -53,11 +56,13 @@ Private Sub UserForm_Initialize()
     StyleMenuButton cmdPatient, "Νέος ασθενής", 68
     StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 113
     StyleMenuButton cmdStudent, "Νέος φοιτητής", 158
+    StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή", 203
+    StyleMenuButton cmdDailyInput, "Εφαρμογή DAILY_INPUT", 248
 
     With cmdClose
         .Caption = "Κλείσιμο"
         .Left = 105
-        .Top = 220
+        .Top = 310
         .Width = 110
         .Height = 30
         .Font.Name = "Calibri"
@@ -85,11 +90,23 @@ Private Sub cmdPatient_Click()
 End Sub
 
 Private Sub cmdTherapist_Click()
-    MsgBox "Η φόρμα εγγραφής νέου θεραπευτή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος θεραπευτής"
+    frmNewTherapist.Show
 End Sub
 
 Private Sub cmdStudent_Click()
-    MsgBox "Η φόρμα εγγραφής νέου φοιτητή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος φοιτητής"
+    frmNewStudent.Show
+End Sub
+
+Private Sub cmdOutpatientSchedule_Click()
+    On Error GoTo MissingForm
+    frmOutpatientSchedule.Show
+    Exit Sub
+MissingForm:
+    MsgBox "Η φόρμα προγράμματος εξωτερικού ασθενή δεν είναι εγκατεστημένη σε αυτό το αρχείο.", vbExclamation, "Πρόγραμμα εξωτερικού ασθενή"
+End Sub
+
+Private Sub cmdDailyInput_Click()
+    ApplyDailyInputPreview
 End Sub
 
 Private Sub cmdClose_Click()
@@ -137,12 +154,7 @@ class RegistrationMenuInstallerBackend(Protocol):
 
 
 class Win32ComRegistrationMenuInstaller:
-    """Install the central registration menu into an already-created workbook copy.
-
-    The COM layer deliberately avoids Width/Height styling because some
-    Office/pywin32 combinations reject those assignments. Visual sizing and
-    styling are applied by VBA in UserForm_Initialize when the form opens.
-    """
+    """Install the central registration menu into an already-created workbook copy."""
 
     @staticmethod
     def _remove_component_if_present(vbproject, name: str) -> None:
@@ -191,18 +203,20 @@ class Win32ComRegistrationMenuInstaller:
 
         excel = None
         workbook = None
+        stage = "starting Excel"
         try:
             excel = win32com.client.DispatchEx("Excel.Application")
             excel.Visible = False
             excel.DisplayAlerts = False
             excel.ScreenUpdating = False
             excel.EnableEvents = False
+
+            stage = "opening workbook"
             workbook = excel.Workbooks.Open(
-                str(workbook_path.resolve()),
-                UpdateLinks=0,
-                ReadOnly=False,
+                str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
             )
 
+            stage = "accessing VBA project"
             try:
                 vbproject = workbook.VBProject
                 _ = vbproject.VBComponents.Count
@@ -214,43 +228,102 @@ class Win32ComRegistrationMenuInstaller:
                     "then retry on the preview copy."
                 ) from exc
 
+            stage = "removing old menu module"
             self._remove_component_if_present(vbproject, MENU_MODULE_NAME)
+            stage = "removing old menu form"
             self._remove_component_if_present(vbproject, MENU_FORM_NAME)
+            stage = "removing old DAILY_INPUT action module"
+            self._remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
+            stage = "removing old patient form"
             self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
+            stage = "removing old therapist form"
+            self._remove_component_if_present(vbproject, THERAPIST_FORM_NAME)
+            stage = "removing old student form"
+            self._remove_component_if_present(vbproject, STUDENT_FORM_NAME)
 
+            stage = "creating menu module"
             module = vbproject.VBComponents.Add(1)
             module.Name = MENU_MODULE_NAME
             module.CodeModule.AddFromString(STANDARD_MODULE_CODE)
 
+            stage = "adding blank menu UserForm"
             form = vbproject.VBComponents.Add(3)
+            stage = "naming menu UserForm"
             form.Name = MENU_FORM_NAME
+            stage = "accessing menu designer"
             designer = form.Designer
-            designer.Caption = "Κεντρικό Μενού Εγγραφών"
+            stage = "setting menu caption"
+            designer.Caption = "Κεντρικό Μενού"
 
-            self._add_label(designer, "lblTitle", "Επιλέξτε νέα εγγραφή", 18)
+            stage = "adding menu title"
+            self._add_label(designer, "lblTitle", "Επιλέξτε ενέργεια", 18)
+            stage = "adding patient menu button"
             self._add_command_button(designer, "cmdPatient", "Νέος ασθενής", 55)
+            stage = "adding therapist menu button"
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
+            stage = "adding student menu button"
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
-            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 176)
+            stage = "adding outpatient schedule menu button"
+            self._add_command_button(
+                designer,
+                "cmdOutpatientSchedule",
+                "Πρόγραμμα εξωτερικού ασθενή",
+                166,
+            )
+            stage = "adding DAILY_INPUT menu button"
+            self._add_command_button(
+                designer,
+                "cmdDailyInput",
+                "Εφαρμογή DAILY_INPUT",
+                203,
+            )
+            stage = "adding close menu button"
+            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 250)
+
+            stage = "writing menu form code"
             form.CodeModule.AddFromString(USERFORM_CODE)
 
+            stage = "installing DAILY_INPUT action"
+            install_daily_input_action(vbproject)
+            stage = "installing patient form"
             install_patient_form(vbproject, position_control=self._position_control)
+            stage = "installing therapist form"
+            install_therapist_form(vbproject, position_control=self._position_control)
+            stage = "installing student form"
+            install_student_form(vbproject, position_control=self._position_control)
+
+            stage = "saving workbook"
             workbook.Save()
 
+            stage = "verifying menu components"
             module_present = self._component_present(vbproject, MENU_MODULE_NAME)
             form_present = self._component_present(vbproject, MENU_FORM_NAME)
             patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
+            therapist_form_present = self._component_present(vbproject, THERAPIST_FORM_NAME)
+            student_form_present = self._component_present(vbproject, STUDENT_FORM_NAME)
+            daily_input_action_present = self._component_present(vbproject, DAILY_INPUT_MODULE_NAME)
             if not patient_form_present:
                 raise RegistrationMenuVbaError(
                     "Patient registration form was not confirmed in the preview VBA project"
                 )
-
+            if not therapist_form_present:
+                raise RegistrationMenuVbaError(
+                    "Therapist registration form was not confirmed in the preview VBA project"
+                )
+            if not student_form_present:
+                raise RegistrationMenuVbaError(
+                    "Student registration form was not confirmed in the preview VBA project"
+                )
+            if not daily_input_action_present:
+                raise RegistrationMenuVbaError(
+                    "DAILY_INPUT action module was not confirmed in the preview VBA project"
+                )
             return module_present, form_present
         except RegistrationMenuVbaError:
             raise
         except Exception as exc:
             raise RegistrationMenuVbaError(
-                f"Excel registration menu installation failed: {exc}"
+                f"Excel registration menu installation failed during {stage}: {exc}"
             ) from exc
         finally:
             if workbook is not None:
@@ -272,8 +345,6 @@ def create_registration_menu_preview(
     backend: RegistrationMenuInstallerBackend | None = None,
     overwrite: bool = False,
 ) -> RegistrationMenuPreviewReport:
-    """Install the menu into a NEW .xlsm copy while proving source immutability."""
-
     source = Path(source_path).resolve()
     output = Path(output_path).resolve()
 

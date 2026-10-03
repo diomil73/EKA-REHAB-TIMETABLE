@@ -21,16 +21,25 @@ from rehab_core.models import (  # noqa: E402
 )
 from rehab_core.replacement_options import find_replacement_options  # noqa: E402
 from rehab_core.replacement_workflow import choose_replacement_option  # noqa: E402
+from rehab_excel.daily_preview_composer import (  # noqa: E402
+    DailyPreviewCompositionError,
+    compose_outpatient_daily_plan,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
+from rehab_excel.outpatient_schedule_source import (  # noqa: E402
+    OutpatientScheduleSourceError,
+    read_unified_base_schedule,
+)
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.reader import (  # noqa: E402
-    read_base_schedule,
-    read_patients,
-    read_settings,
+from rehab_excel.patient_registry_source import (  # noqa: E402
+    PatientRegistrySourceError,
+    read_patient_registry,
 )
+from rehab_excel.reader import read_settings  # noqa: E402
 
 
 def _norm(value: str) -> str:
@@ -138,9 +147,9 @@ def main() -> int:
         return 2
 
     try:
-        patients = read_patients(source)
+        patients = read_patient_registry(source)
         settings = read_settings(source)
-        base_entries = read_base_schedule(source)
+        base_entries = read_unified_base_schedule(source)
         sessions = materialize_sessions_for_date(base_entries, args.date)
         patient, target = _find_target_session(
             sessions, patients, args.patient, args.time
@@ -216,12 +225,25 @@ def main() -> int:
             patients=patients,
             rebuild_multi_member_groups=True,
         )
-        report = apply_write_plan_to_copy(
+        composed_plan = compose_outpatient_daily_plan(
             preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        report = apply_write_plan_to_copy(
+            composed_plan,
             output,
             overwrite=args.overwrite,
         )
-    except (ValueError, PatientCentricPreviewError) as exc:
+    except (
+        PatientCentricPreviewError,
+        PatientRegistrySourceError,
+        OutpatientScheduleSourceError,
+        OutpatientPresentationError,
+        DailyPreviewCompositionError,
+        ValueError,
+        KeyError,
+    ) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 

@@ -7,6 +7,10 @@ import warnings
 
 from openpyxl import load_workbook
 
+from rehab_core.models import PatientType
+
+from .patient_registry_source import read_patient_registry
+
 
 @dataclass(frozen=True)
 class DailyInputPatientAudit:
@@ -118,9 +122,18 @@ def audit_daily_input_patients(path: str | Path) -> DailyInputPatientAudit:
     )
 
     # PATIENTS is the authority. Keep its worksheet order for a predictable
-    # dropdown. Cross-checking above prevents a stale planner identity from
-    # being mistaken for another patient.
-    dropdown_names = tuple(patients.values())
+    # dropdown. Outpatients receive a visible operational marker without
+    # changing their stored/display name.
+    registry = read_patient_registry(workbook_path)
+    by_id = {patient.patient_id: patient for patient in registry}
+    dropdown_names = tuple(
+        (
+            f"ΕΞ | {name}"
+            if pid in by_id and by_id[pid].patient_type == PatientType.OUTPATIENT
+            else name
+        )
+        for pid, name in patients.items()
+    )
 
     return DailyInputPatientAudit(
         patient_rows=len(patients),

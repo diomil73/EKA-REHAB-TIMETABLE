@@ -98,3 +98,22 @@ def test_single_therapist_slot_does_not_require_fake_range(tmp_path):
     assert absence.absence_kind == AbsenceKind.THERAPIST
     assert absence.start_time == time(8, 30)
     assert absence.end_time == time(8, 31)
+
+
+
+def test_marked_outpatient_name_resolves_to_real_patient(tmp_path):
+    path = tmp_path / "input.xlsm"
+    _book(path)
+    from openpyxl import load_workbook
+    wb = load_workbook(path)
+    ws = wb["DAILY_INPUT"]
+    ws["A21"] = "ΕΞ | ΠΕΤΙΡΟΠΟΥΛΟΣ"
+    ws["B21"] = "ΟΧΙ"
+    ws["C21"] = "08:30"
+    ws["D21"] = "ΑΠΩΝ"
+    wb.save(path)
+    wb.close()
+
+    patients, sessions = _fixtures()
+    result = read_daily_input(path, patients=patients, sessions=sessions)
+    assert result.absences[0].subject_id == "P1"
