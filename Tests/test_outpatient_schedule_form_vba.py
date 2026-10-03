@@ -62,3 +62,24 @@ def test_form_calls_suggestion_bridge_and_can_apply_selected_result():
     assert "cboTherapist.Value = Trim$(parts(0))" in FORM_CODE
     assert "cboTime.Value = Trim$(parts(1))" in FORM_CODE
     assert "cboDays.Value = Trim$(parts(2))" in FORM_CODE
+
+
+
+def test_form_wires_authoritative_commit_worker():
+    assert "StartAuthoritativeCommit" in FORM_CODE
+    assert "authoritative_commit_worker_cli.py" in FORM_CODE
+    assert 'JsonStringValue(responseText, "source_sha256_before")' in FORM_CODE
+    assert 'JsonStringValue(responseText, "output_path")' in FORM_CODE
+    assert 'q & "expected_source_sha256" & q' in FORM_CODE
+    assert 'q & "preview_path" & q' in FORM_CODE
+    assert 'q & "reopen" & q & ":true,"' in FORM_CODE
+
+
+def test_form_starts_worker_async_then_closes_authoritative_workbook():
+    save_proc_end = FORM_CODE.index("CleanUp:")
+    save_proc = FORM_CODE[:save_proc_end]
+    start_pos = save_proc.index("If Not StartAuthoritativeCommit(")
+    close_pos = save_proc.index("ThisWorkbook.Close SaveChanges:=True")
+    assert start_pos < close_pos
+    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in FORM_CODE
+    assert "Unload Me" in save_proc
