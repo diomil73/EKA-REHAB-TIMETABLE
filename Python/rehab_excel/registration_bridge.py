@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Callable, Mapping
 
+from .authoritative_commit import file_sha256
+
 from .registration_menu import build_registration_request
 from .registration_orchestrator import (
     RegistrationOrchestrationError,
@@ -16,12 +18,14 @@ class RegistrationBridgeError(RuntimeError):
 
 
 PreviewService = Callable[..., RegistrationPreviewResult]
+FingerprintService = Callable[[str], str]
 
 
 def run_registration_bridge(
     payload: Mapping[str, object],
     *,
     preview_service: PreviewService = create_registration_preview,
+    fingerprint_service: FingerprintService = file_sha256,
 ) -> dict[str, object]:
     """Translate one UI payload into the proven registration preview workflow.
 
@@ -56,6 +60,7 @@ def run_registration_bridge(
 
     try:
         request = build_registration_request(action, values)
+        source_sha256_before = fingerprint_service(source_path)
         result = preview_service(
             source_path,
             preview_dir,
@@ -67,6 +72,7 @@ def run_registration_bridge(
 
     response = asdict(result)
     response["kind"] = result.kind.value
+    response["source_sha256_before"] = source_sha256_before
     response["action"] = action
     response["ok"] = True
     return response
