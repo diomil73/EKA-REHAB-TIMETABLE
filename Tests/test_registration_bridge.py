@@ -41,6 +41,7 @@ def test_bridge_builds_outpatient_request_and_returns_json_ready_result(tmp_path
             },
         },
         preview_service=fake_preview,
+        fingerprint_service=lambda _: "abc123",
     )
 
     request = captured["request"]
@@ -58,6 +59,7 @@ def test_bridge_builds_outpatient_request_and_returns_json_ready_result(tmp_path
     assert response["excel_row"] == 99
     assert response["source_unchanged"] is True
     assert response["verified_in_output"] is True
+    assert response["source_sha256_before"] == "abc123"
 
 
 def test_bridge_keeps_business_validation_out_of_adapter(tmp_path):
