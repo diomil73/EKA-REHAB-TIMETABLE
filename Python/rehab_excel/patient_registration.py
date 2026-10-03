@@ -294,7 +294,7 @@ class Win32ComPatientRegistrationBackend:
             ws.Cells(target_row, 2).Value = "" if is_outpatient else (request.room or "").strip()
             ws.Cells(target_row, 3).Value = request.display_name.strip()
             ws.Cells(target_row, 4).Value = "" if is_outpatient else infectious_cell_value
-            ws.Cells(target_row, 5).Value = "" if is_outpatient else (request.status or "").strip()
+            ws.Cells(target_row, 5).Value = (request.status or "").strip()
             ws.Cells(target_row, type_col).Value = (
                 "Εξωτερικός" if is_outpatient else "Εσωτερικός"
             )
@@ -402,6 +402,7 @@ def create_patient_registration_preview(
         and matches[0].display_name.strip() == request.display_name.strip()
         and matches[0].patient_type == request.patient_type
         and matches[0].hospital_mrn == expected_mrn
+        and matches[0].status == ((request.status or "").strip() or None)
     )
     if not verified:
         _remove_preview_file(output, required=False)
