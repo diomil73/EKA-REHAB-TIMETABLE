@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from rehab_core.models import Patient
 from rehab_core.registration import NewPatientRequest
 from rehab_excel.patient_registration import (
