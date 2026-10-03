@@ -2,6 +2,7 @@ from datetime import date, time
 
 from rehab_excel.daily_input_sheet import (
     PATIENT_CANCELLATION_STATUSES,
+    _format_daily_sheet,
     _get_or_create_sheet,
     build_daily_input_spec,
 )
@@ -125,3 +126,12 @@ def test_get_or_create_sheet_creates_missing_sheet_in_requested_position():
 
     assert result.Name == "DAILY_INPUT"
     assert workbook.Worksheets(1) is result
+
+
+
+def test_daily_input_sheet_contains_outpatient_marker_rule():
+    import inspect
+
+    source = inspect.getsource(_format_daily_sheet)
+    assert 'LEFT(A{pr1},2)="ΕΞ"' in source
+    assert "OUTPATIENT_LIGHT_BLUE_RGB" in source
