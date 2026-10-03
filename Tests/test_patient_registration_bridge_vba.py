@@ -32,10 +32,10 @@ def test_bridge_uses_vba_safe_quotes_not_c_style_json_literals():
     assert 'q = Chr$(34)' in FORM_BRIDGE_CODE
 
 
-def test_bridge_forces_inpatient_only_fields_blank_for_outpatient():
+def test_bridge_keeps_outpatient_status_but_blanks_inpatient_only_fields():
+    assert 'statusValue = Trim$(cboStatus.Value)' in FORM_BRIDGE_CODE
     assert 'If patientType = "Εξωτερικός" Then' in FORM_BRIDGE_CODE
     assert 'roomValue = ""' in FORM_BRIDGE_CODE
-    assert 'statusValue = ""' in FORM_BRIDGE_CODE
     assert 'infectiousValue = "false"' in FORM_BRIDGE_CODE
 
 
