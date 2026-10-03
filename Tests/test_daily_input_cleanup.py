@@ -27,3 +27,31 @@ def test_authoritative_patient_audit_on_baseline_if_available():
     assert audit.ok
     assert len(audit.dropdown_names) == audit.patient_rows
     assert len(set(audit.dropdown_names)) == len(audit.dropdown_names)
+
+
+
+def test_patient_audit_marks_outpatient_without_changing_identity(tmp_path):
+    from openpyxl import Workbook
+
+    path = tmp_path / "patients.xlsm"
+    wb = Workbook()
+    patients = wb.active
+    patients.title = "PATIENTS"
+    patients.append([
+        "PatientID", "Θάλαμος", "Ασθενής", "Μολυσματικός",
+        "Κατάσταση", "PatientType",
+    ])
+    patients.append(["1", "A01", "ΕΣΩ", "Ο", "παρών", "Εσωτερικός"])
+    patients.append(["2", "", "ΕΞΩ", "", "παρών", "Εξωτερικός"])
+
+    planner = wb.create_sheet("PATIENT_PLANNER")
+    planner.append(["PatientID", "Θάλαμος", "Ασθενής", "Μολυσματικός", "Κατάσταση"])
+    planner.append(["1", "A01", "ΕΣΩ", "Ο", "παρών"])
+    planner.append(["2", "", "ΕΞΩ", "", "παρών"])
+    wb.save(path)
+    wb.close()
+
+    audit = audit_daily_input_patients(path)
+
+    assert audit.ok
+    assert audit.dropdown_names == ("ΕΣΩ", "ΕΞ | ΕΞΩ")
