@@ -213,19 +213,19 @@ End Sub
 
 Private Function ValidateForm() As Boolean
     If Len(Trim$(cboPatientType.Value)) = 0 Then
-        MsgBox "Ο τύπος ασθενή είναι υποχρεωτικός.", vbExclamation, "Έλεγχος στοιχείων"
+        MsgBox "Ο τύπος ασθενή είναι υποχρεωτικός.", vbExclamation, "Δημιουργία καταχώρησης"
         cboPatientType.SetFocus
         Exit Function
     End If
 
     If Len(Trim$(txtDisplayName.Text)) = 0 Then
-        MsgBox "Το ονοματεπώνυμο είναι υποχρεωτικό.", vbExclamation, "Έλεγχος στοιχείων"
+        MsgBox "Το ονοματεπώνυμο είναι υποχρεωτικό.", vbExclamation, "Δημιουργία καταχώρησης"
         txtDisplayName.SetFocus
         Exit Function
     End If
 
     If Len(Trim$(cboStatus.Value)) = 0 Then
-        MsgBox "Η κατάσταση παρουσίας είναι υποχρεωτική.", vbExclamation, "Έλεγχος στοιχείων"
+        MsgBox "Η κατάσταση παρουσίας είναι υποχρεωτική.", vbExclamation, "Δημιουργία καταχώρησης"
         cboStatus.SetFocus
         Exit Function
     End If
@@ -259,7 +259,7 @@ Private Sub cmdSave_Click()
     message = message & vbCrLf & _
               "Τα στοιχεία είναι έτοιμα για αποστολή στο ασφαλές registration backend."
 
-    MsgBox message, vbInformation, "Έλεγχος νέου ασθενή"
+    MsgBox message, vbInformation, "Δημιουργία καταχώρησης ασθενή"
 End Sub
 
 Private Sub cmdCancel_Click()
