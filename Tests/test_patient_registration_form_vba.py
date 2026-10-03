@@ -50,14 +50,19 @@ def test_patient_form_reads_room_and_status_from_settings():
     assert "Cells(rowIndex, 6)" in PATIENT_FORM_CODE
 
 
-def test_outpatient_disables_inpatient_only_fields():
-    for control_name in (
-        "cboRoom.Enabled = isInpatient",
-        "chkInfectious.Enabled = isInpatient",
-        "cboStatus.Enabled = isInpatient",
-    ):
-        assert control_name in PATIENT_FORM_CODE
+def test_outpatient_disables_only_room_and_infectious_fields_but_keeps_status():
+    assert "cboRoom.Enabled = isInpatient" in PATIENT_FORM_CODE
+    assert "chkInfectious.Enabled = isInpatient" in PATIENT_FORM_CODE
+    assert "cboStatus.Enabled = True" in PATIENT_FORM_CODE
+    assert "cboStatus.ListIndex = -1" not in PATIENT_FORM_CODE
+    assert "Η κατάσταση παρουσίας είναι υποχρεωτική." in PATIENT_FORM_CODE
     assert "δεν εμφανίζεται στα φύλλα νοσηλευομένων" in PATIENT_FORM_CODE
+
+
+def test_patient_form_uses_create_entry_wording_everywhere():
+    assert "Δημιουργία καταχώρησης" in PATIENT_FORM_CODE
+    assert "Έλεγχος στοιχείων" not in PATIENT_FORM_CODE
+    assert "Έλεγχος νέου ασθενή" not in PATIENT_FORM_CODE
 
 
 def test_patient_form_does_not_write_workbook_yet():
