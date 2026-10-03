@@ -11,6 +11,7 @@ from rehab_core.registration import NewPatientRequest
 from .patient_registration import (
     PatientRegistrationBackend,
     PatientRegistrationPreviewReport,
+    PatientRegistrationWriteError,
     create_patient_registration_preview,
 )
 from .master_projection_writer import (
@@ -63,7 +64,7 @@ def create_auto_patient_registration_preview(
             Path(output_path).unlink()
         except OSError:
             pass
-        raise RuntimeError(
+        raise PatientRegistrationWriteError(
             f"Patient registration MASTER refresh failed: {exc}"
         ) from exc
     return report
