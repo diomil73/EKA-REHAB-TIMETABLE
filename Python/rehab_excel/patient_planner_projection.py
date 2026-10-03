@@ -20,6 +20,25 @@ def _excel_rgb(hex_rgb: str) -> int:
     return r + (g << 8) + (b << 16)
 
 
+def planner_identity_formulas(row: int) -> tuple[str, str, str, str, str]:
+    if row < 2:
+        raise ValueError("PATIENT_PLANNER data row must be >= 2")
+    return (
+        f'=IF(PATIENTS!C{row}="","",PATIENTS!A{row})',
+        f'=IF(PATIENTS!C{row}="","",PATIENTS!B{row})',
+        f'=IF(PATIENTS!C{row}="","",PATIENTS!C{row})',
+        f'=IF(PATIENTS!C{row}="","",PATIENTS!D{row})',
+        f'=IF(PATIENTS!C{row}="","",PATIENTS!E{row})',
+    )
+
+
+def is_outpatient_type(value: object) -> bool:
+    return str(value or "").strip().casefold() in {
+        "εξωτερικός".casefold(),
+        "outpatient",
+    }
+
+
 def refresh_patient_planner_projection_in_place(workbook_path: str | Path) -> int:
     """Refresh PATIENT_PLANNER identity/status formulas on a working .xlsm copy.
 
@@ -92,21 +111,9 @@ def refresh_patient_planner_projection_in_place(workbook_path: str | Path) -> in
 
         blue = _excel_rgb(OUTPATIENT_LIGHT_BLUE_RGB)
         for row in range(2, last_row + 1):
-            planner.Cells(row, 1).Formula = (
-                f'=IF(PATIENTS!C{row}="","",PATIENTS!A{row})'
-            )
-            planner.Cells(row, 2).Formula = (
-                f'=IF(PATIENTS!C{row}="","",PATIENTS!B{row})'
-            )
-            planner.Cells(row, 3).Formula = (
-                f'=IF(PATIENTS!C{row}="","",PATIENTS!C{row})'
-            )
-            planner.Cells(row, 4).Formula = (
-                f'=IF(PATIENTS!C{row}="","",PATIENTS!D{row})'
-            )
-            planner.Cells(row, 5).Formula = (
-                f'=IF(PATIENTS!C{row}="","",PATIENTS!E{row})'
-            )
+            formulas = planner_identity_formulas(row)
+            for col, formula in enumerate(formulas, start=1):
+                planner.Cells(row, col).Formula = formula
 
             name_cell = planner.Cells(row, 3)
             try:
@@ -115,8 +122,8 @@ def refresh_patient_planner_projection_in_place(workbook_path: str | Path) -> in
             except Exception:
                 pass
 
-            patient_type = str(patients.Cells(row, type_col).Value2 or "").strip().casefold()
-            if patient_type in {"εξωτερικός".casefold(), "outpatient"}:
+            patient_type = patients.Cells(row, type_col).Value2
+            if is_outpatient_type(patient_type):
                 name_cell.Interior.Color = blue
 
         excel.CalculateFull()
