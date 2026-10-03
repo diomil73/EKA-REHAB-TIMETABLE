@@ -61,10 +61,26 @@ Private Sub cmdSave_Click()
     End If
 
     txtPatientID.Text = JsonStringValue(responseText, "subject_key")
-    MsgBox "Δημιουργήθηκε ασφαλές preview εγγραφής." & vbCrLf & _
-           "Patient ID: " & txtPatientID.Text & vbCrLf & _
-           "Αρχείο: " & JsonStringValue(responseText, "output_path"), _
+
+    If Not StartAuthoritativeCommit( _
+        JsonStringValue(responseText, "output_path"), _
+        JsonStringValue(responseText, "source_sha256_before")) Then
+        GoTo CleanUp
+    End If
+
+    MsgBox "Η εγγραφή επαληθεύτηκε και είναι έτοιμη για αποθήκευση." & vbCrLf & _
+           "Patient ID: " & txtPatientID.Text & vbCrLf & vbCrLf & _
+           "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα μετά την ασφαλή αποθήκευση.", _
            vbInformation, "Νέος ασθενής"
+
+    On Error Resume Next
+    If Len(requestPath) > 0 Then Kill requestPath
+    If Len(responsePath) > 0 Then Kill responsePath
+    On Error GoTo 0
+
+    Unload Me
+    ThisWorkbook.Close SaveChanges:=True
+    Exit Sub
 
 CleanUp:
     On Error Resume Next
@@ -112,6 +128,75 @@ Private Function BuildPatientRegistrationJson(ByVal patientType As String) As St
         q & "infectious" & q & ":" & infectiousValue & "," & _
         q & "status" & q & ":" & q & JsonEscape(statusValue) & q & _
         "}}"
+End Function
+
+Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
+    Dim workerScript As String
+    Dim commitRequestPath As String
+    Dim commitResponsePath As String
+    Dim commandLine As String
+
+    workerScript = ResolveAuthoritativeCommitWorkerScript()
+    If Len(workerScript) = 0 Then
+        MsgBox "Δεν βρέθηκε το authoritative save worker του συστήματος.", vbCritical, "Νέος ασθενής"
+        Exit Function
+    End If
+
+    If Len(Trim$(previewPath)) = 0 Or Len(Trim$(sourceSha256)) = 0 Then
+        MsgBox "Το backend δεν επέστρεψε τα στοιχεία ασφαλούς αποθήκευσης.", vbCritical, "Νέος ασθενής"
+        Exit Function
+    End If
+
+    commitRequestPath = Environ$("TEMP") & "\eka_authoritative_commit_request_" & _
+                        Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+    commitResponsePath = Environ$("TEMP") & "\eka_authoritative_commit_response_" & _
+                         Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+
+    WriteUtf8Text commitRequestPath, BuildAuthoritativeCommitJson(previewPath, sourceSha256)
+
+    commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
+                  " --request " & QuoteArg(commitRequestPath) & _
+                  " --response " & QuoteArg(commitResponsePath)
+
+    On Error GoTo WorkerError
+    CreateObject("WScript.Shell").Run commandLine, 0, False
+    StartAuthoritativeCommit = True
+    Exit Function
+
+WorkerError:
+    MsgBox "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς αποθήκευσης: " & Err.Description, _
+           vbCritical, "Νέος ασθενής"
+End Function
+
+Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String
+    Dim q As String
+    q = Chr$(34)
+
+    BuildAuthoritativeCommitJson = _
+        "{" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "preview_path" & q & ":" & q & JsonEscape(previewPath) & q & "," & _
+        q & "expected_source_sha256" & q & ":" & q & JsonEscape(sourceSha256) & q & "," & _
+        q & "remove_preview_after_success" & q & ":true," & _
+        q & "reopen" & q & ":true," & _
+        q & "timeout_seconds" & q & ":30," & _
+        q & "poll_seconds" & q & ":0.5" & _
+        "}"
+End Function
+
+Private Function ResolveAuthoritativeCommitWorkerScript() As String
+    Dim candidate As String
+
+    candidate = ThisWorkbook.Path & "\Python\tools\authoritative_commit_worker_cli.py"
+    If Dir$(candidate) <> "" Then
+        ResolveAuthoritativeCommitWorkerScript = candidate
+        Exit Function
+    End If
+
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\authoritative_commit_worker_cli.py"
+    If Dir$(candidate) <> "" Then
+        ResolveAuthoritativeCommitWorkerScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
+    End If
 End Function
 
 Private Function ResolveRegistrationBridgeScript() As String
