@@ -44,7 +44,8 @@ def test_bridge_builds_request_and_returns_json_ready_result(monkeypatch, tmp_pa
                 "days": "Δε-Τε-Πα",
                 "therapist": "Αργέντος",
             },
-        }
+        },
+        fingerprint_service=lambda _: "def456",
     )
 
     request = captured["request"]
@@ -57,6 +58,7 @@ def test_bridge_builds_request_and_returns_json_ready_result(monkeypatch, tmp_pa
     assert captured["overwrite"] is True
     assert response["ok"] is True
     assert response["base_entry_id"] == "outpatient:2"
+    assert response["source_sha256_before"] == "def456"
 
 
 @pytest.mark.parametrize(
