@@ -76,8 +76,9 @@ def test_form_wires_authoritative_commit_worker():
 
 
 def test_form_starts_worker_async_then_closes_authoritative_workbook():
-    save_proc_end = FORM_CODE.index("CleanUp:")
-    save_proc = FORM_CODE[:save_proc_end]
+    save_proc_start = FORM_CODE.index("Private Sub cmdSave_Click()")
+    save_proc_end = FORM_CODE.index("CleanUp:", save_proc_start)
+    save_proc = FORM_CODE[save_proc_start:save_proc_end]
     start_pos = save_proc.index("If Not StartAuthoritativeCommit(")
     close_pos = save_proc.index("ThisWorkbook.Close SaveChanges:=True")
     assert start_pos < close_pos
