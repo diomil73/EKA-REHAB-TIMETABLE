@@ -57,11 +57,14 @@ def test_bridge_wires_authoritative_commit_worker():
     assert 'JsonStringValue(responseText, "output_path")' in FORM_BRIDGE_CODE
     assert 'q & "expected_source_sha256" & q' in FORM_BRIDGE_CODE
     assert 'q & "preview_path" & q' in FORM_BRIDGE_CODE
-    assert 'q & "reopen" & q & ":true"' in FORM_BRIDGE_CODE
+    assert 'q & "reopen" & q & ":true,"' in FORM_BRIDGE_CODE
 
 
 def test_bridge_starts_worker_async_then_closes_authoritative_workbook():
-    worker_pos = FORM_BRIDGE_CODE.index('CreateObject("WScript.Shell").Run commandLine, 0, False')
-    close_pos = FORM_BRIDGE_CODE.index("ThisWorkbook.Close SaveChanges:=True")
-    assert worker_pos < close_pos
-    assert "Unload Me" in FORM_BRIDGE_CODE
+    save_proc_end = FORM_BRIDGE_CODE.index("CleanUp:")
+    save_proc = FORM_BRIDGE_CODE[:save_proc_end]
+    start_pos = save_proc.index("If Not StartAuthoritativeCommit(")
+    close_pos = save_proc.index("ThisWorkbook.Close SaveChanges:=True")
+    assert start_pos < close_pos
+    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in FORM_BRIDGE_CODE
+    assert "Unload Me" in save_proc
