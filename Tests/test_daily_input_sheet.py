@@ -2,6 +2,7 @@ from datetime import date, time
 
 from rehab_excel.daily_input_sheet import (
     PATIENT_CANCELLATION_STATUSES,
+    _get_or_create_sheet,
     build_daily_input_spec,
 )
 
@@ -56,3 +57,71 @@ def test_daily_input_layout_has_separate_therapist_and_patient_sections():
     assert spec.patient_header_row == 20
     assert spec.patient_first_row == 21
     assert spec.patient_last_row == 40
+
+
+
+class _FakeCells:
+    def __init__(self):
+        self.unmerged = False
+        self.cleared = False
+
+    def UnMerge(self):
+        self.unmerged = True
+
+    def Clear(self):
+        self.cleared = True
+
+
+class _FakeSheet:
+    def __init__(self, name):
+        self.Name = name
+        self.Cells = _FakeCells()
+
+
+class _FakeWorksheets:
+    def __init__(self, sheets):
+        self._sheets = sheets
+
+    def __iter__(self):
+        return iter(self._sheets)
+
+    def __call__(self, index):
+        return self._sheets[index - 1]
+
+    @property
+    def Count(self):
+        return len(self._sheets)
+
+    def Add(self, **kwargs):
+        sheet = _FakeSheet("SheetX")
+        if "Before" in kwargs:
+            self._sheets.insert(0, sheet)
+        else:
+            self._sheets.append(sheet)
+        return sheet
+
+
+class _FakeWorkbook:
+    def __init__(self, sheets):
+        self.Worksheets = _FakeWorksheets(sheets)
+
+
+def test_get_or_create_sheet_reuses_existing_sheet_without_delete():
+    existing = _FakeSheet("DAILY_INPUT")
+    workbook = _FakeWorkbook([existing])
+
+    result = _get_or_create_sheet(workbook, "DAILY_INPUT", before_first=True)
+
+    assert result is existing
+    assert existing.Cells.unmerged is True
+    assert existing.Cells.cleared is True
+    assert workbook.Worksheets.Count == 1
+
+
+def test_get_or_create_sheet_creates_missing_sheet_in_requested_position():
+    workbook = _FakeWorkbook([_FakeSheet("SETTINGS")])
+
+    result = _get_or_create_sheet(workbook, "DAILY_INPUT", before_first=True)
+
+    assert result.Name == "DAILY_INPUT"
+    assert workbook.Worksheets(1) is result
