@@ -80,6 +80,7 @@ def main() -> int:
                 return 2
 
     working.parent.mkdir(parents=True, exist_ok=True)
+    source_before = file_sha256(source)
     shutil.copy2(source, working)
     authoritative_before = file_sha256(working)
 
@@ -127,7 +128,8 @@ def main() -> int:
     print(f"Therapist read-back verified: {therapist_ok}")
     print(f"VBA preserved: {vba_ok}")
     print(f"Verified preview removed: {preview_removed}")
-    print(f"Original source unchanged: {file_sha256(source) == file_sha256(source)}")
+    source_unchanged = file_sha256(source) == source_before
+    print(f"Original source unchanged: {source_unchanged}")
 
     return 0 if (
         commit_report.committed
@@ -135,6 +137,7 @@ def main() -> int:
         and therapist_ok
         and vba_ok
         and preview_removed
+        and source_unchanged
     ) else 3
 
 
