@@ -13,6 +13,10 @@ from .patient_registration import (
     PatientRegistrationPreviewReport,
     create_patient_registration_preview,
 )
+from .master_projection_writer import (
+    MasterProjectionWriteError,
+    refresh_master_projection_in_place,
+)
 from .patient_registry_source import read_patient_registry
 
 
@@ -45,10 +49,21 @@ def create_auto_patient_registration_preview(
 ) -> PatientRegistrationPreviewReport:
     existing = read_patient_registry(source_path)
     resolved = resolve_patient_id_request(request, existing_patients=existing)
-    return create_patient_registration_preview(
+    report = create_patient_registration_preview(
         source_path,
         output_path,
         resolved,
         backend=backend,
         overwrite=overwrite,
     )
+    try:
+        refresh_master_projection_in_place(output_path)
+    except MasterProjectionWriteError as exc:
+        try:
+            Path(output_path).unlink()
+        except OSError:
+            pass
+        raise RuntimeError(
+            f"Patient registration MASTER refresh failed: {exc}"
+        ) from exc
+    return report
