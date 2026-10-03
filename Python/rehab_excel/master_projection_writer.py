@@ -138,7 +138,7 @@ class Win32ComMasterProjectionBackend:
                     )
 
                 if item.infectious:
-                    self._apply_infectious_style(ws.Range(f"A{row}:K{row}"))
+                    self._apply_infectious_style(ws.Range(f"B{row}:C{row}"))
 
             workbook.Application.CutCopyMode = False
             excel.CalculateFull()
