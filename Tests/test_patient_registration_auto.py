@@ -11,6 +11,7 @@ from rehab_excel.patient_registration_auto import (
     resolve_patient_id_request,
 )
 from rehab_excel.master_projection_writer import MasterProjectionWriteError
+from rehab_excel.patient_planner_projection import PatientPlannerProjectionError
 
 
 def test_blank_patient_id_is_allocated_sequentially():
@@ -65,8 +66,12 @@ def test_auto_patient_preview_refreshes_master_after_registration(monkeypatch, t
         fake_create,
     )
     monkeypatch.setattr(
+        "rehab_excel.patient_registration_auto.refresh_patient_planner_projection_in_place",
+        lambda path: refreshed.append(("planner", Path(path))) or 8,
+    )
+    monkeypatch.setattr(
         "rehab_excel.patient_registration_auto.refresh_master_projection_in_place",
-        lambda path: refreshed.append(Path(path)) or 8,
+        lambda path: refreshed.append(("master", Path(path))) or 8,
     )
 
     report = create_auto_patient_registration_preview(
@@ -78,7 +83,7 @@ def test_auto_patient_preview_refreshes_master_after_registration(monkeypatch, t
 
     assert report.patient_id == "8"
     assert captured["request"].patient_id == "8"
-    assert refreshed == [output]
+    assert refreshed == [("planner", output), ("master", output)]
 
 
 def test_auto_patient_preview_removes_output_if_master_refresh_fails(monkeypatch, tmp_path):
@@ -107,6 +112,10 @@ def test_auto_patient_preview_removes_output_if_master_refresh_fails(monkeypatch
         fake_create,
     )
     monkeypatch.setattr(
+        "rehab_excel.patient_registration_auto.refresh_patient_planner_projection_in_place",
+        lambda _path: 1,
+    )
+    monkeypatch.setattr(
         "rehab_excel.patient_registration_auto.refresh_master_projection_in_place",
         lambda _path: (_ for _ in ()).throw(MasterProjectionWriteError("boom")),
     )
@@ -119,8 +128,58 @@ def test_auto_patient_preview_removes_output_if_master_refresh_fails(monkeypatch
             overwrite=True,
         )
     except PatientRegistrationWriteError as exc:
-        assert "MASTER refresh failed" in str(exc)
+        assert "projection refresh failed" in str(exc)
     else:
         raise AssertionError("Expected MASTER refresh failure")
+
+    assert not output.exists()
+
+
+
+def test_auto_patient_preview_removes_output_if_planner_refresh_fails(monkeypatch, tmp_path):
+    source = tmp_path / "source.xlsm"
+    output = tmp_path / "preview.xlsm"
+    source.write_bytes(b"source")
+
+    monkeypatch.setattr(
+        "rehab_excel.patient_registration_auto.read_patient_registry",
+        lambda _path: [],
+    )
+
+    def fake_create(source_path, output_path, request, *, backend, overwrite):
+        Path(output_path).write_bytes(b"preview")
+        return PatientRegistrationPreviewReport(
+            source_path=str(source_path),
+            output_path=str(output_path),
+            patient_id=request.patient_id,
+            excel_row=2,
+            source_unchanged=True,
+            verified_in_output=True,
+        )
+
+    monkeypatch.setattr(
+        "rehab_excel.patient_registration_auto.create_patient_registration_preview",
+        fake_create,
+    )
+    monkeypatch.setattr(
+        "rehab_excel.patient_registration_auto.refresh_patient_planner_projection_in_place",
+        lambda _path: (_ for _ in ()).throw(PatientPlannerProjectionError("boom")),
+    )
+    monkeypatch.setattr(
+        "rehab_excel.patient_registration_auto.refresh_master_projection_in_place",
+        lambda _path: 1,
+    )
+
+    try:
+        create_auto_patient_registration_preview(
+            source,
+            output,
+            NewPatientRequest(patient_id="", display_name="ΝΕΟΣ"),
+            overwrite=True,
+        )
+    except PatientRegistrationWriteError as exc:
+        assert "projection refresh failed" in str(exc)
+    else:
+        raise AssertionError("Expected planner refresh failure")
 
     assert not output.exists()
