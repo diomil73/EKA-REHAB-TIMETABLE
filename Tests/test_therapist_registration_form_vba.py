@@ -30,12 +30,24 @@ def test_form_uses_preview_source_and_utf8_transport():
 def test_form_reports_backend_success_and_error():
     assert 'JsonStringValue(responseText, "error")' in THERAPIST_FORM_CODE
     assert 'JsonStringValue(responseText, "output_path")' in THERAPIST_FORM_CODE
-    assert "Δημιουργήθηκε ασφαλές preview εγγραφής." in THERAPIST_FORM_CODE
+    assert "Η εγγραφή επαληθεύτηκε και είναι έτοιμη για αποθήκευση." in THERAPIST_FORM_CODE
 
 
-def test_form_closes_after_successful_preview():
-    success_marker = 'vbInformation, "Νέος θεραπευτής"'
-    success_pos = THERAPIST_FORM_CODE.index(success_marker)
-    unload_pos = THERAPIST_FORM_CODE.index("Unload Me", success_pos)
-    cleanup_pos = THERAPIST_FORM_CODE.index("CleanUp:", success_pos)
-    assert success_pos < unload_pos < cleanup_pos
+def test_form_wires_authoritative_commit_worker():
+    assert "StartAuthoritativeCommit" in THERAPIST_FORM_CODE
+    assert "authoritative_commit_worker_cli.py" in THERAPIST_FORM_CODE
+    assert 'JsonStringValue(responseText, "source_sha256_before")' in THERAPIST_FORM_CODE
+    assert 'JsonStringValue(responseText, "output_path")' in THERAPIST_FORM_CODE
+    assert 'q & "expected_source_sha256" & q' in THERAPIST_FORM_CODE
+    assert 'q & "preview_path" & q' in THERAPIST_FORM_CODE
+    assert 'q & "reopen" & q & ":true,"' in THERAPIST_FORM_CODE
+
+
+def test_form_starts_worker_async_then_closes_authoritative_workbook():
+    save_proc_end = THERAPIST_FORM_CODE.index("CleanUp:")
+    save_proc = THERAPIST_FORM_CODE[:save_proc_end]
+    start_pos = save_proc.index("If Not StartAuthoritativeCommit(")
+    close_pos = save_proc.index("ThisWorkbook.Close SaveChanges:=True")
+    assert start_pos < close_pos
+    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in THERAPIST_FORM_CODE
+    assert "Unload Me" in save_proc
