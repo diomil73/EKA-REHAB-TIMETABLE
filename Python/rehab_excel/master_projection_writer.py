@@ -70,19 +70,6 @@ class Win32ComMasterProjectionBackend:
             )
         return formulas
 
-    @staticmethod
-    def _clear_infectious_style(cell_range) -> None:
-        try:
-            cell_range.Interior.Pattern = -4142  # xlPatternNone
-        except Exception:
-            pass
-        for edge in (7, 8, 9, 10):
-            try:
-                border = cell_range.Borders(edge)
-                border.LineStyle = -4142
-            except Exception:
-                pass
-
     def _apply_infectious_style(self, row_range) -> None:
         row_range.Interior.Color = self.palette.infectious_yellow
         for edge in (7, 8, 9, 10):
@@ -141,7 +128,6 @@ class Win32ComMasterProjectionBackend:
                 except Exception:
                     pass
                 ws.Range(f"A{row}:K{row}").ClearContents()
-                self._clear_infectious_style(ws.Range(f"A{row}:K{row}"))
 
             for item in projection:
                 row = item.target_row
