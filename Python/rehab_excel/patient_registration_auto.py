@@ -18,6 +18,10 @@ from .master_projection_writer import (
     MasterProjectionWriteError,
     refresh_master_projection_in_place,
 )
+from .patient_planner_projection import (
+    PatientPlannerProjectionError,
+    refresh_patient_planner_projection_in_place,
+)
 from .patient_registry_source import read_patient_registry
 
 
@@ -58,13 +62,14 @@ def create_auto_patient_registration_preview(
         overwrite=overwrite,
     )
     try:
+        refresh_patient_planner_projection_in_place(output_path)
         refresh_master_projection_in_place(output_path)
-    except MasterProjectionWriteError as exc:
+    except (PatientPlannerProjectionError, MasterProjectionWriteError) as exc:
         try:
             Path(output_path).unlink()
         except OSError:
             pass
         raise PatientRegistrationWriteError(
-            f"Patient registration MASTER refresh failed: {exc}"
+            f"Patient registration projection refresh failed: {exc}"
         ) from exc
     return report
