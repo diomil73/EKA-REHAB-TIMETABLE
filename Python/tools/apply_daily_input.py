@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from zipfile import ZipFile
@@ -11,6 +12,7 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
+from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
 from rehab_excel.daily_preview_composer import (  # noqa: E402
@@ -57,13 +59,26 @@ def main() -> int:
         default=REPO_ROOT / "Excel" / "previews" / "DAILY_INPUT_APPLIED_PREVIEW.xlsm",
     )
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--response",
+        type=Path,
+        help="Optional UTF-8 JSON response file for the Excel/VBA bridge.",
+    )
     args = parser.parse_args()
 
     input_book = args.input.resolve()
     output = args.output.resolve()
     if not input_book.exists():
-        print(f"SAFETY STOP: input workbook not found: {input_book}")
+        message = f"input workbook not found: {input_book}"
+        if args.response:
+            args.response.write_text(
+                json.dumps({"ok": False, "error": message}, ensure_ascii=False),
+                encoding="utf-8-sig",
+            )
+        print(f"SAFETY STOP: {message}")
         return 2
+
+    source_sha256_before = file_sha256(input_book)
 
     try:
         patients = read_patient_registry(input_book)
@@ -130,6 +145,11 @@ def main() -> int:
         ValueError,
         KeyError,
     ) as exc:
+        if args.response:
+            args.response.write_text(
+                json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False),
+                encoding="utf-8-sig",
+            )
         print(f"SAFETY STOP: {exc}")
         return 2
 
@@ -149,8 +169,30 @@ def main() -> int:
         print(f"  {binding.status.value}: {binding.session_id} [{binding.original_cell}]")
     print(f"Input unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
+    ok = bool(report.source_unchanged and vba_preserved)
+    if args.response:
+        args.response.write_text(
+            json.dumps(
+                {
+                    "ok": ok,
+                    "output_path": str(Path(report.output_path).resolve()),
+                    "source_sha256_before": source_sha256_before,
+                    "source_unchanged": bool(report.source_unchanged),
+                    "vba_preserved": bool(vba_preserved),
+                    "date": daily.target_date.isoformat(),
+                    "therapist_rows_read": daily.therapist_rows_used,
+                    "patient_rows_read": daily.patient_rows_used,
+                    "operational_absences": len(daily.absences),
+                    "session_cancellations": len(daily.cancellations),
+                    "changed_sessions": len(preview.bindings),
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8-sig",
+        )
+
     print(f"NEXT: open only {Path(report.output_path).name} and inspect the affected patient line.")
-    return 0 if report.source_unchanged and vba_preserved else 3
+    return 0 if ok else 3
 
 
 if __name__ == "__main__":
