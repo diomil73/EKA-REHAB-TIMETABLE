@@ -44,10 +44,27 @@ class Win32ComMasterProjectionBackend:
     def __init__(self, palette: NativeStylePalette | None = None) -> None:
         self.palette = palette or NativeStylePalette()
 
-    @staticmethod
-    def _last_value_row(ws) -> int:
+    @classmethod
+    def _schema(cls, ws) -> tuple[int, int]:
+        header_row = cls._header_row(ws)
+        k = str(ws.Cells(header_row, 11).Value or "").strip().casefold()
+        l = str(ws.Cells(header_row, 12).Value or "").strip().casefold()
+        m = str(ws.Cells(header_row, 13).Value or "").strip().casefold()
+        if k == "κατάσταση".casefold():
+            return 11, 11
+        if (
+            k == "ψυχολογοι".casefold()
+            and l == "απογευματινο προγραμμα".casefold()
+            and m == "κατάσταση".casefold()
+        ):
+            return 13, 13
+        raise MasterProjectionWriteError("Unsupported MASTER_SCHEDULE column schema")
+
+    @classmethod
+    def _last_value_row(cls, ws) -> int:
+        total_cols, status_col = cls._schema(ws)
         rows = []
-        for col in (1, 2, 3, 11):
+        for col in (1, 2, 3, status_col):
             try:
                 rows.append(int(ws.Cells(ws.Rows.Count, col).End(-4162).Row))
             except Exception:
@@ -67,13 +84,14 @@ class Win32ComMasterProjectionBackend:
     def _template_formulas(cls, ws) -> tuple[int, dict[int, str]]:
         header_row = cls._header_row(ws)
         template_row = header_row + 1
+        total_cols, status_col = cls._schema(ws)
         formulas: dict[int, str] = {}
-        for col in range(1, 12):
+        for col in range(1, total_cols + 1):
             value = ws.Cells(template_row, col).Formula
             text = str(value or "")
             if text.startswith("="):
                 formulas[col] = text
-        required = set(range(1, 12))
+        required = set(range(1, 11)) | {status_col}
         missing = sorted(required.difference(formulas))
         if missing:
             raise MasterProjectionWriteError(
@@ -127,6 +145,7 @@ class Win32ComMasterProjectionBackend:
                 ) from exc
 
             template_row, templates = self._template_formulas(ws)
+            total_cols, _status_col = self._schema(ws)
             old_last = self._last_value_row(ws)
             new_last = max(template_row - 1, template_row + len(projection) - 1)
             clear_last = max(old_last, new_last)
@@ -134,17 +153,18 @@ class Win32ComMasterProjectionBackend:
             # Reset old presentation/content using the first data row as neutral template.
             for row in range(template_row, clear_last + 1):
                 try:
-                    ws.Range(f"A{template_row}:K{template_row}").Copy()
-                    ws.Range(f"A{row}:K{row}").PasteSpecial(Paste=-4122)  # xlPasteFormats
+                    end_col = "M" if total_cols == 13 else "K"
+                    ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()
+                    ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)  # xlPasteFormats
                 except Exception:
                     pass
                 ws.Range(f"A{row}:K{row}").ClearContents()
 
             for item in projection:
                 row = item.target_row
-                for col in range(1, 12):
+                for col, template in templates.items():
                     ws.Cells(row, col).Formula = remap_master_formula(
-                        templates[col],
+                        template,
                         item.planner_row,
                     )
 
@@ -196,13 +216,24 @@ def _verify_projection(
         if "MASTER_SCHEDULE" not in wb.sheetnames:
             return False
         ws = wb["MASTER_SCHEDULE"]
+        header_row = 1
+        for candidate in range(1, min(ws.max_row, 10) + 1):
+            if (
+                str(ws.cell(candidate, 2).value or "").strip().casefold() == "θάλαμος".casefold()
+                and str(ws.cell(candidate, 3).value or "").strip().casefold() == "ασθενής".casefold()
+            ):
+                header_row = candidate
+                break
+        status_header = str(ws.cell(header_row, 13).value or "").strip().casefold()
+        status_col = 13 if status_header == "κατάσταση".casefold() else 11
+        total_cols = 13 if status_col == 13 else 11
         for item in projection:
             row = item.target_row
             expected = {
                 1: f"=PATIENT_PLANNER!D{item.planner_row}",
                 2: f"=PATIENT_PLANNER!B{item.planner_row}",
                 3: f"=PATIENT_PLANNER!C{item.planner_row}",
-                11: f"=PATIENT_PLANNER!E{item.planner_row}",
+                status_col: f"=PATIENT_PLANNER!E{item.planner_row}",
             }
             for col, formula in expected.items():
                 if str(ws.cell(row, col).value or "") != formula:
@@ -210,7 +241,7 @@ def _verify_projection(
 
         tail_row = (max((item.target_row for item in projection), default=1) + 1)
         if tail_row <= ws.max_row:
-            for col in range(1, 12):
+            for col in range(1, total_cols + 1):
                 if ws.cell(tail_row, col).value not in (None, ""):
                     return False
         return True
