@@ -67,6 +67,28 @@ def _patient_rows(path: str | Path) -> dict[str, int]:
         wb.close()
 
 
+def _master_header_row(path: str | Path) -> int:
+    workbook_path = Path(path)
+    wb = load_workbook(
+        workbook_path,
+        read_only=True,
+        data_only=False,
+        keep_vba=workbook_path.suffix.casefold() == ".xlsm",
+    )
+    try:
+        if "MASTER_SCHEDULE" not in wb.sheetnames:
+            raise MasterProjectionError("Workbook has no MASTER_SCHEDULE sheet")
+        ws = wb["MASTER_SCHEDULE"]
+        for row in range(1, min(ws.max_row, 10) + 1):
+            room = str(ws.cell(row, 2).value or "").strip().casefold()
+            patient = str(ws.cell(row, 3).value or "").strip().casefold()
+            if room == "θάλαμος".casefold() and patient == "ασθενής".casefold():
+                return row
+    finally:
+        wb.close()
+    raise MasterProjectionError("MASTER_SCHEDULE header row was not found")
+
+
 def build_master_projection(
     workbook_path: str | Path,
     *,
@@ -98,8 +120,9 @@ def build_master_projection(
 
     ordered = sorted(inpatients, key=sort_key)
     projection: list[MasterProjectionRow] = []
+    first_target_row = _master_header_row(path) + 1
 
-    for target_row, patient in enumerate(ordered, start=2):
+    for target_row, patient in enumerate(ordered, start=first_target_row):
         planner_row = row_by_id.get(patient.patient_id)
         if planner_row is None:
             raise MasterProjectionError(
