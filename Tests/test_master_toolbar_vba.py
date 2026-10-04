@@ -180,3 +180,32 @@ def test_replacements_sheet_receives_footer_navigation():
     from rehab_excel.master_toolbar_vba import USER_FACING_SHEETS
 
     assert "REPLACEMENTS" in USER_FACING_SHEETS
+
+
+
+def test_master_display_schema_adds_psychology_and_afternoon_columns():
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
+    assert 'ws.Columns("K:L").Insert()' in source
+    assert '"ΨΥΧΟΛΟΓΟΙ"' in source
+    assert '"ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"' in source
+    assert '"Κατάσταση"' in source
+
+
+def test_master_display_uses_compact_recliner_column():
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
+    assert '"Ανακλ/μενο"' in source
+    assert 'ws.Columns("G").ColumnWidth = 11' in source
+    assert 'ws.Columns("G").WrapText = True' in source
+
+
+def test_master_display_clears_false_only_on_room_separator_rows():
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
+    assert "if room and not patient" in source
+    assert 'casefold() == "false"' in source
+    assert "ws.Cells(row, 13).ClearContents()" in source
