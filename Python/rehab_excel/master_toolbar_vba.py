@@ -211,7 +211,7 @@ def _ensure_master_display_schema(ws) -> None:
     ws.Columns("L").ColumnWidth = 20
     ws.Columns("K:L").WrapText = True
 
-    ' Light salmon for Psychology, light purple for Afternoon Program.
+    # Light salmon for Psychology, light purple for Afternoon Program.
     ws.Columns("K").Interior.Color = 13421823
     ws.Columns("L").Interior.Color = 16764108
 
