@@ -24,6 +24,7 @@ End Sub
 Public Sub GoToMaster()
     On Error GoTo MissingSheet
     ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+    ApplyMasterView
     ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
     KeepApplicationShell
     Exit Sub
@@ -33,6 +34,7 @@ End Sub
 
 Public Sub ExitApplication()
     Dim eventsWereEnabled As Boolean
+    Dim workbookCount As Long
 
     On Error GoTo ExitError
 
@@ -43,9 +45,15 @@ Public Sub ExitApplication()
     On Error GoTo ExitError
 
     eventsWereEnabled = Application.EnableEvents
+    workbookCount = Application.Workbooks.Count
     Application.EnableEvents = False
-    ThisWorkbook.Close SaveChanges:=False
-    Application.EnableEvents = eventsWereEnabled
+
+    If workbookCount <= 1 Then
+        Application.Quit
+    Else
+        ThisWorkbook.Close SaveChanges:=False
+        Application.EnableEvents = eventsWereEnabled
+    End If
     Exit Sub
 
 ExitError:
@@ -54,6 +62,33 @@ ExitError:
     On Error GoTo 0
     MsgBox "Δεν ήταν δυνατή η αποθήκευση και έξοδος: " & Err.Description, _
            vbExclamation, "Save & Exit"
+End Sub
+
+Public Sub ApplyMasterView()
+    Dim ws As Worksheet
+    Dim lastRoomRow As Long
+    Dim lastPatientRow As Long
+    Dim lastRow As Long
+    Dim firstHiddenRow As Long
+
+    On Error Resume Next
+    Set ws = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
+    If ws Is Nothing Then Exit Sub
+
+    lastRoomRow = ws.Cells(ws.Rows.Count, 2).End(xlUp).Row
+    lastPatientRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    lastRow = Application.Max(lastRoomRow, lastPatientRow)
+    If lastRow < 4 Then lastRow = 4
+
+    firstHiddenRow = lastRow + 2
+
+    ws.Rows("1:" & CStr(lastRow + 1)).Hidden = False
+    If firstHiddenRow <= ws.Rows.Count Then
+        ws.Rows(CStr(firstHiddenRow) & ":" & CStr(ws.Rows.Count)).Hidden = True
+    End If
+
+    ws.ScrollArea = "A1:M" & CStr(lastRow + 1)
+    On Error GoTo 0
 End Sub
 
 Public Sub ToolbarTherapistDaily()
@@ -241,7 +276,10 @@ def _ensure_master_display_schema(ws) -> None:
                     ws.Cells(row, col).ClearContents()
 
     try:
-        ws.ScrollArea = f"A1:M{last_row + 2}"
+        ws.ScrollArea = f"A1:M{last_row + 1}"
+        ws.Rows(f"1:{last_row + 1}").Hidden = False
+        if last_row + 2 <= int(ws.Rows.Count):
+            ws.Rows(f"{last_row + 2}:{int(ws.Rows.Count)}").Hidden = True
     except Exception:
         pass
 
