@@ -131,7 +131,7 @@ def test_operational_sheets_receive_master_and_exit_navigation():
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba._install_operational_navigation)
-    assert '("DAILY_INPUT", "THERAPIST_DAILY")' in source
+    assert "for sheet_name in USER_FACING_SHEETS" in source
     assert 'caption="← MASTER"' in source
     assert 'macro="GoToMaster"' in source
     assert 'caption="Save & Exit"' in source
