@@ -32,10 +32,20 @@ MissingSheet:
 End Sub
 
 Public Sub ExitApplication()
+    On Error GoTo ExitError
+
+    ThisWorkbook.Save
+
     On Error Resume Next
     RestoreExcelInterface
-    On Error GoTo 0
-    ThisWorkbook.Close SaveChanges:=True
+    On Error GoTo ExitError
+
+    ThisWorkbook.Close SaveChanges:=False
+    Exit Sub
+
+ExitError:
+    MsgBox "Δεν ήταν δυνατή η αποθήκευση και έξοδος: " & Err.Description, _
+           vbExclamation, "Save & Exit"
 End Sub
 
 Public Sub ToolbarTherapistDaily()
@@ -200,6 +210,10 @@ def _ensure_master_display_schema(ws) -> None:
     ws.Columns("K").ColumnWidth = 14
     ws.Columns("L").ColumnWidth = 20
     ws.Columns("K:L").WrapText = True
+
+    ' Light salmon for Psychology, light purple for Afternoon Program.
+    ws.Columns("K").Interior.Color = 13421823
+    ws.Columns("L").Interior.Color = 16764108
 
     try:
         last_row = int(ws.UsedRange.Row) + int(ws.UsedRange.Rows.Count) - 1
