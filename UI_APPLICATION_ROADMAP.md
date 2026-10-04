@@ -427,6 +427,20 @@
 - click στο όνομα ασθενή
 - error handling αν το intranet δεν είναι διαθέσιμο
 
+### Phase 9 — OTG / Exhibition portable version
+- ξεχωριστό portable build για πιλοτική χρήση και exhibition
+- δυνατότητα μεταφοράς σε USB / εξωτερικό μέσο
+- λειτουργία σε άλλο Windows PC χωρίς development setup
+- αποκλειστική χρήση relative paths
+- καθαρό package χωρίς development clutter
+- έτοιμο production/pilot .xlsm
+- απαραίτητα Python/runtime scripts μαζί με το workbook
+- ασφαλές backup folder
+- απλός launcher / START entry point
+- preflight check για Python, Excel, pywin32 και permissions
+- smoke test σε δεύτερο μηχάνημα πριν το exhibition
+- version/build identifier ώστε να ξέρουμε ακριβώς ποια pilot έκδοση χρησιμοποιείται
+
 ---
 
 ## 13. Αρχές που δεν πρέπει να παραβιαστούν
@@ -456,5 +470,7 @@
 - ακριβείς κανόνες conflict/capacity check για μόνιμη αλλαγή θεραπευτή,
 - τελική λίστα reports/statistics,
 - ασφαλής τεχνική διασύνδεση με intranet,
+- ακριβής μορφή OTG package και launcher,
+- ελάχιστες προϋποθέσεις εγκατάστασης στο exhibition PC,
 - κανόνες αρχειοθέτησης και επανενεργοποίησης ασθενών/θεραπευτών.
 
