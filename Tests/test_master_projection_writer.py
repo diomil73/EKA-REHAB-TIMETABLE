@@ -146,3 +146,33 @@ def test_create_master_projection_preview_rejects_same_source_and_output(tmp_pat
         assert "differ from source" in str(exc)
     else:
         raise AssertionError("Expected same source/output to be rejected")
+
+
+
+def test_master_writer_verification_supports_shifted_header(tmp_path, monkeypatch):
+    source = _book(tmp_path)
+    wb = load_workbook(source)
+    try:
+        ws = wb["MASTER_SCHEDULE"]
+        ws.insert_rows(1, amount=3)
+        wb.save(source)
+    finally:
+        wb.close()
+
+    output = tmp_path / "shifted_preview.xlsm"
+    monkeypatch.setattr(
+        "rehab_excel.master_projection_writer.build_master_projection",
+        lambda _path: (
+            MasterProjectionRow(5, 3, "2", "A02", "ΒΑΡΒΑΡΑΣ", True, "παρών"),
+            MasterProjectionRow(6, 2, "1", "A09", "ΧΑΣΙΚΟΣ", False, "παρών"),
+        ),
+    )
+
+    report = create_master_projection_preview(
+        source,
+        output,
+        backend=_FakeBackend(),
+        overwrite=True,
+    )
+
+    assert report.verified_in_output is True
