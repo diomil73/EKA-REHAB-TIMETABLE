@@ -67,16 +67,17 @@ Public Sub ApplyDailyInputPreview()
         GoTo CleanUp
     End If
 
-    If JsonLongValue(responseText, "operational_absences") > 0 Then
-        SetPostCommitTarget "REPLACEMENTS"
+    Dim postCommitTarget As String
+    If JsonLongValue(responseText, "replacement_sessions_needed") > 0 Then
+        postCommitTarget = "REPLACEMENTS"
     Else
-        ClearPostCommitTarget
+        postCommitTarget = ""
     End If
 
     If Not StartAuthoritativeCommit( _
         JsonStringValue(responseText, "output_path"), _
-        JsonStringValue(responseText, "source_sha256_before")) Then
-        ClearPostCommitTarget
+        JsonStringValue(responseText, "source_sha256_before"), _
+        postCommitTarget) Then
         GoTo CleanUp
     End If
 
@@ -101,7 +102,10 @@ ActionError:
     MsgBox "Δεν ήταν δυνατή η εφαρμογή του DAILY_INPUT: " & Err.Description, vbCritical, "DAILY_INPUT"
 End Sub
 
-Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
+Private Function StartAuthoritativeCommit( _
+    ByVal previewPath As String, _
+    ByVal sourceSha256 As String, _
+    ByVal postReopenTarget As String) As Boolean
     Dim workerScript As String
     Dim commitRequestPath As String
     Dim commitResponsePath As String
@@ -123,7 +127,7 @@ Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sou
     commitResponsePath = Environ$("TEMP") & "\\eka_authoritative_commit_response_" & _
                          Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
 
-    WriteUtf8Text commitRequestPath, BuildAuthoritativeCommitJson(previewPath, sourceSha256)
+    WriteUtf8Text commitRequestPath, BuildAuthoritativeCommitJson(previewPath, sourceSha256, postReopenTarget)
 
     commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
                   " --request " & QuoteArg(commitRequestPath) & _
@@ -139,7 +143,10 @@ WorkerError:
            vbCritical, "DAILY_INPUT"
 End Function
 
-Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String
+Private Function BuildAuthoritativeCommitJson( _
+    ByVal previewPath As String, _
+    ByVal sourceSha256 As String, _
+    ByVal postReopenTarget As String) As String
     Dim q As String
     q = Chr$(34)
 
@@ -151,7 +158,8 @@ Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal
         q & "remove_preview_after_success" & q & ":true," & _
         q & "reopen" & q & ":true," & _
         q & "timeout_seconds" & q & ":30," & _
-        q & "poll_seconds" & q & ":0.5" & _
+        q & "poll_seconds" & q & ":0.5," & _
+        q & "post_reopen_target" & q & ":" & q & JsonEscape(postReopenTarget) & q & _
         "}"
 End Function
 
@@ -196,20 +204,6 @@ Private Function JsonLongValue(ByVal jsonText As String, ByVal key As String) As
     rawValue = Mid$(jsonText, startPos, endPos - startPos)
     If Len(rawValue) > 0 Then JsonLongValue = CLng(rawValue)
 End Function
-
-Private Sub SetPostCommitTarget(ByVal sheetName As String)
-    On Error Resume Next
-    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
-    ThisWorkbook.Names.Add Name:="__EKA_POST_COMMIT_TARGET", _
-        RefersTo:="=" & Chr$(34) & sheetName & Chr$(34)
-    On Error GoTo 0
-End Sub
-
-Private Sub ClearPostCommitTarget()
-    On Error Resume Next
-    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
-    On Error GoTo 0
-End Sub
 
 Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) As String
     Dim marker As String, startPos As Long, index As Long, ch As String, escaped As Boolean, value As String
