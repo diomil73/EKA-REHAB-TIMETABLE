@@ -175,3 +175,9 @@ def test_application_shell_consumes_one_shot_navigation_sidecar():
     assert '.eka_next_sheet' in APP_SHELL_MODULE_CODE
     assert 'Kill markerPath' in APP_SHELL_MODULE_CODE
     assert 'Worksheets(targetName).Activate' in APP_SHELL_MODULE_CODE
+
+
+
+def test_application_shell_reapplies_master_view_on_open_and_activation():
+    assert "ApplyMasterView" in APP_SHELL_MODULE_CODE
+    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then ApplyMasterView' in APP_SHELL_MODULE_CODE
