@@ -17,6 +17,7 @@ Public Sub EnterApplicationShell()
     If Not ActivatePostCommitTarget() Then
         If WorksheetExists("MASTER_SCHEDULE") Then
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+            ApplyMasterView
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
         End If
     End If
@@ -27,6 +28,7 @@ End Sub
 Public Sub KeepApplicationShell()
     On Error Resume Next
     ApplyApplicationChrome
+    If ActiveSheet.Name = "MASTER_SCHEDULE" Then ApplyMasterView
     On Error GoTo 0
 End Sub
 
