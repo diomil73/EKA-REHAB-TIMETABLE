@@ -195,20 +195,33 @@ def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: flo
     shape.TextFrame2.VerticalAnchor = 3
 
 
+USER_FACING_SHEETS = ("DAILY_INPUT", "THERAPIST_DAILY")
+
+
+def _last_used_row(ws) -> int:
+    try:
+        used = ws.UsedRange
+        return max(1, int(used.Row) + int(used.Rows.Count) - 1)
+    except Exception:
+        return 1
+
+
 def _install_operational_navigation(workbook) -> None:
-    for sheet_name in ("DAILY_INPUT", "THERAPIST_DAILY"):
+    for sheet_name in USER_FACING_SHEETS:
         try:
             ws = workbook.Worksheets(sheet_name)
         except Exception:
             continue
 
+        last_row = _last_used_row(ws)
+        anchor_row = last_row + 2
         try:
-            anchor = ws.Range("A1")
+            anchor = ws.Range(f"A{anchor_row}")
             left = float(anchor.Left) + 4
             top = float(anchor.Top) + 2
         except Exception:
             left = 4.0
-            top = 2.0
+            top = float(anchor_row * 15)
 
         _add_navigation_button(
             ws,
@@ -275,3 +288,47 @@ def install_master_toolbar(vbproject, workbook) -> None:
         shape.TextFrame2.VerticalAnchor = 3
 
     _install_operational_navigation(workbook)
+
+
+
+def finalize_user_navigation(workbook_path) -> None:
+    """Re-apply user-facing navigation after every build step has created its sheets."""
+    from pathlib import Path
+    import sys
+
+    if sys.platform != "win32":
+        raise MasterToolbarError("Navigation finalization requires Windows with Microsoft Excel")
+
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise MasterToolbarError("pywin32 is required for navigation finalization") from exc
+
+    path = Path(workbook_path).resolve()
+    excel = None
+    workbook = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
+        excel.EnableEvents = False
+
+        workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
+        _install_operational_navigation(workbook)
+        workbook.Save()
+    except MasterToolbarError:
+        raise
+    except Exception as exc:
+        raise MasterToolbarError(f"Could not finalize user navigation: {exc}") from exc
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
