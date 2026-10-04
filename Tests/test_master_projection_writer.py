@@ -15,6 +15,18 @@ class _FakeBackend:
         wb = load_workbook(workbook_path, keep_vba=False)
         try:
             ws = wb["MASTER_SCHEDULE"]
+            header_row = 1
+            for candidate in range(1, min(ws.max_row, 10) + 1):
+                if (
+                    str(ws.cell(candidate, 2).value or "").strip() == "Θάλαμος"
+                    and str(ws.cell(candidate, 3).value or "").strip() == "Ασθενής"
+                ):
+                    header_row = candidate
+                    break
+            expanded = str(ws.cell(header_row, 13).value or "").strip() == "Κατάσταση"
+            status_col = 13 if expanded else 11
+            total_cols = 13 if expanded else 11
+
             for item in projection:
                 row = item.target_row
                 ws.cell(row, 1).value = f"=PATIENT_PLANNER!D{item.planner_row}"
@@ -27,10 +39,10 @@ class _FakeBackend:
                 ws.cell(row, 8).value = f"=PATIENT_PLANNER!P{item.planner_row}"
                 ws.cell(row, 9).value = f"=PATIENT_PLANNER!R{item.planner_row}"
                 ws.cell(row, 10).value = f"=PATIENT_PLANNER!T{item.planner_row}"
-                ws.cell(row, 11).value = f"=PATIENT_PLANNER!E{item.planner_row}"
+                ws.cell(row, status_col).value = f"=PATIENT_PLANNER!E{item.planner_row}"
             tail_start = max((item.target_row for item in projection), default=1) + 1
             for row in range(tail_start, ws.max_row + 1):
-                for col in range(1, 12):
+                for col in range(1, total_cols + 1):
                     ws.cell(row, col).value = None
             wb.save(workbook_path)
         finally:
@@ -177,3 +189,45 @@ def test_master_writer_verification_supports_shifted_header(tmp_path, monkeypatc
     )
 
     assert report.verified_in_output is True
+
+
+
+def test_master_writer_supports_expanded_psychology_afternoon_schema(tmp_path, monkeypatch):
+    source = _book(tmp_path)
+    wb = load_workbook(source)
+    try:
+        ws = wb["MASTER_SCHEDULE"]
+        ws.insert_cols(11, amount=2)
+        ws["K1"] = "ΨΥΧΟΛΟΓΟΙ"
+        ws["L1"] = "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
+        ws["M1"] = "Κατάσταση"
+        wb.save(source)
+    finally:
+        wb.close()
+
+    output = tmp_path / "expanded_preview.xlsm"
+    monkeypatch.setattr(
+        "rehab_excel.master_projection_writer.build_master_projection",
+        lambda _path: (
+            MasterProjectionRow(2, 3, "2", "A02", "ΒΑΡΒΑΡΑΣ", True, "παρών"),
+        ),
+    )
+
+    report = create_master_projection_preview(
+        source,
+        output,
+        backend=_FakeBackend(),
+        overwrite=True,
+    )
+
+    assert report.verified_in_output is True
+    wb = load_workbook(output, data_only=False)
+    try:
+        ws = wb["MASTER_SCHEDULE"]
+        assert ws["K1"].value == "ΨΥΧΟΛΟΓΟΙ"
+        assert ws["L1"].value == "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
+        assert ws["K2"].value in (None, "")
+        assert ws["L2"].value in (None, "")
+        assert ws["M2"].value == "=PATIENT_PLANNER!E3"
+    finally:
+        wb.close()
