@@ -119,3 +119,29 @@ def test_worker_validates_timing_arguments(tmp_path):
             expected_source_sha256="abc",
             poll_seconds=0,
         )
+
+
+
+def test_worker_writes_post_reopen_target_before_open(tmp_path):
+    source = tmp_path / "app.xlsm"
+    preview = tmp_path / "preview.xlsm"
+    source.write_bytes(b"x")
+    preview.write_bytes(b"y")
+    observed = []
+
+    def fake_open(path):
+        marker = path.with_name(path.name + ".eka_next_sheet")
+        observed.append(marker.read_text(encoding="utf-8"))
+
+    result = commit_when_unlocked(
+        source,
+        preview,
+        expected_source_sha256="abc",
+        reopen=True,
+        post_reopen_target="REPLACEMENTS",
+        commit_service=lambda *a, **k: _report(source, preview),
+        open_service=fake_open,
+    )
+
+    assert observed == ["REPLACEMENTS"]
+    assert result.reopened is True
