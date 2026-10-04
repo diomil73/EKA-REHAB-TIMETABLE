@@ -12,6 +12,23 @@ Private previousRibbonVisible As Boolean
 Public Sub EnterApplicationShell()
     On Error GoTo SafeExit
 
+    ApplyApplicationChrome
+
+    If WorksheetExists("MASTER_SCHEDULE") Then
+        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
+    End If
+
+SafeExit:
+End Sub
+
+Public Sub KeepApplicationShell()
+    On Error Resume Next
+    ApplyApplicationChrome
+    On Error GoTo 0
+End Sub
+
+Private Sub ApplyApplicationChrome()
     If Not shellStateCaptured Then
         previousFormulaBar = Application.DisplayFormulaBar
         previousStatusBar = Application.DisplayStatusBar
@@ -28,13 +45,6 @@ Public Sub EnterApplicationShell()
         ActiveWindow.DisplayHeadings = False
         ActiveWindow.DisplayGridlines = False
     End If
-
-    If WorksheetExists("MASTER_SCHEDULE") Then
-        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
-        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
-    End If
-
-SafeExit:
 End Sub
 
 Public Sub ExitApplicationShell()
@@ -96,6 +106,11 @@ _EVENT_SPECS = (
     ("Workbook_Open", "Private Sub Workbook_Open()", "EnterApplicationShell"),
     ("Workbook_Activate", "Private Sub Workbook_Activate()", "EnterApplicationShell"),
     ("Workbook_Deactivate", "Private Sub Workbook_Deactivate()", "ExitApplicationShell"),
+    (
+        "Workbook_SheetActivate",
+        "Private Sub Workbook_SheetActivate(ByVal Sh As Object)",
+        "KeepApplicationShell",
+    ),
     (
         "Workbook_BeforeClose",
         "Private Sub Workbook_BeforeClose(Cancel As Boolean)",
