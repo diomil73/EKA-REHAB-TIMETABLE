@@ -46,3 +46,15 @@ def test_daily_input_action_starts_worker_async_then_closes_workbook():
     close_pos = DAILY_INPUT_MODULE_CODE.index("ThisWorkbook.Close SaveChanges:=True")
     assert start_pos < close_pos
     assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in DAILY_INPUT_MODULE_CODE
+
+
+
+def test_daily_input_action_routes_to_replacements_only_when_needed():
+    assert 'JsonLongValue(responseText, "replacement_sessions_needed") > 0' in DAILY_INPUT_MODULE_CODE
+    assert 'postCommitTarget = "REPLACEMENTS"' in DAILY_INPUT_MODULE_CODE
+    assert 'q & "post_reopen_target" & q' in DAILY_INPUT_MODULE_CODE
+
+
+def test_daily_input_action_does_not_mutate_workbook_for_navigation_marker():
+    assert "__EKA_POST_COMMIT_TARGET" not in DAILY_INPUT_MODULE_CODE
+    assert "ThisWorkbook.Names.Add" not in DAILY_INPUT_MODULE_CODE
