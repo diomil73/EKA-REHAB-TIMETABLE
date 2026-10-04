@@ -11,6 +11,12 @@ from zipfile import ZipFile
 
 from openpyxl import load_workbook
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from rehab_excel.master_toolbar_vba import (  # noqa: E402
+    MasterToolbarError,
+    finalize_user_navigation,
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_DIR = REPO_ROOT / "Python" / "tools"
@@ -169,6 +175,12 @@ def build_unified_preview(
                 "--overwrite",
             ],
         )
+
+        try:
+            finalize_user_navigation(output)
+            print("[OK] final user navigation")
+        except MasterToolbarError as exc:
+            raise UnifiedBuildError(f"final user navigation failed: {exc}") from exc
 
     if _sha256(source) != source_before:
         output.unlink(missing_ok=True)
