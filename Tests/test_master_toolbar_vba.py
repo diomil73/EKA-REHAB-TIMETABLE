@@ -136,3 +136,30 @@ def test_operational_sheets_receive_master_and_exit_navigation():
     assert 'macro="GoToMaster"' in source
     assert 'caption="Save & Exit"' in source
     assert 'macro="ExitApplication"' in source
+
+
+
+def test_operational_navigation_is_placed_below_used_rows():
+    import inspect
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._install_operational_navigation)
+    assert "last_row = _last_used_row(ws)" in source
+    assert "anchor_row = last_row + 2" in source
+    assert 'ws.Range(f"A{anchor_row}")' in source
+
+
+def test_user_facing_navigation_scope_excludes_master():
+    from rehab_excel.master_toolbar_vba import USER_FACING_SHEETS
+
+    assert USER_FACING_SHEETS == ("DAILY_INPUT", "THERAPIST_DAILY")
+    assert "MASTER_SCHEDULE" not in USER_FACING_SHEETS
+
+
+def test_navigation_finalizer_reapplies_after_sheet_creation():
+    import inspect
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba.finalize_user_navigation)
+    assert "_install_operational_navigation(workbook)" in source
+    assert "workbook.Save()" in source
