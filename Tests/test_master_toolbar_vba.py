@@ -109,6 +109,7 @@ def test_master_toolbar_includes_exit_action():
     assert "Public Sub ExitApplication()" in MASTER_TOOLBAR_MODULE_CODE
     assert "RestoreExcelInterface" in MASTER_TOOLBAR_MODULE_CODE
     assert "ThisWorkbook.Save" in MASTER_TOOLBAR_MODULE_CODE
+    assert "Application.EnableEvents = False" in MASTER_TOOLBAR_MODULE_CODE
     assert "ThisWorkbook.Close SaveChanges:=False" in MASTER_TOOLBAR_MODULE_CODE
 
 
@@ -209,7 +210,8 @@ def test_master_display_clears_false_only_on_room_separator_rows():
     source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
     assert "if room and not patient" in source
     assert 'casefold() == "false"' in source
-    assert "ws.Cells(row, 13).ClearContents()" in source
+    assert "for col in range(13, 17)" in source
+    assert "ws.Cells(row, col).ClearContents()" in source
 
 
 
@@ -217,8 +219,8 @@ def test_master_new_specialties_have_distinct_light_colors():
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
-    assert 'ws.Columns("K").Interior.Color = 13421823' in source
-    assert 'ws.Columns("L").Interior.Color = 16764108' in source
+    assert 'ws.Range(f"K{header_row}:K{last_row}").Interior.Color = 13421823' in source
+    assert 'ws.Range(f"L{header_row}:L{last_row}").Interior.Color = 16764108' in source
 
 
 def test_save_exit_saves_before_restoring_and_closing():
@@ -227,3 +229,25 @@ def test_save_exit_saves_before_restoring_and_closing():
     close_pos = MASTER_TOOLBAR_MODULE_CODE.index("ThisWorkbook.Close SaveChanges:=False")
     assert save_pos < restore_pos < close_pos
     assert 'MsgBox "Δεν ήταν δυνατή η αποθήκευση και έξοδος:' in MASTER_TOOLBAR_MODULE_CODE
+
+
+
+def test_master_scroll_area_stops_near_last_patient_row():
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
+    assert 'ws.ScrollArea = f"A1:M{last_row + 2}"' in source
+
+
+def test_master_specialty_colors_do_not_fill_entire_columns():
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
+    assert 'ws.Columns("K").Interior.Color' not in source
+    assert 'ws.Columns("L").Interior.Color' not in source
+
+
+def test_save_exit_temporarily_disables_workbook_events():
+    assert "eventsWereEnabled = Application.EnableEvents" in MASTER_TOOLBAR_MODULE_CODE
+    assert "Application.EnableEvents = False" in MASTER_TOOLBAR_MODULE_CODE
+    assert "Application.EnableEvents = eventsWereEnabled" in MASTER_TOOLBAR_MODULE_CODE
