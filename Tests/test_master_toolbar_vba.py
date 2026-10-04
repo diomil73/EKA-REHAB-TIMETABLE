@@ -236,7 +236,8 @@ def test_master_scroll_area_stops_near_last_patient_row():
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba._ensure_master_display_schema)
-    assert 'ws.ScrollArea = f"A1:M{last_row + 2}"' in source
+    assert 'ws.ScrollArea = f"A1:M{last_row + 1}"' in source
+    assert 'ws.Rows(f"{last_row + 2}:{int(ws.Rows.Count)}").Hidden = True' in source
 
 
 def test_master_specialty_colors_do_not_fill_entire_columns():
@@ -251,3 +252,21 @@ def test_save_exit_temporarily_disables_workbook_events():
     assert "eventsWereEnabled = Application.EnableEvents" in MASTER_TOOLBAR_MODULE_CODE
     assert "Application.EnableEvents = False" in MASTER_TOOLBAR_MODULE_CODE
     assert "Application.EnableEvents = eventsWereEnabled" in MASTER_TOOLBAR_MODULE_CODE
+
+
+
+def test_master_vba_view_hides_rows_below_last_written_plus_one():
+    assert "Public Sub ApplyMasterView()" in MASTER_TOOLBAR_MODULE_CODE
+    assert "lastRoomRow = ws.Cells(ws.Rows.Count, 2).End(xlUp).Row" in MASTER_TOOLBAR_MODULE_CODE
+    assert "lastPatientRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row" in MASTER_TOOLBAR_MODULE_CODE
+    assert "firstHiddenRow = lastRow + 2" in MASTER_TOOLBAR_MODULE_CODE
+    assert 'ws.ScrollArea = "A1:M" & CStr(lastRow + 1)' in MASTER_TOOLBAR_MODULE_CODE
+    assert 'ws.Rows(CStr(firstHiddenRow) & ":" & CStr(ws.Rows.Count)).Hidden = True' in MASTER_TOOLBAR_MODULE_CODE
+
+
+def test_save_exit_quits_excel_when_app_workbook_is_only_workbook():
+    assert "workbookCount = Application.Workbooks.Count" in MASTER_TOOLBAR_MODULE_CODE
+    assert "If workbookCount <= 1 Then" in MASTER_TOOLBAR_MODULE_CODE
+    assert "Application.Quit" in MASTER_TOOLBAR_MODULE_CODE
+    assert "Else" in MASTER_TOOLBAR_MODULE_CODE
+    assert "ThisWorkbook.Close SaveChanges:=False" in MASTER_TOOLBAR_MODULE_CODE
