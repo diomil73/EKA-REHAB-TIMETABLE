@@ -47,6 +47,7 @@ def commit_when_unlocked(
     timeout_seconds: float = 30.0,
     poll_seconds: float = 0.5,
     reopen: bool = False,
+    post_reopen_target: str | None = None,
     commit_service: CommitService = commit_verified_preview,
     sleep_service: SleepService = time.sleep,
     open_service: OpenService = _default_open_workbook,
@@ -83,6 +84,9 @@ def commit_when_unlocked(
     reopened = False
     if reopen:
         try:
+            if post_reopen_target:
+                sidecar = source.with_name(source.name + ".eka_next_sheet")
+                sidecar.write_text(post_reopen_target.strip(), encoding="utf-8")
             open_service(source)
             reopened = True
         except Exception as exc:
