@@ -10,6 +10,11 @@ from zipfile import ZipFile
 
 from .application_shell_vba import APP_SHELL_MODULE_NAME, install_application_shell
 from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
+from .master_toolbar_vba import (
+    MASTER_TOOLBAR_MODULE_NAME,
+    MasterToolbarError,
+    install_master_toolbar,
+)
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .therapist_registration_form_vba import THERAPIST_FORM_NAME, install_therapist_form
 from .student_registration_form_vba import STUDENT_FORM_NAME, install_student_form
@@ -235,6 +240,8 @@ class Win32ComRegistrationMenuInstaller:
             self._remove_component_if_present(vbproject, MENU_FORM_NAME)
             stage = "removing old app shell module"
             self._remove_component_if_present(vbproject, APP_SHELL_MODULE_NAME)
+            stage = "removing old MASTER toolbar module"
+            self._remove_component_if_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
             stage = "removing old DAILY_INPUT action module"
             self._remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
             stage = "removing old patient form"
@@ -288,6 +295,8 @@ class Win32ComRegistrationMenuInstaller:
 
             stage = "installing application shell"
             install_application_shell(vbproject, workbook=workbook)
+            stage = "installing MASTER toolbar"
+            install_master_toolbar(vbproject, workbook)
             stage = "installing DAILY_INPUT action"
             install_daily_input_action(vbproject)
             stage = "installing patient form"
@@ -307,10 +316,15 @@ class Win32ComRegistrationMenuInstaller:
             therapist_form_present = self._component_present(vbproject, THERAPIST_FORM_NAME)
             student_form_present = self._component_present(vbproject, STUDENT_FORM_NAME)
             app_shell_present = self._component_present(vbproject, APP_SHELL_MODULE_NAME)
+            master_toolbar_present = self._component_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
             daily_input_action_present = self._component_present(vbproject, DAILY_INPUT_MODULE_NAME)
             if not app_shell_present:
                 raise RegistrationMenuVbaError(
                     "Application shell module was not confirmed in the preview VBA project"
+                )
+            if not master_toolbar_present:
+                raise RegistrationMenuVbaError(
+                    "MASTER toolbar module was not confirmed in the preview VBA project"
                 )
             if not patient_form_present:
                 raise RegistrationMenuVbaError(
@@ -329,7 +343,7 @@ class Win32ComRegistrationMenuInstaller:
                     "DAILY_INPUT action module was not confirmed in the preview VBA project"
                 )
             return module_present, form_present
-        except RegistrationMenuVbaError:
+        except (RegistrationMenuVbaError, MasterToolbarError):
             raise
         except Exception as exc:
             raise RegistrationMenuVbaError(
