@@ -102,7 +102,20 @@ def test_projection_starts_below_shifted_master_header(tmp_path):
 
     wb = load_workbook(path)
     try:
-        ws = wb["MASTER_SCHEDULE"]
+        ws = wb.create_sheet("MASTER_SCHEDULE")
+        ws.append([
+            "Μολυσματικός",
+            "Θάλαμος",
+            "Ασθενής",
+            "ΦΘ",
+            "Ρομποτικό",
+            "Πισίνα",
+            "Ανακλινόμενο",
+            "Εργο",
+            "Λογο",
+            "ΕΦΑ",
+            "Κατάσταση",
+        ])
         ws.insert_rows(1, amount=3)
         wb.save(path)
     finally:
