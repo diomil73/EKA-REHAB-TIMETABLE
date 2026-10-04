@@ -161,3 +161,10 @@ def test_workbook_document_component_falls_back_to_thisworkbook():
     project = FakeVBProject([FakeComponent("Sheet1"), expected])
 
     assert _workbook_document_component(project) is expected
+
+
+
+def test_application_shell_reapplies_chrome_on_sheet_activation():
+    source = APP_SHELL_MODULE_CODE
+    assert "Public Sub KeepApplicationShell()" in source
+    assert "Private Sub ApplyApplicationChrome()" in source
