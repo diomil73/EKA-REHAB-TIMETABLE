@@ -343,7 +343,7 @@ class Win32ComRegistrationMenuInstaller:
                     "DAILY_INPUT action module was not confirmed in the preview VBA project"
                 )
             return module_present, form_present
-        except (RegistrationMenuVbaError, MasterToolbarError):
+        except RegistrationMenuVbaError:
             raise
         except Exception as exc:
             raise RegistrationMenuVbaError(
