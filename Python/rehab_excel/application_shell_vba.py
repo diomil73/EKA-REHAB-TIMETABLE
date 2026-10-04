@@ -146,7 +146,33 @@ def _ensure_event_call(
     )
 
 
-def install_application_shell(vbproject) -> None:
+def _workbook_document_component(vbproject, workbook=None):
+    if workbook is not None:
+        code_name = str(getattr(workbook, "CodeName", "") or "").strip()
+        if code_name:
+            try:
+                return vbproject.VBComponents(code_name)
+            except Exception:
+                pass
+
+    # Fallback for localized/unusual projects. Worksheet and workbook modules
+    # are all document components (type 100), but only the workbook document
+    # exposes workbook-level event procedures such as Workbook_Open.
+    for index in range(1, int(vbproject.VBComponents.Count) + 1):
+        component = vbproject.VBComponents(index)
+        try:
+            if int(component.Type) != 100:
+                continue
+        except Exception:
+            continue
+        name = str(getattr(component, "Name", "") or "")
+        if name.casefold() == "thisworkbook":
+            return component
+
+    raise RuntimeError("Workbook VBA document module could not be resolved")
+
+
+def install_application_shell(vbproject, *, workbook=None) -> None:
     try:
         existing = vbproject.VBComponents(APP_SHELL_MODULE_NAME)
     except Exception:
@@ -158,7 +184,7 @@ def install_application_shell(vbproject) -> None:
     module.Name = APP_SHELL_MODULE_NAME
     module.CodeModule.AddFromString(APP_SHELL_MODULE_CODE)
 
-    this_workbook = vbproject.VBComponents("ThisWorkbook")
+    this_workbook = _workbook_document_component(vbproject, workbook)
     code_module = this_workbook.CodeModule
     for procedure_name, signature, call_name in _EVENT_SPECS:
         _ensure_event_call(
