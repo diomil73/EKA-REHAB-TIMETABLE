@@ -8,6 +8,7 @@ import sys
 from typing import Protocol
 from zipfile import ZipFile
 
+from .application_shell_vba import APP_SHELL_MODULE_NAME, install_application_shell
 from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .therapist_registration_form_vba import THERAPIST_FORM_NAME, install_therapist_form
@@ -232,6 +233,8 @@ class Win32ComRegistrationMenuInstaller:
             self._remove_component_if_present(vbproject, MENU_MODULE_NAME)
             stage = "removing old menu form"
             self._remove_component_if_present(vbproject, MENU_FORM_NAME)
+            stage = "removing old app shell module"
+            self._remove_component_if_present(vbproject, APP_SHELL_MODULE_NAME)
             stage = "removing old DAILY_INPUT action module"
             self._remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
             stage = "removing old patient form"
@@ -283,6 +286,8 @@ class Win32ComRegistrationMenuInstaller:
             stage = "writing menu form code"
             form.CodeModule.AddFromString(USERFORM_CODE)
 
+            stage = "installing application shell"
+            install_application_shell(vbproject)
             stage = "installing DAILY_INPUT action"
             install_daily_input_action(vbproject)
             stage = "installing patient form"
@@ -301,7 +306,12 @@ class Win32ComRegistrationMenuInstaller:
             patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
             therapist_form_present = self._component_present(vbproject, THERAPIST_FORM_NAME)
             student_form_present = self._component_present(vbproject, STUDENT_FORM_NAME)
+            app_shell_present = self._component_present(vbproject, APP_SHELL_MODULE_NAME)
             daily_input_action_present = self._component_present(vbproject, DAILY_INPUT_MODULE_NAME)
+            if not app_shell_present:
+                raise RegistrationMenuVbaError(
+                    "Application shell module was not confirmed in the preview VBA project"
+                )
             if not patient_form_present:
                 raise RegistrationMenuVbaError(
                     "Patient registration form was not confirmed in the preview VBA project"
