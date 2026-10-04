@@ -77,7 +77,7 @@ def _master_header_row(path: str | Path) -> int:
     )
     try:
         if "MASTER_SCHEDULE" not in wb.sheetnames:
-            raise MasterProjectionError("Workbook has no MASTER_SCHEDULE sheet")
+            return 1
         ws = wb["MASTER_SCHEDULE"]
         for row in range(1, min(ws.max_row, 10) + 1):
             room = str(ws.cell(row, 2).value or "").strip().casefold()
@@ -86,7 +86,7 @@ def _master_header_row(path: str | Path) -> int:
                 return row
     finally:
         wb.close()
-    raise MasterProjectionError("MASTER_SCHEDULE header row was not found")
+    return 1
 
 
 def build_master_projection(
