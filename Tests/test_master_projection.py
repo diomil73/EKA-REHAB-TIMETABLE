@@ -92,3 +92,31 @@ def test_remap_master_formula_handles_absolute_row_reference():
         remap_master_formula("=PATIENT_PLANNER!$D$2", 100)
         == "=PATIENT_PLANNER!$D$100"
     )
+
+
+
+def test_projection_starts_below_shifted_master_header(tmp_path):
+    path = _workbook(tmp_path)
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path)
+    try:
+        ws = wb["MASTER_SCHEDULE"]
+        ws.insert_rows(1, amount=3)
+        wb.save(path)
+    finally:
+        wb.close()
+
+    patients = [
+        Patient("1", "ΧΑΣΙΚΟΣ", room="A09"),
+        Patient("2", "ΒΑΡΒΑΡΑΣ", room="A02", infectious=True),
+    ]
+
+    rows = build_master_projection(
+        path,
+        patients=patients,
+        room_order=("A02", "A09"),
+    )
+
+    assert [row.target_row for row in rows] == [5, 6]
