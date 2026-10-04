@@ -61,7 +61,7 @@ def test_master_toolbar_contract_has_primary_actions_and_exit():
         "Απουσία ασθενή",
         "Απουσία θεραπευτή",
         "Ημερήσιο πρόγραμμα",
-        "Έξοδος",
+        "Save & Exit",
     ]
 
 
@@ -105,7 +105,7 @@ def test_registration_menu_installer_installs_master_toolbar():
 
 def test_master_toolbar_includes_exit_action():
     captions = [item[1] for item in BUTTONS]
-    assert "Έξοδος" in captions
+    assert "Save & Exit" in captions
     assert "Public Sub ExitApplication()" in MASTER_TOOLBAR_MODULE_CODE
     assert "RestoreExcelInterface" in MASTER_TOOLBAR_MODULE_CODE
     assert "ThisWorkbook.Close SaveChanges:=True" in MASTER_TOOLBAR_MODULE_CODE
@@ -134,5 +134,5 @@ def test_operational_sheets_receive_master_and_exit_navigation():
     assert '("DAILY_INPUT", "THERAPIST_DAILY")' in source
     assert 'caption="← MASTER"' in source
     assert 'macro="GoToMaster"' in source
-    assert 'caption="Έξοδος"' in source
+    assert 'caption="Save & Exit"' in source
     assert 'macro="ExitApplication"' in source
