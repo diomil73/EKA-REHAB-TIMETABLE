@@ -77,25 +77,33 @@ Public Sub RestoreExcelInterface()
 End Sub
 
 Private Function ActivatePostCommitTarget() As Boolean
+    Dim markerPath As String
     Dim targetName As String
-    Dim targetSheet As Worksheet
+    Dim fileNumber As Integer
 
     On Error GoTo NoTarget
-    targetName = CStr(Evaluate(ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").RefersTo))
-    targetName = Replace(targetName, Chr$(34), "")
-    If Len(Trim$(targetName)) = 0 Then GoTo NoTarget
+    markerPath = ThisWorkbook.FullName & ".eka_next_sheet"
+    If Dir$(markerPath) = "" Then Exit Function
 
-    Set targetSheet = ThisWorkbook.Worksheets(targetName)
-    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
-    targetSheet.Activate
+    fileNumber = FreeFile
+    Open markerPath For Input As #fileNumber
+    Line Input #fileNumber, targetName
+    Close #fileNumber
+    Kill markerPath
+
+    targetName = Trim$(targetName)
+    If Len(targetName) = 0 Then Exit Function
+    If Not WorksheetExists(targetName) Then Exit Function
+
+    ThisWorkbook.Worksheets(targetName).Activate
     KeepApplicationShell
-    ThisWorkbook.Save
     ActivatePostCommitTarget = True
     Exit Function
 
 NoTarget:
     On Error Resume Next
-    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
+    If fileNumber > 0 Then Close #fileNumber
+    If Len(markerPath) > 0 And Dir$(markerPath) <> "" Then Kill markerPath
     On Error GoTo 0
 End Function
 
