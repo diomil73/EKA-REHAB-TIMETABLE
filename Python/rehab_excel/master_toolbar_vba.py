@@ -21,6 +21,23 @@ Public Sub ToolbarTherapistAbsence()
     GoToDailyInputSection "ΑΠΟΥΣΙΕΣ ΘΕΡΑΠΕΥΤΩΝ"
 End Sub
 
+Public Sub GoToMaster()
+    On Error GoTo MissingSheet
+    ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+    ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
+    KeepApplicationShell
+    Exit Sub
+MissingSheet:
+    MsgBox "Δεν βρέθηκε το MASTER_SCHEDULE.", vbExclamation, "Κεντρική οθόνη"
+End Sub
+
+Public Sub ExitApplication()
+    On Error Resume Next
+    RestoreExcelInterface
+    On Error GoTo 0
+    ThisWorkbook.Close SaveChanges:=True
+End Sub
+
 Public Sub ToolbarTherapistDaily()
     On Error GoTo MissingSheet
     ThisWorkbook.Worksheets("THERAPIST_DAILY").Activate
@@ -90,6 +107,12 @@ BUTTONS = (
         "ToolbarTherapistDaily",
         "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών.",
     ),
+    (
+        "Exit",
+        "Έξοδος",
+        "ExitApplication",
+        "Κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel.",
+    ),
 )
 
 
@@ -140,6 +163,73 @@ def _ensure_app_header_rows(ws) -> int:
     return header_row
 
 
+def _freeze_master_identity_columns(ws, workbook) -> None:
+    try:
+        ws.Activate()
+        window = workbook.Application.ActiveWindow
+        window.FreezePanes = False
+        window.SplitRow = 0
+        window.SplitColumn = 3
+        window.FreezePanes = True
+    except Exception:
+        pass
+
+
+def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: float, top: float, width: float) -> None:
+    try:
+        ws.Shapes(name).Delete()
+    except Exception:
+        pass
+    shape = ws.Shapes.AddShape(5, left, top, width, 24)
+    shape.Name = name
+    shape.OnAction = macro
+    shape.Placement = 3
+    shape.Fill.ForeColor.RGB = 15527148
+    shape.Line.ForeColor.RGB = 10066329
+    shape.Line.Weight = 1
+    shape.TextFrame2.TextRange.Text = caption
+    shape.TextFrame2.TextRange.Font.Name = "Calibri"
+    shape.TextFrame2.TextRange.Font.Size = 9
+    shape.TextFrame2.TextRange.Font.Bold = True
+    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+    shape.TextFrame2.VerticalAnchor = 3
+
+
+def _install_operational_navigation(workbook) -> None:
+    for sheet_name in ("DAILY_INPUT", "THERAPIST_DAILY"):
+        try:
+            ws = workbook.Worksheets(sheet_name)
+        except Exception:
+            continue
+
+        try:
+            anchor = ws.Range("A1")
+            left = float(anchor.Left) + 4
+            top = float(anchor.Top) + 2
+        except Exception:
+            left = 4.0
+            top = 2.0
+
+        _add_navigation_button(
+            ws,
+            name=MASTER_TOOLBAR_PREFIX + "BackToMaster",
+            caption="← MASTER",
+            macro="GoToMaster",
+            left=left,
+            top=top,
+            width=82,
+        )
+        _add_navigation_button(
+            ws,
+            name=MASTER_TOOLBAR_PREFIX + "ExitApp",
+            caption="Έξοδος",
+            macro="ExitApplication",
+            left=left + 88,
+            top=top,
+            width=70,
+        )
+
+
 def install_master_toolbar(vbproject, workbook) -> None:
     _remove_component_if_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
     module = vbproject.VBComponents.Add(1)
@@ -153,6 +243,7 @@ def install_master_toolbar(vbproject, workbook) -> None:
 
     _ensure_app_header_rows(ws)
     _delete_existing_toolbar_shapes(ws)
+    _freeze_master_identity_columns(ws, workbook)
 
     left = float(ws.Range("A2").Left) + 4
     top = float(ws.Range("A2").Top) + 2
@@ -182,3 +273,5 @@ def install_master_toolbar(vbproject, workbook) -> None:
         shape.TextFrame2.TextRange.Font.Bold = True
         shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
         shape.TextFrame2.VerticalAnchor = 3
+
+    _install_operational_navigation(workbook)
