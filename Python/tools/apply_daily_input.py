@@ -118,6 +118,9 @@ def main() -> int:
             target_date=daily.target_date,
         )
         changed = [state for state in states if state.status.value != "active"]
+        replacement_sessions_needed = sum(
+            1 for state in states if state.status.value == "therapist_absent"
+        )
         if not changed:
             raise DailyInputReadError(
                 "DAILY_INPUT rows did not match any scheduled session on the selected date"
@@ -171,6 +174,7 @@ def main() -> int:
     print(f"Operational absences: {len(daily.absences)}")
     print(f"Session cancellations: {len(daily.cancellations)}")
     print(f"Changed sessions: {len(preview.bindings)}")
+    print(f"Replacement sessions needed: {replacement_sessions_needed}")
     for warning in daily.warnings:
         print(f"WARNING: {warning}")
     for binding in preview.bindings:
@@ -193,6 +197,7 @@ def main() -> int:
                     "operational_absences": len(daily.absences),
                     "session_cancellations": len(daily.cancellations),
                     "changed_sessions": len(preview.bindings),
+                    "replacement_sessions_needed": replacement_sessions_needed,
                 },
                 ensure_ascii=False,
             ),
