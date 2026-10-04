@@ -14,9 +14,11 @@ Public Sub EnterApplicationShell()
 
     ApplyApplicationChrome
 
-    If WorksheetExists("MASTER_SCHEDULE") Then
-        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
-        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
+    If Not ActivatePostCommitTarget() Then
+        If WorksheetExists("MASTER_SCHEDULE") Then
+            ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+            ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
+        End If
     End If
 
 SafeExit:
@@ -73,6 +75,29 @@ Public Sub RestoreExcelInterface()
     ExitApplicationShell
     shellStateCaptured = False
 End Sub
+
+Private Function ActivatePostCommitTarget() As Boolean
+    Dim targetName As String
+    Dim targetSheet As Worksheet
+
+    On Error GoTo NoTarget
+    targetName = CStr(Evaluate(ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").RefersTo))
+    targetName = Replace(targetName, Chr$(34), "")
+    If Len(Trim$(targetName)) = 0 Then GoTo NoTarget
+
+    Set targetSheet = ThisWorkbook.Worksheets(targetName)
+    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
+    targetSheet.Activate
+    KeepApplicationShell
+    ThisWorkbook.Save
+    ActivatePostCommitTarget = True
+    Exit Function
+
+NoTarget:
+    On Error Resume Next
+    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
+    On Error GoTo 0
+End Function
 
 Private Function WorksheetExists(ByVal sheetName As String) As Boolean
     Dim ws As Worksheet
