@@ -52,7 +52,7 @@ class _FakeWorksheet:
         return _Rows(self, key)
 
 
-def test_master_toolbar_contract_has_first_five_actions():
+def test_master_toolbar_contract_has_primary_actions_and_exit():
     assert MASTER_TOOLBAR_MODULE_NAME == "modMasterToolbar"
     assert MASTER_TOOLBAR_PREFIX == "ekaToolbar_"
     assert [item[1] for item in BUTTONS] == [
@@ -61,6 +61,7 @@ def test_master_toolbar_contract_has_first_five_actions():
         "Απουσία ασθενή",
         "Απουσία θεραπευτή",
         "Ημερήσιο πρόγραμμα",
+        "Έξοδος",
     ]
 
 
