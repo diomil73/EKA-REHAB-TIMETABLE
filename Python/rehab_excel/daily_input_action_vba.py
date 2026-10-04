@@ -15,6 +15,7 @@ Public Sub ApplyDailyInputPreview()
     Dim stderrText As String
     Dim responsePath As String
     Dim responseText As String
+    Dim postCommitTarget As String
 
     On Error GoTo ActionError
 
@@ -67,7 +68,6 @@ Public Sub ApplyDailyInputPreview()
         GoTo CleanUp
     End If
 
-    Dim postCommitTarget As String
     If JsonLongValue(responseText, "replacement_sessions_needed") > 0 Then
         postCommitTarget = "REPLACEMENTS"
     Else
