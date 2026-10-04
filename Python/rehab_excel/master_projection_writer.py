@@ -55,10 +55,21 @@ class Win32ComMasterProjectionBackend:
         return max(rows or [1])
 
     @staticmethod
-    def _template_formulas(ws) -> dict[int, str]:
+    def _header_row(ws) -> int:
+        for row in range(1, 11):
+            room = str(ws.Cells(row, 2).Value or "").strip().casefold()
+            patient = str(ws.Cells(row, 3).Value or "").strip().casefold()
+            if room == "θάλαμος".casefold() and patient == "ασθενής".casefold():
+                return row
+        raise MasterProjectionWriteError("MASTER_SCHEDULE header row was not found")
+
+    @classmethod
+    def _template_formulas(cls, ws) -> tuple[int, dict[int, str]]:
+        header_row = cls._header_row(ws)
+        template_row = header_row + 1
         formulas: dict[int, str] = {}
         for col in range(1, 12):
-            value = ws.Cells(2, col).Formula
+            value = ws.Cells(template_row, col).Formula
             text = str(value or "")
             if text.startswith("="):
                 formulas[col] = text
@@ -66,9 +77,9 @@ class Win32ComMasterProjectionBackend:
         missing = sorted(required.difference(formulas))
         if missing:
             raise MasterProjectionWriteError(
-                f"MASTER_SCHEDULE row 2 is missing formula templates in columns: {missing}"
+                f"MASTER_SCHEDULE row {template_row} is missing formula templates in columns: {missing}"
             )
-        return formulas
+        return template_row, formulas
 
     def _apply_infectious_style(self, row_range) -> None:
         row_range.Interior.Color = self.palette.infectious_yellow
@@ -115,15 +126,15 @@ class Win32ComMasterProjectionBackend:
                     "Workbook has no MASTER_SCHEDULE sheet"
                 ) from exc
 
-            templates = self._template_formulas(ws)
+            template_row, templates = self._template_formulas(ws)
             old_last = self._last_value_row(ws)
-            new_last = max(1, len(projection) + 1)
+            new_last = max(template_row - 1, template_row + len(projection) - 1)
             clear_last = max(old_last, new_last)
 
-            # Reset old presentation/content using row 2 as the neutral template.
-            for row in range(2, clear_last + 1):
+            # Reset old presentation/content using the first data row as neutral template.
+            for row in range(template_row, clear_last + 1):
                 try:
-                    ws.Range("A2:K2").Copy()
+                    ws.Range(f"A{template_row}:K{template_row}").Copy()
                     ws.Range(f"A{row}:K{row}").PasteSpecial(Paste=-4122)  # xlPasteFormats
                 except Exception:
                     pass
@@ -197,7 +208,7 @@ def _verify_projection(
                 if str(ws.cell(row, col).value or "") != formula:
                     return False
 
-        tail_row = len(projection) + 2
+        tail_row = (max((item.target_row for item in projection), default=1) + 1)
         if tail_row <= ws.max_row:
             for col in range(1, 12):
                 if ws.cell(tail_row, col).value not in (None, ""):
