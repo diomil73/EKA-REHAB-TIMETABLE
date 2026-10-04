@@ -32,6 +32,8 @@ MissingSheet:
 End Sub
 
 Public Sub ExitApplication()
+    Dim eventsWereEnabled As Boolean
+
     On Error GoTo ExitError
 
     ThisWorkbook.Save
@@ -40,10 +42,16 @@ Public Sub ExitApplication()
     RestoreExcelInterface
     On Error GoTo ExitError
 
+    eventsWereEnabled = Application.EnableEvents
+    Application.EnableEvents = False
     ThisWorkbook.Close SaveChanges:=False
+    Application.EnableEvents = eventsWereEnabled
     Exit Sub
 
 ExitError:
+    On Error Resume Next
+    Application.EnableEvents = True
+    On Error GoTo 0
     MsgBox "Δεν ήταν δυνατή η αποθήκευση και έξοδος: " & Err.Description, _
            vbExclamation, "Save & Exit"
 End Sub
@@ -209,23 +217,33 @@ def _ensure_master_display_schema(ws) -> None:
 
     ws.Columns("K").ColumnWidth = 14
     ws.Columns("L").ColumnWidth = 20
-    ws.Columns("K:L").WrapText = True
-
-    # Light salmon for Psychology, light purple for Afternoon Program.
-    ws.Columns("K").Interior.Color = 13421823
-    ws.Columns("L").Interior.Color = 16764108
 
     try:
-        last_row = int(ws.UsedRange.Row) + int(ws.UsedRange.Rows.Count) - 1
+        last_row = int(ws.Cells(ws.Rows.Count, 3).End(-4162).Row)
     except Exception:
         last_row = header_row
+    last_row = max(header_row, last_row)
+
+    data_range = ws.Range(f"K{header_row}:L{last_row}")
+    data_range.WrapText = True
+
+    # Light salmon for Psychology, light purple for Afternoon Program.
+    ws.Range(f"K{header_row}:K{last_row}").Interior.Color = 13421823
+    ws.Range(f"L{header_row}:L{last_row}").Interior.Color = 16764108
 
     for row in range(header_row + 1, last_row + 1):
         room = str(ws.Cells(row, 2).Value or "").strip()
         patient = str(ws.Cells(row, 3).Value or "").strip()
-        tail = ws.Cells(row, 13).Value
-        if room and not patient and (tail is False or str(tail or "").strip().casefold() == "false"):
-            ws.Cells(row, 13).ClearContents()
+        if room and not patient:
+            for col in range(13, 17):
+                tail = ws.Cells(row, col).Value
+                if tail is False or str(tail or "").strip().casefold() == "false":
+                    ws.Cells(row, col).ClearContents()
+
+    try:
+        ws.ScrollArea = f"A1:M{last_row + 2}"
+    except Exception:
+        pass
 
 
 def _freeze_master_identity_columns(ws, workbook) -> None:
