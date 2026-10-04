@@ -109,9 +109,9 @@ BUTTONS = (
     ),
     (
         "Exit",
-        "Έξοδος",
+        "Save & Exit",
         "ExitApplication",
-        "Κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel.",
+        "Αποθήκευση αλλαγών, κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel.",
     ),
 )
 
@@ -222,7 +222,7 @@ def _install_operational_navigation(workbook) -> None:
         _add_navigation_button(
             ws,
             name=MASTER_TOOLBAR_PREFIX + "ExitApp",
-            caption="Έξοδος",
+            caption="Save & Exit",
             macro="ExitApplication",
             left=left + 88,
             top=top,
