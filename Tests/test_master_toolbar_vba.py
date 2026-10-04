@@ -99,3 +99,39 @@ def test_registration_menu_installer_installs_master_toolbar():
     source = inspect.getsource(Win32ComRegistrationMenuInstaller.install)
     assert "install_master_toolbar(vbproject, workbook)" in source
     assert "MASTER toolbar module was not confirmed" in source
+
+
+
+def test_master_toolbar_includes_exit_action():
+    captions = [item[1] for item in BUTTONS]
+    assert "Έξοδος" in captions
+    assert "Public Sub ExitApplication()" in MASTER_TOOLBAR_MODULE_CODE
+    assert "RestoreExcelInterface" in MASTER_TOOLBAR_MODULE_CODE
+    assert "ThisWorkbook.Close SaveChanges:=True" in MASTER_TOOLBAR_MODULE_CODE
+
+
+def test_master_toolbar_includes_return_to_master_action():
+    assert "Public Sub GoToMaster()" in MASTER_TOOLBAR_MODULE_CODE
+    assert 'Worksheets("MASTER_SCHEDULE").Activate' in MASTER_TOOLBAR_MODULE_CODE
+    assert "KeepApplicationShell" in MASTER_TOOLBAR_MODULE_CODE
+
+
+def test_master_toolbar_freezes_through_patient_name_column():
+    import inspect
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._freeze_master_identity_columns)
+    assert "window.SplitColumn = 3" in source
+    assert "window.FreezePanes = True" in source
+
+
+def test_operational_sheets_receive_master_and_exit_navigation():
+    import inspect
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._install_operational_navigation)
+    assert '("DAILY_INPUT", "THERAPIST_DAILY")' in source
+    assert 'caption="← MASTER"' in source
+    assert 'macro="GoToMaster"' in source
+    assert 'caption="Έξοδος"' in source
+    assert 'macro="ExitApplication"' in source
