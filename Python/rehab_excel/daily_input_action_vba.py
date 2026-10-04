@@ -67,9 +67,16 @@ Public Sub ApplyDailyInputPreview()
         GoTo CleanUp
     End If
 
+    If JsonLongValue(responseText, "operational_absences") > 0 Then
+        SetPostCommitTarget "REPLACEMENTS"
+    Else
+        ClearPostCommitTarget
+    End If
+
     If Not StartAuthoritativeCommit( _
         JsonStringValue(responseText, "output_path"), _
         JsonStringValue(responseText, "source_sha256_before")) Then
+        ClearPostCommitTarget
         GoTo CleanUp
     End If
 
@@ -172,6 +179,37 @@ Private Function JsonEscape(ByVal value As String) As String
     text = Replace(text, vbLf, "\n")
     JsonEscape = text
 End Function
+
+Private Function JsonLongValue(ByVal jsonText As String, ByVal key As String) As Long
+    Dim marker As String, startPos As Long, endPos As Long, rawValue As String
+    marker = Chr$(34) & key & Chr$(34) & ":"
+    startPos = InStr(1, jsonText, marker, vbTextCompare)
+    If startPos = 0 Then Exit Function
+    startPos = startPos + Len(marker)
+    Do While startPos <= Len(jsonText) And Mid$(jsonText, startPos, 1) = " "
+        startPos = startPos + 1
+    Loop
+    endPos = startPos
+    Do While endPos <= Len(jsonText) And Mid$(jsonText, endPos, 1) Like "[0-9]"
+        endPos = endPos + 1
+    Loop
+    rawValue = Mid$(jsonText, startPos, endPos - startPos)
+    If Len(rawValue) > 0 Then JsonLongValue = CLng(rawValue)
+End Function
+
+Private Sub SetPostCommitTarget(ByVal sheetName As String)
+    On Error Resume Next
+    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
+    ThisWorkbook.Names.Add Name:="__EKA_POST_COMMIT_TARGET", _
+        RefersTo:="=" & Chr$(34) & sheetName & Chr$(34)
+    On Error GoTo 0
+End Sub
+
+Private Sub ClearPostCommitTarget()
+    On Error Resume Next
+    ThisWorkbook.Names("__EKA_POST_COMMIT_TARGET").Delete
+    On Error GoTo 0
+End Sub
 
 Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) As String
     Dim marker As String, startPos As Long, index As Long, ch As String, escaped As Boolean, value As String
