@@ -4,6 +4,7 @@ from rehab_excel.application_shell_vba import (
     APP_SHELL_MODULE_CODE,
     APP_SHELL_MODULE_NAME,
     _ensure_event_call,
+    _workbook_document_component,
 )
 from rehab_excel.registration_menu_vba import Win32ComRegistrationMenuInstaller
 
@@ -112,5 +113,51 @@ def test_event_call_installation_is_idempotent():
 
 def test_registration_menu_installer_installs_application_shell():
     source = inspect.getsource(Win32ComRegistrationMenuInstaller.install)
-    assert "install_application_shell(vbproject)" in source
+    assert "install_application_shell(vbproject, workbook=workbook)" in source
     assert "Application shell module was not confirmed" in source
+
+
+
+class FakeComponent:
+    def __init__(self, name, component_type=100):
+        self.Name = name
+        self.Type = component_type
+
+
+class FakeVBComponents:
+    def __init__(self, components):
+        self._components = list(components)
+        self.Count = len(self._components)
+
+    def __call__(self, key):
+        if isinstance(key, int):
+            return self._components[key - 1]
+        for component in self._components:
+            if component.Name == key:
+                return component
+        raise RuntimeError("missing component")
+
+
+class FakeVBProject:
+    def __init__(self, components):
+        self.VBComponents = FakeVBComponents(components)
+
+
+class FakeWorkbook:
+    def __init__(self, code_name):
+        self.CodeName = code_name
+
+
+def test_workbook_document_component_uses_actual_workbook_codename():
+    localized = FakeComponent("ΒιβλίοΕργασίας")
+    project = FakeVBProject([FakeComponent("Sheet1"), localized])
+    workbook = FakeWorkbook("ΒιβλίοΕργασίας")
+
+    assert _workbook_document_component(project, workbook) is localized
+
+
+def test_workbook_document_component_falls_back_to_thisworkbook():
+    expected = FakeComponent("ThisWorkbook")
+    project = FakeVBProject([FakeComponent("Sheet1"), expected])
+
+    assert _workbook_document_component(project) is expected
