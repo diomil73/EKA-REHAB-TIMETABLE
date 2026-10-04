@@ -287,7 +287,7 @@ class Win32ComRegistrationMenuInstaller:
             form.CodeModule.AddFromString(USERFORM_CODE)
 
             stage = "installing application shell"
-            install_application_shell(vbproject)
+            install_application_shell(vbproject, workbook=workbook)
             stage = "installing DAILY_INPUT action"
             install_daily_input_action(vbproject)
             stage = "installing patient form"
