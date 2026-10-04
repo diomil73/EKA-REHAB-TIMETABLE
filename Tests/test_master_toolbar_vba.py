@@ -152,7 +152,7 @@ def test_operational_navigation_is_placed_below_used_rows():
 def test_user_facing_navigation_scope_excludes_master():
     from rehab_excel.master_toolbar_vba import USER_FACING_SHEETS
 
-    assert USER_FACING_SHEETS == ("DAILY_INPUT", "THERAPIST_DAILY")
+    assert USER_FACING_SHEETS == ("DAILY_INPUT", "THERAPIST_DAILY", "REPLACEMENTS")
     assert "MASTER_SCHEDULE" not in USER_FACING_SHEETS
 
 
@@ -163,3 +163,20 @@ def test_navigation_finalizer_reapplies_after_sheet_creation():
     source = inspect.getsource(master_toolbar_vba.finalize_user_navigation)
     assert "_install_operational_navigation(workbook)" in source
     assert "workbook.Save()" in source
+
+
+
+def test_daily_input_footer_has_apply_and_continue_action():
+    import inspect
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._install_operational_navigation)
+    assert 'sheet_name == "DAILY_INPUT"' in source
+    assert 'caption="Εφαρμογή & Συνέχεια"' in source
+    assert 'macro="ApplyDailyInputPreview"' in source
+
+
+def test_replacements_sheet_receives_footer_navigation():
+    from rehab_excel.master_toolbar_vba import USER_FACING_SHEETS
+
+    assert "REPLACEMENTS" in USER_FACING_SHEETS
