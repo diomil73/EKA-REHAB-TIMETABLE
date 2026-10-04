@@ -163,6 +163,57 @@ def _ensure_app_header_rows(ws) -> int:
     return header_row
 
 
+def _ensure_master_display_schema(ws) -> None:
+    header_row = _find_master_header_row(ws)
+
+    col_j = str(ws.Cells(header_row, 10).Value or "").strip()
+    col_k = str(ws.Cells(header_row, 11).Value or "").strip()
+    col_l = str(ws.Cells(header_row, 12).Value or "").strip()
+    col_m = str(ws.Cells(header_row, 13).Value or "").strip()
+
+    if col_j.casefold() != "ΕΦΑ".casefold():
+        raise MasterToolbarError("MASTER_SCHEDULE EFA column was not found in column J")
+
+    if col_k.casefold() == "Κατάσταση".casefold():
+        ws.Columns("K:L").Insert()
+        ws.Cells(header_row, 11).Value = "ΨΥΧΟΛΟΓΟΙ"
+        ws.Cells(header_row, 12).Value = "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
+        ws.Cells(header_row, 13).Value = "Κατάσταση"
+    elif (
+        col_k.casefold() == "ΨΥΧΟΛΟΓΟΙ".casefold()
+        and col_l.casefold() == "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ".casefold()
+        and col_m.casefold() == "Κατάσταση".casefold()
+    ):
+        pass
+    else:
+        raise MasterToolbarError(
+            "Unexpected MASTER_SCHEDULE columns after EFA; refusing to guess schema"
+        )
+
+    ws.Cells(header_row, 7).Value = "Ανακλ/μενο"
+    ws.Columns("G").ColumnWidth = 11
+    ws.Columns("G").WrapText = True
+    ws.Columns("G").HorizontalAlignment = -4108
+    ws.Columns("G").VerticalAlignment = -4108
+    ws.Cells(header_row, 7).WrapText = True
+
+    ws.Columns("K").ColumnWidth = 14
+    ws.Columns("L").ColumnWidth = 20
+    ws.Columns("K:L").WrapText = True
+
+    try:
+        last_row = int(ws.UsedRange.Row) + int(ws.UsedRange.Rows.Count) - 1
+    except Exception:
+        last_row = header_row
+
+    for row in range(header_row + 1, last_row + 1):
+        room = str(ws.Cells(row, 2).Value or "").strip()
+        patient = str(ws.Cells(row, 3).Value or "").strip()
+        tail = ws.Cells(row, 13).Value
+        if room and not patient and (tail is False or str(tail or "").strip().casefold() == "false"):
+            ws.Cells(row, 13).ClearContents()
+
+
 def _freeze_master_identity_columns(ws, workbook) -> None:
     try:
         ws.Activate()
@@ -269,6 +320,7 @@ def install_master_toolbar(vbproject, workbook) -> None:
         raise MasterToolbarError("Workbook has no MASTER_SCHEDULE sheet") from exc
 
     _ensure_app_header_rows(ws)
+    _ensure_master_display_schema(ws)
     _delete_existing_toolbar_shapes(ws)
     _freeze_master_identity_columns(ws, workbook)
 
