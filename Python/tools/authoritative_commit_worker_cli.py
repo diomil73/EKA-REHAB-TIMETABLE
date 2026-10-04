@@ -52,6 +52,7 @@ def main() -> int:
         reopen = payload.get("reopen", True)
         timeout_seconds = float(payload.get("timeout_seconds", 30))
         poll_seconds = float(payload.get("poll_seconds", 0.5))
+        post_reopen_target = str(payload.get("post_reopen_target", "")).strip()
 
         if not source_path:
             raise AuthoritativeCommitWorkerError("source_path is required")
@@ -75,6 +76,7 @@ def main() -> int:
             timeout_seconds=timeout_seconds,
             poll_seconds=poll_seconds,
             reopen=reopen,
+            post_reopen_target=post_reopen_target or None,
         )
     except (OSError, ValueError, json.JSONDecodeError, AuthoritativeCommitWorkerError) as exc:
         _write_response(args.response, {"ok": False, "error": str(exc)})
