@@ -168,3 +168,10 @@ def test_application_shell_reapplies_chrome_on_sheet_activation():
     source = APP_SHELL_MODULE_CODE
     assert "Public Sub KeepApplicationShell()" in source
     assert "Private Sub ApplyApplicationChrome()" in source
+
+
+
+def test_application_shell_consumes_one_shot_navigation_sidecar():
+    assert '.eka_next_sheet' in APP_SHELL_MODULE_CODE
+    assert 'Kill markerPath' in APP_SHELL_MODULE_CODE
+    assert 'Worksheets(targetName).Activate' in APP_SHELL_MODULE_CODE
