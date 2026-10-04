@@ -28,7 +28,8 @@ class _FakeBackend:
                 ws.cell(row, 9).value = f"=PATIENT_PLANNER!R{item.planner_row}"
                 ws.cell(row, 10).value = f"=PATIENT_PLANNER!T{item.planner_row}"
                 ws.cell(row, 11).value = f"=PATIENT_PLANNER!E{item.planner_row}"
-            for row in range(len(projection) + 2, ws.max_row + 1):
+            tail_start = max((item.target_row for item in projection), default=1) + 1
+            for row in range(tail_start, ws.max_row + 1):
                 for col in range(1, 12):
                     ws.cell(row, col).value = None
             wb.save(workbook_path)
