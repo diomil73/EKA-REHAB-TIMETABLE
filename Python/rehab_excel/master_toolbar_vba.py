@@ -195,7 +195,7 @@ def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: flo
     shape.TextFrame2.VerticalAnchor = 3
 
 
-USER_FACING_SHEETS = ("DAILY_INPUT", "THERAPIST_DAILY")
+USER_FACING_SHEETS = ("DAILY_INPUT", "THERAPIST_DAILY", "REPLACEMENTS")
 
 
 def _last_used_row(ws) -> int:
@@ -223,12 +223,26 @@ def _install_operational_navigation(workbook) -> None:
             left = 4.0
             top = float(anchor_row * 15)
 
+        if sheet_name == "DAILY_INPUT":
+            _add_navigation_button(
+                ws,
+                name=MASTER_TOOLBAR_PREFIX + "ApplyContinue",
+                caption="Εφαρμογή & Συνέχεια",
+                macro="ApplyDailyInputPreview",
+                left=left,
+                top=top,
+                width=118,
+            )
+            nav_left = left + 124
+        else:
+            nav_left = left
+
         _add_navigation_button(
             ws,
             name=MASTER_TOOLBAR_PREFIX + "BackToMaster",
             caption="← MASTER",
             macro="GoToMaster",
-            left=left,
+            left=nav_left,
             top=top,
             width=82,
         )
@@ -237,7 +251,7 @@ def _install_operational_navigation(workbook) -> None:
             name=MASTER_TOOLBAR_PREFIX + "ExitApp",
             caption="Save & Exit",
             macro="ExitApplication",
-            left=left + 88,
+            left=nav_left + 88,
             top=top,
             width=70,
         )
