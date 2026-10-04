@@ -369,7 +369,7 @@
 ### Phase 1 — App shell
 - αυτόματο άνοιγμα στο MASTER
 - απόκρυψη Excel chrome
-- διατήρηση application mode κατά τη μετάβαση στο Daily Planner
+- διατήρηση application mode κατά τη μετάβαση στο THERAPIST_DAILY
 - επαναφορά κανονικού Excel UI μόνο για άσχετα/external workbooks
 - κεντρική οριζόντια toolbar
 - navigation buttons
@@ -455,7 +455,7 @@
 - Τα dropdowns, buttons και profiles πρέπει να χρησιμοποιούν σταθερά IDs εσωτερικά, ακόμη κι αν ο χρήστης βλέπει μόνο ονόματα.
 - Το Excel chrome πρέπει να μπορεί να επανέλθει με ασφάλεια σε περίπτωση σφάλματος ή κλεισίματος.
 - Κατά τη μετάβαση σε άσχετο/external workbook το κανονικό Excel UI επανέρχεται.
-- Εξαίρεση: το **Daily Planner** θεωρείται μέρος της ίδιας εφαρμογής και πρέπει να παραμένει σε application mode με κρυφό Excel chrome.
+- Εξαίρεση: το **THERAPIST_DAILY** είναι φύλλο της ίδιας εφαρμογής και παραμένει σε application mode με κρυφό Excel chrome.
 - Κάθε νέο statistical metric πρέπει να έχει σαφή ορισμό πριν εμφανιστεί ως KPI.
 
 ---
