@@ -75,9 +75,7 @@ def test_master_toolbar_actions_route_to_existing_features():
 
 def test_app_header_rows_are_inserted_above_legacy_master_header():
     ws = _FakeWorksheet(header_row=1)
-
     header_row = _ensure_app_header_rows(ws)
-
     assert header_row == 4
     assert ws.shifted is True
     assert ws.values[(4, 2)] == "Θάλαμος"
@@ -89,9 +87,7 @@ def test_app_header_rows_are_inserted_above_legacy_master_header():
 
 def test_existing_app_header_is_idempotent():
     ws = _FakeWorksheet(header_row=4)
-
     header_row = _ensure_app_header_rows(ws)
-
     assert header_row == 4
     assert ws.shifted is False
 
@@ -100,7 +96,6 @@ def test_registration_menu_installer_installs_master_toolbar():
     source = inspect.getsource(Win32ComRegistrationMenuInstaller.install)
     assert "install_master_toolbar(vbproject, workbook)" in source
     assert "MASTER toolbar module was not confirmed" in source
-
 
 
 def test_master_toolbar_includes_exit_action():
@@ -119,17 +114,27 @@ def test_master_toolbar_includes_return_to_master_action():
     assert "KeepApplicationShell" in MASTER_TOOLBAR_MODULE_CODE
 
 
-def test_master_toolbar_freezes_through_patient_name_column():
-    import inspect
+def test_master_toolbar_clears_freeze_and_split():
     from rehab_excel import master_toolbar_vba
 
-    source = inspect.getsource(master_toolbar_vba._freeze_master_identity_columns)
-    assert "window.SplitColumn = 3" in source
-    assert "window.FreezePanes = True" in source
+    source = inspect.getsource(master_toolbar_vba._clear_master_freeze)
+    assert "window.FreezePanes = False" in source
+    assert "window.SplitColumn = 0" in source
+    assert "window.SplitRow = 0" in source
+
+
+def test_master_toolbar_forces_black_button_text():
+    from rehab_excel import master_toolbar_vba
+
+    helper = inspect.getsource(master_toolbar_vba._set_shape_text_black)
+    install = inspect.getsource(master_toolbar_vba.install_master_toolbar)
+    nav = inspect.getsource(master_toolbar_vba._add_navigation_button)
+    assert "ForeColor.RGB = 0" in helper
+    assert "_set_shape_text_black(shape)" in install
+    assert "_set_shape_text_black(shape)" in nav
 
 
 def test_operational_sheets_receive_master_and_exit_navigation():
-    import inspect
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba._install_operational_navigation)
@@ -140,9 +145,7 @@ def test_operational_sheets_receive_master_and_exit_navigation():
     assert 'macro="ExitApplication"' in source
 
 
-
 def test_operational_navigation_is_placed_below_used_rows():
-    import inspect
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba._install_operational_navigation)
@@ -159,7 +162,6 @@ def test_user_facing_navigation_scope_excludes_master():
 
 
 def test_navigation_finalizer_reapplies_after_sheet_creation():
-    import inspect
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba.finalize_user_navigation)
@@ -167,9 +169,7 @@ def test_navigation_finalizer_reapplies_after_sheet_creation():
     assert "workbook.Save()" in source
 
 
-
 def test_daily_input_footer_has_apply_and_continue_action():
-    import inspect
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba._install_operational_navigation)
@@ -180,9 +180,7 @@ def test_daily_input_footer_has_apply_and_continue_action():
 
 def test_replacements_sheet_receives_footer_navigation():
     from rehab_excel.master_toolbar_vba import USER_FACING_SHEETS
-
     assert "REPLACEMENTS" in USER_FACING_SHEETS
-
 
 
 def test_master_display_schema_adds_psychology_and_afternoon_columns():
@@ -214,7 +212,6 @@ def test_master_display_clears_false_only_on_room_separator_rows():
     assert "ws.Cells(row, col).ClearContents()" in source
 
 
-
 def test_master_new_specialties_have_distinct_light_colors():
     from rehab_excel import master_toolbar_vba
 
@@ -229,7 +226,6 @@ def test_save_exit_saves_before_restoring_and_closing():
     close_pos = MASTER_TOOLBAR_MODULE_CODE.index("ThisWorkbook.Close SaveChanges:=False")
     assert save_pos < restore_pos < close_pos
     assert 'MsgBox "Δεν ήταν δυνατή η αποθήκευση και έξοδος:' in MASTER_TOOLBAR_MODULE_CODE
-
 
 
 def test_master_scroll_area_stops_near_last_patient_row():
@@ -252,7 +248,6 @@ def test_save_exit_temporarily_disables_workbook_events():
     assert "eventsWereEnabled = Application.EnableEvents" in MASTER_TOOLBAR_MODULE_CODE
     assert "Application.EnableEvents = False" in MASTER_TOOLBAR_MODULE_CODE
     assert "Application.EnableEvents = eventsWereEnabled" in MASTER_TOOLBAR_MODULE_CODE
-
 
 
 def test_master_vba_view_hides_rows_below_last_written_plus_one():
