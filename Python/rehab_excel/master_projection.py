@@ -27,11 +27,19 @@ class MasterProjectionRow:
     display_name: str
     infectious: bool
     status: str | None
+    responsible_doctor: str | None = None
 
 
 def _sort_text(value: str) -> str:
     decomposed = unicodedata.normalize("NFD", str(value).strip().casefold())
     return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def _clinic_key(room: str | None) -> str:
+    text = str(room or "").strip().upper()
+    if not text:
+        return ""
+    return text[0]
 
 
 def _patient_rows(path: str | Path) -> dict[str, int]:
@@ -120,9 +128,15 @@ def build_master_projection(
 
     ordered = sorted(inpatients, key=sort_key)
     projection: list[MasterProjectionRow] = []
-    first_target_row = _master_header_row(path) + 1
+    next_target_row = _master_header_row(path) + 1
+    previous_clinic = ""
 
-    for target_row, patient in enumerate(ordered, start=first_target_row):
+    for patient in ordered:
+        clinic = _clinic_key(patient.room)
+        if previous_clinic and clinic and clinic != previous_clinic:
+            # Reserve exactly one visual separator row between clinics.
+            next_target_row += 1
+
         planner_row = row_by_id.get(patient.patient_id)
         if planner_row is None:
             raise MasterProjectionError(
@@ -130,15 +144,19 @@ def build_master_projection(
             )
         projection.append(
             MasterProjectionRow(
-                target_row=target_row,
+                target_row=next_target_row,
                 planner_row=planner_row,
                 patient_id=patient.patient_id,
                 room=patient.room or "",
                 display_name=patient.display_name,
                 infectious=patient.infectious,
                 status=patient.status,
+                responsible_doctor=patient.responsible_doctor,
             )
         )
+        next_target_row += 1
+        if clinic:
+            previous_clinic = clinic
 
     return tuple(projection)
 
