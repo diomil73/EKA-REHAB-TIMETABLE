@@ -44,6 +44,7 @@ class Patient:
     status: Optional[str] = None
     patient_type: PatientType = PatientType.INPATIENT
     hospital_mrn: Optional[str] = None
+    responsible_doctor: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.patient_type == PatientType.OUTPATIENT and self.infectious:
