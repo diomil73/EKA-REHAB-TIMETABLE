@@ -43,6 +43,9 @@ INFECTIOUS_YELLOW = excel_rgb(255, 216, 77)
 ROW_SEPARATOR_GRAY = excel_rgb(166, 166, 166)
 SOFT_VERTICAL_GRAY = excel_rgb(230, 230, 230)
 HEADER_SEPARATOR_GRAY = excel_rgb(140, 140, 140)
+CLINIC_BANNER_FILL = excel_rgb(242, 242, 242)
+BLACK = excel_rgb(0, 0, 0)
+SECOND_CLINIC_LABEL = "Β' ΚΛΙΝΙΚΗ"
 
 
 def _header_row(ws) -> int:
@@ -68,13 +71,153 @@ def _set_fill(ws, address: str, color: int) -> None:
 
 
 def _is_infectious(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
     text = str(value or "").strip().casefold()
-    return text in {"ναι".casefold(), "yes", "true", "1"}
+    return text in {
+        "ν".casefold(),
+        "ναι".casefold(),
+        "yes",
+        "true",
+        "1",
+        "1.0",
+        "-1",
+    }
+
+
+def _clinic_prefix(room: object) -> str | None:
+    text = str(room or "").strip().casefold()
+    if not text:
+        return None
+    first = text[0]
+    if first in {"a", "α"}:
+        return "A"
+    if first in {"b", "β"}:
+        return "B"
+    return None
+
+
+def _row_is_blank(ws, row: int) -> bool:
+    for col in range(2, 14):
+        value = ws.Cells(row, col).Value
+        if str(value or "").strip():
+            return False
+    return True
+
+
+def _remove_internal_blank_rows(ws, header_row: int, last_row: int) -> int:
+    """Remove accidental fully-empty rows from inside the patient table."""
+
+    for row in range(last_row, header_row, -1):
+        if _row_is_blank(ws, row):
+            has_patient_below = any(
+                str(ws.Cells(candidate, 3).Value or "").strip()
+                for candidate in range(row + 1, last_row + 1)
+            )
+            has_patient_above = any(
+                str(ws.Cells(candidate, 3).Value or "").strip()
+                for candidate in range(header_row + 1, row)
+            )
+            if has_patient_above and has_patient_below:
+                ws.Rows(row).Delete()
+                last_row -= 1
+    return last_row
+
+
+def _ensure_second_clinic_banner(ws, header_row: int, last_row: int) -> int:
+    """Insert one B-clinic banner between the A15 and B01 patient groups."""
+
+    seen_a = False
+    first_b_row: int | None = None
+    for row in range(header_row + 1, last_row + 1):
+        patient = str(ws.Cells(row, 3).Value or "").strip()
+        if not patient:
+            continue
+        clinic = _clinic_prefix(ws.Cells(row, 2).Value)
+        if clinic == "A":
+            seen_a = True
+        elif clinic == "B" and seen_a:
+            first_b_row = row
+            break
+
+    if first_b_row is None:
+        return last_row
+
+    previous_label = str(ws.Cells(first_b_row - 1, 2).Value or "").strip()
+    if previous_label.casefold() == SECOND_CLINIC_LABEL.casefold():
+        return last_row
+
+    ws.Rows(first_b_row).Insert()
+    banner = ws.Range(f"B{first_b_row}:M{first_b_row}")
+    banner.ClearContents()
+    banner.Interior.Color = CLINIC_BANNER_FILL
+    banner.Font.Color = BLACK
+    banner.Font.Bold = True
+    banner.HorizontalAlignment = 7  # xlCenterAcrossSelection
+    banner.VerticalAlignment = -4108  # xlCenter
+    ws.Cells(first_b_row, 2).Value = SECOND_CLINIC_LABEL
+    ws.Rows(first_b_row).RowHeight = 24
+
+    top = banner.Borders(8)  # xlEdgeTop
+    top.LineStyle = 1
+    top.Weight = 2
+    top.Color = ROW_SEPARATOR_GRAY
+    bottom = banner.Borders(9)  # xlEdgeBottom
+    bottom.LineStyle = 1
+    bottom.Weight = 2
+    bottom.Color = ROW_SEPARATOR_GRAY
+    return last_row + 1
+
+
+def _clear_master_freeze(workbook, ws) -> None:
+    """The current MASTER design no longer keeps identity columns frozen."""
+
+    try:
+        ws.Activate()
+        window = workbook.Application.ActiveWindow
+        window.FreezePanes = False
+        window.SplitRow = 0
+        window.SplitColumn = 0
+    except Exception:
+        pass
+
+
+def _make_app_buttons_readable(workbook) -> None:
+    """Force black text on every EKA toolbar/footer button."""
+
+    try:
+        sheet_count = int(workbook.Worksheets.Count)
+    except Exception:
+        return
+
+    for sheet_index in range(1, sheet_count + 1):
+        ws = workbook.Worksheets(sheet_index)
+        try:
+            shape_count = int(ws.Shapes.Count)
+        except Exception:
+            continue
+        for shape_index in range(1, shape_count + 1):
+            try:
+                shape = ws.Shapes(shape_index)
+                if not str(shape.Name or "").startswith("ekaToolbar_"):
+                    continue
+                shape.TextFrame2.TextRange.Font.Fill.Visible = -1
+                shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = BLACK
+                try:
+                    shape.TextFrame.Characters().Font.Color = BLACK
+                except Exception:
+                    pass
+            except Exception:
+                continue
 
 
 def _apply_master_visual_style(ws) -> None:
     header_row = _header_row(ws)
     last_row = _last_patient_row(ws, header_row)
+    last_row = _remove_internal_blank_rows(ws, header_row, last_row)
+    last_row = _ensure_second_clinic_banner(ws, header_row, last_row)
 
     expected = {
         10: "ΕΦΑ",
@@ -184,8 +327,16 @@ def _apply_master_visual_style(ws) -> None:
                 border.LineStyle = 1
                 border.Weight = 1
                 border.Color = SOFT_VERTICAL_GRAY
+        elif room.casefold() == SECOND_CLINIC_LABEL.casefold():
+            banner = ws.Range(f"B{row}:M{row}")
+            banner.Interior.Color = CLINIC_BANNER_FILL
+            banner.Font.Color = BLACK
+            banner.Font.Bold = True
+            banner.HorizontalAlignment = 7
+            banner.VerticalAlignment = -4108
+            ws.Rows(row).RowHeight = 24
         elif room:
-            # Room separator rows stay compact and neutral.
+            # Other room/separator rows stay compact and neutral.
             ws.Rows(row).RowHeight = 18
 
     header_bottom = header.Borders(9)
@@ -234,6 +385,8 @@ def apply_master_visual_style_in_place(workbook_path: str | Path) -> None:
 
         excel.CalculateFull()
         _apply_master_visual_style(ws)
+        _clear_master_freeze(workbook, ws)
+        _make_app_buttons_readable(workbook)
         workbook.Save()
     except MasterVisualStyleError:
         raise
