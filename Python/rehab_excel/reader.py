@@ -218,8 +218,8 @@ def _planner_blocks(headers: dict[str, int]) -> list[tuple[str, int, int, int | 
         ("Ρομποτικό", "Ρομποτικό_Ώρα", "Ρομποτικό_Ημέρες", "Ρομποτικό_Θεραπευτής"),
         ("Ανακλινόμενο", "Ανακλινόμενο_Ώρα", "Ανακλινόμενο_Ημέρες", None),
         ("Πισίνα", "Πισίνα_Ώρα", "Πισίνα_Ημέρες", None),
-        ("Εργο", "Εργο_Ώρα", "Εργο_Ημέρες", None),
-        ("Λογο", "Λογο_Ώρα", "Λογο_Ημέρες", None),
+        ("Εργο", "Εργο_Ώρα", "Εργο_Ημέρες", "Εργο_Θεραπευτής"),
+        ("Λογο", "Λογο_Ώρα", "Λογο_Ημέρες", "Λογο_Θεραπευτής"),
         ("ΕΦΑ", "ΕΦΑ_Ώρα", "ΕΦΑ_Ημέρες", None),
         ("Ψυχ", "Ψυχ_Ώρα", "Ψυχ_Ημέρες", "Ψυχ_Ψυχολόγος"),
     ]
@@ -400,7 +400,7 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                 AuditIssue(
                     code="provider_entries_missing_therapist",
                     message=(
-                        "Provider-owned entries (ΦΘ/Ρομποτικό/Ψυχ) have no provider"
+                        "Provider-owned entries with a configured provider column have no provider"
                     ),
                     count=missing_provider,
                 )
