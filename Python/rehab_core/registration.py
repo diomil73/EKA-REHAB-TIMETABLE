@@ -33,6 +33,7 @@ class NewPatientRequest:
     status: str | None = None
     patient_type: PatientType = PatientType.INPATIENT
     hospital_mrn: str | None = None
+    responsible_doctor: str | None = None
 
 
 @dataclass(frozen=True)
