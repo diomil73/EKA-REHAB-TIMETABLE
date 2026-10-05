@@ -20,6 +20,13 @@ class PatientRegistrationWriteError(RuntimeError):
 
 PATIENT_TYPE_HEADERS = ("PatientType", "ΤύποςΑσθενή", "Τύπος Ασθενή")
 HOSPITAL_MRN_HEADERS = ("HospitalMRN", "ΑΜ Νοσοκομείου", "ΑΜΝοσοκομείου")
+RESPONSIBLE_DOCTOR_HEADERS = (
+    "ResponsibleDoctor",
+    "ΥπεύθυνοςΙατρός",
+    "Υπεύθυνος Ιατρός",
+    "ΥπεύθυνοςΓιατρός",
+    "Υπεύθυνος Γιατρός",
+)
 OUTPATIENT_SCHEDULE_HEADERS = (
     "PatientID",
     "Ασθενής",
@@ -182,8 +189,8 @@ class Win32ComPatientRegistrationBackend:
             first_column = int(ws.UsedRange.Column)
             last_column = first_column + used_columns - 1
         except Exception:
-            last_column = 7
-        last_column = max(last_column, 7)
+            last_column = 8
+        last_column = max(last_column, 8)
         result: dict[str, int] = {}
         for column in range(1, last_column + 1):
             value = ws.Cells(1, column).Value2
@@ -199,10 +206,11 @@ class Win32ComPatientRegistrationBackend:
                 return headers[name]
         return None
 
-    def _ensure_patient_extension_columns(self, ws) -> tuple[int, int]:
+    def _ensure_patient_extension_columns(self, ws) -> tuple[int, int, int]:
         headers = self._header_columns(ws)
         type_col = self._find_header(headers, PATIENT_TYPE_HEADERS)
         mrn_col = self._find_header(headers, HOSPITAL_MRN_HEADERS)
+        doctor_col = self._find_header(headers, RESPONSIBLE_DOCTOR_HEADERS)
 
         occupied = set(headers.values())
         next_col = max(occupied or {5}) + 1
@@ -218,8 +226,15 @@ class Win32ComPatientRegistrationBackend:
                 next_col += 1
             mrn_col = next_col
             ws.Cells(1, mrn_col).Value = "HospitalMRN"
+            occupied.add(mrn_col)
+            next_col += 1
+        if doctor_col is None:
+            while next_col in occupied:
+                next_col += 1
+            doctor_col = next_col
+            ws.Cells(1, doctor_col).Value = "ResponsibleDoctor"
 
-        return type_col, mrn_col
+        return type_col, mrn_col, doctor_col
 
     @staticmethod
     def _ensure_outpatient_schedule_sheet(workbook) -> None:
@@ -276,7 +291,7 @@ class Win32ComPatientRegistrationBackend:
             except Exception as exc:
                 raise PatientRegistrationWriteError("Workbook has no PATIENTS sheet") from exc
 
-            type_col, mrn_col = self._ensure_patient_extension_columns(ws)
+            type_col, mrn_col, doctor_col = self._ensure_patient_extension_columns(ws)
             self._ensure_outpatient_schedule_sheet(workbook)
             target_row = self._target_row(ws)
 
@@ -299,6 +314,7 @@ class Win32ComPatientRegistrationBackend:
                 "Εξωτερικός" if is_outpatient else "Εσωτερικός"
             )
             ws.Cells(target_row, mrn_col).Value = (request.hospital_mrn or "").strip()
+            ws.Cells(target_row, doctor_col).Value = (request.responsible_doctor or "").strip()
             workbook.Application.CutCopyMode = False
             workbook.Save()
             return target_row
@@ -397,11 +413,13 @@ def create_patient_registration_preview(
         == request.patient_id.strip().casefold()
     ]
     expected_mrn = (request.hospital_mrn or "").strip() or None
+    expected_doctor = (request.responsible_doctor or "").strip() or None
     verified = (
         len(matches) == 1
         and matches[0].display_name.strip() == request.display_name.strip()
         and matches[0].patient_type == request.patient_type
         and matches[0].hospital_mrn == expected_mrn
+        and matches[0].responsible_doctor == expected_doctor
         and matches[0].status == ((request.status or "").strip() or None)
     )
     if not verified:
