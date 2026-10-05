@@ -14,7 +14,7 @@ from .master_projection import (
     build_master_projection,
     remap_master_formula,
 )
-from .native_excel import NativeStylePalette
+from .native_excel import NativeStylePalette, excel_rgb
 
 
 class MasterProjectionWriteError(RuntimeError):
@@ -62,7 +62,7 @@ class Win32ComMasterProjectionBackend:
 
     @classmethod
     def _last_value_row(cls, ws) -> int:
-        total_cols, status_col = cls._schema(ws)
+        _total_cols, status_col = cls._schema(ws)
         rows = []
         for col in (1, 2, 3, status_col):
             try:
@@ -107,6 +107,26 @@ class Win32ComMasterProjectionBackend:
             border.Weight = 2
             border.Color = self.palette.infectious_yellow
 
+    @staticmethod
+    def _render_patient_identity(cell, item: MasterProjectionRow) -> None:
+        doctor = str(item.responsible_doctor or "").strip()
+        if not doctor:
+            return
+
+        cross = "✚"
+        text = f"{item.display_name}\n{cross} {doctor}"
+        cell.Value = text
+        cell.WrapText = True
+        cell.HorizontalAlignment = -4131  # xlLeft
+        cell.VerticalAlignment = -4108  # xlCenter
+        cell.Font.Color = excel_rgb(0, 0, 0)
+        try:
+            start = len(item.display_name) + 2
+            cell.Characters(Start=start, Length=1).Font.Color = excel_rgb(220, 0, 0)
+            cell.Characters(Start=start, Length=1).Font.Bold = True
+        except Exception:
+            pass
+
     def apply(
         self,
         workbook_path: Path,
@@ -150,15 +170,15 @@ class Win32ComMasterProjectionBackend:
             new_last = max(template_row - 1, template_row + len(projection) - 1)
             clear_last = max(old_last, new_last)
 
-            # Reset old presentation/content using the first data row as neutral template.
             for row in range(template_row, clear_last + 1):
                 try:
                     end_col = "M" if total_cols == 13 else "K"
                     ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()
-                    ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)  # xlPasteFormats
+                    ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)
                 except Exception:
                     pass
-                ws.Range(f"A{row}:K{row}").ClearContents()
+                end_col = "M" if total_cols == 13 else "K"
+                ws.Range(f"A{row}:{end_col}{row}").ClearContents()
 
             for item in projection:
                 row = item.target_row
@@ -167,6 +187,8 @@ class Win32ComMasterProjectionBackend:
                         template,
                         item.planner_row,
                     )
+
+                self._render_patient_identity(ws.Cells(row, 3), item)
 
                 if item.infectious:
                     self._apply_infectious_style(ws.Range(f"B{row}:C{row}"))
@@ -232,14 +254,21 @@ def _verify_projection(
             expected = {
                 1: f"=PATIENT_PLANNER!D{item.planner_row}",
                 2: f"=PATIENT_PLANNER!B{item.planner_row}",
-                3: f"=PATIENT_PLANNER!C{item.planner_row}",
                 status_col: f"=PATIENT_PLANNER!E{item.planner_row}",
             }
-            for col, formula in expected.items():
-                if str(ws.cell(row, col).value or "") != formula:
+            if item.responsible_doctor:
+                if str(ws.cell(row, 3).value or "") != (
+                    f"{item.display_name}\n✚ {item.responsible_doctor}"
+                ):
+                    return False
+            else:
+                expected[3] = f"=PATIENT_PLANNER!C{item.planner_row}"
+
+            for col, value in expected.items():
+                if str(ws.cell(row, col).value or "") != value:
                     return False
 
-        tail_row = (max((item.target_row for item in projection), default=1) + 1)
+        tail_row = max((item.target_row for item in projection), default=header_row) + 1
         if tail_row <= ws.max_row:
             for col in range(1, total_cols + 1):
                 if ws.cell(tail_row, col).value not in (None, ""):
@@ -318,7 +347,6 @@ def create_master_projection_preview(
         source_unchanged=True,
         verified_in_output=True,
     )
-
 
 
 def refresh_master_projection_in_place(
