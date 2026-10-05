@@ -39,6 +39,8 @@ class WorkbookSettings:
     yes_no_values: tuple[str, ...]
     rooms: tuple[str, ...]
     psychologist_names: tuple[str, ...] = ()
+    occupational_therapist_names: tuple[str, ...] = ()
+    speech_therapist_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -198,6 +200,8 @@ def read_settings(path: str | Path) -> WorkbookSettings:
             yes_no_values=_column_values(ws, 7),
             rooms=_column_values(ws, 8),
             psychologist_names=_optional_column_values(ws, 9),
+            occupational_therapist_names=_optional_column_values(ws, 10),
+            speech_therapist_names=_optional_column_values(ws, 11),
         )
     finally:
         wb.close()
@@ -400,7 +404,7 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                 AuditIssue(
                     code="provider_entries_missing_therapist",
                     message=(
-                        "Provider-owned entries with a configured provider column have no provider"
+                        "Provider-owned entries (ΦΘ/Ρομποτικό/Εργο/Λογο/Ψυχ) have no provider"
                     ),
                     count=missing_provider,
                 )
