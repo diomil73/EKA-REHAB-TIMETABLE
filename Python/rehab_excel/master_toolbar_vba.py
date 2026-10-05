@@ -130,42 +130,12 @@ End Sub
 
 
 BUTTONS = (
-    (
-        "NewPatient",
-        "Νέος ασθενής",
-        "ToolbarNewPatient",
-        "Προσθήκη νέου εσωτερικού ή εξωτερικού ασθενή.",
-    ),
-    (
-        "NewProvider",
-        "Θεραπευτής / Φοιτητής",
-        "ToolbarNewProvider",
-        "Προσθήκη νέου θεραπευτή ή φοιτητή.",
-    ),
-    (
-        "PatientAbsence",
-        "Απουσία ασθενή",
-        "ToolbarPatientAbsence",
-        "Καταχώρηση απουσίας ή ακύρωσης συνεδρίας ασθενή.",
-    ),
-    (
-        "TherapistAbsence",
-        "Απουσία θεραπευτή",
-        "ToolbarTherapistAbsence",
-        "Καταχώρηση απουσίας θεραπευτή και σχετικών ενεργειών.",
-    ),
-    (
-        "TherapistDaily",
-        "Ημερήσιο πρόγραμμα",
-        "ToolbarTherapistDaily",
-        "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών.",
-    ),
-    (
-        "Exit",
-        "Save & Exit",
-        "ExitApplication",
-        "Αποθήκευση αλλαγών, κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel.",
-    ),
+    ("NewPatient", "Νέος ασθενής", "ToolbarNewPatient", "Προσθήκη νέου εσωτερικού ή εξωτερικού ασθενή."),
+    ("NewProvider", "Θεραπευτής / Φοιτητής", "ToolbarNewProvider", "Προσθήκη νέου θεραπευτή ή φοιτητή."),
+    ("PatientAbsence", "Απουσία ασθενή", "ToolbarPatientAbsence", "Καταχώρηση απουσίας ή ακύρωσης συνεδρίας ασθενή."),
+    ("TherapistAbsence", "Απουσία θεραπευτή", "ToolbarTherapistAbsence", "Καταχώρηση απουσίας θεραπευτή και σχετικών ενεργειών."),
+    ("TherapistDaily", "Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily", "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών."),
+    ("Exit", "Save & Exit", "ExitApplication", "Αποθήκευση αλλαγών, κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel."),
 )
 
 
@@ -218,7 +188,6 @@ def _ensure_app_header_rows(ws) -> int:
 
 def _ensure_master_display_schema(ws) -> None:
     header_row = _find_master_header_row(ws)
-
     col_j = str(ws.Cells(header_row, 10).Value or "").strip()
     col_k = str(ws.Cells(header_row, 11).Value or "").strip()
     col_l = str(ws.Cells(header_row, 12).Value or "").strip()
@@ -239,9 +208,7 @@ def _ensure_master_display_schema(ws) -> None:
     ):
         pass
     else:
-        raise MasterToolbarError(
-            "Unexpected MASTER_SCHEDULE columns after EFA; refusing to guess schema"
-        )
+        raise MasterToolbarError("Unexpected MASTER_SCHEDULE columns after EFA; refusing to guess schema")
 
     ws.Cells(header_row, 7).Value = "Ανακλ/μενο"
     ws.Columns("G").ColumnWidth = 11
@@ -249,7 +216,6 @@ def _ensure_master_display_schema(ws) -> None:
     ws.Columns("G").HorizontalAlignment = -4108
     ws.Columns("G").VerticalAlignment = -4108
     ws.Cells(header_row, 7).WrapText = True
-
     ws.Columns("K").ColumnWidth = 14
     ws.Columns("L").ColumnWidth = 20
 
@@ -261,8 +227,6 @@ def _ensure_master_display_schema(ws) -> None:
 
     data_range = ws.Range(f"K{header_row}:L{last_row}")
     data_range.WrapText = True
-
-    # Light salmon for Psychology, light purple for Afternoon Program.
     ws.Range(f"K{header_row}:K{last_row}").Interior.Color = 13421823
     ws.Range(f"L{header_row}:L{last_row}").Interior.Color = 16764108
 
@@ -284,14 +248,25 @@ def _ensure_master_display_schema(ws) -> None:
         pass
 
 
-def _freeze_master_identity_columns(ws, workbook) -> None:
+def _clear_master_freeze(ws, workbook) -> None:
     try:
         ws.Activate()
         window = workbook.Application.ActiveWindow
         window.FreezePanes = False
         window.SplitRow = 0
-        window.SplitColumn = 3
-        window.FreezePanes = True
+        window.SplitColumn = 0
+    except Exception:
+        pass
+
+
+def _set_shape_text_black(shape) -> None:
+    try:
+        shape.TextFrame2.TextRange.Font.Fill.Visible = -1
+        shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+    except Exception:
+        pass
+    try:
+        shape.TextFrame.Characters().Font.Color = 0
     except Exception:
         pass
 
@@ -312,6 +287,7 @@ def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: flo
     shape.TextFrame2.TextRange.Font.Name = "Calibri"
     shape.TextFrame2.TextRange.Font.Size = 9
     shape.TextFrame2.TextRange.Font.Bold = True
+    _set_shape_text_black(shape)
     shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
     shape.TextFrame2.VerticalAnchor = 3
 
@@ -333,7 +309,6 @@ def _install_operational_navigation(workbook) -> None:
             ws = workbook.Worksheets(sheet_name)
         except Exception:
             continue
-
         last_row = _last_used_row(ws)
         anchor_row = last_row + 2
         try:
@@ -345,37 +320,13 @@ def _install_operational_navigation(workbook) -> None:
             top = float(anchor_row * 15)
 
         if sheet_name == "DAILY_INPUT":
-            _add_navigation_button(
-                ws,
-                name=MASTER_TOOLBAR_PREFIX + "ApplyContinue",
-                caption="Εφαρμογή & Συνέχεια",
-                macro="ApplyDailyInputPreview",
-                left=left,
-                top=top,
-                width=118,
-            )
+            _add_navigation_button(ws, name=MASTER_TOOLBAR_PREFIX + "ApplyContinue", caption="Εφαρμογή & Συνέχεια", macro="ApplyDailyInputPreview", left=left, top=top, width=118)
             nav_left = left + 124
         else:
             nav_left = left
 
-        _add_navigation_button(
-            ws,
-            name=MASTER_TOOLBAR_PREFIX + "BackToMaster",
-            caption="← MASTER",
-            macro="GoToMaster",
-            left=nav_left,
-            top=top,
-            width=82,
-        )
-        _add_navigation_button(
-            ws,
-            name=MASTER_TOOLBAR_PREFIX + "ExitApp",
-            caption="Save & Exit",
-            macro="ExitApplication",
-            left=nav_left + 88,
-            top=top,
-            width=70,
-        )
+        _add_navigation_button(ws, name=MASTER_TOOLBAR_PREFIX + "BackToMaster", caption="← MASTER", macro="GoToMaster", left=nav_left, top=top, width=82)
+        _add_navigation_button(ws, name=MASTER_TOOLBAR_PREFIX + "ExitApp", caption="Save & Exit", macro="ExitApplication", left=nav_left + 88, top=top, width=70)
 
 
 def install_master_toolbar(vbproject, workbook) -> None:
@@ -392,7 +343,7 @@ def install_master_toolbar(vbproject, workbook) -> None:
     _ensure_app_header_rows(ws)
     _ensure_master_display_schema(ws)
     _delete_existing_toolbar_shapes(ws)
-    _freeze_master_identity_columns(ws, workbook)
+    _clear_master_freeze(ws, workbook)
 
     left = float(ws.Range("A2").Left) + 4
     top = float(ws.Range("A2").Top) + 2
@@ -402,33 +353,26 @@ def install_master_toolbar(vbproject, workbook) -> None:
     button_height = max(24.0, float(ws.Rows(2).Height) - 4)
 
     for index, (key, caption, macro, description) in enumerate(BUTTONS):
-        shape = ws.Shapes.AddShape(
-            5,  # msoShapeRoundedRectangle
-            left + index * (button_width + gap),
-            top,
-            button_width,
-            button_height,
-        )
+        shape = ws.Shapes.AddShape(5, left + index * (button_width + gap), top, button_width, button_height)
         shape.Name = MASTER_TOOLBAR_PREFIX + key
         shape.OnAction = macro
         shape.AlternativeText = description
-        shape.Placement = 3  # xlFreeFloating
-        shape.Fill.ForeColor.RGB = 15527148  # RGB(236, 239, 244)
-        shape.Line.ForeColor.RGB = 10066329  # RGB(153, 153, 153)
+        shape.Placement = 3
+        shape.Fill.ForeColor.RGB = 15527148
+        shape.Line.ForeColor.RGB = 10066329
         shape.Line.Weight = 1
         shape.TextFrame2.TextRange.Text = caption
         shape.TextFrame2.TextRange.Font.Name = "Calibri"
         shape.TextFrame2.TextRange.Font.Size = 10
         shape.TextFrame2.TextRange.Font.Bold = True
+        _set_shape_text_black(shape)
         shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
         shape.TextFrame2.VerticalAnchor = 3
 
     _install_operational_navigation(workbook)
 
 
-
 def finalize_user_navigation(workbook_path) -> None:
-    """Re-apply user-facing navigation after every build step has created its sheets."""
     from pathlib import Path
     import sys
 
@@ -449,7 +393,6 @@ def finalize_user_navigation(workbook_path) -> None:
         excel.DisplayAlerts = False
         excel.ScreenUpdating = False
         excel.EnableEvents = False
-
         workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
         _install_operational_navigation(workbook)
         workbook.Save()
