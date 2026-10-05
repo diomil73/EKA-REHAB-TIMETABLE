@@ -90,11 +90,11 @@ def _patient_type(value: object, *, row_number: int) -> PatientType:
 
 
 def read_patient_registry(path: str | Path) -> list[Patient]:
-    """Read PATIENTS with optional patient-type/MRN extension columns.
+    """Read PATIENTS with backward-compatible optional extension columns.
 
     Legacy workbooks with the original five columns remain valid and every
-    patient defaults to INPATIENT. Enhanced workbooks may add either Greek or
-    English patient-type and hospital-MRN headers without changing the original
+    patient defaults to INPATIENT. Enhanced workbooks may add patient type,
+    hospital MRN and responsible-doctor headers without changing the original
     five-column order.
     """
 
@@ -123,6 +123,14 @@ def read_patient_registry(path: str | Path) -> list[Patient]:
             "ΑΜ Νοσοκομείου",
             "ΑΜΝοσοκομείου",
         )
+        doctor_col = _first_header(
+            headers,
+            "ResponsibleDoctor",
+            "ΥπεύθυνοςΙατρός",
+            "Υπεύθυνος Ιατρός",
+            "ΥπεύθυνοςΓιατρός",
+            "Υπεύθυνος Γιατρός",
+        )
 
         patients: list[Patient] = []
         for excel_row, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
@@ -140,6 +148,11 @@ def read_patient_registry(path: str | Path) -> list[Patient]:
             hospital_mrn = _clean(
                 row[mrn_col] if mrn_col is not None and mrn_col < len(row) else None
             )
+            responsible_doctor = _clean(
+                row[doctor_col]
+                if doctor_col is not None and doctor_col < len(row)
+                else None
+            )
 
             patients.append(
                 Patient(
@@ -150,6 +163,7 @@ def read_patient_registry(path: str | Path) -> list[Patient]:
                     status=_clean(row[4] if len(row) > 4 else None),
                     patient_type=patient_type,
                     hospital_mrn=hospital_mrn,
+                    responsible_doctor=responsible_doctor,
                 )
             )
 
