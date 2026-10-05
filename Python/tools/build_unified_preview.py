@@ -16,6 +16,10 @@ from rehab_excel.master_toolbar_vba import (  # noqa: E402
     MasterToolbarError,
     finalize_user_navigation,
 )
+from rehab_excel.master_visual_style import (  # noqa: E402
+    MasterVisualStyleError,
+    apply_master_visual_style_in_place,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -181,6 +185,12 @@ def build_unified_preview(
             print("[OK] final user navigation")
         except MasterToolbarError as exc:
             raise UnifiedBuildError(f"final user navigation failed: {exc}") from exc
+
+        try:
+            apply_master_visual_style_in_place(output)
+            print("[OK] MASTER visual baseline")
+        except MasterVisualStyleError as exc:
+            raise UnifiedBuildError(f"MASTER visual baseline failed: {exc}") from exc
 
     if _sha256(source) != source_before:
         output.unlink(missing_ok=True)
