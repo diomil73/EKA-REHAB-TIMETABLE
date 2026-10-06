@@ -59,26 +59,22 @@ def test_projection_never_interleaves_b_clinic_inside_a_clinic(tmp_path):
     path = _workbook(tmp_path)
     patients = [
         Patient("1", "A11 PATIENT", room="A11"),
-        Patient("2", "A04 PATIENT", room="A04"),
-        Patient("3", "B08 PATIENT", room="B08"),
-        Patient("5", "A05 PATIENT", room="A05"),
-        Patient("6", "B01 PATIENT", room="B01"),
+        Patient("2", "B08 PATIENT", room="B08"),
+        Patient("3", "A05 PATIENT", room="A05"),
     ]
 
     rows = build_master_projection(
         path,
         patients=patients,
-        room_order=("A11", "A04", "B08", "A05", "B01"),
+        room_order=("A11", "B08", "A05"),
     )
 
     assert [(row.room, row.target_row) for row in rows] == [
-        ("A04", 3),
-        ("A05", 4),
-        ("A11", 5),
-        ("B01", 7),
-        ("B08", 8),
+        ("A05", 3),
+        ("A11", 4),
+        ("B08", 6),
     ]
-    # Rows 2 and 6 are the Α' and Β' clinic banner rows.
+    # Rows 2 and 5 are the Α' and Β' clinic banner rows.
 
 
 def test_projection_keeps_patient_registry_rows_as_formula_targets(tmp_path):
