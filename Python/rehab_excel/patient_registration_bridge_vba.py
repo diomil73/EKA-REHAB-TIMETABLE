@@ -10,92 +10,55 @@ from zipfile import ZipFile
 from .patient_registration_form_vba import PATIENT_FORM_NAME
 
 BRIDGE_MODULE_NAME = "modPatientRegistrationBridge"
-BRIDGE_SCRIPT_RELATIVE = r"Python\tools\registration_bridge_cli.py"
+BRIDGE_SCRIPT_RELATIVE = r"Python\tools\registration_transaction_worker_cli.py"
+
+BRIDGE_MODULE_CODE = r'''Option Explicit
+'''
 
 FORM_BRIDGE_CODE = r'''
 Private Sub cmdSave_Click()
     Dim requestPath As String
     Dim responsePath As String
-    Dim previewDir As String
-    Dim bridgeScript As String
-    Dim pythonExe As String
+    Dim workerScript As String
     Dim commandLine As String
-    Dim responseText As String
-    Dim exitCode As Long
     Dim patientType As String
-    Dim previewPath As String
-    Dim sourceSha256 As String
 
     If Not ValidateForm() Then Exit Sub
 
-    bridgeScript = ResolveRegistrationBridgeScript()
-    If Len(bridgeScript) = 0 Then
-        MsgBox "Δεν βρέθηκε το registration bridge του συστήματος.", vbCritical, "Νέος ασθενής"
+    workerScript = ResolveRegistrationTransactionWorkerScript()
+    If Len(workerScript) = 0 Then
+        MsgBox "Δεν βρέθηκε ο worker ασφαλούς καταχώρησης του συστήματος.", _
+               vbCritical, "Νέος ασθενής"
         Exit Sub
     End If
 
     On Error GoTo BridgeError
     ThisWorkbook.Save
 
-    pythonExe = "python"
-    previewDir = ThisWorkbook.Path
-    requestPath = Environ$("TEMP") & "\eka_registration_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
-    responsePath = Environ$("TEMP") & "\eka_registration_response_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    requestPath = Environ$("TEMP") & "\eka_registration_transaction_request_" & _
+                  Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(CLng(Timer * 100)) & ".json"
+    responsePath = Environ$("TEMP") & "\eka_registration_transaction_response_" & _
+                   Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(CLng(Timer * 100)) & ".json"
     patientType = Trim$(cboPatientType.Value)
 
     WriteUtf8Text requestPath, BuildPatientRegistrationJson(patientType)
 
-    commandLine = QuoteArg(pythonExe) & " " & QuoteArg(bridgeScript) & _
+    MsgBox "Η καταχώρηση ξεκίνησε." & vbCrLf & vbCrLf & _
+           "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα " & _
+           "μόλις ολοκληρωθεί η ασφαλής ενημέρωση.", _
+           vbInformation, "Νέος ασθενής"
+
+    commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
                   " --request " & QuoteArg(requestPath) & _
                   " --response " & QuoteArg(responsePath)
 
-    exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
-
-    If Dir$(responsePath) = "" Then
-        MsgBox "Το registration backend δεν επέστρεψε αποτέλεσμα.", vbCritical, "Νέος ασθενής"
-        GoTo CleanUp
-    End If
-
-    responseText = ReadUtf8Text(responsePath)
-
-    If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
-        MsgBox "Η εγγραφή δεν ολοκληρώθηκε:" & vbCrLf & vbCrLf & _
-               JsonStringValue(responseText, "error"), vbExclamation, "Νέος ασθενής"
-        GoTo CleanUp
-    End If
-
-    txtPatientID.Text = JsonStringValue(responseText, "subject_key")
-    previewPath = JsonStringValue(responseText, "output_path")
-    sourceSha256 = JsonStringValue(responseText, "source_sha256_before")
-
-    MsgBox "Η εγγραφή επαληθεύτηκε και είναι έτοιμη για αποθήκευση." & vbCrLf & _
-           "Patient ID: " & txtPatientID.Text & vbCrLf & vbCrLf & _
-           "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα μετά την ασφαλή αποθήκευση.", _
-           vbInformation, "Νέος ασθενής"
-
-    If Not StartAuthoritativeCommit(previewPath, sourceSha256) Then
-        GoTo CleanUp
-    End If
-
-    On Error Resume Next
-    If Len(requestPath) > 0 Then Kill requestPath
-    If Len(responsePath) > 0 Then Kill responsePath
-    On Error GoTo 0
-
+    CreateObject("WScript.Shell").Run commandLine, 0, False
     Unload Me
     Exit Sub
 
-CleanUp:
-    On Error Resume Next
-    If Len(requestPath) > 0 Then Kill requestPath
-    If Len(responsePath) > 0 Then Kill responsePath
-    On Error GoTo 0
-    Exit Sub
-
 BridgeError:
-    MsgBox "Δεν ήταν δυνατή η εκτέλεση του registration backend: " & Err.Description, _
+    MsgBox "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς καταχώρησης: " & Err.Description, _
            vbCritical, "Νέος ασθενής"
-    Resume CleanUp
 End Sub
 
 Private Function BuildPatientRegistrationJson(ByVal patientType As String) As String
@@ -105,7 +68,6 @@ Private Function BuildPatientRegistrationJson(ByVal patientType As String) As St
     Dim q As String
 
     q = Chr$(34)
-
     statusValue = Trim$(cboStatus.Value)
 
     If patientType = "Εξωτερικός" Then
@@ -133,89 +95,19 @@ Private Function BuildPatientRegistrationJson(ByVal patientType As String) As St
         "}}"
 End Function
 
-Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
-    Dim workerScript As String
-    Dim commitRequestPath As String
-    Dim commitResponsePath As String
-    Dim commandLine As String
-
-    workerScript = ResolveAuthoritativeCommitWorkerScript()
-    If Len(workerScript) = 0 Then
-        MsgBox "Δεν βρέθηκε το authoritative save worker του συστήματος.", vbCritical, "Νέος ασθενής"
-        Exit Function
-    End If
-
-    If Len(Trim$(previewPath)) = 0 Or Len(Trim$(sourceSha256)) = 0 Then
-        MsgBox "Το backend δεν επέστρεψε τα στοιχεία ασφαλούς αποθήκευσης.", vbCritical, "Νέος ασθενής"
-        Exit Function
-    End If
-
-    commitRequestPath = Environ$("TEMP") & "\eka_authoritative_commit_request_" & _
-                        Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
-    commitResponsePath = Environ$("TEMP") & "\eka_authoritative_commit_response_" & _
-                         Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
-
-    WriteUtf8Text commitRequestPath, BuildAuthoritativeCommitJson(previewPath, sourceSha256)
-
-    commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
-                  " --request " & QuoteArg(commitRequestPath) & _
-                  " --response " & QuoteArg(commitResponsePath)
-
-    On Error GoTo WorkerError
-    CreateObject("WScript.Shell").Run commandLine, 0, False
-    StartAuthoritativeCommit = True
-    Exit Function
-
-WorkerError:
-    MsgBox "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς αποθήκευσης: " & Err.Description, _
-           vbCritical, "Νέος ασθενής"
-End Function
-
-Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String
-    Dim q As String
-    q = Chr$(34)
-
-    BuildAuthoritativeCommitJson = _
-        "{" & _
-        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
-        q & "preview_path" & q & ":" & q & JsonEscape(previewPath) & q & "," & _
-        q & "expected_source_sha256" & q & ":" & q & JsonEscape(sourceSha256) & q & "," & _
-        q & "remove_preview_after_success" & q & ":true," & _
-        q & "reopen" & q & ":true," & _
-        q & "close_open_workbook" & q & ":true," & _
-        q & "close_delay_seconds" & q & ":1.5," & _
-        q & "timeout_seconds" & q & ":30," & _
-        q & "poll_seconds" & q & ":0.5" & _
-        "}"
-End Function
-
-Private Function ResolveAuthoritativeCommitWorkerScript() As String
+Private Function ResolveRegistrationTransactionWorkerScript() As String
     Dim candidate As String
 
-    candidate = ThisWorkbook.Path & "\Python\tools\authoritative_commit_worker_cli.py"
+    candidate = ThisWorkbook.Path & "\Python\tools\registration_transaction_worker_cli.py"
     If Dir$(candidate) <> "" Then
-        ResolveAuthoritativeCommitWorkerScript = candidate
+        ResolveRegistrationTransactionWorkerScript = candidate
         Exit Function
     End If
 
-    candidate = ThisWorkbook.Path & "\..\..\Python\tools\authoritative_commit_worker_cli.py"
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\registration_transaction_worker_cli.py"
     If Dir$(candidate) <> "" Then
-        ResolveAuthoritativeCommitWorkerScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
-    End If
-End Function
-
-Private Function ResolveRegistrationBridgeScript() As String
-    Dim candidate As String
-
-    candidate = ThisWorkbook.Path & "\Python\tools\registration_bridge_cli.py"
-    If Dir$(candidate) <> "" Then
-        ResolveRegistrationBridgeScript = candidate
-        Exit Function
-    End If
-
-    candidate = ThisWorkbook.Path & "\..\..\Python\tools\registration_bridge_cli.py"
-    If Dir$(candidate) <> "" Then
-        ResolveRegistrationBridgeScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
+        ResolveRegistrationTransactionWorkerScript = _
+            CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
     End If
 End Function
 
@@ -233,43 +125,6 @@ Private Function JsonEscape(ByVal value As String) As String
     JsonEscape = text
 End Function
 
-Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) As String
-    Dim marker As String
-    Dim startPos As Long
-    Dim index As Long
-    Dim ch As String
-    Dim escaped As Boolean
-    Dim value As String
-
-    marker = Chr$(34) & key & Chr$(34) & ":"
-    startPos = InStr(1, jsonText, marker, vbTextCompare)
-    If startPos = 0 Then Exit Function
-
-    startPos = InStr(startPos + Len(marker), jsonText, Chr$(34))
-    If startPos = 0 Then Exit Function
-
-    For index = startPos + 1 To Len(jsonText)
-        ch = Mid$(jsonText, index, 1)
-        If escaped Then
-            Select Case ch
-                Case "n": value = value & vbLf
-                Case "r": value = value & vbCr
-                Case "t": value = value & vbTab
-                Case Else: value = value & ch
-            End Select
-            escaped = False
-        ElseIf ch = "\" Then
-            escaped = True
-        ElseIf ch = Chr$(34) Then
-            Exit For
-        Else
-            value = value & ch
-        End If
-    Next index
-
-    JsonStringValue = value
-End Function
-
 Private Sub WriteUtf8Text(ByVal filePath As String, ByVal text As String)
     Dim stream As Object
     Set stream = CreateObject("ADODB.Stream")
@@ -280,17 +135,6 @@ Private Sub WriteUtf8Text(ByVal filePath As String, ByVal text As String)
     stream.SaveToFile filePath, 2
     stream.Close
 End Sub
-
-Private Function ReadUtf8Text(ByVal filePath As String) As String
-    Dim stream As Object
-    Set stream = CreateObject("ADODB.Stream")
-    stream.Type = 2
-    stream.Charset = "utf-8"
-    stream.Open
-    stream.LoadFromFile filePath
-    ReadUtf8Text = stream.ReadText
-    stream.Close
-End Function
 '''
 
 
@@ -337,11 +181,18 @@ def _replace_procedure(code_module, procedure_name: str, replacement: str) -> No
 
 
 def _replace_bridge_helpers(code_module, helper_code: str) -> None:
-    helper_name = "BuildPatientRegistrationJson"
-    try:
-        helper_start = code_module.ProcStartLine(helper_name, 0)
-    except Exception:
-        helper_start = 0
+    helper_names = (
+        "ScheduleRegistrationClose",
+        "BuildPatientRegistrationJson",
+    )
+    helper_start = 0
+    for helper_name in helper_names:
+        try:
+            helper_start = int(code_module.ProcStartLine(helper_name, 0))
+        except Exception:
+            helper_start = 0
+        if helper_start:
+            break
 
     if helper_start:
         code_module.DeleteLines(helper_start, code_module.CountOfLines - helper_start + 1)
@@ -349,13 +200,17 @@ def _replace_bridge_helpers(code_module, helper_code: str) -> None:
     code_module.AddFromString(helper_code)
 
 
-def _remove_stale_standard_module(vbproject) -> None:
+def _replace_standard_module(vbproject) -> None:
     try:
         existing = vbproject.VBComponents(BRIDGE_MODULE_NAME)
     except Exception:
         existing = None
     if existing is not None:
         vbproject.VBComponents.Remove(existing)
+
+    module = vbproject.VBComponents.Add(1)
+    module.Name = BRIDGE_MODULE_NAME
+    module.CodeModule.AddFromString(BRIDGE_MODULE_CODE)
 
 
 def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
@@ -388,19 +243,18 @@ def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
 
         _replace_procedure(code_module, "cmdSave_Click", save_proc)
         _replace_bridge_helpers(code_module, helper_code)
-        _remove_stale_standard_module(vbproject)
+        _replace_standard_module(vbproject)
 
         stored_text = code_module.Lines(1, code_module.CountOfLines)
         required_markers = (
-            "registration_bridge_cli.py",
+            "registration_transaction_worker_cli.py",
             "BuildPatientRegistrationJson",
-            "ResolveRegistrationBridgeScript",
-            'q & "close_open_workbook" & q & ":true,"',
-            'Chr$(34) & "ok" & Chr$(34)',
+            "ResolveRegistrationTransactionWorkerScript",
+            'CreateObject("WScript.Shell").Run commandLine, 0, False',
         )
         if not all(marker in stored_text for marker in required_markers):
             raise PatientRegistrationBridgeVbaError(
-                "Patient registration bridge verification failed before workbook save"
+                "Patient registration transaction wiring verification failed before workbook save"
             )
 
         workbook.Save()
