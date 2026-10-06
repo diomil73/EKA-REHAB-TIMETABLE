@@ -10,7 +10,6 @@ class MasterVisualStyleError(RuntimeError):
     """Raised when the MASTER visual styling pass cannot be applied safely."""
 
 
-# Accepted visual baseline: stronger header shade with a lighter body shade.
 HEADER_COLORS = {
     "identity": excel_rgb(199, 212, 228),
     "fth": excel_rgb(111, 157, 198),
@@ -45,7 +44,10 @@ SOFT_VERTICAL_GRAY = excel_rgb(230, 230, 230)
 HEADER_SEPARATOR_GRAY = excel_rgb(140, 140, 140)
 CLINIC_BANNER_FILL = excel_rgb(242, 242, 242)
 BLACK = excel_rgb(0, 0, 0)
+RED_CROSS = excel_rgb(220, 0, 0)
+FIRST_CLINIC_LABEL = "Α' ΚΛΙΝΙΚΗ"
 SECOND_CLINIC_LABEL = "Β' ΚΛΙΝΙΚΗ"
+CLINIC_LABELS = (FIRST_CLINIC_LABEL, SECOND_CLINIC_LABEL)
 
 
 def _header_row(ws) -> int:
@@ -59,7 +61,7 @@ def _header_row(ws) -> int:
 
 def _last_patient_row(ws, header_row: int) -> int:
     try:
-        room_row = int(ws.Cells(ws.Rows.Count, 2).End(-4162).Row)  # xlUp
+        room_row = int(ws.Cells(ws.Rows.Count, 2).End(-4162).Row)
         patient_row = int(ws.Cells(ws.Rows.Count, 3).End(-4162).Row)
         return max(header_row, room_row, patient_row)
     except Exception:
@@ -76,99 +78,112 @@ def _is_infectious(value: object) -> bool:
     if isinstance(value, (int, float)):
         return value != 0
     text = str(value or "").strip().casefold()
-    return text in {
-        "ν".casefold(),
-        "ναι".casefold(),
-        "yes",
-        "true",
-        "1",
-        "1.0",
-        "-1",
-    }
+    return text in {"ν", "ναι", "yes", "true", "1", "1.0", "-1"}
 
 
 def _clinic_prefix(room: object) -> str | None:
     text = str(room or "").strip().casefold()
     if not text:
         return None
-    first = text[0]
-    if first in {"a", "α"}:
+    if text[0] in {"a", "α"}:
         return "A"
-    if first in {"b", "β"}:
+    if text[0] in {"b", "β"}:
         return "B"
     return None
 
 
 def _row_is_blank(ws, row: int) -> bool:
-    for col in range(2, 14):
-        value = ws.Cells(row, col).Value
-        if str(value or "").strip():
-            return False
-    return True
+    return all(
+        not str(ws.Cells(row, col).Value or "").strip()
+        for col in range(2, 14)
+    )
 
 
 def _remove_internal_blank_rows(ws, header_row: int, last_row: int) -> int:
     """Remove accidental fully-empty rows from inside the patient table."""
 
     for row in range(last_row, header_row, -1):
-        if _row_is_blank(ws, row):
-            has_patient_below = any(
-                str(ws.Cells(candidate, 3).Value or "").strip()
-                for candidate in range(row + 1, last_row + 1)
-            )
-            has_patient_above = any(
-                str(ws.Cells(candidate, 3).Value or "").strip()
-                for candidate in range(header_row + 1, row)
-            )
-            if has_patient_above and has_patient_below:
-                ws.Rows(row).Delete()
-                last_row -= 1
+        if not _row_is_blank(ws, row):
+            continue
+        has_patient_below = any(
+            str(ws.Cells(candidate, 3).Value or "").strip()
+            for candidate in range(row + 1, last_row + 1)
+        )
+        has_patient_above = any(
+            str(ws.Cells(candidate, 3).Value or "").strip()
+            for candidate in range(header_row + 1, row)
+        )
+        if has_patient_above and has_patient_below:
+            ws.Rows(row).Delete()
+            last_row -= 1
     return last_row
 
 
-def _ensure_second_clinic_banner(ws, header_row: int, last_row: int) -> int:
-    """Insert one B-clinic banner between the A15 and B01 patient groups."""
-
-    seen_a = False
-    first_b_row: int | None = None
-    for row in range(header_row + 1, last_row + 1):
-        patient = str(ws.Cells(row, 3).Value or "").strip()
-        if not patient:
-            continue
-        clinic = _clinic_prefix(ws.Cells(row, 2).Value)
-        if clinic == "A":
-            seen_a = True
-        elif clinic == "B" and seen_a:
-            first_b_row = row
-            break
-
-    if first_b_row is None:
-        return last_row
-
-    previous_label = str(ws.Cells(first_b_row - 1, 2).Value or "").strip()
-    if previous_label.casefold() == SECOND_CLINIC_LABEL.casefold():
-        return last_row
-
-    ws.Rows(first_b_row).Insert()
-    banner = ws.Range(f"B{first_b_row}:M{first_b_row}")
+def _style_clinic_banner(ws, row: int, label: str) -> None:
+    banner = ws.Range(f"B{row}:M{row}")
     banner.ClearContents()
     banner.Interior.Color = CLINIC_BANNER_FILL
     banner.Font.Color = BLACK
     banner.Font.Bold = True
+    banner.Font.Size = 14
     banner.HorizontalAlignment = 7  # xlCenterAcrossSelection
-    banner.VerticalAlignment = -4108  # xlCenter
-    ws.Cells(first_b_row, 2).Value = SECOND_CLINIC_LABEL
-    ws.Rows(first_b_row).RowHeight = 24
+    banner.VerticalAlignment = -4108
+    ws.Cells(row, 2).Value = label
+    ws.Rows(row).RowHeight = 30
 
-    top = banner.Borders(8)  # xlEdgeTop
-    top.LineStyle = 1
-    top.Weight = 2
-    top.Color = ROW_SEPARATOR_GRAY
-    bottom = banner.Borders(9)  # xlEdgeBottom
-    bottom.LineStyle = 1
-    bottom.Weight = 2
-    bottom.Color = ROW_SEPARATOR_GRAY
+    for edge in (8, 9):
+        border = banner.Borders(edge)
+        border.LineStyle = 1
+        border.Weight = 2
+        border.Color = ROW_SEPARATOR_GRAY
+
+
+def _ensure_clinic_banner(
+    ws,
+    header_row: int,
+    last_row: int,
+    *,
+    clinic: str,
+    label: str,
+) -> int:
+    first_row: int | None = None
+    for row in range(header_row + 1, last_row + 1):
+        patient = str(ws.Cells(row, 3).Value or "").strip()
+        if patient and _clinic_prefix(ws.Cells(row, 2).Value) == clinic:
+            first_row = row
+            break
+
+    if first_row is None:
+        return last_row
+
+    previous = str(ws.Cells(first_row - 1, 2).Value or "").strip()
+    if previous.casefold() == label.casefold():
+        _style_clinic_banner(ws, first_row - 1, label)
+        return last_row
+
+    ws.Rows(first_row).Insert()
+    _style_clinic_banner(ws, first_row, label)
     return last_row + 1
+
+
+def _ensure_clinic_banners(ws, header_row: int, last_row: int) -> int:
+    """Show matching A/B clinic banners for visual order and symmetry."""
+
+    last_row = _ensure_clinic_banner(
+        ws,
+        header_row,
+        last_row,
+        clinic="A",
+        label=FIRST_CLINIC_LABEL,
+    )
+    last_row = _ensure_clinic_banner(
+        ws,
+        header_row,
+        last_row,
+        clinic="B",
+        label=SECOND_CLINIC_LABEL,
+    )
+    return last_row
 
 
 def _clear_master_freeze(workbook, ws) -> None:
@@ -213,11 +228,40 @@ def _make_app_buttons_readable(workbook) -> None:
                 continue
 
 
+def _format_patient_identity(cell) -> None:
+    """Large patient name; keep an optional doctor line smaller and readable."""
+
+    text = str(cell.Value or "")
+    cell.WrapText = True
+    cell.ShrinkToFit = True
+    cell.HorizontalAlignment = -4131
+    cell.VerticalAlignment = -4108
+    cell.Font.Color = BLACK
+    cell.Font.Size = 11.5
+
+    if "\n" not in text:
+        cell.Font.Bold = True
+        return
+
+    first_line, second_line = text.split("\n", 1)
+    cell.Font.Bold = False
+    try:
+        cell.Characters(Start=1, Length=len(first_line)).Font.Bold = True
+        cell.Characters(Start=1, Length=len(first_line)).Font.Size = 11.5
+        second_start = len(first_line) + 2
+        cell.Characters(Start=second_start, Length=len(second_line)).Font.Size = 9.5
+        if second_line.startswith("✚"):
+            cell.Characters(Start=second_start, Length=1).Font.Color = RED_CROSS
+            cell.Characters(Start=second_start, Length=1).Font.Bold = True
+    except Exception:
+        pass
+
+
 def _apply_master_visual_style(ws) -> None:
     header_row = _header_row(ws)
     last_row = _last_patient_row(ws, header_row)
     last_row = _remove_internal_blank_rows(ws, header_row, last_row)
-    last_row = _ensure_second_clinic_banner(ws, header_row, last_row)
+    last_row = _ensure_clinic_banners(ws, header_row, last_row)
 
     expected = {
         10: "ΕΦΑ",
@@ -232,7 +276,6 @@ def _apply_master_visual_style(ws) -> None:
                 f"Unexpected MASTER_SCHEDULE schema at column {col}: {actual!r}"
             )
 
-    # Keep the infectious source formula/data in column A, but remove it from the UI.
     ws.Columns("A").Hidden = True
 
     widths = {
@@ -285,17 +328,15 @@ def _apply_master_visual_style(ws) -> None:
         }
         for columns, color in body_ranges.items():
             start_col, end_col = columns.split(":")
-            _set_fill(
-                ws,
-                f"{start_col}{header_row + 1}:{end_col}{last_row}",
-                color,
-            )
+            _set_fill(ws, f"{start_col}{header_row + 1}:{end_col}{last_row}", color)
 
     header = ws.Range(f"B{header_row}:M{header_row}")
     header.Font.Bold = True
-    header.HorizontalAlignment = -4108  # xlCenter
+    header.Font.Size = 11
+    header.HorizontalAlignment = -4108
     header.VerticalAlignment = -4108
     header.WrapText = True
+    header.ShrinkToFit = True
     ws.Rows(header_row).RowHeight = 34
 
     if last_row > header_row:
@@ -303,8 +344,9 @@ def _apply_master_visual_style(ws) -> None:
         body.HorizontalAlignment = -4108
         body.VerticalAlignment = -4108
         body.WrapText = True
-        body.Font.Size = 9
-        ws.Range(f"C{header_row + 1}:C{last_row}").HorizontalAlignment = -4131  # xlLeft
+        body.ShrinkToFit = True
+        body.Font.Size = 10.5
+        ws.Range(f"C{header_row + 1}:C{last_row}").HorizontalAlignment = -4131
 
     for row in range(header_row + 1, last_row + 1):
         patient = str(ws.Cells(row, 3).Value or "").strip()
@@ -312,31 +354,36 @@ def _apply_master_visual_style(ws) -> None:
         if patient:
             ws.Rows(row).RowHeight = 64
 
-            # Strong visual alert with no visible infectious text column.
+            room_cell = ws.Cells(row, 2)
+            room_cell.Font.Size = 12
+            room_cell.Font.Bold = True
+            room_cell.ShrinkToFit = True
+
+            _format_patient_identity(ws.Cells(row, 3))
+
+            # Treatment cells start larger and Excel shrinks only cells that need it.
+            treatment_range = ws.Range(f"D{row}:M{row}")
+            treatment_range.Font.Size = 10.5
+            treatment_range.ShrinkToFit = True
+            treatment_range.WrapText = True
+
             if _is_infectious(ws.Cells(row, 1).Value):
                 _set_fill(ws, f"B{row}:C{row}", INFECTIOUS_YELLOW)
 
             row_range = ws.Range(f"B{row}:M{row}")
-            bottom = row_range.Borders(9)  # xlEdgeBottom
+            bottom = row_range.Borders(9)
             bottom.LineStyle = 1
             bottom.Weight = 2
             bottom.Color = ROW_SEPARATOR_GRAY
 
-            for edge in (7, 10):  # xlEdgeLeft / xlEdgeRight
+            for edge in (7, 10):
                 border = row_range.Borders(edge)
                 border.LineStyle = 1
                 border.Weight = 1
                 border.Color = SOFT_VERTICAL_GRAY
-        elif room.casefold() == SECOND_CLINIC_LABEL.casefold():
-            banner = ws.Range(f"B{row}:M{row}")
-            banner.Interior.Color = CLINIC_BANNER_FILL
-            banner.Font.Color = BLACK
-            banner.Font.Bold = True
-            banner.HorizontalAlignment = 7
-            banner.VerticalAlignment = -4108
-            ws.Rows(row).RowHeight = 24
+        elif room.casefold() in {label.casefold() for label in CLINIC_LABELS}:
+            _style_clinic_banner(ws, row, room)
         elif room:
-            # Other room/separator rows stay compact and neutral.
             ws.Rows(row).RowHeight = 18
 
     header_bottom = header.Borders(9)
@@ -344,7 +391,6 @@ def _apply_master_visual_style(ws) -> None:
     header_bottom.Weight = 2
     header_bottom.Color = HEADER_SEPARATOR_GRAY
 
-    # Keep the existing app-shell bounds, but start the visible UI at column B.
     try:
         ws.ScrollArea = f"B1:M{last_row + 1}"
     except Exception:
