@@ -99,26 +99,6 @@ def _row_is_blank(ws, row: int) -> bool:
     )
 
 
-def _remove_internal_blank_rows(ws, header_row: int, last_row: int) -> int:
-    """Remove accidental fully-empty rows from inside the patient table."""
-
-    for row in range(last_row, header_row, -1):
-        if not _row_is_blank(ws, row):
-            continue
-        has_patient_below = any(
-            str(ws.Cells(candidate, 3).Value or "").strip()
-            for candidate in range(row + 1, last_row + 1)
-        )
-        has_patient_above = any(
-            str(ws.Cells(candidate, 3).Value or "").strip()
-            for candidate in range(header_row + 1, row)
-        )
-        if has_patient_above and has_patient_below:
-            ws.Rows(row).Delete()
-            last_row -= 1
-    return last_row
-
-
 def _style_clinic_banner(ws, row: int, label: str) -> None:
     banner = ws.Range(f"B{row}:M{row}")
     banner.ClearContents()
@@ -146,6 +126,8 @@ def _ensure_clinic_banner(
     clinic: str,
     label: str,
 ) -> int:
+    """Decorate the projection-reserved row before a clinic; never move data."""
+
     first_row: int | None = None
     for row in range(header_row + 1, last_row + 1):
         patient = str(ws.Cells(row, 3).Value or "").strip()
@@ -156,18 +138,28 @@ def _ensure_clinic_banner(
     if first_row is None:
         return last_row
 
-    previous = str(ws.Cells(first_row - 1, 2).Value or "").strip()
-    if previous.casefold() == label.casefold():
-        _style_clinic_banner(ws, first_row - 1, label)
-        return last_row
+    banner_row = first_row - 1
+    if banner_row <= header_row:
+        raise MasterVisualStyleError(
+            f"No reserved row before {label}; refusing to insert or move MASTER rows"
+        )
 
-    ws.Rows(first_row).Insert()
-    _style_clinic_banner(ws, first_row, label)
-    return last_row + 1
+    existing_label = str(ws.Cells(banner_row, 2).Value or "").strip()
+    if existing_label and existing_label.casefold() != label.casefold():
+        raise MasterVisualStyleError(
+            f"Reserved row before {label} is occupied by {existing_label!r}; refusing to move data"
+        )
+    if not existing_label and not _row_is_blank(ws, banner_row):
+        raise MasterVisualStyleError(
+            f"Reserved row before {label} contains data; refusing to move data"
+        )
+
+    _style_clinic_banner(ws, banner_row, label)
+    return last_row
 
 
 def _ensure_clinic_banners(ws, header_row: int, last_row: int) -> int:
-    """Show matching A/B clinic banners for visual order and symmetry."""
+    """Style A/B clinic rows already reserved by the MASTER projection."""
 
     last_row = _ensure_clinic_banner(
         ws,
@@ -260,7 +252,8 @@ def _format_patient_identity(cell) -> None:
 def _apply_master_visual_style(ws) -> None:
     header_row = _header_row(ws)
     last_row = _last_patient_row(ws, header_row)
-    last_row = _remove_internal_blank_rows(ws, header_row, last_row)
+    # Critical invariant: styling may not insert or delete rows. Clinic rows are
+    # reserved by the projection so room/patient/formula alignment cannot drift.
     last_row = _ensure_clinic_banners(ws, header_row, last_row)
 
     expected = {
@@ -348,6 +341,7 @@ def _apply_master_visual_style(ws) -> None:
         body.Font.Size = 10.5
         ws.Range(f"C{header_row + 1}:C{last_row}").HorizontalAlignment = -4131
 
+    clinic_labels = {label.casefold() for label in CLINIC_LABELS}
     for row in range(header_row + 1, last_row + 1):
         patient = str(ws.Cells(row, 3).Value or "").strip()
         room = str(ws.Cells(row, 2).Value or "").strip()
@@ -361,7 +355,6 @@ def _apply_master_visual_style(ws) -> None:
 
             _format_patient_identity(ws.Cells(row, 3))
 
-            # Treatment cells start larger and Excel shrinks only cells that need it.
             treatment_range = ws.Range(f"D{row}:M{row}")
             treatment_range.Font.Size = 10.5
             treatment_range.ShrinkToFit = True
@@ -381,7 +374,7 @@ def _apply_master_visual_style(ws) -> None:
                 border.LineStyle = 1
                 border.Weight = 1
                 border.Color = SOFT_VERTICAL_GRAY
-        elif room.casefold() in {label.casefold() for label in CLINIC_LABELS}:
+        elif room.casefold() in clinic_labels:
             _style_clinic_banner(ws, row, room)
         elif room:
             ws.Rows(row).RowHeight = 18
