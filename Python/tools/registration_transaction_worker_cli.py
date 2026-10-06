@@ -34,13 +34,33 @@ def _write_response(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _run_transaction_with_com(payload: dict[str, object]):
+    """Run the detached transaction inside an initialized COM apartment on Windows."""
+
+    if sys.platform != "win32":
+        return run_registration_transaction(payload)
+
+    try:
+        import pythoncom  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RegistrationTransactionError(
+            "pywin32/pythoncom is required for the Windows registration worker"
+        ) from exc
+
+    pythoncom.CoInitialize()
+    try:
+        return run_registration_transaction(payload)
+    finally:
+        pythoncom.CoUninitialize()
+
+
 def main() -> int:
     args = _build_parser().parse_args()
     try:
         payload = json.loads(args.request.read_text(encoding="utf-8-sig"))
         if not isinstance(payload, dict):
             raise RegistrationTransactionError("request JSON must be an object")
-        report = run_registration_transaction(payload)
+        report = _run_transaction_with_com(payload)
     except Exception as exc:  # Worker is detached; never let failures disappear silently.
         try:
             _write_response(
