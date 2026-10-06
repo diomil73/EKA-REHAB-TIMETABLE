@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import time
-from typing import Callable, Mapping
+from typing import Mapping
 from uuid import uuid4
 
 from .authoritative_commit_worker import (
     AuthoritativeCommitWorkerError,
     AuthoritativeCommitWorkerReport,
-    _default_close_workbook,
     commit_when_unlocked,
 )
 from .registration_bridge import RegistrationBridgeError, run_registration_bridge
@@ -30,34 +28,6 @@ class RegistrationTransactionReport:
     close_attempts: int
 
 
-SleepService = Callable[[float], None]
-CloseService = Callable[[Path], None]
-
-
-def _close_with_retry(
-    source: Path,
-    *,
-    timeout_seconds: float,
-    poll_seconds: float,
-    close_service: CloseService,
-    sleep_service: SleepService,
-) -> int:
-    deadline = time.monotonic() + timeout_seconds
-    attempts = 0
-
-    while True:
-        attempts += 1
-        try:
-            close_service(source)
-            return attempts
-        except Exception as exc:
-            if time.monotonic() >= deadline:
-                raise RegistrationTransactionError(
-                    f"Could not close authoritative workbook before registration: {exc}"
-                ) from exc
-            sleep_service(poll_seconds)
-
-
 def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, object], Path]:
     preview_root_text = str(payload.get("preview_dir", "")).strip()
     if not preview_root_text:
@@ -72,19 +42,15 @@ def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, objec
 
 def run_registration_transaction(
     payload: Mapping[str, object],
-    *,
-    close_delay_seconds: float = 1.0,
-    close_timeout_seconds: float = 10.0,
-    close_poll_seconds: float = 0.5,
-    sleep_service: SleepService = time.sleep,
-    close_service: CloseService = _default_close_workbook,
 ) -> RegistrationTransactionReport:
-    """Own the complete registration transaction after VBA has returned.
+    """Build, commit, and reopen one registration transaction.
 
-    The worker closes the authoritative workbook first, then creates the verified
-    registration preview, commits it, and finally reopens the workbook. Each
-    transaction receives its own preview directory so a stale Excel lock from an
-    earlier failed run cannot block a new registration.
+    Workbook shutdown is intentionally owned by VBA inside the workbook itself.
+    The detached worker must never attempt an external COM Workbook.Close: Excel
+    can refuse that call while a UserForm/event is unwinding. The VBA bridge
+    schedules an internal Application.OnTime close after launching this worker.
+    Preview creation may safely begin from the already-saved source, while the
+    authoritative commit waits until Excel has released the source file.
     """
 
     source_text = str(payload.get("source_path", "")).strip()
@@ -92,25 +58,7 @@ def run_registration_transaction(
         raise RegistrationTransactionError("source_path is required")
 
     source = Path(source_text).resolve()
-    if close_delay_seconds < 0:
-        raise RegistrationTransactionError("close_delay_seconds must be non-negative")
-    if close_timeout_seconds <= 0:
-        raise RegistrationTransactionError("close_timeout_seconds must be positive")
-    if close_poll_seconds <= 0:
-        raise RegistrationTransactionError("close_poll_seconds must be positive")
-
     transaction_payload, transaction_dir = _transaction_payload(payload)
-
-    if close_delay_seconds:
-        sleep_service(close_delay_seconds)
-
-    close_attempts = _close_with_retry(
-        source,
-        timeout_seconds=close_timeout_seconds,
-        poll_seconds=close_poll_seconds,
-        close_service=close_service,
-        sleep_service=sleep_service,
-    )
 
     try:
         preview = run_registration_bridge(transaction_payload)
@@ -140,5 +88,5 @@ def run_registration_transaction(
         preview_path=str(preview.get("output_path", "")),
         committed=bool(commit.commit.committed),
         reopened=bool(commit.reopened),
-        close_attempts=close_attempts,
+        close_attempts=0,
     )
