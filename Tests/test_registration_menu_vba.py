@@ -47,7 +47,7 @@ def test_standard_module_exposes_show_macro():
     assert f"{MENU_FORM_NAME}.Show" in STANDARD_MODULE_CODE
 
 
-def test_userform_code_contains_all_click_handlers():
+def test_userform_code_contains_registry_click_handlers_only():
     assert "Private Sub cmdPatient_Click()" in USERFORM_CODE
     assert "Private Sub cmdTherapist_Click()" in USERFORM_CODE
     assert "frmNewTherapist.Show" in USERFORM_CODE
@@ -55,8 +55,9 @@ def test_userform_code_contains_all_click_handlers():
     assert "frmNewStudent.Show" in USERFORM_CODE
     assert "Private Sub cmdOutpatientSchedule_Click()" in USERFORM_CODE
     assert "frmOutpatientSchedule.Show" in USERFORM_CODE
-    assert "Private Sub cmdDailyInput_Click()" in USERFORM_CODE
-    assert "ApplyDailyInputPreview" in USERFORM_CODE
+    assert "Private Sub cmdDailyInput_Click()" not in USERFORM_CODE
+    assert "ApplyDailyInputPreview" not in USERFORM_CODE
+    assert "Εφαρμογή DAILY_INPUT" not in USERFORM_CODE
     assert "Private Sub cmdClose_Click()" in USERFORM_CODE
     assert "Unload Me" in USERFORM_CODE
 
