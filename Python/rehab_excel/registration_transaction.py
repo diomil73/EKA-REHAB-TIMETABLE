@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import time
 from typing import Callable, Mapping
+from uuid import uuid4
 
 from .authoritative_commit_worker import (
     AuthoritativeCommitWorkerError,
@@ -43,7 +44,6 @@ def _close_with_retry(
 ) -> int:
     deadline = time.monotonic() + timeout_seconds
     attempts = 0
-    last_error: Exception | None = None
 
     while True:
         attempts += 1
@@ -51,12 +51,23 @@ def _close_with_retry(
             close_service(source)
             return attempts
         except Exception as exc:
-            last_error = exc
             if time.monotonic() >= deadline:
                 raise RegistrationTransactionError(
                     f"Could not close authoritative workbook before registration: {exc}"
                 ) from exc
             sleep_service(poll_seconds)
+
+
+def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, object], Path]:
+    preview_root_text = str(payload.get("preview_dir", "")).strip()
+    if not preview_root_text:
+        raise RegistrationTransactionError("preview_dir is required")
+
+    preview_root = Path(preview_root_text).resolve()
+    transaction_dir = preview_root / ".eka_registration_transactions" / uuid4().hex
+    transaction_payload = dict(payload)
+    transaction_payload["preview_dir"] = str(transaction_dir)
+    return transaction_payload, transaction_dir
 
 
 def run_registration_transaction(
@@ -71,9 +82,9 @@ def run_registration_transaction(
     """Own the complete registration transaction after VBA has returned.
 
     The worker closes the authoritative workbook first, then creates the verified
-    registration preview, commits it, and finally reopens the workbook. Keeping
-    all expensive Excel/COM work outside the UserForm event avoids modal-close
-    failures and makes the form return immediately.
+    registration preview, commits it, and finally reopens the workbook. Each
+    transaction receives its own preview directory so a stale Excel lock from an
+    earlier failed run cannot block a new registration.
     """
 
     source_text = str(payload.get("source_path", "")).strip()
@@ -88,6 +99,8 @@ def run_registration_transaction(
     if close_poll_seconds <= 0:
         raise RegistrationTransactionError("close_poll_seconds must be positive")
 
+    transaction_payload, transaction_dir = _transaction_payload(payload)
+
     if close_delay_seconds:
         sleep_service(close_delay_seconds)
 
@@ -100,7 +113,7 @@ def run_registration_transaction(
     )
 
     try:
-        preview = run_registration_bridge(payload)
+        preview = run_registration_bridge(transaction_payload)
         commit: AuthoritativeCommitWorkerReport = commit_when_unlocked(
             source,
             str(preview["output_path"]),
@@ -112,6 +125,13 @@ def run_registration_transaction(
         )
     except (RegistrationBridgeError, AuthoritativeCommitWorkerError, KeyError) as exc:
         raise RegistrationTransactionError(str(exc)) from exc
+
+    if commit.commit.preview_removed:
+        try:
+            transaction_dir.rmdir()
+            transaction_dir.parent.rmdir()
+        except OSError:
+            pass
 
     return RegistrationTransactionReport(
         subject_key=str(preview.get("subject_key", "")),
