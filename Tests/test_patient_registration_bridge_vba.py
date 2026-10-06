@@ -48,13 +48,23 @@ def test_bridge_returns_from_form_without_waiting_for_preview_or_commit():
     save_pos = save_proc.index("ThisWorkbook.Save")
     request_pos = save_proc.index("WriteUtf8Text requestPath")
     message_pos = save_proc.index('MsgBox "Η καταχώρηση ξεκίνησε.')
+    menu_unload_pos = save_proc.index("Unload frmRegistrationMenu")
     launch_pos = save_proc.index('CreateObject("WScript.Shell").Run commandLine, 0, False')
     unload_pos = save_proc.index("Unload Me")
 
-    assert save_pos < request_pos < message_pos < launch_pos < unload_pos
+    assert save_pos < request_pos < message_pos < menu_unload_pos < launch_pos < unload_pos
     assert "Run(commandLine, 0, True)" not in save_proc
     assert "ThisWorkbook.Close" not in save_proc
     assert "Application.OnTime" not in FORM_BRIDGE_CODE
+
+
+def test_bridge_releases_modal_registration_menu_before_worker_launch():
+    save_proc_end = FORM_BRIDGE_CODE.index("BridgeError:")
+    save_proc = FORM_BRIDGE_CODE[:save_proc_end]
+    assert "Unload frmRegistrationMenu" in save_proc
+    assert save_proc.index("Unload frmRegistrationMenu") < save_proc.index(
+        'CreateObject("WScript.Shell").Run commandLine, 0, False'
+    )
 
 
 def test_bridge_keeps_standard_module_name_for_compatibility():
