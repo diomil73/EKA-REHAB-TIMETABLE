@@ -60,11 +60,15 @@ def test_bridge_wires_authoritative_commit_worker():
     assert 'q & "reopen" & q & ":true,"' in FORM_BRIDGE_CODE
 
 
-def test_bridge_starts_worker_async_then_closes_authoritative_workbook():
+def test_bridge_saves_before_preview_hash_then_closes_without_resaving_source():
     save_proc_end = FORM_BRIDGE_CODE.index("CleanUp:")
     save_proc = FORM_BRIDGE_CODE[:save_proc_end]
+    save_pos = save_proc.index("ThisWorkbook.Save")
+    request_pos = save_proc.index("WriteUtf8Text requestPath")
     start_pos = save_proc.index("If Not StartAuthoritativeCommit(")
-    close_pos = save_proc.index("ThisWorkbook.Close SaveChanges:=True")
-    assert start_pos < close_pos
+    close_pos = save_proc.index("ThisWorkbook.Close SaveChanges:=False")
+
+    assert save_pos < request_pos < start_pos < close_pos
+    assert "ThisWorkbook.Close SaveChanges:=True" not in save_proc
     assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in FORM_BRIDGE_CODE
     assert "Unload Me" in save_proc
