@@ -75,6 +75,16 @@ def test_clinic_banners_are_larger_and_more_prominent():
     assert "ws.Rows(row).RowHeight = 30" in source
 
 
+def test_clinic_banner_styling_never_inserts_or_deletes_rows():
+    ensure_source = inspect.getsource(master_visual_style._ensure_clinic_banner)
+    apply_source = inspect.getsource(master_visual_style._apply_master_visual_style)
+    assert ".Insert(" not in ensure_source
+    assert ".Delete(" not in ensure_source
+    assert ".Insert(" not in apply_source
+    assert ".Delete(" not in apply_source
+    assert "refusing to move data" in ensure_source
+
+
 def test_master_body_uses_larger_font_with_cell_level_shrink_to_fit():
     source = inspect.getsource(master_visual_style._apply_master_visual_style)
     assert "body.Font.Size = 10.5" in source
