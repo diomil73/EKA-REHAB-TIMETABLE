@@ -29,7 +29,7 @@ DEFAULT_PREVIEW_FILENAME = "REGISTRATION_MENU_PREVIEW.xlsm"
 STANDARD_MODULE_CODE = f'''Option Explicit
 
 Public Sub {MENU_MACRO_NAME}()
-    {MENU_FORM_NAME}.Show
+    {MENU_FORM_NAME}.Show vbModeless
 End Sub
 '''
 
