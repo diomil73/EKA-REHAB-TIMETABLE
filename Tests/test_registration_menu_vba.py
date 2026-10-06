@@ -42,9 +42,9 @@ def test_menu_component_names_are_stable():
     assert DEFAULT_PREVIEW_FILENAME == "REGISTRATION_MENU_PREVIEW.xlsm"
 
 
-def test_standard_module_exposes_show_macro():
+def test_standard_module_exposes_modeless_show_macro():
     assert f"Public Sub {MENU_MACRO_NAME}()" in STANDARD_MODULE_CODE
-    assert f"{MENU_FORM_NAME}.Show" in STANDARD_MODULE_CODE
+    assert f"{MENU_FORM_NAME}.Show vbModeless" in STANDARD_MODULE_CODE
 
 
 def test_userform_code_contains_registry_click_handlers_only():
