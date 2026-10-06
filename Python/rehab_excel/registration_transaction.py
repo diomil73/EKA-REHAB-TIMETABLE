@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import time
 from typing import Callable, Mapping
 from uuid import uuid4
@@ -70,6 +71,26 @@ def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, objec
     return transaction_payload, transaction_dir
 
 
+def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
+    """Build the preview in a fresh COM apartment after Excel self-close."""
+
+    if os.name != "nt":
+        return run_registration_bridge(payload)
+
+    try:
+        import pythoncom  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RegistrationTransactionError(
+            "pywin32/pythoncom is required for Windows registration preview creation"
+        ) from exc
+
+    pythoncom.CoInitialize()
+    try:
+        return run_registration_bridge(payload)
+    finally:
+        pythoncom.CoUninitialize()
+
+
 def run_registration_transaction(
     payload: Mapping[str, object],
     *,
@@ -112,7 +133,7 @@ def run_registration_transaction(
     )
 
     try:
-        preview = run_registration_bridge(transaction_payload)
+        preview = _run_bridge_with_fresh_com(transaction_payload)
         commit: AuthoritativeCommitWorkerReport = commit_when_unlocked(
             source,
             str(preview["output_path"]),
