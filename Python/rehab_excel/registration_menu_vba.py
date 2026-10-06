@@ -40,7 +40,7 @@ Private Sub UserForm_Initialize()
     With Me
         .Caption = "Κεντρικό Μενού"
         .Width = 330
-        .Height = 400
+        .Height = 350
         .StartUpPosition = 1
         .BackColor = RGB(245, 247, 250)
     End With
@@ -63,12 +63,11 @@ Private Sub UserForm_Initialize()
     StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 113
     StyleMenuButton cmdStudent, "Νέος φοιτητής", 158
     StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή", 203
-    StyleMenuButton cmdDailyInput, "Εφαρμογή DAILY_INPUT", 248
 
     With cmdClose
         .Caption = "Κλείσιμο"
         .Left = 105
-        .Top = 310
+        .Top = 260
         .Width = 110
         .Height = 30
         .Font.Name = "Calibri"
@@ -109,10 +108,6 @@ Private Sub cmdOutpatientSchedule_Click()
     Exit Sub
 MissingForm:
     MsgBox "Η φόρμα προγράμματος εξωτερικού ασθενή δεν είναι εγκατεστημένη σε αυτό το αρχείο.", vbExclamation, "Πρόγραμμα εξωτερικού ασθενή"
-End Sub
-
-Private Sub cmdDailyInput_Click()
-    ApplyDailyInputPreview
 End Sub
 
 Private Sub cmdClose_Click()
@@ -280,15 +275,8 @@ class Win32ComRegistrationMenuInstaller:
                 "Πρόγραμμα εξωτερικού ασθενή",
                 166,
             )
-            stage = "adding DAILY_INPUT menu button"
-            self._add_command_button(
-                designer,
-                "cmdDailyInput",
-                "Εφαρμογή DAILY_INPUT",
-                203,
-            )
             stage = "adding close menu button"
-            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 250)
+            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 215)
 
             stage = "writing menu form code"
             form.CodeModule.AddFromString(USERFORM_CODE)
