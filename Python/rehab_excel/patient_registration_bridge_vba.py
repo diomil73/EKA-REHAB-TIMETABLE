@@ -12,19 +12,6 @@ from .patient_registration_form_vba import PATIENT_FORM_NAME
 BRIDGE_MODULE_NAME = "modPatientRegistrationBridge"
 BRIDGE_SCRIPT_RELATIVE = r"Python\tools\registration_bridge_cli.py"
 
-BRIDGE_MODULE_CODE = r'''Option Explicit
-
-Public Sub CloseAfterPatientRegistration()
-    On Error GoTo CloseError
-    ThisWorkbook.Close SaveChanges:=False
-    Exit Sub
-
-CloseError:
-    MsgBox "Δεν ήταν δυνατό να κλείσει προσωρινά το αρχείο: " & Err.Description, _
-           vbCritical, "Νέος ασθενής"
-End Sub
-'''
-
 FORM_BRIDGE_CODE = r'''
 Private Sub cmdSave_Click()
     Dim requestPath As String
@@ -36,6 +23,8 @@ Private Sub cmdSave_Click()
     Dim responseText As String
     Dim exitCode As Long
     Dim patientType As String
+    Dim previewPath As String
+    Dim sourceSha256 As String
 
     If Not ValidateForm() Then Exit Sub
 
@@ -76,25 +65,24 @@ Private Sub cmdSave_Click()
     End If
 
     txtPatientID.Text = JsonStringValue(responseText, "subject_key")
-
-    If Not StartAuthoritativeCommit( _
-        JsonStringValue(responseText, "output_path"), _
-        JsonStringValue(responseText, "source_sha256_before")) Then
-        GoTo CleanUp
-    End If
+    previewPath = JsonStringValue(responseText, "output_path")
+    sourceSha256 = JsonStringValue(responseText, "source_sha256_before")
 
     MsgBox "Η εγγραφή επαληθεύτηκε και είναι έτοιμη για αποθήκευση." & vbCrLf & _
            "Patient ID: " & txtPatientID.Text & vbCrLf & vbCrLf & _
            "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα μετά την ασφαλή αποθήκευση.", _
            vbInformation, "Νέος ασθενής"
 
+    If Not StartAuthoritativeCommit(previewPath, sourceSha256) Then
+        GoTo CleanUp
+    End If
+
     On Error Resume Next
     If Len(requestPath) > 0 Then Kill requestPath
     If Len(responsePath) > 0 Then Kill responsePath
-    On Error GoTo BridgeError
+    On Error GoTo 0
 
     Unload Me
-    ScheduleRegistrationClose
     Exit Sub
 
 CleanUp:
@@ -108,15 +96,6 @@ BridgeError:
     MsgBox "Δεν ήταν δυνατή η εκτέλεση του registration backend: " & Err.Description, _
            vbCritical, "Νέος ασθενής"
     Resume CleanUp
-End Sub
-
-Private Sub ScheduleRegistrationClose()
-    Dim macroName As String
-
-    macroName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!CloseAfterPatientRegistration"
-    Application.OnTime EarliestTime:=Now + TimeSerial(0, 0, 1), _
-                       Procedure:=macroName, _
-                       Schedule:=True
 End Sub
 
 Private Function BuildPatientRegistrationJson(ByVal patientType As String) As String
@@ -203,6 +182,8 @@ Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal
         q & "expected_source_sha256" & q & ":" & q & JsonEscape(sourceSha256) & q & "," & _
         q & "remove_preview_after_success" & q & ":true," & _
         q & "reopen" & q & ":true," & _
+        q & "close_open_workbook" & q & ":true," & _
+        q & "close_delay_seconds" & q & ":1.5," & _
         q & "timeout_seconds" & q & ":30," & _
         q & "poll_seconds" & q & ":0.5" & _
         "}"
@@ -356,18 +337,11 @@ def _replace_procedure(code_module, procedure_name: str, replacement: str) -> No
 
 
 def _replace_bridge_helpers(code_module, helper_code: str) -> None:
-    helper_name = "ScheduleRegistrationClose"
+    helper_name = "BuildPatientRegistrationJson"
     try:
         helper_start = code_module.ProcStartLine(helper_name, 0)
     except Exception:
         helper_start = 0
-
-    if not helper_start:
-        helper_name = "BuildPatientRegistrationJson"
-        try:
-            helper_start = code_module.ProcStartLine(helper_name, 0)
-        except Exception:
-            helper_start = 0
 
     if helper_start:
         code_module.DeleteLines(helper_start, code_module.CountOfLines - helper_start + 1)
@@ -375,17 +349,13 @@ def _replace_bridge_helpers(code_module, helper_code: str) -> None:
     code_module.AddFromString(helper_code)
 
 
-def _replace_standard_module(vbproject) -> None:
+def _remove_stale_standard_module(vbproject) -> None:
     try:
         existing = vbproject.VBComponents(BRIDGE_MODULE_NAME)
     except Exception:
         existing = None
     if existing is not None:
         vbproject.VBComponents.Remove(existing)
-
-    module = vbproject.VBComponents.Add(1)
-    module.Name = BRIDGE_MODULE_NAME
-    module.CodeModule.AddFromString(BRIDGE_MODULE_CODE)
 
 
 def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
@@ -412,33 +382,25 @@ def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
         code_module = component.CodeModule
 
         bridge_text = FORM_BRIDGE_CODE
-        save_end = bridge_text.index("Private Sub ScheduleRegistrationClose")
+        save_end = bridge_text.index("Private Function BuildPatientRegistrationJson")
         save_proc = bridge_text[:save_end].rstrip()
         helper_code = bridge_text[save_end:].lstrip()
 
         _replace_procedure(code_module, "cmdSave_Click", save_proc)
         _replace_bridge_helpers(code_module, helper_code)
-        _replace_standard_module(vbproject)
+        _remove_stale_standard_module(vbproject)
 
         stored_text = code_module.Lines(1, code_module.CountOfLines)
-        module_text = vbproject.VBComponents(BRIDGE_MODULE_NAME).CodeModule.Lines(
-            1,
-            vbproject.VBComponents(BRIDGE_MODULE_NAME).CodeModule.CountOfLines,
-        )
         required_markers = (
             "registration_bridge_cli.py",
             "BuildPatientRegistrationJson",
             "ResolveRegistrationBridgeScript",
-            "ScheduleRegistrationClose",
+            'q & "close_open_workbook" & q & ":true,"',
             'Chr$(34) & "ok" & Chr$(34)',
         )
         if not all(marker in stored_text for marker in required_markers):
             raise PatientRegistrationBridgeVbaError(
                 "Patient registration bridge verification failed before workbook save"
-            )
-        if "CloseAfterPatientRegistration" not in module_text:
-            raise PatientRegistrationBridgeVbaError(
-                "Patient registration close helper verification failed before workbook save"
             )
 
         workbook.Save()
