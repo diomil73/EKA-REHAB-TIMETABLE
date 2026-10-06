@@ -32,6 +32,9 @@ Private Sub cmdSave_Click()
         Exit Sub
     End If
 
+    On Error GoTo BridgeError
+    ThisWorkbook.Save
+
     pythonExe = "python"
     previewDir = ThisWorkbook.Path
     requestPath = Environ$("TEMP") & "\eka_registration_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
@@ -44,7 +47,6 @@ Private Sub cmdSave_Click()
                   " --request " & QuoteArg(requestPath) & _
                   " --response " & QuoteArg(responsePath)
 
-    On Error GoTo BridgeError
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
 
     If Dir$(responsePath) = "" Then
@@ -79,7 +81,7 @@ Private Sub cmdSave_Click()
     On Error GoTo 0
 
     Unload Me
-    ThisWorkbook.Close SaveChanges:=True
+    ThisWorkbook.Close SaveChanges:=False
     Exit Sub
 
 CleanUp:
@@ -217,7 +219,6 @@ End Function
 Private Function QuoteArg(ByVal value As String) As String
     QuoteArg = Chr$(34) & Replace(value, Chr$(34), Chr$(34) & Chr$(34)) & Chr$(34)
 End Function
-
 Private Function JsonEscape(ByVal value As String) As String
     Dim text As String
     text = Replace(value, "\", "\\")
