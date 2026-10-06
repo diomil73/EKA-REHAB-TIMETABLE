@@ -48,6 +48,13 @@ Private Sub cmdSave_Click()
            "μόλις ολοκληρωθεί η ασφαλής ενημέρωση.", _
            vbInformation, "Νέος ασθενής"
 
+    ' The central registration menu is modal. If it remains loaded behind this
+    ' form, Excel refuses an external Workbook.Close even after this form unloads.
+    ' Release it before starting the detached transaction worker.
+    On Error Resume Next
+    Unload frmRegistrationMenu
+    On Error GoTo BridgeError
+
     commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
                   " --request " & QuoteArg(requestPath) & _
                   " --response " & QuoteArg(responsePath)
