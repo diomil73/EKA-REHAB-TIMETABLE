@@ -41,6 +41,19 @@ class MasterProjectionBackend(Protocol):
 class Win32ComMasterProjectionBackend:
     """Rebuild MASTER_SCHEDULE as a sorted projection of PATIENT_PLANNER."""
 
+    _CANONICAL_SOURCE_COLUMNS = {
+        1: "D",
+        2: "B",
+        3: "C",
+        4: "F",
+        5: "I",
+        6: "N",
+        7: "L",
+        8: "P",
+        9: "R",
+        10: "T",
+    }
+
     def __init__(self, palette: NativeStylePalette | None = None) -> None:
         self.palette = palette or NativeStylePalette()
 
@@ -81,21 +94,42 @@ class Win32ComMasterProjectionBackend:
         raise MasterProjectionWriteError("MASTER_SCHEDULE header row was not found")
 
     @classmethod
+    def _canonical_formula_templates(cls, status_col: int) -> dict[int, str]:
+        formulas = {
+            col: f"=PATIENT_PLANNER!{source_col}2"
+            for col, source_col in cls._CANONICAL_SOURCE_COLUMNS.items()
+        }
+        formulas[status_col] = "=PATIENT_PLANNER!E2"
+        return formulas
+
+    @classmethod
     def _template_formulas(cls, ws) -> tuple[int, dict[int, str]]:
         header_row = cls._header_row(ws)
         template_row = header_row + 1
         total_cols, status_col = cls._schema(ws)
-        formulas: dict[int, str] = {}
-        for col in range(1, total_cols + 1):
-            value = ws.Cells(template_row, col).Formula
-            text = str(value or "")
-            if text.startswith("="):
-                formulas[col] = text
         required = set(range(1, 11)) | {status_col}
+        formulas: dict[int, str] = {}
+
+        last_row = max(template_row, cls._last_value_row(ws))
+        for row in range(template_row, last_row + 1):
+            for col in range(1, total_cols + 1):
+                if col in formulas:
+                    continue
+                value = ws.Cells(row, col).Formula
+                text = str(value or "")
+                if text.startswith("=") and "PATIENT_PLANNER!" in text.upper():
+                    formulas[col] = text
+            if required.issubset(formulas):
+                break
+
+        canonical = cls._canonical_formula_templates(status_col)
+        for col in required.difference(formulas):
+            formulas[col] = canonical[col]
+
         missing = sorted(required.difference(formulas))
         if missing:
             raise MasterProjectionWriteError(
-                f"MASTER_SCHEDULE row {template_row} is missing formula templates in columns: {missing}"
+                f"MASTER_SCHEDULE could not resolve formula templates in columns: {missing}"
             )
         return template_row, formulas
 
@@ -180,8 +214,6 @@ class Win32ComMasterProjectionBackend:
                     ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)
                 except Exception:
                     pass
-                # A:M/K are authoritative display columns. N:P are legacy tail
-                # cells that have produced stale FALSE values in real smoke tests.
                 ws.Range(f"A{row}:P{row}").ClearContents()
 
             for item in projection:
