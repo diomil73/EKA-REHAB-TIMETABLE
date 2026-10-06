@@ -360,13 +360,22 @@
 
 Τελευταίο full regression:
 
-**447 passed, 0 failed, 14 warnings**
+**513 passed, 0 failed, 19 warnings**
+
+### Τρέχον UI checkpoint
+
+- **Validated smoke build:** MASTER_TOOLBAR_SMOKE_V12.xlsm
+- Το central registration menu δεν περιλαμβάνει πλέον ξεχωριστό Εφαρμογή DAILY_INPUT.
+- Η λειτουργία **Απουσίες / Ακυρώσεις** της MASTER toolbar οδηγεί στο DAILY_INPUT.
+- Η λειτουργία **Ημερήσιο πρόγραμμα** οδηγεί στο THERAPIST_DAILY.
+- Επιβεβαιώθηκαν navigation προς MASTER, application mode, Excel UI restore και Save & Exit.
+- Το Phase 1 app shell πέρασε manual smoke validation στις **2026-10-06**.
 
 ---
 
 ## 12. Προτεινόμενη σειρά υλοποίησης UI
 
-### Phase 1 — App shell
+### Phase 1 — App shell ✅ COMPLETED
 - αυτόματο άνοιγμα στο MASTER
 - απόκρυψη Excel chrome
 - διατήρηση application mode κατά τη μετάβαση στο THERAPIST_DAILY
