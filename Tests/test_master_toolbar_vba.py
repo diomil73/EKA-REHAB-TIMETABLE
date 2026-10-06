@@ -52,25 +52,27 @@ class _FakeWorksheet:
         return _Rows(self, key)
 
 
-def test_master_toolbar_contract_has_primary_actions_and_exit():
+def test_master_toolbar_contract_has_consolidated_actions_and_exit():
     assert MASTER_TOOLBAR_MODULE_NAME == "modMasterToolbar"
     assert MASTER_TOOLBAR_PREFIX == "ekaToolbar_"
     assert [item[1] for item in BUTTONS] == [
-        "Νέος ασθενής",
-        "Θεραπευτής / Φοιτητής",
-        "Απουσία ασθενή",
-        "Απουσία θεραπευτή",
+        "Διαχείριση Μητρώων",
+        "Απουσίες / Ακυρώσεις",
         "Ημερήσιο πρόγραμμα",
         "Save & Exit",
     ]
 
 
 def test_master_toolbar_actions_route_to_existing_features():
-    assert "frmNewPatient.Show" in MASTER_TOOLBAR_MODULE_CODE
+    assert "Public Sub ToolbarRegistryManagement()" in MASTER_TOOLBAR_MODULE_CODE
     assert "ShowRegistrationMenu" in MASTER_TOOLBAR_MODULE_CODE
-    assert 'GoToDailyInputSection "ΑΠΟΥΣΙΕΣ / ΑΚΥΡΩΣΕΙΣ ΑΣΘΕΝΩΝ"' in MASTER_TOOLBAR_MODULE_CODE
-    assert 'GoToDailyInputSection "ΑΠΟΥΣΙΕΣ ΘΕΡΑΠΕΥΤΩΝ"' in MASTER_TOOLBAR_MODULE_CODE
+    assert "Public Sub ToolbarAbsences()" in MASTER_TOOLBAR_MODULE_CODE
+    assert 'Worksheets("DAILY_INPUT").Activate' in MASTER_TOOLBAR_MODULE_CODE
     assert 'Worksheets("THERAPIST_DAILY").Activate' in MASTER_TOOLBAR_MODULE_CODE
+    assert "ToolbarNewPatient" not in MASTER_TOOLBAR_MODULE_CODE
+    assert "ToolbarNewProvider" not in MASTER_TOOLBAR_MODULE_CODE
+    assert "ToolbarPatientAbsence" not in MASTER_TOOLBAR_MODULE_CODE
+    assert "ToolbarTherapistAbsence" not in MASTER_TOOLBAR_MODULE_CODE
 
 
 def test_app_header_rows_are_inserted_above_legacy_master_header():
