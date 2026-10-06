@@ -50,8 +50,10 @@ def main() -> int:
         backup_path_text = str(payload.get("backup_path", "")).strip()
         remove_preview = payload.get("remove_preview_after_success", True)
         reopen = payload.get("reopen", True)
+        close_open_workbook = payload.get("close_open_workbook", False)
         timeout_seconds = float(payload.get("timeout_seconds", 30))
         poll_seconds = float(payload.get("poll_seconds", 0.5))
+        close_delay_seconds = float(payload.get("close_delay_seconds", 1.5))
         post_reopen_target = str(payload.get("post_reopen_target", "")).strip()
 
         if not source_path:
@@ -66,6 +68,8 @@ def main() -> int:
             )
         if not isinstance(reopen, bool):
             raise AuthoritativeCommitWorkerError("reopen must be a boolean")
+        if not isinstance(close_open_workbook, bool):
+            raise AuthoritativeCommitWorkerError("close_open_workbook must be a boolean")
 
         report = commit_when_unlocked(
             source_path,
@@ -77,6 +81,8 @@ def main() -> int:
             poll_seconds=poll_seconds,
             reopen=reopen,
             post_reopen_target=post_reopen_target or None,
+            close_open_workbook=close_open_workbook,
+            close_delay_seconds=close_delay_seconds,
         )
     except (OSError, ValueError, json.JSONDecodeError, AuthoritativeCommitWorkerError) as exc:
         _write_response(args.response, {"ok": False, "error": str(exc)})
