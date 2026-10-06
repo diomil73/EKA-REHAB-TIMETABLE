@@ -1,5 +1,4 @@
 from rehab_excel.patient_registration_bridge_vba import (
-    BRIDGE_MODULE_CODE,
     BRIDGE_MODULE_NAME,
     FORM_BRIDGE_CODE,
     PATIENT_FORM_NAME,
@@ -62,25 +61,25 @@ def test_bridge_wires_authoritative_commit_worker():
     assert 'q & "reopen" & q & ":true,"' in FORM_BRIDGE_CODE
 
 
-def test_bridge_saves_before_preview_hash_and_defers_close_without_resaving_source():
+def test_bridge_saves_before_preview_hash_then_hands_close_to_worker():
     save_proc_end = FORM_BRIDGE_CODE.index("CleanUp:")
     save_proc = FORM_BRIDGE_CODE[:save_proc_end]
     save_pos = save_proc.index("ThisWorkbook.Save")
     request_pos = save_proc.index("WriteUtf8Text requestPath")
+    message_pos = save_proc.index('MsgBox "Η εγγραφή επαληθεύτηκε')
     start_pos = save_proc.index("If Not StartAuthoritativeCommit(")
     unload_pos = save_proc.index("Unload Me")
-    schedule_pos = save_proc.index("ScheduleRegistrationClose")
 
-    assert save_pos < request_pos < start_pos < unload_pos < schedule_pos
+    assert save_pos < request_pos < message_pos < start_pos < unload_pos
     assert "ThisWorkbook.Close SaveChanges:=True" not in save_proc
     assert "ThisWorkbook.Close SaveChanges:=False" not in save_proc
+    assert "Application.OnTime" not in FORM_BRIDGE_CODE
     assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in FORM_BRIDGE_CODE
 
 
-def test_bridge_uses_standard_module_and_ontime_for_deferred_close():
+def test_bridge_requests_worker_driven_close_before_commit():
     assert BRIDGE_MODULE_NAME == "modPatientRegistrationBridge"
-    assert "Public Sub CloseAfterPatientRegistration()" in BRIDGE_MODULE_CODE
-    assert "ThisWorkbook.Close SaveChanges:=False" in BRIDGE_MODULE_CODE
-    assert "Private Sub ScheduleRegistrationClose()" in FORM_BRIDGE_CODE
-    assert "Application.OnTime" in FORM_BRIDGE_CODE
-    assert "CloseAfterPatientRegistration" in FORM_BRIDGE_CODE
+    assert 'q & "close_open_workbook" & q & ":true,"' in FORM_BRIDGE_CODE
+    assert 'q & "close_delay_seconds" & q & ":1.5,"' in FORM_BRIDGE_CODE
+    assert "ScheduleRegistrationClose" not in FORM_BRIDGE_CODE
+    assert "CloseAfterPatientRegistration" not in FORM_BRIDGE_CODE
