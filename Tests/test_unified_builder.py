@@ -25,8 +25,33 @@ def test_unified_builder_runs_stages_in_required_order(tmp_path, monkeypatch):
     def fake_run(label: str, args: list[str]) -> None:
         calls.append((label, args))
 
+        if "--output" in args:
+            output_index = args.index("--output") + 1
+            stage_output = Path(args[output_index])
+            stage_output.parent.mkdir(parents=True, exist_ok=True)
+            stage_output.write_bytes(b"preview")
+
     monkeypatch.setattr(unified, "_run_step", fake_run)
-    monkeypatch.setattr(unified, "_verify_final_workbook", lambda path: None)
+    monkeypatch.setattr(
+        unified,
+        "_verify_final_workbook",
+        lambda path: None,
+    )
+    monkeypatch.setattr(
+        unified,
+        "refresh_master_projection_in_place",
+        lambda path: 0,
+    )
+    monkeypatch.setattr(
+        unified,
+        "finalize_user_navigation",
+        lambda path: None,
+    )
+    monkeypatch.setattr(
+        unified,
+        "apply_master_visual_style_in_place",
+        lambda path: None,
+    )
 
     result = unified.build_unified_preview(
         source,
@@ -43,8 +68,12 @@ def test_unified_builder_runs_stages_in_required_order(tmp_path, monkeypatch):
         "DAILY_INPUT sheet",
     ]
     assert calls[0][1][1].endswith("build_registration_menu_preview.py")
-    assert calls[1][1][1].endswith("build_patient_registration_bridge_preview.py")
-    assert calls[2][1][1].endswith("build_outpatient_schedule_form_preview.py")
+    assert calls[1][1][1].endswith(
+        "build_patient_registration_bridge_preview.py"
+    )
+    assert calls[2][1][1].endswith(
+        "build_outpatient_schedule_form_preview.py"
+    )
     assert calls[3][1][1].endswith("preview_daily_input_sheet.py")
     assert "2026-09-28" in calls[3][1]
 
@@ -53,7 +82,10 @@ def test_unified_builder_refuses_source_equal_to_output(tmp_path):
     source = tmp_path / "same.xlsm"
     source.write_bytes(b"source")
 
-    with pytest.raises(unified.UnifiedBuildError, match="different from source"):
+    with pytest.raises(
+        unified.UnifiedBuildError,
+        match="different from source",
+    ):
         unified.build_unified_preview(
             source,
             source,
@@ -67,7 +99,10 @@ def test_unified_builder_refuses_existing_output_without_overwrite(tmp_path):
     source.write_bytes(b"source")
     output.write_bytes(b"existing")
 
-    with pytest.raises(unified.UnifiedBuildError, match="already exists"):
+    with pytest.raises(
+        unified.UnifiedBuildError,
+        match="already exists",
+    ):
         unified.build_unified_preview(
             source,
             output,
@@ -81,7 +116,10 @@ def test_unified_builder_requires_xlsm(tmp_path):
     output = tmp_path / "unified.xlsm"
     source.write_bytes(b"source")
 
-    with pytest.raises(unified.UnifiedBuildError, match="both be .xlsm"):
+    with pytest.raises(
+        unified.UnifiedBuildError,
+        match="both be .xlsm",
+    ):
         unified.build_unified_preview(
             source,
             output,
