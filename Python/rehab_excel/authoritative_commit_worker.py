@@ -39,6 +39,14 @@ def _default_open_workbook(path: Path) -> None:
 
 
 def _default_close_workbook(path: Path) -> None:
+    """Ask the workbook to close itself through its proven Save & Exit macro.
+
+    Calling Workbook.Close from a detached COM client is unreliable while Excel
+    is unwinding VBA/UserForm state. Running the workbook's own ExitApplication
+    macro keeps shutdown inside Excel, where the existing application-shell code
+    already handles Save, events, UI restoration, workbook close, and Excel quit.
+    """
+
     if os.name != "nt":
         raise AuthoritativeCommitWorkerError(
             "Automatic workbook close is only supported on Windows"
@@ -57,7 +65,6 @@ def _default_close_workbook(path: Path) -> None:
         try:
             excel = win32com.client.GetActiveObject("Excel.Application")
         except Exception:
-            # Excel may already have closed between worker startup and this check.
             return
 
         target = str(path.resolve()).casefold()
@@ -67,9 +74,36 @@ def _default_close_workbook(path: Path) -> None:
                 full_name = str(workbook.FullName or "").casefold()
             except Exception:
                 continue
-            if full_name == target:
-                workbook.Close(SaveChanges=False)
+            if full_name != target:
+                continue
+
+            workbook_name = str(workbook.Name or "").replace("'", "''")
+            macro_name = f"'{workbook_name}'!ExitApplication"
+            try:
+                excel.Run(macro_name)
+            except Exception as exc:
+                # If ExitApplication quits the only Excel instance, COM can be
+                # disconnected while the macro is successfully completing.
+                # Treat that as success only when the target is no longer visible
+                # through the active Excel instance; otherwise surface the error.
+                try:
+                    active = win32com.client.GetActiveObject("Excel.Application")
+                    still_open = False
+                    for wb_index in range(1, int(active.Workbooks.Count) + 1):
+                        wb = active.Workbooks(wb_index)
+                        try:
+                            if str(wb.FullName or "").casefold() == target:
+                                still_open = True
+                                break
+                        except Exception:
+                            continue
+                    if still_open:
+                        raise exc
+                except Exception as verify_exc:
+                    if verify_exc is exc:
+                        raise
                 return
+            return
     finally:
         pythoncom.CoUninitialize()
 
