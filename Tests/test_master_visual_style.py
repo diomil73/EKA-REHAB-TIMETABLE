@@ -103,12 +103,14 @@ def test_patient_identity_typography_preserves_smaller_doctor_line():
     assert "RED_CROSS" in source
 
 
-def test_unified_builder_applies_master_visual_style_after_navigation():
+def test_unified_builder_refreshes_master_before_navigation_and_visual_style():
     from pathlib import Path
 
     build_path = Path(__file__).resolve().parents[1] / "Python" / "tools" / "build_unified_preview.py"
     source = build_path.read_text(encoding="utf-8")
+    projection_pos = source.index("refresh_master_projection_in_place(output)")
     nav_pos = source.index("finalize_user_navigation(output)")
     style_pos = source.index("apply_master_visual_style_in_place(output)")
-    assert nav_pos < style_pos
+    assert projection_pos < nav_pos < style_pos
+    assert 'print(f"[OK] MASTER projection refresh ({projected} patients)")' in source
     assert 'print("[OK] MASTER visual baseline")' in source
