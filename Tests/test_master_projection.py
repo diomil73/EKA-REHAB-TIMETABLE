@@ -26,7 +26,7 @@ def _workbook(tmp_path: Path) -> Path:
     return path
 
 
-def test_projection_sorts_by_configured_room_then_patient_name(tmp_path):
+def test_projection_sorts_rooms_naturally_then_patient_name(tmp_path):
     path = _workbook(tmp_path)
     patients = [
         Patient("1", "ΧΑΣΙΚΟΣ", room="A09"),
@@ -42,9 +42,10 @@ def test_projection_sorts_by_configured_room_then_patient_name(tmp_path):
     rows = build_master_projection(
         path,
         patients=patients,
-        room_order=("A01", "A02", "A09", "B01"),
+        room_order=("A09", "A02", "B01", "A01"),
     )
 
+    # SETTINGS order is intentionally stale; clinical natural order wins.
     # Row 2 is deliberately reserved for the Α' ΚΛΙΝΙΚΗ banner.
     assert [(row.target_row, row.planner_row, row.patient_id) for row in rows] == [
         (3, 3, "2"),
@@ -52,6 +53,32 @@ def test_projection_sorts_by_configured_room_then_patient_name(tmp_path):
         (5, 2, "1"),
     ]
     assert all(row.patient_id != "4" for row in rows)
+
+
+def test_projection_never_interleaves_b_clinic_inside_a_clinic(tmp_path):
+    path = _workbook(tmp_path)
+    patients = [
+        Patient("1", "A11 PATIENT", room="A11"),
+        Patient("2", "A04 PATIENT", room="A04"),
+        Patient("3", "B08 PATIENT", room="B08"),
+        Patient("5", "A05 PATIENT", room="A05"),
+        Patient("6", "B01 PATIENT", room="B01"),
+    ]
+
+    rows = build_master_projection(
+        path,
+        patients=patients,
+        room_order=("A11", "A04", "B08", "A05", "B01"),
+    )
+
+    assert [(row.room, row.target_row) for row in rows] == [
+        ("A04", 3),
+        ("A05", 4),
+        ("A11", 5),
+        ("B01", 7),
+        ("B08", 8),
+    ]
+    # Rows 2 and 6 are the Α' and Β' clinic banner rows.
 
 
 def test_projection_keeps_patient_registry_rows_as_formula_targets(tmp_path):
