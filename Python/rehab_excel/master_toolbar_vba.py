@@ -5,20 +5,17 @@ MASTER_TOOLBAR_PREFIX = "ekaToolbar_"
 
 MASTER_TOOLBAR_MODULE_CODE = r'''Option Explicit
 
-Public Sub ToolbarNewPatient()
-    frmNewPatient.Show
-End Sub
-
-Public Sub ToolbarNewProvider()
+Public Sub ToolbarRegistryManagement()
     ShowRegistrationMenu
 End Sub
 
-Public Sub ToolbarPatientAbsence()
-    GoToDailyInputSection "ΑΠΟΥΣΙΕΣ / ΑΚΥΡΩΣΕΙΣ ΑΣΘΕΝΩΝ"
-End Sub
-
-Public Sub ToolbarTherapistAbsence()
-    GoToDailyInputSection "ΑΠΟΥΣΙΕΣ ΘΕΡΑΠΕΥΤΩΝ"
+Public Sub ToolbarAbsences()
+    On Error GoTo MissingSheet
+    ThisWorkbook.Worksheets("DAILY_INPUT").Activate
+    ThisWorkbook.Worksheets("DAILY_INPUT").Range("A1").Select
+    Exit Sub
+MissingSheet:
+    MsgBox "Δεν βρέθηκε το DAILY_INPUT.", vbExclamation, "Απουσίες / Ακυρώσεις"
 End Sub
 
 Public Sub GoToMaster()
@@ -98,44 +95,34 @@ Public Sub ToolbarTherapistDaily()
 MissingSheet:
     MsgBox "Δεν βρέθηκε το THERAPIST_DAILY.", vbExclamation, "Ημερήσιο πρόγραμμα"
 End Sub
-
-Private Sub GoToDailyInputSection(ByVal sectionTitle As String)
-    Dim ws As Worksheet
-    Dim found As Range
-
-    On Error GoTo MissingSheet
-    Set ws = ThisWorkbook.Worksheets("DAILY_INPUT")
-    ws.Activate
-
-    Set found = ws.Cells.Find( _
-        What:=sectionTitle, _
-        After:=ws.Cells(1, 1), _
-        LookIn:=xlValues, _
-        LookAt:=xlPart, _
-        SearchOrder:=xlByRows, _
-        SearchDirection:=xlNext, _
-        MatchCase:=False)
-
-    If Not found Is Nothing Then
-        Application.Goto found, True
-    Else
-        ws.Range("A1").Select
-    End If
-    Exit Sub
-
-MissingSheet:
-    MsgBox "Δεν βρέθηκε το DAILY_INPUT.", vbExclamation, "Ημερήσια κατάσταση"
-End Sub
 '''
 
 
 BUTTONS = (
-    ("NewPatient", "Νέος ασθενής", "ToolbarNewPatient", "Προσθήκη νέου εσωτερικού ή εξωτερικού ασθενή."),
-    ("NewProvider", "Θεραπευτής / Φοιτητής", "ToolbarNewProvider", "Προσθήκη νέου θεραπευτή ή φοιτητή."),
-    ("PatientAbsence", "Απουσία ασθενή", "ToolbarPatientAbsence", "Καταχώρηση απουσίας ή ακύρωσης συνεδρίας ασθενή."),
-    ("TherapistAbsence", "Απουσία θεραπευτή", "ToolbarTherapistAbsence", "Καταχώρηση απουσίας θεραπευτή και σχετικών ενεργειών."),
-    ("TherapistDaily", "Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily", "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών."),
-    ("Exit", "Save & Exit", "ExitApplication", "Αποθήκευση αλλαγών, κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel."),
+    (
+        "RegistryManagement",
+        "Διαχείριση Μητρώων",
+        "ToolbarRegistryManagement",
+        "Προσθήκη, μεταβολή ή απενεργοποίηση ασθενών, θεραπευτών και φοιτητών.",
+    ),
+    (
+        "Absences",
+        "Απουσίες / Ακυρώσεις",
+        "ToolbarAbsences",
+        "Καταχώρηση απουσιών και ακυρώσεων ασθενών ή θεραπευτών.",
+    ),
+    (
+        "TherapistDaily",
+        "Ημερήσιο πρόγραμμα",
+        "ToolbarTherapistDaily",
+        "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών.",
+    ),
+    (
+        "Exit",
+        "Save & Exit",
+        "ExitApplication",
+        "Αποθήκευση αλλαγών, κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel.",
+    ),
 )
 
 
