@@ -5,8 +5,8 @@ MASTER_TOOLBAR_PREFIX = "ekaToolbar_"
 
 MASTER_TOOLBAR_MODULE_CODE = r'''Option Explicit
 
-Public Sub ToolbarNewPatient()
-    frmNewPatient.Show
+Public Sub ToolbarRegistryManagement()
+    ShowRegistrationMenu
 End Sub
 
 Public Sub ToolbarAbsences()
@@ -100,10 +100,10 @@ End Sub
 
 BUTTONS = (
     (
-        "NewPatient",
-        "Νέος ασθενής",
-        "ToolbarNewPatient",
-        "Άνοιγμα της φόρμας νέου ασθενή.",
+        "RegistryManagement",
+        "Διαχείριση Μητρώων",
+        "ToolbarRegistryManagement",
+        "Προσθήκη, μεταβολή ή απενεργοποίηση ασθενών, θεραπευτών και φοιτητών.",
     ),
     (
         "Absences",
