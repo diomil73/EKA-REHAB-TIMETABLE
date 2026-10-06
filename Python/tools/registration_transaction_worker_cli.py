@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+import traceback
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = REPO_ROOT / "Python"
@@ -40,8 +41,19 @@ def main() -> int:
         if not isinstance(payload, dict):
             raise RegistrationTransactionError("request JSON must be an object")
         report = run_registration_transaction(payload)
-    except (OSError, ValueError, json.JSONDecodeError, RegistrationTransactionError) as exc:
-        _write_response(args.response, {"ok": False, "error": str(exc)})
+    except Exception as exc:  # Worker is detached; never let failures disappear silently.
+        try:
+            _write_response(
+                args.response,
+                {
+                    "ok": False,
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                    "traceback": traceback.format_exc(),
+                },
+            )
+        except Exception:
+            pass
         return 2
 
     _write_response(
