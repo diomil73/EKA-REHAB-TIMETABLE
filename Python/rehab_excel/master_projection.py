@@ -35,6 +35,17 @@ def _sort_text(value: str) -> str:
     return "".join(char for char in decomposed if not unicodedata.combining(char))
 
 
+def _clinic_key(room: str | None) -> str:
+    text = str(room or "").strip().casefold()
+    if not text:
+        return ""
+    if text[0] in {"a", "α"}:
+        return "A"
+    if text[0] in {"b", "β"}:
+        return "B"
+    return ""
+
+
 def _patient_rows(path: str | Path) -> dict[str, int]:
     workbook_path = Path(path)
     wb = load_workbook(
@@ -121,9 +132,17 @@ def build_master_projection(
 
     ordered = sorted(inpatients, key=sort_key)
     projection: list[MasterProjectionRow] = []
-    first_target_row = _master_header_row(path) + 1
+    next_target_row = _master_header_row(path) + 1
+    previous_clinic = ""
 
-    for target_row, patient in enumerate(ordered, start=first_target_row):
+    for patient in ordered:
+        clinic = _clinic_key(patient.room)
+        if clinic and clinic != previous_clinic:
+            # Reserve one physical row for the clinic banner. The styling pass
+            # must decorate this row in place and must never insert/delete rows.
+            next_target_row += 1
+            previous_clinic = clinic
+
         planner_row = row_by_id.get(patient.patient_id)
         if planner_row is None:
             raise MasterProjectionError(
@@ -131,7 +150,7 @@ def build_master_projection(
             )
         projection.append(
             MasterProjectionRow(
-                target_row=target_row,
+                target_row=next_target_row,
                 planner_row=planner_row,
                 patient_id=patient.patient_id,
                 room=patient.room or "",
@@ -141,6 +160,7 @@ def build_master_projection(
                 responsible_doctor=patient.responsible_doctor,
             )
         )
+        next_target_row += 1
 
     return tuple(projection)
 
