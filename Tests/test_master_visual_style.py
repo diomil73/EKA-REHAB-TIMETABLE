@@ -58,6 +58,41 @@ def test_master_visual_style_bounds_visible_scroll_area_from_column_b():
     assert 'ws.ScrollArea = f"B1:M{last_row + 1}"' in source
 
 
+def test_master_visual_style_has_matching_a_and_b_clinic_banners():
+    assert master_visual_style.FIRST_CLINIC_LABEL == "Α' ΚΛΙΝΙΚΗ"
+    assert master_visual_style.SECOND_CLINIC_LABEL == "Β' ΚΛΙΝΙΚΗ"
+    source = inspect.getsource(master_visual_style._ensure_clinic_banners)
+    assert 'clinic="A"' in source
+    assert 'label=FIRST_CLINIC_LABEL' in source
+    assert 'clinic="B"' in source
+    assert 'label=SECOND_CLINIC_LABEL' in source
+
+
+def test_clinic_banners_are_larger_and_more_prominent():
+    source = inspect.getsource(master_visual_style._style_clinic_banner)
+    assert "banner.Font.Size = 14" in source
+    assert "banner.Font.Bold = True" in source
+    assert "ws.Rows(row).RowHeight = 30" in source
+
+
+def test_master_body_uses_larger_font_with_cell_level_shrink_to_fit():
+    source = inspect.getsource(master_visual_style._apply_master_visual_style)
+    assert "body.Font.Size = 10.5" in source
+    assert "body.ShrinkToFit = True" in source
+    assert "room_cell.Font.Size = 12" in source
+    assert "room_cell.Font.Bold = True" in source
+    assert "treatment_range.Font.Size = 10.5" in source
+    assert "treatment_range.ShrinkToFit = True" in source
+
+
+def test_patient_identity_typography_preserves_smaller_doctor_line():
+    source = inspect.getsource(master_visual_style._format_patient_identity)
+    assert "cell.Font.Size = 11.5" in source
+    assert "cell.ShrinkToFit = True" in source
+    assert "Font.Size = 9.5" in source
+    assert "RED_CROSS" in source
+
+
 def test_unified_builder_applies_master_visual_style_after_navigation():
     from pathlib import Path
 
