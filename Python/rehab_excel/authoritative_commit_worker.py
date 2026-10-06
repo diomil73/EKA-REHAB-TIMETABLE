@@ -43,8 +43,8 @@ def _default_close_workbook(path: Path) -> None:
 
     Calling Workbook.Close from a detached COM client is unreliable while Excel
     is unwinding VBA/UserForm state. Running the workbook's own ExitApplication
-    macro keeps shutdown inside Excel, where the existing application-shell code
-    already handles Save, events, UI restoration, workbook close, and Excel quit.
+    macro keeps shutdown inside Excel. DisplayAlerts is disabled for this
+    background-only path so Excel cannot pause the transaction on a save prompt.
     """
 
     if os.name != "nt":
@@ -80,12 +80,9 @@ def _default_close_workbook(path: Path) -> None:
             workbook_name = str(workbook.Name or "").replace("'", "''")
             macro_name = f"'{workbook_name}'!ExitApplication"
             try:
+                excel.DisplayAlerts = False
                 excel.Run(macro_name)
             except Exception as exc:
-                # If ExitApplication quits the only Excel instance, COM can be
-                # disconnected while the macro is successfully completing.
-                # Treat that as success only when the target is no longer visible
-                # through the active Excel instance; otherwise surface the error.
                 try:
                     active = win32com.client.GetActiveObject("Excel.Application")
                     still_open = False
