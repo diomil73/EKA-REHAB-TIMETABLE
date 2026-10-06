@@ -46,6 +46,14 @@ def _clinic_key(room: str | None) -> str:
     return ""
 
 
+def _room_number(room: str | None) -> int | None:
+    text = str(room or "").strip()
+    match = re.search(r"(\d+)", text)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
 def _patient_rows(path: str | Path) -> dict[str, int]:
     workbook_path = Path(path)
     wb = load_workbook(
@@ -123,7 +131,23 @@ def build_master_projection(
     def sort_key(patient: Patient):
         room = patient.room or ""
         normalized_room = _sort_text(room)
+        clinic = _clinic_key(room)
+        number = _room_number(room)
+
+        if clinic in {"A", "B"} and number is not None:
+            # MASTER clinical order is authoritative: all A rooms numerically,
+            # followed by all B rooms numerically. SETTINGS order may be stale.
+            return (
+                0 if clinic == "A" else 1,
+                number,
+                normalized_room,
+                _sort_text(patient.display_name),
+                _sort_text(patient.patient_id),
+            )
+
+        # Unknown room formats retain configured SETTINGS order as a safe fallback.
         return (
+            2,
             room_rank.get(normalized_room, len(room_rank)),
             normalized_room,
             _sort_text(patient.display_name),
