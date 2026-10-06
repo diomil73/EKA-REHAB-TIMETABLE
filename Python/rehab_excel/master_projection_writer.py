@@ -64,7 +64,7 @@ class Win32ComMasterProjectionBackend:
     def _last_value_row(cls, ws) -> int:
         _total_cols, status_col = cls._schema(ws)
         rows = []
-        for col in (1, 2, 3, status_col):
+        for col in (1, 2, 3, status_col, 14, 15, 16):
             try:
                 rows.append(int(ws.Cells(ws.Rows.Count, col).End(-4162).Row))
             except Exception:
@@ -117,8 +117,8 @@ class Win32ComMasterProjectionBackend:
         text = f"{item.display_name}\n{cross} {doctor}"
         cell.Value = text
         cell.WrapText = True
-        cell.HorizontalAlignment = -4131  # xlLeft
-        cell.VerticalAlignment = -4108  # xlCenter
+        cell.HorizontalAlignment = -4131
+        cell.VerticalAlignment = -4108
         cell.Font.Color = excel_rgb(0, 0, 0)
         try:
             start = len(item.display_name) + 2
@@ -167,7 +167,10 @@ class Win32ComMasterProjectionBackend:
             template_row, templates = self._template_formulas(ws)
             total_cols, _status_col = self._schema(ws)
             old_last = self._last_value_row(ws)
-            new_last = max(template_row - 1, template_row + len(projection) - 1)
+            new_last = max(
+                template_row - 1,
+                max((item.target_row for item in projection), default=template_row - 1),
+            )
             clear_last = max(old_last, new_last)
 
             for row in range(template_row, clear_last + 1):
@@ -177,8 +180,9 @@ class Win32ComMasterProjectionBackend:
                     ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)
                 except Exception:
                     pass
-                end_col = "M" if total_cols == 13 else "K"
-                ws.Range(f"A{row}:{end_col}{row}").ClearContents()
+                # A:M/K are authoritative display columns. N:P are legacy tail
+                # cells that have produced stale FALSE values in real smoke tests.
+                ws.Range(f"A{row}:P{row}").ClearContents()
 
             for item in projection:
                 row = item.target_row
@@ -266,6 +270,9 @@ def _verify_projection(
 
             for col, value in expected.items():
                 if str(ws.cell(row, col).value or "") != value:
+                    return False
+            for col in (14, 15, 16):
+                if ws.cell(row, col).value not in (None, ""):
                     return False
 
         tail_row = max((item.target_row for item in projection), default=header_row) + 1
