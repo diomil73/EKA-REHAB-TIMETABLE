@@ -1,5 +1,4 @@
 from pathlib import Path
-from zipfile import ZipFile
 
 from openpyxl import Workbook
 
@@ -46,10 +45,11 @@ def test_projection_sorts_by_configured_room_then_patient_name(tmp_path):
         room_order=("A01", "A02", "A09", "B01"),
     )
 
+    # Row 2 is deliberately reserved for the Α' ΚΛΙΝΙΚΗ banner.
     assert [(row.target_row, row.planner_row, row.patient_id) for row in rows] == [
-        (2, 3, "2"),
-        (3, 4, "3"),
-        (4, 2, "1"),
+        (3, 3, "2"),
+        (4, 4, "3"),
+        (5, 2, "1"),
     ]
     assert all(row.patient_id != "4" for row in rows)
 
@@ -68,10 +68,33 @@ def test_projection_keeps_patient_registry_rows_as_formula_targets(tmp_path):
     )
 
     assert rows[0].display_name == "ΤΕΣΤ"
-    assert rows[0].target_row == 2
+    assert rows[0].target_row == 3
     assert rows[0].planner_row == 4
     assert rows[1].display_name == "ΧΑΣΙΚΟΣ"
+    assert rows[1].target_row == 4
     assert rows[1].planner_row == 2
+
+
+def test_projection_reserves_exactly_one_banner_row_at_clinic_transition(tmp_path):
+    path = _workbook(tmp_path)
+    patients = [
+        Patient("1", "ΧΑΣΙΚΟΣ", room="A09"),
+        Patient("2", "ΒΑΡΒΑΡΑΣ", room="A02"),
+        Patient("3", "ΤΕΣΤ", room="B01"),
+    ]
+
+    rows = build_master_projection(
+        path,
+        patients=patients,
+        room_order=("A02", "A09", "B01"),
+    )
+
+    assert [(row.room, row.target_row) for row in rows] == [
+        ("A02", 3),
+        ("A09", 4),
+        ("B01", 6),
+    ]
+    # Rows 2 and 5 are reserved for Α' and Β' clinic labels respectively.
 
 
 def test_remap_master_formula_redirects_all_planner_references():
@@ -92,7 +115,6 @@ def test_remap_master_formula_handles_absolute_row_reference():
         remap_master_formula("=PATIENT_PLANNER!$D$2", 100)
         == "=PATIENT_PLANNER!$D$100"
     )
-
 
 
 def test_projection_starts_below_shifted_master_header(tmp_path):
@@ -132,4 +154,5 @@ def test_projection_starts_below_shifted_master_header(tmp_path):
         room_order=("A02", "A09"),
     )
 
-    assert [row.target_row for row in rows] == [5, 6]
+    # Header is row 4, row 5 is reserved for Α' ΚΛΙΝΙΚΗ.
+    assert [row.target_row for row in rows] == [6, 7]
