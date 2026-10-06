@@ -12,6 +12,19 @@ from .patient_registration_form_vba import PATIENT_FORM_NAME
 BRIDGE_MODULE_NAME = "modPatientRegistrationBridge"
 BRIDGE_SCRIPT_RELATIVE = r"Python\tools\registration_bridge_cli.py"
 
+BRIDGE_MODULE_CODE = r'''Option Explicit
+
+Public Sub CloseAfterPatientRegistration()
+    On Error GoTo CloseError
+    ThisWorkbook.Close SaveChanges:=False
+    Exit Sub
+
+CloseError:
+    MsgBox "Δεν ήταν δυνατό να κλείσει προσωρινά το αρχείο: " & Err.Description, _
+           vbCritical, "Νέος ασθενής"
+End Sub
+'''
+
 FORM_BRIDGE_CODE = r'''
 Private Sub cmdSave_Click()
     Dim requestPath As String
@@ -78,10 +91,10 @@ Private Sub cmdSave_Click()
     On Error Resume Next
     If Len(requestPath) > 0 Then Kill requestPath
     If Len(responsePath) > 0 Then Kill responsePath
-    On Error GoTo 0
+    On Error GoTo BridgeError
 
     Unload Me
-    ThisWorkbook.Close SaveChanges:=False
+    ScheduleRegistrationClose
     Exit Sub
 
 CleanUp:
@@ -95,6 +108,15 @@ BridgeError:
     MsgBox "Δεν ήταν δυνατή η εκτέλεση του registration backend: " & Err.Description, _
            vbCritical, "Νέος ασθενής"
     Resume CleanUp
+End Sub
+
+Private Sub ScheduleRegistrationClose()
+    Dim macroName As String
+
+    macroName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!CloseAfterPatientRegistration"
+    Application.OnTime EarliestTime:=Now + TimeSerial(0, 0, 1), _
+                       Procedure:=macroName, _
+                       Schedule:=True
 End Sub
 
 Private Function BuildPatientRegistrationJson(ByVal patientType As String) As String
@@ -219,6 +241,7 @@ End Function
 Private Function QuoteArg(ByVal value As String) As String
     QuoteArg = Chr$(34) & Replace(value, Chr$(34), Chr$(34) & Chr$(34)) & Chr$(34)
 End Function
+
 Private Function JsonEscape(ByVal value As String) As String
     Dim text As String
     text = Replace(value, "\", "\\")
@@ -333,16 +356,36 @@ def _replace_procedure(code_module, procedure_name: str, replacement: str) -> No
 
 
 def _replace_bridge_helpers(code_module, helper_code: str) -> None:
-    helper_name = "BuildPatientRegistrationJson"
+    helper_name = "ScheduleRegistrationClose"
     try:
         helper_start = code_module.ProcStartLine(helper_name, 0)
     except Exception:
         helper_start = 0
 
+    if not helper_start:
+        helper_name = "BuildPatientRegistrationJson"
+        try:
+            helper_start = code_module.ProcStartLine(helper_name, 0)
+        except Exception:
+            helper_start = 0
+
     if helper_start:
         code_module.DeleteLines(helper_start, code_module.CountOfLines - helper_start + 1)
 
     code_module.AddFromString(helper_code)
+
+
+def _replace_standard_module(vbproject) -> None:
+    try:
+        existing = vbproject.VBComponents(BRIDGE_MODULE_NAME)
+    except Exception:
+        existing = None
+    if existing is not None:
+        vbproject.VBComponents.Remove(existing)
+
+    module = vbproject.VBComponents.Add(1)
+    module.Name = BRIDGE_MODULE_NAME
+    module.CodeModule.AddFromString(BRIDGE_MODULE_CODE)
 
 
 def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
@@ -369,23 +412,33 @@ def wire_patient_registration_bridge(workbook_path: str | Path) -> None:
         code_module = component.CodeModule
 
         bridge_text = FORM_BRIDGE_CODE
-        save_end = bridge_text.index("Private Function BuildPatientRegistrationJson")
+        save_end = bridge_text.index("Private Sub ScheduleRegistrationClose")
         save_proc = bridge_text[:save_end].rstrip()
         helper_code = bridge_text[save_end:].lstrip()
 
         _replace_procedure(code_module, "cmdSave_Click", save_proc)
         _replace_bridge_helpers(code_module, helper_code)
+        _replace_standard_module(vbproject)
 
         stored_text = code_module.Lines(1, code_module.CountOfLines)
+        module_text = vbproject.VBComponents(BRIDGE_MODULE_NAME).CodeModule.Lines(
+            1,
+            vbproject.VBComponents(BRIDGE_MODULE_NAME).CodeModule.CountOfLines,
+        )
         required_markers = (
             "registration_bridge_cli.py",
             "BuildPatientRegistrationJson",
             "ResolveRegistrationBridgeScript",
+            "ScheduleRegistrationClose",
             'Chr$(34) & "ok" & Chr$(34)',
         )
         if not all(marker in stored_text for marker in required_markers):
             raise PatientRegistrationBridgeVbaError(
                 "Patient registration bridge verification failed before workbook save"
+            )
+        if "CloseAfterPatientRegistration" not in module_text:
+            raise PatientRegistrationBridgeVbaError(
+                "Patient registration close helper verification failed before workbook save"
             )
 
         workbook.Save()
