@@ -12,6 +12,10 @@ from zipfile import ZipFile
 from openpyxl import load_workbook
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from rehab_excel.master_projection_writer import (  # noqa: E402
+    MasterProjectionWriteError,
+    refresh_master_projection_in_place,
+)
 from rehab_excel.master_toolbar_vba import (  # noqa: E402
     MasterToolbarError,
     finalize_user_navigation,
@@ -179,6 +183,14 @@ def build_unified_preview(
                 "--overwrite",
             ],
         )
+
+        # MASTER content must be rebuilt before navigation and visual decoration.
+        # Styling alone is never allowed to reorder or move patient rows.
+        try:
+            projected = refresh_master_projection_in_place(output)
+            print(f"[OK] MASTER projection refresh ({projected} patients)")
+        except MasterProjectionWriteError as exc:
+            raise UnifiedBuildError(f"MASTER projection refresh failed: {exc}") from exc
 
         try:
             finalize_user_navigation(output)
