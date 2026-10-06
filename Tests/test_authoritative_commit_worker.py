@@ -120,6 +120,13 @@ def test_worker_validates_timing_arguments(tmp_path):
             poll_seconds=0,
         )
 
+    with pytest.raises(AuthoritativeCommitWorkerError, match="close_delay_seconds"):
+        commit_when_unlocked(
+            source,
+            preview,
+            expected_source_sha256="abc",
+            close_delay_seconds=-0.1,
+        )
 
 
 def test_worker_writes_post_reopen_target_before_open(tmp_path):
@@ -145,3 +152,54 @@ def test_worker_writes_post_reopen_target_before_open(tmp_path):
 
     assert observed == ["REPLACEMENTS"]
     assert result.reopened is True
+
+
+def test_worker_can_close_authoritative_workbook_before_commit(tmp_path):
+    source = tmp_path / "app.xlsm"
+    preview = tmp_path / "preview.xlsm"
+    source.write_bytes(b"x")
+    preview.write_bytes(b"y")
+    events = []
+
+    def fake_close(path):
+        events.append(("close", path))
+
+    def fake_commit(*args, **kwargs):
+        events.append(("commit", Path(args[0])))
+        return _report(source, preview)
+
+    result = commit_when_unlocked(
+        source,
+        preview,
+        expected_source_sha256="abc",
+        close_open_workbook=True,
+        close_delay_seconds=1.5,
+        close_service=fake_close,
+        commit_service=fake_commit,
+        sleep_service=lambda value: events.append(("sleep", value)),
+    )
+
+    resolved = source.resolve()
+    assert events == [("sleep", 1.5), ("close", resolved), ("commit", resolved)]
+    assert result.commit.committed is True
+
+
+def test_worker_wraps_controlled_close_failure(tmp_path):
+    source = tmp_path / "app.xlsm"
+    preview = tmp_path / "preview.xlsm"
+    source.write_bytes(b"x")
+    preview.write_bytes(b"y")
+
+    def fail_close(_path):
+        raise RuntimeError("Excel refused close")
+
+    with pytest.raises(AuthoritativeCommitWorkerError, match="Could not close authoritative workbook"):
+        commit_when_unlocked(
+            source,
+            preview,
+            expected_source_sha256="abc",
+            close_open_workbook=True,
+            close_delay_seconds=0,
+            close_service=fail_close,
+            commit_service=lambda *a, **k: _report(source, preview),
+        )
