@@ -25,11 +25,32 @@ def _commit_report(source: Path, preview: Path) -> AuthoritativeCommitWorkerRepo
     return AuthoritativeCommitWorkerReport(commit=commit, attempts=1, reopened=True)
 
 
-def test_shared_excel_proxy_delegates_properties_but_suppresses_quit():
+def test_shared_excel_proxy_reuses_workbook_and_defers_close():
+    class FakeWorkbook:
+        def __init__(self):
+            self.close_calls = 0
+            self.save_calls = 0
+
+        def Save(self):
+            self.save_calls += 1
+
+        def Close(self, SaveChanges=False):
+            self.close_calls += 1
+
+    class FakeWorkbooks:
+        def __init__(self):
+            self.open_calls = 0
+            self.workbook = FakeWorkbook()
+
+        def Open(self, path, *args, **kwargs):
+            self.open_calls += 1
+            return self.workbook
+
     class FakeExcel:
         def __init__(self):
             self.Visible = True
             self.quit_calls = 0
+            self.Workbooks = FakeWorkbooks()
 
         def Quit(self):
             self.quit_calls += 1
@@ -37,9 +58,22 @@ def test_shared_excel_proxy_delegates_properties_but_suppresses_quit():
     real = FakeExcel()
     shared = _SharedExcelApplication(real)
 
+    first = shared.Workbooks.Open("preview.xlsm")
+    second = shared.Workbooks.Open("preview.xlsm")
+    first.Save()
+    first.Close(SaveChanges=False)
+    second.Close(SaveChanges=False)
+
+    assert first is second
+    assert real.Workbooks.open_calls == 1
+    assert real.Workbooks.workbook.save_calls == 1
+    assert real.Workbooks.workbook.close_calls == 0
+
+    shared._close_all_workbooks()
+    assert real.Workbooks.workbook.close_calls == 1
+
     shared.Visible = False
     shared.Quit()
-
     assert real.Visible is False
     assert real.quit_calls == 0
 
