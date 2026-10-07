@@ -1,3 +1,4 @@
+import inspect
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from rehab_excel.authoritative_commit import (
 )
 from rehab_excel.authoritative_commit_worker import (
     AuthoritativeCommitWorkerError,
+    _default_close_workbook,
     commit_when_unlocked,
 )
 
@@ -23,6 +25,14 @@ def _report(source: Path, preview: Path) -> AuthoritativeCommitReport:
         committed=True,
         preview_removed=True,
     )
+
+
+def test_default_close_uses_one_direct_unsaved_close_without_sentinel_macro():
+    source = inspect.getsource(_default_close_workbook)
+    assert "Close(SaveChanges=False)" in source
+    assert "Workbooks.Add" not in source
+    assert "ExitApplication" not in source
+    assert "excel.Run" not in source
 
 
 def test_worker_retries_excel_lock_then_commits(tmp_path):
