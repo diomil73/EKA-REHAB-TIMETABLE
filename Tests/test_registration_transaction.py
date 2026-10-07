@@ -24,7 +24,7 @@ def _commit_report(source: Path, preview: Path) -> AuthoritativeCommitWorkerRepo
     return AuthoritativeCommitWorkerReport(commit=commit, attempts=1, reopened=True)
 
 
-def test_transaction_self_closes_before_preview_then_commits_and_reopens(
+def test_transaction_builds_preview_before_brief_close_then_commits_and_reopens(
     tmp_path, monkeypatch
 ):
     source = tmp_path / "app.xlsm"
@@ -72,7 +72,7 @@ def test_transaction_self_closes_before_preview_then_commits_and_reopens(
         close_service=fake_close,
     )
 
-    assert [name for name, _ in events] == ["close", "preview", "commit"]
+    assert [name for name, _ in events] == ["preview", "close", "commit"]
     assert len(observed_preview_dirs) == 1
     assert observed_preview_dirs[0].parent == tmp_path / ".eka_registration_transactions"
     assert observed_preview_dirs[0] != tmp_path
@@ -120,7 +120,7 @@ def test_transactions_use_distinct_preview_directories(tmp_path, monkeypatch):
     assert observed[0] != observed[1]
 
 
-def test_transaction_retries_self_close_until_vba_event_has_returned(tmp_path, monkeypatch):
+def test_transaction_retries_self_close_after_preview_is_ready(tmp_path, monkeypatch):
     source = tmp_path / "app.xlsm"
     source.write_bytes(b"source")
     attempts = {"count": 0}
@@ -130,6 +130,46 @@ def test_transaction_retries_self_close_until_vba_event_has_returned(tmp_path, m
         attempts["count"] += 1
         if attempts["count"] < 3:
             raise RuntimeError("ExitApplication still busy")
+
+    monkeypatch.setattr(
+        "rehab_excel.registration_transaction.run_registration_bridge",
+        lambda payload: {
+            "subject_key": "98",
+            "display_name": "TEST PATIENT",
+            "output_path": str(tmp_path / "preview.xlsm"),
+            "source_sha256_before": "abc",
+        },
+    )
+    monkeypatch.setattr(
+        "rehab_excel.registration_transaction.commit_when_unlocked",
+        lambda source_path, preview_path, **kwargs: _commit_report(
+            Path(source_path), Path(preview_path)
+        ),
+    )
+
+    report = run_registration_transaction(
+        {
+            "source_path": str(source),
+            "preview_dir": str(tmp_path),
+            "action": "new_patient",
+            "values": {},
+        },
+        close_delay_seconds=0,
+        close_timeout_seconds=5,
+        close_poll_seconds=0.1,
+        close_service=fake_close,
+        sleep_service=lambda value: sleeps.append(value),
+    )
+
+    assert attempts["count"] == 3
+    assert sleeps == [0.1, 0.1]
+    assert report.close_attempts == 3
+
+
+def test_transaction_does_not_close_if_preview_creation_fails(tmp_path, monkeypatch):
+    source = tmp_path / "app.xlsm"
+    source.write_bytes(b"source")
+    closed = []
 
     monkeypatch.setattr(
         "rehab_excel.registration_transaction.run_registration_bridge",
@@ -145,14 +185,10 @@ def test_transaction_retries_self_close_until_vba_event_has_returned(tmp_path, m
                 "values": {},
             },
             close_delay_seconds=0,
-            close_timeout_seconds=5,
-            close_poll_seconds=0.1,
-            close_service=fake_close,
-            sleep_service=lambda value: sleeps.append(value),
+            close_service=lambda path: closed.append(path),
         )
 
-    assert attempts["count"] == 3
-    assert sleeps == [0.1, 0.1]
+    assert closed == []
 
 
 def test_transaction_validates_close_timing(tmp_path):
