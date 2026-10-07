@@ -126,7 +126,9 @@ def refresh_patient_planner_projection_in_place(workbook_path: str | Path) -> in
             if is_outpatient_type(patient_type):
                 name_cell.Interior.Color = blue
 
-        excel.CalculateFull()
+        # The next registration stages depend on the formulas themselves, not on
+        # freshly calculated cached values. A full-workbook recalculation here is
+        # therefore redundant and was the dominant hidden delay on large files.
         workbook.Save()
         return max(0, last_patient_row - 1)
     except PatientPlannerProjectionError:
