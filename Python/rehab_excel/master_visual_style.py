@@ -106,7 +106,7 @@ def _style_clinic_banner(ws, row: int, label: str) -> None:
     banner.Font.Color = BLACK
     banner.Font.Bold = True
     banner.Font.Size = 14
-    banner.HorizontalAlignment = 7  # xlCenterAcrossSelection
+    banner.HorizontalAlignment = 7
     banner.VerticalAlignment = -4108
     ws.Cells(row, 2).Value = label
     ws.Rows(row).RowHeight = 30
@@ -221,7 +221,7 @@ def _make_app_buttons_readable(workbook) -> None:
 
 
 def _format_patient_identity(cell) -> None:
-    """Large patient name; keep an optional doctor line smaller and readable."""
+    """Keep the patient name at body size and bold; doctor line stays secondary."""
 
     text = str(cell.Value or "")
     cell.WrapText = True
@@ -229,7 +229,7 @@ def _format_patient_identity(cell) -> None:
     cell.HorizontalAlignment = -4131
     cell.VerticalAlignment = -4108
     cell.Font.Color = BLACK
-    cell.Font.Size = 11.5
+    cell.Font.Size = 10.5
 
     if "\n" not in text:
         cell.Font.Bold = True
@@ -239,7 +239,7 @@ def _format_patient_identity(cell) -> None:
     cell.Font.Bold = False
     try:
         cell.Characters(Start=1, Length=len(first_line)).Font.Bold = True
-        cell.Characters(Start=1, Length=len(first_line)).Font.Size = 11.5
+        cell.Characters(Start=1, Length=len(first_line)).Font.Size = 10.5
         second_start = len(first_line) + 2
         cell.Characters(Start=second_start, Length=len(second_line)).Font.Size = 9.5
         if second_line.startswith("✚"):
@@ -252,8 +252,6 @@ def _format_patient_identity(cell) -> None:
 def _apply_master_visual_style(ws) -> None:
     header_row = _header_row(ws)
     last_row = _last_patient_row(ws, header_row)
-    # Critical invariant: styling may not insert or delete rows. Clinic rows are
-    # reserved by the projection so room/patient/formula alignment cannot drift.
     last_row = _ensure_clinic_banners(ws, header_row, last_row)
 
     expected = {
@@ -349,7 +347,7 @@ def _apply_master_visual_style(ws) -> None:
             ws.Rows(row).RowHeight = 64
 
             room_cell = ws.Cells(row, 2)
-            room_cell.Font.Size = 12
+            room_cell.Font.Size = 10.5
             room_cell.Font.Bold = True
             room_cell.ShrinkToFit = True
 
