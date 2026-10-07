@@ -239,3 +239,8 @@ def test_master_refresh_preserves_existing_visual_shell_formats():
     assert 'ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()' in source
     assert 'ws.Range(f"B{template_row}:C{template_row}").Copy()' in source
     assert 'ws.Range(f"B{row}:C{row}").PasteSpecial(Paste=-4122)' in source
+
+
+def test_master_refresh_does_not_force_full_workbook_recalculation():
+    source = inspect.getsource(Win32ComMasterProjectionBackend.apply)
+    assert "CalculateFull" not in source
