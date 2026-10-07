@@ -1,6 +1,9 @@
+import inspect
+
 from rehab_excel.patient_planner_projection import (
     is_outpatient_type,
     planner_identity_formulas,
+    refresh_patient_planner_projection_in_place,
 )
 
 
@@ -28,3 +31,8 @@ def test_outpatient_type_marker_recognizes_greek_and_english():
     assert is_outpatient_type("Εξωτερικός") is True
     assert is_outpatient_type("OUTPATIENT") is True
     assert is_outpatient_type("Εσωτερικός") is False
+
+
+def test_planner_refresh_does_not_force_full_workbook_recalculation():
+    source = inspect.getsource(refresh_patient_planner_projection_in_place)
+    assert "CalculateFull" not in source
