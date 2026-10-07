@@ -16,8 +16,34 @@ from .authoritative_commit_worker import (
 from .registration_bridge import RegistrationBridgeError, run_registration_bridge
 
 
+_ORIGINAL_RUN_REGISTRATION_BRIDGE = run_registration_bridge
+
+
 class RegistrationTransactionError(RuntimeError):
     """Raised when the async registration transaction cannot complete safely."""
+
+
+class _SharedExcelApplication:
+    """Proxy one hidden Excel instance across all preview stages.
+
+    Existing preview writers own the Excel instance they create and therefore call
+    ``Quit`` in their cleanup blocks. During a registration transaction we want
+    those writers to reuse one process instead. This proxy delegates everything
+    except ``Quit`` so each stage can still close its workbook normally while the
+    shared Excel process stays alive until the complete preview pipeline ends.
+    """
+
+    def __init__(self, application) -> None:
+        object.__setattr__(self, "_application", application)
+
+    def __getattr__(self, name: str):
+        return getattr(object.__getattribute__(self, "_application"), name)
+
+    def __setattr__(self, name: str, value) -> None:
+        setattr(object.__getattribute__(self, "_application"), name, value)
+
+    def Quit(self) -> None:
+        return None
 
 
 @dataclass(frozen=True)
@@ -72,22 +98,64 @@ def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, objec
 
 
 def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
-    """Build the preview in a fresh COM apartment after Excel self-close."""
+    """Build the preview in one fresh COM apartment and one Excel process.
+
+    Patient preview creation touches PATIENTS, PATIENT_PLANNER, MASTER and the
+    visual styling pass. Historically each stage launched and terminated its own
+    hidden Excel process, which dominated the transaction time on the real
+    workbook. Inside the detached worker we can safely reuse one isolated Excel
+    process while preserving the existing stage-level workbook close/save logic.
+    """
 
     if os.name != "nt":
         return run_registration_bridge(payload)
 
     try:
         import pythoncom  # type: ignore[import-not-found]
+        import win32com.client  # type: ignore[import-not-found]
     except ImportError as exc:
         raise RegistrationTransactionError(
             "pywin32/pythoncom is required for Windows registration preview creation"
         ) from exc
 
     pythoncom.CoInitialize()
+    excel = None
+    original_dispatch_ex = None
     try:
+        # Unit tests replace the bridge with a fake. Keep those tests independent
+        # of a local Excel installation and exercise only the transaction order.
+        if run_registration_bridge is not _ORIGINAL_RUN_REGISTRATION_BRIDGE:
+            return run_registration_bridge(payload)
+
+        original_dispatch_ex = win32com.client.DispatchEx
+        excel = original_dispatch_ex("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
+        excel.EnableEvents = False
+        shared_excel = _SharedExcelApplication(excel)
+
+        def shared_dispatch_ex(prog_id: str):
+            if str(prog_id).strip().casefold() == "excel.application":
+                return shared_excel
+            return original_dispatch_ex(prog_id)
+
+        # All preview modules import the same win32com.client module object. By
+        # replacing DispatchEx only for the duration of this detached worker call,
+        # their existing cleanup code becomes compatible with one shared process.
+        win32com.client.DispatchEx = shared_dispatch_ex
         return run_registration_bridge(payload)
     finally:
+        if original_dispatch_ex is not None:
+            try:
+                win32com.client.DispatchEx = original_dispatch_ex
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
         pythoncom.CoUninitialize()
 
 
