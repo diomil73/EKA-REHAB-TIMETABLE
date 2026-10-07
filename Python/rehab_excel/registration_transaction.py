@@ -23,20 +23,85 @@ class RegistrationTransactionError(RuntimeError):
     """Raised when the async registration transaction cannot complete safely."""
 
 
+class _SharedWorkbook:
+    """Delegate one COM workbook while deferring physical close until preview end."""
+
+    def __init__(self, workbook) -> None:
+        object.__setattr__(self, "_workbook", workbook)
+
+    def __getattr__(self, name: str):
+        return getattr(object.__getattribute__(self, "_workbook"), name)
+
+    def __setattr__(self, name: str, value) -> None:
+        setattr(object.__getattribute__(self, "_workbook"), name, value)
+
+    def Close(self, *args, **kwargs) -> None:
+        # Existing preview stages close the workbook in their own finally blocks.
+        # Suppress those closes so the next stage can reuse the same open file.
+        return None
+
+    def _force_close(self) -> None:
+        workbook = object.__getattribute__(self, "_workbook")
+        workbook.Close(SaveChanges=False)
+
+
+class _SharedWorkbooks:
+    """Cache Workbooks.Open by resolved path for one preview transaction."""
+
+    def __init__(self, workbooks) -> None:
+        object.__setattr__(self, "_workbooks", workbooks)
+        object.__setattr__(self, "_opened", {})
+
+    def __getattr__(self, name: str):
+        return getattr(object.__getattribute__(self, "_workbooks"), name)
+
+    @staticmethod
+    def _key(path: object) -> str:
+        return str(Path(str(path)).resolve()).casefold()
+
+    def Open(self, path, *args, **kwargs):
+        opened = object.__getattribute__(self, "_opened")
+        key = self._key(path)
+        if key in opened:
+            return opened[key]
+
+        workbooks = object.__getattribute__(self, "_workbooks")
+        workbook = workbooks.Open(path, *args, **kwargs)
+        proxy = _SharedWorkbook(workbook)
+        opened[key] = proxy
+        return proxy
+
+    def _close_all(self) -> None:
+        opened = object.__getattribute__(self, "_opened")
+        for workbook in reversed(tuple(opened.values())):
+            try:
+                workbook._force_close()
+            except Exception:
+                pass
+        opened.clear()
+
+
 class _SharedExcelApplication:
-    """Proxy one hidden Excel instance across all preview stages."""
+    """Proxy one hidden Excel instance and its open workbooks across preview stages."""
 
     def __init__(self, application) -> None:
         object.__setattr__(self, "_application", application)
+        object.__setattr__(self, "_workbooks", _SharedWorkbooks(application.Workbooks))
 
     def __getattr__(self, name: str):
+        if name == "Workbooks":
+            return object.__getattribute__(self, "_workbooks")
         return getattr(object.__getattribute__(self, "_application"), name)
 
     def __setattr__(self, name: str, value) -> None:
         setattr(object.__getattribute__(self, "_application"), name, value)
 
     def Quit(self) -> None:
+        # Stage-level cleanup must not terminate the shared Excel process.
         return None
+
+    def _close_all_workbooks(self) -> None:
+        object.__getattribute__(self, "_workbooks")._close_all()
 
 
 @dataclass(frozen=True)
@@ -95,7 +160,13 @@ def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, objec
 
 
 def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
-    """Build the preview in one fresh COM apartment and one Excel process."""
+    """Build the preview in one COM apartment, Excel process, and open workbook.
+
+    Patient preview creation touches PATIENTS, PATIENT_PLANNER, MASTER and visual
+    styling in sequence. Each stage still saves normally, so file-based safety
+    checks and readers observe committed stage output, but repeated Workbooks.Open
+    and workbook Close calls are collapsed into one physical open/close cycle.
+    """
 
     if os.name != "nt":
         return run_registration_bridge(payload)
@@ -110,6 +181,7 @@ def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
 
     pythoncom.CoInitialize()
     excel = None
+    shared_excel = None
     original_dispatch_ex = None
     try:
         if run_registration_bridge is not _ORIGINAL_RUN_REGISTRATION_BRIDGE:
@@ -134,6 +206,11 @@ def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
         if original_dispatch_ex is not None:
             try:
                 win32com.client.DispatchEx = original_dispatch_ex
+            except Exception:
+                pass
+        if shared_excel is not None:
+            try:
+                shared_excel._close_all_workbooks()
             except Exception:
                 pass
         if excel is not None:
