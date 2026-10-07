@@ -209,9 +209,16 @@ class Win32ComMasterProjectionBackend:
 
             for row in range(template_row, clear_last + 1):
                 try:
-                    end_col = "M" if total_cols == 13 else "K"
-                    ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()
-                    ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)
+                    if row > old_last:
+                        end_col = "M" if total_cols == 13 else "K"
+                        ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()
+                        ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)
+                    else:
+                        # Preserve the established visual shell on existing MASTER
+                        # rows. Only B:C need a clean baseline because infectious
+                        # highlighting is reapplied after the projection is rebuilt.
+                        ws.Range(f"B{template_row}:C{template_row}").Copy()
+                        ws.Range(f"B{row}:C{row}").PasteSpecial(Paste=-4122)
                 except Exception:
                     pass
                 ws.Range(f"A{row}:P{row}").ClearContents()
