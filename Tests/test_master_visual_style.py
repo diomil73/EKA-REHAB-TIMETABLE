@@ -85,20 +85,21 @@ def test_clinic_banner_styling_never_inserts_or_deletes_rows():
     assert "refusing to move data" in ensure_source
 
 
-def test_master_body_uses_larger_font_with_cell_level_shrink_to_fit():
+def test_master_body_uses_uniform_font_size_with_bold_room_identity():
     source = inspect.getsource(master_visual_style._apply_master_visual_style)
     assert "body.Font.Size = 10.5" in source
     assert "body.ShrinkToFit = True" in source
-    assert "room_cell.Font.Size = 12" in source
+    assert "room_cell.Font.Size = 10.5" in source
     assert "room_cell.Font.Bold = True" in source
     assert "treatment_range.Font.Size = 10.5" in source
     assert "treatment_range.ShrinkToFit = True" in source
 
 
-def test_patient_identity_typography_preserves_smaller_doctor_line():
+def test_patient_identity_typography_uses_body_size_and_bold_name():
     source = inspect.getsource(master_visual_style._format_patient_identity)
-    assert "cell.Font.Size = 11.5" in source
+    assert "cell.Font.Size = 10.5" in source
     assert "cell.ShrinkToFit = True" in source
+    assert "Font.Bold = True" in source
     assert "Font.Size = 9.5" in source
     assert "RED_CROSS" in source
 
