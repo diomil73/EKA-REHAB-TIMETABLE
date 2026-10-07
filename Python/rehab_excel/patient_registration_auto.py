@@ -18,6 +18,10 @@ from .master_projection_writer import (
     MasterProjectionWriteError,
     refresh_master_projection_in_place,
 )
+from .master_visual_style import (
+    MasterVisualStyleError,
+    apply_master_visual_style_in_place,
+)
 from .patient_planner_projection import (
     PatientPlannerProjectionError,
     refresh_patient_planner_projection_in_place,
@@ -64,7 +68,14 @@ def create_auto_patient_registration_preview(
     try:
         refresh_patient_planner_projection_in_place(output_path)
         refresh_master_projection_in_place(output_path)
-    except (PatientPlannerProjectionError, MasterProjectionWriteError) as exc:
+        # Registration refresh rewrites MASTER content. Reapply the accepted
+        # application visual baseline before the verified preview is committed.
+        apply_master_visual_style_in_place(output_path)
+    except (
+        PatientPlannerProjectionError,
+        MasterProjectionWriteError,
+        MasterVisualStyleError,
+    ) as exc:
         try:
             Path(output_path).unlink()
         except OSError:
