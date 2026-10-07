@@ -24,14 +24,7 @@ class RegistrationTransactionError(RuntimeError):
 
 
 class _SharedExcelApplication:
-    """Proxy one hidden Excel instance across all preview stages.
-
-    Existing preview writers own the Excel instance they create and therefore call
-    ``Quit`` in their cleanup blocks. During a registration transaction we want
-    those writers to reuse one process instead. This proxy delegates everything
-    except ``Quit`` so each stage can still close its workbook normally while the
-    shared Excel process stays alive until the complete preview pipeline ends.
-    """
+    """Proxy one hidden Excel instance across all preview stages."""
 
     def __init__(self, application) -> None:
         object.__setattr__(self, "_application", application)
@@ -55,6 +48,10 @@ class RegistrationTransactionReport:
     committed: bool
     reopened: bool
     close_attempts: int
+    close_seconds: float
+    preview_seconds: float
+    commit_reopen_seconds: float
+    total_seconds: float
 
 
 SleepService = Callable[[float], None]
@@ -98,14 +95,7 @@ def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, objec
 
 
 def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
-    """Build the preview in one fresh COM apartment and one Excel process.
-
-    Patient preview creation touches PATIENTS, PATIENT_PLANNER, MASTER and the
-    visual styling pass. Historically each stage launched and terminated its own
-    hidden Excel process, which dominated the transaction time on the real
-    workbook. Inside the detached worker we can safely reuse one isolated Excel
-    process while preserving the existing stage-level workbook close/save logic.
-    """
+    """Build the preview in one fresh COM apartment and one Excel process."""
 
     if os.name != "nt":
         return run_registration_bridge(payload)
@@ -122,8 +112,6 @@ def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
     excel = None
     original_dispatch_ex = None
     try:
-        # Unit tests replace the bridge with a fake. Keep those tests independent
-        # of a local Excel installation and exercise only the transaction order.
         if run_registration_bridge is not _ORIGINAL_RUN_REGISTRATION_BRIDGE:
             return run_registration_bridge(payload)
 
@@ -140,9 +128,6 @@ def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
                 return shared_excel
             return original_dispatch_ex(prog_id)
 
-        # All preview modules import the same win32com.client module object. By
-        # replacing DispatchEx only for the duration of this detached worker call,
-        # their existing cleanup code becomes compatible with one shared process.
         win32com.client.DispatchEx = shared_dispatch_ex
         return run_registration_bridge(payload)
     finally:
@@ -168,13 +153,9 @@ def run_registration_transaction(
     sleep_service: SleepService = time.sleep,
     close_service: CloseService = _default_close_workbook,
 ) -> RegistrationTransactionReport:
-    """Close the saved workbook, build a verified preview, commit, and reopen.
+    """Close the saved workbook, build a verified preview, commit, and reopen."""
 
-    The authoritative workbook must be closed before preview creation so Excel
-    cannot rewrite the source after the preview captures its safety hash. This
-    keeps the CAS check meaningful and prevents false commit refusals caused by
-    Excel saving during shutdown.
-    """
+    total_started = time.monotonic()
 
     source_text = str(payload.get("source_path", "")).strip()
     if not source_text:
@@ -193,6 +174,7 @@ def run_registration_transaction(
     if close_delay_seconds:
         sleep_service(close_delay_seconds)
 
+    close_started = time.monotonic()
     close_attempts = _close_with_retry(
         source,
         timeout_seconds=close_timeout_seconds,
@@ -200,9 +182,14 @@ def run_registration_transaction(
         close_service=close_service,
         sleep_service=sleep_service,
     )
+    close_seconds = time.monotonic() - close_started
 
     try:
+        preview_started = time.monotonic()
         preview = _run_bridge_with_fresh_com(transaction_payload)
+        preview_seconds = time.monotonic() - preview_started
+
+        commit_started = time.monotonic()
         commit: AuthoritativeCommitWorkerReport = commit_when_unlocked(
             source,
             str(preview["output_path"]),
@@ -212,6 +199,7 @@ def run_registration_transaction(
             poll_seconds=0.5,
             reopen=True,
         )
+        commit_reopen_seconds = time.monotonic() - commit_started
     except (RegistrationBridgeError, AuthoritativeCommitWorkerError, KeyError) as exc:
         raise RegistrationTransactionError(str(exc)) from exc
 
@@ -222,6 +210,7 @@ def run_registration_transaction(
         except OSError:
             pass
 
+    total_seconds = time.monotonic() - total_started
     return RegistrationTransactionReport(
         subject_key=str(preview.get("subject_key", "")),
         display_name=str(preview.get("display_name", "")),
@@ -230,4 +219,8 @@ def run_registration_transaction(
         committed=bool(commit.commit.committed),
         reopened=bool(commit.reopened),
         close_attempts=close_attempts,
+        close_seconds=close_seconds,
+        preview_seconds=preview_seconds,
+        commit_reopen_seconds=commit_reopen_seconds,
+        total_seconds=total_seconds,
     )
