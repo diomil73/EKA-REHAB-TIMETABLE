@@ -237,7 +237,9 @@ class Win32ComMasterProjectionBackend:
                     self._apply_infectious_style(ws.Range(f"B{row}:C{row}"))
 
             workbook.Application.CutCopyMode = False
-            excel.CalculateFull()
+            # Verification checks the written formulas and identities directly;
+            # recalculating the entire workbook here adds substantial latency but
+            # does not strengthen the preview safety guarantees.
             workbook.Save()
         except MasterProjectionWriteError:
             raise
