@@ -87,6 +87,12 @@ def main() -> int:
             "committed": report.committed,
             "reopened": report.reopened,
             "close_attempts": report.close_attempts,
+            "timings_seconds": {
+                "close": round(report.close_seconds, 3),
+                "preview": round(report.preview_seconds, 3),
+                "commit_reopen": round(report.commit_reopen_seconds, 3),
+                "total": round(report.total_seconds, 3),
+            },
         },
     )
     return 0
