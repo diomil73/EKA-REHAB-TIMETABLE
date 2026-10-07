@@ -1,3 +1,4 @@
+import inspect
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
@@ -6,6 +7,7 @@ from rehab_core.models import Patient
 from rehab_excel.master_projection import MasterProjectionRow
 from rehab_excel.master_projection_writer import (
     MasterProjectionWriteError,
+    Win32ComMasterProjectionBackend,
     create_master_projection_preview,
 )
 
@@ -161,7 +163,6 @@ def test_create_master_projection_preview_rejects_same_source_and_output(tmp_pat
         raise AssertionError("Expected same source/output to be rejected")
 
 
-
 def test_master_writer_verification_supports_shifted_header(tmp_path, monkeypatch):
     source = _book(tmp_path)
     wb = load_workbook(source)
@@ -189,7 +190,6 @@ def test_master_writer_verification_supports_shifted_header(tmp_path, monkeypatc
     )
 
     assert report.verified_in_output is True
-
 
 
 def test_master_writer_supports_expanded_psychology_afternoon_schema(tmp_path, monkeypatch):
@@ -231,3 +231,11 @@ def test_master_writer_supports_expanded_psychology_afternoon_schema(tmp_path, m
         assert ws["M2"].value == "=PATIENT_PLANNER!E3"
     finally:
         wb.close()
+
+
+def test_master_refresh_preserves_existing_visual_shell_formats():
+    source = inspect.getsource(Win32ComMasterProjectionBackend.apply)
+    assert "if row > old_last:" in source
+    assert 'ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()' in source
+    assert 'ws.Range(f"B{template_row}:C{template_row}").Copy()' in source
+    assert 'ws.Range(f"B{row}:C{row}").PasteSpecial(Paste=-4122)' in source
