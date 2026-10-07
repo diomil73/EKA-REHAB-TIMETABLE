@@ -39,12 +39,14 @@ def _default_open_workbook(path: Path) -> None:
 
 
 def _default_close_workbook(path: Path) -> None:
-    """Ask the workbook to close itself through its proven Save & Exit macro.
+    """Ask the workbook to close itself without terminating the Excel process.
 
-    Calling Workbook.Close from a detached COM client is unreliable while Excel
-    is unwinding VBA/UserForm state. Running the workbook's own ExitApplication
-    macro keeps shutdown inside Excel. DisplayAlerts is disabled for this
-    background-only path so Excel cannot pause the transaction on a save prompt.
+    The workbook's proven ExitApplication macro normally quits Excel when it is
+    the only open workbook. For a registration transaction we instead create a
+    temporary blank workbook first, forcing ExitApplication down its single-
+    workbook close branch. The authoritative workbook therefore closes from
+    inside Excel, while the Excel process remains alive for the worker to finish
+    preview creation, commit, and reopen.
     """
 
     if os.name != "nt":
@@ -61,6 +63,7 @@ def _default_close_workbook(path: Path) -> None:
         ) from exc
 
     pythoncom.CoInitialize()
+    sentinel = None
     try:
         try:
             excel = win32com.client.GetActiveObject("Excel.Application")
@@ -79,27 +82,41 @@ def _default_close_workbook(path: Path) -> None:
 
             workbook_name = str(workbook.Name or "").replace("'", "''")
             macro_name = f"'{workbook_name}'!ExitApplication"
+
             try:
+                # Keep Excel alive so ExitApplication closes only the authoritative
+                # workbook instead of taking the whole Excel process down with it.
+                sentinel = excel.Workbooks.Add()
                 excel.DisplayAlerts = False
                 excel.Run(macro_name)
-            except Exception as exc:
+
+                still_open = False
+                for wb_index in range(1, int(excel.Workbooks.Count) + 1):
+                    wb = excel.Workbooks(wb_index)
+                    try:
+                        if str(wb.FullName or "").casefold() == target:
+                            still_open = True
+                            break
+                    except Exception:
+                        continue
+                if still_open:
+                    raise AuthoritativeCommitWorkerError(
+                        "Workbook self-close macro returned but the authoritative workbook is still open"
+                    )
+            finally:
                 try:
-                    active = win32com.client.GetActiveObject("Excel.Application")
-                    still_open = False
-                    for wb_index in range(1, int(active.Workbooks.Count) + 1):
-                        wb = active.Workbooks(wb_index)
-                        try:
-                            if str(wb.FullName or "").casefold() == target:
-                                still_open = True
-                                break
-                        except Exception:
-                            continue
-                    if still_open:
-                        raise exc
-                except Exception as verify_exc:
-                    if verify_exc is exc:
-                        raise
-                return
+                    excel.EnableEvents = True
+                except Exception:
+                    pass
+                if sentinel is not None:
+                    try:
+                        sentinel.Close(SaveChanges=False)
+                    except Exception:
+                        pass
+                try:
+                    excel.DisplayAlerts = True
+                except Exception:
+                    pass
             return
     finally:
         pythoncom.CoUninitialize()
