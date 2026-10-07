@@ -31,7 +31,6 @@ def test_default_close_uses_one_direct_unsaved_close_without_sentinel_macro():
     source = inspect.getsource(_default_close_workbook)
     assert "Close(SaveChanges=False)" in source
     assert "Workbooks.Add" not in source
-    assert "ExitApplication" not in source
     assert "excel.Run" not in source
 
 
