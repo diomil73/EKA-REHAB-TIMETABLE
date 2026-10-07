@@ -6,6 +6,7 @@ from rehab_excel.authoritative_commit import AuthoritativeCommitReport
 from rehab_excel.authoritative_commit_worker import AuthoritativeCommitWorkerReport
 from rehab_excel.registration_transaction import (
     RegistrationTransactionError,
+    _SharedExcelApplication,
     run_registration_transaction,
 )
 
@@ -22,6 +23,25 @@ def _commit_report(source: Path, preview: Path) -> AuthoritativeCommitWorkerRepo
         preview_removed=True,
     )
     return AuthoritativeCommitWorkerReport(commit=commit, attempts=1, reopened=True)
+
+
+def test_shared_excel_proxy_delegates_properties_but_suppresses_quit():
+    class FakeExcel:
+        def __init__(self):
+            self.Visible = True
+            self.quit_calls = 0
+
+        def Quit(self):
+            self.quit_calls += 1
+
+    real = FakeExcel()
+    shared = _SharedExcelApplication(real)
+
+    shared.Visible = False
+    shared.Quit()
+
+    assert real.Visible is False
+    assert real.quit_calls == 0
 
 
 def test_transaction_self_closes_before_preview_then_commits_and_reopens(
