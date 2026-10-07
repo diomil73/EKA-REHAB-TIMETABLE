@@ -72,7 +72,7 @@ def _transaction_payload(payload: Mapping[str, object]) -> tuple[dict[str, objec
 
 
 def _run_bridge_with_fresh_com(payload: Mapping[str, object]):
-    """Build the preview in a fresh COM apartment after Excel self-close."""
+    """Build the preview in a fresh COM apartment."""
 
     if os.name != "nt":
         return run_registration_bridge(payload)
@@ -100,11 +100,14 @@ def run_registration_transaction(
     sleep_service: SleepService = time.sleep,
     close_service: CloseService = _default_close_workbook,
 ) -> RegistrationTransactionReport:
-    """Own one registration transaction after the UserForm event returns.
+    """Build a verified preview, then briefly close, commit, and reopen.
 
-    The worker asks the workbook to close itself through its own ExitApplication
-    macro, rather than issuing an external COM Workbook.Close. After shutdown it
-    builds the isolated verified preview, commits it, and reopens the workbook.
+    Preview generation is intentionally performed while the saved authoritative
+    workbook remains open. This keeps the application visible during the slow
+    Excel/COM work. The source hash captured by the preview is still checked at
+    commit time, so any intervening source change safely refuses the commit.
+    Only after the preview is ready do we close the workbook, replace it with the
+    verified preview, and reopen it.
     """
 
     source_text = str(payload.get("source_path", "")).strip()
@@ -121,19 +124,20 @@ def run_registration_transaction(
 
     transaction_payload, transaction_dir = _transaction_payload(payload)
 
-    if close_delay_seconds:
-        sleep_service(close_delay_seconds)
-
-    close_attempts = _close_with_retry(
-        source,
-        timeout_seconds=close_timeout_seconds,
-        poll_seconds=close_poll_seconds,
-        close_service=close_service,
-        sleep_service=sleep_service,
-    )
-
     try:
         preview = _run_bridge_with_fresh_com(transaction_payload)
+
+        if close_delay_seconds:
+            sleep_service(close_delay_seconds)
+
+        close_attempts = _close_with_retry(
+            source,
+            timeout_seconds=close_timeout_seconds,
+            poll_seconds=close_poll_seconds,
+            close_service=close_service,
+            sleep_service=sleep_service,
+        )
+
         commit: AuthoritativeCommitWorkerReport = commit_when_unlocked(
             source,
             str(preview["output_path"]),
