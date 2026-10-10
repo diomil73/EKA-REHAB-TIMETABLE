@@ -12,6 +12,7 @@ from rehab_core.scheduling_candidates import (
 )
 
 from .reader import read_base_schedule, read_patients, read_settings
+from .student_registry import read_students
 
 
 THERAPIST_SCHEDULING_TREATMENTS = frozenset({"ΦΘ", "Ρομποτικό"})
@@ -68,14 +69,16 @@ def _workbook_therapists(
     therapist_names: Iterable[str],
     *,
     robotic_capable_names: Iterable[str] = (),
+    excluded_names: Iterable[str] = (),
 ) -> tuple[Therapist, ...]:
     robotic = {_normalize(name) for name in robotic_capable_names}
+    excluded = {_normalize(name) for name in excluded_names if name.strip()}
     result: list[Therapist] = []
     seen: set[str] = set()
     for raw_name in therapist_names:
         name = raw_name.strip()
         key = _normalize(name)
-        if not name or key in seen:
+        if not name or key in seen or key in excluded:
             continue
         seen.add(key)
         # Until the workbook exposes a separate stable therapist id in SETTINGS,
@@ -101,14 +104,15 @@ def workbook_therapist_candidates(
 ) -> tuple[TherapistScheduleCandidate, ...]:
     """Rank real workbook therapists and slots for ΦΘ/Ρομποτικό scheduling.
 
-    The adapter deliberately keeps workbook extraction outside the core engine.
-    SETTINGS provides the therapist order and standard slots, while
-    PATIENT_PLANNER supplies the recurring programme that is materialized for
-    ``target_date``. Existing robotic assignments are treated as evidence of
-    robotic capability; callers may provide additional confirmed names.
+    SETTINGS provides the therapist order and standard slots, PATIENT_PLANNER
+    supplies the recurring programme, PATIENTS validates the requested patient,
+    and STUDENTS is used to prevent student display names from leaking into the
+    physiotherapist candidate pool when legacy SETTINGS data contains them.
 
-    Other treatment families use different provider/resource rules and are not
-    silently routed through the physiotherapist engine.
+    Existing robotic assignments are treated as evidence of robotic capability;
+    callers may provide additional confirmed names. Other treatment families use
+    different provider/resource rules and are not silently routed through the
+    physiotherapist engine.
     """
 
     treatment_text = treatment.strip()
@@ -117,9 +121,19 @@ def workbook_therapist_candidates(
             f"Treatment {treatment!r} is not handled by the physiotherapist scheduling engine"
         )
 
+    patient_key = patient_id.strip()
+    if not patient_key:
+        raise ValueError("patient_id is required")
+
     settings = read_settings(workbook_path)
     entries = tuple(read_base_schedule(workbook_path))
     patients = tuple(read_patients(workbook_path))
+    patient_ids = {_normalize(patient.patient_id) for patient in patients}
+    if _normalize(patient_key) not in patient_ids:
+        raise ValueError(f"Unknown PatientID: {patient_id}")
+
+    students = tuple(read_students(workbook_path))
+    student_names = tuple(student.display_name for student in students)
     sessions = materialize_recurring_sessions(entries, target_date)
 
     robotic_names = _robotic_capable_names(
@@ -129,10 +143,11 @@ def workbook_therapist_candidates(
     therapists = _workbook_therapists(
         settings.therapist_names,
         robotic_capable_names=robotic_names,
+        excluded_names=student_names,
     )
 
     return rank_therapist_candidates(
-        patient_id=patient_id,
+        patient_id=patient_key,
         treatment=treatment_text,
         target_date=target_date,
         timeslots=settings.standard_timeslots,
