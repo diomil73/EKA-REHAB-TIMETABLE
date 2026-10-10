@@ -138,15 +138,12 @@ def test_preview_append_is_verified_and_source_stays_unchanged(tmp_path):
     assert source.read_bytes() == before
 
 
-def test_authoritative_writer_rejects_mixed_type_weekday_overlap(tmp_path):
+def test_authoritative_writer_requires_explicit_override_for_mixed_type_overlap(tmp_path):
     source = tmp_path / "source.xlsm"
     output = tmp_path / "preview.xlsm"
     _baseline(source, inpatient_overlap=True)
 
-    with pytest.raises(
-        OutpatientScheduleWriteError,
-        match="overlaps an inpatient in the same THERAPIST_DAILY cell",
-    ):
+    with pytest.raises(OutpatientScheduleWriteError, match="Therapist double booking"):
         create_outpatient_schedule_preview(
             source,
             output,
@@ -158,10 +155,32 @@ def test_authoritative_writer_rejects_mixed_type_weekday_overlap(tmp_path):
                 therapist_id="T2",
             ),
             backend=FakeBackend(),
-            allow_therapist_double_booking=True,
         )
 
     assert not output.exists()
+
+
+def test_explicit_override_allows_mixed_type_overlap_after_confirmation(tmp_path):
+    source = tmp_path / "source.xlsm"
+    output = tmp_path / "preview.xlsm"
+    _baseline(source, inpatient_overlap=True)
+
+    report = create_outpatient_schedule_preview(
+        source,
+        output,
+        OutpatientScheduleRequest(
+            patient_id="P-OUT",
+            treatment="ΦΘ",
+            start_time=time(10, 0),
+            day_pattern="Τε-Πα",
+            therapist_id="T2",
+        ),
+        backend=FakeBackend(),
+        allow_therapist_double_booking=True,
+    )
+
+    assert report.verified_in_output is True
+    assert output.exists()
 
 
 def test_authoritative_writer_allows_complementary_weekdays(tmp_path):
