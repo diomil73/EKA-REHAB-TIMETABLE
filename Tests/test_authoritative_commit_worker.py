@@ -27,11 +27,12 @@ def _report(source: Path, preview: Path) -> AuthoritativeCommitReport:
     )
 
 
-def test_default_close_uses_one_direct_unsaved_close_without_sentinel_macro():
+def test_default_close_keeps_proven_sentinel_macro_fallback():
     source = inspect.getsource(_default_close_workbook)
-    assert "Close(SaveChanges=False)" in source
-    assert "Workbooks.Add" not in source
-    assert "excel.Run" not in source
+    assert "Workbooks.Add" in source
+    assert "excel.Run" in source
+    assert "ExitApplication" in source
+    assert "sentinel.Close(SaveChanges=False)" in source
 
 
 def test_worker_retries_excel_lock_then_commits(tmp_path):
