@@ -24,12 +24,17 @@ class OutpatientPresentationError(RuntimeError):
     """Raised when outpatient presentation would require an unsafe guess."""
 
 
-OUTPATIENT_LIGHT_BLUE_RGB = "DDEBF7"
+LEGACY_OUTPATIENT_BLUE_RGB = "DDEBF7"
+OUTPATIENT_GREEN_RGB = "C6E0B4"
+OUTPATIENT_PRESENTATION_RGBS = {
+    LEGACY_OUTPATIENT_BLUE_RGB,
+    OUTPATIENT_GREEN_RGB,
+}
 
 
 @dataclass(frozen=True)
 class OutpatientDailyTarget:
-    """One effective THERAPIST_DAILY slot that must be outpatient blue."""
+    """One effective THERAPIST_DAILY slot that must use outpatient styling."""
 
     provider_id: str
     provider_kind: ReplacementProviderKind
@@ -46,14 +51,7 @@ def validate_outpatient_base_entries(
     entries: Iterable[BaseScheduleEntry],
     patients: Iterable[Patient],
 ) -> None:
-    """Reject robotic recurring assignments for outpatients.
-
-    Confirmed business rule: an outpatient may participate in the normal
-    therapist programme, but may never be assigned robotic treatment as an
-    extra/robotic programme. The rule is checked both from the explicit
-    ``robotic`` flag and from the treatment label so an inconsistent import
-    cannot silently bypass it.
-    """
+    """Reject robotic recurring assignments for outpatients."""
 
     patient_by_id = {patient.patient_id: patient for patient in patients}
     for entry in entries:
@@ -92,14 +90,7 @@ def outpatient_daily_targets(
     states: Iterable[DailySessionState],
     patients: Iterable[Patient],
 ) -> tuple[OutpatientDailyTarget, ...]:
-    """Return effective daily slots that must be light blue.
-
-    Colour is determined from the patient(s) actually active in the slot on the
-    concrete day, not from every patient who may share the same recurring slot
-    on other weekdays. If one effective daily cell would contain both an
-    inpatient and an outpatient at the same time, the renderer refuses to guess
-    one cell-level fill colour and raises instead.
-    """
+    """Return effective daily slots that must receive outpatient styling."""
 
     patient_by_id = {patient.patient_id: patient for patient in patients}
     occupants: dict[
@@ -203,14 +194,20 @@ def _normalized_fill_rgb(cell) -> str | None:
 
 
 def existing_outpatient_blue_cells(workbook_path: str | Path) -> tuple[str, ...]:
-    """Return THERAPIST_DAILY cells carrying exactly the outpatient blue fill.
+    """Return cells carrying current or legacy outpatient presentation fill.
 
-    This deliberately ignores every other colour, including infectious yellow
-    and robotic pink, so stale-blue cleanup cannot erase unrelated semantics.
+    The legacy function name is retained for compatibility. Both the old blue
+    and the current muted green are detected so stale outpatient colouring is
+    removed safely when the active patient changes.
     """
 
     path = Path(workbook_path)
-    wb = load_workbook(path, read_only=False, data_only=False, keep_vba=path.suffix.casefold() == ".xlsm")
+    wb = load_workbook(
+        path,
+        read_only=False,
+        data_only=False,
+        keep_vba=path.suffix.casefold() == ".xlsm",
+    )
     try:
         if "THERAPIST_DAILY" not in wb.sheetnames:
             return ()
@@ -219,7 +216,7 @@ def existing_outpatient_blue_cells(workbook_path: str | Path) -> tuple[str, ...]
             cell.coordinate
             for row in ws.iter_rows()
             for cell in row
-            if _normalized_fill_rgb(cell) == OUTPATIENT_LIGHT_BLUE_RGB
+            if _normalized_fill_rgb(cell) in OUTPATIENT_PRESENTATION_RGBS
         ]
     finally:
         wb.close()
@@ -235,7 +232,7 @@ def build_outpatient_daily_patches(
     students: Iterable[Student] = (),
     existing_blue_cells: Iterable[str] | None = None,
 ) -> tuple[CellPatch, ...]:
-    """Build date-aware outpatient fill patches, including stale-blue cleanup."""
+    """Build date-aware outpatient fill patches, including stale cleanup."""
 
     state_list = tuple(states)
     dates = {state.session_date for state in state_list}
@@ -264,17 +261,18 @@ def build_outpatient_daily_patches(
                 sheet="THERAPIST_DAILY",
                 cell=cell,
                 intent=WriteIntent.PRESENTATION,
+                # Role name remains stable; the native palette now renders it green.
                 fill_role="outpatient_light_blue",
                 source_tag="outpatient_daily_presentation",
             )
         )
 
-    previous_blue = (
+    previous_outpatient = (
         tuple(existing_blue_cells)
         if existing_blue_cells is not None
         else existing_outpatient_blue_cells(path)
     )
-    for cell in previous_blue:
+    for cell in previous_outpatient:
         if cell.upper() in target_cells:
             continue
         patches.append(
