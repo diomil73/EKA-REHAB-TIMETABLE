@@ -26,8 +26,8 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
         Exit Sub
     End If
 
-    requestPath = Environ$("TEMP") & "\eka_outpatient_schedule_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
-    responsePath = Environ$("TEMP") & "\eka_outpatient_schedule_response_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    requestPath = Environ$("TEMP") & "\\eka_outpatient_schedule_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    responsePath = Environ$("TEMP") & "\\eka_outpatient_schedule_response_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
 
     commandLine = QuoteArg("python") & " " & QuoteArg(bridgeScript) & _
                   " --request " & QuoteArg(requestPath) & _
@@ -169,16 +169,32 @@ def _replace_vba_procedure(
     return normalized[:start] + replacement_normalized + normalized[end:]
 
 
-def patch_outpatient_schedule_form_code(code: str) -> str:
-    if "SaveOutpatientScheduleInWorkbook" in code:
+def _remove_vba_procedure_if_present(
+    code: str,
+    *,
+    start_signature: str,
+    end_statement: str,
+) -> str:
+    if start_signature not in code:
         return code
-
-    patched = _replace_vba_procedure(
+    return _replace_vba_procedure(
         code,
-        start_signature="Private Sub cmdSave_Click()",
-        end_statement="End Sub",
-        replacement=NEW_SAVE_BLOCK,
+        start_signature=start_signature,
+        end_statement=end_statement,
+        replacement="",
     )
+
+
+def patch_outpatient_schedule_form_code(code: str) -> str:
+    patched = code
+
+    if "SaveOutpatientScheduleInWorkbook" not in patched:
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Sub cmdSave_Click()",
+            end_statement="End Sub",
+            replacement=NEW_SAVE_BLOCK,
+        )
 
     if "Private Function BuildRequestJson() As String" in patched:
         patched = _replace_vba_procedure(
@@ -189,6 +205,18 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
         )
     elif "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" not in patched:
         raise ValueError("Could not locate outpatient request builder")
+
+    # The old preview/commit/reopen lifecycle is intentionally removed, not merely unused.
+    for signature in (
+        "Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean",
+        "Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String",
+        "Private Function ResolveAuthoritativeCommitWorkerScript() As String",
+    ):
+        patched = _remove_vba_procedure_if_present(
+            patched,
+            start_signature=signature,
+            end_statement="End Function",
+        )
 
     return patched
 
