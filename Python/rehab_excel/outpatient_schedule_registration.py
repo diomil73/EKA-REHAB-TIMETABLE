@@ -308,17 +308,22 @@ def create_outpatient_schedule_preview(
     if conflicts and not allow_therapist_double_booking:
         raise OutpatientTherapistDoubleBookingError(conflicts[0])
 
-    try:
-        validate_outpatient_slot_compatibility(
-            outpatient_patient_id=request.patient_id.strip(),
-            therapist_id=request.therapist_id,
-            start_time=request.start_time,
-            day_pattern=request.day_pattern.strip(),
-            existing_entries=existing_entries,
-            patients=patients,
-        )
-    except OutpatientSlotConflictError as exc:
-        raise OutpatientScheduleWriteError(str(exc)) from exc
+    # The mixed inpatient/outpatient cell rule is a presentation limitation of
+    # THERAPIST_DAILY. A user who explicitly accepts the double booking has
+    # already confirmed the real scheduling conflict, so this presentation-only
+    # guard must not veto that manual override.
+    if not allow_therapist_double_booking:
+        try:
+            validate_outpatient_slot_compatibility(
+                outpatient_patient_id=request.patient_id.strip(),
+                therapist_id=request.therapist_id,
+                start_time=request.start_time,
+                day_pattern=request.day_pattern.strip(),
+                existing_entries=existing_entries,
+                patients=patients,
+            )
+        except OutpatientSlotConflictError as exc:
+            raise OutpatientScheduleWriteError(str(exc)) from exc
 
     if request.target_base_entry_id:
         existing = {
