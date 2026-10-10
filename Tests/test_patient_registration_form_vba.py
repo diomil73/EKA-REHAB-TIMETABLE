@@ -42,6 +42,13 @@ def test_patient_form_exposes_optional_hospital_mrn():
     assert "μπορεί να συμπληρωθεί και αργότερα" in PATIENT_FORM_CODE
 
 
+def test_patient_form_exposes_visible_required_responsible_doctor_textbox():
+    assert 'StyleLabel lblResponsibleDoctor, "Υπεύθυνος γιατρός *"' in PATIENT_FORM_CODE
+    assert "StyleTextBox txtResponsibleDoctor" in PATIENT_FORM_CODE
+    assert "Ο υπεύθυνος γιατρός είναι υποχρεωτικός." in PATIENT_FORM_CODE
+    assert "txtResponsibleDoctor.SetFocus" in PATIENT_FORM_CODE
+
+
 def test_patient_form_reads_room_and_status_from_settings():
     assert 'ThisWorkbook.Worksheets("SETTINGS")' in PATIENT_FORM_CODE
     assert "Cells(ws.Rows.Count, 8)" in PATIENT_FORM_CODE
