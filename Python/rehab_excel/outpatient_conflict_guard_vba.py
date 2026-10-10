@@ -17,8 +17,14 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
     Dim accepted As Boolean
     Dim baseEntry As String
     Dim previewPath As String
+    Dim selectedPatientId As String
 
     If Not ValidateForm() Then Exit Sub
+    selectedPatientId = PatientIdFromSelection()
+    If Len(Trim$(selectedPatientId)) = 0 Then
+        MsgBox "Δεν ήταν δυνατή η ανάκτηση του PatientID από την επιλογή ασθενή.", vbCritical
+        Exit Sub
+    End If
 
     bridgeScript = ResolveBridgeScript()
     If Len(bridgeScript) = 0 Then
@@ -70,7 +76,7 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
 
     On Error GoTo InSessionSaveError
     baseEntry = SaveOutpatientScheduleInWorkbook( _
-        PatientIdFromSelection(), _
+        selectedPatientId, _
         cboTreatment.Value, _
         cboTime.Value, _
         cboDays.Value, _
@@ -189,6 +195,13 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
     patched = code
 
     if "SaveOutpatientScheduleInWorkbook" not in patched:
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Sub cmdSave_Click()",
+            end_statement="End Sub",
+            replacement=NEW_SAVE_BLOCK,
+        )
+    elif "selectedPatientId = PatientIdFromSelection()" not in patched:
         patched = _replace_vba_procedure(
             patched,
             start_signature="Private Sub cmdSave_Click()",
