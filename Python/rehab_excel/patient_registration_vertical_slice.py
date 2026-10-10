@@ -3,8 +3,8 @@ from __future__ import annotations
 """Patient-centric registration slice layered on the validated V36 fast path.
 
 This keeps the successful in-session registration architecture, adds the
-responsible doctor to the same patient workflow, and makes MASTER projection
-links blank-safe so empty PATIENT_PLANNER cells do not render as zeroes.
+responsible doctor to the same patient workflow, keeps MASTER projection
+blank-safe, and exposes an in-session patient edit backend.
 """
 
 from pathlib import Path
@@ -41,6 +41,123 @@ def _vertical_module_code() -> str:
     if old_doctor_write not in code:
         raise RuntimeError("Responsible-doctor PATIENTS write marker missing")
     code = code.replace(old_doctor_write, new_doctor_write, 1)
+
+    edit_marker = "Private Function IsOutpatient(ByVal patientType As String) As Boolean"
+    edit_backend = r'''Public Sub UpdatePatientInWorkbook( _
+    ByVal patientId As String, _
+    ByVal hospitalMRN As String, _
+    ByVal displayName As String, _
+    ByVal roomValue As String, _
+    ByVal infectious As Boolean, _
+    ByVal responsibleDoctor As String, _
+    ByVal statusValue As String _
+)
+    Dim patients As Worksheet
+    Dim planner As Worksheet
+    Dim targetRow As Long
+    Dim rowIndex As Long
+    Dim typeCol As Long
+    Dim mrnCol As Long
+    Dim doctorCol As Long
+    Dim patientType As String
+    Dim candidateMrn As String
+    Dim previousEvents As Boolean
+    Dim previousScreenUpdating As Boolean
+    Dim previousCalculation As XlCalculation
+
+    On Error GoTo UpdateError
+
+    previousEvents = Application.EnableEvents
+    previousScreenUpdating = Application.ScreenUpdating
+    previousCalculation = Application.Calculation
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+
+    Set patients = ThisWorkbook.Worksheets("PATIENTS")
+    Set planner = ThisWorkbook.Worksheets("PATIENT_PLANNER")
+
+    typeCol = FindOrCreateHeader(patients, Array("PatientType", "ΤύποςΑσθενή", "Τύπος Ασθενή"), "PatientType")
+    mrnCol = FindOrCreateHeader(patients, Array("HospitalMRN", "ΑΜ Νοσοκομείου", "ΑΜΝοσοκομείου"), "HospitalMRN")
+    doctorCol = FindOrCreateHeader(patients, Array("ResponsibleDoctor", "ΥπεύθυνοςΙατρός", "Υπεύθυνος Ιατρός", "ΥπεύθυνοςΓιατρός", "Υπεύθυνος Γιατρός"), "ResponsibleDoctor")
+
+    targetRow = FindPatientRowById(patients, patientId)
+    If targetRow = 0 Then Err.Raise vbObjectError + 2460, , "Δεν βρέθηκε ο επιλεγμένος ασθενής."
+
+    patientType = Trim$(CStr(patients.Cells(targetRow, typeCol).Value))
+    If Len(Trim$(displayName)) = 0 Then Err.Raise vbObjectError + 2461, , "Το ονοματεπώνυμο είναι υποχρεωτικό."
+    If Len(Trim$(statusValue)) = 0 Then Err.Raise vbObjectError + 2462, , "Η κατάσταση είναι υποχρεωτική."
+    If Not IsOutpatient(patientType) And Len(Trim$(roomValue)) = 0 Then Err.Raise vbObjectError + 2463, , "Ο θάλαμος είναι υποχρεωτικός για εσωτερικό ασθενή."
+    If Not IsOutpatient(patientType) And Len(Trim$(responsibleDoctor)) = 0 Then Err.Raise vbObjectError + 2464, , "Ο υπεύθυνος γιατρός είναι υποχρεωτικός για εσωτερικό ασθενή."
+
+    candidateMrn = Trim$(hospitalMRN)
+    If Len(candidateMrn) > 0 Then
+        For rowIndex = 2 To LastNonBlankRow(patients, mrnCol)
+            If rowIndex <> targetRow Then
+                If StrComp(Trim$(CStr(patients.Cells(rowIndex, mrnCol).Value)), candidateMrn, vbTextCompare) = 0 Then
+                    Err.Raise vbObjectError + 2465, , "Ο ΑΜ Νοσοκομείου υπάρχει ήδη σε άλλον ασθενή."
+                End If
+            End If
+        Next rowIndex
+    End If
+
+    patients.Cells(targetRow, 3).Value = Trim$(displayName)
+    patients.Cells(targetRow, 5).Value = Trim$(statusValue)
+    patients.Cells(targetRow, mrnCol).Value = candidateMrn
+
+    If IsOutpatient(patientType) Then
+        patients.Cells(targetRow, 2).Value = ""
+        patients.Cells(targetRow, 4).Value = ""
+        patients.Cells(targetRow, doctorCol).Value = ""
+    Else
+        patients.Cells(targetRow, 2).Value = Trim$(roomValue)
+        If infectious Then
+            patients.Cells(targetRow, 4).Value = "Ν"
+        Else
+            patients.Cells(targetRow, 4).Value = ""
+        End If
+        patients.Cells(targetRow, doctorCol).Value = Trim$(responsibleDoctor)
+    End If
+
+    RefreshPlannerRow planner, targetRow, IsOutpatient(patientType)
+    RebuildMasterFast patients, typeCol, doctorCol
+    planner.Range("A" & CStr(targetRow) & ":E" & CStr(targetRow)).Calculate
+    ThisWorkbook.Save
+
+UpdateExit:
+    Application.Calculation = previousCalculation
+    Application.ScreenUpdating = previousScreenUpdating
+    Application.EnableEvents = previousEvents
+    Exit Sub
+
+UpdateError:
+    Dim errorText As String
+    errorText = Err.Description
+    On Error Resume Next
+    Application.Calculation = previousCalculation
+    Application.ScreenUpdating = previousScreenUpdating
+    Application.EnableEvents = previousEvents
+    On Error GoTo 0
+    Err.Raise vbObjectError + 2469, "UpdatePatientInWorkbook", errorText
+End Sub
+
+Private Function FindPatientRowById(ByVal ws As Worksheet, ByVal patientId As String) As Long
+    Dim lastRow As Long
+    Dim rowIndex As Long
+
+    lastRow = LastNonBlankRow(ws, 1)
+    For rowIndex = 2 To lastRow
+        If StrComp(Trim$(CStr(ws.Cells(rowIndex, 1).Value)), Trim$(patientId), vbTextCompare) = 0 Then
+            FindPatientRowById = rowIndex
+            Exit Function
+        End If
+    Next rowIndex
+End Function
+
+'''
+    if edit_marker not in code:
+        raise RuntimeError("Patient edit backend injection marker missing")
+    code = code.replace(edit_marker, edit_backend + edit_marker, 1)
 
     # Direct Excel links turn blank source cells into visible zeroes. Keep the
     # links dynamic, but explicitly return an empty string for an empty source.
@@ -172,8 +289,6 @@ End Sub
         raise RuntimeError("MASTER rebuild marker missing for doctor style injection")
     code = code.replace(style_marker, doctor_style + style_marker, 1)
 
-    # Three visual lines need a little more breathing room than the legacy
-    # two-line patient cell while keeping the MASTER compact.
     code = code.replace(
         '    ws.Rows(rowIndex).RowHeight = 64',
         '    ws.Rows(rowIndex).RowHeight = 72',
