@@ -37,8 +37,8 @@ class NativeStylePalette:
 
     infectious_yellow: int = excel_rgb(255, 255, 67)
     robotic_pink: int = excel_rgb(248, 203, 173)
-    # Readable muted green for outpatient cells; intentionally not marker-neon.
-    outpatient_light_blue: int = excel_rgb(198, 224, 180)
+    # Readable muted cypress green for outpatient cells; intentionally not marker-neon.
+    outpatient_light_blue: int = excel_rgb(157, 181, 143)
     robotic_orange: int = excel_rgb(255, 140, 0)
     student_green: int = excel_rgb(0, 128, 0)
     muted_gray: int = excel_rgb(102, 102, 102)
