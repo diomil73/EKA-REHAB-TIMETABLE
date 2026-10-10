@@ -4,14 +4,14 @@ from rehab_excel.patient_registration_vertical_slice import (
 )
 
 
-def test_vertical_patient_registration_requires_and_persists_responsible_doctor():
+def test_vertical_patient_registration_persists_responsible_doctor():
     form_code = _vertical_form_code()
     module_code = _vertical_module_code()
 
     assert "txtResponsibleDoctor.Text" in form_code
-    assert "Ο υπεύθυνος γιατρός είναι υποχρεωτικός." in form_code
     assert "ByVal responsibleDoctor As String" in module_code
     assert "patients.Cells(targetRow, doctorCol).Value = Trim$(responsibleDoctor)" in module_code
+    assert 'If IsOutpatient(patientType) Then\n        patients.Cells(targetRow, doctorCol).Value = ""' in module_code
 
 
 def test_vertical_patient_registration_keeps_v36_in_session_navigation():
@@ -29,3 +29,16 @@ def test_vertical_master_links_are_blank_safe_instead_of_rendering_zeroes():
     assert '"=IF(PATIENT_PLANNER!I" & plannerRow & "="""","""",PATIENT_PLANNER!I" & plannerRow & ")"' in module_code
     assert '"=IF(PATIENT_PLANNER!N" & plannerRow & "="""","""",PATIENT_PLANNER!N" & plannerRow & ")"' in module_code
     assert 'ws.Cells(targetRow, 4).Formula = "=PATIENT_PLANNER!F" & plannerRow' not in module_code
+
+
+def test_master_doctor_line_has_no_symbol_prefix_and_uses_secondary_visual_style():
+    module_code = _vertical_module_code()
+
+    assert 'displayName & vbLf & doctor' in module_code
+    assert '"✚ " & doctor' not in module_code
+    assert "Private Sub ApplyDoctorLineStyle" in module_code
+    assert '.Name = "Segoe UI"' in module_code
+    assert ".Size = 9" in module_code
+    assert ".Italic = True" in module_code
+    assert ".Color = RGB(92, 64, 120)" in module_code
+    assert "ApplyDoctorLineStyle ws.Cells(targetRow, 3), displayName, doctor" in module_code
