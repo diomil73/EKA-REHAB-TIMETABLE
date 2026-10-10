@@ -32,7 +32,7 @@ Public Function SaveOutpatientScheduleInWorkbook( _
 
     If Len(patientId) = 0 Then Err.Raise vbObjectError + 2710, , "Το PatientID είναι υποχρεωτικό."
     If Len(treatment) = 0 Then Err.Raise vbObjectError + 2711, , "Η θεραπεία είναι υποχρεωτική."
-    If Len(timeText) = 0 Or Not IsDate(timeText) Then Err.Raise vbObjectError + 2712, , "Η ώρα δεν είναι έγκυρη."
+    If Len(timeText) = 0 Or Not IsDate(Replace(timeText, ".", ":")) Then Err.Raise vbObjectError + 2712, , "Η ώρα δεν είναι έγκυρη."
     If Len(dayPattern) = 0 Then Err.Raise vbObjectError + 2713, , "Οι ημέρες είναι υποχρεωτικές."
     If Len(therapistName) = 0 Then Err.Raise vbObjectError + 2714, , "Ο θεραπευτής είναι υποχρεωτικός."
 
@@ -65,12 +65,12 @@ Public Function SaveOutpatientScheduleInWorkbook( _
     ws.Cells(targetRow, 1).Value = patientId
     ws.Cells(targetRow, 2).Value = patientName
     ws.Cells(targetRow, 3).Value = treatment
-    ws.Cells(targetRow, 4).Value = TimeValue(timeText)
+    ws.Cells(targetRow, 4).Value = TimeValue(Replace(timeText, ".", ":"))
     ws.Cells(targetRow, 4).NumberFormat = "hh:mm"
     ws.Cells(targetRow, 5).Value = dayPattern
     ws.Cells(targetRow, 6).Value = therapistName
 
-    RefreshTherapistDailyForCurrentDate patientName, therapistName, timeText, dayPattern
+    RefreshTherapistDailyForCurrentDate patientName, therapistName, timeText, dayPattern, treatment
 
     Application.CalculateFull
     ThisWorkbook.Save
@@ -98,13 +98,17 @@ Private Sub RefreshTherapistDailyForCurrentDate( _
     ByVal patientName As String, _
     ByVal therapistName As String, _
     ByVal timeText As String, _
-    ByVal dayPattern As String _
+    ByVal dayPattern As String, _
+    ByVal treatment As String _
 )
     Dim dailyInput As Worksheet
     Dim dailySheet As Worksheet
     Dim targetDate As Date
     Dim targetCell As Range
     Dim previousText As String
+    Dim lineStart As Long
+    Dim linePosition As Long
+    Dim normalizedTime As Date
 
     On Error GoTo RefreshError
 
@@ -112,23 +116,38 @@ Private Sub RefreshTherapistDailyForCurrentDate( _
     If Not TryReadDailyInputDate(dailyInput.Range("B2").Value, targetDate) Then Exit Sub
     If Not DayPatternIncludesDate(dayPattern, targetDate) Then Exit Sub
 
+    normalizedTime = TimeValue(Replace(timeText, ".", ":"))
     Set dailySheet = ThisWorkbook.Worksheets("THERAPIST_DAILY")
-    Set targetCell = FindTherapistDailyCell(dailySheet, therapistName, TimeValue(timeText))
+    Set targetCell = FindTherapistDailyCell(dailySheet, therapistName, normalizedTime)
     If targetCell Is Nothing Then
         Err.Raise vbObjectError + 2730, , _
-            "Δεν βρέθηκε θέση στο THERAPIST_DAILY για " & therapistName & " στις " & Format$(TimeValue(timeText), "hh:mm") & "."
+            "Δεν βρέθηκε θέση στο THERAPIST_DAILY για " & therapistName & " στις " & Format$(normalizedTime, "hh:mm") & "."
     End If
 
-    previousText = Trim$(CStr(targetCell.Value))
-    If InStr(1, vbLf & previousText & vbLf, vbLf & patientName & vbLf, vbTextCompare) = 0 Then
-        If Len(previousText) = 0 Then
+    previousText = CStr(targetCell.Value)
+    linePosition = InStr(1, vbLf & previousText & vbLf, vbLf & patientName & vbLf, vbTextCompare)
+    If linePosition = 0 Then
+        If Len(Trim$(previousText)) = 0 Then
             targetCell.Value = patientName
             targetCell.Interior.Color = RGB(221, 235, 247)
+            lineStart = 1
         Else
             targetCell.Value = previousText & vbLf & patientName
+            lineStart = Len(previousText) + 2
+        End If
+    Else
+        lineStart = linePosition
+    End If
+
+    targetCell.WrapText = True
+    If lineStart > 0 Then
+        If IsRoboticTreatment(treatment) Then
+            targetCell.Characters(lineStart, Len(patientName)).Font.Color = RGB(255, 140, 0)
+            targetCell.Characters(lineStart, Len(patientName)).Font.Bold = True
+        Else
+            targetCell.Characters(lineStart, Len(patientName)).Font.Color = RGB(0, 0, 0)
         End If
     End If
-    targetCell.WrapText = True
     Exit Sub
 
 RefreshError:
@@ -185,6 +204,50 @@ Private Function DayPatternIncludesDate(ByVal dayPattern As String, ByVal target
     DayPatternIncludesDate = (InStr(1, text, token, vbTextCompare) > 0)
 End Function
 
+Private Function NormalizeProviderName(ByVal valueText As String) As String
+    Dim text As String
+    text = LCase$(Trim$(valueText))
+    text = Replace(text, "ά", "α")
+    text = Replace(text, "έ", "ε")
+    text = Replace(text, "ή", "η")
+    text = Replace(text, "ί", "ι")
+    text = Replace(text, "ϊ", "ι")
+    text = Replace(text, "ΐ", "ι")
+    text = Replace(text, "ό", "ο")
+    text = Replace(text, "ύ", "υ")
+    text = Replace(text, "ϋ", "υ")
+    text = Replace(text, "ΰ", "υ")
+    text = Replace(text, "ώ", "ω")
+    text = Replace(text, "ς", "σ")
+    text = Replace(text, ".", "")
+    text = Replace(text, " ", "")
+    NormalizeProviderName = text
+End Function
+
+Private Function TimeKey(ByVal rawValue As Variant) As String
+    Dim text As String
+    On Error GoTo InvalidTime
+
+    If IsDate(rawValue) Then
+        TimeKey = Format$(CDate(rawValue), "hh:mm")
+        Exit Function
+    End If
+
+    If IsNumeric(rawValue) Then
+        TimeKey = Format$(CDate(CDbl(rawValue)), "hh:mm")
+        Exit Function
+    End If
+
+    text = Replace(Trim$(CStr(rawValue)), ".", ":")
+    If IsDate(text) Then
+        TimeKey = Format$(TimeValue(text), "hh:mm")
+    End If
+    Exit Function
+
+InvalidTime:
+    TimeKey = ""
+End Function
+
 Private Function FindTherapistDailyCell( _
     ByVal ws As Worksheet, _
     ByVal therapistName As String, _
@@ -201,10 +264,14 @@ Private Function FindTherapistDailyCell( _
     Dim col As Long
     Dim rowIndex As Long
     Dim valueText As String
+    Dim targetProvider As String
+    Dim targetTime As String
 
     headerRows = Array(1, 11)
     firstRows = Array(2, 12)
     lastRows = Array(8, 18)
+    targetProvider = NormalizeProviderName(therapistName)
+    targetTime = Format$(slotTime, "hh:mm")
 
     For blockIndex = 0 To 1
         headerRow = headerRows(blockIndex)
@@ -213,8 +280,8 @@ Private Function FindTherapistDailyCell( _
         providerCol = 0
 
         For col = 2 To 10
-            valueText = Trim$(CStr(ws.Cells(headerRow, col).Value))
-            If StrComp(valueText, Trim$(therapistName), vbTextCompare) = 0 Then
+            valueText = CStr(ws.Cells(headerRow, col).Value)
+            If NormalizeProviderName(valueText) = targetProvider Then
                 providerCol = col
                 Exit For
             End If
@@ -222,18 +289,21 @@ Private Function FindTherapistDailyCell( _
 
         If providerCol > 0 Then
             For rowIndex = firstRow To lastRow
-                If IsDate(ws.Cells(rowIndex, 1).Value) Then
-                    If Format$(CDate(ws.Cells(rowIndex, 1).Value), "hh:mm") = Format$(slotTime, "hh:mm") Then
-                        Set FindTherapistDailyCell = ws.Cells(rowIndex, providerCol)
-                        Exit Function
-                    End If
-                ElseIf Trim$(CStr(ws.Cells(rowIndex, 1).Text)) = Format$(slotTime, "hh:mm") Then
+                If TimeKey(ws.Cells(rowIndex, 1).Value) = targetTime Or _
+                   TimeKey(ws.Cells(rowIndex, 1).Text) = targetTime Then
                     Set FindTherapistDailyCell = ws.Cells(rowIndex, providerCol)
                     Exit Function
                 End If
             Next rowIndex
         End If
     Next blockIndex
+End Function
+
+Private Function IsRoboticTreatment(ByVal treatment As String) As Boolean
+    Dim text As String
+    text = LCase$(Trim$(treatment))
+    IsRoboticTreatment = (InStr(1, text, "ρομποτ", vbTextCompare) > 0 Or _
+                          InStr(1, text, "robot", vbTextCompare) > 0)
 End Function
 
 Private Function EnsureOutpatientScheduleSheet() As Worksheet
