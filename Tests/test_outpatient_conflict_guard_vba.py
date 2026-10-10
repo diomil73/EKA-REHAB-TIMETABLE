@@ -19,3 +19,12 @@ def test_conflict_guard_keeps_change_as_safe_exit_path():
 
     assert "If Not accepted Then GoTo CleanUp" in patched
     assert patched.count("BuildRequestJson(True)") == 1
+
+
+def test_outpatient_save_is_in_session_and_never_closes_workbook():
+    patched = patch_outpatient_schedule_form_code(FORM_CODE)
+
+    assert "SaveOutpatientScheduleInWorkbook" in patched
+    assert "ThisWorkbook.Close" not in patched
+    assert "StartAuthoritativeCommit(" not in patched
+    assert "χωρίς κλείσιμο ή επανεκκίνηση" in patched
