@@ -381,9 +381,45 @@
 - Η νέα fast path είναι **in-session / in-process VBA**: `φόρμα → PATIENTS → PATIENT_PLANNER → MASTER → Save`, μέσα στο ήδη ανοιχτό workbook, χωρίς detached Python worker και χωρίς workbook close/reopen.
 - Η V35 απέδειξε ότι το close/reopen και η μονόλεπτη αναμονή είχαν εξαλειφθεί, αλλά η εγγραφή δεν ολοκληρώθηκε. Προστέθηκαν staged diagnostics, διορθώθηκε το target-row logic για κενές table rows και προστέθηκε ρητή επιστροφή στο MASTER μετά την επιτυχία.
 - **V36 MANUAL SMOKE SUCCESS στις 2026-10-10:** η νέα in-session εγγραφή ασθενή λειτούργησε σωστά, χωρίς κλείσιμο/reopen του workbook και με σωστή ολοκλήρωση της ροής.
+- Γνωστό μικρό visual regression μετά τη V36: κενές τιμές σε ορισμένα MASTER formulas εμφανίζονται ως `0`. Θα διορθωθεί στο επόμενο functional build με blank-preserving formulas.
 - Το αποδεκτό MASTER visual baseline παραμένει λειτουργικό και δεν αποτελεί τρέχουσα προτεραιότητα για περαιτέρω polish.
 - Το παλιό preview/CAS transaction μπορεί να παραμείνει ως safety/maintenance tooling όπου χρειάζεται, αλλά **δεν είναι πλέον η καθημερινή registration διαδρομή**.
 - Το Phase 2 παραμένει **ACTIVE** μέχρι να ολοκληρωθούν και να γίνουν smoke οι υπόλοιπες βασικές toolbar λειτουργίες.
+
+### Phase 2 architecture — patient-centric vertical workflow
+
+Η υλοποίηση από εδώ και πέρα ακολουθεί **κάθετη, patient-centric ροή** αντί για οριζόντια ολοκλήρωση όλων των registrations. Η εγγραφή νέου ασθενή θεωρείται πλήρης λειτουργικά όταν μπορεί να συνεχίσει άμεσα σε κλινική ευθύνη και θεραπευτικό πρόγραμμα για τον ίδιο PatientID.
+
+Προτεινόμενη ροή:
+
+1. βασικά στοιχεία ασθενή,
+2. υπεύθυνος γιατρός,
+3. επιλογή απαιτούμενων θεραπειών,
+4. ανάθεση θεραπευτή και ώρας,
+5. realtime conflict / availability validation,
+6. τελική αποθήκευση και refresh των operational views.
+
+Η ανάθεση θεραπευτή και η επιλογή ώρας είναι αλληλεξαρτώμενες και πρέπει να επανελέγχονται realtime. Ο υπεύθυνος γιατρός δεν επηρεάζει τον scheduling solver.
+
+#### Guided manual scheduling
+
+- Οι υποψήφιοι θεραπευτές προβάλλονται ταξινομημένοι με βάση τον τρέχοντα φόρτο τους, ώστε να προτιμώνται οι λιγότερο φορτωμένοι.
+- Η εμφάνιση πρέπει να περιλαμβάνει τουλάχιστον όνομα και workload count, π.χ. `Γαύρας 3`, `Σαρράς 4`.
+- Με την επιλογή θεραπευτή εμφανίζονται άμεσα μόνο τα διαθέσιμα time slots που δεν δημιουργούν σύγκρουση.
+- Κάθε αλλαγή θεραπευτή, θεραπείας ή ώρας επανυπολογίζει άμεσα τις διαθέσιμες επιλογές.
+
+#### Automatic management / scheduling solver
+
+Θα υπάρχει επιλογή **Αυτόματη διαχείριση**. Ο χρήστης επιλέγει με tick τις γνωστές παρεχόμενες θεραπείες και το σύστημα παράγει έναν ή περισσότερους εφικτούς συνδυασμούς θεραπευτών και ωρών.
+
+Ο solver θα διαχωρίζει:
+
+- **Hard constraints**: διαθεσιμότητα θεραπευτή, χωρίς διπλοκράτηση, χωρίς overlap για τον ίδιο ασθενή, συμβατότητα θεραπείας/πόρου/ώρας, τήρηση authoritative timetable rules.
+- **Soft preferences / scoring**: χαμηλότερος φόρτος θεραπευτή, συμπαγές πρόγραμμα χωρίς μεγάλα κενά, και ειδικές προτιμήσεις ακολουθίας θεραπειών.
+
+Ειδική προτίμηση: όταν ο ασθενής έχει **ΦΘ + ανακλινόμενο**, το ανακλινόμενο πρέπει κατά προτίμηση να τοποθετείται **αμέσως πριν ή αμέσως μετά τη ΦΘ**. Αυτό είναι ισχυρό soft constraint και όχι απόλυτο hard constraint, ώστε να μην απορρίπτεται μια κατά τα άλλα εφικτή λύση όταν adjacency δεν είναι δυνατή.
+
+Ο automatic solver θα προτείνει λύσεις και δεν θα κάνει silent authoritative commit χωρίς επιβεβαίωση του χρήστη. Η πρώτη υλοποίηση πρέπει να κρατήσει το scheduling engine χωριστό από το UI ώστε το ίδιο validation/scoring logic να χρησιμοποιείται και στη manual και στην automatic ροή.
 
 ---
 
@@ -401,6 +437,9 @@
 
 ### Phase 2 — Βασικές λειτουργίες toolbar 🟡 ACTIVE
 - νέα εγγραφή ασθενή ✅ V36 manual smoke success
+- patient-centric continuation: γιατρός → θεραπείες → therapist/time scheduling
+- guided manual scheduling με realtime workload / availability checks
+- automatic management scheduling solver με hard constraints + scored preferences
 - νέα εγγραφή θεραπευτή/φοιτητή
 - απουσία ασθενή
 - απουσία θεραπευτή
@@ -476,6 +515,8 @@
 - Τα ιστορικά δεδομένα δεν διαγράφονται όταν μια οντότητα αρχειοθετείται.
 - Το UI πρέπει να είναι απλό για καθημερινή χρήση χωρίς ανάγκη γνώσης Excel.
 - Τα dropdowns, buttons και profiles πρέπει να χρησιμοποιούν σταθερά IDs εσωτερικά, ακόμη κι αν ο χρήστης βλέπει μόνο ονόματα.
+- Το scheduling validation/scoring πρέπει να υπάρχει ως κοινός engine και να μην αντιγράφεται διαφορετικά στη manual και automatic ροή.
+- Η αυτόματη διαχείριση προτείνει, αλλά δεν κάνει silent authoritative commit χωρίς επιβεβαίωση χρήστη.
 - Το Excel chrome πρέπει να μπορεί να επανέλθει με ασφάλεια σε περίπτωση σφάλματος ή κλεισίματος.
 - Κατά τη μετάβαση σε άσχετο/external workbook το κανονικό Excel UI επανέρχεται.
 - Εξαίρεση: το **THERAPIST_DAILY** είναι φύλλο της ίδιας εφαρμογής και παραμένει σε application mode με κρυφό Excel chrome.
@@ -494,7 +535,9 @@
 - ακριβής scoring λογική του συνολικού δείκτη νοσοκομείου,
 - δομή και αποθήκευση optional reasons απουσίας,
 - authoritative αποθήκευση της αντιστοίχισης ασθενή → υπεύθυνου γιατρού,
+- ακριβής scoring βαρύτητα workload έναντι compactness και therapy adjacency,
 - ακριβείς κανόνες conflict/capacity check για μόνιμη αλλαγή θεραπευτή,
+- ακριβείς therapy-specific resource/capacity constraints για τον automatic scheduling solver,
 - τελική λίστα reports/statistics,
 - ασφαλής τεχνική διασύνδεση με intranet,
 - ακριβής μορφή OTG package και launcher,
