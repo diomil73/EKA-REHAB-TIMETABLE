@@ -28,6 +28,7 @@ class RenderLineRole(str, Enum):
 class RenderFontRole(str, Enum):
     DEFAULT = "default"
     STUDENT_ACTIVE = "student_active_green"
+    ROBOTIC = "robotic_orange"
     MUTED = "muted"
 
 
@@ -283,7 +284,10 @@ def build_daily_excel_render_plan(
         original_strike = state.status in {DailySessionStatus.PATIENT_ABSENT, DailySessionStatus.THERAPIST_ABSENT}
         original_italic = state.status == DailySessionStatus.REPLACED
         original_role = RenderLineRole.ACTIVE if state.status == DailySessionStatus.ACTIVE else RenderLineRole.ORIGINAL
-        original_font = RenderFontRole.DEFAULT if state.status == DailySessionStatus.ACTIVE else RenderFontRole.MUTED
+        if state.status == DailySessionStatus.ACTIVE:
+            original_font = RenderFontRole.ROBOTIC if session.robotic else RenderFontRole.DEFAULT
+        else:
+            original_font = RenderFontRole.MUTED
         cell_lines.setdefault(original_daily_cell, []).append(RenderLine(patient.display_name, original_role, original_strike, original_italic, original_font))
         cell_fill[original_daily_cell] = _merge_fill(cell_fill.get(original_daily_cell, RenderFillRole.DEFAULT), robotic=session.robotic, infectious=patient.infectious)
         cell_border[original_daily_cell] = _merge_border(cell_border.get(original_daily_cell, RenderBorderRole.DEFAULT), infectious=patient.infectious)
@@ -300,7 +304,8 @@ def build_daily_excel_render_plan(
             cell_lines.setdefault(original_daily_cell, []).append(RenderLine(f"→ {provider_label} {state.effective_time.strftime('%H:%M')}", RenderLineRole.REPLACEMENT, False, False, provider_font))
 
             if effective_daily_cell != original_daily_cell:
-                cell_lines.setdefault(effective_daily_cell, []).append(RenderLine(patient.display_name, RenderLineRole.REPLACEMENT, False, False, RenderFontRole.DEFAULT))
+                replacement_font = RenderFontRole.ROBOTIC if session.robotic else RenderFontRole.DEFAULT
+                cell_lines.setdefault(effective_daily_cell, []).append(RenderLine(patient.display_name, RenderLineRole.REPLACEMENT, False, False, replacement_font))
                 cell_fill[effective_daily_cell] = _merge_fill(cell_fill.get(effective_daily_cell, RenderFillRole.DEFAULT), robotic=session.robotic, infectious=patient.infectious)
                 cell_border[effective_daily_cell] = _merge_border(cell_border.get(effective_daily_cell, RenderBorderRole.DEFAULT), infectious=patient.infectious)
 
