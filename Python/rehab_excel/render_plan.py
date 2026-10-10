@@ -119,6 +119,12 @@ def _treatment_column(treatment: str | None) -> str | None:
     return _TREATMENT_COLUMNS.get(_treatment_key(treatment))
 
 
+def _is_robotic_session(session: Session) -> bool:
+    """Treat an explicit robotic flag or a robotic treatment label as robotic."""
+
+    return bool(session.robotic) or _treatment_key(session.treatment or "") == "ΡΟΜΠΟΤΙΚΟ"
+
+
 def _provider_label(provider_id: str, labels: Mapping[str, str]) -> str:
     return labels.get(provider_id, provider_id)
 
@@ -243,6 +249,7 @@ def build_daily_excel_render_plan(
         if treatment_col is None:
             issues.append(RenderIssue("UNSUPPORTED_TREATMENT", f"Unsupported treatment {session.treatment!r} for {state.session_id}"))
             continue
+        robotic_session = _is_robotic_session(session)
 
         rows = resolve_master_schedule_rows(workbook_path, patient.display_name)
         if len(rows) != 1:
@@ -285,11 +292,11 @@ def build_daily_excel_render_plan(
         original_italic = state.status == DailySessionStatus.REPLACED
         original_role = RenderLineRole.ACTIVE if state.status == DailySessionStatus.ACTIVE else RenderLineRole.ORIGINAL
         if state.status == DailySessionStatus.ACTIVE:
-            original_font = RenderFontRole.ROBOTIC if session.robotic else RenderFontRole.DEFAULT
+            original_font = RenderFontRole.ROBOTIC if robotic_session else RenderFontRole.DEFAULT
         else:
             original_font = RenderFontRole.MUTED
         cell_lines.setdefault(original_daily_cell, []).append(RenderLine(patient.display_name, original_role, original_strike, original_italic, original_font))
-        cell_fill[original_daily_cell] = _merge_fill(cell_fill.get(original_daily_cell, RenderFillRole.DEFAULT), robotic=session.robotic, infectious=patient.infectious)
+        cell_fill[original_daily_cell] = _merge_fill(cell_fill.get(original_daily_cell, RenderFillRole.DEFAULT), robotic=robotic_session, infectious=patient.infectious)
         cell_border[original_daily_cell] = _merge_border(cell_border.get(original_daily_cell, RenderBorderRole.DEFAULT), infectious=patient.infectious)
 
         if state.status == DailySessionStatus.REPLACED and effective_daily_cell is not None:
@@ -304,9 +311,9 @@ def build_daily_excel_render_plan(
             cell_lines.setdefault(original_daily_cell, []).append(RenderLine(f"→ {provider_label} {state.effective_time.strftime('%H:%M')}", RenderLineRole.REPLACEMENT, False, False, provider_font))
 
             if effective_daily_cell != original_daily_cell:
-                replacement_font = RenderFontRole.ROBOTIC if session.robotic else RenderFontRole.DEFAULT
+                replacement_font = RenderFontRole.ROBOTIC if robotic_session else RenderFontRole.DEFAULT
                 cell_lines.setdefault(effective_daily_cell, []).append(RenderLine(patient.display_name, RenderLineRole.REPLACEMENT, False, False, replacement_font))
-                cell_fill[effective_daily_cell] = _merge_fill(cell_fill.get(effective_daily_cell, RenderFillRole.DEFAULT), robotic=session.robotic, infectious=patient.infectious)
+                cell_fill[effective_daily_cell] = _merge_fill(cell_fill.get(effective_daily_cell, RenderFillRole.DEFAULT), robotic=robotic_session, infectious=patient.infectious)
                 cell_border[effective_daily_cell] = _merge_border(cell_border.get(effective_daily_cell, RenderBorderRole.DEFAULT), infectious=patient.infectious)
 
     cells = tuple(
