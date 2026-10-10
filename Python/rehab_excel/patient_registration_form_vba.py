@@ -8,7 +8,7 @@ Private Sub UserForm_Initialize()
     With Me
         .Caption = "Νέος ασθενής"
         .Width = 500
-        .Height = 560
+        .Height = 610
         .StartUpPosition = 1
         .BackColor = RGB(245, 247, 250)
     End With
@@ -34,19 +34,22 @@ Private Sub UserForm_Initialize()
     StyleLabel lblDisplayName, "Ονοματεπώνυμο *", 194
     StyleTextBox txtDisplayName, 190
 
-    StyleLabel lblRoom, "Θάλαμος", 238
-    StyleComboBox cboRoom, 234
+    StyleLabel lblResponsibleDoctor, "Υπεύθυνος γιατρός *", 238
+    StyleTextBox txtResponsibleDoctor, 234
 
-    StyleLabel lblInfectious, "Λοιμώδης", 282
-    StyleCheckBox chkInfectious, "Ναι", 278
+    StyleLabel lblRoom, "Θάλαμος", 282
+    StyleComboBox cboRoom, 278
 
-    StyleLabel lblStatus, "Κατάσταση *", 326
-    StyleComboBox cboStatus, 322
+    StyleLabel lblInfectious, "Λοιμώδης", 326
+    StyleCheckBox chkInfectious, "Ναι", 322
+
+    StyleLabel lblStatus, "Κατάσταση *", 370
+    StyleComboBox cboStatus, 366
 
     With lblInfo
         .Caption = "Το Patient ID είναι μόνιμος εσωτερικός κωδικός. Ο ΑΜ Νοσοκομείου μπορεί να συμπληρωθεί και αργότερα."
         .Left = 38
-        .Top = 370
+        .Top = 414
         .Width = 420
         .Height = 38
         .WordWrap = True
@@ -59,7 +62,7 @@ Private Sub UserForm_Initialize()
     With lblRequired
         .Caption = "* Υποχρεωτικό πεδίο"
         .Left = 38
-        .Top = 414
+        .Top = 458
         .Width = 180
         .Height = 18
         .Font.Name = "Calibri"
@@ -71,7 +74,7 @@ Private Sub UserForm_Initialize()
     With cmdSave
         .Caption = "Δημιουργία καταχώρησης"
         .Left = 235
-        .Top = 452
+        .Top = 496
         .Width = 170
         .Height = 34
         .Font.Name = "Calibri"
@@ -83,7 +86,7 @@ Private Sub UserForm_Initialize()
     With cmdCancel
         .Caption = "Ακύρωση"
         .Left = 92
-        .Top = 452
+        .Top = 496
         .Width = 125
         .Height = 34
         .Font.Name = "Calibri"
@@ -204,6 +207,8 @@ Private Sub ApplyPatientTypeRules()
     chkInfectious.Enabled = isInpatient
     lblStatus.Enabled = True
     cboStatus.Enabled = True
+    lblResponsibleDoctor.Enabled = True
+    txtResponsibleDoctor.Enabled = True
 
     If Not isInpatient Then
         cboRoom.ListIndex = -1
@@ -221,6 +226,12 @@ Private Function ValidateForm() As Boolean
     If Len(Trim$(txtDisplayName.Text)) = 0 Then
         MsgBox "Το ονοματεπώνυμο είναι υποχρεωτικό.", vbExclamation, "Δημιουργία καταχώρησης"
         txtDisplayName.SetFocus
+        Exit Function
+    End If
+
+    If Len(Trim$(txtResponsibleDoctor.Text)) = 0 Then
+        MsgBox "Ο υπεύθυνος γιατρός είναι υποχρεωτικός.", vbExclamation, "Δημιουργία καταχώρησης"
+        txtResponsibleDoctor.SetFocus
         Exit Function
     End If
 
@@ -243,7 +254,8 @@ Private Sub cmdSave_Click()
     message = "Τύπος: " & patientType & vbCrLf & _
               "Patient ID: Αυτόματο κατά την αποθήκευση" & vbCrLf & _
               "ΑΜ Νοσοκομείου: " & IIf(Len(Trim$(txtHospitalMRN.Text)) > 0, Trim$(txtHospitalMRN.Text), "-") & vbCrLf & _
-              "Ονοματεπώνυμο: " & Trim$(txtDisplayName.Text) & vbCrLf
+              "Ονοματεπώνυμο: " & Trim$(txtDisplayName.Text) & vbCrLf & _
+              "Υπεύθυνος γιατρός: " & Trim$(txtResponsibleDoctor.Text) & vbCrLf
 
     If patientType = "Εσωτερικός" Then
         message = message & _
@@ -297,16 +309,18 @@ def install_patient_form(vbproject, *, position_control) -> None:
         ("Forms.TextBox.1", "txtHospitalMRN", None, 146),
         ("Forms.Label.1", "lblDisplayName", "Ονοματεπώνυμο *", 194),
         ("Forms.TextBox.1", "txtDisplayName", None, 190),
-        ("Forms.Label.1", "lblRoom", "Θάλαμος", 238),
-        ("Forms.ComboBox.1", "cboRoom", None, 234),
-        ("Forms.Label.1", "lblInfectious", "Λοιμώδης", 282),
-        ("Forms.CheckBox.1", "chkInfectious", "Ναι", 278),
-        ("Forms.Label.1", "lblStatus", "Κατάσταση", 326),
-        ("Forms.ComboBox.1", "cboStatus", None, 322),
-        ("Forms.Label.1", "lblInfo", "", 370),
-        ("Forms.Label.1", "lblRequired", "* Υποχρεωτικό πεδίο", 414),
-        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 452),
-        ("Forms.CommandButton.1", "cmdSave", "Δημιουργία καταχώρησης", 452),
+        ("Forms.Label.1", "lblResponsibleDoctor", "Υπεύθυνος γιατρός *", 238),
+        ("Forms.TextBox.1", "txtResponsibleDoctor", None, 234),
+        ("Forms.Label.1", "lblRoom", "Θάλαμος", 282),
+        ("Forms.ComboBox.1", "cboRoom", None, 278),
+        ("Forms.Label.1", "lblInfectious", "Λοιμώδης", 326),
+        ("Forms.CheckBox.1", "chkInfectious", "Ναι", 322),
+        ("Forms.Label.1", "lblStatus", "Κατάσταση", 370),
+        ("Forms.ComboBox.1", "cboStatus", None, 366),
+        ("Forms.Label.1", "lblInfo", "", 414),
+        ("Forms.Label.1", "lblRequired", "* Υποχρεωτικό πεδίο", 458),
+        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 496),
+        ("Forms.CommandButton.1", "cmdSave", "Δημιουργία καταχώρησης", 496),
     )
 
     for prog_id, name, caption, top in controls:
