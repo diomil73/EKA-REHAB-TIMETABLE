@@ -75,6 +75,26 @@ def test_therapist_at_daily_capacity_is_not_proposed():
     assert candidates == ()
 
 
+def test_shared_legacy_slot_does_not_create_extra_daily_capacity():
+    therapist = Therapist("T1", "Full", max_daily_timeslots=3)
+    sessions = [
+        Session("S1", "P1", "T1", DAY, time(9, 0)),
+        Session("S2", "P2", "T1", DAY, time(9, 0)),
+        Session("S3", "P3", "T1", DAY, time(10, 0)),
+    ]
+
+    candidates = rank_therapist_candidates(
+        patient_id="P-NEW",
+        treatment="ΦΘ",
+        target_date=DAY,
+        timeslots=(time(11, 0),),
+        therapists=[therapist],
+        sessions=sessions,
+    )
+
+    assert candidates == ()
+
+
 def test_robotic_treatment_only_proposes_robotic_capable_therapists():
     therapists = [
         Therapist("T-NORMAL", "Normal", robotic_capable=False),
