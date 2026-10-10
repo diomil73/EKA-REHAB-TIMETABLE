@@ -158,6 +158,7 @@ def test_authoritative_writer_rejects_mixed_type_weekday_overlap(tmp_path):
                 therapist_id="T2",
             ),
             backend=FakeBackend(),
+            allow_therapist_double_booking=True,
         )
 
     assert not output.exists()
