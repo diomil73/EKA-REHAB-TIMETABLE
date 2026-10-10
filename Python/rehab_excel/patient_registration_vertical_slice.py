@@ -58,7 +58,7 @@ def _vertical_module_code() -> str:
         new = (
             f'        ws.Cells(targetRow, {master_col}).Formula = '
             f'"=IF(PATIENT_PLANNER!{planner_col}" & plannerRow & '
-            f'"=\"\"\"\",\"\"\"\",PATIENT_PLANNER!{planner_col}" & plannerRow & ")"'
+            f'"="""","""",PATIENT_PLANNER!{planner_col}" & plannerRow & ")"'
         )
         if old not in code:
             raise RuntimeError(f"Blank-safe MASTER formula marker missing for column {master_col}")
@@ -71,7 +71,7 @@ def _vertical_module_code() -> str:
     new_status = (
         '        ws.Cells(targetRow, statusCol).Formula = '
         '"=IF(PATIENT_PLANNER!E" & plannerRow & '
-        '"=\"\"\"\",\"\"\"\",PATIENT_PLANNER!E" & plannerRow & ")"'
+        '"="""","""",PATIENT_PLANNER!E" & plannerRow & ")"'
     )
     if old_status not in code:
         raise RuntimeError("Blank-safe MASTER status formula marker missing")
@@ -81,7 +81,7 @@ def _vertical_module_code() -> str:
     new_name = (
         '            ws.Cells(targetRow, 3).Formula = '
         '"=IF(PATIENT_PLANNER!C" & plannerRow & '
-        '"=\"\"\"\",\"\"\"\",PATIENT_PLANNER!C" & plannerRow & ")"'
+        '"="""","""",PATIENT_PLANNER!C" & plannerRow & ")"'
     )
     if old_name not in code:
         raise RuntimeError("Blank-safe MASTER patient-name formula marker missing")
