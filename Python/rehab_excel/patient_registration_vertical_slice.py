@@ -38,9 +38,8 @@ def _vertical_module_code() -> str:
         raise RuntimeError("Responsible-doctor PATIENTS write marker missing")
     code = code.replace(old_doctor_write, new_doctor_write, 1)
 
-    # Direct Excel links turn blank source cells into visible zeroes.  Keep the
-    # source formulas, but explicitly project a blank string when the source is
-    # empty.  This preserves the accepted MASTER visual semantics.
+    # Direct Excel links turn blank source cells into visible zeroes. Keep the
+    # links dynamic, but explicitly return an empty string for an empty source.
     for master_col, planner_col in (
         (1, "D"),
         (2, "B"),
@@ -59,7 +58,7 @@ def _vertical_module_code() -> str:
         new = (
             f'        ws.Cells(targetRow, {master_col}).Formula = '
             f'"=IF(PATIENT_PLANNER!{planner_col}" & plannerRow & '
-            f'"=\"\",\"\",PATIENT_PLANNER!{planner_col}" & plannerRow & ")"'
+            f'"=\"\"\"\",\"\"\"\",PATIENT_PLANNER!{planner_col}" & plannerRow & ")"'
         )
         if old not in code:
             raise RuntimeError(f"Blank-safe MASTER formula marker missing for column {master_col}")
@@ -72,7 +71,7 @@ def _vertical_module_code() -> str:
     new_status = (
         '        ws.Cells(targetRow, statusCol).Formula = '
         '"=IF(PATIENT_PLANNER!E" & plannerRow & '
-        '"=\"\",\"\",PATIENT_PLANNER!E" & plannerRow & ")"'
+        '"=\"\"\"\",\"\"\"\",PATIENT_PLANNER!E" & plannerRow & ")"'
     )
     if old_status not in code:
         raise RuntimeError("Blank-safe MASTER status formula marker missing")
@@ -82,7 +81,7 @@ def _vertical_module_code() -> str:
     new_name = (
         '            ws.Cells(targetRow, 3).Formula = '
         '"=IF(PATIENT_PLANNER!C" & plannerRow & '
-        '"=\"\",\"\",PATIENT_PLANNER!C" & plannerRow & ")"'
+        '"=\"\"\"\",\"\"\"\",PATIENT_PLANNER!C" & plannerRow & ")"'
     )
     if old_name not in code:
         raise RuntimeError("Blank-safe MASTER patient-name formula marker missing")
@@ -91,6 +90,21 @@ def _vertical_module_code() -> str:
 
 def _vertical_form_code() -> str:
     code = _diagnostics._patched_form_code()
+
+    validation_marker = "    If Not ValidateForm() Then Exit Sub\n\n    patientType = Trim$(cboPatientType.Value)"
+    validation = '''    If Not ValidateForm() Then Exit Sub
+
+    If Len(Trim$(txtResponsibleDoctor.Text)) = 0 Then
+        MsgBox "Ο υπεύθυνος γιατρός είναι υποχρεωτικός.", vbExclamation, "Νέος ασθενής"
+        txtResponsibleDoctor.SetFocus
+        Exit Sub
+    End If
+
+    patientType = Trim$(cboPatientType.Value)'''
+    if validation_marker not in code:
+        raise RuntimeError("Responsible-doctor validation marker missing")
+    code = code.replace(validation_marker, validation, 1)
+
     old = '''        roomValue, _
         CBool(chkInfectious.Value), _
         Trim$(cboStatus.Value) _'''
@@ -106,8 +120,8 @@ def _vertical_form_code() -> str:
 def _augment_patient_form(workbook_path: Path) -> None:
     """Add the doctor controls to frmNewPatient without changing legacy sources.
 
-    The form is created by the registration-menu build stage.  This augmentation
-    is intentionally build-time only; normal registration remains fully in-session.
+    The form is created by the registration-menu build stage. This augmentation
+    is build-time only; normal registration remains fully in-session.
     """
 
     if sys.platform != "win32":
@@ -134,7 +148,7 @@ def _augment_patient_form(workbook_path: Path) -> None:
             designer.Controls("lblResponsibleDoctor")
         except Exception:
             label = designer.Controls.Add("Forms.Label.1", "lblResponsibleDoctor", True)
-            label.Caption = "Υπεύθυνος γιατρός"
+            label.Caption = "Υπεύθυνος γιατρός *"
 
         try:
             designer.Controls("txtResponsibleDoctor")
@@ -145,7 +159,7 @@ def _augment_patient_form(workbook_path: Path) -> None:
         form_code = code_module.Lines(1, code_module.CountOfLines)
         marker = "    LoadSettingsValues\n    ApplyPatientTypeRules"
         injected = '''    Me.Height = 610
-    StyleLabel lblResponsibleDoctor, "Υπεύθυνος γιατρός", 370
+    StyleLabel lblResponsibleDoctor, "Υπεύθυνος γιατρός *", 370
     StyleTextBox txtResponsibleDoctor, 366
     lblInfo.Top = 414
     lblRequired.Top = 458
