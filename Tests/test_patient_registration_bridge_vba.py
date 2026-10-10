@@ -4,6 +4,10 @@ from rehab_excel.patient_registration_bridge_vba import (
     FORM_BRIDGE_CODE,
     PATIENT_FORM_NAME,
 )
+from rehab_excel.patient_registration_bridge_diagnostics import (
+    _patched_form_code,
+    _patched_module_code,
+)
 
 
 def test_bridge_targets_existing_patient_form():
@@ -54,6 +58,33 @@ def test_fast_path_preserves_manual_calculation_guard_and_restores_excel_state()
     assert "Application.Calculation = previousCalculation" in BRIDGE_MODULE_CODE
     assert "Application.EnableEvents = previousEvents" in BRIDGE_MODULE_CODE
     assert "Application.ScreenUpdating = previousScreenUpdating" in BRIDGE_MODULE_CODE
+
+
+def test_diagnostic_bridge_reports_exact_failure_stage():
+    code = _patched_module_code()
+    assert 'Dim stage As String' in code
+    assert 'stage = "write PATIENTS row " & CStr(targetRow)' in code
+    assert 'stage = "refresh PATIENT_PLANNER row " & CStr(targetRow)' in code
+    assert 'stage = "rebuild MASTER"' in code
+    assert 'stage = "save workbook"' in code
+    assert 'errorText = "Stage: " & stage & vbCrLf & Err.Description' in code
+
+
+def test_diagnostic_bridge_uses_logical_registry_row_not_blank_table_tail():
+    code = _patched_module_code()
+    assert "Private Function LastLogicalPatientRow" in code
+    assert "Value2" in code
+    assert "LastLogicalPatientRow(ws, 1)" in code
+    assert "LastLogicalPatientRow(ws, 3)" in code
+
+
+def test_successful_registration_returns_to_master_without_closing_workbook():
+    code = _patched_form_code()
+    assert "Unload frmRegistrationMenu" in code
+    assert "Unload Me" in code
+    assert "GoToMaster" in code
+    assert "ThisWorkbook.Close" not in code
+    assert "Application.Quit" not in code
 
 
 def test_bridge_keeps_standard_module_name_for_compatibility():
