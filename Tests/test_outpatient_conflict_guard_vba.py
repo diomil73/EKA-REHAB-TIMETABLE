@@ -27,4 +27,13 @@ def test_outpatient_save_is_in_session_and_never_closes_workbook():
     assert "SaveOutpatientScheduleInWorkbook" in patched
     assert "ThisWorkbook.Close" not in patched
     assert "StartAuthoritativeCommit(" not in patched
+    assert "BuildAuthoritativeCommitJson(" not in patched
+    assert "ResolveAuthoritativeCommitWorkerScript" not in patched
     assert "χωρίς κλείσιμο ή επανεκκίνηση" in patched
+
+
+def test_outpatient_in_session_patch_is_idempotent():
+    patched_once = patch_outpatient_schedule_form_code(FORM_CODE)
+    patched_twice = patch_outpatient_schedule_form_code(patched_once)
+
+    assert patched_twice == patched_once
