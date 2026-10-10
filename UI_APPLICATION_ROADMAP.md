@@ -360,16 +360,30 @@
 
 Τελευταίο full regression:
 
-**513 passed, 0 failed, 19 warnings**
+**529 passed, 0 failed, 20 warnings** στις **2026-10-10**.
 
 ### Τρέχον UI checkpoint
 
-- **Validated smoke build:** MASTER_TOOLBAR_SMOKE_V12.xlsm
-- Το central registration menu δεν περιλαμβάνει πλέον ξεχωριστό Εφαρμογή DAILY_INPUT.
-- Η λειτουργία **Απουσίες / Ακυρώσεις** της MASTER toolbar οδηγεί στο DAILY_INPUT.
-- Η λειτουργία **Ημερήσιο πρόγραμμα** οδηγεί στο THERAPIST_DAILY.
+- **Phase 1 validated smoke:** `MASTER_TOOLBAR_SMOKE_V12.xlsm` στις **2026-10-06**.
+- Η MASTER toolbar παραμένει ενοποιημένη με τις 4 βασικές λειτουργίες: **Διαχείριση Μητρώων**, **Απουσίες / Ακυρώσεις**, **Ημερήσιο πρόγραμμα**, **Save & Exit**.
+- Το central registration menu παραμένει το σημείο εισόδου για νέο ασθενή, θεραπευτή, φοιτητή και πρόγραμμα εξωτερικού ασθενή.
+- Η λειτουργία **Απουσίες / Ακυρώσεις** οδηγεί στο DAILY_INPUT και η λειτουργία **Ημερήσιο πρόγραμμα** στο THERAPIST_DAILY.
 - Επιβεβαιώθηκαν navigation προς MASTER, application mode, Excel UI restore και Save & Exit.
-- Το Phase 1 app shell πέρασε manual smoke validation στις **2026-10-06**.
+
+### Phase 2 checkpoint — νέα εγγραφή ασθενή
+
+- Η προηγούμενη ασφαλής preview/CAS transaction διαδρομή είχε αποδείξει ότι η authoritative persistence λειτουργεί, αλλά ήταν ακατάλληλη για καθημερινή χρήση λόγω latency και πολλαπλών workbook lifecycles.
+- Μετρήσεις παλιού flow: V30 περίπου 70 sec, V31 περίπου 67 sec, V32 `close 3.547 / preview 58.774 / commit-reopen 0.902 / total 64.224 sec`, V33 `close 3.230 / preview 57.581 / commit-reopen 0.874 / total 62.687 sec`.
+- Το shared Excel process και το shared open workbook δεν έδωσαν ουσιαστική βελτίωση. Το bottleneck παρέμεινε στο preview path.
+- Παρατηρήθηκε επίσης ανεπιθύμητο double lifecycle: close, reopen χωρίς τη νέα εγγραφή, δεύτερο close, μεγάλη αναμονή και τελικό reopen με την εγγραφή.
+- Η V34, που δοκίμασε direct COM workbook close, **απέτυχε**: το workbook δεν έκλεισε και ο ασθενής δεν καταχωρήθηκε. Το direct-close patch απορρίφθηκε ως μη αξιόπιστο για την τρέχουσα async αρχιτεκτονική.
+- Μετά τη V34 αποφασίστηκε αλλαγή αρχιτεκτονικής: η καθημερινή εγγραφή ασθενή δεν πρέπει να χρησιμοποιεί close/preview/commit/reopen.
+- Η νέα fast path είναι **in-session / in-process VBA**: `φόρμα → PATIENTS → PATIENT_PLANNER → MASTER → Save`, μέσα στο ήδη ανοιχτό workbook, χωρίς detached Python worker και χωρίς workbook close/reopen.
+- Η V35 απέδειξε ότι το close/reopen και η μονόλεπτη αναμονή είχαν εξαλειφθεί, αλλά η εγγραφή δεν ολοκληρώθηκε. Προστέθηκαν staged diagnostics, διορθώθηκε το target-row logic για κενές table rows και προστέθηκε ρητή επιστροφή στο MASTER μετά την επιτυχία.
+- **V36 MANUAL SMOKE SUCCESS στις 2026-10-10:** η νέα in-session εγγραφή ασθενή λειτούργησε σωστά, χωρίς κλείσιμο/reopen του workbook και με σωστή ολοκλήρωση της ροής.
+- Το αποδεκτό MASTER visual baseline παραμένει λειτουργικό και δεν αποτελεί τρέχουσα προτεραιότητα για περαιτέρω polish.
+- Το παλιό preview/CAS transaction μπορεί να παραμείνει ως safety/maintenance tooling όπου χρειάζεται, αλλά **δεν είναι πλέον η καθημερινή registration διαδρομή**.
+- Το Phase 2 παραμένει **ACTIVE** μέχρι να ολοκληρωθούν και να γίνουν smoke οι υπόλοιπες βασικές toolbar λειτουργίες.
 
 ---
 
@@ -385,8 +399,8 @@
 - tooltips
 - ασφαλές restore του Excel UI κατά το κλείσιμο ή σε error
 
-### Phase 2 — Βασικές λειτουργίες toolbar
-- νέα εγγραφή ασθενή
+### Phase 2 — Βασικές λειτουργίες toolbar 🟡 ACTIVE
+- νέα εγγραφή ασθενή ✅ V36 manual smoke success
 - νέα εγγραφή θεραπευτή/φοιτητή
 - απουσία ασθενή
 - απουσία θεραπευτή
@@ -458,7 +472,7 @@
 
 - Το MASTER δεν γίνεται data-entry sheet.
 - Δεν αλλάζουμε authoritative source rules για χάρη του UI.
-- Κάθε νέα λειτουργία που γράφει δεδομένα ακολουθεί safe preview / validation / authoritative commit όπου απαιτείται.
+- Κάθε νέα λειτουργία που γράφει δεδομένα ακολουθεί safe validation και persistence strategy ανάλογη με το operational risk. Για την καθημερινή εγγραφή ασθενή έχει επικυρωθεί in-session save χωρίς υποχρεωτικό close/preview/reopen.
 - Τα ιστορικά δεδομένα δεν διαγράφονται όταν μια οντότητα αρχειοθετείται.
 - Το UI πρέπει να είναι απλό για καθημερινή χρήση χωρίς ανάγκη γνώσης Excel.
 - Τα dropdowns, buttons και profiles πρέπει να χρησιμοποιούν σταθερά IDs εσωτερικά, ακόμη κι αν ο χρήστης βλέπει μόνο ονόματα.
@@ -486,4 +500,3 @@
 - ακριβής μορφή OTG package και launcher,
 - ελάχιστες προϋποθέσεις εγκατάστασης στο exhibition PC,
 - κανόνες αρχειοθέτησης και επανενεργοποίησης ασθενών/θεραπευτών.
-
