@@ -10,6 +10,7 @@ from .authoritative_commit import file_sha256
 from .outpatient_schedule_registration import (
     OutpatientScheduleRequest,
     OutpatientScheduleWriteError,
+    OutpatientTherapistDoubleBookingError,
     create_outpatient_schedule_preview,
 )
 
@@ -28,6 +29,13 @@ def _required_text(values: Mapping[str, object], key: str) -> str:
 def _optional_text(values: Mapping[str, object], key: str) -> str | None:
     value = str(values.get(key, "")).strip()
     return value or None
+
+
+def _optional_bool(values: Mapping[str, object], key: str, default: bool = False) -> bool:
+    value = values.get(key, default)
+    if not isinstance(value, bool):
+        raise OutpatientScheduleBridgeError(f"{key} must be a boolean")
+    return value
 
 
 def _time_value(values: Mapping[str, object], key: str = "time"):
@@ -68,6 +76,7 @@ def run_outpatient_schedule_bridge(
         therapist_id=_optional_text(values, "therapist"),
         target_base_entry_id=_optional_text(values, "target_base_entry_id"),
     )
+    allow_double_booking = _optional_bool(values, "allow_double_booking")
 
     output_path = Path(preview_dir) / "OUTPATIENT_SCHEDULE_PREVIEW.xlsm"
     try:
@@ -77,7 +86,23 @@ def run_outpatient_schedule_bridge(
             output_path,
             request,
             overwrite=overwrite,
+            allow_therapist_double_booking=allow_double_booking,
         )
+    except OutpatientTherapistDoubleBookingError as exc:
+        conflict = exc.conflict
+        return {
+            "ok": False,
+            "conflict_type": "therapist_double_booking",
+            "therapist": conflict.therapist_id,
+            "time": conflict.start_time.strftime("%H:%M"),
+            "existing_patient_id": conflict.existing_patient_id,
+            "existing_patient_name": conflict.existing_patient_name,
+            "new_patient_id": conflict.new_patient_id,
+            "new_patient_name": conflict.new_patient_name,
+            "existing_days": conflict.existing_day_pattern,
+            "new_days": conflict.new_day_pattern,
+            "error": str(exc),
+        }
     except (OutpatientScheduleWriteError, ValueError) as exc:
         raise OutpatientScheduleBridgeError(str(exc)) from exc
 
