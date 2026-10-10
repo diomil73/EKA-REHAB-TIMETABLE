@@ -32,6 +32,14 @@ def test_outpatient_save_is_in_session_and_never_closes_workbook():
     assert "χωρίς κλείσιμο ή επανεκκίνηση" in patched
 
 
+def test_outpatient_save_caches_patient_id_before_backend_round_trip():
+    patched = patch_outpatient_schedule_form_code(FORM_CODE)
+
+    assert "Dim selectedPatientId As String" in patched
+    assert "selectedPatientId = PatientIdFromSelection()" in patched
+    assert "SaveOutpatientScheduleInWorkbook( _\n        selectedPatientId" in patched
+
+
 def test_outpatient_in_session_patch_is_idempotent():
     patched_once = patch_outpatient_schedule_form_code(FORM_CODE)
     patched_twice = patch_outpatient_schedule_form_code(patched_once)
