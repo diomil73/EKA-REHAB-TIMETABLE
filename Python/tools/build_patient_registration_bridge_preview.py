@@ -9,7 +9,7 @@ PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
-from rehab_excel.patient_registration_bridge_diagnostics import (  # noqa: E402
+from rehab_excel.patient_registration_vertical_slice import (  # noqa: E402
     PatientRegistrationBridgeVbaError,
     create_patient_registration_bridge_preview,
 )
@@ -17,7 +17,7 @@ from rehab_excel.patient_registration_bridge_diagnostics import (  # noqa: E402
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Create a safe copy with frmNewPatient wired to the in-session registration bridge."
+        description="Create a safe copy with frmNewPatient wired to the patient-centric in-session registration bridge."
     )
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
