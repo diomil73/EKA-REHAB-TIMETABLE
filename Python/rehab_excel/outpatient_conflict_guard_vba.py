@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .outpatient_in_session_vba import install_outpatient_in_session_writer
 from .scheduling_conflict_popup_vba import install_scheduling_conflict_popup
 
 
@@ -14,6 +15,8 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
     Dim responseText As String
     Dim exitCode As Long
     Dim accepted As Boolean
+    Dim baseEntry As String
+    Dim previewPath As String
 
     If Not ValidateForm() Then Exit Sub
 
@@ -63,32 +66,47 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
         GoTo CleanUp
     End If
 
-    If Not StartAuthoritativeCommit( _
-        JsonStringValue(responseText, "output_path"), _
-        JsonStringValue(responseText, "source_sha256_before")) Then
-        GoTo CleanUp
-    End If
+    previewPath = JsonStringValue(responseText, "output_path")
 
-    MsgBox "Το πρόγραμμα επαληθεύτηκε και είναι έτοιμο για αποθήκευση." & vbCrLf & _
-           "Base entry: " & JsonStringValue(responseText, "base_entry_id") & vbCrLf & vbCrLf & _
-           "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα μετά την ασφαλή αποθήκευση.", _
-           vbInformation, "Πρόγραμμα εξωτερικού ασθενή"
+    On Error GoTo InSessionSaveError
+    baseEntry = SaveOutpatientScheduleInWorkbook( _
+        PatientIdFromSelection(), _
+        cboTreatment.Value, _
+        cboTime.Value, _
+        cboDays.Value, _
+        cboTherapist.Value)
 
     On Error Resume Next
+    If Len(previewPath) > 0 Then Kill previewPath
     Kill requestPath
     Kill responsePath
     On Error GoTo 0
 
+    MsgBox "Το πρόγραμμα αποθηκεύτηκε επιτυχώς." & vbCrLf & _
+           "Base entry: " & baseEntry & vbCrLf & vbCrLf & _
+           "Η αλλαγή ισχύει άμεσα, χωρίς κλείσιμο ή επανεκκίνηση του αρχείου.", _
+           vbInformation, "Πρόγραμμα εξωτερικού ασθενή"
+
     Unload Me
-    ThisWorkbook.Close SaveChanges:=True
+    On Error Resume Next
+    Unload frmRegistrationMenu
+    GoToMaster
+    On Error GoTo 0
     Exit Sub
 
 CleanUp:
     On Error Resume Next
+    previewPath = JsonStringValue(responseText, "output_path")
+    If Len(previewPath) > 0 Then Kill previewPath
     Kill requestPath
     Kill responsePath
     On Error GoTo 0
     Exit Sub
+
+InSessionSaveError:
+    MsgBox "Ο έλεγχος πέρασε αλλά η καταχώρηση στο ανοιχτό αρχείο απέτυχε:" & vbCrLf & vbCrLf & Err.Description, _
+           vbCritical, "Πρόγραμμα εξωτερικού ασθενή"
+    Resume CleanUp
 
 BridgeError:
     MsgBox "Δεν ήταν δυνατή η εκτέλεση του backend: " & Err.Description, vbCritical
@@ -152,7 +170,7 @@ def _replace_vba_procedure(
 
 
 def patch_outpatient_schedule_form_code(code: str) -> str:
-    if "BuildRequestJson(False)" in code and "allow_double_booking" in code:
+    if "SaveOutpatientScheduleInWorkbook" in code:
         return code
 
     patched = _replace_vba_procedure(
@@ -161,12 +179,17 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
         end_statement="End Sub",
         replacement=NEW_SAVE_BLOCK,
     )
-    patched = _replace_vba_procedure(
-        patched,
-        start_signature="Private Function BuildRequestJson() As String",
-        end_statement="End Function",
-        replacement=NEW_REQUEST_BLOCK,
-    )
+
+    if "Private Function BuildRequestJson() As String" in patched:
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Function BuildRequestJson() As String",
+            end_statement="End Function",
+            replacement=NEW_REQUEST_BLOCK,
+        )
+    elif "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" not in patched:
+        raise ValueError("Could not locate outpatient request builder")
+
     return patched
 
 
@@ -177,6 +200,7 @@ def _position_control(control, left: float, top: float) -> None:
 
 def install_outpatient_conflict_guard(vbproject) -> None:
     install_scheduling_conflict_popup(vbproject, position_control=_position_control)
+    install_outpatient_in_session_writer(vbproject)
 
     form = vbproject.VBComponents(FORM_NAME)
     module = form.CodeModule
