@@ -13,6 +13,7 @@ Public Sub ToolbarAbsences()
     On Error GoTo MissingSheet
     ThisWorkbook.Worksheets("DAILY_INPUT").Activate
     ThisWorkbook.Worksheets("DAILY_INPUT").Range("A1").Select
+    KeepApplicationShell
     Exit Sub
 MissingSheet:
     MsgBox "Δεν βρέθηκε το DAILY_INPUT.", vbExclamation, "Απουσίες / Ακυρώσεις"
@@ -91,6 +92,7 @@ End Sub
 Public Sub ToolbarTherapistDaily()
     On Error GoTo MissingSheet
     ThisWorkbook.Worksheets("THERAPIST_DAILY").Activate
+    KeepApplicationShell
     Exit Sub
 MissingSheet:
     MsgBox "Δεν βρέθηκε το THERAPIST_DAILY.", vbExclamation, "Ημερήσιο πρόγραμμα"
