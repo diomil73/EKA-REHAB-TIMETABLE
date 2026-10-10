@@ -34,6 +34,7 @@ STEPS = (
     ("patient registration bridge", "build_patient_registration_bridge_preview.py"),
     ("patient edit flow", "build_patient_edit_flow_preview.py"),
     ("outpatient schedule form", "build_outpatient_schedule_form_preview.py"),
+    ("outpatient conflict guard", "build_outpatient_conflict_guard_preview.py"),
     ("DAILY_INPUT sheet", "preview_daily_input_sheet.py"),
 )
 
@@ -134,6 +135,7 @@ def build_unified_preview(
         stage2 = temp / "02_patient_bridge.xlsm"
         stage3 = temp / "03_patient_edit.xlsm"
         stage4 = temp / "04_outpatient_form.xlsm"
+        stage5 = temp / "05_outpatient_conflict_guard.xlsm"
 
         _run_step(
             "registration menu + forms",
@@ -184,6 +186,18 @@ def build_unified_preview(
             ],
         )
         _run_step(
+            "outpatient conflict guard",
+            [
+                sys.executable,
+                str(TOOLS_DIR / "build_outpatient_conflict_guard_preview.py"),
+                "--source",
+                str(stage4),
+                "--output",
+                str(stage5),
+                "--overwrite",
+            ],
+        )
+        _run_step(
             "DAILY_INPUT sheet",
             [
                 sys.executable,
@@ -191,7 +205,7 @@ def build_unified_preview(
                 "--date",
                 target_date.isoformat(),
                 "--source",
-                str(stage4),
+                str(stage5),
                 "--output",
                 str(output),
                 "--overwrite",
@@ -233,7 +247,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Build one safe XLSM containing the central menu, registration forms, "
-            "patient registration/edit flows, outpatient schedule form, DAILY_INPUT action and DAILY_INPUT sheet."
+            "patient registration/edit flows, outpatient schedule form with conflict guard, "
+            "DAILY_INPUT action and DAILY_INPUT sheet."
         )
     )
     parser.add_argument(
