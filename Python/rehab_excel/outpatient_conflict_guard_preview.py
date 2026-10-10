@@ -38,6 +38,13 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _safe_unlink(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except PermissionError:
+        pass
+
+
 def create_outpatient_conflict_guard_preview(
     source_path: str | Path,
     output_path: str | Path,
@@ -67,11 +74,16 @@ def create_outpatient_conflict_guard_preview(
     try:
         import win32com.client  # type: ignore[import-not-found]
     except ImportError as exc:
-        output.unlink(missing_ok=True)
+        _safe_unlink(output)
         raise OutpatientConflictGuardPreviewError("pywin32 is required") from exc
 
     excel = None
     workbook = None
+    failure: Exception | None = None
+    outpatient_form_present = False
+    popup_form_present = False
+    popup_module_present = False
+
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
@@ -83,7 +95,10 @@ def create_outpatient_conflict_guard_preview(
         install_outpatient_conflict_guard(vbproject)
         workbook.Save()
 
-        names = {vbproject.VBComponents(index).Name for index in range(1, vbproject.VBComponents.Count + 1)}
+        names = {
+            vbproject.VBComponents(index).Name
+            for index in range(1, vbproject.VBComponents.Count + 1)
+        }
         outpatient_form_present = FORM_NAME in names
         popup_form_present = SCHEDULING_CONFLICT_FORM_NAME in names
         popup_module_present = SCHEDULING_CONFLICT_MODULE_NAME in names
@@ -91,36 +106,40 @@ def create_outpatient_conflict_guard_preview(
             raise OutpatientConflictGuardPreviewError(
                 "Conflict guard components were not all installed"
             )
-    except OutpatientConflictGuardPreviewError:
-        output.unlink(missing_ok=True)
-        raise
     except Exception as exc:
-        output.unlink(missing_ok=True)
-        raise OutpatientConflictGuardPreviewError(
-            f"Excel conflict guard installation failed: {exc}"
-        ) from exc
+        failure = exc
     finally:
         if workbook is not None:
             try:
                 workbook.Close(SaveChanges=False)
             except Exception:
                 pass
+            workbook = None
         if excel is not None:
             try:
                 excel.Quit()
             except Exception:
                 pass
+            excel = None
+
+    if failure is not None:
+        _safe_unlink(output)
+        if isinstance(failure, OutpatientConflictGuardPreviewError):
+            raise failure
+        raise OutpatientConflictGuardPreviewError(
+            f"Excel conflict guard installation failed: {failure}"
+        ) from failure
 
     source_unchanged = _sha256(source) == source_before
     if not source_unchanged:
-        output.unlink(missing_ok=True)
+        _safe_unlink(output)
         raise OutpatientConflictGuardPreviewError("Source workbook changed during preview build")
 
     return OutpatientConflictGuardPreviewReport(
         source_path=str(source),
         output_path=str(output),
         source_unchanged=True,
-        outpatient_form_present=True,
-        popup_form_present=True,
-        popup_module_present=True,
+        outpatient_form_present=outpatient_form_present,
+        popup_form_present=popup_form_present,
+        popup_module_present=popup_module_present,
     )
