@@ -31,14 +31,20 @@ def test_vertical_master_links_are_blank_safe_instead_of_rendering_zeroes():
     assert 'ws.Cells(targetRow, 4).Formula = "=PATIENT_PLANNER!F" & plannerRow' not in module_code
 
 
-def test_master_doctor_line_has_no_symbol_prefix_and_uses_secondary_visual_style():
+def test_master_doctor_line_matches_approved_secondary_visual_spec():
     module_code = _vertical_module_code()
 
-    assert 'displayName & vbLf & doctor' in module_code
+    assert "Private Function DoctorSeparator() As String" in module_code
+    assert "ChrW$(9472)" in module_code
+    assert "Private Sub WritePatientDoctorCell" in module_code
+    assert "displayName & vbLf & separator & vbLf & doctor" in module_code
     assert '"✚ " & doctor' not in module_code
     assert "Private Sub ApplyDoctorLineStyle" in module_code
     assert '.Name = "Segoe UI"' in module_code
+    assert ".Size = 10" in module_code
     assert ".Size = 9" in module_code
     assert ".Italic = True" in module_code
     assert ".Color = RGB(92, 64, 120)" in module_code
+    assert ".Color = RGB(180, 185, 195)" in module_code
     assert "ApplyDoctorLineStyle ws.Cells(targetRow, 3), displayName, doctor" in module_code
+    assert "ws.Rows(rowIndex).RowHeight = 72" in module_code
