@@ -27,11 +27,13 @@ def test_patient_edit_form_keeps_outpatient_doctor_room_and_infectious_disabled(
     assert 'txtResponsibleDoctor.Text = ""' in PATIENT_EDIT_FORM_CODE
 
 
-def test_registry_menu_exposes_patient_edit_action():
+def test_registry_menu_exposes_patient_edit_action_without_separate_outpatient_schedule():
     code = _menu_code_with_patient_edit()
     assert 'StyleMenuButton cmdEditPatient, "Επεξεργασία ασθενή", 113' in code
     assert "Private Sub cmdEditPatient_Click()" in code
     assert "frmEditPatient.Show" in code
+    assert "cmdOutpatientSchedule" not in code
+    assert "Πρόγραμμα εξωτερικού ασθενή" not in code
 
 
 def test_in_session_edit_backend_updates_same_patient_id_and_rebuilds_master():
