@@ -5,6 +5,7 @@ from .scheduling_conflict_popup_vba import install_scheduling_conflict_popup
 
 
 FORM_NAME = "frmOutpatientSchedule"
+PATIENT_FORM_NAME = "frmNewPatient"
 
 
 NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
@@ -138,6 +139,91 @@ NEW_REQUEST_BLOCK = r'''Private Function BuildRequestJson(ByVal allowDoubleBooki
 End Function'''
 
 
+SELECT_PATIENT_BLOCK = r'''Public Sub SelectPatientById(ByVal patientId As String)
+    Dim index As Long
+    Dim prefix As String
+
+    patientId = Trim$(patientId)
+    If Len(patientId) = 0 Then Exit Sub
+    prefix = patientId & " | "
+
+    For index = 0 To cboPatient.ListCount - 1
+        If StrComp(Left$(CStr(cboPatient.List(index)), Len(prefix)), prefix, vbTextCompare) = 0 Then
+            cboPatient.ListIndex = index
+            Exit Sub
+        End If
+    Next index
+
+    Err.Raise vbObjectError + 2750, "SelectPatientById", _
+              "Ο νέος εξωτερικός ασθενής δεν βρέθηκε στη λίστα προγραμματισμού."
+End Sub'''
+
+
+NEW_PATIENT_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
+    Dim patientType As String
+    Dim roomValue As String
+    Dim patientId As String
+
+    If Not ValidateForm() Then Exit Sub
+
+    patientType = Trim$(cboPatientType.Value)
+    If patientType <> "Εξωτερικός" Then
+        roomValue = Trim$(cboRoom.Value)
+        If Len(roomValue) = 0 Then
+            MsgBox "Ο θάλαμος είναι υποχρεωτικός για εσωτερικό ασθενή.", _
+                   vbExclamation, "Νέος ασθενής"
+            cboRoom.SetFocus
+            Exit Sub
+        End If
+    Else
+        roomValue = ""
+    End If
+
+    On Error GoTo RegistrationError
+
+    patientId = RegisterPatientInWorkbook( _
+        patientType, _
+        Trim$(txtHospitalMRN.Text), _
+        Trim$(txtDisplayName.Text), _
+        roomValue, _
+        CBool(chkInfectious.Value), _
+        Trim$(cboStatus.Value) _
+    )
+
+    If patientType = "Εξωτερικός" Then
+        MsgBox "Ο ασθενής καταχωρήθηκε επιτυχώς." & vbCrLf & _
+               "Patient ID: " & patientId & vbCrLf & vbCrLf & _
+               "Συνεχίστε τώρα με το πρόγραμμά του.", _
+               vbInformation, "Νέος εξωτερικός ασθενής"
+
+        Unload Me
+        On Error Resume Next
+        Unload frmRegistrationMenu
+        On Error GoTo ScheduleOpenError
+
+        Load frmOutpatientSchedule
+        frmOutpatientSchedule.SelectPatientById patientId
+        frmOutpatientSchedule.Show
+        Exit Sub
+    End If
+
+    MsgBox "Ο ασθενής καταχωρήθηκε επιτυχώς." & vbCrLf & _
+           "Patient ID: " & patientId, _
+           vbInformation, "Νέος ασθενής"
+    Unload Me
+    Exit Sub
+
+ScheduleOpenError:
+    MsgBox "Ο εξωτερικός ασθενής καταχωρήθηκε, αλλά δεν άνοιξε η φόρμα προγράμματος: " & Err.Description, _
+           vbExclamation, "Νέος εξωτερικός ασθενής"
+    Exit Sub
+
+RegistrationError:
+    MsgBox "Η καταχώρηση δεν ολοκληρώθηκε: " & Err.Description, _
+           vbCritical, "Νέος ασθενής"
+End Sub'''
+
+
 def _replace_vba_procedure(
     code: str,
     *,
@@ -194,14 +280,7 @@ def _remove_vba_procedure_if_present(
 def patch_outpatient_schedule_form_code(code: str) -> str:
     patched = code
 
-    if "SaveOutpatientScheduleInWorkbook" not in patched:
-        patched = _replace_vba_procedure(
-            patched,
-            start_signature="Private Sub cmdSave_Click()",
-            end_statement="End Sub",
-            replacement=NEW_SAVE_BLOCK,
-        )
-    elif "selectedPatientId = PatientIdFromSelection()" not in patched:
+    if "SaveOutpatientScheduleInWorkbook" not in patched or "selectedPatientId = PatientIdFromSelection()" not in patched:
         patched = _replace_vba_procedure(
             patched,
             start_signature="Private Sub cmdSave_Click()",
@@ -219,6 +298,14 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
     elif "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" not in patched:
         raise ValueError("Could not locate outpatient request builder")
 
+    patched = patched.replace(
+        'cmdSave.Caption = "Έλεγχος και preview"',
+        'cmdSave.Caption = "Αποθήκευση προγράμματος"',
+    )
+
+    if "Public Sub SelectPatientById(ByVal patientId As String)" not in patched:
+        patched = patched.rstrip() + "\n\n" + SELECT_PATIENT_BLOCK + "\n"
+
     # The old preview/commit/reopen lifecycle is intentionally removed, not merely unused.
     for signature in (
         "Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean",
@@ -232,6 +319,17 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
         )
 
     return patched
+
+
+def patch_patient_registration_form_code(code: str) -> str:
+    if "frmOutpatientSchedule.SelectPatientById patientId" in code:
+        return code
+    return _replace_vba_procedure(
+        code,
+        start_signature="Private Sub cmdSave_Click()",
+        end_statement="End Sub",
+        replacement=NEW_PATIENT_SAVE_BLOCK,
+    )
 
 
 def _position_control(control, left: float, top: float) -> None:
@@ -249,3 +347,10 @@ def install_outpatient_conflict_guard(vbproject) -> None:
     patched = patch_outpatient_schedule_form_code(code)
     module.DeleteLines(1, module.CountOfLines)
     module.AddFromString(patched)
+
+    patient_form = vbproject.VBComponents(PATIENT_FORM_NAME)
+    patient_module = patient_form.CodeModule
+    patient_code = patient_module.Lines(1, patient_module.CountOfLines)
+    patient_patched = patch_patient_registration_form_code(patient_code)
+    patient_module.DeleteLines(1, patient_module.CountOfLines)
+    patient_module.AddFromString(patient_patched)
