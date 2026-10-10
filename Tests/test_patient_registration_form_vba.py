@@ -42,11 +42,14 @@ def test_patient_form_exposes_optional_hospital_mrn():
     assert "μπορεί να συμπληρωθεί και αργότερα" in PATIENT_FORM_CODE
 
 
-def test_patient_form_exposes_visible_required_responsible_doctor_textbox():
+def test_patient_form_exposes_visible_required_responsible_doctor_for_inpatients():
     assert 'StyleLabel lblResponsibleDoctor, "Υπεύθυνος γιατρός *"' in PATIENT_FORM_CODE
     assert "StyleTextBox txtResponsibleDoctor" in PATIENT_FORM_CODE
-    assert "Ο υπεύθυνος γιατρός είναι υποχρεωτικός." in PATIENT_FORM_CODE
+    assert "Ο υπεύθυνος γιατρός είναι υποχρεωτικός για εσωτερικό ασθενή." in PATIENT_FORM_CODE
     assert "txtResponsibleDoctor.SetFocus" in PATIENT_FORM_CODE
+    assert "lblResponsibleDoctor.Enabled = isInpatient" in PATIENT_FORM_CODE
+    assert "txtResponsibleDoctor.Enabled = isInpatient" in PATIENT_FORM_CODE
+    assert 'txtResponsibleDoctor.Text = ""' in PATIENT_FORM_CODE
 
 
 def test_patient_form_reads_room_and_status_from_settings():
@@ -57,9 +60,10 @@ def test_patient_form_reads_room_and_status_from_settings():
     assert "Cells(rowIndex, 6)" in PATIENT_FORM_CODE
 
 
-def test_outpatient_disables_only_room_and_infectious_fields_but_keeps_status():
+def test_outpatient_disables_inpatient_only_fields_but_keeps_status():
     assert "cboRoom.Enabled = isInpatient" in PATIENT_FORM_CODE
     assert "chkInfectious.Enabled = isInpatient" in PATIENT_FORM_CODE
+    assert "txtResponsibleDoctor.Enabled = isInpatient" in PATIENT_FORM_CODE
     assert "cboStatus.Enabled = True" in PATIENT_FORM_CODE
     assert "cboStatus.ListIndex = -1" not in PATIENT_FORM_CODE
     assert "Η κατάσταση παρουσίας είναι υποχρεωτική." in PATIENT_FORM_CODE
