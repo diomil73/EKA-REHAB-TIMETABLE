@@ -1,5 +1,9 @@
-from rehab_excel.outpatient_conflict_guard_vba import patch_outpatient_schedule_form_code
+from rehab_excel.outpatient_conflict_guard_vba import (
+    patch_outpatient_schedule_form_code,
+    patch_patient_registration_form_code,
+)
 from rehab_excel.outpatient_schedule_form_vba import FORM_CODE
+from rehab_excel.patient_registration_bridge_vba import FORM_BRIDGE_CODE
 
 
 def test_conflict_guard_patches_save_flow_for_explicit_override():
@@ -38,6 +42,25 @@ def test_outpatient_save_caches_patient_id_before_backend_round_trip():
     assert "Dim selectedPatientId As String" in patched
     assert "selectedPatientId = PatientIdFromSelection()" in patched
     assert "SaveOutpatientScheduleInWorkbook( _\n        selectedPatientId" in patched
+
+
+def test_outpatient_form_uses_save_caption_and_supports_patient_preselection():
+    patched = patch_outpatient_schedule_form_code(FORM_CODE)
+
+    assert 'cmdSave.Caption = "Αποθήκευση προγράμματος"' in patched
+    assert "Έλεγχος και preview" not in patched
+    assert "Public Sub SelectPatientById(ByVal patientId As String)" in patched
+    assert "cboPatient.ListIndex = index" in patched
+
+
+def test_new_outpatient_registration_opens_schedule_automatically():
+    patched = patch_patient_registration_form_code(FORM_BRIDGE_CODE)
+
+    assert 'If patientType = "Εξωτερικός" Then' in patched
+    assert "Load frmOutpatientSchedule" in patched
+    assert "frmOutpatientSchedule.SelectPatientById patientId" in patched
+    assert "frmOutpatientSchedule.Show" in patched
+    assert "Συνεχίστε τώρα με το πρόγραμμά του." in patched
 
 
 def test_outpatient_in_session_patch_is_idempotent():
