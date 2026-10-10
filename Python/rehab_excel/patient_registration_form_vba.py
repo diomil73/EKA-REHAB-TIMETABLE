@@ -205,14 +205,15 @@ Private Sub ApplyPatientTypeRules()
     cboRoom.Enabled = isInpatient
     lblInfectious.Enabled = isInpatient
     chkInfectious.Enabled = isInpatient
+    lblResponsibleDoctor.Enabled = isInpatient
+    txtResponsibleDoctor.Enabled = isInpatient
     lblStatus.Enabled = True
     cboStatus.Enabled = True
-    lblResponsibleDoctor.Enabled = True
-    txtResponsibleDoctor.Enabled = True
 
     If Not isInpatient Then
         cboRoom.ListIndex = -1
         chkInfectious.Value = False
+        txtResponsibleDoctor.Text = ""
     End If
 End Sub
 
@@ -229,10 +230,12 @@ Private Function ValidateForm() As Boolean
         Exit Function
     End If
 
-    If Len(Trim$(txtResponsibleDoctor.Text)) = 0 Then
-        MsgBox "Ο υπεύθυνος γιατρός είναι υποχρεωτικός.", vbExclamation, "Δημιουργία καταχώρησης"
-        txtResponsibleDoctor.SetFocus
-        Exit Function
+    If cboPatientType.Value <> "Εξωτερικός" Then
+        If Len(Trim$(txtResponsibleDoctor.Text)) = 0 Then
+            MsgBox "Ο υπεύθυνος γιατρός είναι υποχρεωτικός για εσωτερικό ασθενή.", vbExclamation, "Δημιουργία καταχώρησης"
+            txtResponsibleDoctor.SetFocus
+            Exit Function
+        End If
     End If
 
     If Len(Trim$(cboStatus.Value)) = 0 Then
@@ -254,11 +257,11 @@ Private Sub cmdSave_Click()
     message = "Τύπος: " & patientType & vbCrLf & _
               "Patient ID: Αυτόματο κατά την αποθήκευση" & vbCrLf & _
               "ΑΜ Νοσοκομείου: " & IIf(Len(Trim$(txtHospitalMRN.Text)) > 0, Trim$(txtHospitalMRN.Text), "-") & vbCrLf & _
-              "Ονοματεπώνυμο: " & Trim$(txtDisplayName.Text) & vbCrLf & _
-              "Υπεύθυνος γιατρός: " & Trim$(txtResponsibleDoctor.Text) & vbCrLf
+              "Ονοματεπώνυμο: " & Trim$(txtDisplayName.Text) & vbCrLf
 
     If patientType = "Εσωτερικός" Then
         message = message & _
+                  "Υπεύθυνος γιατρός: " & Trim$(txtResponsibleDoctor.Text) & vbCrLf & _
                   "Θάλαμος: " & IIf(Len(cboRoom.Value) > 0, cboRoom.Value, "-") & vbCrLf & _
                   "Λοιμώδης: " & IIf(chkInfectious.Value, "Ναι", "Όχι") & vbCrLf & _
                   "Κατάσταση: " & IIf(Len(cboStatus.Value) > 0, cboStatus.Value, "-") & vbCrLf
