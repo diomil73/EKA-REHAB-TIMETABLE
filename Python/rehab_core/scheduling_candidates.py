@@ -65,11 +65,18 @@ def rank_therapist_candidates(
 ) -> tuple[TherapistScheduleCandidate, ...]:
     """Return feasible therapists ranked by operational load.
 
-    The function deliberately composes the existing authoritative workload and
-    availability primitives instead of reimplementing conflict rules. A
-    candidate is returned only when at least one slot is simultaneously free
-    for therapist and patient and the therapist still has daily timeslot
-    capacity. Robotic treatments additionally require ``robotic_capable``.
+    The function composes the existing authoritative workload and availability
+    primitives instead of reimplementing conflict rules. A candidate is returned
+    only when at least one slot is simultaneously free for therapist and patient.
+
+    Daily capacity is enforced by active session count, not by distinct occupied
+    clock times. Shared therapist slots are not valid scheduling capacity: if a
+    therapist already has six active sessions, the therapist is full even when
+    legacy data places two of those sessions at the same clock time. The exact
+    same-time double booking is separately detectable as a hard conflict by the
+    conflict engine.
+
+    Robotic treatments additionally require ``robotic_capable``.
     """
 
     therapists = tuple(therapists)
@@ -96,7 +103,7 @@ def rank_therapist_candidates(
             cancellations=cancellations,
         )
 
-        if workload.active_timeslots >= therapist.max_daily_timeslots:
+        if workload.active_sessions >= therapist.max_daily_timeslots:
             continue
 
         available_slots = tuple(
