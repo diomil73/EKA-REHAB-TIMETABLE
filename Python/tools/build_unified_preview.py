@@ -32,6 +32,7 @@ TOOLS_DIR = REPO_ROOT / "Python" / "tools"
 STEPS = (
     ("registration menu + forms", "build_registration_menu_preview.py"),
     ("patient registration bridge", "build_patient_registration_bridge_preview.py"),
+    ("patient edit flow", "build_patient_edit_flow_preview.py"),
     ("outpatient schedule form", "build_outpatient_schedule_form_preview.py"),
     ("DAILY_INPUT sheet", "preview_daily_input_sheet.py"),
 )
@@ -131,7 +132,8 @@ def build_unified_preview(
         temp = Path(temp_dir)
         stage1 = temp / "01_menu.xlsm"
         stage2 = temp / "02_patient_bridge.xlsm"
-        stage3 = temp / "03_outpatient_form.xlsm"
+        stage3 = temp / "03_patient_edit.xlsm"
+        stage4 = temp / "04_outpatient_form.xlsm"
 
         _run_step(
             "registration menu + forms",
@@ -158,14 +160,26 @@ def build_unified_preview(
             ],
         )
         _run_step(
+            "patient edit flow",
+            [
+                sys.executable,
+                str(TOOLS_DIR / "build_patient_edit_flow_preview.py"),
+                "--source",
+                str(stage2),
+                "--output",
+                str(stage3),
+                "--overwrite",
+            ],
+        )
+        _run_step(
             "outpatient schedule form",
             [
                 sys.executable,
                 str(TOOLS_DIR / "build_outpatient_schedule_form_preview.py"),
                 "--source",
-                str(stage2),
-                "--output",
                 str(stage3),
+                "--output",
+                str(stage4),
                 "--overwrite",
             ],
         )
@@ -177,15 +191,13 @@ def build_unified_preview(
                 "--date",
                 target_date.isoformat(),
                 "--source",
-                str(stage3),
+                str(stage4),
                 "--output",
                 str(output),
                 "--overwrite",
             ],
         )
 
-        # MASTER content must be rebuilt before navigation and visual decoration.
-        # Styling alone is never allowed to reorder or move patient rows.
         try:
             projected = refresh_master_projection_in_place(output)
             print(f"[OK] MASTER projection refresh ({projected} patients)")
@@ -221,7 +233,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Build one safe XLSM containing the central menu, registration forms, "
-            "patient bridge, outpatient schedule form, DAILY_INPUT action and DAILY_INPUT sheet."
+            "patient registration/edit flows, outpatient schedule form, DAILY_INPUT action and DAILY_INPUT sheet."
         )
     )
     parser.add_argument(
