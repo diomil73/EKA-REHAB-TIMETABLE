@@ -308,18 +308,17 @@ def create_outpatient_schedule_preview(
     if conflicts and not allow_therapist_double_booking:
         raise OutpatientTherapistDoubleBookingError(conflicts[0])
 
-    if not allow_therapist_double_booking:
-        try:
-            validate_outpatient_slot_compatibility(
-                outpatient_patient_id=request.patient_id.strip(),
-                therapist_id=request.therapist_id,
-                start_time=request.start_time,
-                day_pattern=request.day_pattern.strip(),
-                existing_entries=existing_entries,
-                patients=patients,
-            )
-        except OutpatientSlotConflictError as exc:
-            raise OutpatientScheduleWriteError(str(exc)) from exc
+    try:
+        validate_outpatient_slot_compatibility(
+            outpatient_patient_id=request.patient_id.strip(),
+            therapist_id=request.therapist_id,
+            start_time=request.start_time,
+            day_pattern=request.day_pattern.strip(),
+            existing_entries=existing_entries,
+            patients=patients,
+        )
+    except OutpatientSlotConflictError as exc:
+        raise OutpatientScheduleWriteError(str(exc)) from exc
 
     if request.target_base_entry_id:
         existing = {
