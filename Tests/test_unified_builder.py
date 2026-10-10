@@ -50,14 +50,16 @@ def test_unified_builder_runs_stages_in_required_order(tmp_path, monkeypatch):
         "patient registration bridge",
         "patient edit flow",
         "outpatient schedule form",
+        "outpatient conflict guard",
         "DAILY_INPUT sheet",
     ]
     assert calls[0][1][1].endswith("build_registration_menu_preview.py")
     assert calls[1][1][1].endswith("build_patient_registration_bridge_preview.py")
     assert calls[2][1][1].endswith("build_patient_edit_flow_preview.py")
     assert calls[3][1][1].endswith("build_outpatient_schedule_form_preview.py")
-    assert calls[4][1][1].endswith("preview_daily_input_sheet.py")
-    assert "2026-09-28" in calls[4][1]
+    assert calls[4][1][1].endswith("build_outpatient_conflict_guard_preview.py")
+    assert calls[5][1][1].endswith("preview_daily_input_sheet.py")
+    assert "2026-09-28" in calls[5][1]
 
 
 def test_unified_builder_refuses_source_equal_to_output(tmp_path):
