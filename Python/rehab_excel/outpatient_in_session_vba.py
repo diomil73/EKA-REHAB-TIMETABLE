@@ -70,6 +70,8 @@ Public Function SaveOutpatientScheduleInWorkbook( _
     ws.Cells(targetRow, 5).Value = dayPattern
     ws.Cells(targetRow, 6).Value = therapistName
 
+    RefreshTherapistDailyForCurrentDate patientName, therapistName, timeText, dayPattern
+
     Application.CalculateFull
     ThisWorkbook.Save
 
@@ -90,6 +92,148 @@ SaveError:
     Application.EnableEvents = previousEvents
     On Error GoTo 0
     Err.Raise vbObjectError + 2720, "SaveOutpatientScheduleInWorkbook", errorText
+End Function
+
+Private Sub RefreshTherapistDailyForCurrentDate( _
+    ByVal patientName As String, _
+    ByVal therapistName As String, _
+    ByVal timeText As String, _
+    ByVal dayPattern As String _
+)
+    Dim dailyInput As Worksheet
+    Dim dailySheet As Worksheet
+    Dim targetDate As Date
+    Dim targetCell As Range
+    Dim previousText As String
+
+    On Error GoTo RefreshError
+
+    Set dailyInput = ThisWorkbook.Worksheets("DAILY_INPUT")
+    If Not TryReadDailyInputDate(dailyInput.Range("B2").Value, targetDate) Then Exit Sub
+    If Not DayPatternIncludesDate(dayPattern, targetDate) Then Exit Sub
+
+    Set dailySheet = ThisWorkbook.Worksheets("THERAPIST_DAILY")
+    Set targetCell = FindTherapistDailyCell(dailySheet, therapistName, TimeValue(timeText))
+    If targetCell Is Nothing Then
+        Err.Raise vbObjectError + 2730, , _
+            "Δεν βρέθηκε θέση στο THERAPIST_DAILY για " & therapistName & " στις " & Format$(TimeValue(timeText), "hh:mm") & "."
+    End If
+
+    previousText = Trim$(CStr(targetCell.Value))
+    If InStr(1, vbLf & previousText & vbLf, vbLf & patientName & vbLf, vbTextCompare) = 0 Then
+        If Len(previousText) = 0 Then
+            targetCell.Value = patientName
+            targetCell.Interior.Color = RGB(221, 235, 247)
+        Else
+            targetCell.Value = previousText & vbLf & patientName
+        End If
+    End If
+    targetCell.WrapText = True
+    Exit Sub
+
+RefreshError:
+    Err.Raise Err.Number, "RefreshTherapistDailyForCurrentDate", Err.Description
+End Sub
+
+Private Function TryReadDailyInputDate(ByVal rawValue As Variant, ByRef result As Date) As Boolean
+    Dim text As String
+    Dim parts() As String
+
+    If IsDate(rawValue) Then
+        result = CDate(rawValue)
+        TryReadDailyInputDate = True
+        Exit Function
+    End If
+
+    text = Trim$(CStr(rawValue))
+    If Len(text) = 0 Then Exit Function
+    parts = Split(text, "/")
+    If UBound(parts) <> 2 Then Exit Function
+    If Not IsNumeric(parts(0)) Or Not IsNumeric(parts(1)) Or Not IsNumeric(parts(2)) Then Exit Function
+
+    On Error GoTo InvalidDate
+    result = DateSerial(CInt(parts(2)), CInt(parts(1)), CInt(parts(0)))
+    TryReadDailyInputDate = True
+    Exit Function
+
+InvalidDate:
+    TryReadDailyInputDate = False
+End Function
+
+Private Function DayPatternIncludesDate(ByVal dayPattern As String, ByVal targetDate As Date) As Boolean
+    Dim text As String
+    Dim token As String
+
+    text = LCase$(Trim$(dayPattern))
+    If Len(text) = 0 Then Exit Function
+
+    If InStr(1, text, "καθ", vbTextCompare) > 0 Or InStr(1, text, "daily", vbTextCompare) > 0 Then
+        DayPatternIncludesDate = True
+        Exit Function
+    End If
+
+    Select Case Weekday(targetDate, vbMonday)
+        Case 1: token = "δε"
+        Case 2: token = "τρ"
+        Case 3: token = "τε"
+        Case 4: token = "πε"
+        Case 5: token = "πα"
+        Case 6: token = "σα"
+        Case 7: token = "κυ"
+    End Select
+
+    DayPatternIncludesDate = (InStr(1, text, token, vbTextCompare) > 0)
+End Function
+
+Private Function FindTherapistDailyCell( _
+    ByVal ws As Worksheet, _
+    ByVal therapistName As String, _
+    ByVal slotTime As Date _
+) As Range
+    Dim headerRows As Variant
+    Dim firstRows As Variant
+    Dim lastRows As Variant
+    Dim blockIndex As Long
+    Dim headerRow As Long
+    Dim firstRow As Long
+    Dim lastRow As Long
+    Dim providerCol As Long
+    Dim col As Long
+    Dim rowIndex As Long
+    Dim valueText As String
+
+    headerRows = Array(1, 11)
+    firstRows = Array(2, 12)
+    lastRows = Array(8, 18)
+
+    For blockIndex = 0 To 1
+        headerRow = headerRows(blockIndex)
+        firstRow = firstRows(blockIndex)
+        lastRow = lastRows(blockIndex)
+        providerCol = 0
+
+        For col = 2 To 10
+            valueText = Trim$(CStr(ws.Cells(headerRow, col).Value))
+            If StrComp(valueText, Trim$(therapistName), vbTextCompare) = 0 Then
+                providerCol = col
+                Exit For
+            End If
+        Next col
+
+        If providerCol > 0 Then
+            For rowIndex = firstRow To lastRow
+                If IsDate(ws.Cells(rowIndex, 1).Value) Then
+                    If Format$(CDate(ws.Cells(rowIndex, 1).Value), "hh:mm") = Format$(slotTime, "hh:mm") Then
+                        Set FindTherapistDailyCell = ws.Cells(rowIndex, providerCol)
+                        Exit Function
+                    End If
+                ElseIf Trim$(CStr(ws.Cells(rowIndex, 1).Text)) = Format$(slotTime, "hh:mm") Then
+                    Set FindTherapistDailyCell = ws.Cells(rowIndex, providerCol)
+                    Exit Function
+                End If
+            Next rowIndex
+        End If
+    Next blockIndex
 End Function
 
 Private Function EnsureOutpatientScheduleSheet() As Worksheet
