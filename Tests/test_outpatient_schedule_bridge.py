@@ -12,11 +12,19 @@ from rehab_excel.outpatient_schedule_registration import OutpatientSchedulePrevi
 def test_bridge_builds_request_and_returns_json_ready_result(monkeypatch, tmp_path):
     captured = {}
 
-    def fake_preview(source, output, request, *, overwrite):
+    def fake_preview(
+        source,
+        output,
+        request,
+        *,
+        overwrite,
+        allow_therapist_double_booking,
+    ):
         captured["source"] = source
         captured["output"] = output
         captured["request"] = request
         captured["overwrite"] = overwrite
+        captured["allow_therapist_double_booking"] = allow_therapist_double_booking
         return OutpatientSchedulePreviewReport(
             source_path=str(source),
             output_path=str(output),
@@ -56,6 +64,7 @@ def test_bridge_builds_request_and_returns_json_ready_result(monkeypatch, tmp_pa
     assert request.therapist_id == "Αργέντος"
     assert captured["output"] == Path(tmp_path) / "OUTPATIENT_SCHEDULE_PREVIEW.xlsm"
     assert captured["overwrite"] is True
+    assert captured["allow_therapist_double_booking"] is False
     assert response["ok"] is True
     assert response["base_entry_id"] == "outpatient:2"
     assert response["source_sha256_before"] == "def456"
