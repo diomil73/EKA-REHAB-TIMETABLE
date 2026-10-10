@@ -25,9 +25,11 @@ class OutpatientPresentationError(RuntimeError):
 
 
 LEGACY_OUTPATIENT_BLUE_RGB = "DDEBF7"
-OUTPATIENT_GREEN_RGB = "C6E0B4"
+LEGACY_OUTPATIENT_GREEN_RGB = "C6E0B4"
+OUTPATIENT_GREEN_RGB = "9DB58F"
 OUTPATIENT_PRESENTATION_RGBS = {
     LEGACY_OUTPATIENT_BLUE_RGB,
+    LEGACY_OUTPATIENT_GREEN_RGB,
     OUTPATIENT_GREEN_RGB,
 }
 
@@ -196,9 +198,9 @@ def _normalized_fill_rgb(cell) -> str | None:
 def existing_outpatient_blue_cells(workbook_path: str | Path) -> tuple[str, ...]:
     """Return cells carrying current or legacy outpatient presentation fill.
 
-    The legacy function name is retained for compatibility. Both the old blue
-    and the current muted green are detected so stale outpatient colouring is
-    removed safely when the active patient changes.
+    The legacy function name is retained for compatibility. Both the old blue,
+    the previous muted green, and the current cypress green are detected so
+    stale outpatient colouring is removed safely when the active patient changes.
     """
 
     path = Path(workbook_path)
