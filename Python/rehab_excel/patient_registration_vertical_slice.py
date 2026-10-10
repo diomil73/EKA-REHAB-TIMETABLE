@@ -33,7 +33,11 @@ def _vertical_module_code() -> str:
     code = code.replace(old_signature, new_signature, 1)
 
     old_doctor_write = '    patients.Cells(targetRow, doctorCol).Value = ""'
-    new_doctor_write = '    patients.Cells(targetRow, doctorCol).Value = Trim$(responsibleDoctor)'
+    new_doctor_write = '''    If IsOutpatient(patientType) Then
+        patients.Cells(targetRow, doctorCol).Value = ""
+    Else
+        patients.Cells(targetRow, doctorCol).Value = Trim$(responsibleDoctor)
+    End If'''
     if old_doctor_write not in code:
         raise RuntimeError("Responsible-doctor PATIENTS write marker missing")
     code = code.replace(old_doctor_write, new_doctor_write, 1)
@@ -85,7 +89,58 @@ def _vertical_module_code() -> str:
     )
     if old_name not in code:
         raise RuntimeError("Blank-safe MASTER patient-name formula marker missing")
-    return code.replace(old_name, new_name, 1)
+    code = code.replace(old_name, new_name, 1)
+
+    old_doctor_block = '''        If Len(doctor) > 0 Then
+            ws.Cells(targetRow, 3).Value = displayName & vbLf & "✚ " & doctor
+        Else
+            ws.Cells(targetRow, 3).Formula = "=IF(PATIENT_PLANNER!C" & plannerRow & "="""","""",PATIENT_PLANNER!C" & plannerRow & ")"
+        End If
+
+        ApplyMasterPatientStyle ws, targetRow, IsTruthy(patients.Cells(plannerRow, 4).Value)'''
+    new_doctor_block = '''        If Len(doctor) > 0 Then
+            ws.Cells(targetRow, 3).Value = displayName & vbLf & doctor
+        Else
+            ws.Cells(targetRow, 3).Formula = "=IF(PATIENT_PLANNER!C" & plannerRow & "="""","""",PATIENT_PLANNER!C" & plannerRow & ")"
+        End If
+
+        ApplyMasterPatientStyle ws, targetRow, IsTruthy(patients.Cells(plannerRow, 4).Value)
+        If Len(doctor) > 0 Then ApplyDoctorLineStyle ws.Cells(targetRow, 3), displayName, doctor'''
+    if old_doctor_block not in code:
+        raise RuntimeError("Responsible-doctor MASTER display marker missing")
+    code = code.replace(old_doctor_block, new_doctor_block, 1)
+
+    style_marker = "Private Sub RebuildMasterFast(ByVal patients As Worksheet, ByVal typeCol As Long, ByVal doctorCol As Long)"
+    doctor_style = '''Private Sub ApplyDoctorLineStyle(ByVal targetCell As Range, ByVal displayName As String, ByVal doctor As String)
+    Dim doctorStart As Long
+
+    doctorStart = Len(displayName) + 2
+    With targetCell
+        .WrapText = True
+        .VerticalAlignment = xlCenter
+        .HorizontalAlignment = xlLeft
+    End With
+
+    With targetCell.Characters(Start:=1, Length:=Len(displayName)).Font
+        .Name = "Calibri"
+        .Size = 10.5
+        .Bold = True
+        .Italic = False
+    End With
+
+    With targetCell.Characters(Start:=doctorStart, Length:=Len(doctor)).Font
+        .Name = "Segoe UI"
+        .Size = 9
+        .Bold = False
+        .Italic = True
+        .Color = RGB(92, 64, 120)
+    End With
+End Sub
+
+'''
+    if style_marker not in code:
+        raise RuntimeError("MASTER rebuild marker missing for doctor style injection")
+    return code.replace(style_marker, doctor_style + style_marker, 1)
 
 
 def _vertical_form_code() -> str:
@@ -93,12 +148,6 @@ def _vertical_form_code() -> str:
 
     validation_marker = "    If Not ValidateForm() Then Exit Sub\n\n    patientType = Trim$(cboPatientType.Value)"
     validation = '''    If Not ValidateForm() Then Exit Sub
-
-    If Len(Trim$(txtResponsibleDoctor.Text)) = 0 Then
-        MsgBox "Ο υπεύθυνος γιατρός είναι υποχρεωτικός.", vbExclamation, "Νέος ασθενής"
-        txtResponsibleDoctor.SetFocus
-        Exit Sub
-    End If
 
     patientType = Trim$(cboPatientType.Value)'''
     if validation_marker not in code:
@@ -118,11 +167,7 @@ def _vertical_form_code() -> str:
 
 
 def _augment_patient_form(workbook_path: Path) -> None:
-    """Add the doctor controls to frmNewPatient without changing legacy sources.
-
-    The form is created by the registration-menu build stage. This augmentation
-    is build-time only; normal registration remains fully in-session.
-    """
+    """Keep compatibility with previews built from older registration-menu stages."""
 
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
@@ -154,28 +199,6 @@ def _augment_patient_form(workbook_path: Path) -> None:
             designer.Controls("txtResponsibleDoctor")
         except Exception:
             designer.Controls.Add("Forms.TextBox.1", "txtResponsibleDoctor", True)
-
-        code_module = component.CodeModule
-        form_code = code_module.Lines(1, code_module.CountOfLines)
-        marker = "    LoadSettingsValues\n    ApplyPatientTypeRules"
-        injected = '''    Me.Height = 610
-    StyleLabel lblResponsibleDoctor, "Υπεύθυνος γιατρός *", 370
-    StyleTextBox txtResponsibleDoctor, 366
-    lblInfo.Top = 414
-    lblRequired.Top = 458
-    cmdCancel.Top = 496
-    cmdSave.Top = 496
-
-    LoadSettingsValues
-    ApplyPatientTypeRules'''
-        if "StyleLabel lblResponsibleDoctor" not in form_code:
-            if marker not in form_code:
-                raise PatientRegistrationBridgeVbaError(
-                    "Responsible-doctor form initialization marker was not found"
-                )
-            form_code = form_code.replace(marker, injected, 1)
-            code_module.DeleteLines(1, code_module.CountOfLines)
-            code_module.AddFromString(form_code)
 
         workbook.Save()
     except PatientRegistrationBridgeVbaError:
