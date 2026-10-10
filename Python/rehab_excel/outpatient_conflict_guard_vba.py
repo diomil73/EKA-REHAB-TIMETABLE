@@ -138,7 +138,6 @@ NEW_REQUEST_BLOCK = r'''Private Function BuildRequestJson(ByVal allowDoubleBooki
         "}}"
 End Function'''
 
-
 SELECT_PATIENT_BLOCK = r'''Public Sub SelectPatientById(ByVal patientId As String)
     Dim index As Long
     Dim prefix As String
@@ -187,6 +186,7 @@ NEW_PATIENT_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
         Trim$(txtDisplayName.Text), _
         roomValue, _
         CBool(chkInfectious.Value), _
+        Trim$(txtResponsibleDoctor.Text), _
         Trim$(cboStatus.Value) _
     )
 
