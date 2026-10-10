@@ -17,6 +17,24 @@ class ReplacementProviderKind(str, Enum):
     STUDENT = "student"
 
 
+class PatientType(str, Enum):
+    """Operational patient classification.
+
+    Patient type controls visibility/presentation. It must not remove an
+    outpatient from workload, capacity, replacement, or productivity logic.
+    """
+
+    INPATIENT = "inpatient"
+    OUTPATIENT = "outpatient"
+
+
+class SessionCancellationKind(str, Enum):
+    """Why one scheduled treatment did not take place on a specific day."""
+
+    DEPARTMENT_POSTPONED = "department_postponed"
+    PATIENT_NO_SHOW = "patient_no_show"
+
+
 @dataclass(frozen=True)
 class Patient:
     patient_id: str
@@ -24,6 +42,17 @@ class Patient:
     room: Optional[str] = None
     infectious: bool = False
     status: Optional[str] = None
+    patient_type: PatientType = PatientType.INPATIENT
+    hospital_mrn: Optional[str] = None
+    responsible_doctor: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.patient_type == PatientType.OUTPATIENT and self.infectious:
+            raise ValueError("Outpatient patient cannot be marked infectious")
+
+    @property
+    def is_outpatient(self) -> bool:
+        return self.patient_type == PatientType.OUTPATIENT
 
 
 @dataclass(frozen=True)
@@ -31,10 +60,6 @@ class Therapist:
     therapist_id: str
     display_name: str
     robotic_capable: bool = False
-    # Confirmed operational rule: a physiotherapist may occupy at most six
-    # distinct timeslots on any one day. The field lives on the provider model
-    # so exceptional staff limits can be represented later without changing the
-    # scheduling engine.
     max_daily_timeslots: int = 6
 
 
@@ -63,16 +88,28 @@ class Session:
 
 
 @dataclass(frozen=True)
-class Student:
-    """Student placement kept separate from the Therapist registry.
+class DailySessionCancellation:
+    """Cancel one concrete daily session without changing its recurring plan."""
 
-    Students may receive patients/replacements when they are active and
-    replacement-capable. Their confirmed daily capacity is five timeslots.
-    """
+    cancellation_id: str
+    target_session_id: str
+    cancellation_date: date
+    kind: SessionCancellationKind
+    reason: Optional[str] = None
+
+    def applies_to(self, session: Session) -> bool:
+        return (
+            self.target_session_id == session.session_id
+            and self.cancellation_date == session.session_date
+        )
+
+
+@dataclass(frozen=True)
+class Student:
+    """Student placement kept separate from the Therapist registry."""
 
     student_id: str
     display_name: str
-    student_number: int
     placement_start: date
     placement_end: date
     supervisor_therapist_id: Optional[str] = None

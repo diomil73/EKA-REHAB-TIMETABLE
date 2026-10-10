@@ -28,6 +28,7 @@ class RenderLineRole(str, Enum):
 class RenderFontRole(str, Enum):
     DEFAULT = "default"
     STUDENT_ACTIVE = "student_active_green"
+    ROBOTIC = "robotic_orange"
     MUTED = "muted"
 
 
@@ -118,18 +119,23 @@ def _treatment_column(treatment: str | None) -> str | None:
     return _TREATMENT_COLUMNS.get(_treatment_key(treatment))
 
 
+def _is_robotic_session(session: Session) -> bool:
+    """Treat an explicit robotic flag or a robotic treatment label as robotic."""
+
+    return bool(session.robotic) or _treatment_key(session.treatment or "") == "ΡΟΜΠΟΤΙΚΟ"
+
+
 def _provider_label(provider_id: str, labels: Mapping[str, str]) -> str:
     return labels.get(provider_id, provider_id)
 
 
 def _student_lookup_aliases(student: Student, target_date: date) -> tuple[str, ...]:
     display = student_display_state(student, target_date)
-    # Current v27 uses labels such as "φοιτ 1". The future UI will show the
-    # real active name, but the mapper must still find the existing column.
     return (
         display.label,
-        f"φοιτ {student.student_number}",
-        f"φοιτητής {student.student_number}",
+        student.display_name,
+        student.student_id,
+        f"Φοιτ.{student.student_id}",
     )
 
 
@@ -141,8 +147,6 @@ def _replacement_provider_display(
     students: Mapping[str, Student],
     target_date: date,
 ) -> tuple[str, RenderFontRole]:
-    """Return the human label used on the original slot's replacement line."""
-
     if provider_kind == ReplacementProviderKind.STUDENT:
         student = students.get(provider_id)
         if student is not None:
@@ -192,8 +196,6 @@ def _resolve_provider_cell(
 
 
 def _merge_fill(current: RenderFillRole, *, robotic: bool, infectious: bool) -> RenderFillRole:
-    # Robotic remains pink. Infectious is still preserved independently by a
-    # yellow border so both signals remain visible on a robotic infectious case.
     if robotic:
         return RenderFillRole.ROBOTIC
     if infectious:
@@ -216,17 +218,6 @@ def build_daily_excel_render_plan(
     provider_labels: Mapping[str, str] | None = None,
     students: Iterable[Student] = (),
 ) -> DailyExcelRenderPlan:
-    """Map operational daily state to verified workbook cells without writing.
-
-    The plan deliberately renders only THERAPIST_DAILY. MASTER_SCHEDULE cells
-    are resolved as references in ``SessionCellBinding`` but are not mutated by
-    this stage, because MASTER_SCHEDULE contains recurring programme text and a
-    one-day overlay must not erase day-pattern information.
-
-    A later Excel writer may consume these semantic formatting roles. This
-    function itself never opens the workbook in write mode and never saves it.
-    """
-
     state_list = tuple(states)
     session_by_id = {session.session_id: session for session in sessions}
     patient_by_id = {patient.patient_id: patient for patient in patients}
@@ -240,9 +231,6 @@ def build_daily_excel_render_plan(
 
     issues: list[RenderIssue] = []
     bindings: list[SessionCellBinding] = []
-
-    # Build per-cell line contributions first because one provider/time cell can
-    # legitimately contain more than one patient in the legacy schedule.
     cell_lines: dict[str, list[RenderLine]] = {}
     cell_fill: dict[str, RenderFillRole] = {}
     cell_border: dict[str, RenderBorderRole] = {}
@@ -250,41 +238,22 @@ def build_daily_excel_render_plan(
     for state in state_list:
         session = session_by_id.get(state.session_id)
         if session is None:
-            issues.append(
-                RenderIssue(
-                    "MISSING_SESSION",
-                    f"No Session found for DailySessionState {state.session_id}",
-                )
-            )
+            issues.append(RenderIssue("MISSING_SESSION", f"No Session found for DailySessionState {state.session_id}"))
             continue
         patient = patient_by_id.get(state.patient_id)
         if patient is None:
-            issues.append(
-                RenderIssue(
-                    "MISSING_PATIENT",
-                    f"No Patient found for id {state.patient_id} ({state.session_id})",
-                )
-            )
+            issues.append(RenderIssue("MISSING_PATIENT", f"No Patient found for id {state.patient_id} ({state.session_id})"))
             continue
 
         treatment_col = _treatment_column(session.treatment)
         if treatment_col is None:
-            issues.append(
-                RenderIssue(
-                    "UNSUPPORTED_TREATMENT",
-                    f"Unsupported treatment {session.treatment!r} for {state.session_id}",
-                )
-            )
+            issues.append(RenderIssue("UNSUPPORTED_TREATMENT", f"Unsupported treatment {session.treatment!r} for {state.session_id}"))
             continue
+        robotic_session = _is_robotic_session(session)
 
         rows = resolve_master_schedule_rows(workbook_path, patient.display_name)
         if len(rows) != 1:
-            issues.append(
-                RenderIssue(
-                    "MASTER_PATIENT_ROW_AMBIGUOUS",
-                    f"Expected one MASTER_SCHEDULE row for {patient.display_name!r}; found {rows}",
-                )
-            )
+            issues.append(RenderIssue("MASTER_PATIENT_ROW_AMBIGUOUS", f"Expected one MASTER_SCHEDULE row for {patient.display_name!r}; found {rows}"))
             continue
         master_cell = f"{treatment_col}{rows[0]}"
 
@@ -299,91 +268,39 @@ def build_daily_excel_render_plan(
                 target_date=target_date,
             )
         except LayoutSafetyError as exc:
-            issues.append(
-                RenderIssue(
-                    "ORIGINAL_DAILY_CELL_NOT_FOUND",
-                    f"{state.session_id}: {exc}",
-                )
-            )
+            issues.append(RenderIssue("ORIGINAL_DAILY_CELL_NOT_FOUND", f"{state.session_id}: {exc}"))
             continue
 
         effective_daily_cell: str | None = None
-        if (
-            state.status == DailySessionStatus.REPLACED
-            and state.effective_therapist_id is not None
-            and state.effective_time is not None
-        ):
+        if state.status == DailySessionStatus.REPLACED and state.effective_therapist_id is not None and state.effective_time is not None:
             try:
                 effective_daily_cell = _resolve_provider_cell(
                     workbook_path,
                     state.effective_therapist_id,
                     state.effective_time,
                     labels=labels,
-                    provider_kind=(
-                        state.effective_provider_kind
-                        or ReplacementProviderKind.THERAPIST
-                    ),
+                    provider_kind=state.effective_provider_kind or ReplacementProviderKind.THERAPIST,
                     students=student_by_id,
                     target_date=target_date,
                 )
             except LayoutSafetyError as exc:
-                issues.append(
-                    RenderIssue(
-                        "EFFECTIVE_DAILY_CELL_NOT_FOUND",
-                        f"{state.session_id}: {exc}",
-                    )
-                )
+                issues.append(RenderIssue("EFFECTIVE_DAILY_CELL_NOT_FOUND", f"{state.session_id}: {exc}"))
 
-        bindings.append(
-            SessionCellBinding(
-                session_id=state.session_id,
-                patient_id=state.patient_id,
-                master_schedule_cell=master_cell,
-                original_daily_cell=original_daily_cell,
-                effective_daily_cell=effective_daily_cell,
-            )
-        )
+        bindings.append(SessionCellBinding(state.session_id, state.patient_id, master_cell, original_daily_cell, effective_daily_cell))
 
-        # A replacement means the session still happens, so it must not look
-        # cancelled. Only a real absence/cancellation-style state is struck.
-        original_strike = state.status in {
-            DailySessionStatus.PATIENT_ABSENT,
-            DailySessionStatus.THERAPIST_ABSENT,
-        }
+        original_strike = state.status in {DailySessionStatus.PATIENT_ABSENT, DailySessionStatus.THERAPIST_ABSENT}
         original_italic = state.status == DailySessionStatus.REPLACED
-        original_role = (
-            RenderLineRole.ACTIVE
-            if state.status == DailySessionStatus.ACTIVE
-            else RenderLineRole.ORIGINAL
-        )
-        original_font = (
-            RenderFontRole.DEFAULT
-            if state.status == DailySessionStatus.ACTIVE
-            else RenderFontRole.MUTED
-        )
-        cell_lines.setdefault(original_daily_cell, []).append(
-            RenderLine(
-                patient.display_name,
-                role=original_role,
-                strike_through=original_strike,
-                italic=original_italic,
-                font_role=original_font,
-            )
-        )
-        cell_fill[original_daily_cell] = _merge_fill(
-            cell_fill.get(original_daily_cell, RenderFillRole.DEFAULT),
-            robotic=session.robotic,
-            infectious=patient.infectious,
-        )
-        cell_border[original_daily_cell] = _merge_border(
-            cell_border.get(original_daily_cell, RenderBorderRole.DEFAULT),
-            infectious=patient.infectious,
-        )
+        original_role = RenderLineRole.ACTIVE if state.status == DailySessionStatus.ACTIVE else RenderLineRole.ORIGINAL
+        if state.status == DailySessionStatus.ACTIVE:
+            original_font = RenderFontRole.ROBOTIC if robotic_session else RenderFontRole.DEFAULT
+        else:
+            original_font = RenderFontRole.MUTED
+        cell_lines.setdefault(original_daily_cell, []).append(RenderLine(patient.display_name, original_role, original_strike, original_italic, original_font))
+        cell_fill[original_daily_cell] = _merge_fill(cell_fill.get(original_daily_cell, RenderFillRole.DEFAULT), robotic=robotic_session, infectious=patient.infectious)
+        cell_border[original_daily_cell] = _merge_border(cell_border.get(original_daily_cell, RenderBorderRole.DEFAULT), infectious=patient.infectious)
 
         if state.status == DailySessionStatus.REPLACED and effective_daily_cell is not None:
-            provider_kind = (
-                state.effective_provider_kind or ReplacementProviderKind.THERAPIST
-            )
+            provider_kind = state.effective_provider_kind or ReplacementProviderKind.THERAPIST
             provider_label, provider_font = _replacement_provider_display(
                 state.effective_therapist_id,
                 provider_kind=provider_kind,
@@ -391,36 +308,13 @@ def build_daily_excel_render_plan(
                 students=student_by_id,
                 target_date=target_date,
             )
-            # Keep the original slot visually self-contained. The patient line
-            # remains present in muted italics because the session still happens;
-            # the effective provider/time is shown immediately below it.
-            cell_lines.setdefault(original_daily_cell, []).append(
-                RenderLine(
-                    f"→ {provider_label} {state.effective_time.strftime('%H:%M')}",
-                    role=RenderLineRole.REPLACEMENT,
-                    strike_through=False,
-                    font_role=provider_font,
-                )
-            )
+            cell_lines.setdefault(original_daily_cell, []).append(RenderLine(f"→ {provider_label} {state.effective_time.strftime('%H:%M')}", RenderLineRole.REPLACEMENT, False, False, provider_font))
 
             if effective_daily_cell != original_daily_cell:
-                cell_lines.setdefault(effective_daily_cell, []).append(
-                    RenderLine(
-                        patient.display_name,
-                        role=RenderLineRole.REPLACEMENT,
-                        strike_through=False,
-                        font_role=RenderFontRole.DEFAULT,
-                    )
-                )
-                cell_fill[effective_daily_cell] = _merge_fill(
-                    cell_fill.get(effective_daily_cell, RenderFillRole.DEFAULT),
-                    robotic=session.robotic,
-                    infectious=patient.infectious,
-                )
-                cell_border[effective_daily_cell] = _merge_border(
-                    cell_border.get(effective_daily_cell, RenderBorderRole.DEFAULT),
-                    infectious=patient.infectious,
-                )
+                replacement_font = RenderFontRole.ROBOTIC if robotic_session else RenderFontRole.DEFAULT
+                cell_lines.setdefault(effective_daily_cell, []).append(RenderLine(patient.display_name, RenderLineRole.REPLACEMENT, False, False, replacement_font))
+                cell_fill[effective_daily_cell] = _merge_fill(cell_fill.get(effective_daily_cell, RenderFillRole.DEFAULT), robotic=robotic_session, infectious=patient.infectious)
+                cell_border[effective_daily_cell] = _merge_border(cell_border.get(effective_daily_cell, RenderBorderRole.DEFAULT), infectious=patient.infectious)
 
     cells = tuple(
         CellRenderPlan(
@@ -430,9 +324,7 @@ def build_daily_excel_render_plan(
             fill_role=cell_fill.get(cell, RenderFillRole.DEFAULT),
             border_role=cell_border.get(cell, RenderBorderRole.DEFAULT),
         )
-        for cell, lines in sorted(
-            cell_lines.items(), key=lambda item: (int(''.join(filter(str.isdigit, item[0]))), item[0])
-        )
+        for cell, lines in sorted(cell_lines.items(), key=lambda item: (int(''.join(filter(str.isdigit, item[0]))), item[0]))
     )
 
     return DailyExcelRenderPlan(

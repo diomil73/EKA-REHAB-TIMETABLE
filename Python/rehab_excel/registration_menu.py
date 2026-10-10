@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 from typing import Mapping
+import unicodedata
 
+from rehab_core.models import PatientType
 from rehab_core.registration import (
     NewPatientRequest,
     NewStudentRequest,
@@ -56,32 +58,22 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
                 "patient_id",
                 "Patient ID",
                 FormFieldType.TEXT,
-                required=True,
+                required=False,
+                help_text="Αφήνεται κενό για αυτόματη σειριακή εκχώρηση",
             ),
             RegistrationFormField(
-                "display_name",
-                "Ονοματεπώνυμο",
+                "patient_type",
+                "Τύπος ασθενή",
                 FormFieldType.TEXT,
                 required=True,
+                default=PatientType.INPATIENT.value,
+                source="patient_types",
             ),
-            RegistrationFormField(
-                "room",
-                "Θάλαμος",
-                FormFieldType.TEXT,
-                source="rooms",
-            ),
-            RegistrationFormField(
-                "infectious",
-                "Λοιμώδης ασθενής",
-                FormFieldType.BOOLEAN,
-                default=False,
-            ),
-            RegistrationFormField(
-                "status",
-                "Κατάσταση",
-                FormFieldType.TEXT,
-                source="patient_statuses",
-            ),
+            RegistrationFormField("hospital_mrn", "ΑΜ Νοσοκομείου", FormFieldType.TEXT),
+            RegistrationFormField("display_name", "Ονοματεπώνυμο", FormFieldType.TEXT, required=True),
+            RegistrationFormField("room", "Θάλαμος", FormFieldType.TEXT, source="rooms"),
+            RegistrationFormField("infectious", "Λοιμώδης ασθενής", FormFieldType.BOOLEAN, default=False),
+            RegistrationFormField("status", "Κατάσταση", FormFieldType.TEXT, source="patient_statuses"),
         ),
     ),
     RegistrationMenuAction.NEW_THERAPIST: RegistrationFormSpec(
@@ -89,12 +81,7 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
         kind=RegistrationKind.THERAPIST,
         title="Νέος θεραπευτής",
         fields=(
-            RegistrationFormField(
-                "display_name",
-                "Ονοματεπώνυμο",
-                FormFieldType.TEXT,
-                required=True,
-            ),
+            RegistrationFormField("display_name", "Ονοματεπώνυμο", FormFieldType.TEXT, required=True),
         ),
     ),
     RegistrationMenuAction.NEW_STUDENT: RegistrationFormSpec(
@@ -106,32 +93,12 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
                 "student_id",
                 "Student ID",
                 FormFieldType.TEXT,
-                required=True,
+                required=False,
+                help_text="Αυτόματο κατά την αποθήκευση",
             ),
-            RegistrationFormField(
-                "display_name",
-                "Ονοματεπώνυμο",
-                FormFieldType.TEXT,
-                required=True,
-            ),
-            RegistrationFormField(
-                "student_number",
-                "Αριθμός φοιτητή",
-                FormFieldType.INTEGER,
-                required=True,
-            ),
-            RegistrationFormField(
-                "placement_start",
-                "Έναρξη πρακτικής",
-                FormFieldType.DATE,
-                required=True,
-            ),
-            RegistrationFormField(
-                "placement_end",
-                "Λήξη πρακτικής",
-                FormFieldType.DATE,
-                required=True,
-            ),
+            RegistrationFormField("display_name", "Ονοματεπώνυμο", FormFieldType.TEXT, required=True),
+            RegistrationFormField("placement_start", "Έναρξη πρακτικής", FormFieldType.DATE, required=True),
+            RegistrationFormField("placement_end", "Λήξη πρακτικής", FormFieldType.DATE, required=True),
             RegistrationFormField(
                 "supervisor_therapist_id",
                 "Επόπτης θεραπευτής",
@@ -156,14 +123,10 @@ REGISTRATION_FORMS: dict[RegistrationMenuAction, RegistrationFormSpec] = {
 
 
 def registration_menu_actions() -> tuple[RegistrationFormSpec, ...]:
-    """Return the stable registration choices for a central menu."""
-
     return tuple(REGISTRATION_FORMS[action] for action in RegistrationMenuAction)
 
 
-def registration_form_spec(
-    action: RegistrationMenuAction | str,
-) -> RegistrationFormSpec:
+def registration_form_spec(action: RegistrationMenuAction | str) -> RegistrationFormSpec:
     try:
         resolved = (
             action
@@ -185,16 +148,6 @@ def _text(values: Mapping[str, object], key: str, *, required: bool = False) -> 
     if required and not text:
         raise ValueError(f"{key} is required")
     return text or None
-
-
-def _integer(values: Mapping[str, object], key: str) -> int:
-    value = values.get(key)
-    if value is None or str(value).strip() == "":
-        raise ValueError(f"{key} is required")
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{key} must be an integer") from exc
 
 
 def _date(values: Mapping[str, object], key: str) -> date:
@@ -232,26 +185,47 @@ def _boolean(values: Mapping[str, object], key: str, default: bool) -> bool:
     raise ValueError(f"{key} must be a boolean value")
 
 
+def _normalize_patient_type_text(value: object) -> str:
+    decomposed = unicodedata.normalize("NFKD", str(value).strip())
+    without_marks = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return without_marks.casefold().replace("ς", "σ")
+
+
+def _patient_type(values: Mapping[str, object]) -> PatientType:
+    value = values.get("patient_type", PatientType.INPATIENT)
+    if value is None or value == "":
+        return PatientType.INPATIENT
+    if isinstance(value, PatientType):
+        return value
+
+    normalized = _normalize_patient_type_text(value)
+    aliases = {
+        "inpatient": PatientType.INPATIENT,
+        "εσωτερικοσ": PatientType.INPATIENT,
+        "outpatient": PatientType.OUTPATIENT,
+        "εξωτερικοσ": PatientType.OUTPATIENT,
+    }
+    try:
+        return aliases[normalized]
+    except KeyError as exc:
+        raise ValueError("patient_type must be inpatient/outpatient or Εσωτερικός/Εξωτερικός") from exc
+
+
 def build_registration_request(
     action: RegistrationMenuAction | str,
     values: Mapping[str, object],
 ) -> RegistrationRequest:
-    """Translate menu/form values into the existing domain request objects.
-
-    This layer performs only UI-shape parsing (text, dates, booleans, integers).
-    Authoritative duplicate/configuration/business validation remains in the
-    existing registration workflows.
-    """
-
     resolved = registration_form_spec(action).action
 
     if resolved is RegistrationMenuAction.NEW_PATIENT:
         return NewPatientRequest(
-            patient_id=_text(values, "patient_id", required=True) or "",
+            patient_id=_text(values, "patient_id") or "",
             display_name=_text(values, "display_name", required=True) or "",
             room=_text(values, "room"),
             infectious=_boolean(values, "infectious", False),
             status=_text(values, "status"),
+            patient_type=_patient_type(values),
+            hospital_mrn=_text(values, "hospital_mrn"),
         )
 
     if resolved is RegistrationMenuAction.NEW_THERAPIST:
@@ -261,9 +235,8 @@ def build_registration_request(
         )
 
     return NewStudentRequest(
-        student_id=_text(values, "student_id", required=True) or "",
+        student_id=_text(values, "student_id") or "",
         display_name=_text(values, "display_name", required=True) or "",
-        student_number=_integer(values, "student_number"),
         placement_start=_date(values, "placement_start"),
         placement_end=_date(values, "placement_end"),
         supervisor_therapist_id=_text(values, "supervisor_therapist_id"),

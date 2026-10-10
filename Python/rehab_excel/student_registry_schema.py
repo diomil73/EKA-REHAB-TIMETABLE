@@ -72,13 +72,10 @@ def student_registry_schema_present(path: str | Path) -> bool:
 
 class StudentRegistrySchemaBackend(Protocol):
     def ensure_schema(self, workbook_path: Path) -> bool:
-        """Ensure STUDENTS exists. Return True only when a new sheet was created."""
         ...
 
 
 class Win32ComStudentRegistrySchemaBackend:
-    """Create the authoritative STUDENTS source sheet on a preview copy only."""
-
     def ensure_schema(self, workbook_path: Path) -> bool:
         if sys.platform != "win32":
             raise StudentRegistrySchemaError(
@@ -100,12 +97,9 @@ class Win32ComStudentRegistrySchemaBackend:
             excel.ScreenUpdating = False
             excel.EnableEvents = False
             workbook = excel.Workbooks.Open(
-                str(workbook_path.resolve()),
-                UpdateLinks=0,
-                ReadOnly=False,
+                str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
             )
 
-            existing = None
             try:
                 existing = workbook.Worksheets(STUDENT_REGISTRY_SHEET)
             except Exception:
@@ -125,15 +119,9 @@ class Win32ComStudentRegistrySchemaBackend:
             last_sheet = workbook.Worksheets(workbook.Worksheets.Count)
             ws = workbook.Worksheets.Add(After=last_sheet)
             ws.Name = STUDENT_REGISTRY_SHEET
-            ws.Range("A1:H1").Value = (STUDENT_REGISTRY_HEADERS,)
-            ws.Range("A1:H1").Font.Bold = True
-
-            # Do not set NumberFormat on whole date columns during schema
-            # creation. Localized Excel installations can reject a format token
-            # at the COM boundary even on a brand-new sheet. The schema itself
-            # is data structure, not presentation; date-cell formatting belongs
-            # to the later student-row writeback where the exact cells are known.
-            ws.Columns("A:H").AutoFit()
+            ws.Range("A1:G1").Value = (STUDENT_REGISTRY_HEADERS,)
+            ws.Range("A1:G1").Font.Bold = True
+            ws.Columns("A:G").AutoFit()
             workbook.Save()
             return True
         except StudentRegistrySchemaError:
@@ -172,13 +160,6 @@ def create_student_registry_schema_preview(
     backend: StudentRegistrySchemaBackend | None = None,
     overwrite: bool = False,
 ) -> StudentRegistrySchemaPreviewReport:
-    """Create a copy containing the authoritative STUDENTS registry schema.
-
-    The immutable baseline is never opened for writing. Existing workbooks that
-    do not yet contain STUDENTS remain readable; this preview is the explicit
-    schema migration step before student registration writeback is enabled.
-    """
-
     source = Path(source_path).resolve()
     output = Path(output_path).resolve()
     if not source.exists():
