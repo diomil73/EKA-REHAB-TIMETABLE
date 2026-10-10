@@ -42,7 +42,6 @@ def _workbook_has_vba(path: Path) -> bool:
 
 def _menu_code_with_patient_edit() -> str:
     code = USERFORM_CODE
-    code = code.replace('.Height = 350', '.Height = 405', 1)
     code = code.replace(
         '    StyleMenuButton cmdPatient, "Νέος ασθενής", 68\n'
         '    StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 113\n'
@@ -51,23 +50,18 @@ def _menu_code_with_patient_edit() -> str:
         '    StyleMenuButton cmdPatient, "Νέος ασθενής", 68\n'
         '    StyleMenuButton cmdEditPatient, "Επεξεργασία ασθενή", 113\n'
         '    StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 158\n'
-        '    StyleMenuButton cmdStudent, "Νέος φοιτητής", 203\n'
-        '    StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή", 248',
+        '    StyleMenuButton cmdStudent, "Νέος φοιτητής", 203',
         1,
     )
-    code = code.replace('.Top = 260', '.Top = 305', 1)
-    marker = '''Private Sub cmdPatient_Click()
-    frmNewPatient.Show
-End Sub
-'''
-    replacement = marker + '''
-Private Sub cmdEditPatient_Click()
-    frmEditPatient.Show
-End Sub
-'''
+    marker = '''Private Sub cmdPatient_Click()\n    frmNewPatient.Show\nEnd Sub\n'''
+    replacement = marker + '''\nPrivate Sub cmdEditPatient_Click()\n    frmEditPatient.Show\nEnd Sub\n'''
     if marker not in code:
         raise RuntimeError("Patient menu click marker missing")
-    return code.replace(marker, replacement, 1)
+    code = code.replace(marker, replacement, 1)
+
+    outpatient_click = '''\nPrivate Sub cmdOutpatientSchedule_Click()\n    On Error GoTo MissingForm\n    frmOutpatientSchedule.Show\n    Exit Sub\nMissingForm:\n    MsgBox "Η φόρμα προγράμματος εξωτερικού ασθενή δεν είναι εγκατεστημένη σε αυτό το αρχείο.", vbExclamation, "Πρόγραμμα εξωτερικού ασθενή"\nEnd Sub\n'''
+    code = code.replace(outpatient_click, "", 1)
+    return code
 
 
 def create_patient_edit_flow_preview(
@@ -117,8 +111,7 @@ def create_patient_edit_flow_preview(
         install_patient_edit_form(
             vbproject,
             position_control=lambda control, left, top: (
-                setattr(control, "Left", left),
-                setattr(control, "Top", top),
+                setattr(control, "Left", left), setattr(control, "Top", top)
             ),
         )
 
@@ -131,6 +124,11 @@ def create_patient_edit_flow_preview(
             button.Caption = "Επεξεργασία ασθενή"
             button.Left = 24
             button.Top = 92
+
+        try:
+            designer.Controls.Remove("cmdOutpatientSchedule")
+        except Exception:
+            pass
 
         code_module = menu.CodeModule
         if code_module.CountOfLines > 0:
