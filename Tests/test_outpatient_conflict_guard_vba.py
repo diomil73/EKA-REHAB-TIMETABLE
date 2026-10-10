@@ -63,6 +63,17 @@ def test_new_outpatient_registration_opens_schedule_automatically():
     assert "Συνεχίστε τώρα με το πρόγραμμά του." in patched
 
 
+def test_chained_patient_registration_preserves_responsible_doctor_argument():
+    patched = patch_patient_registration_form_code(FORM_BRIDGE_CODE)
+
+    expected_call = (
+        "CBool(chkInfectious.Value), _\n"
+        "        Trim$(txtResponsibleDoctor.Text), _\n"
+        "        Trim$(cboStatus.Value) _"
+    )
+    assert expected_call in patched
+
+
 def test_outpatient_in_session_patch_is_idempotent():
     patched_once = patch_outpatient_schedule_form_code(FORM_CODE)
     patched_twice = patch_outpatient_schedule_form_code(patched_once)
