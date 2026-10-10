@@ -10,6 +10,10 @@ from typing import Iterable, Protocol
 
 from rehab_core.day_patterns import parse_day_pattern
 from rehab_core.models import BaseScheduleEntry, Patient
+from rehab_core.recurring_conflicts import (
+    RecurringTherapistConflict,
+    find_recurring_therapist_conflicts,
+)
 
 from .outpatient_presentation import validate_outpatient_base_entries
 from .outpatient_schedule_source import (
@@ -27,6 +31,18 @@ from .reader import read_base_schedule
 
 class OutpatientScheduleWriteError(RuntimeError):
     """Raised when a safe outpatient recurring-schedule preview cannot be produced."""
+
+
+class OutpatientTherapistDoubleBookingError(OutpatientScheduleWriteError):
+    """Raised when a recurring save would double-book one therapist/time slot."""
+
+    def __init__(self, conflict: RecurringTherapistConflict):
+        self.conflict = conflict
+        super().__init__(
+            "Therapist double booking: "
+            f"{conflict.therapist_id} already has {conflict.existing_patient_name} "
+            f"at {conflict.start_time.strftime('%H:%M')} on overlapping days."
+        )
 
 
 @dataclass(frozen=True)
@@ -261,6 +277,7 @@ def create_outpatient_schedule_preview(
     *,
     backend: OutpatientScheduleBackend | None = None,
     overwrite: bool = False,
+    allow_therapist_double_booking: bool = False,
 ) -> OutpatientSchedulePreviewReport:
     """Append/update one outpatient recurring assignment in a NEW .xlsm copy."""
 
@@ -277,18 +294,32 @@ def create_outpatient_schedule_preview(
 
     patients = read_patient_registry(source)
     patient = validate_outpatient_schedule_request(request, patients=patients)
+    existing_entries = tuple(read_base_schedule(source))
 
-    try:
-        validate_outpatient_slot_compatibility(
-            outpatient_patient_id=request.patient_id.strip(),
-            therapist_id=request.therapist_id,
-            start_time=request.start_time,
-            day_pattern=request.day_pattern.strip(),
-            existing_entries=read_base_schedule(source),
-            patients=patients,
-        )
-    except OutpatientSlotConflictError as exc:
-        raise OutpatientScheduleWriteError(str(exc)) from exc
+    conflicts = find_recurring_therapist_conflicts(
+        patient_id=request.patient_id.strip(),
+        therapist_id=request.therapist_id,
+        start_time=request.start_time,
+        day_pattern=request.day_pattern.strip(),
+        existing_entries=existing_entries,
+        patients=patients,
+        ignore_base_entry_id=request.target_base_entry_id,
+    )
+    if conflicts and not allow_therapist_double_booking:
+        raise OutpatientTherapistDoubleBookingError(conflicts[0])
+
+    if not allow_therapist_double_booking:
+        try:
+            validate_outpatient_slot_compatibility(
+                outpatient_patient_id=request.patient_id.strip(),
+                therapist_id=request.therapist_id,
+                start_time=request.start_time,
+                day_pattern=request.day_pattern.strip(),
+                existing_entries=existing_entries,
+                patients=patients,
+            )
+        except OutpatientSlotConflictError as exc:
+            raise OutpatientScheduleWriteError(str(exc)) from exc
 
     if request.target_base_entry_id:
         existing = {
