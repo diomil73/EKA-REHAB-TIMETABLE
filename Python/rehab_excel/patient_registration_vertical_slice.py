@@ -99,7 +99,7 @@ def _vertical_module_code() -> str:
 
         ApplyMasterPatientStyle ws, targetRow, IsTruthy(patients.Cells(plannerRow, 4).Value)'''
     new_doctor_block = '''        If Len(doctor) > 0 Then
-            ws.Cells(targetRow, 3).Value = displayName & vbLf & doctor
+            WritePatientDoctorCell ws.Cells(targetRow, 3), displayName, doctor
         Else
             ws.Cells(targetRow, 3).Formula = "=IF(PATIENT_PLANNER!C" & plannerRow & "="""","""",PATIENT_PLANNER!C" & plannerRow & ")"
         End If
@@ -111,10 +111,32 @@ def _vertical_module_code() -> str:
     code = code.replace(old_doctor_block, new_doctor_block, 1)
 
     style_marker = "Private Sub RebuildMasterFast(ByVal patients As Worksheet, ByVal typeCol As Long, ByVal doctorCol As Long)"
-    doctor_style = '''Private Sub ApplyDoctorLineStyle(ByVal targetCell As Range, ByVal displayName As String, ByVal doctor As String)
+    doctor_style = '''Private Function DoctorSeparator() As String
+    Dim i As Long
+    Dim text As String
+
+    For i = 1 To 24
+        text = text & ChrW$(9472)
+    Next i
+    DoctorSeparator = text
+End Function
+
+Private Sub WritePatientDoctorCell(ByVal targetCell As Range, ByVal displayName As String, ByVal doctor As String)
+    Dim separator As String
+
+    separator = DoctorSeparator()
+    targetCell.Value = displayName & vbLf & separator & vbLf & doctor
+End Sub
+
+Private Sub ApplyDoctorLineStyle(ByVal targetCell As Range, ByVal displayName As String, ByVal doctor As String)
+    Dim separator As String
+    Dim separatorStart As Long
     Dim doctorStart As Long
 
-    doctorStart = Len(displayName) + 2
+    separator = DoctorSeparator()
+    separatorStart = Len(displayName) + 2
+    doctorStart = Len(displayName) + Len(separator) + 3
+
     With targetCell
         .WrapText = True
         .VerticalAlignment = xlCenter
@@ -122,10 +144,18 @@ def _vertical_module_code() -> str:
     End With
 
     With targetCell.Characters(Start:=1, Length:=Len(displayName)).Font
-        .Name = "Calibri"
-        .Size = 10.5
+        .Name = "Segoe UI"
+        .Size = 10
         .Bold = True
         .Italic = False
+    End With
+
+    With targetCell.Characters(Start:=separatorStart, Length:=Len(separator)).Font
+        .Name = "Segoe UI"
+        .Size = 6
+        .Bold = False
+        .Italic = False
+        .Color = RGB(180, 185, 195)
     End With
 
     With targetCell.Characters(Start:=doctorStart, Length:=Len(doctor)).Font
@@ -140,7 +170,16 @@ End Sub
 '''
     if style_marker not in code:
         raise RuntimeError("MASTER rebuild marker missing for doctor style injection")
-    return code.replace(style_marker, doctor_style + style_marker, 1)
+    code = code.replace(style_marker, doctor_style + style_marker, 1)
+
+    # Three visual lines need a little more breathing room than the legacy
+    # two-line patient cell while keeping the MASTER compact.
+    code = code.replace(
+        '    ws.Rows(rowIndex).RowHeight = 64',
+        '    ws.Rows(rowIndex).RowHeight = 72',
+        1,
+    )
+    return code
 
 
 def _vertical_form_code() -> str:
