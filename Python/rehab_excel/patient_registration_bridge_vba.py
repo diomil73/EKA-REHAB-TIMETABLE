@@ -13,9 +13,6 @@ BRIDGE_MODULE_NAME = "modPatientRegistrationBridge"
 
 BRIDGE_MODULE_CODE = r'''Option Explicit
 
-Private Const OUTPATIENT_BLUE As Long = 16247773
-Private Const INFECTIOUS_YELLOW As Long = 5101823
-
 Public Function RegisterPatientInWorkbook( _
     ByVal patientType As String, _
     ByVal hospitalMRN As String, _
@@ -244,11 +241,14 @@ Private Sub EnsureOutpatientScheduleSheet()
 End Sub
 
 Private Sub RefreshPlannerRow(ByVal planner As Worksheet, ByVal rowIndex As Long, ByVal outpatient As Boolean)
-    planner.Cells(rowIndex, 1).Formula = "=IF(PATIENTS!C" & rowIndex & "=\"\",\"\",PATIENTS!A" & rowIndex & ")"
-    planner.Cells(rowIndex, 2).Formula = "=IF(PATIENTS!C" & rowIndex & "=\"\",\"\",PATIENTS!B" & rowIndex & ")"
-    planner.Cells(rowIndex, 3).Formula = "=IF(PATIENTS!C" & rowIndex & "=\"\",\"\",PATIENTS!C" & rowIndex & ")"
-    planner.Cells(rowIndex, 4).Formula = "=IF(PATIENTS!C" & rowIndex & "=\"\",\"\",PATIENTS!D" & rowIndex & ")"
-    planner.Cells(rowIndex, 5).Formula = "=IF(PATIENTS!C" & rowIndex & "=\"\",\"\",PATIENTS!E" & rowIndex & ")"
+    Dim q As String
+    q = Chr$(34)
+
+    planner.Cells(rowIndex, 1).Formula = "=IF(PATIENTS!C" & rowIndex & "=" & q & q & "," & q & q & ",PATIENTS!A" & rowIndex & ")"
+    planner.Cells(rowIndex, 2).Formula = "=IF(PATIENTS!C" & rowIndex & "=" & q & q & "," & q & q & ",PATIENTS!B" & rowIndex & ")"
+    planner.Cells(rowIndex, 3).Formula = "=IF(PATIENTS!C" & rowIndex & "=" & q & q & "," & q & q & ",PATIENTS!C" & rowIndex & ")"
+    planner.Cells(rowIndex, 4).Formula = "=IF(PATIENTS!C" & rowIndex & "=" & q & q & "," & q & q & ",PATIENTS!D" & rowIndex & ")"
+    planner.Cells(rowIndex, 5).Formula = "=IF(PATIENTS!C" & rowIndex & "=" & q & q & "," & q & q & ",PATIENTS!E" & rowIndex & ")"
 
     If outpatient Then
         planner.Cells(rowIndex, 3).Interior.Color = RGB(221, 235, 247)
