@@ -105,12 +105,56 @@ def test_program_form_only_fills_missing_draft_fields_from_solver():
     assert "Μπορείς να ανοίξεις οποιαδήποτε θεραπεία και να τις αλλάξεις" in code
 
 
-def test_program_form_does_not_write_workbook_before_final_commit_exists():
+def test_save_button_enables_only_when_every_included_treatment_is_complete():
     code = PATIENT_PROGRAM_FORM_CODE
-    assert "ThisWorkbook.Save" not in code
-    assert "PATIENT_PLANNER" not in code
-    assert "SavePatientRecurringAssignment" not in code
-    assert "cmdSaveProgram.Enabled = False" in code
+    assert "Private Function TreatmentIsComplete" in code
+    assert "Private Function DraftIsComplete" in code
+    assert "If RequiresProvider(treatment) Then" in code
+    assert "cmdSaveProgram.Enabled = DraftIsComplete()" in code
+
+
+def test_atomic_save_resolves_all_headers_and_snapshots_before_first_write():
+    code = PATIENT_PROGRAM_FORM_CODE
+    start = code.index("Private Sub SavePatientProgramAtomic")
+    save = code[start:]
+    resolve_pos = save.index("timeCols(index) = FindPlannerHeader")
+    snapshot_pos = save.index("SnapshotCell ws, patientRow, timeCols(index)")
+    events_off_pos = save.index("Application.EnableEvents = False")
+    first_write_pos = save.index("ws.Cells(patientRow, timeCols(index)).Value =")
+    assert resolve_pos < snapshot_pos < events_off_pos < first_write_pos
+    assert 'timeHeader = treatment & "_Ώρα"' in save
+    assert 'daysHeader = treatment & "_Ημέρες"' in save
+    assert 'ProviderHeaderName = "Ψυχ_Ψυχολόγος"' in code
+
+
+def test_atomic_save_writes_all_fields_verifies_and_saves_once():
+    code = PATIENT_PROGRAM_FORM_CODE
+    start = code.index("Private Sub SavePatientProgramAtomic")
+    end = code.index("Private Sub cmdSaveProgram_Click", start)
+    save = code[start:end]
+    assert 'NumberFormat = "hh:mm"' in save
+    assert "Αποτυχία επαλήθευσης ώρας" in save
+    assert "Αποτυχία επαλήθευσης ημερών" in save
+    assert "Αποτυχία επαλήθευσης provider" in save
+    assert save.count("ThisWorkbook.Save") == 1
+
+
+def test_atomic_save_rolls_back_and_restores_event_state_on_failure():
+    code = PATIENT_PROGRAM_FORM_CODE
+    start = code.index("Private Sub SavePatientProgramAtomic")
+    end = code.index("Private Sub cmdSaveProgram_Click", start)
+    save = code[start:end]
+    assert "previousEvents = Application.EnableEvents" in save
+    assert "RestoreSnapshots ws, oldValues, oldFormats" in save
+    assert "If eventsCaptured Then Application.EnableEvents = previousEvents" in save
+    assert "Application.EnableEvents = previousEvents" in save
+
+
+def test_save_button_calls_atomic_program_save():
+    code = PATIENT_PROGRAM_FORM_CODE
+    assert "Private Sub cmdSaveProgram_Click()" in code
+    assert "SavePatientProgramAtomic" in code
+    assert "Δεν διατηρήθηκαν μερικές αλλαγές" in code
 
 
 def test_program_form_stays_modeless_and_guarded_against_double_open():
