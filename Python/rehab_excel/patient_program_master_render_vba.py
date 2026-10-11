@@ -101,8 +101,16 @@ Private Function FindMasterHeaderRow(ByVal ws As Worksheet) As Long
 End Function
 
 Private Function FirstLine(ByVal valueText As String) As String
+    Dim normalized As String
     Dim parts() As String
-    parts = Split(Replace(valueText, vbCrLf, vbLf), vbLf)
+
+    normalized = Trim$(Replace(valueText, vbCrLf, vbLf))
+    If Len(normalized) = 0 Then
+        FirstLine = ""
+        Exit Function
+    End If
+
+    parts = Split(normalized, vbLf)
     FirstLine = Trim$(parts(0))
 End Function
 
