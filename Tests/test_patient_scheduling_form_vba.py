@@ -13,6 +13,14 @@ def test_registration_continues_directly_into_patient_scheduling():
     assert "Application.Quit" not in code
 
 
+def test_registration_success_is_not_reclassified_when_scheduling_fails():
+    code = _scheduling_form_code()
+    assert "On Error GoTo SchedulingError" in code
+    assert "SchedulingError:" in code
+    assert "Ο ασθενής έχει ήδη καταχωρηθεί επιτυχώς." in code
+    assert "Δεν μπόρεσε να ανοίξει/ολοκληρωθεί ο προγραμματισμός θεραπείας" in code
+
+
 def test_scheduling_form_loads_treatments_day_patterns_and_workload_candidates():
     code = PATIENT_SCHEDULING_FORM_CODE
     assert 'valueText = "ΦΘ" Or valueText = "Ρομποτικό"' in code
