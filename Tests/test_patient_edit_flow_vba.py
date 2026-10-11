@@ -1,5 +1,11 @@
+import inspect
+
 from rehab_excel.patient_edit_flow_vba import _menu_code_with_patient_edit
-from rehab_excel.patient_edit_form_vba import PATIENT_EDIT_FORM_CODE, PATIENT_EDIT_FORM_NAME
+from rehab_excel.patient_edit_form_vba import (
+    PATIENT_EDIT_FORM_CODE,
+    PATIENT_EDIT_FORM_NAME,
+    install_patient_edit_form,
+)
 from rehab_excel.patient_registration_vertical_slice import _vertical_module_code
 
 
@@ -35,6 +41,14 @@ def test_patient_edit_save_continues_into_same_program_editor():
     assert "OpenPatientScheduling patientId" in code
     assert "Συνεχίζουμε στο πρόγραμμα θεραπείας του ασθενούς" in code
     assert "Οι αλλαγές του ασθενούς έχουν ήδη αποθηκευτεί" in code
+
+
+def test_patient_edit_installer_updates_existing_form_without_remove_readd_churn():
+    source = inspect.getsource(install_patient_edit_form)
+    assert "VBComponents.Remove" not in source
+    assert "form = vbproject.VBComponents(PATIENT_EDIT_FORM_NAME)" in source
+    assert "form = vbproject.VBComponents.Add(3)" in source
+    assert "_replace_code(form, PATIENT_EDIT_FORM_CODE)" in source
 
 
 def test_registry_menu_exposes_patient_edit_action_without_separate_outpatient_schedule():
