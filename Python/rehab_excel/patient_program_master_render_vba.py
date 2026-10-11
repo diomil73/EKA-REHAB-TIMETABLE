@@ -191,14 +191,23 @@ def _replace_component_code(component, code: str) -> None:
     code_module.AddFromString(code)
 
 
+def _normalize_newlines(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _patch_code_module(code_module, old: str, new: str, *, description: str) -> None:
     count = int(getattr(code_module, "CountOfLines", 0) or 0)
-    text = code_module.Lines(1, count) if count else ""
-    if new in text:
+    raw_text = code_module.Lines(1, count) if count else ""
+    text = _normalize_newlines(raw_text)
+    old_normalized = _normalize_newlines(old)
+    new_normalized = _normalize_newlines(new)
+
+    if new_normalized in text:
         return
-    if old not in text:
+    if old_normalized not in text:
         raise RuntimeError(f"MASTER render patch marker missing: {description}")
-    text = text.replace(old, new, 1)
+
+    text = text.replace(old_normalized, new_normalized, 1)
     if count:
         code_module.DeleteLines(1, count)
     code_module.AddFromString(text)
