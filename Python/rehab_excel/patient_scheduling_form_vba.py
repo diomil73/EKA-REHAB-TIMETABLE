@@ -276,10 +276,10 @@ Private Sub LoadSelections()
     If Len(Trim$(cboDayPattern.Value)) = 0 Then Exit Sub
 
     On Error GoTo LoadError
-    response = LoadRecurringSchedulingOptions(
-        mPatientId,
-        Trim$(cboTreatment.Value),
-        Trim$(cboDayPattern.Value)
+    response = LoadRecurringSchedulingOptions( _
+        mPatientId, _
+        Trim$(cboTreatment.Value), _
+        Trim$(cboDayPattern.Value) _
     )
     lines = Split(Replace(response, vbCrLf, vbLf), vbLf)
     For lineIndex = LBound(lines) To UBound(lines)
@@ -335,10 +335,10 @@ Private Sub cmdAutoPropose_Click()
     End If
 
     On Error GoTo ProposalError
-    response = ProposeAutomaticSchedule(
-        mPatientId,
-        Trim$(cboTreatment.Value),
-        Trim$(cboDayPattern.Value)
+    response = ProposeAutomaticSchedule( _
+        mPatientId, _
+        Trim$(cboTreatment.Value), _
+        Trim$(cboDayPattern.Value) _
     )
     lines = Split(Replace(response, vbCrLf, vbLf), vbLf)
     For lineIndex = LBound(lines) To UBound(lines)
@@ -385,12 +385,12 @@ Private Sub cmdSave_Click()
 
     therapistId = CStr(cboTherapist.List(cboTherapist.ListIndex, 1))
     On Error GoTo SaveError
-    response = ValidateRecurringSelection(
-        mPatientId,
-        Trim$(cboTreatment.Value),
-        Trim$(cboDayPattern.Value),
-        therapistId,
-        Trim$(cboTime.Value)
+    response = ValidateRecurringSelection( _
+        mPatientId, _
+        Trim$(cboTreatment.Value), _
+        Trim$(cboDayPattern.Value), _
+        therapistId, _
+        Trim$(cboTime.Value) _
     )
     fields = Split(Trim$(response), vbTab)
     If fields(0) = "ERROR" Then Err.Raise vbObjectError + 2821, , fields(1)
