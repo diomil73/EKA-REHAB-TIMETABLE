@@ -7,8 +7,9 @@ import sys
 from . import patient_registration_vertical_slice as _vertical
 from .native_excel import apply_write_plan_to_copy
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
+from .patient_registry_source import read_patient_registry
 from .patient_scheduling_form_vba import install_patient_scheduling_ui
-from .reader import read_base_schedule, read_patients
+from .reader import read_base_schedule
 from .recurring_daily_style import build_recurring_therapist_daily_style_plan
 
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
@@ -155,18 +156,18 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
 
 
 def _refresh_daily_visuals(workbook_path: Path) -> None:
-    """Refresh recurring THERAPIST_DAILY rich-text roles from PATIENT_PLANNER.
+    """Refresh recurring THERAPIST_DAILY rich-text roles from authoritative data.
 
     THERAPIST_DAILY contains recurring weekly lines, not only one dated slice.
     Keep its existing text verbatim and restyle lines by authoritative patient,
-    day-pattern and treatment data so robotic assignments are orange even when
-    the same patient also has a normal ΦΘ assignment in the same cell.
+    day-pattern and treatment data. Robotic assignments are orange and
+    outpatient assignments are dark green, even inside the same cell.
     """
 
     styled_copy = workbook_path.with_name(f".{workbook_path.stem}.recurring-style.xlsm")
     styled_copy.unlink(missing_ok=True)
     try:
-        patients = read_patients(workbook_path)
+        patients = read_patient_registry(workbook_path)
         base_entries = read_base_schedule(workbook_path)
         write_plan = build_recurring_therapist_daily_style_plan(
             workbook_path,
