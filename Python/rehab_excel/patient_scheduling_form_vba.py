@@ -203,9 +203,14 @@ Public Function FindPatientDisplayName(ByVal patientId As String) As String
 End Function
 
 Public Sub OpenPatientScheduling(ByVal patientId As String)
+    On Error GoTo OpenError
     Load frmPatientScheduling
+    If frmPatientScheduling.Visible Then Exit Sub
     frmPatientScheduling.Configure patientId
-    frmPatientScheduling.Show
+    frmPatientScheduling.Show vbModeless
+    Exit Sub
+OpenError:
+    Err.Raise vbObjectError + 2816, "OpenPatientScheduling", Err.Description
 End Sub
 '''
 
