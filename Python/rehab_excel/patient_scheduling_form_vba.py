@@ -137,6 +137,11 @@ Public Sub SavePatientRecurringAssignment( _
     Dim daysCol As Long
     Dim therapistCol As Long
     Dim prefix As String
+    Dim previousEvents As Boolean
+    Dim errorText As String
+
+    previousEvents = Application.EnableEvents
+    On Error GoTo SaveAssignmentError
 
     Set ws = ThisWorkbook.Worksheets("PATIENT_PLANNER")
     rowIndex = FindPlannerPatientRow(ws, patientId)
@@ -158,7 +163,18 @@ Public Sub SavePatientRecurringAssignment( _
     ws.Cells(rowIndex, daysCol).Value = dayPattern
     ws.Cells(rowIndex, therapistCol).Value = therapistId
     ws.Rows(rowIndex).Calculate
+
+    Application.EnableEvents = False
     ThisWorkbook.Save
+    Application.EnableEvents = previousEvents
+    Exit Sub
+
+SaveAssignmentError:
+    errorText = Err.Description
+    On Error Resume Next
+    Application.EnableEvents = previousEvents
+    On Error GoTo 0
+    Err.Raise vbObjectError + 2817, "SavePatientRecurringAssignment", errorText
 End Sub
 
 Private Function FindPlannerPatientRow(ByVal ws As Worksheet, ByVal patientId As String) As Long
@@ -437,7 +453,8 @@ Private Sub cmdSave_Click()
         Trim$(cboTime.Value)
 
     MsgBox "Η θεραπεία προγραμματίστηκε επιτυχώς.", vbInformation, "Προγραμματισμός"
-    Unload Me
+    lblProposal.Caption = "Η θεραπεία αποθηκεύτηκε. Μπορείς να επιλέξεις την επόμενη θεραπεία ή Κλείσιμο."
+    cboTreatment.SetFocus
     Exit Sub
 SaveError:
     MsgBox Err.Description, vbCritical, "Προγραμματισμός"
