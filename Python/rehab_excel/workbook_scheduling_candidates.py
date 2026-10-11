@@ -93,6 +93,30 @@ def _workbook_therapists(
     return tuple(result)
 
 
+def _current_assignment_session_id(
+    entries: Iterable[BaseScheduleEntry],
+    *,
+    patient_id: str,
+    treatment: str,
+) -> str | None:
+    """Return the current PATIENT_PLANNER entry being edited, if any.
+
+    PATIENT_PLANNER owns one recurring slot per patient/treatment. Revalidating
+    that slot must not make the patient or therapist conflict with the same
+    assignment that is being replaced.
+    """
+
+    patient_key = _normalize(patient_id)
+    treatment_key = _normalize(treatment)
+    for entry in entries:
+        if _normalize(entry.patient_id) != patient_key:
+            continue
+        if _normalize(entry.treatment) != treatment_key:
+            continue
+        return entry.base_entry_id
+    return None
+
+
 def workbook_therapist_candidates(
     workbook_path: str | Path,
     *,
@@ -113,6 +137,11 @@ def workbook_therapist_candidates(
     callers may provide additional confirmed names. Other treatment families use
     different provider/resource rules and are not silently routed through the
     physiotherapist engine.
+
+    When the same patient/treatment already exists in PATIENT_PLANNER, that
+    current recurring entry is treated as the assignment being edited/replaced
+    and is ignored during conflict checks unless the caller supplied an explicit
+    ``ignore_session_id``.
     """
 
     treatment_text = treatment.strip()
@@ -131,6 +160,13 @@ def workbook_therapist_candidates(
     patient_ids = {_normalize(patient.patient_id) for patient in patients}
     if _normalize(patient_key) not in patient_ids:
         raise ValueError(f"Unknown PatientID: {patient_id}")
+
+    if ignore_session_id is None:
+        ignore_session_id = _current_assignment_session_id(
+            entries,
+            patient_id=patient_key,
+            treatment=treatment_text,
+        )
 
     students = tuple(read_students(workbook_path))
     student_names = tuple(student.display_name for student in students)
