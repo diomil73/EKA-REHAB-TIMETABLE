@@ -13,25 +13,26 @@ DAY = date(2026, 10, 12)
 
 def _settings():
     return SimpleNamespace(
-        therapies=("Εργο", "Λογο"),
+        therapies=("Ρομποτικό", "Εργο", "Λογο", "Ψυχ"),
         day_patterns=("Δε-Τε-Πα", "Τρ-Πε", "Καθ/να"),
         standard_timeslots=(time(9, 0), time(10, 0)),
         reclined_timeslots=(),
     )
 
 
-def test_generic_provider_failure_reports_missing_settings_pool(monkeypatch):
-    class Draft:
-        def spec_for(self, treatment):
-            return SimpleNamespace(
-                treatment=treatment,
-                requires_provider=True,
-                provider_choices=(),
-            )
+class ProviderlessDraft:
+    def spec_for(self, treatment):
+        return SimpleNamespace(
+            treatment=treatment,
+            requires_provider=False,
+            provider_choices=(),
+        )
 
+
+def test_specialty_treatment_does_not_fail_when_provider_pool_is_empty(monkeypatch):
     monkeypatch.setattr(automatic, "read_settings", lambda *a, **k: _settings())
     monkeypatch.setattr(automatic, "read_base_schedule", lambda *a, **k: ())
-    monkeypatch.setattr(automatic, "build_patient_program_draft", lambda *a, **k: Draft())
+    monkeypatch.setattr(automatic, "build_patient_program_draft", lambda *a, **k: ProviderlessDraft())
 
     proposal = propose_automatic_patient_schedule(
         "dummy.xlsm",
@@ -40,41 +41,29 @@ def test_generic_provider_failure_reports_missing_settings_pool(monkeypatch):
         requests=(AutomaticTreatmentRequest("Εργο"),),
     )
 
-    assert proposal.complete is False
-    assert "SETTINGS" in proposal.unresolved[0].reason
-    assert "providers" in proposal.unresolved[0].reason
+    assert proposal.complete is True
+    assert proposal.assignments[0].therapist_name == ""
 
 
-def test_generic_provider_failure_reports_capacity_or_occupancy(monkeypatch):
-    class Draft:
-        def spec_for(self, treatment):
-            return SimpleNamespace(
-                treatment=treatment,
-                requires_provider=True,
-                provider_choices=("OT1",),
-            )
-
-    entries = tuple(
-        SimpleNamespace(
-            patient_id=f"P{i}",
-            treatment="Εργο",
-            start_time=time(8 + i, 0),
-            day_pattern="Καθ/να",
-            therapist_id="OT1",
-        )
-        for i in range(6)
+def test_manual_time_conflict_reports_patient_collision_not_provider_problem(monkeypatch):
+    existing = SimpleNamespace(
+        patient_id="P1",
+        treatment="Λογο",
+        start_time=time(9, 0),
+        day_pattern="Καθ/να",
+        therapist_id="",
     )
-
     monkeypatch.setattr(automatic, "read_settings", lambda *a, **k: _settings())
-    monkeypatch.setattr(automatic, "read_base_schedule", lambda *a, **k: entries)
-    monkeypatch.setattr(automatic, "build_patient_program_draft", lambda *a, **k: Draft())
+    monkeypatch.setattr(automatic, "read_base_schedule", lambda *a, **k: (existing,))
+    monkeypatch.setattr(automatic, "build_patient_program_draft", lambda *a, **k: ProviderlessDraft())
 
     proposal = propose_automatic_patient_schedule(
         "dummy.xlsm",
-        patient_id="NEW",
+        patient_id="P1",
         anchor_date=DAY,
-        requests=(AutomaticTreatmentRequest("Εργο", "Καθ/να"),),
+        requests=(AutomaticTreatmentRequest("Εργο", "Καθ/να", start_time=time(9, 0)),),
     )
 
     assert proposal.complete is False
-    assert "κανένας δεν έχει διαθέσιμο slot" in proposal.unresolved[0].reason
+    assert "συγκρούεται" in proposal.unresolved[0].reason
+    assert "provider" not in proposal.unresolved[0].reason.casefold()
