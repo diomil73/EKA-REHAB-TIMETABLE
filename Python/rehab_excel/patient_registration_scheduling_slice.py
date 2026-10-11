@@ -8,6 +8,7 @@ import tempfile
 from . import patient_registration_vertical_slice as _vertical
 from .native_excel import apply_write_plan_to_copy
 from .outpatient_schedule_source import read_unified_base_schedule
+from .patient_program_combo_clear_vba import install_combo_clear_handlers
 from .patient_program_form_vba import install_patient_program_ui
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .patient_registry_source import read_patient_registry
@@ -165,6 +166,7 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
             workbook.VBProject,
             position_control=_position_control,
         )
+        install_combo_clear_handlers(workbook.VBProject)
         workbook.Save()
     except PatientRegistrationBridgeVbaError:
         raise
