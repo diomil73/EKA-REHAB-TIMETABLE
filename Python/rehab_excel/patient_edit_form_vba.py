@@ -43,11 +43,11 @@ Private Sub UserForm_Initialize()
     StyleComboBox cboStatus, 366
 
     With lblInfo
-        .Caption = "Οι μόνιμες αλλαγές στοιχείων ενημερώνουν το μητρώο και τις προβολές. Το Patient ID δεν αλλάζει."
+        .Caption = "Οι μόνιμες αλλαγές στοιχείων ενημερώνουν το μητρώο και τις προβολές. Το Patient ID δεν αλλάζει. Μετά την αποθήκευση ανοίγει το πρόγραμμα θεραπείας του ίδιου ασθενούς."
         .Left = 38
         .Top = 414
         .Width = 430
-        .Height = 42
+        .Height = 48
         .WordWrap = True
         .Font.Name = "Calibri"
         .Font.Size = 9
@@ -321,11 +321,14 @@ Private Function ValidateForm() As Boolean
 End Function
 
 Private Sub cmdSave_Click()
+    Dim patientId As String
+
     If Not ValidateForm() Then Exit Sub
+    patientId = Trim$(txtPatientID.Text)
 
     On Error GoTo SaveError
     UpdatePatientInWorkbook _
-        Trim$(txtPatientID.Text), _
+        patientId, _
         Trim$(txtHospitalMRN.Text), _
         Trim$(txtDisplayName.Text), _
         Trim$(cboRoom.Value), _
@@ -333,16 +336,35 @@ Private Sub cmdSave_Click()
         Trim$(txtResponsibleDoctor.Text), _
         Trim$(cboStatus.Value)
 
-    MsgBox "Οι αλλαγές αποθηκεύτηκαν επιτυχώς.", vbInformation, "Επεξεργασία ασθενή"
-    Unload Me
+    MsgBox "Οι αλλαγές αποθηκεύτηκαν επιτυχώς." & vbCrLf & vbCrLf & _
+           "Συνεχίζουμε στο πρόγραμμα θεραπείας του ασθενούς.", _
+           vbInformation, "Επεξεργασία ασθενή"
+
+    On Error GoTo SchedulingError
+    Me.Hide
     On Error Resume Next
     Unload frmRegistrationMenu
-    On Error GoTo 0
+    On Error GoTo SchedulingError
+    OpenPatientScheduling patientId
+    Unload Me
     GoToMaster
     Exit Sub
 
 SaveError:
     MsgBox "Η ενημέρωση δεν ολοκληρώθηκε: " & Err.Description, vbCritical, "Επεξεργασία ασθενή"
+    Exit Sub
+
+SchedulingError:
+    Dim errorText As String
+    errorText = Err.Description
+    On Error Resume Next
+    Unload Me
+    GoToMaster
+    On Error GoTo 0
+    MsgBox "Οι αλλαγές του ασθενούς έχουν ήδη αποθηκευτεί." & vbCrLf & _
+           "Δεν μπόρεσε να ανοίξει το πρόγραμμα θεραπείας:" & vbCrLf & _
+           errorText, _
+           vbExclamation, "Πρόγραμμα θεραπείας"
 End Sub
 
 Private Sub cmdCancel_Click()
