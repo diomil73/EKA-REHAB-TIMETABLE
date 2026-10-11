@@ -18,31 +18,26 @@
 
 - εμφάνιση όλων των θεραπειών του authoritative configuration,
 - επιλογή πολλών θεραπειών για τον ίδιο ασθενή,
-- χειροκίνητη συμπλήρωση ημέρας, ώρας και provider όπου απαιτείται,
+- χειροκίνητη συμπλήρωση όσων scheduling στοιχείων γνωρίζει ο χρήστης,
 - δυνατότητα ακύρωσης ήδη επιλεγμένης τιμής ώστε το πεδίο να ξαναγίνεται ελεύθερο,
 - μερική χειροκίνητη συμπλήρωση και automatic completion μόνο των κενών πεδίων,
-- πλήρως automatic proposal όταν ο χρήστης αφήνει scheduling πεδία κενά,
+- πλήρως automatic proposal όταν scheduling πεδία μένουν κενά,
 - διατήρηση manual values ως hard constraints,
 - strong soft preference ώστε το Ανακλινόμενο να τοποθετείται πριν ή μετά τη ΦΘ όπου είναι εφικτό,
 - μία τελική atomic αποθήκευση όλου του patient program.
 
-### Τρέχον configuration migration: specialty providers
+### Provider rule του patient-program flow
 
-Το V62 diagnostic smoke test επιβεβαίωσε ότι Εργο και Λογο αποτυγχάνουν όχι λόγω πραγματικής έλλειψης χώρου αλλά επειδή τα specialty provider pools του `SETTINGS` είναι κενά.
+Η τρέχουσα επιχειρησιακή απόφαση είναι:
 
-Η ρίζα είναι ότι η υπάρχουσα `Νέος θεραπευτής` registration ροή γράφει μόνο φυσιοθεραπευτές στο `SETTINGS!A` (`THERAPISTS_FTH`). Οι reader/provider models είχαν ήδη θέσεις για Ψυχ, Εργο και Λογο, αλλά τα legacy V48-based workbooks δεν είχαν authoritative registry values εκεί.
+- **ΦΘ:** απαιτεί θεραπευτή/provider μέσα στη φόρμα προγραμματισμού.
+- **Ρομποτικό, Εργο, Λογο, Ψυχ:** ο scheduler ενδιαφέρεται μόνο για **ημέρες + ώρα**. Provider/name δεν είναι προϋπόθεση για proposal ή final save.
+- **Ανακλινόμενο, Πισίνα, ΕΦΑ:** επίσης day/time scheduling χωρίς provider.
+- Τα ονόματα προσωπικού για Ρομποτικό/Εργο/Λογο/Ψυχ μπορούν να συμπληρώνονται αργότερα χειροκίνητα από τις υπάρχουσες λίστες/λειτουργίες.
 
-Υλοποιήθηκε migration helper που:
+Η προηγούμενη ιδέα για automatic migration specialty-provider names στο `SETTINGS` αφαιρέθηκε από το patient scheduling flow επειδή δεν χρειάζεται για τον πραγματικό στόχο του timeslot scheduling.
 
-- διαβάζει μόνο ήδη υπάρχοντα provider names από `PATIENT_PLANNER`,
-- χρησιμοποιεί τις στήλες `Ψυχ_Ψυχολόγος`, `Εργο_Θεραπευτής`, `Λογο_Θεραπευτής`,
-- κάνει case-insensitive deduplication διατηρώντας το αρχικό display spelling/order,
-- συμπληρώνει μόνο κενά specialty registries στο `SETTINGS`,
-- δεν αντικαθιστά υπάρχοντα configured registries,
-- γράφει τα specialty registries στις στήλες I/J/K που ήδη διαβάζει το `read_settings()`,
-- εκτελείται κατά το scheduling preview build πριν εγκατασταθεί/χρησιμοποιηθεί η νέα patient-program φόρμα.
-
-Το migration είναι **implemented, pending native Excel verification**.
+> **Σημείωση για μελλοντική επέκταση:** αν αργότερα χρειαστεί, μπορεί να προστεθεί optional provider-aware scheduling για Ρομποτικό/Εργο/Λογο/Ψυχ. Αυτό πρέπει να γίνει ως πρόσθετη δυνατότητα και όχι ως υποχρεωτικό constraint που μπλοκάρει ημέρες/ώρα.
 
 ---
 
@@ -65,17 +60,17 @@
 - Patient-centric draft model για πολλές θεραπείες.
 - Όλες οι θεραπείες προέρχονται από το workbook/configuration.
 - PATIENT_PLANNER blocks για ΦΘ, Ρομποτικό, Ανακλινόμενο, Πισίνα, Εργο, Λογο, ΕΦΑ και Ψυχ.
-- Provider pools για φυσιοθεραπευτές, εργοθεραπευτές, λογοθεραπευτές και ψυχολόγους.
 - Recurring workload ως peak daily load, όχι άθροισμα recurrence.
 - Generalized automatic solver πέρα από ΦΘ/Ρομποτικό.
 - Automatic day-pattern completion από `SETTINGS` όταν οι ημέρες μένουν κενές.
-- Manual day/time/provider values ως locked constraints.
+- Manual day/time values ως locked constraints.
+- Provider constraint μόνο στη ΦΘ.
+- Ρομποτικό/Εργο/Λογο/Ψυχ προγραμματίζονται χωρίς υποχρεωτικό provider.
 - Providerless treatment support.
 - Recliner/ΦΘ adjacency preference στη βαθμολόγηση.
 - Μία ενεργή θεραπεία για editing, με ορατές ημέρες/ώρα/provider στη γραμμή κάθε θεραπείας.
-- `Backspace`/`Delete` clear για day/time/provider ώστε μια τιμή να μπορεί να ξαναδοθεί στον solver.
-- Diagnostic failure reasons για specialty/provider scheduling failures.
-- Specialty-provider migration από υπάρχουσες `PATIENT_PLANNER` αναθέσεις σε κενά `SETTINGS` registries για Ψυχ/Εργο/Λογο.
+- `Backspace`/`Delete` clear ώστε μια τιμή να μπορεί να ξαναδοθεί στον solver.
+- Diagnostic failure reasons για πραγματικές scheduling συγκρούσεις αντί για ψευδή provider failures.
 
 ### Atomic final save
 
@@ -99,14 +94,14 @@
 
 - generalized automatic scheduling,
 - automatic day-pattern completion,
-- specialty/provider handling,
+- ΦΘ provider constraint,
+- provider-optional Ρομποτικό/Εργο/Λογο/Ψυχ,
 - providerless treatment handling,
 - recliner adjacency preference,
 - patient-program bridge behavior,
 - atomic-save safety ordering και rollback contract,
-- keyboard clearing για day/time/provider combo selections,
-- explicit diagnostics για missing provider pools και provider capacity/occupancy,
-- specialty provider extraction/deduplication από legacy planner assignments.
+- keyboard clearing για scheduling combo selections,
+- explicit patient time-collision diagnostics.
 
 ---
 
@@ -114,17 +109,16 @@
 
 Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone πρέπει να περάσουν:
 
-1. focused pytest suite για automatic solver, diagnostics, bridge, form VBA, recurring scheduling, registration slice και specialty-provider migration,
+1. focused pytest suite για automatic solver, diagnostics, bridge, form VBA, recurring scheduling και registration slice,
 2. build νέου preview workbook από το clean V48 base,
-3. επιβεβαίωση ότι το preview build δημιουργεί/γεμίζει τα `SETTINGS` specialty registries όταν υπάρχουν legacy planner assignments,
-4. native Excel smoke test Εργο/Λογο με όλα τα scheduling fields ελεύθερα,
-5. επιβεβαίωση ότι Εργο/Λογο εμφανίζουν provider names στα combo boxes,
-6. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει ημέρες, ώρα και provider και αφαιρεί την τιμή από τη γραμμή σύνοψης,
-7. επιβεβαίωση ότι cleared field μπορεί να ξανασυμπληρωθεί από την Αυτόματη συμπλήρωση,
-8. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
-9. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
-10. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι raw Excel serial,
-11. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
+3. native Excel smoke test με ΦΘ + Ρομποτικό + Εργο + Λογο + λοιπές θεραπείες,
+4. επιβεβαίωση ότι μόνο η ΦΘ εμφανίζει/απαιτεί provider στο scheduling flow,
+5. επιβεβαίωση ότι Ρομποτικό/Εργο/Λογο/Ψυχ βρίσκουν proposal ημέρας/ώρας χωρίς provider names,
+6. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει επιλογές και το cleared field μπορεί να ξανασυμπληρωθεί από το automatic,
+7. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
+8. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
+9. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι raw Excel serial,
+10. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
 
 ---
 
@@ -132,14 +126,17 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused tests μαζί με το νέο `test_specialty_provider_settings.py`.
-2. Build του επόμενου preview από V48 ώστε να εκτελεστεί το specialty-provider migration.
-3. Native Excel smoke test για Εργο/Λογο και επιβεβαίωση ότι εμφανίζονται provider names.
-4. Επανέλεγχος automatic completion Εργο/Λογο με όλα τα πεδία ελεύθερα.
-5. Επανέλεγχος clear → automatic refill.
-6. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
-7. Full regression suite όταν περάσει το focused smoke test.
-8. Επέκταση της `Νέος θεραπευτής` registration ροής ώστε νέα specialty staff να γράφονται απευθείας στα αντίστοιχα SETTINGS registries και να μην χρειάζεται migration για νέα δεδομένα.
+1. Τρέξιμο focused tests μετά την αλλαγή του provider rule.
+2. Build του επόμενου preview από V48.
+3. Native Excel smoke test με Εργο/Λογο/Ρομποτικό χωρίς provider names.
+4. Επανέλεγχος clear → automatic refill.
+5. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
+6. Full regression suite όταν περάσει το focused smoke test.
+
+### Μελλοντική optional επέκταση
+
+- Αν προκύψει πραγματική ανάγκη, προσθήκη optional provider-aware scheduling για Ρομποτικό/Εργο/Λογο/Ψυχ.
+- Η επέκταση δεν πρέπει να κάνει provider υποχρεωτικό ούτε να εμποδίζει την εύρεση timeslot όταν το όνομα μένει κενό.
 
 ### Μετά το patient-program milestone
 
