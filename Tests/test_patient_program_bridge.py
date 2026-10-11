@@ -1,3 +1,4 @@
+from datetime import time
 from pathlib import Path
 import subprocess
 import sys
@@ -12,6 +13,22 @@ def test_program_bridge_parser_accepts_config_command():
     )
     assert args.command == "config-vba"
     assert args.patient_id == "P001"
+
+
+def test_program_bridge_parser_accepts_completion_requests():
+    parser = bridge.build_parser()
+    args = parser.parse_args(
+        [
+            "complete-vba",
+            "dummy.xlsm",
+            "--patient-id",
+            "P001",
+            "--request",
+            "ΦΘ|Δε-Τε-Πα|10:00|Φυσιο 1",
+        ]
+    )
+    assert args.command == "complete-vba"
+    assert args.request == ["ΦΘ|Δε-Τε-Πα|10:00|Φυσιο 1"]
 
 
 def test_program_bridge_is_direct_launchable_without_import_error():
@@ -62,8 +79,8 @@ def test_program_bridge_emits_every_treatment_and_provider(monkeypatch, capsys):
         (),
         {
             "day_patterns": ("Δε-Τε-Πα",),
-            "standard_timeslots": (__import__("datetime").time(10, 0),),
-            "reclined_timeslots": (__import__("datetime").time(9, 30),),
+            "standard_timeslots": (time(10, 0),),
+            "reclined_timeslots": (time(9, 30),),
         },
     )()
     monkeypatch.setattr(bridge, "build_patient_program_draft", lambda *a, **k: fake_draft)
@@ -78,3 +95,47 @@ def test_program_bridge_emits_every_treatment_and_provider(monkeypatch, capsys):
     assert "DAY_PATTERN\tΔε-Τε-Πα" in output
     assert "STANDARD_SLOT\t10:00" in output
     assert "RECLINED_SLOT\t09:30" in output
+
+
+def test_parse_completion_request_preserves_manual_time_and_provider():
+    request = bridge._parse_request("ΦΘ|Δε-Τε-Πα|10:30|Φυσιο 2")
+    assert request.treatment == "ΦΘ"
+    assert request.day_pattern == "Δε-Τε-Πα"
+    assert request.start_time == time(10, 30)
+    assert request.provider_id == "Φυσιο 2"
+
+
+def test_completion_marks_missing_day_pattern_as_unresolved(monkeypatch, capsys):
+    bridge._emit_completion(Path("dummy.xlsm"), "P001", ["ΦΘ|||", "Ρομποτικό|||" ])
+    output = capsys.readouterr().out
+    assert output.count("UNRESOLVED") == 2
+    assert "Χρειάζεται πρώτα επιλογή ημερών" in output
+
+
+def test_completion_emits_solver_assignments(monkeypatch, capsys):
+    assignment = type(
+        "Assignment",
+        (),
+        {
+            "treatment": "ΦΘ",
+            "day_pattern": "Δε-Τε-Πα",
+            "start_time": time(10, 0),
+            "therapist_id": "T2",
+            "therapist_name": "Φυσιο 2",
+            "workload_count": 3,
+        },
+    )()
+    proposal = type("Proposal", (), {"assignments": (assignment,), "unresolved": ()})()
+    monkeypatch.setattr(
+        bridge,
+        "propose_automatic_patient_schedule",
+        lambda *a, **k: proposal,
+    )
+
+    bridge._emit_completion(
+        Path("dummy.xlsm"),
+        "P001",
+        ["ΦΘ|Δε-Τε-Πα|||"],
+    )
+    output = capsys.readouterr().out
+    assert "ASSIGNMENT\tΦΘ\tΔε-Τε-Πα\t10:00\tT2\tΦυσιο 2\t3" in output
