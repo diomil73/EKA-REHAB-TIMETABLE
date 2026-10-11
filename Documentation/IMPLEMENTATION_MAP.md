@@ -151,22 +151,29 @@
 
 Έτσι δεν επιτρέπεται πλέον να παραχθεί preview που είναι «μισό παλιό, μισό νέο» χωρίς να σταματήσει ο builder.
 
-### V67 MASTER-render installer line-ending regression
+### V67 MASTER-render installer hardening
 
 Στο πρώτο V67 build ο builder σταμάτησε σωστά πριν το save με:
 
 `MASTER render patch marker missing: patient-program save refresh`
 
-Η αιτία δεν ήταν απουσία του `SavePatientProgramAtomic` marker. Το Excel VBE επιστρέφει το `CodeModule.Lines(...)` με Windows `CRLF`, ενώ ο Python patcher σύγκρινε exact strings με `LF`. Το safety marker επομένως υπήρχε σημασιολογικά αλλά δεν ταίριαζε byte-for-byte.
+Η αιτία ήταν line-ending mismatch από το Excel VBE: `CRLF` στο `CodeModule.Lines(...)` έναντι `LF` στα Python patch markers. Ο `_patch_code_module` έγινε line-ending agnostic και απέκτησε regression tests για VBE-style `CRLF` και idempotent already-patched input.
 
-Ο `_patch_code_module` έγινε πλέον **line-ending agnostic**:
+Στο επόμενο V67 build το patient-program save hook πέρασε, αλλά ο builder σταμάτησε στο δεύτερο hook:
 
-- κανονικοποιεί προσωρινά `CRLF` και lone `CR` σε `LF`,
-- κάνει strict marker match και replacement πάνω στο normalized text,
-- παραμένει idempotent όταν το νέο refresh call υπάρχει ήδη,
-- εξακολουθεί να σταματά με explicit error όταν λείπει πραγματικά το marker.
+`MASTER render patch marker missing: patient-edit refresh`
 
-Προστέθηκαν regression tests για VBE-style `CRLF` input και idempotent already-patched input.
+Αυτό έδειξε ότι και το edit hook ήταν υπερβολικά δεμένο με ακριβή γειτονική whitespace/blank-line μορφή γύρω από το multiline `UpdatePatientInWorkbook` call.
+
+Ο patient-edit hook έγινε πλέον **procedure-scoped**:
+
+- εντοπίζει αποκλειστικά το `Private Sub cmdSave_Click() ... End Sub`,
+- δεν βασίζεται σε άλλο occurrence του `Trim$(cboStatus.Value)` μέσα στη φόρμα,
+- εισάγει `RefreshMasterPatientProgram patientId` αμέσως πριν από το success `MsgBox`, δηλαδή μετά την επιτυχή `UpdatePatientInWorkbook`,
+- παραμένει idempotent αν το refresh υπάρχει ήδη,
+- διατηρεί explicit safety-stop αν λείπει το `cmdSave_Click` ή το αναμενόμενο success marker.
+
+Προστέθηκαν regression tests που καλύπτουν CRLF, διαφορετικό spacing και duplicate-looking `cboStatus` references εκτός `cmdSave_Click`.
 
 ---
 
@@ -174,8 +181,8 @@
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. focused pytest για τον CRLF-safe MASTER patcher μαζί με τον νέο VBProject read-back verifier,
-2. νέο preview **V67** από clean V48 base μετά το line-ending fix,
+1. focused pytest για CRLF-safe MASTER patcher, procedure-scoped patient-edit refresh hook και VBProject read-back verifier,
+2. νέο preview **V67** από clean V48 base μετά το edit-hook hardening,
 3. το V67 build πρέπει να περάσει και τα stages `installing MASTER patient-program renderer` και `verifying patient-program VBA replacement`,
 4. native Excel compile/open χωρίς Syntax Error και χωρίς legacy `cboTreatment` / `LoadRecurringSchedulingOptions`,
 5. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
@@ -194,7 +201,7 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite με CRLF-safe MASTER patcher και VBProject verifier.
+1. Τρέξιμο focused regression suite με τον procedure-scoped patient-edit refresh hook.
 2. Rebuild **V67** από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
 3. Αν το build σταματήσει, χρήση του stage-specific diagnostic για το επόμενο ακριβές installer σημείο.
 4. Αν το build περάσει, native compile/open και smoke test πρώτα σε μία ΦΘ και μία providerless θεραπεία.
