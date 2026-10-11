@@ -18,6 +18,8 @@ from .workbook_scheduling_candidates import THERAPIST_SCHEDULING_TREATMENTS
 class AutomaticTreatmentRequest:
     treatment: str
     day_pattern: str
+    provider_id: str | None = None
+    start_time: time | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +115,28 @@ def _choice_options(
     return tuple(options)
 
 
+def _apply_manual_constraints(
+    request: AutomaticTreatmentRequest,
+    options: Iterable[_Option],
+) -> tuple[_Option, ...]:
+    constrained = tuple(options)
+    if request.provider_id:
+        provider_key = _normalize(request.provider_id)
+        constrained = tuple(
+            option
+            for option in constrained
+            if provider_key in {
+                _normalize(option.therapist_id),
+                _normalize(option.therapist_name),
+            }
+        )
+    if request.start_time is not None:
+        constrained = tuple(
+            option for option in constrained if option.start_time == request.start_time
+        )
+    return constrained
+
+
 def propose_automatic_patient_schedule(
     workbook_path: str | Path,
     *,
@@ -128,6 +152,9 @@ def propose_automatic_patient_schedule(
     a combination that maximizes the number of scheduled requests without
     placing the patient in two overlapping treatments at the same time.
 
+    Manual provider/time values on a request are treated as hard constraints:
+    the solver may fill missing fields but never silently replace user choices.
+
     At this stage the common therapist engine supports ΦΘ and Ρομποτικό only.
     Other treatment families are returned explicitly as unresolved rather than
     being guessed through physiotherapist rules that do not apply to them.
@@ -138,7 +165,12 @@ def propose_automatic_patient_schedule(
         raise ValueError("patient_id is required")
 
     request_list = [
-        AutomaticTreatmentRequest(item.treatment.strip(), item.day_pattern.strip())
+        AutomaticTreatmentRequest(
+            item.treatment.strip(),
+            item.day_pattern.strip(),
+            item.provider_id.strip() if item.provider_id else None,
+            item.start_time,
+        )
         for item in requests
         if item.treatment.strip() or item.day_pattern.strip()
     ]
@@ -181,7 +213,16 @@ def propose_automatic_patient_schedule(
                 "Δεν βρέθηκε κοινός διαθέσιμος θεραπευτής/ώρα για όλο το μοτίβο ημερών.",
             )
             continue
-        options_by_request[index] = options
+
+        constrained_options = _apply_manual_constraints(request, options)
+        if not constrained_options:
+            fixed_unresolved[index] = AutomaticUnresolvedTreatment(
+                request.treatment,
+                request.day_pattern,
+                "Οι χειροκίνητες επιλογές θεραπευτή/ώρας δεν είναι διαθέσιμες για όλο το μοτίβο ημερών.",
+            )
+            continue
+        options_by_request[index] = constrained_options
 
     searchable_indices = sorted(
         options_by_request,
