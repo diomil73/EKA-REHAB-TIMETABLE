@@ -16,6 +16,8 @@ from .reader import read_base_schedule, read_settings
 
 
 DEFAULT_PROVIDER_DAILY_CAPACITY = 6
+STANDARD_TREATMENT_DURATION_MINUTES = 45
+RECLINED_TREATMENT_DURATION_MINUTES = 30
 
 
 @dataclass(frozen=True)
@@ -76,13 +78,49 @@ def _minutes(value: time) -> int:
     return value.hour * 60 + value.minute
 
 
+def _duration_minutes(treatment: str) -> int:
+    if _normalize(treatment) == _normalize("Ανακλινόμενο"):
+        return RECLINED_TREATMENT_DURATION_MINUTES
+    return STANDARD_TREATMENT_DURATION_MINUTES
+
+
+def _intervals_overlap(
+    left_start: time,
+    left_treatment: str,
+    right_start: time,
+    right_treatment: str,
+) -> bool:
+    left_begin = _minutes(left_start)
+    right_begin = _minutes(right_start)
+    left_end = left_begin + _duration_minutes(left_treatment)
+    right_end = right_begin + _duration_minutes(right_treatment)
+    return left_begin < right_end and right_begin < left_end
+
+
+def _interval_gap_minutes(left: _Option, right: _Option) -> int:
+    left_begin = _minutes(left.start_time)
+    right_begin = _minutes(right.start_time)
+    left_end = left_begin + _duration_minutes(left.treatment)
+    right_end = right_begin + _duration_minutes(right.treatment)
+    if left_end <= right_begin:
+        return right_begin - left_end
+    if right_end <= left_begin:
+        return left_begin - right_end
+    return 10_000
+
+
 def _request_weekdays(day_pattern: str) -> frozenset[int]:
     return frozenset(int(day) for day in parse_day_pattern(day_pattern))
 
 
 def _patient_conflict(left: _Option, right: _Option) -> bool:
-    return left.start_time == right.start_time and bool(
-        left.weekdays.intersection(right.weekdays)
+    if not left.weekdays.intersection(right.weekdays):
+        return False
+    return _intervals_overlap(
+        left.start_time,
+        left.treatment,
+        right.start_time,
+        right.treatment,
     )
 
 
@@ -130,9 +168,14 @@ def _conflicts_existing_patient(option: _Option, base_entries, patient_id: str) 
             continue
         if _normalize(entry.treatment) == treatment_key:
             continue
-        if entry.start_time != option.start_time:
+        if not option.weekdays.intersection(_entry_weekdays(entry)):
             continue
-        if option.weekdays.intersection(_entry_weekdays(entry)):
+        if _intervals_overlap(
+            option.start_time,
+            option.treatment,
+            entry.start_time,
+            entry.treatment,
+        ):
             return True
     return False
 
@@ -286,7 +329,7 @@ def _generic_failure_reason(
             "στο ζητούμενο εύρος ημερών/ωρών ή έχει φτάσει το ημερήσιο όριο."
         )
     if any_provider_slot and not any_patient_compatible:
-        return "Υπάρχει διαθέσιμος provider/slot, αλλά συγκρούεται με άλλη θεραπεία του ασθενούς."
+        return "Υπάρχει διαθέσιμος provider/slot, αλλά συγκρούεται χρονικά με άλλη θεραπεία του ασθενούς."
     return "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα."
 
 
@@ -334,13 +377,13 @@ def _recliner_adjacency_penalty(selected: dict[int, _Option]) -> int:
 
     penalty = 0
     for recliner in recliners:
-        distances = [
-            abs(_minutes(recliner.start_time) - _minutes(physio.start_time))
+        gaps = [
+            _interval_gap_minutes(recliner, physio)
             for physio in physiotherapy
             if recliner.weekdays.intersection(physio.weekdays)
         ]
-        if distances:
-            penalty += min(distances)
+        if gaps:
+            penalty += min(gaps)
     return penalty
 
 
@@ -354,9 +397,12 @@ def propose_automatic_patient_schedule(
 ) -> AutomaticScheduleProposal:
     """Build a read-only, hybrid recurring patient-program proposal.
 
-    Only ΦΘ is provider-owned in this patient-program flow. Ρομποτικό and the
+    Only ΦΘ is provider-owned in this patient-program flow. Robotic and the
     other treatment families are scheduled by day/time with a blank provider;
-    their staff assignment can be added later outside this form.
+    an optional staff name can be stored later without constraining automation.
+
+    Patient conflicts are interval-based: standard treatments occupy 45 minutes
+    and Ανακλινόμενο occupies 30 minutes. Adjacent intervals are allowed.
     """
 
     patient_key = patient_id.strip()
