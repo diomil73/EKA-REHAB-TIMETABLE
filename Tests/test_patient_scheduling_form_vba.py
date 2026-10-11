@@ -30,6 +30,31 @@ def test_scheduling_form_loads_treatments_day_patterns_and_workload_candidates()
     assert "cboTherapist.AddItem fields(3)" in code
 
 
+def test_scheduling_header_shows_patient_name_and_id():
+    form_code = PATIENT_SCHEDULING_FORM_CODE
+    runtime_code = PATIENT_SCHEDULING_MODULE_CODE
+    assert "FindPatientDisplayName(mPatientId)" in form_code
+    assert 'lblPatient.Caption = "Ασθενής: " & patientName & "   |   Patient ID: " & mPatientId' in form_code
+    assert "Public Function FindPatientDisplayName" in runtime_code
+    assert "ws.Cells(rowIndex, 3).Value" in runtime_code
+
+
+def test_scheduling_form_uses_numbered_human_facing_labels():
+    code = PATIENT_SCHEDULING_FORM_CODE
+    assert 'lblTitle.Caption = "Πρόγραμμα θεραπείας ασθενούς"' in code
+    assert "Επίλεξε θεραπεία και ημέρες για να εμφανιστούν οι διαθέσιμες επιλογές." in code
+    installer = __import__(
+        "rehab_excel.patient_scheduling_form_vba",
+        fromlist=["install_patient_scheduling_ui"],
+    )
+    source = installer.install_patient_scheduling_ui.__code__.co_consts
+    joined = " ".join(str(item) for item in source)
+    assert "1. Θεραπεία" in joined
+    assert "2. Ημέρες θεραπείας" in joined
+    assert "3. Διαθέσιμος θεραπευτής" in joined
+    assert "4. Διαθέσιμη ώρα" in joined
+
+
 def test_scheduling_form_only_shows_slots_for_selected_therapist():
     code = PATIENT_SCHEDULING_FORM_CODE
     assert "mSlotsByTherapist(fields(2)) = fields(4)" in code
@@ -46,7 +71,7 @@ def test_auto_proposal_prefills_controls_without_saving():
     assert 'fields(0) = "ASSIGNMENT"' in procedure
     assert "cboTherapist.ListIndex = therapistIndex" in procedure
     assert "cboTime.Value = proposedTime" in procedure
-    assert "Δεν έχει αποθηκευτεί" in procedure
+    assert "πάτησε Αποθήκευση για επιβεβαίωση" in procedure
     assert "SavePatientRecurringAssignment" not in procedure
 
 
