@@ -19,6 +19,8 @@ from .recurring_daily_style import build_recurring_therapist_daily_style_plan
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
 _BASE_VERTICAL_FORM_CODE = _vertical._vertical_form_code
 LEGACY_PATIENT_SCHEDULING_MODULE_NAME = "PatientSchedulingRuntime"
+PATIENT_PROGRAM_FORM_NAME = "frmPatientScheduling"
+PATIENT_PROGRAM_MODULE_NAME = "PatientProgramRuntime"
 
 
 def _scheduling_form_code() -> str:
@@ -86,6 +88,65 @@ def _remove_vb_component_if_present(vbproject, component_name: str) -> bool:
         return False
     vbproject.VBComponents.Remove(component)
     return True
+
+
+def _component_code_text(vbproject, component_name: str) -> str:
+    component = vbproject.VBComponents(component_name)
+    code_module = component.CodeModule
+    count = int(getattr(code_module, "CountOfLines", 0) or 0)
+    if count <= 0:
+        return ""
+    return str(code_module.Lines(1, count))
+
+
+def _verify_patient_program_vba(vbproject) -> None:
+    """Reject previews that still contain the retired single-treatment runtime/form code."""
+
+    if _has_vb_component(vbproject, LEGACY_PATIENT_SCHEDULING_MODULE_NAME):
+        raise RuntimeError(
+            f"Legacy VBA module still present: {LEGACY_PATIENT_SCHEDULING_MODULE_NAME}"
+        )
+    if not _has_vb_component(vbproject, PATIENT_PROGRAM_MODULE_NAME):
+        raise RuntimeError(f"Missing VBA module: {PATIENT_PROGRAM_MODULE_NAME}")
+    if not _has_vb_component(vbproject, PATIENT_PROGRAM_FORM_NAME):
+        raise RuntimeError(f"Missing VBA form: {PATIENT_PROGRAM_FORM_NAME}")
+
+    form_code = _component_code_text(vbproject, PATIENT_PROGRAM_FORM_NAME)
+    runtime_code = _component_code_text(vbproject, PATIENT_PROGRAM_MODULE_NAME)
+
+    required_form_markers = (
+        "lstTreatments",
+        "SavePatientProgramAtomic",
+        "BuildAutomaticRequestArguments",
+    )
+    required_runtime_markers = (
+        "LoadPatientProgramConfig",
+        "CompletePatientProgram",
+        "OpenPatientScheduling",
+    )
+    legacy_markers = (
+        "cboTreatment",
+        "LoadRecurringSchedulingOptions",
+        "SavePatientRecurringAssignment",
+    )
+
+    missing_form = [marker for marker in required_form_markers if marker not in form_code]
+    missing_runtime = [marker for marker in required_runtime_markers if marker not in runtime_code]
+    legacy_found = [
+        marker
+        for marker in legacy_markers
+        if marker in form_code or marker in runtime_code
+    ]
+
+    if missing_form or missing_runtime or legacy_found:
+        details = []
+        if missing_form:
+            details.append("missing form markers: " + ", ".join(missing_form))
+        if missing_runtime:
+            details.append("missing runtime markers: " + ", ".join(missing_runtime))
+        if legacy_found:
+            details.append("legacy markers still present: " + ", ".join(legacy_found))
+        raise RuntimeError("Patient-program VBA verification failed: " + "; ".join(details))
 
 
 def _install_base_patient_form(workbook_path: Path) -> None:
@@ -185,6 +246,9 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
 
         stage = "installing combo clear handlers"
         install_combo_clear_handlers(vbproject)
+
+        stage = "verifying patient-program VBA replacement"
+        _verify_patient_program_vba(vbproject)
 
         stage = "saving preview workbook"
         workbook.Save()
