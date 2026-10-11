@@ -31,6 +31,13 @@ def test_scheduling_preview_builds_missing_patient_form_on_private_prerequisite(
         observed["scheduling_output"] = path
         assert path == output
         assert path.read_bytes() == b"vertical-preview"
+        path.write_bytes(b"with-scheduling-ui")
+
+    def fake_refresh_daily(path: Path) -> None:
+        observed["daily_refresh_output"] = path
+        assert path == output
+        assert path.read_bytes() == b"with-scheduling-ui"
+        path.write_bytes(b"with-fresh-daily-visuals")
 
     monkeypatch.setattr(scheduling_slice, "_install_base_patient_form", fake_install_base)
     monkeypatch.setattr(
@@ -39,6 +46,7 @@ def test_scheduling_preview_builds_missing_patient_form_on_private_prerequisite(
         fake_vertical_preview,
     )
     monkeypatch.setattr(scheduling_slice, "_install_scheduling_ui", fake_install_scheduling)
+    monkeypatch.setattr(scheduling_slice, "_refresh_daily_visuals", fake_refresh_daily)
 
     report = scheduling_slice.create_patient_registration_bridge_preview(
         source,
@@ -49,6 +57,8 @@ def test_scheduling_preview_builds_missing_patient_form_on_private_prerequisite(
     prerequisite = observed["prerequisite"]
     assert observed["vertical_source"] == prerequisite
     assert observed["scheduling_output"] == output
+    assert observed["daily_refresh_output"] == output
+    assert output.read_bytes() == b"with-fresh-daily-visuals"
     assert report.output_path == str(output)
     assert source.read_bytes() == b"baseline"
     assert not prerequisite.exists()
