@@ -19,13 +19,18 @@ def _normalize(value: str) -> str:
     return value.strip().casefold()
 
 
-# Scheduling ownership rule:
-# only physiotherapy requires a provider inside the patient-program flow.
-# Robotic / Ergo / Logo / Psych are scheduled by day + time; a provider name,
-# if needed operationally, can be assigned later outside this flow.
+# Provider/name support in the patient-program editor is intentionally split
+# from scheduling ownership. Only physiotherapy *requires* a provider for the
+# solver. Robotic / Ergo / Logo / Psych may carry an optional manually entered
+# name that is persisted to PATIENT_PLANNER but does not constrain automation.
 _PROVIDER_BY_TREATMENT = {
     _normalize("ΦΘ"): PROVIDER_PHYSIOTHERAPIST,
+    _normalize("Ρομποτικό"): PROVIDER_PHYSIOTHERAPIST,
+    _normalize("Εργο"): PROVIDER_OCCUPATIONAL_THERAPIST,
+    _normalize("Λογο"): PROVIDER_SPEECH_THERAPIST,
+    _normalize("Ψυχ"): PROVIDER_PSYCHOLOGIST,
 }
+_REQUIRED_PROVIDER_TREATMENTS = {_normalize("ΦΘ")}
 
 
 @dataclass(frozen=True)
@@ -35,10 +40,15 @@ class TreatmentProgramSpec:
     treatment: str
     provider_kind: str
     provider_choices: tuple[str, ...] = ()
+    provider_required: bool = False
+
+    @property
+    def supports_provider(self) -> bool:
+        return self.provider_kind != PROVIDER_NONE
 
     @property
     def requires_provider(self) -> bool:
-        return self.provider_kind != PROVIDER_NONE
+        return self.provider_required
 
 
 @dataclass(frozen=True)
@@ -46,8 +56,8 @@ class TreatmentDraftConstraint:
     """User-supplied pieces of one selected treatment.
 
     Every non-None field is a fixed/manual constraint. Missing fields are free
-    for automatic completion. This deliberately supports mixed workflows such
-    as fixed days with automatic therapist/time, or a completely fixed row.
+    for automatic completion. Optional provider names on non-physiotherapy
+    treatments are persisted metadata and are not solver constraints.
     """
 
     treatment: str
@@ -57,11 +67,7 @@ class TreatmentDraftConstraint:
 
     @property
     def is_fully_manual(self) -> bool:
-        return (
-            self.day_pattern is not None
-            and self.start_time is not None
-            and self.provider_id is not None
-        )
+        return self.day_pattern is not None and self.start_time is not None
 
 
 @dataclass(frozen=True)
@@ -106,10 +112,10 @@ def build_patient_program_draft(
 ) -> PatientProgramDraft:
     """Build a read-only patient-program draft from authoritative workbook data.
 
-    Every treatment in SETTINGS is exposed, in SETTINGS order. Only ΦΘ requires
-    a provider in this scheduling flow. Other treatments are scheduled by day
-    and time; provider assignment can be performed later outside this form.
-    The function never writes to the workbook.
+    Every treatment in SETTINGS is exposed, in SETTINGS order. ΦΘ requires a
+    provider. Robotic / Ergo / Logo / Psych support an optional manually typed
+    name, but their automatic scheduling is day/time only. The function never
+    writes to the workbook.
     """
 
     patient_key = patient_id.strip()
@@ -137,6 +143,7 @@ def build_patient_program_draft(
                 treatment=treatment,
                 provider_kind=kind,
                 provider_choices=_provider_choices(settings, kind),
+                provider_required=key in _REQUIRED_PROVIDER_TREATMENTS,
             )
         )
 
@@ -163,18 +170,22 @@ def build_patient_program_draft(
         spec = next(item for item in specs if _normalize(item.treatment) == key)
         provider = constraint.provider_id.strip() if constraint.provider_id else None
         if provider is not None:
-            if not spec.requires_provider:
+            if not spec.supports_provider:
                 raise ValueError(
-                    f"Treatment {spec.treatment!r} does not use a provider in patient-program scheduling"
+                    f"Treatment {spec.treatment!r} does not have a provider/name field"
                 )
-            allowed = {_normalize(item) for item in spec.provider_choices}
-            if _normalize(provider) not in allowed:
-                raise ValueError(
-                    f"Provider {provider!r} is not defined for treatment {spec.treatment!r}"
+            # ΦΘ remains authoritative and constrained by SETTINGS. Optional
+            # provider names are deliberately free text because the user may
+            # maintain those lists outside the automatic scheduling engine.
+            if spec.requires_provider:
+                allowed = {_normalize(item) for item in spec.provider_choices}
+                if _normalize(provider) not in allowed:
+                    raise ValueError(
+                        f"Provider {provider!r} is not defined for treatment {spec.treatment!r}"
+                    )
+                provider = next(
+                    item for item in spec.provider_choices if _normalize(item) == _normalize(provider)
                 )
-            provider = next(
-                item for item in spec.provider_choices if _normalize(item) == _normalize(provider)
-            )
 
         normalized_constraints.append(
             TreatmentDraftConstraint(
