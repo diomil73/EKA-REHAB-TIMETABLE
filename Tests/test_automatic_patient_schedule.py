@@ -139,3 +139,64 @@ def test_partial_proposal_when_all_supported_options_conflict(monkeypatch):
     assert len(proposal.assignments) == 1
     assert len(proposal.unresolved) == 1
     assert "συγκρούονται χρονικά" in proposal.unresolved[0].reason
+
+
+def test_manual_provider_constraint_is_never_replaced(monkeypatch):
+    monkeypatch.setattr(
+        automatic,
+        "recurring_therapist_choices",
+        lambda *args, **kwargs: (
+            _choice("T1", "Άλφα", 1, time(9, 0)),
+            _choice("T2", "Βήτα", 5, time(10, 0)),
+        ),
+    )
+
+    proposal = propose_automatic_patient_schedule(
+        "dummy.xlsm",
+        patient_id="P1",
+        anchor_date=DAY,
+        requests=(AutomaticTreatmentRequest("ΦΘ", "Δε-Τε-Πα", provider_id="Βήτα"),),
+    )
+
+    assert proposal.complete is True
+    assert proposal.assignments[0].therapist_id == "T2"
+    assert proposal.assignments[0].therapist_name == "Βήτα"
+
+
+def test_manual_time_constraint_is_never_replaced(monkeypatch):
+    monkeypatch.setattr(
+        automatic,
+        "recurring_therapist_choices",
+        lambda *args, **kwargs: (
+            _choice("T1", "Άλφα", 1, time(9, 0), time(11, 0)),
+        ),
+    )
+
+    proposal = propose_automatic_patient_schedule(
+        "dummy.xlsm",
+        patient_id="P1",
+        anchor_date=DAY,
+        requests=(AutomaticTreatmentRequest("ΦΘ", "Δε-Τε-Πα", start_time=time(11, 0)),),
+    )
+
+    assert proposal.complete is True
+    assert proposal.assignments[0].start_time == time(11, 0)
+
+
+def test_unavailable_manual_constraint_is_explicitly_unresolved(monkeypatch):
+    monkeypatch.setattr(
+        automatic,
+        "recurring_therapist_choices",
+        lambda *args, **kwargs: (_choice("T1", "Άλφα", 1, time(9, 0)),),
+    )
+
+    proposal = propose_automatic_patient_schedule(
+        "dummy.xlsm",
+        patient_id="P1",
+        anchor_date=DAY,
+        requests=(AutomaticTreatmentRequest("ΦΘ", "Δε-Τε-Πα", start_time=time(12, 0)),),
+    )
+
+    assert proposal.complete is False
+    assert len(proposal.assignments) == 0
+    assert "χειροκίνητες επιλογές" in proposal.unresolved[0].reason
