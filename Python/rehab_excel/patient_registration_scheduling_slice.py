@@ -8,6 +8,7 @@ import tempfile
 from . import patient_registration_vertical_slice as _vertical
 from .native_excel import apply_write_plan_to_copy
 from .outpatient_schedule_source import read_unified_base_schedule
+from .patient_edit_form_vba import install_patient_edit_form
 from .patient_program_combo_clear_vba import install_combo_clear_handlers
 from .patient_program_form_vba import install_patient_program_ui
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
@@ -133,7 +134,7 @@ def _install_base_patient_form(workbook_path: Path) -> None:
 
 
 def _install_scheduling_ui(workbook_path: Path) -> None:
-    """Install or update the multi-treatment patient-program form/runtime in place."""
+    """Install/update the shared patient registration/edit scheduling UI in place."""
 
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
@@ -163,6 +164,10 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
             LEGACY_PATIENT_SCHEDULING_MODULE_NAME,
         )
         install_patient_program_ui(
+            workbook.VBProject,
+            position_control=_position_control,
+        )
+        install_patient_edit_form(
             workbook.VBProject,
             position_control=_position_control,
         )
