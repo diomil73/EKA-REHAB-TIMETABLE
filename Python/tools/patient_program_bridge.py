@@ -49,21 +49,19 @@ def _emit_config(workbook: Path, patient_id: str) -> None:
         print("\t".join(("RECLINED_SLOT", slot.strftime("%H:%M"))))
 
 
-def _parse_request(raw: str) -> AutomaticTreatmentRequest | tuple[str, str]:
+def _parse_request(raw: str) -> AutomaticTreatmentRequest:
     fields = raw.split("|", 3)
     while len(fields) < 4:
         fields.append("")
     treatment, day_pattern, raw_time, provider = (item.strip() for item in fields)
     if not treatment:
         raise ValueError("Automatic completion request is missing treatment")
-    if not day_pattern:
-        return treatment, "Χρειάζεται πρώτα επιλογή ημερών για να γίνει ασφαλής αυτόματη συμπλήρωση."
     start_time = None
     if raw_time:
         start_time = datetime.strptime(raw_time, "%H:%M").time()
     return AutomaticTreatmentRequest(
         treatment=treatment,
-        day_pattern=day_pattern,
+        day_pattern=day_pattern or None,
         provider_id=provider or None,
         start_time=start_time,
     )
@@ -73,28 +71,15 @@ def _emit_completion(workbook: Path, patient_id: str, raw_requests: list[str]) -
     if not raw_requests:
         raise ValueError("At least one selected treatment is required")
 
-    requests: list[AutomaticTreatmentRequest] = []
-    early_unresolved: list[tuple[str, str]] = []
-    for raw in raw_requests:
-        parsed = _parse_request(raw)
-        if isinstance(parsed, tuple):
-            early_unresolved.append(parsed)
-        else:
-            requests.append(parsed)
-
-    print("\t".join(("OK", _safe(patient_id))))
-    for treatment, reason in early_unresolved:
-        print("\t".join(("UNRESOLVED", _safe(treatment), "", _safe(reason))))
-
-    if not requests:
-        return
-
+    requests = [_parse_request(raw) for raw in raw_requests]
     proposal = propose_automatic_patient_schedule(
         workbook,
         patient_id=patient_id,
         requests=requests,
         anchor_date=date.today(),
     )
+
+    print("\t".join(("OK", _safe(patient_id))))
     for item in proposal.assignments:
         print(
             "\t".join(
