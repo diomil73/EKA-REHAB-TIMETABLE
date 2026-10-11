@@ -62,3 +62,41 @@ def test_scheduling_preview_builds_missing_patient_form_on_private_prerequisite(
     assert report.output_path == str(output)
     assert source.read_bytes() == b"baseline"
     assert not prerequisite.exists()
+
+
+def test_recurring_visual_refresh_uses_unified_inpatient_and_outpatient_schedule(tmp_path, monkeypatch):
+    workbook = tmp_path / "preview.xlsm"
+    workbook.write_bytes(b"preview")
+
+    patients = [object()]
+    unified_entries = ["planner-entry", "outpatient-entry"]
+    observed = {}
+
+    monkeypatch.setattr(
+        scheduling_slice,
+        "read_patient_registry",
+        lambda path: patients,
+    )
+    monkeypatch.setattr(
+        scheduling_slice,
+        "read_unified_base_schedule",
+        lambda path: unified_entries,
+    )
+
+    def fake_style_plan(path, entries, patient_list):
+        observed["path"] = Path(path)
+        observed["entries"] = entries
+        observed["patients"] = patient_list
+        return SimpleNamespace(operation_count=0)
+
+    monkeypatch.setattr(
+        scheduling_slice,
+        "build_recurring_therapist_daily_style_plan",
+        fake_style_plan,
+    )
+
+    scheduling_slice._refresh_daily_visuals(workbook)
+
+    assert observed["path"] == workbook
+    assert observed["entries"] is unified_entries
+    assert observed["patients"] is patients
