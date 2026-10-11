@@ -43,7 +43,8 @@ def _roles_for_lines(
 
     The workbook text is preserved verbatim. A line is matched by patient name
     plus day pattern when available, which disambiguates same-patient split
-    schedules such as ΦΘ on Τρ-Πε and Ρομποτικό on Δε-Τε-Πα.
+    schedules such as ΦΘ on Τρ-Πε and Ρομποτικό on Δε-Τε-Πα. Outpatients keep
+    a dark-green font role while robotic assignments keep orange precedence.
     """
 
     runs: list[TextRunPatch] = []
@@ -77,12 +78,19 @@ def _roles_for_lines(
         if len(matches) != 1:
             continue
         entry = matches[0]
+        patient = patients.get(entry.patient_id)
         robotic = bool(entry.robotic) or _key(entry.treatment) == _key("Ρομποτικό")
+        if robotic:
+            font_role = "robotic_orange"
+        elif patient is not None and patient.is_outpatient:
+            font_role = "outpatient_dark_green"
+        else:
+            font_role = "default"
         runs.append(
             TextRunPatch(
                 start=start,
                 length=len(line),
-                font_role="robotic_orange" if robotic else "default",
+                font_role=font_role,
             )
         )
     return tuple(runs)
@@ -95,9 +103,9 @@ def build_recurring_therapist_daily_style_plan(
 ) -> WritePlan:
     """Style recurring THERAPIST_DAILY lines without changing their text.
 
-    Only cells containing at least one robotic recurring assignment are
-    targeted. Existing cell text, line order, fills, borders and layout remain
-    untouched; rich-text font roles are refreshed from PATIENT_PLANNER data.
+    Cells containing robotic or outpatient recurring assignments are targeted.
+    Existing cell text, line order, fills, borders and layout remain untouched;
+    rich-text font roles are refreshed from PATIENT_PLANNER + PATIENTS data.
     """
 
     workbook_path = Path(workbook_path)
@@ -115,10 +123,16 @@ def build_recurring_therapist_daily_style_plan(
         ws = wb["THERAPIST_DAILY"]
         patches: list[CellPatch] = []
         for (therapist_id, start_time), slot_entries in grouped.items():
-            if not any(
-                bool(entry.robotic) or _key(entry.treatment) == _key("Ρομποτικό")
+            has_special_style = any(
+                bool(entry.robotic)
+                or _key(entry.treatment) == _key("Ρομποτικό")
+                or (
+                    (patient := patient_map.get(entry.patient_id)) is not None
+                    and patient.is_outpatient
+                )
                 for entry in slot_entries
-            ):
+            )
+            if not has_special_style:
                 continue
             try:
                 cell_address = resolve_therapist_daily_cell(
@@ -134,7 +148,10 @@ def build_recurring_therapist_daily_style_plan(
                 continue
             text = str(value)
             runs = _roles_for_lines(text, slot_entries, patient_map)
-            if not any(run.font_role == "robotic_orange" for run in runs):
+            if not any(
+                run.font_role in {"robotic_orange", "outpatient_dark_green"}
+                for run in runs
+            ):
                 continue
             patches.append(
                 CellPatch(
