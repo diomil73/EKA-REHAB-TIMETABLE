@@ -109,6 +109,7 @@ Private mPatientId As String
 Private mCurrentTreatment As String
 Private mLoading As Boolean
 Private mProviderKinds As Object
+Private mRequiresProviders As Object
 Private mProviders As Object
 Private mDraftDays As Object
 Private mDraftTimes As Object
@@ -145,10 +146,11 @@ Private Sub UserForm_Initialize()
     lstTreatments.ColumnCount = 5
     lstTreatments.ColumnWidths = "135 pt;32 pt;105 pt;65 pt;205 pt"
     cboDayPattern.Style = 2
-    cboProvider.Style = 2
+    cboProvider.Style = 0
     cboTime.Style = 2
 
     Set mProviderKinds = CreateObject("Scripting.Dictionary")
+    Set mRequiresProviders = CreateObject("Scripting.Dictionary")
     Set mProviders = CreateObject("Scripting.Dictionary")
     Set mDraftDays = CreateObject("Scripting.Dictionary")
     Set mDraftTimes = CreateObject("Scripting.Dictionary")
@@ -195,6 +197,7 @@ Private Sub LoadProgramConfiguration()
                     lstTreatments.List(rowIndex, 3) = ""
                     lstTreatments.List(rowIndex, 4) = ""
                     mProviderKinds(treatment) = fields(3)
+                    mRequiresProviders(treatment) = (Trim$(fields(4)) = "1")
                     If Not mProviders.Exists(treatment) Then _
                         Set mProviders(treatment) = New Collection
                 End If
@@ -205,6 +208,14 @@ Private Sub LoadProgramConfiguration()
                     If Not mProviders.Exists(treatment) Then _
                         Set mProviders(treatment) = New Collection
                     mProviders(treatment).Add provider
+                End If
+            Case "CURRENT"
+                If UBound(fields) >= 4 Then
+                    treatment = fields(1)
+                    mIncluded(treatment) = True
+                    If Len(Trim$(fields(2))) > 0 Then mDraftDays(treatment) = Trim$(fields(2))
+                    If Len(Trim$(fields(3))) > 0 Then mDraftTimes(treatment) = Trim$(fields(3))
+                    If Len(Trim$(fields(4))) > 0 Then mDraftProviders(treatment) = Trim$(fields(4))
                 End If
             Case "DAY_PATTERN"
                 If UBound(fields) >= 1 Then cboDayPattern.AddItem fields(1)
@@ -217,7 +228,13 @@ NextLine:
     Next i
 
     mLoading = False
-    lblStatus.Caption = CStr(lstTreatments.ListCount) & " θεραπείες διαθέσιμες. Επίλεξε μία για επεξεργασία."
+    RefreshAllTreatmentRows
+    UpdateDraftStatus
+    If mIncluded.Count > 0 Then
+        lblStatus.Caption = "Φορτώθηκε το υπάρχον πρόγραμμα. Επίλεξε θεραπεία για αλλαγές."
+    Else
+        lblStatus.Caption = CStr(lstTreatments.ListCount) & " θεραπείες διαθέσιμες. Επίλεξε μία για επεξεργασία."
+    End If
     Exit Sub
 LoadError:
     mLoading = False
@@ -275,9 +292,14 @@ Private Function IsIncluded(ByVal treatment As String) As Boolean
     If mIncluded.Exists(treatment) Then IsIncluded = CBool(mIncluded(treatment))
 End Function
 
-Private Function RequiresProvider(ByVal treatment As String) As Boolean
+Private Function SupportsProvider(ByVal treatment As String) As Boolean
     If Not mProviderKinds.Exists(treatment) Then Exit Function
-    RequiresProvider = (StrComp(CStr(mProviderKinds(treatment)), "none", vbTextCompare) <> 0)
+    SupportsProvider = (StrComp(CStr(mProviderKinds(treatment)), "none", vbTextCompare) <> 0)
+End Function
+
+Private Function RequiresProvider(ByVal treatment As String) As Boolean
+    If Not mRequiresProviders.Exists(treatment) Then Exit Function
+    RequiresProvider = CBool(mRequiresProviders(treatment))
 End Function
 
 Private Function TreatmentIsComplete(ByVal treatment As String) As Boolean
@@ -340,18 +362,31 @@ Private Sub LoadCurrentTreatmentEditor()
     lblEditing.Caption = "Ρυθμίσεις θεραπείας: " & treatment
     lblDays.Caption = "Ημέρες για " & treatment
     lblTime.Caption = "Ώρα για " & treatment
-    lblProvider.Caption = "Θεραπευτής / provider για " & treatment
 
     cboProvider.Clear
     cboTime.Clear
 
-    If mProviders.Exists(treatment) Then
-        For Each item In mProviders(treatment)
-            cboProvider.AddItem CStr(item)
-        Next item
+    If SupportsProvider(treatment) Then
+        If RequiresProvider(treatment) Then
+            lblProvider.Caption = "Θεραπευτής για " & treatment & " *"
+            cboProvider.Style = 2
+            cboProvider.MatchRequired = True
+        Else
+            lblProvider.Caption = "Όνομα για " & treatment & " (προαιρετικό)"
+            cboProvider.Style = 0
+            cboProvider.MatchRequired = False
+        End If
+        If mProviders.Exists(treatment) Then
+            For Each item In mProviders(treatment)
+                cboProvider.AddItem CStr(item)
+            Next item
+        End If
+        lblProvider.Visible = True
+        cboProvider.Visible = True
+    Else
+        lblProvider.Visible = False
+        cboProvider.Visible = False
     End If
-    lblProvider.Visible = (cboProvider.ListCount > 0)
-    cboProvider.Visible = (cboProvider.ListCount > 0)
 
     If StrComp(treatment, "Ανακλινόμενο", vbTextCompare) = 0 Then
         For Each item In mReclinedSlots
@@ -368,6 +403,7 @@ Private Sub LoadCurrentTreatmentEditor()
     cboDayPattern.ListIndex = -1
     cboTime.ListIndex = -1
     cboProvider.ListIndex = -1
+    cboProvider.Value = ""
     If mDraftDays.Exists(treatment) Then cboDayPattern.Value = mDraftDays(treatment)
     If mDraftTimes.Exists(treatment) Then cboTime.Value = mDraftTimes(treatment)
     If mDraftProviders.Exists(treatment) Then cboProvider.Value = mDraftProviders(treatment)
@@ -404,22 +440,30 @@ Private Sub UpdateDraftStatus()
 
     cmdAutoComplete.Enabled = (includedCount > 0)
     cmdSaveProgram.Enabled = DraftIsComplete()
-    lblStatus.Caption = CStr(completeCount) & "/" & CStr(includedCount) & _
-        " θεραπείες πλήρεις. Ενεργή τώρα: " & mCurrentTreatment
+    If Len(mCurrentTreatment) > 0 Then
+        lblStatus.Caption = CStr(completeCount) & "/" & CStr(includedCount) & _
+            " θεραπείες πλήρεις. Ενεργή τώρα: " & mCurrentTreatment
+    Else
+        lblStatus.Caption = CStr(completeCount) & "/" & CStr(includedCount) & " θεραπείες πλήρεις."
+    End If
 End Sub
 
 Private Function BuildAutomaticRequestArguments() As String
     Dim i As Long
     Dim treatment As String
     Dim payload As String
+    Dim providerPayload As String
 
     For i = 0 To lstTreatments.ListCount - 1
         treatment = CStr(lstTreatments.List(i, 0))
         If IsIncluded(treatment) Then
+            providerPayload = ""
+            If RequiresProvider(treatment) Then _
+                providerPayload = DraftValue(mDraftProviders, treatment)
             payload = treatment & "|" & _
                       DraftValue(mDraftDays, treatment) & "|" & _
                       DraftValue(mDraftTimes, treatment) & "|" & _
-                      DraftValue(mDraftProviders, treatment)
+                      providerPayload
             BuildAutomaticRequestArguments = BuildAutomaticRequestArguments & _
                 " --request " & Chr$(34) & Replace(payload, Chr$(34), "") & Chr$(34)
         End If
@@ -528,7 +572,7 @@ Private Function FindPlannerPatientRow(ByVal ws As Worksheet, ByVal patientId As
 End Function
 
 Private Function ProviderHeaderName(ByVal treatment As String) As String
-    If Not RequiresProvider(treatment) Then Exit Function
+    If Not SupportsProvider(treatment) Then Exit Function
     If StrComp(treatment, "Ψυχ", vbTextCompare) = 0 Then
         ProviderHeaderName = "Ψυχ_Ψυχολόγος"
     Else
@@ -621,8 +665,10 @@ Private Sub SavePatientProgramAtomic()
             If Len(providerHeader) > 0 Then
                 providerCols(index) = FindPlannerHeader(ws, providerHeader)
                 If providerCols(index) = 0 Then
-                    Err.Raise vbObjectError + 2933, "SavePatientProgramAtomic", _
-                        "Λείπει η στήλη provider: " & providerHeader
+                    If RequiresProvider(treatment) Or Len(DraftValue(mDraftProviders, treatment)) > 0 Then
+                        Err.Raise vbObjectError + 2933, "SavePatientProgramAtomic", _
+                            "Λείπει η στήλη provider: " & providerHeader
+                    End If
                 End If
             End If
 
@@ -769,14 +815,14 @@ def install_patient_program_ui(vbproject, *, position_control) -> None:
         ("Forms.Label.1", "lblColIncluded", "Στο πρ.", 163, 122, 40, 18),
         ("Forms.Label.1", "lblColDays", "Ημέρες", 205, 122, 100, 18),
         ("Forms.Label.1", "lblColTime", "Ώρα", 315, 122, 60, 18),
-        ("Forms.Label.1", "lblColProvider", "Θεραπευτής", 385, 122, 200, 18),
+        ("Forms.Label.1", "lblColProvider", "Θεραπευτής / όνομα", 385, 122, 200, 18),
         ("Forms.ListBox.1", "lstTreatments", None, 18, 144, 575, 310),
         ("Forms.Label.1", "lblEditing", "Ρυθμίσεις θεραπείας", 620, 122, 390, 20),
         ("Forms.Label.1", "lblDays", "Ημέρες", 620, 160, 300, 18),
         ("Forms.ComboBox.1", "cboDayPattern", None, 620, 180, 300, 22),
         ("Forms.Label.1", "lblTime", "Ώρα", 620, 218, 300, 18),
         ("Forms.ComboBox.1", "cboTime", None, 620, 238, 300, 22),
-        ("Forms.Label.1", "lblProvider", "Θεραπευτής / provider", 620, 276, 350, 18),
+        ("Forms.Label.1", "lblProvider", "Θεραπευτής / όνομα", 620, 276, 350, 18),
         ("Forms.ComboBox.1", "cboProvider", None, 620, 296, 350, 22),
         ("Forms.Label.1", "lblPreference", "", 620, 336, 390, 42),
         ("Forms.Label.1", "lblStatus", "", 620, 388, 390, 48),
