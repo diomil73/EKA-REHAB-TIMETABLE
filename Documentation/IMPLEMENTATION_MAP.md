@@ -179,42 +179,43 @@
 
 Μετά το installer hardening το preview άνοιξε και η νέα patient-program φόρμα λειτούργησε μέχρι το **πρώτο Save**. Αρχικά εμφανίστηκε γενικό `Subscript out of range`.
 
-Σημαντικό: **δεν έχει δοκιμαστεί ακόμη edit υπάρχοντος προγράμματος**. Άρα το τρέχον failure αφορά την αρχική αποθήκευση και δεν πρέπει να συγχέεται με το edit-existing-program flow.
-
 Τα runtime stage diagnostics απομόνωσαν το failure σε:
 
 `MASTER refresh failed at locating MASTER row: Subscript out of range`
 
-Η αιτία βρέθηκε στη helper `FirstLine()`. Το `FindMasterPatientRow` σαρώνει τις γραμμές του MASTER και περνά το κελί ασθενούς από `FirstLine`. Σε κενές MASTER rows το `Split("", vbLf)` μπορεί να δώσει array χωρίς element `0`, άρα το `parts(0)` προκαλεί ακριβώς `Subscript out of range`.
+Η αιτία βρέθηκε στη helper `FirstLine()`. Το `FindMasterPatientRow` σαρώνει τις γραμμές του MASTER και περνά το κελί ασθενούς από `FirstLine`. Σε κενές MASTER rows το `Split("", vbLf)` μπορούσε να προκαλέσει `Subscript out of range`.
 
-Η `FirstLine()` πλέον:
+Η `FirstLine()` πλέον κάνει explicit empty-cell guard πριν από το `Split`.
 
-- κανονικοποιεί `vbCrLf` σε `vbLf`,
-- κάνει `Trim$`,
-- αν το αποτέλεσμα είναι κενό επιστρέφει αμέσως `""`,
-- καλεί `Split` μόνο για μη κενό text.
+### V69 first-save verified και automatic edit revalidation
 
-Προστέθηκε regression test που απαιτεί explicit empty-cell guard πριν από το `Split`.
+Το native V69 smoke ολοκλήρωσε επιτυχώς την πρώτη αποθήκευση και το MASTER rendering. Ο προηγούμενος first-save blocker θεωρείται κλειστός.
+
+Κατά χειροκίνητη αλλαγή ώρας σε άλλη ειδικότητα και επανεκτέλεση της **Αυτόματης συμπλήρωσης**, εμφανίστηκε μη κρίσιμο false alarm για τη ΦΘ, ενώ η τελική **Αποθήκευση αλλαγών** περνούσε κανονικά. Η αιτία ήταν ότι ο therapist candidate engine έβλεπε την ήδη αποθηκευμένη ΦΘ του ίδιου ασθενούς ως κατειλημμένο session όταν επανεπικύρωνε το draft.
+
+Η διόρθωση είναι edit-aware:
+
+- για τον ίδιο `PatientID` και την ίδια θεραπεία εντοπίζεται το υπάρχον `base_entry_id`,
+- αυτό περνά ως `ignore_session_id` στον therapist candidate engine,
+- η ήδη υπάρχουσα ΦΘ δεν συγκρούεται πλέον με τον εαυτό της,
+- οι πραγματικές συγκρούσεις με άλλους ασθενείς/συνεδρίες παραμένουν ενεργές.
+
+Προστέθηκε regression test που απαιτεί το υπάρχον slot του ίδιου ασθενούς να παραμένει διαθέσιμο, ενώ slot άλλου ασθενούς στον ίδιο θεραπευτή παραμένει δεσμευμένο.
 
 ---
 
 ## Τρέχον verification gate
 
-Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
+Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone χρειάζονται:
 
-1. focused pytest για το empty-MASTER-cell guard μαζί με MASTER runtime-stage diagnostics, CRLF-safe patcher, procedure-scoped patient-edit hook και VBProject verifier,
-2. rebuild νέου preview από clean V48 base,
-3. επανάληψη του **πρώτου Save** και επιβεβαίωση ότι ολοκληρώνεται χωρίς `Subscript out of range`,
-4. επιβεβαίωση ότι μετά το πρώτο Save το MASTER εμφανίζει ώρα + ημέρες + όνομα όπου υπάρχει,
-5. native Excel compile/open χωρίς Syntax Error και χωρίς legacy `cboTreatment` / `LoadRecurringSchedulingOptions`,
-6. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
-7. έλεγχος ότι providerless θεραπείες εμφανίζουν ώρα + ημέρες,
-8. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
-9. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα χωρίς να μπλοκάρει automatic completion,
-10. αφού κλείσει το first-save blocker, έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
-11. μετά τον first-save blocker, διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
-12. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό και μετά από αλλαγή θαλάμου/rebuild,
-13. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
+1. focused pytest για το νέο edit-aware therapist self-conflict fix,
+2. native έλεγχος ότι αλλαγή ώρας σε άλλη ειδικότητα + **Αυτόματη συμπλήρωση** δεν εμφανίζει πλέον ψευδές error για αμετάβλητη ΦΘ,
+3. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
+4. έλεγχος ότι optional όνομα για Ρομποτικό/Εργο/Λογο/Ψυχ αποθηκεύεται και ξαναφορτώνεται,
+5. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
+6. έλεγχος ότι υπάρχον πρόγραμμα φορτώνεται και μπορεί να τροποποιηθεί και να αποθηκευτεί atomic,
+7. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό μετά από edit/rebuild,
+8. full regression suite.
 
 ---
 
@@ -222,12 +223,11 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite με το empty-cell guard.
-2. Rebuild preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-3. Επανάληψη μόνο του **πρώτου Save**.
-4. Αν περάσει, επιβεβαίωση του MASTER composite rendering.
-5. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
-6. Full regression suite όταν περάσει το native smoke test.
+1. Τρέξιμο focused tests για `workbook_scheduling_candidates`, recurring scheduling και automatic patient schedule.
+2. Native retest του μικρού false-alarm scenario της ΦΘ.
+3. Smoke test edit υπάρχοντος προγράμματος και optional manual names.
+4. Smoke test duration-safe ΦΘ/Ανακλινόμενο adjacency.
+5. Full regression suite όταν περάσουν τα παραπάνω.
 
 ### Μετά το patient-program milestone
 
