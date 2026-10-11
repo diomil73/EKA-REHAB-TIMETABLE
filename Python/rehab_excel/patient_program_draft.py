@@ -19,12 +19,12 @@ def _normalize(value: str) -> str:
     return value.strip().casefold()
 
 
+# Scheduling ownership rule:
+# only physiotherapy requires a provider inside the patient-program flow.
+# Robotic / Ergo / Logo / Psych are scheduled by day + time; a provider name,
+# if needed operationally, can be assigned later outside this flow.
 _PROVIDER_BY_TREATMENT = {
     _normalize("ΦΘ"): PROVIDER_PHYSIOTHERAPIST,
-    _normalize("Ρομποτικό"): PROVIDER_PHYSIOTHERAPIST,
-    _normalize("Εργο"): PROVIDER_OCCUPATIONAL_THERAPIST,
-    _normalize("Λογο"): PROVIDER_SPEECH_THERAPIST,
-    _normalize("Ψυχ"): PROVIDER_PSYCHOLOGIST,
 }
 
 
@@ -106,9 +106,10 @@ def build_patient_program_draft(
 ) -> PatientProgramDraft:
     """Build a read-only patient-program draft from authoritative workbook data.
 
-    Every treatment in SETTINGS is exposed, in SETTINGS order. Known treatment
-    families receive their appropriate provider pool; treatments without a
-    provider remain fully selectable. The function never writes to the workbook.
+    Every treatment in SETTINGS is exposed, in SETTINGS order. Only ΦΘ requires
+    a provider in this scheduling flow. Other treatments are scheduled by day
+    and time; provider assignment can be performed later outside this form.
+    The function never writes to the workbook.
     """
 
     patient_key = patient_id.strip()
@@ -163,7 +164,9 @@ def build_patient_program_draft(
         provider = constraint.provider_id.strip() if constraint.provider_id else None
         if provider is not None:
             if not spec.requires_provider:
-                raise ValueError(f"Treatment {spec.treatment!r} does not use a provider")
+                raise ValueError(
+                    f"Treatment {spec.treatment!r} does not use a provider in patient-program scheduling"
+                )
             allowed = {_normalize(item) for item in spec.provider_choices}
             if _normalize(provider) not in allowed:
                 raise ValueError(
