@@ -108,7 +108,7 @@ def _install_base_patient_form(workbook_path: Path) -> None:
 
 
 def _install_scheduling_ui(workbook_path: Path) -> None:
-    """Ensure the scheduling form/runtime exist without recreating mature UI."""
+    """Install or update the scheduling form/runtime in place."""
 
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
@@ -128,14 +128,8 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
 
-        project = workbook.VBProject
-        has_form = _has_vb_component(project, PATIENT_SCHEDULING_FORM_NAME)
-        has_module = _has_vb_component(project, PATIENT_SCHEDULING_MODULE_NAME)
-        if has_form and has_module:
-            return
-
         install_patient_scheduling_ui(
-            project,
+            workbook.VBProject,
             position_control=_position_control,
         )
         workbook.Save()
