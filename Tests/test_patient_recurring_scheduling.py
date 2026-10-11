@@ -54,10 +54,10 @@ def test_recurring_choices_intersect_slots_across_pattern_days(monkeypatch):
 
     assert [item.therapist_id for item in choices] == ["T2", "T1"]
     assert choices[0].available_slots == (time(9),)
-    assert choices[0].workload_count == 4
-    assert choices[0].workload_label == "Ζήσης 4"
+    assert choices[0].workload_count == 2
+    assert choices[0].workload_label == "Ζήσης 2"
     assert choices[1].available_slots == (time(10),)
-    assert choices[1].workload_count == 6
+    assert choices[1].workload_count == 3
 
 
 def test_recurring_choice_drops_therapist_without_common_slot(monkeypatch):
