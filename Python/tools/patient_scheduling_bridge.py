@@ -6,6 +6,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 import sys
 
+from rehab_excel.patient_recurring_scheduling import recurring_therapist_choices
 from rehab_excel.patient_scheduling_flow import (
     TreatmentAssignment,
     refresh_and_validate_assignment,
@@ -79,20 +80,62 @@ def _validate_payload(args: argparse.Namespace) -> dict:
     }
 
 
+def _recurring_payload(args: argparse.Namespace) -> dict:
+    if not args.day_pattern:
+        raise ValueError("recurring scheduling requires --day-pattern")
+    treatment = args.treatment[-1]
+    choices = recurring_therapist_choices(
+        args.workbook,
+        patient_id=args.patient_id,
+        treatment=treatment,
+        day_pattern=args.day_pattern,
+        anchor_date=_parse_date(args.date),
+        additional_robotic_capable_names=args.robotic_capable,
+    )
+    return {
+        "ok": True,
+        "patient_id": args.patient_id,
+        "date": args.date,
+        "treatment": treatment,
+        "day_pattern": args.day_pattern,
+        "therapists": [
+            {
+                "therapist_id": choice.therapist_id,
+                "label": choice.workload_label,
+                "available_slots": [slot.strftime("%H:%M") for slot in choice.available_slots],
+            }
+            for choice in choices
+        ],
+    }
+
+
+def _recurring_validate_payload(args: argparse.Namespace) -> dict:
+    payload = _recurring_payload(args)
+    if not args.therapist_id or not args.start_time:
+        raise ValueError("validate-recurring-vba requires --therapist-id and --start-time")
+    selected_time = _parse_time(args.start_time).strftime("%H:%M")
+    for therapist in payload["therapists"]:
+        if therapist["therapist_id"] != args.therapist_id:
+            continue
+        valid = selected_time in therapist["available_slots"]
+        return {
+            "ok": True,
+            "valid": valid,
+            "message": "OK" if valid else "Η επιλεγμένη ώρα δεν είναι πλέον διαθέσιμη.",
+        }
+    return {
+        "ok": True,
+        "valid": False,
+        "message": "Ο επιλεγμένος θεραπευτής δεν είναι πλέον διαθέσιμος για το μοτίβο ημερών.",
+    }
+
+
 def _vba_safe(value: object) -> str:
     return str(value).replace("\t", " ").replace("\r", " ").replace("\n", " ")
 
 
 def _plan_vba_lines(payload: dict) -> tuple[str, ...]:
-    lines = [
-        "\t".join(
-            (
-                "OK",
-                _vba_safe(payload["patient_id"]),
-                _vba_safe(payload["date"]),
-            )
-        )
-    ]
+    lines = ["\t".join(("OK", _vba_safe(payload["patient_id"]), _vba_safe(payload["date"])))]
     for treatment in payload["treatments"]:
         lines.append(
             "\t".join(
@@ -118,26 +161,55 @@ def _plan_vba_lines(payload: dict) -> tuple[str, ...]:
     return tuple(lines)
 
 
-def _validate_vba_line(payload: dict) -> str:
-    return "\t".join(
-        (
-            "OK",
-            "1" if payload["valid"] else "0",
-            _vba_safe(payload["message"]),
+def _recurring_vba_lines(payload: dict) -> tuple[str, ...]:
+    lines = [
+        "\t".join(
+            (
+                "OK",
+                _vba_safe(payload["patient_id"]),
+                _vba_safe(payload["date"]),
+                _vba_safe(payload["treatment"]),
+                _vba_safe(payload["day_pattern"]),
+            )
         )
-    )
+    ]
+    for therapist in payload["therapists"]:
+        lines.append(
+            "\t".join(
+                (
+                    "THERAPIST",
+                    _vba_safe(payload["treatment"]),
+                    _vba_safe(therapist["therapist_id"]),
+                    _vba_safe(therapist["label"]),
+                    "|".join(_vba_safe(slot) for slot in therapist["available_slots"]),
+                )
+            )
+        )
+    return tuple(lines)
+
+
+def _validate_vba_line(payload: dict) -> str:
+    return "\t".join(("OK", "1" if payload["valid"] else "0", _vba_safe(payload["message"])))
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Patient scheduling runtime bridge")
     parser.add_argument(
         "command",
-        choices=("plan", "validate", "plan-vba", "validate-vba"),
+        choices=(
+            "plan",
+            "validate",
+            "plan-vba",
+            "validate-vba",
+            "recurring-vba",
+            "validate-recurring-vba",
+        ),
     )
     parser.add_argument("workbook", type=Path)
     parser.add_argument("--patient-id", required=True)
     parser.add_argument("--date", required=True)
     parser.add_argument("--treatment", action="append", required=True)
+    parser.add_argument("--day-pattern")
     parser.add_argument("--robotic-capable", action="append", default=[])
     parser.add_argument("--assignment-treatment")
     parser.add_argument("--therapist-id")
@@ -151,6 +223,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command in {"plan", "plan-vba"}:
             payload = _plan_payload(args)
+        elif args.command in {"recurring-vba", "validate-recurring-vba"}:
+            payload = (
+                _recurring_payload(args)
+                if args.command == "recurring-vba"
+                else _recurring_validate_payload(args)
+            )
         else:
             missing = [
                 name
@@ -174,7 +252,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "plan-vba":
         for line in _plan_vba_lines(payload):
             print(line)
-    elif args.command == "validate-vba":
+    elif args.command == "recurring-vba":
+        for line in _recurring_vba_lines(payload):
+            print(line)
+    elif args.command in {"validate-vba", "validate-recurring-vba"}:
         print(_validate_vba_line(payload))
     else:
         _json_dump(payload)
