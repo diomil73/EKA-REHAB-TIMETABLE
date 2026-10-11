@@ -21,6 +21,11 @@ Private Function BridgePath() As String
         BridgePath = candidate
         Exit Function
     End If
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\patient_scheduling_bridge.py"
+    If Len(Dir$(candidate)) > 0 Then
+        BridgePath = candidate
+        Exit Function
+    End If
     Err.Raise vbObjectError + 2810, "BridgePath", "Δεν βρέθηκε το patient_scheduling_bridge.py."
 End Function
 
@@ -86,6 +91,19 @@ Public Function LoadRecurringSchedulingOptions( _
            " --treatment " & QuoteArg(treatment) & _
            " --day-pattern " & QuoteArg(dayPattern)
     LoadRecurringSchedulingOptions = RunBridge(args)
+End Function
+
+Public Function ProposeAutomaticSchedule( _
+    ByVal patientId As String, _
+    ByVal treatment As String, _
+    ByVal dayPattern As String _
+) As String
+    Dim args As String
+    args = "auto-propose-vba " & QuoteArg(ThisWorkbook.FullName) & _
+           " --patient-id " & QuoteArg(patientId) & _
+           " --date " & QuoteArg(Format$(Date, "yyyy-mm-dd")) & _
+           " --request " & QuoteArg(Trim$(treatment) & "|" & Trim$(dayPattern))
+    ProposeAutomaticSchedule = RunBridge(args)
 End Function
 
 Public Function ValidateRecurringSelection( _
@@ -189,7 +207,7 @@ End Sub
 Private Sub UserForm_Initialize()
     Me.Caption = "Προγραμματισμός θεραπείας"
     Me.Width = 520
-    Me.Height = 430
+    Me.Height = 470
     Me.BackColor = RGB(245, 247, 250)
 
     lblTitle.Caption = "Θεραπείες και πρόγραμμα"
@@ -230,10 +248,12 @@ Private Sub LoadSettingsChoices()
 End Sub
 
 Private Sub cboTreatment_Change()
+    lblProposal.Caption = ""
     LoadSelections
 End Sub
 
 Private Sub cboDayPattern_Change()
+    lblProposal.Caption = ""
     LoadSelections
 End Sub
 
@@ -299,6 +319,60 @@ Private Sub cboTherapist_Change()
     Next index
 End Sub
 
+Private Sub cmdAutoPropose_Click()
+    Dim response As String
+    Dim lines() As String
+    Dim fields() As String
+    Dim lineIndex As Long
+    Dim therapistIndex As Long
+    Dim proposedTherapistId As String
+    Dim proposedTherapistName As String
+    Dim proposedTime As String
+
+    If Len(Trim$(cboTreatment.Value)) = 0 Or Len(Trim$(cboDayPattern.Value)) = 0 Then
+        MsgBox "Επίλεξε θεραπεία και ημέρες πριν ζητήσεις πρόταση.", vbExclamation, "Αυτόματη πρόταση"
+        Exit Sub
+    End If
+
+    On Error GoTo ProposalError
+    response = ProposeAutomaticSchedule(
+        mPatientId,
+        Trim$(cboTreatment.Value),
+        Trim$(cboDayPattern.Value)
+    )
+    lines = Split(Replace(response, vbCrLf, vbLf), vbLf)
+    For lineIndex = LBound(lines) To UBound(lines)
+        If Len(Trim$(lines(lineIndex))) = 0 Then GoTo NextProposalLine
+        fields = Split(lines(lineIndex), vbTab)
+        If fields(0) = "ERROR" Then Err.Raise vbObjectError + 2822, , fields(1)
+        If fields(0) = "ASSIGNMENT" And UBound(fields) >= 6 Then
+            proposedTherapistId = fields(3)
+            proposedTherapistName = fields(4)
+            proposedTime = fields(5)
+            Exit For
+        End If
+NextProposalLine:
+    Next lineIndex
+
+    If Len(proposedTherapistId) = 0 Then
+        lblProposal.Caption = "Δεν βρέθηκε αυτόματη πρόταση για την επιλογή."
+        Exit Sub
+    End If
+
+    LoadSelections
+    For therapistIndex = 0 To cboTherapist.ListCount - 1
+        If StrComp(CStr(cboTherapist.List(therapistIndex, 1)), proposedTherapistId, vbTextCompare) = 0 Then
+            cboTherapist.ListIndex = therapistIndex
+            Exit For
+        End If
+    Next therapistIndex
+    cboTime.Value = proposedTime
+    lblProposal.Caption = "Πρόταση: " & proposedTherapistName & " στις " & proposedTime & ". Δεν έχει αποθηκευτεί."
+    Exit Sub
+ProposalError:
+    lblProposal.Caption = Err.Description
+End Sub
+
 Private Sub cmdSave_Click()
     Dim therapistId As String
     Dim response As String
@@ -346,21 +420,45 @@ End Sub
 '''
 
 
+def _get_component(vbproject, component_name: str):
+    try:
+        return vbproject.VBComponents(component_name)
+    except Exception:
+        return None
+
+
+def _replace_code(component, code: str) -> None:
+    code_module = component.CodeModule
+    count = int(getattr(code_module, "CountOfLines", 0) or 0)
+    if count:
+        code_module.DeleteLines(1, count)
+    code_module.AddFromString(code)
+
+
+def _ensure_control(designer, prog_id: str, name: str, caption: str | None, top: float, *, position_control):
+    try:
+        control = designer.Controls(name)
+    except Exception:
+        control = designer.Controls.Add(prog_id, name, True)
+    if caption is not None:
+        control.Caption = caption
+    position_control(control, 24, top)
+    return control
+
+
 def install_patient_scheduling_ui(vbproject, *, position_control) -> None:
-    for component_name in (PATIENT_SCHEDULING_FORM_NAME, PATIENT_SCHEDULING_MODULE_NAME):
-        try:
-            existing = vbproject.VBComponents(component_name)
-        except Exception:
-            existing = None
-        if existing is not None:
-            vbproject.VBComponents.Remove(existing)
+    """Install or update the scheduling runtime/form without deleting mature components."""
 
-    module = vbproject.VBComponents.Add(1)
-    module.Name = PATIENT_SCHEDULING_MODULE_NAME
-    module.CodeModule.AddFromString(PATIENT_SCHEDULING_MODULE_CODE)
+    module = _get_component(vbproject, PATIENT_SCHEDULING_MODULE_NAME)
+    if module is None:
+        module = vbproject.VBComponents.Add(1)
+        module.Name = PATIENT_SCHEDULING_MODULE_NAME
+    _replace_code(module, PATIENT_SCHEDULING_MODULE_CODE)
 
-    form = vbproject.VBComponents.Add(3)
-    form.Name = PATIENT_SCHEDULING_FORM_NAME
+    form = _get_component(vbproject, PATIENT_SCHEDULING_FORM_NAME)
+    if form is None:
+        form = vbproject.VBComponents.Add(3)
+        form.Name = PATIENT_SCHEDULING_FORM_NAME
     designer = form.Designer
     designer.Caption = "Προγραμματισμός θεραπείας"
 
@@ -376,14 +474,20 @@ def install_patient_scheduling_ui(vbproject, *, position_control) -> None:
         ("Forms.Label.1", "lblTime", "Ώρα", 206),
         ("Forms.ComboBox.1", "cboTime", None, 202),
         ("Forms.Label.1", "lblInfo", "", 244),
-        ("Forms.CommandButton.1", "cmdRefresh", "Ανανέωση διαθεσιμότητας", 300),
-        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 342),
-        ("Forms.CommandButton.1", "cmdSave", "Αποθήκευση προγράμματος", 342),
+        ("Forms.Label.1", "lblProposal", "", 270),
+        ("Forms.CommandButton.1", "cmdAutoPropose", "Πρότεινε πρόγραμμα", 302),
+        ("Forms.CommandButton.1", "cmdRefresh", "Ανανέωση διαθεσιμότητας", 336),
+        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 378),
+        ("Forms.CommandButton.1", "cmdSave", "Αποθήκευση προγράμματος", 378),
     )
     for prog_id, name, caption, top in controls:
-        control = designer.Controls.Add(prog_id, name, True)
-        if caption is not None:
-            control.Caption = caption
-        position_control(control, 24, top)
+        _ensure_control(
+            designer,
+            prog_id,
+            name,
+            caption,
+            top,
+            position_control=position_control,
+        )
 
-    form.CodeModule.AddFromString(PATIENT_SCHEDULING_FORM_CODE)
+    _replace_code(form, PATIENT_SCHEDULING_FORM_CODE)
