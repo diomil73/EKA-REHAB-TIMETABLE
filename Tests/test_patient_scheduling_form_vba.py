@@ -139,6 +139,29 @@ def test_runtime_module_writes_supported_recurring_planner_columns_and_saves():
     assert "ThisWorkbook.Save" in code
 
 
+def test_scheduling_save_disables_events_around_workbook_save():
+    code = PATIENT_SCHEDULING_MODULE_CODE
+    start = code.index("Public Sub SavePatientRecurringAssignment")
+    end = code.index("Private Function FindPlannerPatientRow", start)
+    procedure = code[start:end]
+    disable_pos = procedure.index("Application.EnableEvents = False")
+    save_pos = procedure.index("ThisWorkbook.Save")
+    restore_pos = procedure.index("Application.EnableEvents = previousEvents", save_pos)
+    assert disable_pos < save_pos < restore_pos
+    assert "SaveAssignmentError:" in procedure
+
+
+def test_successful_treatment_save_keeps_scheduling_form_open():
+    code = PATIENT_SCHEDULING_FORM_CODE
+    start = code.index("Private Sub cmdSave_Click()")
+    end = code.index("Private Sub cmdCancel_Click()", start)
+    procedure = code[start:end]
+    assert "SavePatientRecurringAssignment _" in procedure
+    assert "Μπορείς να επιλέξεις την επόμενη θεραπεία ή Κλείσιμο." in procedure
+    assert "cboTreatment.SetFocus" in procedure
+    assert "Unload Me" not in procedure
+
+
 def test_runtime_bridge_is_hidden_and_waits_for_fresh_result():
     code = PATIENT_SCHEDULING_MODULE_CODE
     assert 'CreateObject("WScript.Shell")' in code
