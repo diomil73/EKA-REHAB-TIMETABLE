@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import subprocess
+import sys
 from datetime import date, time
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,6 +29,21 @@ spec.loader.exec_module(bridge)
 
 
 DAY = date(2026, 10, 12)
+
+
+def test_bridge_bootstraps_python_root_when_launched_directly(tmp_path):
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [sys.executable, str(MODULE_PATH), "--help"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Patient scheduling runtime bridge" in result.stdout
 
 
 def test_plan_payload_is_vba_friendly_and_keeps_workload_label(monkeypatch):
