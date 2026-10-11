@@ -229,8 +229,8 @@ End Sub
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Προγραμματισμός θεραπείας"
-    Me.Width = 520
-    Me.Height = 470
+    Me.Width = 560
+    Me.Height = 500
     Me.BackColor = RGB(245, 247, 250)
 
     lblTitle.Caption = "Πρόγραμμα θεραπείας ασθενούς"
@@ -242,7 +242,7 @@ Private Sub UserForm_Initialize()
     cboDayPattern.Style = 2
     cboTherapist.Style = 2
     cboTherapist.ColumnCount = 2
-    cboTherapist.ColumnWidths = "190 pt;0 pt"
+    cboTherapist.ColumnWidths = "230 pt;0 pt"
     cboTime.Style = 2
 
     Set mSlotsByTherapist = CreateObject("Scripting.Dictionary")
@@ -466,7 +466,49 @@ def _ensure_control(designer, prog_id: str, name: str, caption: str | None, top:
         control = designer.Controls.Add(prog_id, name, True)
     if caption is not None:
         control.Caption = caption
-    position_control(control, 24, top)
+
+    left = 24
+    width = 240
+    height = 18
+    if name == "lblTitle":
+        width = 430
+        height = 26
+    elif name == "lblPatient":
+        width = 430
+        height = 22
+    elif name in {"lblInfo", "lblProposal"}:
+        width = 430
+        height = 30
+        try:
+            control.WordWrap = True
+        except Exception:
+            pass
+    elif name.startswith("lbl"):
+        width = 300
+        height = 18
+    elif name.startswith("cbo"):
+        width = 260
+        height = 20
+    elif name in {"cmdAutoPropose", "cmdRefresh"}:
+        width = 220
+        height = 28
+    elif name == "cmdCancel":
+        width = 120
+        height = 30
+    elif name == "cmdSave":
+        left = 160
+        width = 120
+        height = 30
+
+    position_control(control, left, top)
+    try:
+        control.Width = width
+    except Exception:
+        pass
+    try:
+        control.Height = height
+    except Exception:
+        pass
     return control
 
 
@@ -485,6 +527,11 @@ def install_patient_scheduling_ui(vbproject, *, position_control) -> None:
         form.Name = PATIENT_SCHEDULING_FORM_NAME
     designer = form.Designer
     designer.Caption = "Προγραμματισμός θεραπείας"
+    try:
+        designer.Width = 520
+        designer.Height = 470
+    except Exception:
+        pass
 
     controls = (
         ("Forms.Label.1", "lblTitle", "Πρόγραμμα θεραπείας ασθενούς", 18),
