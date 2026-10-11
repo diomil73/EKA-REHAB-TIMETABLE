@@ -13,7 +13,6 @@ from .patient_recurring_scheduling import (
     recurring_therapist_choices,
 )
 from .reader import read_base_schedule, read_settings
-from .workbook_scheduling_candidates import THERAPIST_SCHEDULING_TREATMENTS
 
 
 DEFAULT_PROVIDER_DAILY_CAPACITY = 6
@@ -353,7 +352,12 @@ def propose_automatic_patient_schedule(
     anchor_date: date,
     additional_robotic_capable_names: Iterable[str] = (),
 ) -> AutomaticScheduleProposal:
-    """Build a read-only, hybrid recurring patient-program proposal."""
+    """Build a read-only, hybrid recurring patient-program proposal.
+
+    Only ΦΘ is provider-owned in this patient-program flow. Ρομποτικό and the
+    other treatment families are scheduled by day/time with a blank provider;
+    their staff assignment can be added later outside this form.
+    """
 
     patient_key = patient_id.strip()
     if not patient_key:
@@ -375,7 +379,7 @@ def propose_automatic_patient_schedule(
     settings = read_settings(workbook_path)
     base_entries = tuple(read_base_schedule(workbook_path))
     authoritative_treatments = {_normalize(value) for value in settings.therapies}
-    physio_supported = {_normalize(value) for value in THERAPIST_SCHEDULING_TREATMENTS}
+    physio_supported = {_normalize("ΦΘ")}
     fixed_unresolved: dict[int, AutomaticUnresolvedTreatment] = {}
     options_by_request: dict[int, tuple[_Option, ...]] = {}
 
