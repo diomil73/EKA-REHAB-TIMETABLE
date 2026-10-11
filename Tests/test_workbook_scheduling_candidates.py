@@ -65,6 +65,32 @@ def test_workbook_candidates_use_real_settings_and_recurring_program(monkeypatch
     assert candidates[1].available_slots == (time(11, 0),)
 
 
+def test_existing_same_patient_treatment_is_ignored_during_edit_revalidation(monkeypatch):
+    entries = [
+        BaseScheduleEntry("SELF", "P1", "ΦΘ", time(9, 0), "Καθ/να", "Σαρράς"),
+        BaseScheduleEntry("OTHER", "P2", "ΦΘ", time(10, 0), "Καθ/να", "Σαρράς"),
+    ]
+    monkeypatch.setattr(workbook_candidates, "read_settings", lambda path: _settings())
+    monkeypatch.setattr(workbook_candidates, "read_base_schedule", lambda path: entries)
+    monkeypatch.setattr(workbook_candidates, "read_students", _no_students)
+    monkeypatch.setattr(
+        workbook_candidates,
+        "read_patients",
+        lambda path: [Patient("P1", "Ένας"), Patient("P2", "Δύο")],
+    )
+
+    candidates = workbook_candidates.workbook_therapist_candidates(
+        "dummy.xlsm",
+        patient_id="P1",
+        treatment="ΦΘ",
+        target_date=DAY,
+    )
+
+    sarras = next(item for item in candidates if item.display_name == "Σαρράς")
+    assert time(9, 0) in sarras.available_slots
+    assert time(10, 0) not in sarras.available_slots
+
+
 def test_existing_robotic_assignment_marks_provider_robotic_capable(monkeypatch):
     entries = [
         BaseScheduleEntry(
