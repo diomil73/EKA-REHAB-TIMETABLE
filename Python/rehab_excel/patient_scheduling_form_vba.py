@@ -186,6 +186,22 @@ Private Function FindPlannerHeader(ByVal ws As Worksheet, ByVal headerText As St
     Err.Raise vbObjectError + 2815, , "Λείπει στήλη PATIENT_PLANNER: " & headerText
 End Function
 
+Public Function FindPatientDisplayName(ByVal patientId As String) As String
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim rowIndex As Long
+
+    Set ws = ThisWorkbook.Worksheets("PATIENTS")
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    For rowIndex = 2 To lastRow
+        If StrComp(Trim$(CStr(ws.Cells(rowIndex, 1).Value)), Trim$(patientId), vbTextCompare) = 0 Then
+            FindPatientDisplayName = Trim$(CStr(ws.Cells(rowIndex, 3).Value))
+            Exit Function
+        End If
+    Next rowIndex
+    FindPatientDisplayName = ""
+End Function
+
 Public Sub OpenPatientScheduling(ByVal patientId As String)
     Load frmPatientScheduling
     frmPatientScheduling.Configure patientId
@@ -199,8 +215,15 @@ Private mPatientId As String
 Private mSlotsByTherapist As Object
 
 Public Sub Configure(ByVal patientId As String)
+    Dim patientName As String
+
     mPatientId = Trim$(patientId)
-    lblPatient.Caption = "Patient ID: " & mPatientId
+    patientName = FindPatientDisplayName(mPatientId)
+    If Len(patientName) > 0 Then
+        lblPatient.Caption = "Ασθενής: " & patientName & "   |   Patient ID: " & mPatientId
+    Else
+        lblPatient.Caption = "Ασθενής: Patient ID " & mPatientId
+    End If
     LoadSelections
 End Sub
 
@@ -210,9 +233,10 @@ Private Sub UserForm_Initialize()
     Me.Height = 470
     Me.BackColor = RGB(245, 247, 250)
 
-    lblTitle.Caption = "Θεραπείες και πρόγραμμα"
+    lblTitle.Caption = "Πρόγραμμα θεραπείας ασθενούς"
     lblTitle.Font.Bold = True
     lblTitle.Font.Size = 15
+    lblInfo.Caption = "Επίλεξε θεραπεία και ημέρες για να εμφανιστούν οι διαθέσιμες επιλογές."
 
     cboTreatment.Style = 2
     cboDayPattern.Style = 2
@@ -295,13 +319,13 @@ NextLine:
     Next lineIndex
 
     If cboTherapist.ListCount = 0 Then
-        lblInfo.Caption = "Δεν υπάρχει κοινή διαθέσιμη ώρα για όλες τις ημέρες του μοτίβου."
+        lblInfo.Caption = "Δεν υπάρχει κοινή διαθέσιμη ώρα για όλες τις επιλεγμένες ημέρες."
     Else
-        lblInfo.Caption = "Οι θεραπευτές είναι ταξινομημένοι με βάση τον τρέχοντα φόρτο."
+        lblInfo.Caption = "Οι θεραπευτές εμφανίζονται με βάση τη διαθεσιμότητα και τον τρέχοντα φόρτο."
     End If
     Exit Sub
 LoadError:
-    lblInfo.Caption = Err.Description
+    lblInfo.Caption = "Δεν ήταν δυνατή η φόρτωση της διαθεσιμότητας. Δοκίμασε Ανανέωση."
 End Sub
 
 Private Sub cboTherapist_Change()
@@ -355,7 +379,7 @@ NextProposalLine:
     Next lineIndex
 
     If Len(proposedTherapistId) = 0 Then
-        lblProposal.Caption = "Δεν βρέθηκε αυτόματη πρόταση για την επιλογή."
+        lblProposal.Caption = "Δεν βρέθηκε ασφαλής αυτόματη πρόταση για αυτή την επιλογή."
         Exit Sub
     End If
 
@@ -367,10 +391,10 @@ NextProposalLine:
         End If
     Next therapistIndex
     cboTime.Value = proposedTime
-    lblProposal.Caption = "Πρόταση: " & proposedTherapistName & " στις " & proposedTime & ". Δεν έχει αποθηκευτεί."
+    lblProposal.Caption = "Πρόταση: " & proposedTherapistName & " στις " & proposedTime & ". Έλεγξέ την και πάτησε Αποθήκευση για επιβεβαίωση."
     Exit Sub
 ProposalError:
-    lblProposal.Caption = Err.Description
+    lblProposal.Caption = "Δεν ήταν δυνατή η δημιουργία αυτόματης πρότασης."
 End Sub
 
 Private Sub cmdSave_Click()
@@ -463,22 +487,22 @@ def install_patient_scheduling_ui(vbproject, *, position_control) -> None:
     designer.Caption = "Προγραμματισμός θεραπείας"
 
     controls = (
-        ("Forms.Label.1", "lblTitle", "Θεραπείες και πρόγραμμα", 18),
-        ("Forms.Label.1", "lblPatient", "Patient ID:", 52),
-        ("Forms.Label.1", "lblTreatment", "Θεραπεία", 86),
-        ("Forms.ComboBox.1", "cboTreatment", None, 82),
-        ("Forms.Label.1", "lblDayPattern", "Ημέρες", 126),
-        ("Forms.ComboBox.1", "cboDayPattern", None, 122),
-        ("Forms.Label.1", "lblTherapist", "Θεραπευτής", 166),
-        ("Forms.ComboBox.1", "cboTherapist", None, 162),
-        ("Forms.Label.1", "lblTime", "Ώρα", 206),
-        ("Forms.ComboBox.1", "cboTime", None, 202),
-        ("Forms.Label.1", "lblInfo", "", 244),
-        ("Forms.Label.1", "lblProposal", "", 270),
-        ("Forms.CommandButton.1", "cmdAutoPropose", "Πρότεινε πρόγραμμα", 302),
-        ("Forms.CommandButton.1", "cmdRefresh", "Ανανέωση διαθεσιμότητας", 336),
-        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 378),
-        ("Forms.CommandButton.1", "cmdSave", "Αποθήκευση προγράμματος", 378),
+        ("Forms.Label.1", "lblTitle", "Πρόγραμμα θεραπείας ασθενούς", 18),
+        ("Forms.Label.1", "lblPatient", "Ασθενής:", 52),
+        ("Forms.Label.1", "lblTreatment", "1. Θεραπεία", 86),
+        ("Forms.ComboBox.1", "cboTreatment", None, 102),
+        ("Forms.Label.1", "lblDayPattern", "2. Ημέρες θεραπείας", 136),
+        ("Forms.ComboBox.1", "cboDayPattern", None, 152),
+        ("Forms.Label.1", "lblTherapist", "3. Διαθέσιμος θεραπευτής", 186),
+        ("Forms.ComboBox.1", "cboTherapist", None, 202),
+        ("Forms.Label.1", "lblTime", "4. Διαθέσιμη ώρα", 236),
+        ("Forms.ComboBox.1", "cboTime", None, 252),
+        ("Forms.Label.1", "lblInfo", "Επίλεξε θεραπεία και ημέρες για να εμφανιστούν οι διαθέσιμες επιλογές.", 286),
+        ("Forms.Label.1", "lblProposal", "", 316),
+        ("Forms.CommandButton.1", "cmdAutoPropose", "Πρότεινε πρόγραμμα", 348),
+        ("Forms.CommandButton.1", "cmdRefresh", "Ανανέωση διαθεσιμότητας", 382),
+        ("Forms.CommandButton.1", "cmdCancel", "Κλείσιμο", 424),
+        ("Forms.CommandButton.1", "cmdSave", "Αποθήκευση", 424),
     )
     for prog_id, name, caption, top in controls:
         _ensure_control(
