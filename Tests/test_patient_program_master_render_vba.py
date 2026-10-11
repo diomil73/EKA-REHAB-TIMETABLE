@@ -41,6 +41,18 @@ def test_master_renderer_maps_all_patient_program_treatments_to_master_columns()
     assert 'WriteTreatmentCell master.Cells(masterRow, 11), planner, plannerRow, "Ψυχ"' in code
 
 
+def test_master_renderer_guards_empty_patient_cells_before_split():
+    code = MASTER_RENDER_MODULE_CODE
+    start = code.index("Private Function FirstLine")
+    end = code.index("Private Function FindMasterPatientRow", start)
+    first_line = code[start:end]
+    assert 'normalized = Trim$(Replace(valueText, vbCrLf, vbLf))' in first_line
+    assert 'If Len(normalized) = 0 Then' in first_line
+    assert 'FirstLine = ""' in first_line
+    assert 'Exit Function' in first_line
+    assert 'parts = Split(normalized, vbLf)' in first_line
+
+
 def test_master_renderer_reports_precise_runtime_stage_on_failure():
     code = MASTER_RENDER_MODULE_CODE
     assert 'renderStage = "opening PATIENTS"' in code
