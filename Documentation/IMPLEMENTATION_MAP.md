@@ -26,19 +26,23 @@
 - strong soft preference ώστε το Ανακλινόμενο να τοποθετείται πριν ή μετά τη ΦΘ όπου είναι εφικτό,
 - μία τελική atomic αποθήκευση όλου του patient program.
 
-### Τρέχον debugging checkpoint: Εργο / Λογο
+### Τρέχον configuration migration: specialty providers
 
-Το native Excel smoke test έδειξε ότι providerless θεραπείες βρίσκουν προτάσεις, ενώ Εργο και Λογο μπορούν να μένουν unresolved ακόμη και όταν ημέρες και ώρες είναι ελεύθερες.
+Το V62 diagnostic smoke test επιβεβαίωσε ότι Εργο και Λογο αποτυγχάνουν όχι λόγω πραγματικής έλλειψης χώρου αλλά επειδή τα specialty provider pools του `SETTINGS` είναι κενά.
 
-Για να ξεχωρίσουμε configuration problem από πραγματική έλλειψη διαθεσιμότητας, ο generalized solver πλέον διακρίνει ρητά:
+Η ρίζα είναι ότι η υπάρχουσα `Νέος θεραπευτής` registration ροή γράφει μόνο φυσιοθεραπευτές στο `SETTINGS!A` (`THERAPISTS_FTH`). Οι reader/provider models είχαν ήδη θέσεις για Ψυχ, Εργο και Λογο, αλλά τα legacy V48-based workbooks δεν είχαν authoritative registry values εκεί.
 
-- κενό provider pool στο `SETTINGS`,
-- provider που δεν ανήκει στο authoritative pool,
-- providers που υπάρχουν αλλά δεν έχουν διαθέσιμο slot ή έχουν φτάσει το ημερήσιο όριο,
-- provider/slot που υπάρχει αλλά συγκρούεται με άλλη θεραπεία του ασθενούς,
-- γενικό manual-constraint mismatch.
+Υλοποιήθηκε migration helper που:
 
-Αυτό το diagnostic layer είναι **implemented, pending native Excel verification**.
+- διαβάζει μόνο ήδη υπάρχοντα provider names από `PATIENT_PLANNER`,
+- χρησιμοποιεί τις στήλες `Ψυχ_Ψυχολόγος`, `Εργο_Θεραπευτής`, `Λογο_Θεραπευτής`,
+- κάνει case-insensitive deduplication διατηρώντας το αρχικό display spelling/order,
+- συμπληρώνει μόνο κενά specialty registries στο `SETTINGS`,
+- δεν αντικαθιστά υπάρχοντα configured registries,
+- γράφει τα specialty registries στις στήλες I/J/K που ήδη διαβάζει το `read_settings()`,
+- εκτελείται κατά το scheduling preview build πριν εγκατασταθεί/χρησιμοποιηθεί η νέα patient-program φόρμα.
+
+Το migration είναι **implemented, pending native Excel verification**.
 
 ---
 
@@ -71,6 +75,7 @@
 - Μία ενεργή θεραπεία για editing, με ορατές ημέρες/ώρα/provider στη γραμμή κάθε θεραπείας.
 - `Backspace`/`Delete` clear για day/time/provider ώστε μια τιμή να μπορεί να ξαναδοθεί στον solver.
 - Diagnostic failure reasons για specialty/provider scheduling failures.
+- Specialty-provider migration από υπάρχουσες `PATIENT_PLANNER` αναθέσεις σε κενά `SETTINGS` registries για Ψυχ/Εργο/Λογο.
 
 ### Atomic final save
 
@@ -100,7 +105,8 @@
 - patient-program bridge behavior,
 - atomic-save safety ordering και rollback contract,
 - keyboard clearing για day/time/provider combo selections,
-- explicit diagnostics για missing provider pools και provider capacity/occupancy.
+- explicit diagnostics για missing provider pools και provider capacity/occupancy,
+- specialty provider extraction/deduplication από legacy planner assignments.
 
 ---
 
@@ -108,16 +114,17 @@
 
 Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone πρέπει να περάσουν:
 
-1. focused pytest suite για automatic solver, diagnostics, bridge, form VBA, recurring scheduling και registration slice,
+1. focused pytest suite για automatic solver, diagnostics, bridge, form VBA, recurring scheduling, registration slice και specialty-provider migration,
 2. build νέου preview workbook από το clean V48 base,
-3. native Excel smoke test με πολλές ταυτόχρονες θεραπείες,
-4. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει ημέρες, ώρα και provider και αφαιρεί την τιμή από τη γραμμή σύνοψης,
-5. επιβεβαίωση ότι cleared field μπορεί να ξανασυμπληρωθεί από την Αυτόματη συμπλήρωση,
-6. ειδικό smoke test Εργο/Λογο ώστε unresolved μήνυμα να δείχνει αν λείπει provider pool ή αν όντως δεν υπάρχει διαθεσιμότητα,
-7. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
-8. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
-9. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι raw Excel serial,
-10. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
+3. επιβεβαίωση ότι το preview build δημιουργεί/γεμίζει τα `SETTINGS` specialty registries όταν υπάρχουν legacy planner assignments,
+4. native Excel smoke test Εργο/Λογο με όλα τα scheduling fields ελεύθερα,
+5. επιβεβαίωση ότι Εργο/Λογο εμφανίζουν provider names στα combo boxes,
+6. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει ημέρες, ώρα και provider και αφαιρεί την τιμή από τη γραμμή σύνοψης,
+7. επιβεβαίωση ότι cleared field μπορεί να ξανασυμπληρωθεί από την Αυτόματη συμπλήρωση,
+8. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
+9. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
+10. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι raw Excel serial,
+11. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
 
 ---
 
@@ -125,14 +132,14 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused tests μαζί με τα provider-diagnostics regressions.
-2. Build επόμενου patient-scheduling preview.
-3. Native Excel smoke test ειδικά για Εργο/Λογο.
-4. Αν το μήνυμα δείξει κενό provider pool, έλεγχος/διόρθωση της authoritative τροφοδότησης από `SETTINGS`.
-5. Αν το μήνυμα δείξει πραγματική occupancy/capacity αιτία, έλεγχος της provider-load λογικής πάνω στα πραγματικά workbook δεδομένα.
-6. Επανέλεγχος clear → automatic refill.
-7. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
-8. Full regression suite όταν περάσει το focused smoke test.
+1. Τρέξιμο focused tests μαζί με το νέο `test_specialty_provider_settings.py`.
+2. Build του επόμενου preview από V48 ώστε να εκτελεστεί το specialty-provider migration.
+3. Native Excel smoke test για Εργο/Λογο και επιβεβαίωση ότι εμφανίζονται provider names.
+4. Επανέλεγχος automatic completion Εργο/Λογο με όλα τα πεδία ελεύθερα.
+5. Επανέλεγχος clear → automatic refill.
+6. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
+7. Full regression suite όταν περάσει το focused smoke test.
+8. Επέκταση της `Νέος θεραπευτής` registration ροής ώστε νέα specialty staff να γράφονται απευθείας στα αντίστοιχα SETTINGS registries και να μην χρειάζεται migration για νέα δεδομένα.
 
 ### Μετά το patient-program milestone
 
