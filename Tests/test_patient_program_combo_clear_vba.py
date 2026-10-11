@@ -15,6 +15,7 @@ def test_combo_clear_handlers_cover_days_time_and_provider():
     assert "vbKeyDelete" in code
     assert "vbKeyBack" in code
     assert "combo.ListIndex = -1" in code
+    assert 'combo.Value = ""' in code
     assert "SaveCurrentDraft" in code
     assert "UpdateDraftStatus" in code
     assert "KeyCode = 0" in code
