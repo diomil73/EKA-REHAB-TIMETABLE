@@ -5,7 +5,7 @@ import shutil
 import sys
 
 from . import patient_registration_vertical_slice as _vertical
-from .patient_registration_form_vba import install_patient_form
+from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .patient_scheduling_form_vba import install_patient_scheduling_ui
 
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
@@ -44,12 +44,26 @@ def _position_control(control, left: float, top: float) -> None:
         pass
 
 
-def _install_base_patient_form(workbook_path: Path) -> None:
-    """Install frmNewPatient on a private prerequisite copy when absent.
+def _has_vb_component(vbproject, component_name: str) -> bool:
+    """Return True when a named VBA component already exists.
 
-    The repository baseline intentionally stays clean.  The vertical bridge
-    expects frmNewPatient to exist, so the scheduling preview composes that
-    prerequisite on a temporary .xlsm copy instead of mutating the source.
+    VBComponents(name) raises COM errors when the component is absent, so this
+    helper deliberately treats lookup failures as "missing".
+    """
+
+    try:
+        return vbproject.VBComponents(component_name) is not None
+    except Exception:
+        return False
+
+
+def _install_base_patient_form(workbook_path: Path) -> None:
+    """Ensure frmNewPatient exists on a private prerequisite copy.
+
+    Clean repository baselines do not contain the form, while versioned smoke
+    previews may already contain it.  Preserve an existing form so rebuilding
+    from a mature preview is idempotent and does not ask the VBE to remove and
+    recreate an already-loaded UserForm.
     """
 
     if sys.platform != "win32":
@@ -69,11 +83,13 @@ def _install_base_patient_form(workbook_path: Path) -> None:
         excel.DisplayAlerts = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
-        install_patient_form(
-            workbook.VBProject,
-            position_control=_position_control,
-        )
-        workbook.Save()
+
+        if not _has_vb_component(workbook.VBProject, PATIENT_FORM_NAME):
+            install_patient_form(
+                workbook.VBProject,
+                position_control=_position_control,
+            )
+            workbook.Save()
     except PatientRegistrationBridgeVbaError:
         raise
     except Exception as exc:
