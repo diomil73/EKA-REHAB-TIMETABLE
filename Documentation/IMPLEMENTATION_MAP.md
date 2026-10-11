@@ -119,9 +119,11 @@
 
 Στο επόμενο native smoke test εντοπίστηκε δεύτερο regression: αντί για πραγματική ώρα εμφανίστηκε κυριολεκτικά `hh:mm` και δεν εμφανίστηκαν ημέρες/θεραπευτής. Η αιτία ήταν η λανθασμένη υπόθεση ότι το MASTER χρειάζεται μόνο `NumberFormat = "hh:mm"` πάνω στις treatment columns. Αυτό αφαιρέθηκε και αντικαταστάθηκε από explicit composite rendering από `PATIENT_PLANNER`.
 
+Στο πρώτο focused regression μετά τη διόρθωση βγήκαν **37 passed / 1 failed**. Το μοναδικό failure ήταν stale test που απαιτούσε ακόμη το καταργημένο global `Columns("D:J").NumberFormat = "hh:mm"`. Το test ενημερώθηκε ώστε να απαιτεί εγκατάσταση του `PatientProgramMasterRender` και να απορρίπτει ρητά την παλιά global-formatting συμπεριφορά.
+
 ### Τελευταίο verified gate
 
-Το προηγούμενο focused gate έχει επιβεβαιωθεί από τον χρήστη:
+Το προηγούμενο πλήρως πράσινο focused gate έχει επιβεβαιωθεί από τον χρήστη:
 
 **46 passed in 2.54s**
 
@@ -133,7 +135,7 @@
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. focused pytest για draft, solver, bridge, program form, edit flow, combo clear, MASTER renderer και scheduling slice,
+1. επανάληψη του focused pytest μετά την ενημέρωση του stale MASTER-format test,
 2. νέο preview build από clean V48 base,
 3. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
 4. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
@@ -151,7 +153,7 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite για MASTER renderer + νέο patient-program batch.
+1. Επανάληψη focused regression suite μετά το stale-test fix.
 2. Build επόμενου preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
 3. Native smoke test πρώτα μόνο σε μία ΦΘ και μία providerless θεραπεία για να επιβεβαιωθεί το cell rendering.
 4. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
