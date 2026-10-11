@@ -16,12 +16,21 @@ def test_registration_continues_directly_into_patient_scheduling():
     assert "Application.Quit" not in code
 
 
-def test_registration_keeps_parent_form_alive_while_modal_is_open():
+def test_registration_hides_parent_before_opening_scheduling_then_unloads_it():
     code = _scheduling_form_code()
     hide_pos = code.index("Me.Hide")
     open_pos = code.index("OpenPatientScheduling patientId")
     unload_pos = code.index("Unload Me", open_pos)
     assert hide_pos < open_pos < unload_pos
+
+
+def test_scheduling_form_is_modeless_and_guarded_against_double_open():
+    code = PATIENT_SCHEDULING_MODULE_CODE
+    start = code.index("Public Sub OpenPatientScheduling")
+    procedure = code[start:]
+    assert "If frmPatientScheduling.Visible Then Exit Sub" in procedure
+    assert "frmPatientScheduling.Show vbModeless" in procedure
+    assert "frmPatientScheduling.Show\n" not in procedure
 
 
 def test_registration_success_is_not_reclassified_when_scheduling_fails():
