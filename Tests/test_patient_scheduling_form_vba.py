@@ -49,6 +49,16 @@ def test_runtime_module_exposes_auto_proposal_bridge_and_preview_path():
     assert 'ThisWorkbook.Path & "\\..\\..\\Python\\tools\\patient_scheduling_bridge.py"' in code
 
 
+def test_multiline_function_calls_use_vba_line_continuations():
+    code = PATIENT_SCHEDULING_FORM_CODE
+    assert "response = LoadRecurringSchedulingOptions( _\n" in code
+    assert "response = ProposeAutomaticSchedule( _\n" in code
+    assert "response = ValidateRecurringSelection( _\n" in code
+    assert "        mPatientId, _\n" in code
+    assert "        Trim$(cboDayPattern.Value) _\n    )" in code
+    assert "        Trim$(cboTime.Value) _\n    )" in code
+
+
 def test_save_revalidates_before_authoritative_planner_write():
     code = PATIENT_SCHEDULING_FORM_CODE
     validate_pos = code.index("ValidateRecurringSelection(")
