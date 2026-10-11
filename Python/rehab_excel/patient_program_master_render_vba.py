@@ -195,6 +195,13 @@ def _normalize_newlines(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
+def _write_code_module(code_module, text: str) -> None:
+    count = int(getattr(code_module, "CountOfLines", 0) or 0)
+    if count:
+        code_module.DeleteLines(1, count)
+    code_module.AddFromString(text)
+
+
 def _patch_code_module(code_module, old: str, new: str, *, description: str) -> None:
     count = int(getattr(code_module, "CountOfLines", 0) or 0)
     raw_text = code_module.Lines(1, count) if count else ""
@@ -207,10 +214,36 @@ def _patch_code_module(code_module, old: str, new: str, *, description: str) -> 
     if old_normalized not in text:
         raise RuntimeError(f"MASTER render patch marker missing: {description}")
 
-    text = text.replace(old_normalized, new_normalized, 1)
-    if count:
-        code_module.DeleteLines(1, count)
-    code_module.AddFromString(text)
+    _write_code_module(code_module, text.replace(old_normalized, new_normalized, 1))
+
+
+def _patch_patient_edit_refresh(code_module) -> None:
+    count = int(getattr(code_module, "CountOfLines", 0) or 0)
+    raw_text = code_module.Lines(1, count) if count else ""
+    text = _normalize_newlines(raw_text)
+
+    procedure_marker = "Private Sub cmdSave_Click()"
+    procedure_start = text.find(procedure_marker)
+    if procedure_start < 0:
+        raise RuntimeError("MASTER render patch marker missing: patient-edit cmdSave_Click")
+
+    procedure_end = text.find("\nEnd Sub", procedure_start)
+    if procedure_end < 0:
+        raise RuntimeError("MASTER render patch marker missing: patient-edit cmdSave_Click end")
+
+    block = text[procedure_start:procedure_end]
+    refresh_line = "    RefreshMasterPatientProgram patientId"
+    if refresh_line in block:
+        return
+
+    success_marker = '    MsgBox "Οι αλλαγές αποθηκεύτηκαν επιτυχώς."'
+    marker_index = block.find(success_marker)
+    if marker_index < 0:
+        raise RuntimeError("MASTER render patch marker missing: patient-edit success message")
+
+    patched_block = block[:marker_index] + refresh_line + "\n\n" + block[marker_index:]
+    patched_text = text[:procedure_start] + patched_block + text[procedure_end:]
+    _write_code_module(code_module, patched_text)
 
 
 def install_patient_program_master_render(vbproject) -> None:
@@ -231,9 +264,4 @@ def install_patient_program_master_render(vbproject) -> None:
     )
 
     edit_form = vbproject.VBComponents(PATIENT_EDIT_FORM_NAME)
-    _patch_code_module(
-        edit_form.CodeModule,
-        "        Trim$(cboStatus.Value)\n\n    MsgBox",
-        "        Trim$(cboStatus.Value)\n\n    RefreshMasterPatientProgram patientId\n\n    MsgBox",
-        description="patient-edit refresh",
-    )
+    _patch_patient_edit_refresh(edit_form.CodeModule)
