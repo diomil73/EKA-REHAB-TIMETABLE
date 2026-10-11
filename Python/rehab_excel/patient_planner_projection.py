@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-from .outpatient_presentation import OUTPATIENT_LIGHT_BLUE_RGB
+from .outpatient_presentation import OUTPATIENT_GREEN_RGB
 
 
 class PatientPlannerProjectionError(RuntimeError):
@@ -45,8 +45,8 @@ def refresh_patient_planner_projection_in_place(workbook_path: str | Path) -> in
     PATIENTS remains authoritative. Columns A:E of PATIENT_PLANNER mirror the
     registry row-for-row, but blank source cells stay blank instead of showing
     Excel's numeric zero. Outpatients keep an empty infectious value, preserve
-    their operational status, and receive the shared outpatient light-blue
-    marker on the patient-name cell only.
+    their operational status, and receive the shared outpatient green marker
+    on the patient-name cell only.
     """
 
     path = Path(workbook_path).resolve()
@@ -109,7 +109,7 @@ def refresh_patient_planner_projection_in_place(workbook_path: str | Path) -> in
         )
         last_row = max(2, last_patient_row, last_planner_row)
 
-        blue = _excel_rgb(OUTPATIENT_LIGHT_BLUE_RGB)
+        outpatient_green = _excel_rgb(OUTPATIENT_GREEN_RGB)
         for row in range(2, last_row + 1):
             formulas = planner_identity_formulas(row)
             for col, formula in enumerate(formulas, start=1):
@@ -117,14 +117,14 @@ def refresh_patient_planner_projection_in_place(workbook_path: str | Path) -> in
 
             name_cell = planner.Cells(row, 3)
             try:
-                if int(name_cell.Interior.Color) == blue:
+                if int(name_cell.Interior.Color) == outpatient_green:
                     name_cell.Interior.Pattern = -4142
             except Exception:
                 pass
 
             patient_type = patients.Cells(row, type_col).Value2
             if is_outpatient_type(patient_type):
-                name_cell.Interior.Color = blue
+                name_cell.Interior.Color = outpatient_green
 
         # The next registration stages depend on the formulas themselves, not on
         # freshly calculated cached values. A full-workbook recalculation here is
