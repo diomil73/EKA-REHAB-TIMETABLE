@@ -7,10 +7,11 @@ from . import patient_registration_vertical_slice as _vertical
 from .patient_scheduling_form_vba import install_patient_scheduling_ui
 
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
+_BASE_VERTICAL_FORM_CODE = _vertical._vertical_form_code
 
 
 def _scheduling_form_code() -> str:
-    code = _vertical._vertical_form_code()
+    code = _BASE_VERTICAL_FORM_CODE()
     old = '''    Unload Me
     GoToMaster
     MsgBox "Ο ασθενής καταχωρήθηκε επιτυχώς." & vbCrLf & _
