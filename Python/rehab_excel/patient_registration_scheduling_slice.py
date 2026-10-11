@@ -11,6 +11,7 @@ from .outpatient_schedule_source import read_unified_base_schedule
 from .patient_edit_form_vba import install_patient_edit_form
 from .patient_program_combo_clear_vba import install_combo_clear_handlers
 from .patient_program_form_vba import install_patient_program_ui
+from .patient_program_master_render_vba import install_patient_program_master_render
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .patient_registry_source import read_patient_registry
 from .recurring_daily_style import build_recurring_therapist_daily_style_plan
@@ -179,14 +180,11 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
             position_control=_position_control,
         )
 
+        stage = "installing MASTER patient-program renderer"
+        install_patient_program_master_render(vbproject)
+
         stage = "installing combo clear handlers"
         install_combo_clear_handlers(vbproject)
-
-        stage = "formatting MASTER treatment columns"
-        # MASTER displays formulas pointing at PATIENT_PLANNER time serials.
-        # Keep those formula results formatted as clock times instead of raw
-        # decimal Excel serial values.
-        workbook.Worksheets("MASTER_SCHEDULE").Columns("D:J").NumberFormat = "hh:mm"
 
         stage = "saving preview workbook"
         workbook.Save()
