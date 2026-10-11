@@ -147,42 +147,54 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
 
     excel = None
     workbook = None
+    stage = "starting Excel"
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
+
+        stage = "opening preview workbook"
         workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
 
-        # V48/V54-derived previews may still contain the retired single-treatment
-        # runtime. It exports the same public OpenPatientScheduling and
-        # FindPatientDisplayName procedures as the new patient-program runtime,
-        # which makes the VBA project fail to compile with "Ambiguous name
-        # detected". Keep the mature form, but remove only that obsolete module.
+        stage = "accessing VBA project"
+        vbproject = workbook.VBProject
+        _ = vbproject.VBComponents.Count
+
+        stage = "removing legacy patient scheduling runtime"
         _remove_vb_component_if_present(
-            workbook.VBProject,
+            vbproject,
             LEGACY_PATIENT_SCHEDULING_MODULE_NAME,
         )
-        install_patient_program_ui(
-            workbook.VBProject,
-            position_control=_position_control,
-        )
-        install_patient_edit_form(
-            workbook.VBProject,
-            position_control=_position_control,
-        )
-        install_combo_clear_handlers(workbook.VBProject)
 
+        stage = "installing patient-program form/runtime"
+        install_patient_program_ui(
+            vbproject,
+            position_control=_position_control,
+        )
+
+        stage = "installing/updating patient edit form"
+        install_patient_edit_form(
+            vbproject,
+            position_control=_position_control,
+        )
+
+        stage = "installing combo clear handlers"
+        install_combo_clear_handlers(vbproject)
+
+        stage = "formatting MASTER treatment columns"
         # MASTER displays formulas pointing at PATIENT_PLANNER time serials.
         # Keep those formula results formatted as clock times instead of raw
         # decimal Excel serial values.
         workbook.Worksheets("MASTER_SCHEDULE").Columns("D:J").NumberFormat = "hh:mm"
+
+        stage = "saving preview workbook"
         workbook.Save()
     except PatientRegistrationBridgeVbaError:
         raise
     except Exception as exc:
         raise PatientRegistrationBridgeVbaError(
-            f"Patient scheduling UI installation failed: {exc}"
+            f"Patient scheduling UI installation failed during {stage}: {exc}"
         ) from exc
     finally:
         if workbook is not None:
