@@ -14,7 +14,7 @@ from rehab_excel.automatic_patient_schedule import (
     propose_automatic_patient_schedule,
 )
 from rehab_excel.patient_program_draft import build_patient_program_draft
-from rehab_excel.reader import read_settings
+from rehab_excel.reader import read_base_schedule, read_settings
 
 
 def _safe(value: object) -> str:
@@ -40,6 +40,25 @@ def _emit_config(workbook: Path, patient_id: str) -> None:
         )
         for provider in spec.provider_choices:
             print("\t".join(("PROVIDER", _safe(spec.treatment), _safe(provider))))
+
+    patient_key = patient_id.strip().casefold()
+    authoritative = {item.treatment.strip().casefold() for item in draft.treatments}
+    for entry in read_base_schedule(workbook):
+        if entry.patient_id.strip().casefold() != patient_key:
+            continue
+        if entry.treatment.strip().casefold() not in authoritative:
+            continue
+        print(
+            "\t".join(
+                (
+                    "CURRENT",
+                    _safe(entry.treatment),
+                    _safe(entry.day_pattern),
+                    entry.start_time.strftime("%H:%M"),
+                    _safe(entry.therapist_id or ""),
+                )
+            )
+        )
 
     for pattern in settings.day_patterns:
         print("\t".join(("DAY_PATTERN", _safe(pattern))))
