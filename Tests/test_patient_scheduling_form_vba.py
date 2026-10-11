@@ -29,6 +29,26 @@ def test_scheduling_form_only_shows_slots_for_selected_therapist():
     assert "cboTime.AddItem" in code
 
 
+def test_auto_proposal_prefills_controls_without_saving():
+    code = PATIENT_SCHEDULING_FORM_CODE
+    start = code.index("Private Sub cmdAutoPropose_Click()")
+    end = code.index("Private Sub cmdSave_Click()", start)
+    procedure = code[start:end]
+    assert "ProposeAutomaticSchedule(" in procedure
+    assert 'fields(0) = "ASSIGNMENT"' in procedure
+    assert "cboTherapist.ListIndex = therapistIndex" in procedure
+    assert "cboTime.Value = proposedTime" in procedure
+    assert "Δεν έχει αποθηκευτεί" in procedure
+    assert "SavePatientRecurringAssignment" not in procedure
+
+
+def test_runtime_module_exposes_auto_proposal_bridge_and_preview_path():
+    code = PATIENT_SCHEDULING_MODULE_CODE
+    assert 'args = "auto-propose-vba "' in code
+    assert '" --request " & QuoteArg(Trim$(treatment) & "|" & Trim$(dayPattern))' in code
+    assert 'ThisWorkbook.Path & "\\..\\..\\Python\\tools\\patient_scheduling_bridge.py"' in code
+
+
 def test_save_revalidates_before_authoritative_planner_write():
     code = PATIENT_SCHEDULING_FORM_CODE
     validate_pos = code.index("ValidateRecurringSelection(")
