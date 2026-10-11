@@ -25,6 +25,18 @@ def test_program_form_uses_checkbox_style_multiselect_treatment_list():
     assert "cboTreatment" not in code
 
 
+def test_program_form_shows_each_treatments_draft_values_in_summary_columns():
+    code = PATIENT_PROGRAM_FORM_CODE
+    assert "lstTreatments.ColumnCount = 4" in code
+    assert "lstTreatments.ColumnWidths" in code
+    assert "Private Sub RefreshTreatmentRow" in code
+    assert "lstTreatments.List(i, 1) = DraftValue(mDraftDays, treatment)" in code
+    assert "lstTreatments.List(i, 2) = DraftValue(mDraftTimes, treatment)" in code
+    assert "lstTreatments.List(i, 3) = DraftValue(mDraftProviders, treatment)" in code
+    assert "RefreshTreatmentRow mCurrentTreatment" in code
+    assert "RefreshAllTreatmentRows" in code
+
+
 def test_program_form_keeps_independent_draft_fields_per_treatment():
     code = PATIENT_PROGRAM_FORM_CODE
     assert "mDraftDays" in code
@@ -32,7 +44,7 @@ def test_program_form_keeps_independent_draft_fields_per_treatment():
     assert "mDraftProviders" in code
     assert "SaveCurrentDraft" in code
     assert "LoadCurrentTreatmentEditor" in code
-    assert "Τα συμπληρωμένα πεδία θεωρούνται χειροκίνητες επιλογές" in code
+    assert "Οι επιλογές φαίνονται στον πίνακα αριστερά" in code
 
 
 def test_program_form_makes_current_treatment_explicit_in_editor_labels():
@@ -67,7 +79,7 @@ def test_program_form_only_fills_missing_draft_fields_from_solver():
     assert "If Not mDraftTimes.Exists(treatment)" in code
     assert "If Not mDraftProviders.Exists(treatment)" in code
     assert 'Case "UNRESOLVED"' in code
-    assert "Οι χειροκίνητες επιλογές έμειναν κλειδωμένες" in code
+    assert "RefreshAllTreatmentRows" in code
 
 
 def test_program_form_does_not_write_workbook_before_final_commit_exists():
