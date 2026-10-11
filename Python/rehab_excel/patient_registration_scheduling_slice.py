@@ -8,13 +8,9 @@ import tempfile
 from . import patient_registration_vertical_slice as _vertical
 from .native_excel import apply_write_plan_to_copy
 from .outpatient_schedule_source import read_unified_base_schedule
+from .patient_program_form_vba import install_patient_program_ui
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .patient_registry_source import read_patient_registry
-from .patient_scheduling_form_vba import (
-    PATIENT_SCHEDULING_FORM_NAME,
-    PATIENT_SCHEDULING_MODULE_NAME,
-    install_patient_scheduling_ui,
-)
 from .recurring_daily_style import build_recurring_therapist_daily_style_plan
 
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
@@ -124,7 +120,7 @@ def _install_base_patient_form(workbook_path: Path) -> None:
 
 
 def _install_scheduling_ui(workbook_path: Path) -> None:
-    """Install or update the scheduling form/runtime in place."""
+    """Install or update the multi-treatment patient-program form/runtime in place."""
 
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
@@ -144,7 +140,7 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
 
-        install_patient_scheduling_ui(
+        install_patient_program_ui(
             workbook.VBProject,
             position_control=_position_control,
         )
