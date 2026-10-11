@@ -32,13 +32,17 @@ def _scheduling_form_code() -> str:
            "Patient ID: " & patientId & vbCrLf & vbCrLf & _
            "Συνεχίζουμε στον προγραμματισμό θεραπείας.", _
            vbInformation, "Νέος ασθενής"
-    Unload Me
     On Error GoTo SchedulingError
+    Me.Hide
     OpenPatientScheduling patientId
+    Unload Me
     GoToMaster
     Exit Sub
 
 SchedulingError:
+    On Error Resume Next
+    Unload Me
+    On Error GoTo 0
     MsgBox "Ο ασθενής έχει ήδη καταχωρηθεί επιτυχώς." & vbCrLf & _
            "Δεν μπόρεσε να ανοίξει/ολοκληρωθεί ο προγραμματισμός θεραπείας:" & vbCrLf & _
            Err.Description, _
