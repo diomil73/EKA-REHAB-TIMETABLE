@@ -105,11 +105,40 @@ def test_parse_completion_request_preserves_manual_time_and_provider():
     assert request.provider_id == "Φυσιο 2"
 
 
-def test_completion_marks_missing_day_pattern_as_unresolved(monkeypatch, capsys):
-    bridge._emit_completion(Path("dummy.xlsm"), "P001", ["ΦΘ|||", "Ρομποτικό|||" ])
+def test_parse_completion_request_leaves_missing_day_for_solver():
+    request = bridge._parse_request("ΕΦΑ|||")
+    assert request.treatment == "ΕΦΑ"
+    assert request.day_pattern is None
+    assert request.start_time is None
+    assert request.provider_id is None
+
+
+def test_completion_sends_missing_day_pattern_to_solver(monkeypatch, capsys):
+    observed = {}
+    assignment = type(
+        "Assignment",
+        (),
+        {
+            "treatment": "ΕΦΑ",
+            "day_pattern": "Τρ-Πε",
+            "start_time": time(10, 0),
+            "therapist_id": "",
+            "therapist_name": "",
+            "workload_count": 0,
+        },
+    )()
+    proposal = type("Proposal", (), {"assignments": (assignment,), "unresolved": ()})()
+
+    def fake_solver(*args, requests, **kwargs):
+        observed["requests"] = requests
+        return proposal
+
+    monkeypatch.setattr(bridge, "propose_automatic_patient_schedule", fake_solver)
+    bridge._emit_completion(Path("dummy.xlsm"), "P001", ["ΕΦΑ|||"])
     output = capsys.readouterr().out
-    assert output.count("UNRESOLVED") == 2
-    assert "Χρειάζεται πρώτα επιλογή ημερών" in output
+
+    assert observed["requests"][0].day_pattern is None
+    assert "ASSIGNMENT\tΕΦΑ\tΤρ-Πε\t10:00\t\t\t0" in output
 
 
 def test_completion_emits_solver_assignments(monkeypatch, capsys):
