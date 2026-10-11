@@ -19,11 +19,24 @@
 - εμφάνιση όλων των θεραπειών του authoritative configuration,
 - επιλογή πολλών θεραπειών για τον ίδιο ασθενή,
 - χειροκίνητη συμπλήρωση ημέρας, ώρας και provider όπου απαιτείται,
+- δυνατότητα ακύρωσης μιας ήδη επιλεγμένης τιμής ώστε το πεδίο να ξαναγίνεται ελεύθερο για automatic completion,
 - μερική χειροκίνητη συμπλήρωση και automatic completion μόνο των κενών πεδίων,
 - πλήρως automatic proposal όταν ο χρήστης αφήνει όλα τα scheduling πεδία κενά,
 - διατήρηση των χειροκίνητων τιμών ως hard constraints,
 - ισχυρή soft preference ώστε το Ανακλινόμενο να τοποθετείται ακριβώς πριν ή μετά τη ΦΘ όταν είναι εφικτό,
 - μία τελική atomic αποθήκευση όλου του patient program.
+
+### Τρέχον UX micro-fix
+
+Υλοποιήθηκε keyboard clear για τα combo fields της ενεργής θεραπείας:
+
+- `Backspace` ή `Delete` στις **Ημέρες** καθαρίζει το day pattern,
+- `Backspace` ή `Delete` στην **Ώρα** καθαρίζει την ώρα,
+- `Backspace` ή `Delete` στον **Θεραπευτή / provider** καθαρίζει τον provider,
+- η αντίστοιχη τιμή αφαιρείται από το draft και από τη γραμμή σύνοψης,
+- το πεδίο θεωρείται ξανά κενό και μπορεί να συμπληρωθεί από την επόμενη Αυτόματη συμπλήρωση.
+
+Το παραπάνω είναι **implemented, pending native Excel verification**.
 
 ---
 
@@ -61,6 +74,8 @@
 - Manual time/provider/day values αντιμετωπίζονται ως locked constraints και δεν αντικαθίστανται σιωπηρά.
 - Providerless θεραπείες μπορούν να προγραμματίζονται χωρίς υποχρεωτικό therapist/provider.
 - Recliner/ΦΘ adjacency preference έχει ενσωματωθεί στη βαθμολόγηση του solver ως soft preference.
+- Η φόρμα κρατά μία ενεργή θεραπεία για editing και εμφανίζει στη γραμμή της κάθε θεραπείας τις τρέχουσες ημέρες, ώρα και provider.
+- Προστέθηκε δυνατότητα keyboard clear στα τρία combo fields ώστε μια manual ή automatic πρόταση να μπορεί να μηδενιστεί και να ξαναδοθεί στον solver.
 
 ### Atomic final save
 
@@ -86,7 +101,9 @@
 - providerless treatment handling,
 - recliner adjacency preference,
 - patient-program bridge behavior,
-- atomic-save safety ordering και rollback contract.
+- atomic-save safety ordering και rollback contract,
+- keyboard clearing για day/time/provider combo selections,
+- wiring του combo-clear patch στο scheduling preview installer.
 
 ---
 
@@ -95,12 +112,15 @@
 Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone πρέπει να περάσουν:
 
 1. focused pytest suite για automatic solver, bridge, form VBA, recurring scheduling και registration slice,
-2. build νέου preview workbook από το clean V48 base,
-3. native Excel smoke test με πολλές ταυτόχρονες θεραπείες,
-4. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
-5. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
-6. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι ως raw Excel serial,
-7. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
+2. tests για keyboard clear των patient-program combos,
+3. build νέου preview workbook από το clean V48 base,
+4. native Excel smoke test με πολλές ταυτόχρονες θεραπείες,
+5. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει ημέρες, ώρα και provider και αφαιρεί την τιμή από τη γραμμή σύνοψης,
+6. επιβεβαίωση ότι πεδίο που καθαρίστηκε μπορεί να ξανασυμπληρωθεί από την Αυτόματη συμπλήρωση,
+7. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
+8. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
+9. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι ως raw Excel serial,
+10. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
 
 ---
 
@@ -108,11 +128,12 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused tests στο branch `feature/outpatient-scheduling`.
-2. Διόρθωση τυχόν regressions που θα εμφανιστούν.
-3. Build του επόμενου patient-scheduling preview.
-4. Native Excel smoke test του πλήρους manual / mixed / automatic flow.
-5. Full regression suite όταν περάσει το focused smoke test.
+1. Τρέξιμο focused tests στο branch `feature/outpatient-scheduling`, μαζί με τα νέα combo-clear tests.
+2. Build του επόμενου patient-scheduling preview.
+3. Native Excel smoke test ειδικά για clear → automatic refill.
+4. Διόρθωση τυχόν regressions που θα εμφανιστούν.
+5. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
+6. Full regression suite όταν περάσει το focused smoke test.
 
 ### Μετά το patient-program milestone
 
