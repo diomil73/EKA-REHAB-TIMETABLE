@@ -373,16 +373,39 @@ End Sub
 '''
 
 
-def install_patient_edit_form(vbproject, *, position_control) -> None:
-    try:
-        existing = vbproject.VBComponents(PATIENT_EDIT_FORM_NAME)
-    except Exception:
-        existing = None
-    if existing is not None:
-        vbproject.VBComponents.Remove(existing)
+def _replace_code(component, code: str) -> None:
+    code_module = component.CodeModule
+    count = int(getattr(code_module, "CountOfLines", 0) or 0)
+    if count:
+        code_module.DeleteLines(1, count)
+    code_module.AddFromString(code)
 
-    form = vbproject.VBComponents.Add(3)
-    form.Name = PATIENT_EDIT_FORM_NAME
+
+def _ensure_control(designer, prog_id: str, name: str, caption: str | None, top: float, *, position_control):
+    try:
+        control = designer.Controls(name)
+    except Exception:
+        control = designer.Controls.Add(prog_id, name, True)
+    if caption is not None:
+        control.Caption = caption
+    position_control(control, 24, top)
+    return control
+
+
+def install_patient_edit_form(vbproject, *, position_control) -> None:
+    """Create or update frmEditPatient without remove/re-add churn.
+
+    Reusing an existing UserForm avoids the intermittent Excel/VBE error 75
+    (Path/File access error) that can occur when a form is removed and recreated
+    in the same hidden automation session.
+    """
+
+    try:
+        form = vbproject.VBComponents(PATIENT_EDIT_FORM_NAME)
+    except Exception:
+        form = vbproject.VBComponents.Add(3)
+        form.Name = PATIENT_EDIT_FORM_NAME
+
     designer = form.Designer
     designer.Caption = "Επεξεργασία ασθενή"
 
@@ -410,9 +433,13 @@ def install_patient_edit_form(vbproject, *, position_control) -> None:
     )
 
     for prog_id, name, caption, top in controls:
-        control = designer.Controls.Add(prog_id, name, True)
-        if caption is not None:
-            control.Caption = caption
-        position_control(control, 24, top)
+        _ensure_control(
+            designer,
+            prog_id,
+            name,
+            caption,
+            top,
+            position_control=position_control,
+        )
 
-    form.CodeModule.AddFromString(PATIENT_EDIT_FORM_CODE)
+    _replace_code(form, PATIENT_EDIT_FORM_CODE)
