@@ -71,6 +71,7 @@
 - Μία ενεργή θεραπεία για editing, με ορατές ημέρες/ώρα/provider στη γραμμή κάθε θεραπείας.
 - `Backspace`/`Delete` clear ώστε μια τιμή να μπορεί να ξαναδοθεί στον solver.
 - Diagnostic failure reasons για πραγματικές scheduling συγκρούσεις αντί για ψευδή provider failures.
+- Focused provider-rule regression gate verified: **46 passed in 2.54s**.
 
 ### Atomic final save
 
@@ -107,18 +108,19 @@
 
 ## Τρέχον verification gate
 
-Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone πρέπει να περάσουν:
+Το focused pytest gate μετά την αλλαγή provider rule έχει περάσει: **46 passed in 2.54s**.
 
-1. focused pytest suite για automatic solver, diagnostics, bridge, form VBA, recurring scheduling και registration slice,
-2. build νέου preview workbook από το clean V48 base,
-3. native Excel smoke test με ΦΘ + Ρομποτικό + Εργο + Λογο + λοιπές θεραπείες,
-4. επιβεβαίωση ότι μόνο η ΦΘ εμφανίζει/απαιτεί provider στο scheduling flow,
-5. επιβεβαίωση ότι Ρομποτικό/Εργο/Λογο/Ψυχ βρίσκουν proposal ημέρας/ώρας χωρίς provider names,
-6. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει επιλογές και το cleared field μπορεί να ξανασυμπληρωθεί από το automatic,
-7. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
-8. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
-9. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι raw Excel serial,
-10. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
+Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone απομένουν:
+
+1. build νέου preview workbook από το clean V48 base,
+2. native Excel smoke test με ΦΘ + Ρομποτικό + Εργο + Λογο + λοιπές θεραπείες,
+3. επιβεβαίωση ότι μόνο η ΦΘ εμφανίζει/απαιτεί provider στο scheduling flow,
+4. επιβεβαίωση ότι Ρομποτικό/Εργο/Λογο/Ψυχ βρίσκουν proposal ημέρας/ώρας χωρίς provider names,
+5. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει επιλογές και το cleared field μπορεί να ξανασυμπληρωθεί από το automatic,
+6. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
+7. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
+8. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι raw Excel serial,
+9. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
 
 ---
 
@@ -126,12 +128,11 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused tests μετά την αλλαγή του provider rule.
-2. Build του επόμενου preview από V48.
-3. Native Excel smoke test με Εργο/Λογο/Ρομποτικό χωρίς provider names.
-4. Επανέλεγχος clear → automatic refill.
-5. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
-6. Full regression suite όταν περάσει το focused smoke test.
+1. Build του επόμενου preview από V48.
+2. Native Excel smoke test με Εργο/Λογο/Ρομποτικό χωρίς provider names.
+3. Επανέλεγχος clear → automatic refill.
+4. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
+5. Full regression suite όταν περάσει το focused smoke test.
 
 ### Μελλοντική optional επέκταση
 
