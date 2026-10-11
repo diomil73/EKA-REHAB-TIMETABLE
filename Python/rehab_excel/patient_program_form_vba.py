@@ -140,8 +140,6 @@ Private Sub UserForm_Initialize()
     lblTitle.Font.Size = 15
     lblHint.Caption = "Επίλεξε μία θεραπεία κάθε φορά. Ό,τι συμπληρώνεις γράφεται αμέσως στη γραμμή της. Η Αυτόματη συμπλήρωση προσθέτει μόνο τα κενά στοιχεία."
 
-    ' One active editor row at a time. The draft remembers every treatment
-    ' separately through mIncluded, so moving to the next row does not lose it.
     lstTreatments.MultiSelect = 0
     lstTreatments.ListStyle = 1
     lstTreatments.ColumnCount = 5
@@ -277,6 +275,36 @@ Private Function IsIncluded(ByVal treatment As String) As Boolean
     If mIncluded.Exists(treatment) Then IsIncluded = CBool(mIncluded(treatment))
 End Function
 
+Private Function RequiresProvider(ByVal treatment As String) As Boolean
+    If Not mProviderKinds.Exists(treatment) Then Exit Function
+    RequiresProvider = (StrComp(CStr(mProviderKinds(treatment)), "none", vbTextCompare) <> 0)
+End Function
+
+Private Function TreatmentIsComplete(ByVal treatment As String) As Boolean
+    If Not IsIncluded(treatment) Then Exit Function
+    If Len(DraftValue(mDraftDays, treatment)) = 0 Then Exit Function
+    If Len(DraftValue(mDraftTimes, treatment)) = 0 Then Exit Function
+    If RequiresProvider(treatment) Then
+        If Len(DraftValue(mDraftProviders, treatment)) = 0 Then Exit Function
+    End If
+    TreatmentIsComplete = True
+End Function
+
+Private Function DraftIsComplete() As Boolean
+    Dim i As Long
+    Dim treatment As String
+    Dim includedCount As Long
+
+    For i = 0 To lstTreatments.ListCount - 1
+        treatment = CStr(lstTreatments.List(i, 0))
+        If IsIncluded(treatment) Then
+            includedCount = includedCount + 1
+            If Not TreatmentIsComplete(treatment) Then Exit Function
+        End If
+    Next i
+    DraftIsComplete = (includedCount > 0)
+End Function
+
 Private Sub RefreshTreatmentRow(ByVal treatment As String)
     Dim i As Long
     For i = 0 To lstTreatments.ListCount - 1
@@ -362,17 +390,22 @@ End Sub
 
 Private Sub UpdateDraftStatus()
     Dim includedCount As Long
+    Dim completeCount As Long
     Dim i As Long
     Dim treatment As String
 
     For i = 0 To lstTreatments.ListCount - 1
         treatment = CStr(lstTreatments.List(i, 0))
-        If IsIncluded(treatment) Then includedCount = includedCount + 1
+        If IsIncluded(treatment) Then
+            includedCount = includedCount + 1
+            If TreatmentIsComplete(treatment) Then completeCount = completeCount + 1
+        End If
     Next i
 
     cmdAutoComplete.Enabled = (includedCount > 0)
-    cmdSaveProgram.Enabled = False
-    lblStatus.Caption = CStr(includedCount) & " θεραπείες στο draft. Ενεργή τώρα: " & mCurrentTreatment
+    cmdSaveProgram.Enabled = DraftIsComplete()
+    lblStatus.Caption = CStr(completeCount) & "/" & CStr(includedCount) & _
+        " θεραπείες πλήρεις. Ενεργή τώρα: " & mCurrentTreatment
 End Sub
 
 Private Function BuildAutomaticRequestArguments() As String
@@ -432,11 +465,14 @@ NextLine:
 
     RefreshAllTreatmentRows
     If Len(mCurrentTreatment) > 0 Then LoadCurrentTreatmentEditor
+    UpdateDraftStatus
 
     If unresolvedCount = 0 Then
-        lblStatus.Caption = "Η αυτόματη συμπλήρωση πρόσθεσε " & CStr(assignmentCount) & " προτάσεις. Μπορείς να ανοίξεις οποιαδήποτε θεραπεία και να τις αλλάξεις."
+        lblStatus.Caption = "Η αυτόματη συμπλήρωση πρόσθεσε " & CStr(assignmentCount) & _
+            " προτάσεις. Μπορείς να ανοίξεις οποιαδήποτε θεραπεία και να τις αλλάξεις."
     Else
-        lblStatus.Caption = "Αυτόματες προτάσεις: " & CStr(assignmentCount) & ". Εκκρεμούν: " & CStr(unresolvedCount) & "."
+        lblStatus.Caption = "Αυτόματες προτάσεις: " & CStr(assignmentCount) & _
+            ". Εκκρεμούν: " & CStr(unresolvedCount) & "."
         MsgBox unresolvedText, vbInformation, "Θεραπείες που χρειάζονται παρέμβαση"
     End If
 End Sub
@@ -464,8 +500,208 @@ AutoError:
     MsgBox Err.Description, vbExclamation, "Αυτόματη συμπλήρωση"
 End Sub
 
+Private Function FindPlannerHeader(ByVal ws As Worksheet, ByVal headerName As String) As Long
+    Dim lastCol As Long
+    Dim colIndex As Long
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    For colIndex = 1 To lastCol
+        If StrComp(Trim$(CStr(ws.Cells(1, colIndex).Value)), Trim$(headerName), vbTextCompare) = 0 Then
+            FindPlannerHeader = colIndex
+            Exit Function
+        End If
+    Next colIndex
+End Function
+
+Private Function FindPlannerPatientRow(ByVal ws As Worksheet, ByVal patientId As String) As Long
+    Dim patientCol As Long
+    Dim lastRow As Long
+    Dim rowIndex As Long
+    patientCol = FindPlannerHeader(ws, "PatientID")
+    If patientCol = 0 Then Exit Function
+    lastRow = ws.Cells(ws.Rows.Count, patientCol).End(xlUp).Row
+    For rowIndex = 2 To lastRow
+        If StrComp(Trim$(CStr(ws.Cells(rowIndex, patientCol).Value)), Trim$(patientId), vbTextCompare) = 0 Then
+            FindPlannerPatientRow = rowIndex
+            Exit Function
+        End If
+    Next rowIndex
+End Function
+
+Private Function ProviderHeaderName(ByVal treatment As String) As String
+    If Not RequiresProvider(treatment) Then Exit Function
+    If StrComp(treatment, "Ψυχ", vbTextCompare) = 0 Then
+        ProviderHeaderName = "Ψυχ_Ψυχολόγος"
+    Else
+        ProviderHeaderName = treatment & "_Θεραπευτής"
+    End If
+End Function
+
+Private Sub SnapshotCell(ByVal ws As Worksheet, ByVal rowIndex As Long, ByVal colIndex As Long, _
+                         ByVal oldValues As Object, ByVal oldFormats As Object)
+    Dim key As String
+    key = CStr(rowIndex) & "|" & CStr(colIndex)
+    If oldValues.Exists(key) Then Exit Sub
+    oldValues.Add key, ws.Cells(rowIndex, colIndex).Value
+    oldFormats.Add key, ws.Cells(rowIndex, colIndex).NumberFormat
+End Sub
+
+Private Sub RestoreSnapshots(ByVal ws As Worksheet, ByVal oldValues As Object, ByVal oldFormats As Object)
+    Dim key As Variant
+    Dim parts() As String
+    For Each key In oldValues.Keys
+        parts = Split(CStr(key), "|")
+        ws.Cells(CLng(parts(0)), CLng(parts(1))).Value = oldValues(key)
+        ws.Cells(CLng(parts(0)), CLng(parts(1))).NumberFormat = oldFormats(key)
+    Next key
+End Sub
+
+Private Sub SavePatientProgramAtomic()
+    Dim ws As Worksheet
+    Dim patientRow As Long
+    Dim includedCount As Long
+    Dim index As Long
+    Dim i As Long
+    Dim treatment As String
+    Dim timeHeader As String
+    Dim daysHeader As String
+    Dim providerHeader As String
+    Dim timeCols() As Long
+    Dim daysCols() As Long
+    Dim providerCols() As Long
+    Dim treatments() As String
+    Dim oldValues As Object
+    Dim oldFormats As Object
+    Dim previousEvents As Boolean
+    Dim eventsCaptured As Boolean
+    Dim writesStarted As Boolean
+    Dim errorText As String
+
+    SaveCurrentDraft
+    If Not DraftIsComplete() Then
+        Err.Raise vbObjectError + 2930, "SavePatientProgramAtomic", _
+            "Το πρόγραμμα δεν είναι ακόμη πλήρες. Χρησιμοποίησε Αυτόματη συμπλήρωση ή συμπλήρωσε τα κενά πεδία."
+    End If
+
+    Set ws = ThisWorkbook.Worksheets("PATIENT_PLANNER")
+    patientRow = FindPlannerPatientRow(ws, mPatientId)
+    If patientRow = 0 Then
+        Err.Raise vbObjectError + 2931, "SavePatientProgramAtomic", _
+            "Δεν βρέθηκε ο ασθενής στο PATIENT_PLANNER."
+    End If
+
+    For i = 0 To lstTreatments.ListCount - 1
+        treatment = CStr(lstTreatments.List(i, 0))
+        If IsIncluded(treatment) Then includedCount = includedCount + 1
+    Next i
+
+    ReDim treatments(1 To includedCount)
+    ReDim timeCols(1 To includedCount)
+    ReDim daysCols(1 To includedCount)
+    ReDim providerCols(1 To includedCount)
+    Set oldValues = CreateObject("Scripting.Dictionary")
+    Set oldFormats = CreateObject("Scripting.Dictionary")
+
+    ' Resolve every target header and snapshot every touched cell before writes.
+    index = 0
+    For i = 0 To lstTreatments.ListCount - 1
+        treatment = CStr(lstTreatments.List(i, 0))
+        If IsIncluded(treatment) Then
+            index = index + 1
+            treatments(index) = treatment
+            timeHeader = treatment & "_Ώρα"
+            daysHeader = treatment & "_Ημέρες"
+            timeCols(index) = FindPlannerHeader(ws, timeHeader)
+            daysCols(index) = FindPlannerHeader(ws, daysHeader)
+            If timeCols(index) = 0 Or daysCols(index) = 0 Then
+                Err.Raise vbObjectError + 2932, "SavePatientProgramAtomic", _
+                    "Λείπουν στήλες PATIENT_PLANNER για τη θεραπεία: " & treatment
+            End If
+
+            providerHeader = ProviderHeaderName(treatment)
+            If Len(providerHeader) > 0 Then
+                providerCols(index) = FindPlannerHeader(ws, providerHeader)
+                If providerCols(index) = 0 Then
+                    Err.Raise vbObjectError + 2933, "SavePatientProgramAtomic", _
+                        "Λείπει η στήλη provider: " & providerHeader
+                End If
+            End If
+
+            SnapshotCell ws, patientRow, timeCols(index), oldValues, oldFormats
+            SnapshotCell ws, patientRow, daysCols(index), oldValues, oldFormats
+            If providerCols(index) > 0 Then _
+                SnapshotCell ws, patientRow, providerCols(index), oldValues, oldFormats
+        End If
+    Next i
+
+    previousEvents = Application.EnableEvents
+    eventsCaptured = True
+    On Error GoTo SaveError
+
+    Application.EnableEvents = False
+    writesStarted = True
+
+    For index = 1 To includedCount
+        treatment = treatments(index)
+        ws.Cells(patientRow, timeCols(index)).Value = TimeValue(DraftValue(mDraftTimes, treatment))
+        ws.Cells(patientRow, timeCols(index)).NumberFormat = "hh:mm"
+        ws.Cells(patientRow, daysCols(index)).Value = DraftValue(mDraftDays, treatment)
+        If providerCols(index) > 0 Then
+            ws.Cells(patientRow, providerCols(index)).Value = DraftValue(mDraftProviders, treatment)
+        End If
+    Next index
+
+    ws.Rows(patientRow).Calculate
+
+    ' Verify every value while events remain disabled.
+    For index = 1 To includedCount
+        treatment = treatments(index)
+        If Format$(ws.Cells(patientRow, timeCols(index)).Value, "hh:mm") <> _
+           Format$(TimeValue(DraftValue(mDraftTimes, treatment)), "hh:mm") Then
+            Err.Raise vbObjectError + 2934, "SavePatientProgramAtomic", _
+                "Αποτυχία επαλήθευσης ώρας για: " & treatment
+        End If
+        If Trim$(CStr(ws.Cells(patientRow, daysCols(index)).Value)) <> _
+           DraftValue(mDraftDays, treatment) Then
+            Err.Raise vbObjectError + 2935, "SavePatientProgramAtomic", _
+                "Αποτυχία επαλήθευσης ημερών για: " & treatment
+        End If
+        If providerCols(index) > 0 Then
+            If Trim$(CStr(ws.Cells(patientRow, providerCols(index)).Value)) <> _
+               DraftValue(mDraftProviders, treatment) Then
+                Err.Raise vbObjectError + 2936, "SavePatientProgramAtomic", _
+                    "Αποτυχία επαλήθευσης provider για: " & treatment
+            End If
+        End If
+    Next index
+
+    ThisWorkbook.Save
+    Application.EnableEvents = previousEvents
+    eventsCaptured = False
+    lblStatus.Caption = "Το πρόγραμμα αποθηκεύτηκε επιτυχώς για " & CStr(includedCount) & " θεραπείες."
+    MsgBox "Το πρόγραμμα του ασθενούς αποθηκεύτηκε επιτυχώς.", _
+           vbInformation, "Αποθήκευση προγράμματος"
+    Exit Sub
+
+SaveError:
+    errorText = Err.Description
+    On Error Resume Next
+    If writesStarted Then
+        Application.EnableEvents = False
+        RestoreSnapshots ws, oldValues, oldFormats
+        ws.Rows(patientRow).Calculate
+    End If
+    If eventsCaptured Then Application.EnableEvents = previousEvents
+    On Error GoTo 0
+    Err.Raise vbObjectError + 2937, "SavePatientProgramAtomic", errorText
+End Sub
+
 Private Sub cmdSaveProgram_Click()
-    MsgBox "Η τελική atomic αποθήκευση θα ενεργοποιηθεί στο επόμενο βήμα. Το τρέχον draft δεν γράφει ακόμη στο workbook.", vbInformation, "Αποθήκευση προγράμματος"
+    On Error GoTo SaveButtonError
+    SavePatientProgramAtomic
+    Exit Sub
+SaveButtonError:
+    lblStatus.Caption = "Η αποθήκευση δεν ολοκληρώθηκε. Δεν διατηρήθηκαν μερικές αλλαγές."
+    MsgBox Err.Description, vbCritical, "Αποθήκευση προγράμματος"
 End Sub
 
 Private Sub cmdClose_Click()
