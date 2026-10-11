@@ -35,11 +35,39 @@ def test_program_form_keeps_independent_draft_fields_per_treatment():
     assert "Τα συμπληρωμένα πεδία θεωρούνται χειροκίνητες επιλογές" in code
 
 
+def test_program_form_makes_current_treatment_explicit_in_editor_labels():
+    code = PATIENT_PROGRAM_FORM_CODE
+    assert 'lblEditing.Caption = "Ρυθμίσεις θεραπείας: " & treatment' in code
+    assert 'lblDays.Caption = "Ημέρες για " & treatment' in code
+    assert 'lblTime.Caption = "Ώρα για " & treatment' in code
+    assert 'lblProvider.Caption = "Θεραπευτής / provider για " & treatment' in code
+
+
 def test_program_form_exposes_recliner_adjacency_preference():
     code = PATIENT_PROGRAM_FORM_CODE
     assert 'StrComp(treatment, "Ανακλινόμενο", vbTextCompare) = 0' in code
     assert "mReclinedSlots" in code
     assert "το Ανακλινόμενο θα τοποθετείται πριν ή μετά τη ΦΘ" in code
+
+
+def test_program_form_calls_real_automatic_completion_bridge():
+    runtime = PATIENT_PROGRAM_MODULE_CODE
+    form = PATIENT_PROGRAM_FORM_CODE
+    assert '"complete-vba "' in runtime
+    assert "CompletePatientProgram" in runtime
+    assert "BuildAutomaticRequestArguments" in form
+    assert '" --request "' in form
+    assert "response = CompletePatientProgram(mPatientId, requestArguments)" in form
+    assert "ApplyAutomaticCompletion response" in form
+
+
+def test_program_form_only_fills_missing_draft_fields_from_solver():
+    code = PATIENT_PROGRAM_FORM_CODE
+    assert "If Not mDraftDays.Exists(treatment)" in code
+    assert "If Not mDraftTimes.Exists(treatment)" in code
+    assert "If Not mDraftProviders.Exists(treatment)" in code
+    assert 'Case "UNRESOLVED"' in code
+    assert "Οι χειροκίνητες επιλογές έμειναν κλειδωμένες" in code
 
 
 def test_program_form_does_not_write_workbook_before_final_commit_exists():
