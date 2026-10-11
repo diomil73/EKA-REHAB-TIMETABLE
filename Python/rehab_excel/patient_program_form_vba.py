@@ -130,17 +130,19 @@ End Sub
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Πρόγραμμα θεραπείας ασθενούς"
-    Me.Width = 790
+    Me.Width = 1040
     Me.Height = 570
     Me.BackColor = RGB(245, 247, 250)
 
     lblTitle.Caption = "Πρόγραμμα θεραπείας ασθενούς"
     lblTitle.Font.Bold = True
     lblTitle.Font.Size = 15
-    lblHint.Caption = "Τσέκαρε όλες τις θεραπείες που χρειάζεται ο ασθενής. Μπορείς να συμπληρώσεις όσα στοιχεία θέλεις χειροκίνητα και να αφήσεις τα υπόλοιπα για αυτόματη συμπλήρωση."
+    lblHint.Caption = "Τσέκαρε όλες τις θεραπείες που χρειάζεται ο ασθενής. Κάθε επιλογή που βάζεις εμφανίζεται αμέσως στη γραμμή της θεραπείας."
 
     lstTreatments.MultiSelect = 1
     lstTreatments.ListStyle = 1
+    lstTreatments.ColumnCount = 4
+    lstTreatments.ColumnWidths = "125 pt;110 pt;65 pt;210 pt"
     cboDayPattern.Style = 2
     cboProvider.Style = 2
     cboTime.Style = 2
@@ -163,6 +165,7 @@ Private Sub LoadProgramConfiguration()
     Dim lines() As String
     Dim fields() As String
     Dim i As Long
+    Dim rowIndex As Long
     Dim treatment As String
     Dim provider As String
 
@@ -184,6 +187,10 @@ Private Sub LoadProgramConfiguration()
                 If UBound(fields) >= 4 Then
                     treatment = fields(2)
                     lstTreatments.AddItem treatment
+                    rowIndex = lstTreatments.ListCount - 1
+                    lstTreatments.List(rowIndex, 1) = ""
+                    lstTreatments.List(rowIndex, 2) = ""
+                    lstTreatments.List(rowIndex, 3) = ""
                     mProviderKinds(treatment) = fields(3)
                     If Not mProviders.Exists(treatment) Then _
                         Set mProviders(treatment) = New Collection
@@ -218,7 +225,7 @@ Private Sub lstTreatments_Click()
     If mLoading Then Exit Sub
     SaveCurrentDraft
     If lstTreatments.ListIndex < 0 Then Exit Sub
-    mCurrentTreatment = CStr(lstTreatments.List(lstTreatments.ListIndex))
+    mCurrentTreatment = CStr(lstTreatments.List(lstTreatments.ListIndex, 0))
     LoadCurrentTreatmentEditor
 End Sub
 
@@ -239,6 +246,36 @@ Private Sub SaveCurrentDraft()
     ElseIf mDraftProviders.Exists(mCurrentTreatment) Then
         mDraftProviders.Remove mCurrentTreatment
     End If
+    RefreshTreatmentRow mCurrentTreatment
+End Sub
+
+Private Function DraftValue(ByVal dictionary As Object, ByVal treatment As String) As String
+    If dictionary.Exists(treatment) Then
+        DraftValue = Trim$(CStr(dictionary(treatment)))
+    Else
+        DraftValue = ""
+    End If
+End Function
+
+Private Sub RefreshTreatmentRow(ByVal treatment As String)
+    Dim i As Long
+    For i = 0 To lstTreatments.ListCount - 1
+        If StrComp(CStr(lstTreatments.List(i, 0)), treatment, vbTextCompare) = 0 Then
+            lstTreatments.List(i, 1) = DraftValue(mDraftDays, treatment)
+            lstTreatments.List(i, 2) = DraftValue(mDraftTimes, treatment)
+            lstTreatments.List(i, 3) = DraftValue(mDraftProviders, treatment)
+            Exit Sub
+        End If
+    Next i
+End Sub
+
+Private Sub RefreshAllTreatmentRows()
+    Dim i As Long
+    Dim treatment As String
+    For i = 0 To lstTreatments.ListCount - 1
+        treatment = CStr(lstTreatments.List(i, 0))
+        RefreshTreatmentRow treatment
+    Next i
 End Sub
 
 Private Sub LoadCurrentTreatmentEditor()
@@ -305,16 +342,8 @@ Private Sub UpdateDraftStatus()
     Next i
     cmdAutoComplete.Enabled = (selectedCount > 0)
     cmdSaveProgram.Enabled = False
-    lblStatus.Caption = CStr(selectedCount) & " επιλεγμένες θεραπείες. Τα συμπληρωμένα πεδία θεωρούνται χειροκίνητες επιλογές."
+    lblStatus.Caption = CStr(selectedCount) & " επιλεγμένες θεραπείες. Οι επιλογές φαίνονται στον πίνακα αριστερά."
 End Sub
-
-Private Function DraftValue(ByVal dictionary As Object, ByVal treatment As String) As String
-    If dictionary.Exists(treatment) Then
-        DraftValue = Trim$(CStr(dictionary(treatment)))
-    Else
-        DraftValue = ""
-    End If
-End Function
 
 Private Function BuildAutomaticRequestArguments() As String
     Dim i As Long
@@ -323,7 +352,7 @@ Private Function BuildAutomaticRequestArguments() As String
 
     For i = 0 To lstTreatments.ListCount - 1
         If lstTreatments.Selected(i) Then
-            treatment = CStr(lstTreatments.List(i))
+            treatment = CStr(lstTreatments.List(i, 0))
             payload = treatment & "|" & _
                       DraftValue(mDraftDays, treatment) & "|" & _
                       DraftValue(mDraftTimes, treatment) & "|" & _
@@ -370,9 +399,10 @@ Private Sub ApplyAutomaticCompletion(ByVal response As String)
 NextLine:
     Next i
 
+    RefreshAllTreatmentRows
     If Len(mCurrentTreatment) > 0 Then LoadCurrentTreatmentEditor
     If unresolvedCount = 0 Then
-        lblStatus.Caption = "Η αυτόματη συμπλήρωση βρήκε " & CStr(assignmentCount) & " προτάσεις. Οι χειροκίνητες επιλογές έμειναν κλειδωμένες."
+        lblStatus.Caption = "Η αυτόματη συμπλήρωση βρήκε " & CStr(assignmentCount) & " προτάσεις. Δες το συνολικό πρόγραμμα στον πίνακα αριστερά."
     Else
         lblStatus.Caption = "Αυτόματες προτάσεις: " & CStr(assignmentCount) & ". Εκκρεμούν: " & CStr(unresolvedCount) & "."
         MsgBox unresolvedText, vbInformation, "Θεραπείες που χρειάζονται παρέμβαση"
@@ -458,29 +488,32 @@ def install_patient_program_ui(vbproject, *, position_control) -> None:
     designer = form.Designer
     designer.Caption = "Πρόγραμμα θεραπείας ασθενούς"
     try:
-        designer.Width = 760
+        designer.Width = 1010
         designer.Height = 540
     except Exception:
         pass
 
     controls = (
         ("Forms.Label.1", "lblTitle", "Πρόγραμμα θεραπείας ασθενούς", 18, 16, 520, 26),
-        ("Forms.Label.1", "lblPatient", "Ασθενής:", 18, 48, 700, 22),
-        ("Forms.Label.1", "lblHint", "", 18, 76, 710, 38),
-        ("Forms.Label.1", "lblTreatments", "Θεραπείες", 18, 122, 250, 18),
-        ("Forms.ListBox.1", "lstTreatments", None, 18, 144, 280, 300),
-        ("Forms.Label.1", "lblEditing", "Ρυθμίσεις θεραπείας", 326, 122, 390, 20),
-        ("Forms.Label.1", "lblDays", "Ημέρες", 326, 160, 240, 18),
-        ("Forms.ComboBox.1", "cboDayPattern", None, 326, 180, 260, 22),
-        ("Forms.Label.1", "lblTime", "Ώρα", 326, 218, 240, 18),
-        ("Forms.ComboBox.1", "cboTime", None, 326, 238, 260, 22),
-        ("Forms.Label.1", "lblProvider", "Θεραπευτής / provider", 326, 276, 300, 18),
-        ("Forms.ComboBox.1", "cboProvider", None, 326, 296, 300, 22),
-        ("Forms.Label.1", "lblPreference", "", 326, 336, 390, 42),
-        ("Forms.Label.1", "lblStatus", "", 326, 388, 390, 48),
-        ("Forms.CommandButton.1", "cmdAutoComplete", "Αυτόματη συμπλήρωση", 326, 446, 180, 30),
-        ("Forms.CommandButton.1", "cmdSaveProgram", "Αποθήκευση προγράμματος", 516, 446, 200, 30),
-        ("Forms.CommandButton.1", "cmdClose", "Κλείσιμο", 596, 486, 120, 30),
+        ("Forms.Label.1", "lblPatient", "Ασθενής:", 18, 48, 920, 22),
+        ("Forms.Label.1", "lblHint", "", 18, 76, 950, 38),
+        ("Forms.Label.1", "lblColTreatment", "Θεραπεία", 18, 122, 125, 18),
+        ("Forms.Label.1", "lblColDays", "Ημέρες", 153, 122, 105, 18),
+        ("Forms.Label.1", "lblColTime", "Ώρα", 268, 122, 60, 18),
+        ("Forms.Label.1", "lblColProvider", "Θεραπευτής", 338, 122, 200, 18),
+        ("Forms.ListBox.1", "lstTreatments", None, 18, 144, 530, 300),
+        ("Forms.Label.1", "lblEditing", "Ρυθμίσεις θεραπείας", 578, 122, 390, 20),
+        ("Forms.Label.1", "lblDays", "Ημέρες", 578, 160, 300, 18),
+        ("Forms.ComboBox.1", "cboDayPattern", None, 578, 180, 300, 22),
+        ("Forms.Label.1", "lblTime", "Ώρα", 578, 218, 300, 18),
+        ("Forms.ComboBox.1", "cboTime", None, 578, 238, 300, 22),
+        ("Forms.Label.1", "lblProvider", "Θεραπευτής / provider", 578, 276, 350, 18),
+        ("Forms.ComboBox.1", "cboProvider", None, 578, 296, 350, 22),
+        ("Forms.Label.1", "lblPreference", "", 578, 336, 390, 42),
+        ("Forms.Label.1", "lblStatus", "", 578, 388, 390, 48),
+        ("Forms.CommandButton.1", "cmdAutoComplete", "Αυτόματη συμπλήρωση", 578, 446, 180, 30),
+        ("Forms.CommandButton.1", "cmdSaveProgram", "Αποθήκευση προγράμματος", 768, 446, 200, 30),
+        ("Forms.CommandButton.1", "cmdClose", "Κλείσιμο", 848, 486, 120, 30),
     )
     for prog_id, name, caption, left, top, width, height in controls:
         control = _ensure_control(
