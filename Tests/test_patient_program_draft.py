@@ -30,20 +30,18 @@ def test_program_draft_exposes_every_settings_treatment_in_order(monkeypatch):
     assert result.treatment_names == _settings().therapies
 
 
-def test_program_draft_assigns_provider_pool_by_treatment_family(monkeypatch):
+def test_program_draft_requires_provider_only_for_physiotherapy(monkeypatch):
     monkeypatch.setattr(draft, "read_settings", lambda path: _settings())
     monkeypatch.setattr(draft, "read_patients", lambda path: [_patient()])
 
     result = draft.build_patient_program_draft("dummy.xlsm", patient_id="P001")
 
     assert result.spec_for("ΦΘ").provider_kind == draft.PROVIDER_PHYSIOTHERAPIST
-    assert result.spec_for("Ρομποτικό").provider_choices == ("Φυσιο 1", "Φυσιο 2")
-    assert result.spec_for("Εργο").provider_choices == ("Εργο 1",)
-    assert result.spec_for("Λογο").provider_choices == ("Λογο 1",)
-    assert result.spec_for("Ψυχ").provider_choices == ("Ψυχ 1",)
-    assert result.spec_for("Ανακλινόμενο").requires_provider is False
-    assert result.spec_for("Πισίνα").requires_provider is False
-    assert result.spec_for("ΕΦΑ").requires_provider is False
+    assert result.spec_for("ΦΘ").provider_choices == ("Φυσιο 1", "Φυσιο 2")
+    for treatment in ("Ρομποτικό", "Ανακλινόμενο", "Πισίνα", "Εργο", "Λογο", "ΕΦΑ", "Ψυχ"):
+        spec = result.spec_for(treatment)
+        assert spec.requires_provider is False
+        assert spec.provider_choices == ()
 
 
 def test_program_draft_preserves_partial_manual_constraints(monkeypatch):
@@ -61,7 +59,6 @@ def test_program_draft_preserves_partial_manual_constraints(monkeypatch):
             draft.TreatmentDraftConstraint(
                 treatment="Ρομποτικό",
                 start_time=time(11, 30),
-                provider_id="φυσιο 2",
             ),
         ),
     )
@@ -73,11 +70,10 @@ def test_program_draft_preserves_partial_manual_constraints(monkeypatch):
     assert result.constraints[1] == draft.TreatmentDraftConstraint(
         treatment="Ρομποτικό",
         start_time=time(11, 30),
-        provider_id="Φυσιο 2",
     )
 
 
-def test_program_draft_rejects_provider_on_providerless_treatment(monkeypatch):
+def test_program_draft_rejects_provider_outside_physiotherapy(monkeypatch):
     monkeypatch.setattr(draft, "read_settings", lambda path: _settings())
     monkeypatch.setattr(draft, "read_patients", lambda path: [_patient()])
 
@@ -87,7 +83,7 @@ def test_program_draft_rejects_provider_on_providerless_treatment(monkeypatch):
             patient_id="P001",
             constraints=(
                 draft.TreatmentDraftConstraint(
-                    treatment="Ανακλινόμενο",
+                    treatment="Ρομποτικό",
                     provider_id="Φυσιο 1",
                 ),
             ),
