@@ -22,7 +22,7 @@ def test_robotic_treatment_label_is_styled_robotic_even_without_flag():
 
 def test_outpatient_fill_is_readable_muted_green_not_marker_green():
     palette = NativeStylePalette()
-    assert palette.outpatient_light_blue == excel_rgb(198, 224, 180)
+    assert palette.outpatient_light_blue == excel_rgb(157, 181, 143)
     assert palette.outpatient_light_blue != excel_rgb(0, 255, 0)
 
 
