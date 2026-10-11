@@ -78,7 +78,7 @@ def test_solver_prefers_lower_workload_complete_proposal(monkeypatch):
     assert by_treatment["Ρομποτικό"].start_time == time(9, 0)
 
 
-def test_solver_avoids_same_patient_time_collision_on_overlapping_days(monkeypatch):
+def test_solver_avoids_same_patient_interval_collision_on_overlapping_days(monkeypatch):
     monkeypatch.setattr(
         automatic,
         "recurring_therapist_choices",
@@ -248,7 +248,7 @@ def test_robotic_does_not_require_provider(monkeypatch):
     assert assignment.therapist_name == ""
 
 
-def test_recliner_prefers_nearest_slot_to_physiotherapy(monkeypatch):
+def test_recliner_prefers_duration_safe_adjacent_slot_to_physiotherapy(monkeypatch):
     monkeypatch.setattr(
         automatic,
         "recurring_therapist_choices",
@@ -268,7 +268,60 @@ def test_recliner_prefers_nearest_slot_to_physiotherapy(monkeypatch):
     assert proposal.complete is True
     by_treatment = {item.treatment: item for item in proposal.assignments}
     assert by_treatment["ΦΘ"].start_time == time(10, 0)
-    assert by_treatment["Ανακλινόμενο"].start_time in {time(9, 30), time(10, 30)}
+    # 09:30-10:00 is exactly adjacent. 10:30 overlaps the 10:00-10:45 ΦΘ.
+    assert by_treatment["Ανακλινόμενο"].start_time == time(9, 30)
+
+
+def test_physio_0915_forces_recliner_to_1000_or_0830_and_prefers_1000(monkeypatch, generalized_workbook):
+    generalized_workbook.reclined_timeslots = (
+        time(8, 30),
+        time(9, 0),
+        time(9, 30),
+        time(10, 0),
+    )
+    monkeypatch.setattr(
+        automatic,
+        "recurring_therapist_choices",
+        lambda *args, **kwargs: (_choice("T1", "Άλφα", 1, time(9, 15)),),
+    )
+
+    proposal = propose_automatic_patient_schedule(
+        "dummy.xlsm",
+        patient_id="P1",
+        anchor_date=DAY,
+        requests=(
+            AutomaticTreatmentRequest("ΦΘ", "Δε-Τε-Πα"),
+            AutomaticTreatmentRequest("Ανακλινόμενο", "Δε-Τε-Πα"),
+        ),
+    )
+
+    assert proposal.complete is True
+    by_treatment = {item.treatment: item for item in proposal.assignments}
+    assert by_treatment["ΦΘ"].start_time == time(9, 15)
+    assert by_treatment["Ανακλινόμενο"].start_time == time(10, 0)
+
+
+def test_recliner_0900_conflicts_with_physio_0915(monkeypatch, generalized_workbook):
+    generalized_workbook.reclined_timeslots = (time(9, 0),)
+    monkeypatch.setattr(
+        automatic,
+        "recurring_therapist_choices",
+        lambda *args, **kwargs: (_choice("T1", "Άλφα", 1, time(9, 15)),),
+    )
+
+    proposal = propose_automatic_patient_schedule(
+        "dummy.xlsm",
+        patient_id="P1",
+        anchor_date=DAY,
+        requests=(
+            AutomaticTreatmentRequest("ΦΘ", "Δε-Τε-Πα", start_time=time(9, 15)),
+            AutomaticTreatmentRequest("Ανακλινόμενο", "Δε-Τε-Πα", start_time=time(9, 0)),
+        ),
+    )
+
+    assert len(proposal.assignments) == 1
+    assert len(proposal.unresolved) == 1
+    assert "συγκρούονται χρονικά" in proposal.unresolved[0].reason
 
 
 def test_partial_proposal_when_fixed_options_conflict(monkeypatch):
