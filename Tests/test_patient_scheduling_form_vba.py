@@ -1,7 +1,10 @@
+import inspect
+
 from rehab_excel.patient_registration_scheduling_slice import _scheduling_form_code
 from rehab_excel.patient_scheduling_form_vba import (
     PATIENT_SCHEDULING_FORM_CODE,
     PATIENT_SCHEDULING_MODULE_CODE,
+    _ensure_control,
 )
 
 
@@ -11,6 +14,14 @@ def test_registration_continues_directly_into_patient_scheduling():
     assert "Συνεχίζουμε στον προγραμματισμό θεραπείας." in code
     assert "ThisWorkbook.Close" not in code
     assert "Application.Quit" not in code
+
+
+def test_registration_keeps_parent_form_alive_while_modal_is_open():
+    code = _scheduling_form_code()
+    hide_pos = code.index("Me.Hide")
+    open_pos = code.index("OpenPatientScheduling patientId")
+    unload_pos = code.index("Unload Me", open_pos)
+    assert hide_pos < open_pos < unload_pos
 
 
 def test_registration_success_is_not_reclassified_when_scheduling_fails():
@@ -53,6 +64,15 @@ def test_scheduling_form_uses_numbered_human_facing_labels():
     assert "2. Ημέρες θεραπείας" in joined
     assert "3. Διαθέσιμος θεραπευτής" in joined
     assert "4. Διαθέσιμη ώρα" in joined
+
+
+def test_scheduling_controls_receive_non_default_widths():
+    source = inspect.getsource(_ensure_control)
+    assert "width = 430" in source
+    assert "width = 260" in source
+    assert "width = 220" in source
+    assert "control.Width = width" in source
+    assert "control.Height = height" in source
 
 
 def test_scheduling_form_only_shows_slots_for_selected_therapist():
