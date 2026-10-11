@@ -64,6 +64,44 @@ def test_scheduling_preview_builds_missing_patient_form_on_private_prerequisite(
     assert not prerequisite.exists()
 
 
+def test_legacy_patient_scheduling_runtime_is_removed_before_new_runtime_install():
+    legacy = object()
+    remaining = {
+        scheduling_slice.LEGACY_PATIENT_SCHEDULING_MODULE_NAME: legacy,
+        "PatientProgramRuntime": object(),
+    }
+    removed = []
+
+    class FakeVBComponents:
+        def __call__(self, name):
+            if name not in remaining:
+                raise KeyError(name)
+            return remaining[name]
+
+        def Remove(self, component):
+            removed.append(component)
+            for name, value in tuple(remaining.items()):
+                if value is component:
+                    del remaining[name]
+                    return
+            raise AssertionError("component was not present")
+
+    vbproject = SimpleNamespace(VBComponents=FakeVBComponents())
+
+    assert scheduling_slice._remove_vb_component_if_present(
+        vbproject,
+        scheduling_slice.LEGACY_PATIENT_SCHEDULING_MODULE_NAME,
+    ) is True
+    assert removed == [legacy]
+    assert scheduling_slice.LEGACY_PATIENT_SCHEDULING_MODULE_NAME not in remaining
+    assert "PatientProgramRuntime" in remaining
+
+    assert scheduling_slice._remove_vb_component_if_present(
+        vbproject,
+        scheduling_slice.LEGACY_PATIENT_SCHEDULING_MODULE_NAME,
+    ) is False
+
+
 def test_recurring_visual_refresh_uses_unified_inpatient_and_outpatient_schedule(tmp_path, monkeypatch):
     workbook = tmp_path / "preview.xlsm"
     workbook.write_bytes(b"preview")
