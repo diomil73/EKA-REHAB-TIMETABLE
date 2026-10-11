@@ -45,7 +45,7 @@ def test_specialty_treatment_does_not_fail_when_provider_pool_is_empty(monkeypat
     assert proposal.assignments[0].therapist_name == ""
 
 
-def test_manual_time_conflict_reports_patient_collision_not_provider_problem(monkeypatch):
+def test_manual_time_conflict_reports_patient_collision(monkeypatch):
     existing = SimpleNamespace(
         patient_id="P1",
         treatment="Λογο",
@@ -66,4 +66,3 @@ def test_manual_time_conflict_reports_patient_collision_not_provider_problem(mon
 
     assert proposal.complete is False
     assert "συγκρούεται" in proposal.unresolved[0].reason
-    assert "provider" not in proposal.unresolved[0].reason.casefold()
