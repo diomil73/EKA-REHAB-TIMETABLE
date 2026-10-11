@@ -129,7 +129,6 @@ def _conflicts_existing_patient(option: _Option, base_entries, patient_id: str) 
     for entry in base_entries:
         if _normalize(entry.patient_id) != patient_key:
             continue
-        # Editing/re-proposing the same treatment must not collide with itself.
         if _normalize(entry.treatment) == treatment_key:
             continue
         if entry.start_time != option.start_time:
@@ -216,6 +215,82 @@ def _generic_options(
     return tuple(options)
 
 
+def _generic_failure_reason(
+    workbook_path: str | Path,
+    *,
+    request: AutomaticTreatmentRequest,
+    patient_id: str,
+    day_patterns: Iterable[str],
+    base_entries,
+) -> str:
+    draft = build_patient_program_draft(workbook_path, patient_id=patient_id)
+    spec = draft.spec_for(request.treatment)
+    settings = read_settings(workbook_path)
+    slots = (
+        settings.reclined_timeslots
+        if _normalize(request.treatment) == _normalize("Ανακλινόμενο")
+        else settings.standard_timeslots
+    )
+
+    if spec.requires_provider and not spec.provider_choices:
+        return (
+            "Δεν υπάρχουν καταχωρημένοι providers στο SETTINGS για αυτή τη θεραπεία. "
+            "Έλεγξε τη λίστα της ειδικότητας πριν θεωρηθεί ότι δεν υπάρχει διαθέσιμος χώρος."
+        )
+    if not tuple(day_patterns):
+        return "Δεν υπάρχουν day patterns στο SETTINGS για αυτόματο προγραμματισμό."
+    if not slots:
+        return "Δεν υπάρχουν timeslots στο SETTINGS για αυτή τη θεραπεία."
+
+    if request.provider_id and spec.requires_provider:
+        allowed = {_normalize(value) for value in spec.provider_choices}
+        if _normalize(request.provider_id) not in allowed:
+            return "Ο χειροκίνητα επιλεγμένος provider δεν υπάρχει στη λίστα SETTINGS της θεραπείας."
+
+    providers = spec.provider_choices if spec.requires_provider else ("",)
+    any_provider_slot = False
+    any_patient_compatible = False
+    for day_pattern in day_patterns:
+        weekdays = _request_weekdays(day_pattern)
+        for provider in providers:
+            for slot in slots:
+                if request.start_time is not None and slot != request.start_time:
+                    continue
+                if provider and request.provider_id and _normalize(provider) != _normalize(request.provider_id):
+                    continue
+                if provider:
+                    free, _ = _provider_is_free(base_entries, provider, weekdays, slot)
+                    if not free:
+                        continue
+                any_provider_slot = True
+                option = _Option(
+                    request_index=-1,
+                    treatment=request.treatment,
+                    day_pattern=day_pattern,
+                    weekdays=weekdays,
+                    therapist_id=provider,
+                    therapist_name=provider,
+                    start_time=slot,
+                    workload_count=0,
+                )
+                if not _conflicts_existing_patient(option, base_entries, patient_id):
+                    any_patient_compatible = True
+                    break
+            if any_patient_compatible:
+                break
+        if any_patient_compatible:
+            break
+
+    if not any_provider_slot and spec.requires_provider:
+        return (
+            "Υπάρχουν providers στο SETTINGS, αλλά κανένας δεν έχει διαθέσιμο slot "
+            "στο ζητούμενο εύρος ημερών/ωρών ή έχει φτάσει το ημερήσιο όριο."
+        )
+    if any_provider_slot and not any_patient_compatible:
+        return "Υπάρχει διαθέσιμος provider/slot, αλλά συγκρούεται με άλλη θεραπεία του ασθενούς."
+    return "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα."
+
+
 def _apply_manual_constraints(
     request: AutomaticTreatmentRequest,
     options: Iterable[_Option],
@@ -278,14 +353,7 @@ def propose_automatic_patient_schedule(
     anchor_date: date,
     additional_robotic_capable_names: Iterable[str] = (),
 ) -> AutomaticScheduleProposal:
-    """Build a read-only, hybrid recurring patient-program proposal.
-
-    Non-blank user values are hard constraints. Blank day pattern, time and
-    provider fields are solver-controlled. ΦΘ/Ρομποτικό reuse the mature
-    physiotherapist candidate engine. Other configured treatments use their
-    SETTINGS provider pools (when applicable) and PATIENT_PLANNER occupancy.
-    Ανακλινόμενο is strongly preferred as close as possible before/after ΦΘ.
-    """
+    """Build a read-only, hybrid recurring patient-program proposal."""
 
     patient_key = patient_id.strip()
     if not patient_key:
@@ -324,8 +392,9 @@ def propose_automatic_patient_schedule(
             (request.day_pattern,) if request.day_pattern else tuple(settings.day_patterns)
         )
         options: list[_Option] = []
+        generic = _normalize(request.treatment) not in physio_supported
 
-        if _normalize(request.treatment) in physio_supported:
+        if not generic:
             for day_pattern in candidate_patterns:
                 choices = recurring_therapist_choices(
                     workbook_path,
@@ -362,10 +431,21 @@ def propose_automatic_patient_schedule(
 
         constrained = _apply_manual_constraints(request, options)
         if not constrained:
+            reason = (
+                _generic_failure_reason(
+                    workbook_path,
+                    request=request,
+                    patient_id=patient_key,
+                    day_patterns=candidate_patterns,
+                    base_entries=base_entries,
+                )
+                if generic
+                else "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα."
+            )
             fixed_unresolved[index] = AutomaticUnresolvedTreatment(
                 request.treatment,
                 request.day_pattern or "",
-                "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα.",
+                reason,
             )
             continue
 
@@ -407,7 +487,6 @@ def propose_automatic_patient_schedule(
             )
             for index, option in sorted(selected.items())
         )
-        # Completeness first, then strong ΦΘ/Ανακλινόμενο adjacency preference.
         return (len(skipped), adjacency, total_workload, time_score, signature)
 
     def search(position: int, selected: dict[int, _Option], skipped: tuple[int, ...]) -> None:
