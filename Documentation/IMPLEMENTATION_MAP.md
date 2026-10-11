@@ -96,6 +96,15 @@
 - Recliner/ΦΘ adjacency scoring με πραγματικό gap μεταξύ intervals.
 - Preview installer εφαρμόζει `hh:mm` στις treatment columns `D:J` του `MASTER_SCHEDULE`.
 
+### V65 installer hardening
+
+Το πρώτο V65 build σταμάτησε με Excel/VBE COM error `-2146828213`, που αντιστοιχεί σε **Run-time error 75 / Path/File access error**, μέσα στο scheduling UI installation stage.
+
+Έγιναν δύο διορθώσεις πριν από νέο native build:
+
+- το `frmEditPatient` δεν αφαιρείται και δεν ξαναδημιουργείται πλέον όταν υπάρχει ήδη. Ο installer έγινε idempotent: επαναχρησιμοποιεί το υπάρχον UserForm, εξασφαλίζει τα controls και αντικαθιστά μόνο τον κώδικα,
+- ο scheduling UI installer απέκτησε stage-specific diagnostics ώστε νέο COM failure να αναφέρει αν συνέβη σε workbook open, VBA project access, patient-program form, edit form, combo handlers, MASTER formatting ή workbook save.
+
 ### Τελευταίο verified gate
 
 Το προηγούμενο focused gate έχει επιβεβαιωθεί από τον χρήστη:
@@ -110,15 +119,16 @@
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. focused pytest για draft, solver, bridge, program form, edit flow, combo clear και scheduling slice,
-2. νέο preview από clean V48 base,
-3. έλεγχος ότι στο MASTER οι ώρες εμφανίζονται `hh:mm`, όχι δεκαδικά,
-4. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
-5. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα σε Ρομποτικό/Εργο/Λογο/Ψυχ χωρίς να μπλοκάρει automatic completion,
-6. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
-7. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
-8. επιβεβαίωση ότι η φόρμα ανοίγει με το ήδη υπάρχον πρόγραμμα του ασθενούς και επιτρέπει αλλαγές,
-9. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
+1. focused pytest για draft, solver, bridge, program form, edit flow, combo clear και scheduling slice, συμπεριλαμβανομένων των νέων installer-hardening regressions,
+2. νέο V65 preview build από clean V48 base,
+3. αν υπάρξει ξανά SAFETY STOP, καταγραφή του **ακριβούς installation stage** από το νέο diagnostic μήνυμα,
+4. έλεγχος ότι στο MASTER οι ώρες εμφανίζονται `hh:mm`, όχι δεκαδικά,
+5. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
+6. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα σε Ρομποτικό/Εργο/Λογο/Ψυχ χωρίς να μπλοκάρει automatic completion,
+7. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
+8. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
+9. επιβεβαίωση ότι η φόρμα ανοίγει με το ήδη υπάρχον πρόγραμμα του ασθενούς και επιτρέπει αλλαγές,
+10. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
 
 ---
 
@@ -126,10 +136,10 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite για το νέο batch.
-2. Διόρθωση τυχόν regression failures.
-3. Build επόμενου preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-4. Native Excel smoke test των τριών νέων απαιτήσεων: `hh:mm`, duration-safe adjacency, edit existing program.
+1. Τρέξιμο focused regression suite για το νέο batch και το installer hardening.
+2. Νέο build V65 από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+3. Αν ο installer αποτύχει, χρήση του stage-specific SAFETY STOP για στοχευμένη διόρθωση αντί για γενικό COM guess.
+4. Native Excel smoke test των τριών νέων απαιτήσεων: `hh:mm`, duration-safe adjacency, edit existing program + optional manual names.
 5. Full regression suite όταν περάσει το native smoke test.
 
 ### Μετά το patient-program milestone
