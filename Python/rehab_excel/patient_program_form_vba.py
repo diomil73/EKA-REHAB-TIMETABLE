@@ -68,6 +68,13 @@ Public Function LoadPatientProgramConfig(ByVal patientId As String) As String
     )
 End Function
 
+Public Function CompletePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String
+    CompletePatientProgram = RunProgramBridge( _
+        "complete-vba " & QuoteArg(ThisWorkbook.FullName) & _
+        " --patient-id " & QuoteArg(patientId) & requestArguments _
+    )
+End Function
+
 Public Function FindPatientDisplayName(ByVal patientId As String) As String
     Dim ws As Worksheet
     Dim lastRow As Long
@@ -240,7 +247,10 @@ Private Sub LoadCurrentTreatmentEditor()
     treatment = mCurrentTreatment
     mLoading = True
 
-    lblEditing.Caption = "Ρυθμίσεις: " & treatment
+    lblEditing.Caption = "Ρυθμίσεις θεραπείας: " & treatment
+    lblDays.Caption = "Ημέρες για " & treatment
+    lblTime.Caption = "Ώρα για " & treatment
+    lblProvider.Caption = "Θεραπευτής / provider για " & treatment
     cboProvider.Clear
     cboTime.Clear
 
@@ -298,13 +308,102 @@ Private Sub UpdateDraftStatus()
     lblStatus.Caption = CStr(selectedCount) & " επιλεγμένες θεραπείες. Τα συμπληρωμένα πεδία θεωρούνται χειροκίνητες επιλογές."
 End Sub
 
+Private Function DraftValue(ByVal dictionary As Object, ByVal treatment As String) As String
+    If dictionary.Exists(treatment) Then
+        DraftValue = Trim$(CStr(dictionary(treatment)))
+    Else
+        DraftValue = ""
+    End If
+End Function
+
+Private Function BuildAutomaticRequestArguments() As String
+    Dim i As Long
+    Dim treatment As String
+    Dim payload As String
+
+    For i = 0 To lstTreatments.ListCount - 1
+        If lstTreatments.Selected(i) Then
+            treatment = CStr(lstTreatments.List(i))
+            payload = treatment & "|" & _
+                      DraftValue(mDraftDays, treatment) & "|" & _
+                      DraftValue(mDraftTimes, treatment) & "|" & _
+                      DraftValue(mDraftProviders, treatment)
+            BuildAutomaticRequestArguments = BuildAutomaticRequestArguments & _
+                " --request " & Chr$(34) & Replace(payload, Chr$(34), "") & Chr$(34)
+        End If
+    Next i
+End Function
+
+Private Sub ApplyAutomaticCompletion(ByVal response As String)
+    Dim lines() As String
+    Dim fields() As String
+    Dim i As Long
+    Dim treatment As String
+    Dim assignmentCount As Long
+    Dim unresolvedCount As Long
+    Dim unresolvedText As String
+
+    lines = Split(Replace(response, vbCrLf, vbLf), vbLf)
+    For i = LBound(lines) To UBound(lines)
+        If Len(Trim$(lines(i))) = 0 Then GoTo NextLine
+        fields = Split(lines(i), vbTab)
+        If fields(0) = "ERROR" Then Err.Raise vbObjectError + 2921, , fields(1)
+        Select Case fields(0)
+            Case "ASSIGNMENT"
+                If UBound(fields) >= 6 Then
+                    treatment = fields(1)
+                    If Not mDraftDays.Exists(treatment) And Len(Trim$(fields(2))) > 0 Then _
+                        mDraftDays(treatment) = Trim$(fields(2))
+                    If Not mDraftTimes.Exists(treatment) And Len(Trim$(fields(3))) > 0 Then _
+                        mDraftTimes(treatment) = Trim$(fields(3))
+                    If Not mDraftProviders.Exists(treatment) And Len(Trim$(fields(5))) > 0 Then _
+                        mDraftProviders(treatment) = Trim$(fields(5))
+                    assignmentCount = assignmentCount + 1
+                End If
+            Case "UNRESOLVED"
+                unresolvedCount = unresolvedCount + 1
+                If UBound(fields) >= 3 Then
+                    If Len(unresolvedText) > 0 Then unresolvedText = unresolvedText & vbCrLf
+                    unresolvedText = unresolvedText & fields(1) & ": " & fields(3)
+                End If
+        End Select
+NextLine:
+    Next i
+
+    If Len(mCurrentTreatment) > 0 Then LoadCurrentTreatmentEditor
+    If unresolvedCount = 0 Then
+        lblStatus.Caption = "Η αυτόματη συμπλήρωση βρήκε " & CStr(assignmentCount) & " προτάσεις. Οι χειροκίνητες επιλογές έμειναν κλειδωμένες."
+    Else
+        lblStatus.Caption = "Αυτόματες προτάσεις: " & CStr(assignmentCount) & ". Εκκρεμούν: " & CStr(unresolvedCount) & "."
+        MsgBox unresolvedText, vbInformation, "Θεραπείες που χρειάζονται παρέμβαση"
+    End If
+End Sub
+
 Private Sub cmdAutoComplete_Click()
+    Dim requestArguments As String
+    Dim response As String
+
+    On Error GoTo AutoError
     SaveCurrentDraft
-    MsgBox "Η αυτόματη συμπλήρωση του νέου πολυθεραπευτικού draft είναι το επόμενο βήμα. Οι χειροκίνητες επιλογές που έβαλες παραμένουν κλειδωμένες.", vbInformation, "Αυτόματη συμπλήρωση"
+    requestArguments = BuildAutomaticRequestArguments()
+    If Len(Trim$(requestArguments)) = 0 Then
+        MsgBox "Επίλεξε τουλάχιστον μία θεραπεία.", vbExclamation, "Αυτόματη συμπλήρωση"
+        Exit Sub
+    End If
+
+    lblStatus.Caption = "Υπολογίζονται διαθέσιμες επιλογές..."
+    DoEvents
+    response = CompletePatientProgram(mPatientId, requestArguments)
+    ApplyAutomaticCompletion response
+    Exit Sub
+
+AutoError:
+    lblStatus.Caption = "Η αυτόματη συμπλήρωση δεν ολοκληρώθηκε."
+    MsgBox Err.Description, vbExclamation, "Αυτόματη συμπλήρωση"
 End Sub
 
 Private Sub cmdSaveProgram_Click()
-    MsgBox "Η τελική atomic αποθήκευση θα ενεργοποιηθεί μαζί με τον νέο multi-treatment solver.", vbInformation, "Αποθήκευση προγράμματος"
+    MsgBox "Η τελική atomic αποθήκευση θα ενεργοποιηθεί στο επόμενο βήμα. Το τρέχον draft δεν γράφει ακόμη στο workbook.", vbInformation, "Αποθήκευση προγράμματος"
 End Sub
 
 Private Sub cmdClose_Click()
@@ -371,14 +470,14 @@ def install_patient_program_ui(vbproject, *, position_control) -> None:
         ("Forms.Label.1", "lblTreatments", "Θεραπείες", 18, 122, 250, 18),
         ("Forms.ListBox.1", "lstTreatments", None, 18, 144, 280, 300),
         ("Forms.Label.1", "lblEditing", "Ρυθμίσεις θεραπείας", 326, 122, 390, 20),
-        ("Forms.Label.1", "lblDays", "Ημέρες", 326, 160, 130, 18),
+        ("Forms.Label.1", "lblDays", "Ημέρες", 326, 160, 240, 18),
         ("Forms.ComboBox.1", "cboDayPattern", None, 326, 180, 260, 22),
-        ("Forms.Label.1", "lblTime", "Ώρα", 326, 218, 130, 18),
+        ("Forms.Label.1", "lblTime", "Ώρα", 326, 218, 240, 18),
         ("Forms.ComboBox.1", "cboTime", None, 326, 238, 260, 22),
-        ("Forms.Label.1", "lblProvider", "Θεραπευτής / provider", 326, 276, 180, 18),
+        ("Forms.Label.1", "lblProvider", "Θεραπευτής / provider", 326, 276, 300, 18),
         ("Forms.ComboBox.1", "cboProvider", None, 326, 296, 300, 22),
         ("Forms.Label.1", "lblPreference", "", 326, 336, 390, 42),
-        ("Forms.Label.1", "lblStatus", "", 326, 388, 390, 40),
+        ("Forms.Label.1", "lblStatus", "", 326, 388, 390, 48),
         ("Forms.CommandButton.1", "cmdAutoComplete", "Αυτόματη συμπλήρωση", 326, 446, 180, 30),
         ("Forms.CommandButton.1", "cmdSaveProgram", "Αποθήκευση προγράμματος", 516, 446, 200, 30),
         ("Forms.CommandButton.1", "cmdClose", "Κλείσιμο", 596, 486, 120, 30),
