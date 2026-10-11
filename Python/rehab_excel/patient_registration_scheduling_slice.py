@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 
 from . import patient_registration_vertical_slice as _vertical
 from .native_excel import apply_write_plan_to_copy
@@ -170,8 +171,6 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
 def _refresh_daily_visuals(workbook_path: Path) -> None:
     """Refresh recurring THERAPIST_DAILY rich-text roles from authoritative data."""
 
-    styled_copy = workbook_path.with_name(f".{workbook_path.stem}.recurring-style.xlsm")
-    styled_copy.unlink(missing_ok=True)
     try:
         patients = read_patient_registry(workbook_path)
         base_entries = read_unified_base_schedule(workbook_path)
@@ -182,16 +181,20 @@ def _refresh_daily_visuals(workbook_path: Path) -> None:
         )
         if write_plan.operation_count == 0:
             return
-        apply_write_plan_to_copy(write_plan, styled_copy, overwrite=True)
-        styled_copy.replace(workbook_path)
+
+        # Keep the intermediate rich-text workbook out of Excel/previews. On
+        # Windows, a leading dot does not hide files, so the old sibling temp
+        # copy was visible to users as e.g. V53.recurring-style.xlsm.
+        with tempfile.TemporaryDirectory(prefix="eka-recurring-style-") as temp_dir:
+            styled_copy = Path(temp_dir) / f"{workbook_path.stem}.xlsm"
+            apply_write_plan_to_copy(write_plan, styled_copy, overwrite=True)
+            shutil.copy2(styled_copy, workbook_path)
     except PatientRegistrationBridgeVbaError:
         raise
     except Exception as exc:
         raise PatientRegistrationBridgeVbaError(
             f"THERAPIST_DAILY recurring visual refresh failed: {exc}"
         ) from exc
-    finally:
-        styled_copy.unlink(missing_ok=True)
 
 
 def create_patient_registration_bridge_preview(
