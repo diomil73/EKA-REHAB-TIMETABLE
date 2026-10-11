@@ -79,9 +79,61 @@ def _validate_payload(args: argparse.Namespace) -> dict:
     }
 
 
+def _vba_safe(value: object) -> str:
+    return str(value).replace("\t", " ").replace("\r", " ").replace("\n", " ")
+
+
+def _plan_vba_lines(payload: dict) -> tuple[str, ...]:
+    lines = [
+        "\t".join(
+            (
+                "OK",
+                _vba_safe(payload["patient_id"]),
+                _vba_safe(payload["date"]),
+            )
+        )
+    ]
+    for treatment in payload["treatments"]:
+        lines.append(
+            "\t".join(
+                (
+                    "TREATMENT",
+                    _vba_safe(treatment["treatment"]),
+                    "1" if treatment["requires_therapist"] else "0",
+                )
+            )
+        )
+        for therapist in treatment["therapists"]:
+            lines.append(
+                "\t".join(
+                    (
+                        "THERAPIST",
+                        _vba_safe(treatment["treatment"]),
+                        _vba_safe(therapist["therapist_id"]),
+                        _vba_safe(therapist["label"]),
+                        "|".join(_vba_safe(slot) for slot in therapist["available_slots"]),
+                    )
+                )
+            )
+    return tuple(lines)
+
+
+def _validate_vba_line(payload: dict) -> str:
+    return "\t".join(
+        (
+            "OK",
+            "1" if payload["valid"] else "0",
+            _vba_safe(payload["message"]),
+        )
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Patient scheduling runtime bridge")
-    parser.add_argument("command", choices=("plan", "validate"))
+    parser.add_argument(
+        "command",
+        choices=("plan", "validate", "plan-vba", "validate-vba"),
+    )
     parser.add_argument("workbook", type=Path)
     parser.add_argument("--patient-id", required=True)
     parser.add_argument("--date", required=True)
@@ -97,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.command == "plan":
+        if args.command in {"plan", "plan-vba"}:
             payload = _plan_payload(args)
         else:
             missing = [
@@ -113,10 +165,19 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("validate requires " + ", ".join(missing))
             payload = _validate_payload(args)
     except Exception as exc:
-        _json_dump({"ok": False, "error": str(exc)})
+        if args.command.endswith("-vba"):
+            print("ERROR\t" + _vba_safe(exc))
+        else:
+            _json_dump({"ok": False, "error": str(exc)})
         return 2
 
-    _json_dump(payload)
+    if args.command == "plan-vba":
+        for line in _plan_vba_lines(payload):
+            print(line)
+    elif args.command == "validate-vba":
+        print(_validate_vba_line(payload))
+    else:
+        _json_dump(payload)
     return 0
 
 
