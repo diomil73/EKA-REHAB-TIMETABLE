@@ -27,6 +27,16 @@ def test_patient_edit_form_keeps_outpatient_doctor_room_and_infectious_disabled(
     assert 'txtResponsibleDoctor.Text = ""' in PATIENT_EDIT_FORM_CODE
 
 
+def test_patient_edit_save_continues_into_same_program_editor():
+    code = PATIENT_EDIT_FORM_CODE
+    assert "patientId = Trim$(txtPatientID.Text)" in code
+    assert "UpdatePatientInWorkbook" in code
+    assert "Me.Hide" in code
+    assert "OpenPatientScheduling patientId" in code
+    assert "Συνεχίζουμε στο πρόγραμμα θεραπείας του ασθενούς" in code
+    assert "Οι αλλαγές του ασθενούς έχουν ήδη αποθηκευτεί" in code
+
+
 def test_registry_menu_exposes_patient_edit_action_without_separate_outpatient_schedule():
     code = _menu_code_with_patient_edit()
     assert 'StyleMenuButton cmdEditPatient, "Επεξεργασία ασθενή", 113' in code
