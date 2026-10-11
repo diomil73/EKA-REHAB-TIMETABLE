@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -62,6 +63,12 @@ def test_scheduling_preview_builds_missing_patient_form_on_private_prerequisite(
     assert report.output_path == str(output)
     assert source.read_bytes() == b"baseline"
     assert not prerequisite.exists()
+
+
+def test_scheduling_ui_installer_refreshes_patient_edit_form_and_master_time_format():
+    source = inspect.getsource(scheduling_slice._install_scheduling_ui)
+    assert "install_patient_edit_form" in source
+    assert 'Worksheets("MASTER_SCHEDULE").Columns("D:J").NumberFormat = "hh:mm"' in source
 
 
 def test_legacy_patient_scheduling_runtime_is_removed_before_new_runtime_install():
