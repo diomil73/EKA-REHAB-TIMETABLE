@@ -15,6 +15,7 @@ from .recurring_daily_style import build_recurring_therapist_daily_style_plan
 
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
 _BASE_VERTICAL_FORM_CODE = _vertical._vertical_form_code
+LEGACY_PATIENT_SCHEDULING_MODULE_NAME = "PatientSchedulingRuntime"
 
 
 def _scheduling_form_code() -> str:
@@ -71,6 +72,17 @@ def _has_vb_component(vbproject, component_name: str) -> bool:
         return vbproject.VBComponents(component_name) is not None
     except Exception:
         return False
+
+
+def _remove_vb_component_if_present(vbproject, component_name: str) -> bool:
+    """Remove one obsolete VBA component and report whether it existed."""
+
+    try:
+        component = vbproject.VBComponents(component_name)
+    except Exception:
+        return False
+    vbproject.VBComponents.Remove(component)
+    return True
 
 
 def _install_base_patient_form(workbook_path: Path) -> None:
@@ -140,6 +152,15 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
 
+        # V48/V54-derived previews may still contain the retired single-treatment
+        # runtime. It exports the same public OpenPatientScheduling and
+        # FindPatientDisplayName procedures as the new patient-program runtime,
+        # which makes the VBA project fail to compile with "Ambiguous name
+        # detected". Keep the mature form, but remove only that obsolete module.
+        _remove_vb_component_if_present(
+            workbook.VBProject,
+            LEGACY_PATIENT_SCHEDULING_MODULE_NAME,
+        )
         install_patient_program_ui(
             workbook.VBProject,
             position_control=_position_control,
