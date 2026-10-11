@@ -41,6 +41,7 @@ class NativeStylePalette:
     outpatient_light_blue: int = excel_rgb(157, 181, 143)
     robotic_orange: int = excel_rgb(255, 140, 0)
     student_green: int = excel_rgb(0, 128, 0)
+    outpatient_dark_green: int = excel_rgb(0, 128, 0)
     muted_gray: int = excel_rgb(102, 102, 102)
     default_black: int = excel_rgb(0, 0, 0)
 
@@ -71,6 +72,7 @@ class Win32ComExcelBackend:
     def _font_color_for_role(role: str | None, palette: NativeStylePalette) -> int | None:
         return {
             "student_active_green": palette.student_green,
+            "outpatient_dark_green": palette.outpatient_dark_green,
             "robotic_orange": palette.robotic_orange,
             "muted": palette.muted_gray,
             "default": palette.default_black,
