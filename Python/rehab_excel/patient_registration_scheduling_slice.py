@@ -33,8 +33,19 @@ def _scheduling_form_code() -> str:
            "Συνεχίζουμε στον προγραμματισμό θεραπείας.", _
            vbInformation, "Νέος ασθενής"
     Unload Me
+    On Error GoTo SchedulingError
     OpenPatientScheduling patientId
     GoToMaster
+    Exit Sub
+
+SchedulingError:
+    MsgBox "Ο ασθενής έχει ήδη καταχωρηθεί επιτυχώς." & vbCrLf & _
+           "Δεν μπόρεσε να ανοίξει/ολοκληρωθεί ο προγραμματισμός θεραπείας:" & vbCrLf & _
+           Err.Description, _
+           vbExclamation, "Προγραμματισμός θεραπείας"
+    On Error Resume Next
+    GoToMaster
+    On Error GoTo 0
     Exit Sub'''
     if old not in code:
         raise RuntimeError("Patient scheduling continuation marker missing")
