@@ -12,9 +12,20 @@ def test_program_form_loads_configuration_from_patient_program_bridge():
     assert "LoadPatientProgramConfig" in runtime
     assert 'Case "TREATMENT"' in form
     assert 'Case "PROVIDER"' in form
+    assert 'Case "CURRENT"' in form
     assert 'Case "DAY_PATTERN"' in form
     assert 'Case "STANDARD_SLOT"' in form
     assert 'Case "RECLINED_SLOT"' in form
+
+
+def test_program_form_preloads_existing_program_into_same_draft():
+    code = PATIENT_PROGRAM_FORM_CODE
+    assert 'Case "CURRENT"' in code
+    assert "mIncluded(treatment) = True" in code
+    assert "mDraftDays(treatment) = Trim$(fields(2))" in code
+    assert "mDraftTimes(treatment) = Trim$(fields(3))" in code
+    assert "mDraftProviders(treatment) = Trim$(fields(4))" in code
+    assert "Φορτώθηκε το υπάρχον πρόγραμμα" in code
 
 
 def test_program_form_uses_one_active_treatment_editor_at_a_time():
@@ -59,18 +70,36 @@ def test_program_form_keeps_independent_draft_fields_per_treatment():
     assert "mIncluded(mCurrentTreatment) = True" in code
 
 
-def test_program_form_makes_current_treatment_explicit_in_editor_labels():
+def test_program_form_separates_provider_support_from_provider_requirement():
     code = PATIENT_PROGRAM_FORM_CODE
-    assert 'lblEditing.Caption = "Ρυθμίσεις θεραπείας: " & treatment' in code
-    assert 'lblDays.Caption = "Ημέρες για " & treatment' in code
-    assert 'lblTime.Caption = "Ώρα για " & treatment' in code
-    assert 'lblProvider.Caption = "Θεραπευτής / provider για " & treatment' in code
+    assert "Private mRequiresProviders As Object" in code
+    assert "Private Function SupportsProvider" in code
+    assert "Private Function RequiresProvider" in code
+    assert 'mRequiresProviders(treatment) = (Trim$(fields(4)) = "1")' in code
+    assert 'StrComp(CStr(mProviderKinds(treatment)), "none", vbTextCompare) <> 0' in code
 
 
-def test_program_form_populates_time_and_provider_choices_for_active_treatment():
+def test_program_form_allows_optional_manual_names_outside_physiotherapy():
+    code = PATIENT_PROGRAM_FORM_CODE
+    assert 'lblProvider.Caption = "Όνομα για " & treatment & " (προαιρετικό)"' in code
+    assert "cboProvider.Style = 0" in code
+    assert "cboProvider.MatchRequired = False" in code
+    assert 'lblProvider.Caption = "Θεραπευτής για " & treatment & " *"' in code
+    assert "cboProvider.Style = 2" in code
+    assert "cboProvider.MatchRequired = True" in code
+
+
+def test_program_form_populates_provider_list_when_available_but_keeps_optional_field_visible():
     code = PATIENT_PROGRAM_FORM_CODE
     assert "For Each item In mProviders(treatment)" in code
     assert "cboProvider.AddItem CStr(item)" in code
+    assert "If SupportsProvider(treatment) Then" in code
+    assert "lblProvider.Visible = True" in code
+    assert "cboProvider.Visible = True" in code
+
+
+def test_program_form_populates_time_choices_for_active_treatment():
+    code = PATIENT_PROGRAM_FORM_CODE
     assert "For Each item In mStandardSlots" in code
     assert "For Each item In mReclinedSlots" in code
     assert "cboTime.AddItem CStr(item)" in code
@@ -93,6 +122,17 @@ def test_program_form_calls_real_automatic_completion_bridge_for_all_included_tr
     assert '" --request "' in form
     assert "response = CompletePatientProgram(mPatientId, requestArguments)" in form
     assert "ApplyAutomaticCompletion response" in form
+
+
+def test_optional_manual_names_do_not_constrain_automatic_solver():
+    code = PATIENT_PROGRAM_FORM_CODE
+    start = code.index("Private Function BuildAutomaticRequestArguments")
+    end = code.index("Private Sub ApplyAutomaticCompletion", start)
+    procedure = code[start:end]
+    assert 'providerPayload = ""' in procedure
+    assert "If RequiresProvider(treatment) Then" in procedure
+    assert "providerPayload = DraftValue(mDraftProviders, treatment)" in procedure
+    assert "DraftValue(mDraftProviders, treatment)" not in procedure.split("If RequiresProvider(treatment) Then")[0]
 
 
 def test_program_form_only_fills_missing_draft_fields_from_solver():
@@ -125,6 +165,17 @@ def test_atomic_save_resolves_all_headers_and_snapshots_before_first_write():
     assert 'timeHeader = treatment & "_Ώρα"' in save
     assert 'daysHeader = treatment & "_Ημέρες"' in save
     assert 'ProviderHeaderName = "Ψυχ_Ψυχολόγος"' in code
+    assert "If Not SupportsProvider(treatment) Then Exit Function" in code
+
+
+def test_atomic_save_writes_optional_names_when_provider_column_exists():
+    code = PATIENT_PROGRAM_FORM_CODE
+    start = code.index("Private Sub SavePatientProgramAtomic")
+    end = code.index("Private Sub cmdSaveProgram_Click", start)
+    save = code[start:end]
+    assert "If providerCols(index) > 0 Then" in save
+    assert "ws.Cells(patientRow, providerCols(index)).Value = DraftValue(mDraftProviders, treatment)" in save
+    assert "RequiresProvider(treatment) Or Len(DraftValue(mDraftProviders, treatment)) > 0" in save
 
 
 def test_atomic_save_writes_all_fields_verifies_and_saves_once():
