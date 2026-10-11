@@ -151,15 +151,32 @@
 
 Έτσι δεν επιτρέπεται πλέον να παραχθεί preview που είναι «μισό παλιό, μισό νέο» χωρίς να σταματήσει ο builder.
 
+### V67 MASTER-render installer line-ending regression
+
+Στο πρώτο V67 build ο builder σταμάτησε σωστά πριν το save με:
+
+`MASTER render patch marker missing: patient-program save refresh`
+
+Η αιτία δεν ήταν απουσία του `SavePatientProgramAtomic` marker. Το Excel VBE επιστρέφει το `CodeModule.Lines(...)` με Windows `CRLF`, ενώ ο Python patcher σύγκρινε exact strings με `LF`. Το safety marker επομένως υπήρχε σημασιολογικά αλλά δεν ταίριαζε byte-for-byte.
+
+Ο `_patch_code_module` έγινε πλέον **line-ending agnostic**:
+
+- κανονικοποιεί προσωρινά `CRLF` και lone `CR` σε `LF`,
+- κάνει strict marker match και replacement πάνω στο normalized text,
+- παραμένει idempotent όταν το νέο refresh call υπάρχει ήδη,
+- εξακολουθεί να σταματά με explicit error όταν λείπει πραγματικά το marker.
+
+Προστέθηκαν regression tests για VBE-style `CRLF` input και idempotent already-patched input.
+
 ---
 
 ## Τρέχον verification gate
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. focused pytest για το νέο VBProject read-back verifier μαζί με MASTER renderer, patient-program form, edit flow και combo-clear integration,
-2. νέο preview **V67** από clean V48 base,
-3. το V67 build πρέπει είτε να ολοκληρωθεί με verified νέο VBA είτε να σταματήσει ρητά στο stage `verifying patient-program VBA replacement`,
+1. focused pytest για τον CRLF-safe MASTER patcher μαζί με τον νέο VBProject read-back verifier,
+2. νέο preview **V67** από clean V48 base μετά το line-ending fix,
+3. το V67 build πρέπει να περάσει και τα stages `installing MASTER patient-program renderer` και `verifying patient-program VBA replacement`,
 4. native Excel compile/open χωρίς Syntax Error και χωρίς legacy `cboTreatment` / `LoadRecurringSchedulingOptions`,
 5. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
 6. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
@@ -177,9 +194,9 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite με τον νέο VBProject verifier.
-2. Build **V67** από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-3. Αν το build σταματήσει στο verification stage, χρήση του explicit legacy-marker diagnostic για στοχευμένη διόρθωση.
+1. Τρέξιμο focused regression suite με CRLF-safe MASTER patcher και VBProject verifier.
+2. Rebuild **V67** από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+3. Αν το build σταματήσει, χρήση του stage-specific diagnostic για το επόμενο ακριβές installer σημείο.
 4. Αν το build περάσει, native compile/open και smoke test πρώτα σε μία ΦΘ και μία providerless θεραπεία.
 5. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
 6. Full regression suite όταν περάσει το native smoke test.
