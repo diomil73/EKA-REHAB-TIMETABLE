@@ -175,26 +175,26 @@
 
 Προστέθηκαν regression tests που καλύπτουν CRLF, διαφορετικό spacing και duplicate-looking `cboStatus` references εκτός `cmdSave_Click`.
 
-### V67 first-save runtime blocker
+### V67/V68 first-save runtime blocker
 
-Μετά το installer hardening το V67 άνοιξε και η νέα patient-program φόρμα λειτούργησε μέχρι το **πρώτο Save**. Εκεί εμφανίστηκε `Subscript out of range`.
+Μετά το installer hardening το preview άνοιξε και η νέα patient-program φόρμα λειτούργησε μέχρι το **πρώτο Save**. Αρχικά εμφανίστηκε γενικό `Subscript out of range`.
 
 Σημαντικό: **δεν έχει δοκιμαστεί ακόμη edit υπάρχοντος προγράμματος**. Άρα το τρέχον failure αφορά την αρχική αποθήκευση και δεν πρέπει να συγχέεται με το edit-existing-program flow.
 
-Ο `SavePatientProgramAtomic` δεν δείχνει εμφανές array-bound σφάλμα: τα target arrays γίνονται `ReDim 1 To includedCount` μετά το completeness gate και πριν την πρόσβαση. Επειδή το νέο `RefreshMasterPatientProgram mPatientId` εκτελείται μέσα στο save path πριν από το `ThisWorkbook.Save`, προστέθηκαν **runtime stage diagnostics** στον MASTER renderer.
+Τα runtime stage diagnostics απομόνωσαν το failure σε:
 
-Το `RefreshMasterPatientProgram` πλέον αναφέρει explicit stage αν αποτύχει:
+`MASTER refresh failed at locating MASTER row: Subscript out of range`
 
-- `opening PATIENTS`
-- `opening PATIENT_PLANNER`
-- `opening MASTER_SCHEDULE`
-- `locating patient rows`
-- `reading patient identity`
-- `locating MASTER row`
-- `writing treatment cells`
-- `writing psychology cell`
+Η αιτία βρέθηκε στη helper `FirstLine()`. Το `FindMasterPatientRow` σαρώνει τις γραμμές του MASTER και περνά το κελί ασθενούς από `FirstLine`. Σε κενές MASTER rows το `Split("", vbLf)` μπορεί να δώσει array χωρίς element `0`, άρα το `parts(0)` προκαλεί ακριβώς `Subscript out of range`.
 
-Αν το `Subscript out of range` προέρχεται από το MASTER refresh, το επόμενο μήνυμα θα έχει μορφή `MASTER refresh failed at <stage>: Subscript out of range` αντί για γενικό runtime error.
+Η `FirstLine()` πλέον:
+
+- κανονικοποιεί `vbCrLf` σε `vbLf`,
+- κάνει `Trim$`,
+- αν το αποτέλεσμα είναι κενό επιστρέφει αμέσως `""`,
+- καλεί `Split` μόνο για μη κενό text.
+
+Προστέθηκε regression test που απαιτεί explicit empty-cell guard πριν από το `Split`.
 
 ---
 
@@ -202,11 +202,11 @@
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. focused pytest για MASTER runtime-stage diagnostics μαζί με CRLF-safe patcher, procedure-scoped patient-edit hook και VBProject verifier,
-2. rebuild από clean V48 base,
-3. πρώτη αποθήκευση νέου patient program και καταγραφή του ακριβούς stage αν αποτύχει,
-4. native Excel compile/open χωρίς Syntax Error και χωρίς legacy `cboTreatment` / `LoadRecurringSchedulingOptions`,
-5. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
+1. focused pytest για το empty-MASTER-cell guard μαζί με MASTER runtime-stage diagnostics, CRLF-safe patcher, procedure-scoped patient-edit hook και VBProject verifier,
+2. rebuild νέου preview από clean V48 base,
+3. επανάληψη του **πρώτου Save** και επιβεβαίωση ότι ολοκληρώνεται χωρίς `Subscript out of range`,
+4. επιβεβαίωση ότι μετά το πρώτο Save το MASTER εμφανίζει ώρα + ημέρες + όνομα όπου υπάρχει,
+5. native Excel compile/open χωρίς Syntax Error και χωρίς legacy `cboTreatment` / `LoadRecurringSchedulingOptions`,
 6. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
 7. έλεγχος ότι providerless θεραπείες εμφανίζουν ώρα + ημέρες,
 8. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
@@ -222,10 +222,10 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite με τα νέα MASTER runtime diagnostics.
+1. Τρέξιμο focused regression suite με το empty-cell guard.
 2. Rebuild preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-3. Επανάληψη μόνο του **πρώτου Save** και συλλογή του ακριβούς runtime stage αν αποτύχει.
-4. Διόρθωση του συγκεκριμένου first-save blocker πριν δοκιμαστεί edit υπάρχοντος προγράμματος.
+3. Επανάληψη μόνο του **πρώτου Save**.
+4. Αν περάσει, επιβεβαίωση του MASTER composite rendering.
 5. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
 6. Full regression suite όταν περάσει το native smoke test.
 
