@@ -8,6 +8,7 @@ Private Sub ClearProgramComboSelection(ByVal combo As Object, ByRef KeyCode As M
 
     mLoading = True
     combo.ListIndex = -1
+    combo.Value = ""
     mLoading = False
 
     SaveCurrentDraft
@@ -40,7 +41,7 @@ def install_combo_clear_handlers(vbproject) -> None:
 
     The main form installer rewrites the whole form code module on every preview
     build, so this patch is intentionally applied immediately afterwards. Delete
-    or Backspace clears the active combo selection and therefore removes the
+    or Backspace clears selected or typed values and therefore removes the
     corresponding draft constraint, allowing automatic completion to fill it
     again.
     """
