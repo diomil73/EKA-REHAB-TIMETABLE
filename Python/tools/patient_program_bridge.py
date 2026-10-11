@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 from pathlib import Path
 import sys
 
@@ -8,6 +9,10 @@ PYTHON_ROOT = Path(__file__).resolve().parents[1]
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
+from rehab_excel.automatic_patient_schedule import (
+    AutomaticTreatmentRequest,
+    propose_automatic_patient_schedule,
+)
 from rehab_excel.patient_program_draft import build_patient_program_draft
 from rehab_excel.reader import read_settings
 
@@ -34,15 +39,7 @@ def _emit_config(workbook: Path, patient_id: str) -> None:
             )
         )
         for provider in spec.provider_choices:
-            print(
-                "\t".join(
-                    (
-                        "PROVIDER",
-                        _safe(spec.treatment),
-                        _safe(provider),
-                    )
-                )
-            )
+            print("\t".join(("PROVIDER", _safe(spec.treatment), _safe(provider))))
 
     for pattern in settings.day_patterns:
         print("\t".join(("DAY_PATTERN", _safe(pattern))))
@@ -52,11 +49,85 @@ def _emit_config(workbook: Path, patient_id: str) -> None:
         print("\t".join(("RECLINED_SLOT", slot.strftime("%H:%M"))))
 
 
+def _parse_request(raw: str) -> AutomaticTreatmentRequest | tuple[str, str]:
+    fields = raw.split("|", 3)
+    while len(fields) < 4:
+        fields.append("")
+    treatment, day_pattern, raw_time, provider = (item.strip() for item in fields)
+    if not treatment:
+        raise ValueError("Automatic completion request is missing treatment")
+    if not day_pattern:
+        return treatment, "Χρειάζεται πρώτα επιλογή ημερών για να γίνει ασφαλής αυτόματη συμπλήρωση."
+    start_time = None
+    if raw_time:
+        start_time = datetime.strptime(raw_time, "%H:%M").time()
+    return AutomaticTreatmentRequest(
+        treatment=treatment,
+        day_pattern=day_pattern,
+        provider_id=provider or None,
+        start_time=start_time,
+    )
+
+
+def _emit_completion(workbook: Path, patient_id: str, raw_requests: list[str]) -> None:
+    if not raw_requests:
+        raise ValueError("At least one selected treatment is required")
+
+    requests: list[AutomaticTreatmentRequest] = []
+    early_unresolved: list[tuple[str, str]] = []
+    for raw in raw_requests:
+        parsed = _parse_request(raw)
+        if isinstance(parsed, tuple):
+            early_unresolved.append(parsed)
+        else:
+            requests.append(parsed)
+
+    print("\t".join(("OK", _safe(patient_id))))
+    for treatment, reason in early_unresolved:
+        print("\t".join(("UNRESOLVED", _safe(treatment), "", _safe(reason))))
+
+    if not requests:
+        return
+
+    proposal = propose_automatic_patient_schedule(
+        workbook,
+        patient_id=patient_id,
+        requests=requests,
+        anchor_date=date.today(),
+    )
+    for item in proposal.assignments:
+        print(
+            "\t".join(
+                (
+                    "ASSIGNMENT",
+                    _safe(item.treatment),
+                    _safe(item.day_pattern),
+                    item.start_time.strftime("%H:%M"),
+                    _safe(item.therapist_id),
+                    _safe(item.therapist_name),
+                    str(item.workload_count),
+                )
+            )
+        )
+    for item in proposal.unresolved:
+        print(
+            "\t".join(
+                (
+                    "UNRESOLVED",
+                    _safe(item.treatment),
+                    _safe(item.day_pattern),
+                    _safe(item.reason),
+                )
+            )
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Patient program editor runtime bridge")
-    parser.add_argument("command", choices=("config-vba",))
+    parser.add_argument("command", choices=("config-vba", "complete-vba"))
     parser.add_argument("workbook", type=Path)
     parser.add_argument("--patient-id", required=True)
+    parser.add_argument("--request", action="append", default=[])
     return parser
 
 
@@ -65,6 +136,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "config-vba":
             _emit_config(args.workbook, args.patient_id)
+        elif args.command == "complete-vba":
+            _emit_completion(args.workbook, args.patient_id, args.request)
         return 0
     except Exception as exc:
         print("ERROR\t" + _safe(exc))
