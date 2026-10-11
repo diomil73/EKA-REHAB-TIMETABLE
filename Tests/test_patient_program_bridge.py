@@ -44,7 +44,7 @@ def test_program_bridge_is_direct_launchable_without_import_error():
     assert "Patient program editor runtime bridge" in completed.stdout
 
 
-def test_program_bridge_emits_every_treatment_and_provider(monkeypatch, capsys):
+def test_program_bridge_emits_every_treatment_provider_and_existing_program(monkeypatch, capsys):
     fake_draft = type(
         "Draft",
         (),
@@ -59,6 +59,16 @@ def test_program_bridge_emits_every_treatment_and_provider(monkeypatch, capsys):
                         "provider_kind": "physiotherapist",
                         "requires_provider": True,
                         "provider_choices": ("Φυσιο 1", "Φυσιο 2"),
+                    },
+                )(),
+                type(
+                    "Spec",
+                    (),
+                    {
+                        "treatment": "Εργο",
+                        "provider_kind": "occupational_therapist",
+                        "requires_provider": False,
+                        "provider_choices": (),
                     },
                 )(),
                 type(
@@ -83,15 +93,29 @@ def test_program_bridge_emits_every_treatment_and_provider(monkeypatch, capsys):
             "reclined_timeslots": (time(9, 30),),
         },
     )()
+    existing = type(
+        "Entry",
+        (),
+        {
+            "patient_id": "P001",
+            "treatment": "Εργο",
+            "day_pattern": "Τρ-Πε",
+            "start_time": time(11, 0),
+            "therapist_id": "Χειροκίνητο Όνομα",
+        },
+    )()
     monkeypatch.setattr(bridge, "build_patient_program_draft", lambda *a, **k: fake_draft)
     monkeypatch.setattr(bridge, "read_settings", lambda *a, **k: fake_settings)
+    monkeypatch.setattr(bridge, "read_base_schedule", lambda *a, **k: [existing])
 
     bridge._emit_config(Path("dummy.xlsm"), "P001")
     output = capsys.readouterr().out
 
     assert "TREATMENT\t1\tΦΘ\tphysiotherapist\t1" in output
     assert "PROVIDER\tΦΘ\tΦυσιο 1" in output
-    assert "TREATMENT\t2\tΑνακλινόμενο\tnone\t0" in output
+    assert "TREATMENT\t2\tΕργο\toccupational_therapist\t0" in output
+    assert "TREATMENT\t3\tΑνακλινόμενο\tnone\t0" in output
+    assert "CURRENT\tΕργο\tΤρ-Πε\t11:00\tΧειροκίνητο Όνομα" in output
     assert "DAY_PATTERN\tΔε-Τε-Πα" in output
     assert "STANDARD_SLOT\t10:00" in output
     assert "RECLINED_SLOT\t09:30" in output
