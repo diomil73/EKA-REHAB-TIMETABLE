@@ -4,6 +4,8 @@ import inspect
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from rehab_excel import patient_registration_scheduling_slice as scheduling_slice
 
 
@@ -71,6 +73,8 @@ def test_scheduling_ui_installer_refreshes_patient_edit_form_and_installs_master
     assert "install_patient_program_master_render(vbproject)" in source
     assert 'Columns("D:J").NumberFormat = "hh:mm"' not in source
     assert 'stage = "installing MASTER patient-program renderer"' in source
+    assert 'stage = "verifying patient-program VBA replacement"' in source
+    assert "_verify_patient_program_vba(vbproject)" in source
 
 
 def test_legacy_patient_scheduling_runtime_is_removed_before_new_runtime_install():
@@ -109,6 +113,62 @@ def test_legacy_patient_scheduling_runtime_is_removed_before_new_runtime_install
         vbproject,
         scheduling_slice.LEGACY_PATIENT_SCHEDULING_MODULE_NAME,
     ) is False
+
+
+def _fake_component(code: str):
+    class FakeCodeModule:
+        CountOfLines = 1
+
+        def Lines(self, start, count):
+            assert start == 1
+            assert count == 1
+            return code
+
+    return SimpleNamespace(CodeModule=FakeCodeModule())
+
+
+def test_patient_program_vba_verification_accepts_only_new_runtime_and_form():
+    components = {
+        scheduling_slice.PATIENT_PROGRAM_FORM_NAME: _fake_component(
+            "lstTreatments\nSavePatientProgramAtomic\nBuildAutomaticRequestArguments"
+        ),
+        scheduling_slice.PATIENT_PROGRAM_MODULE_NAME: _fake_component(
+            "LoadPatientProgramConfig\nCompletePatientProgram\nOpenPatientScheduling"
+        ),
+    }
+
+    class FakeComponents:
+        def __call__(self, name):
+            if name not in components:
+                raise KeyError(name)
+            return components[name]
+
+    scheduling_slice._verify_patient_program_vba(
+        SimpleNamespace(VBComponents=FakeComponents())
+    )
+
+
+def test_patient_program_vba_verification_rejects_legacy_form_code():
+    components = {
+        scheduling_slice.PATIENT_PROGRAM_FORM_NAME: _fake_component(
+            "lstTreatments\nSavePatientProgramAtomic\nBuildAutomaticRequestArguments\n"
+            "cboTreatment\nLoadRecurringSchedulingOptions"
+        ),
+        scheduling_slice.PATIENT_PROGRAM_MODULE_NAME: _fake_component(
+            "LoadPatientProgramConfig\nCompletePatientProgram\nOpenPatientScheduling"
+        ),
+    }
+
+    class FakeComponents:
+        def __call__(self, name):
+            if name not in components:
+                raise KeyError(name)
+            return components[name]
+
+    with pytest.raises(RuntimeError, match="legacy markers still present"):
+        scheduling_slice._verify_patient_program_vba(
+            SimpleNamespace(VBComponents=FakeComponents())
+        )
 
 
 def test_recurring_visual_refresh_uses_unified_inpatient_and_outpatient_schedule(tmp_path, monkeypatch):
