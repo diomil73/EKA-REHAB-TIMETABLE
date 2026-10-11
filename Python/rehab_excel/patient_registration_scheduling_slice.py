@@ -13,7 +13,6 @@ from .patient_program_form_vba import install_patient_program_ui
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .patient_registry_source import read_patient_registry
 from .recurring_daily_style import build_recurring_therapist_daily_style_plan
-from .specialty_provider_settings import seed_specialty_provider_settings_com
 
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
 _BASE_VERTICAL_FORM_CODE = _vertical._vertical_form_code
@@ -153,11 +152,6 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
         excel.DisplayAlerts = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
-
-        # Legacy V48-derived workbooks predate explicit specialty provider
-        # registries in SETTINGS. Seed empty Ψυχ/Εργο/Λογο registries only from
-        # provider names already present in PATIENT_PLANNER assignments.
-        seed_specialty_provider_settings_com(workbook)
 
         # V48/V54-derived previews may still contain the retired single-treatment
         # runtime. It exports the same public OpenPatientScheduling and
