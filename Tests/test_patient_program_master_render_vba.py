@@ -41,6 +41,17 @@ def test_master_renderer_maps_all_patient_program_treatments_to_master_columns()
     assert 'WriteTreatmentCell master.Cells(masterRow, 11), planner, plannerRow, "Ψυχ"' in code
 
 
+def test_master_renderer_reports_precise_runtime_stage_on_failure():
+    code = MASTER_RENDER_MODULE_CODE
+    assert 'renderStage = "opening PATIENTS"' in code
+    assert 'renderStage = "opening PATIENT_PLANNER"' in code
+    assert 'renderStage = "opening MASTER_SCHEDULE"' in code
+    assert 'renderStage = "locating patient rows"' in code
+    assert 'renderStage = "locating MASTER row"' in code
+    assert 'renderStage = "writing treatment cells"' in code
+    assert '"MASTER refresh failed at " & renderStage & ": " & errorText' in code
+
+
 def _fake_code_module(text):
     class FakeCodeModule:
         def __init__(self, source):
