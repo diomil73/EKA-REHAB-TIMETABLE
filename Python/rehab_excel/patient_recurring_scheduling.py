@@ -55,6 +55,10 @@ def recurring_therapist_choices(
     then intersect therapist availability and time slots. A therapist is offered
     only if the same start time is conflict-free for the patient and therapist on
     every representative weekday of the recurrence.
+
+    ``workload_count`` is the peak daily workload across the recurrence pattern,
+    not the sum across weekdays. This keeps the displayed/ranking value on the
+    same scale as the therapist's daily timeslot capacity.
     """
 
     settings = read_settings(workbook_path)
@@ -99,7 +103,7 @@ def recurring_therapist_choices(
             RecurringTherapistChoice(
                 therapist_id=therapist_id,
                 display_name=candidates[0].display_name,
-                workload_count=sum(candidate.active_sessions for candidate in candidates),
+                workload_count=max(candidate.active_sessions for candidate in candidates),
                 available_slots=tuple(sorted(common_slots)),
             )
         )
