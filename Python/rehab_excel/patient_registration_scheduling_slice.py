@@ -9,7 +9,11 @@ from .native_excel import apply_write_plan_to_copy
 from .outpatient_schedule_source import read_unified_base_schedule
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .patient_registry_source import read_patient_registry
-from .patient_scheduling_form_vba import install_patient_scheduling_ui
+from .patient_scheduling_form_vba import (
+    PATIENT_SCHEDULING_FORM_NAME,
+    PATIENT_SCHEDULING_MODULE_NAME,
+    install_patient_scheduling_ui,
+)
 from .recurring_daily_style import build_recurring_therapist_daily_style_plan
 
 PatientRegistrationBridgeVbaError = _vertical.PatientRegistrationBridgeVbaError
@@ -49,11 +53,7 @@ def _position_control(control, left: float, top: float) -> None:
 
 
 def _has_vb_component(vbproject, component_name: str) -> bool:
-    """Return True when a named VBA component already exists.
-
-    VBComponents(name) raises COM errors when the component is absent, so this
-    helper deliberately treats lookup failures as "missing".
-    """
+    """Return True when a named VBA component already exists."""
 
     try:
         return vbproject.VBComponents(component_name) is not None
@@ -62,13 +62,7 @@ def _has_vb_component(vbproject, component_name: str) -> bool:
 
 
 def _install_base_patient_form(workbook_path: Path) -> None:
-    """Ensure frmNewPatient exists on a private prerequisite copy.
-
-    Clean repository baselines do not contain the form, while versioned smoke
-    previews may already contain it. Preserve an existing form so rebuilding
-    from a mature preview is idempotent and does not ask the VBE to remove and
-    recreate an already-loaded UserForm.
-    """
+    """Ensure frmNewPatient exists on a private prerequisite copy."""
 
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
@@ -114,6 +108,8 @@ def _install_base_patient_form(workbook_path: Path) -> None:
 
 
 def _install_scheduling_ui(workbook_path: Path) -> None:
+    """Ensure the scheduling form/runtime exist without recreating mature UI."""
+
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
             "Patient scheduling UI installation requires Windows with Microsoft Excel"
@@ -131,8 +127,15 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
         excel.DisplayAlerts = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
+
+        project = workbook.VBProject
+        has_form = _has_vb_component(project, PATIENT_SCHEDULING_FORM_NAME)
+        has_module = _has_vb_component(project, PATIENT_SCHEDULING_MODULE_NAME)
+        if has_form and has_module:
+            return
+
         install_patient_scheduling_ui(
-            workbook.VBProject,
+            project,
             position_control=_position_control,
         )
         workbook.Save()
@@ -156,14 +159,7 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
 
 
 def _refresh_daily_visuals(workbook_path: Path) -> None:
-    """Refresh recurring THERAPIST_DAILY rich-text roles from authoritative data.
-
-    THERAPIST_DAILY contains recurring weekly lines, not only one dated slice.
-    Keep its existing text verbatim and restyle lines from the unified recurring
-    schedule so both PATIENT_PLANNER and OUTPATIENT_SCHEDULE assignments are
-    represented. Robotic assignments are orange and outpatient assignments are
-    dark green, even inside the same cell.
-    """
+    """Refresh recurring THERAPIST_DAILY rich-text roles from authoritative data."""
 
     styled_copy = workbook_path.with_name(f".{workbook_path.stem}.recurring-style.xlsm")
     styled_copy.unlink(missing_ok=True)
