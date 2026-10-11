@@ -175,23 +175,44 @@
 
 Προστέθηκαν regression tests που καλύπτουν CRLF, διαφορετικό spacing και duplicate-looking `cboStatus` references εκτός `cmdSave_Click`.
 
+### V67 first-save runtime blocker
+
+Μετά το installer hardening το V67 άνοιξε και η νέα patient-program φόρμα λειτούργησε μέχρι το **πρώτο Save**. Εκεί εμφανίστηκε `Subscript out of range`.
+
+Σημαντικό: **δεν έχει δοκιμαστεί ακόμη edit υπάρχοντος προγράμματος**. Άρα το τρέχον failure αφορά την αρχική αποθήκευση και δεν πρέπει να συγχέεται με το edit-existing-program flow.
+
+Ο `SavePatientProgramAtomic` δεν δείχνει εμφανές array-bound σφάλμα: τα target arrays γίνονται `ReDim 1 To includedCount` μετά το completeness gate και πριν την πρόσβαση. Επειδή το νέο `RefreshMasterPatientProgram mPatientId` εκτελείται μέσα στο save path πριν από το `ThisWorkbook.Save`, προστέθηκαν **runtime stage diagnostics** στον MASTER renderer.
+
+Το `RefreshMasterPatientProgram` πλέον αναφέρει explicit stage αν αποτύχει:
+
+- `opening PATIENTS`
+- `opening PATIENT_PLANNER`
+- `opening MASTER_SCHEDULE`
+- `locating patient rows`
+- `reading patient identity`
+- `locating MASTER row`
+- `writing treatment cells`
+- `writing psychology cell`
+
+Αν το `Subscript out of range` προέρχεται από το MASTER refresh, το επόμενο μήνυμα θα έχει μορφή `MASTER refresh failed at <stage>: Subscript out of range` αντί για γενικό runtime error.
+
 ---
 
 ## Τρέχον verification gate
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. focused pytest για CRLF-safe MASTER patcher, procedure-scoped patient-edit refresh hook και VBProject read-back verifier,
-2. νέο preview **V67** από clean V48 base μετά το edit-hook hardening,
-3. το V67 build πρέπει να περάσει και τα stages `installing MASTER patient-program renderer` και `verifying patient-program VBA replacement`,
+1. focused pytest για MASTER runtime-stage diagnostics μαζί με CRLF-safe patcher, procedure-scoped patient-edit hook και VBProject verifier,
+2. rebuild από clean V48 base,
+3. πρώτη αποθήκευση νέου patient program και καταγραφή του ακριβούς stage αν αποτύχει,
 4. native Excel compile/open χωρίς Syntax Error και χωρίς legacy `cboTreatment` / `LoadRecurringSchedulingOptions`,
 5. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
 6. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
 7. έλεγχος ότι providerless θεραπείες εμφανίζουν ώρα + ημέρες,
 8. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
 9. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα χωρίς να μπλοκάρει automatic completion,
-10. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
-11. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
+10. αφού κλείσει το first-save blocker, έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
+11. μετά τον first-save blocker, διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
 12. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό και μετά από αλλαγή θαλάμου/rebuild,
 13. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
 
@@ -201,10 +222,10 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite με τον procedure-scoped patient-edit refresh hook.
-2. Rebuild **V67** από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-3. Αν το build σταματήσει, χρήση του stage-specific diagnostic για το επόμενο ακριβές installer σημείο.
-4. Αν το build περάσει, native compile/open και smoke test πρώτα σε μία ΦΘ και μία providerless θεραπεία.
+1. Τρέξιμο focused regression suite με τα νέα MASTER runtime diagnostics.
+2. Rebuild preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+3. Επανάληψη μόνο του **πρώτου Save** και συλλογή του ακριβούς runtime stage αν αποτύχει.
+4. Διόρθωση του συγκεκριμένου first-save blocker πριν δοκιμαστεί edit υπάρχοντος προγράμματος.
 5. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
 6. Full regression suite όταν περάσει το native smoke test.
 
