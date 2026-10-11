@@ -14,30 +14,39 @@
 
 Στόχος είναι μία ενιαία ροή προγραμματισμού ασθενούς, χωρίς ξεχωριστό Save ανά θεραπεία.
 
-Η φόρμα πρέπει να επιτρέπει:
+Η ίδια patient-program φόρμα χρησιμοποιείται τόσο:
 
-- εμφάνιση όλων των θεραπειών του authoritative configuration,
-- επιλογή πολλών θεραπειών για τον ίδιο ασθενή,
-- χειροκίνητη συμπλήρωση όσων scheduling στοιχείων γνωρίζει ο χρήστης,
-- δυνατότητα ακύρωσης ήδη επιλεγμένης τιμής ώστε το πεδίο να ξαναγίνεται ελεύθερο,
-- μερική χειροκίνητη συμπλήρωση και automatic completion μόνο των κενών πεδίων,
-- πλήρως automatic proposal όταν scheduling πεδία μένουν κενά,
-- διατήρηση manual values ως hard constraints,
-- strong soft preference ώστε το Ανακλινόμενο να τοποθετείται πριν ή μετά τη ΦΘ όπου είναι εφικτό,
-- μία τελική atomic αποθήκευση όλου του patient program.
+- μετά την πρώτη καταχώρηση νέου ασθενούς,
+- όσο και μετά από **Βασικό μενού → Επεξεργασία ασθενή → Αποθήκευση αλλαγών**.
 
-### Provider rule του patient-program flow
+Στην edit περίπτωση η φόρμα πρέπει να φορτώνει το ήδη υπάρχον πρόγραμμα του ασθενούς από `PATIENT_PLANNER` και να επιτρέπει αλλαγές χωρίς δεύτερο παράλληλο scheduling UI.
+
+### Provider / όνομα προσωπικού
 
 Η τρέχουσα επιχειρησιακή απόφαση είναι:
 
-- **ΦΘ:** απαιτεί θεραπευτή/provider μέσα στη φόρμα προγραμματισμού.
-- **Ρομποτικό, Εργο, Λογο, Ψυχ:** ο scheduler ενδιαφέρεται μόνο για **ημέρες + ώρα**. Provider/name δεν είναι προϋπόθεση για proposal ή final save.
-- **Ανακλινόμενο, Πισίνα, ΕΦΑ:** επίσης day/time scheduling χωρίς provider.
-- Τα ονόματα προσωπικού για Ρομποτικό/Εργο/Λογο/Ψυχ μπορούν να συμπληρώνονται αργότερα χειροκίνητα από τις υπάρχουσες λίστες/λειτουργίες.
+- **ΦΘ:** ο θεραπευτής είναι υποχρεωτικός και συμμετέχει στον automatic solver.
+- **Ρομποτικό, Εργο, Λογο, Ψυχ:** το scheduling απαιτεί μόνο **ημέρες + ώρα**. Το όνομα είναι **προαιρετικό**.
+- Για Ρομποτικό/Εργο/Λογο/Ψυχ ο χρήστης μπορεί να γράψει χειροκίνητα όνομα στη φόρμα. Αν υπάρχει configured λίστα, μπορεί να χρησιμοποιηθεί ως βοήθημα, αλλά το όνομα δεν είναι solver constraint.
+- **Ανακλινόμενο, Πισίνα, ΕΦΑ:** day/time scheduling χωρίς provider/name field.
+- Η τελική αποθήκευση γράφει τα προαιρετικά ονόματα στις υπάρχουσες στήλες του `PATIENT_PLANNER` όπου αυτές υπάρχουν.
 
-Η προηγούμενη ιδέα για automatic migration specialty-provider names στο `SETTINGS` αφαιρέθηκε από το patient scheduling flow επειδή δεν χρειάζεται για τον πραγματικό στόχο του timeslot scheduling.
+> Μελλοντική optional επέκταση: provider-aware automatic scheduling για Ρομποτικό/Εργο/Λογο/Ψυχ μπορεί να προστεθεί αργότερα, χωρίς να γίνει ποτέ υποχρεωτικό για την εύρεση timeslot.
 
-> **Σημείωση για μελλοντική επέκταση:** αν αργότερα χρειαστεί, μπορεί να προστεθεί optional provider-aware scheduling για Ρομποτικό/Εργο/Λογο/Ψυχ. Αυτό πρέπει να γίνει ως πρόσθετη δυνατότητα και όχι ως υποχρεωτικό constraint που μπλοκάρει ημέρες/ώρα.
+### Duration-safe scheduling
+
+Ο solver πλέον πρέπει να θεωρεί πραγματικά χρονικά διαστήματα και όχι μόνο ίδια start times:
+
+- standard treatments, συμπεριλαμβανομένης της ΦΘ: **45 λεπτά**,
+- Ανακλινόμενο: **30 λεπτά**,
+- δύο θεραπείες του ίδιου ασθενούς δεν επιτρέπεται να επικαλύπτονται σε κοινές ημέρες,
+- ακριβώς συνεχόμενα intervals επιτρέπονται.
+
+Παράδειγμα: ΦΘ `09:15-10:00` αποκλείει Ανακλινόμενο `09:00-09:30` και `09:30-10:00`. Αν οι διαθέσιμες recliner ώρες είναι `08:30, 09:00, 09:30, 10:00`, η καλύτερη adjacent επιλογή είναι `10:00`. Αν χρειαστεί να μπει πριν, η τελευταία συμβατή διαθέσιμη είναι `08:30` επειδή `08:45` δεν υπάρχει ως slot.
+
+### MASTER time display
+
+Οι treatment columns του `MASTER_SCHEDULE` πρέπει να εμφανίζουν Excel time serials ως `hh:mm`, όχι ως δεκαδικούς αριθμούς.
 
 ---
 
@@ -45,11 +54,11 @@
 
 ### Application / workbook foundation
 
-- MASTER_SCHEDULE ως operational home και read-only hub.
+- `MASTER_SCHEDULE` ως operational home και read-only hub.
 - Application shell με κρυμμένο Excel chrome στο app mode.
 - MASTER toolbar και βασική πλοήγηση.
-- DAILY_INPUT authoritative flow.
-- THERAPIST_DAILY recurring projection και writeback υποδομή.
+- `DAILY_INPUT` authoritative flow.
+- `THERAPIST_DAILY` recurring projection και writeback υποδομή.
 - Patient, therapist, student και outpatient registration vertical slices.
 - Outpatient scheduling και unified base schedule compatibility.
 - MASTER projection, room sorting, infectious styling και outpatient markers.
@@ -58,69 +67,58 @@
 ### Patient scheduling architecture
 
 - Patient-centric draft model για πολλές θεραπείες.
-- Όλες οι θεραπείες προέρχονται από το workbook/configuration.
-- PATIENT_PLANNER blocks για ΦΘ, Ρομποτικό, Ανακλινόμενο, Πισίνα, Εργο, Λογο, ΕΦΑ και Ψυχ.
+- Όλες οι θεραπείες προέρχονται από authoritative workbook configuration.
+- `PATIENT_PLANNER` blocks για ΦΘ, Ρομποτικό, Ανακλινόμενο, Πισίνα, Εργο, Λογο, ΕΦΑ και Ψυχ.
 - Recurring workload ως peak daily load, όχι άθροισμα recurrence.
 - Generalized automatic solver πέρα από ΦΘ/Ρομποτικό.
-- Automatic day-pattern completion από `SETTINGS` όταν οι ημέρες μένουν κενές.
-- Manual day/time values ως locked constraints.
+- Automatic day-pattern completion όταν οι ημέρες μένουν κενές.
+- Manual day/time values ως fixed constraints.
 - Provider constraint μόνο στη ΦΘ.
 - Ρομποτικό/Εργο/Λογο/Ψυχ προγραμματίζονται χωρίς υποχρεωτικό provider.
 - Providerless treatment support.
-- Recliner/ΦΘ adjacency preference στη βαθμολόγηση.
-- Μία ενεργή θεραπεία για editing, με ορατές ημέρες/ώρα/provider στη γραμμή κάθε θεραπείας.
-- `Backspace`/`Delete` clear ώστε μια τιμή να μπορεί να ξαναδοθεί στον solver.
-- Diagnostic failure reasons για πραγματικές scheduling συγκρούσεις αντί για ψευδή provider failures.
-- Focused provider-rule regression gate verified: **46 passed in 2.54s**.
+- Μία ενεργή θεραπεία για editing, με persistent draft ανά θεραπεία.
+- `Backspace`/`Delete` clear για scheduling πεδία.
+- Diagnostic failure reasons για πραγματικές scheduling συγκρούσεις.
+- Atomic final save με snapshot, events-off-before-write, verification, single workbook save και rollback.
 
-### Atomic final save
+### Νεότερο batch που έχει υλοποιηθεί σε κώδικα και περιμένει native verification
 
-Η τελική αποθήκευση του patient program έχει transaction-like συμπεριφορά:
+- Separation `supports_provider` από `requires_provider`.
+- Optional χειροκίνητο όνομα για Ρομποτικό/Εργο/Λογο/Ψυχ.
+- Optional name δεν περνά ως constraint στον automatic solver.
+- Optional name αποθηκεύεται στη σχετική provider/name στήλη του `PATIENT_PLANNER`.
+- Editable provider combo για optional names, ακόμη και όταν η configured λίστα είναι κενή.
+- `Delete`/`Backspace` καθαρίζει και typed free-text provider value.
+- `config-vba` φορτώνει υπάρχον πρόγραμμα ως `CURRENT` rows.
+- Η patient-program φόρμα προφορτώνει υπάρχουσες ημέρες/ώρες/ονόματα.
+- Η **Επεξεργασία ασθενή** μετά την αποθήκευση registry αλλαγών καλεί `OpenPatientScheduling patientId` και οδηγεί στην ίδια scheduling φόρμα.
+- Duration-aware patient conflict logic: standard 45', Ανακλινόμενο 30'.
+- Recliner/ΦΘ adjacency scoring με πραγματικό gap μεταξύ intervals.
+- Preview installer εφαρμόζει `hh:mm` στις treatment columns `D:J` του `MASTER_SCHEDULE`.
 
-1. validation όλων των επιλεγμένων θεραπειών,
-2. resolve όλων των PATIENT_PLANNER headers πριν από οποιοδήποτε write,
-3. snapshot όλων των touched cells,
-4. `Application.EnableEvents = False` πριν από το πρώτο write,
-5. εγγραφή όλων των assignments,
-6. επαλήθευση των τιμών,
-7. ένα μόνο `ThisWorkbook.Save`,
-8. rollback σε περίπτωση σφάλματος,
-9. αποκατάσταση του προηγούμενου event state σε κάθε path.
+### Τελευταίο verified gate
 
-Αυτό αντικαθιστά το παλιό per-treatment save flow που μπορούσε να οδηγήσει σε partial writes.
+Το προηγούμενο focused gate έχει επιβεβαιωθεί από τον χρήστη:
 
-### Regression coverage
+**46 passed in 2.54s**
 
-Υπάρχουν focused regressions για:
-
-- generalized automatic scheduling,
-- automatic day-pattern completion,
-- ΦΘ provider constraint,
-- provider-optional Ρομποτικό/Εργο/Λογο/Ψυχ,
-- providerless treatment handling,
-- recliner adjacency preference,
-- patient-program bridge behavior,
-- atomic-save safety ordering και rollback contract,
-- keyboard clearing για scheduling combo selections,
-- explicit patient time-collision diagnostics.
+Αυτό αφορούσε την προηγούμενη provider-optional αρχιτεκτονική πριν από το νεότερο batch edit/preload/manual-name/duration changes.
 
 ---
 
 ## Τρέχον verification gate
 
-Το focused pytest gate μετά την αλλαγή provider rule έχει περάσει: **46 passed in 2.54s**.
+Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone απομένουν:
-
-1. build νέου preview workbook από το clean V48 base,
-2. native Excel smoke test με ΦΘ + Ρομποτικό + Εργο + Λογο + λοιπές θεραπείες,
-3. επιβεβαίωση ότι μόνο η ΦΘ εμφανίζει/απαιτεί provider στο scheduling flow,
-4. επιβεβαίωση ότι Ρομποτικό/Εργο/Λογο/Ψυχ βρίσκουν proposal ημέρας/ώρας χωρίς provider names,
-5. επιβεβαίωση ότι `Backspace`/`Delete` καθαρίζει επιλογές και το cleared field μπορεί να ξανασυμπληρωθεί από το automatic,
-6. επιβεβαίωση ότι manual values παραμένουν αμετάβλητες μετά το automatic completion,
-7. επιβεβαίωση ότι η τελική αποθήκευση γράφει όλα τα selected treatments μαζί,
-8. επιβεβαίωση ότι time cells εμφανίζονται ως `hh:mm`, όχι raw Excel serial,
-9. επιβεβαίωση ότι το workbook δεν κλείνει/ξανανοίγει κατά την αποθήκευση.
+1. focused pytest για draft, solver, bridge, program form, edit flow, combo clear και scheduling slice,
+2. νέο preview από clean V48 base,
+3. έλεγχος ότι στο MASTER οι ώρες εμφανίζονται `hh:mm`, όχι δεκαδικά,
+4. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
+5. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα σε Ρομποτικό/Εργο/Λογο/Ψυχ χωρίς να μπλοκάρει automatic completion,
+6. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
+7. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
+8. επιβεβαίωση ότι η φόρμα ανοίγει με το ήδη υπάρχον πρόγραμμα του ασθενούς και επιτρέπει αλλαγές,
+9. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
 
 ---
 
@@ -128,21 +126,16 @@
 
 ### Άμεσα
 
-1. Build του επόμενου preview από V48.
-2. Native Excel smoke test με Εργο/Λογο/Ρομποτικό χωρίς provider names.
-3. Επανέλεγχος clear → automatic refill.
-4. Native Excel smoke test του πλήρους manual / mixed / automatic flow και της atomic αποθήκευσης.
-5. Full regression suite όταν περάσει το focused smoke test.
-
-### Μελλοντική optional επέκταση
-
-- Αν προκύψει πραγματική ανάγκη, προσθήκη optional provider-aware scheduling για Ρομποτικό/Εργο/Λογο/Ψυχ.
-- Η επέκταση δεν πρέπει να κάνει provider υποχρεωτικό ούτε να εμποδίζει την εύρεση timeslot όταν το όνομα μένει κενό.
+1. Τρέξιμο focused regression suite για το νέο batch.
+2. Διόρθωση τυχόν regression failures.
+3. Build επόμενου preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+4. Native Excel smoke test των τριών νέων απαιτήσεων: `hh:mm`, duration-safe adjacency, edit existing program.
+5. Full regression suite όταν περάσει το native smoke test.
 
 ### Μετά το patient-program milestone
 
 - refresh dependent views μετά το final save όπου χρειάζεται,
-- τελικός UX έλεγχος της φόρμας και των labels,
+- τελικός UX έλεγχος labels και edit affordances,
 - cleanup παλιού single-treatment scheduling code,
 - ενημέρωση `UI_APPLICATION_ROADMAP.md` και `Documentation/PROJECT_STATUS.md` με verified status,
 - μετάβαση στο επόμενο ανοιχτό roadmap milestone.
@@ -155,7 +148,7 @@
 
 - **Τι φτιάχνουμε τώρα**
 - **Τι έχει ολοκληρωθεί μέχρι τώρα**
+- **Τρέχον verification gate**
 - **Επόμενα βήματα**
-- **Verification gate**, όταν αλλάζει το test/smoke status
 
-Δεν χαρακτηρίζεται κάτι ως ολοκληρωμένο μόνο επειδή γράφτηκε ο κώδικας. Για milestone που επηρεάζει workbook/UI, ολοκλήρωση σημαίνει και επιτυχές test/smoke verification.
+Κανένα milestone δεν χαρακτηρίζεται ολοκληρωμένο μόνο επειδή γράφτηκε κώδικας. Χρειάζεται regression verification και, όταν αφορά Excel/VBA συμπεριφορά, native workbook smoke test.
