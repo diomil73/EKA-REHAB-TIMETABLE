@@ -2,7 +2,7 @@ from datetime import date, time
 
 from rehab_core import DailySessionState, DailySessionStatus, Patient, Session
 from rehab_excel import render_plan as rp
-from rehab_excel.render_writeback import build_daily_write_plan
+from rehab_excel.render_writeback import _line_runs
 
 
 DAY = date(2026, 10, 12)
@@ -67,8 +67,7 @@ def test_same_patient_twice_keeps_only_robotic_line_orange(monkeypatch):
     assert cell.lines[1].font_role == rp.RenderFontRole.ROBOTIC
     assert cell.fill_role == rp.RenderFillRole.ROBOTIC
 
-    write_plan = build_daily_write_plan(plan)
-    patch = write_plan.patches[0]
-    assert patch.text_runs[0].font_role == "default"
-    assert patch.text_runs[1].font_role == "robotic_orange"
-    assert patch.text_runs[1].start == len("ΜΟΤΣΙΟΣ") + 2
+    runs = _line_runs(cell.lines)
+    assert runs[0].font_role == "default"
+    assert runs[1].font_role == "robotic_orange"
+    assert runs[1].start == len("ΜΟΤΣΙΟΣ") + 2
