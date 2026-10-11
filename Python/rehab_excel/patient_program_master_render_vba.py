@@ -144,20 +144,32 @@ Public Sub RefreshMasterPatientProgram(ByVal patientId As String)
     Dim displayName As String
     Dim roomValue As String
     Dim headerRow As Long
+    Dim renderStage As String
+    Dim errorText As String
 
+    On Error GoTo RenderError
+
+    renderStage = "opening PATIENTS"
     Set patients = ThisWorkbook.Worksheets("PATIENTS")
+    renderStage = "opening PATIENT_PLANNER"
     Set planner = ThisWorkbook.Worksheets("PATIENT_PLANNER")
+    renderStage = "opening MASTER_SCHEDULE"
     Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
 
+    renderStage = "locating patient rows"
     patientRow = FindPatientRowById(patients, patientId)
     plannerRow = FindPatientRowById(planner, patientId)
     If patientRow = 0 Or plannerRow = 0 Then Exit Sub
 
+    renderStage = "reading patient identity"
     displayName = Trim$(CStr(patients.Cells(patientRow, 3).Value))
     roomValue = Trim$(CStr(patients.Cells(patientRow, 2).Value))
+
+    renderStage = "locating MASTER row"
     masterRow = FindMasterPatientRow(master, roomValue, displayName)
     If masterRow = 0 Then Exit Sub
 
+    renderStage = "writing treatment cells"
     WriteTreatmentCell master.Cells(masterRow, 4), planner, plannerRow, "ΦΘ"
     WriteTreatmentCell master.Cells(masterRow, 5), planner, plannerRow, "Ρομποτικό"
     WriteTreatmentCell master.Cells(masterRow, 6), planner, plannerRow, "Πισίνα"
@@ -166,12 +178,19 @@ Public Sub RefreshMasterPatientProgram(ByVal patientId As String)
     WriteTreatmentCell master.Cells(masterRow, 9), planner, plannerRow, "Λογο"
     WriteTreatmentCell master.Cells(masterRow, 10), planner, plannerRow, "ΕΦΑ"
 
+    renderStage = "writing psychology cell"
     headerRow = FindMasterHeaderRow(master)
     If headerRow > 0 Then
         If StrComp(Trim$(CStr(master.Cells(headerRow, 11).Value)), "ΨΥΧΟΛΟΓΟΙ", vbTextCompare) = 0 Then
             WriteTreatmentCell master.Cells(masterRow, 11), planner, plannerRow, "Ψυχ"
         End If
     End If
+    Exit Sub
+
+RenderError:
+    errorText = Err.Description
+    Err.Raise vbObjectError + 2940, "RefreshMasterPatientProgram", _
+        "MASTER refresh failed at " & renderStage & ": " & errorText
 End Sub
 '''
 
