@@ -172,6 +172,11 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
             position_control=_position_control,
         )
         install_combo_clear_handlers(workbook.VBProject)
+
+        # MASTER displays formulas pointing at PATIENT_PLANNER time serials.
+        # Keep those formula results formatted as clock times instead of raw
+        # decimal Excel serial values.
+        workbook.Worksheets("MASTER_SCHEDULE").Columns("D:J").NumberFormat = "hh:mm"
         workbook.Save()
     except PatientRegistrationBridgeVbaError:
         raise
