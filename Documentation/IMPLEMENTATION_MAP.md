@@ -46,9 +46,9 @@
 
 ### MASTER treatment rendering
 
-Το `MASTER_SCHEDULE` δεν πρέπει να εμφανίζει απλώς raw Excel time serial ούτε να εφαρμόζει γενικό `NumberFormat = "hh:mm"` στις treatment columns.
+Το `MASTER_SCHEDULE` δεν πρέπει να εμφανίζει raw Excel time serial ούτε να εφαρμόζει γενικό `NumberFormat = "hh:mm"` στις treatment columns.
 
-Κάθε treatment cell είναι **derived presentation** από τα authoritative πεδία του `PATIENT_PLANNER` και πρέπει να εμφανίζει:
+Κάθε treatment cell είναι derived presentation από τα authoritative πεδία του `PATIENT_PLANNER` και πρέπει να εμφανίζει:
 
 ```text
 09:15
@@ -110,24 +110,46 @@
 
 ### V65 installer hardening και MASTER regression
 
-Το πρώτο V65 build σταμάτησε με Excel/VBE COM error `-2146828213`, που αντιστοιχεί σε **Run-time error 75 / Path/File access error**, μέσα στο scheduling UI installation stage.
+Το πρώτο V65 build σταμάτησε με Excel/VBE COM error `-2146828213` μέσα στο scheduling UI installation stage.
 
 Έγιναν δύο installer διορθώσεις:
 
 - το `frmEditPatient` δεν αφαιρείται και δεν ξαναδημιουργείται πλέον όταν υπάρχει ήδη. Ο installer έγινε idempotent,
 - ο scheduling UI installer απέκτησε stage-specific diagnostics.
 
-Στο επόμενο native smoke test εντοπίστηκε δεύτερο regression: αντί για πραγματική ώρα εμφανίστηκε κυριολεκτικά `hh:mm` και δεν εμφανίστηκαν ημέρες/θεραπευτής. Η αιτία ήταν η λανθασμένη υπόθεση ότι το MASTER χρειάζεται μόνο `NumberFormat = "hh:mm"` πάνω στις treatment columns. Αυτό αφαιρέθηκε και αντικαταστάθηκε από explicit composite rendering από `PATIENT_PLANNER`.
+Στο επόμενο native smoke test εντοπίστηκε δεύτερο regression: αντί για πραγματική ώρα εμφανίστηκε κυριολεκτικά `hh:mm` και δεν εμφανίστηκαν ημέρες/θεραπευτής. Η λανθασμένη global-formatting προσέγγιση αφαιρέθηκε και αντικαταστάθηκε από explicit composite rendering από `PATIENT_PLANNER`.
 
-Στο πρώτο focused regression μετά τη διόρθωση βγήκαν **37 passed / 1 failed**. Το μοναδικό failure ήταν stale test που απαιτούσε ακόμη το καταργημένο global `Columns("D:J").NumberFormat = "hh:mm"`. Το test ενημερώθηκε ώστε να απαιτεί εγκατάσταση του `PatientProgramMasterRender` και να απορρίπτει ρητά την παλιά global-formatting συμπεριφορά.
+Το focused regression μετά το stale-test fix πέρασε:
 
-### Τελευταίο verified gate
+**38 passed in 3.25s**
 
-Το προηγούμενο πλήρως πράσινο focused gate έχει επιβεβαιωθεί από τον χρήστη:
+### V66 legacy VBA compile regression
 
-**46 passed in 2.54s**
+Στο native V66 εμφανίστηκε **VBA Syntax Error** σε κώδικα της παλιάς single-treatment φόρμας. Τα markers `cboTreatment` και `LoadRecurringSchedulingOptions` αποδεικνύουν ότι το workbook εξακολουθούσε να περιέχει legacy scheduling code, παρότι ο νέος patient-program installer είχε εκτελεστεί.
 
-Αυτό αφορούσε την προηγούμενη provider-optional αρχιτεκτονική πριν από το νεότερο batch edit/preload/manual-name/duration/MASTER-render changes.
+Ο retired μηχανισμός είναι:
+
+- module `PatientSchedulingRuntime`,
+- παλιό `frmPatientScheduling` με `cboTreatment`,
+- `LoadRecurringSchedulingOptions`,
+- `SavePatientRecurringAssignment`.
+
+Ο νέος authoritative μηχανισμός είναι:
+
+- module `PatientProgramRuntime`,
+- `frmPatientScheduling` με `lstTreatments`,
+- `LoadPatientProgramConfig`,
+- `CompletePatientProgram`,
+- `SavePatientProgramAtomic`.
+
+Προστέθηκε **VBProject read-back verification πριν από το workbook save**. Το preview build πλέον απορρίπτεται αν:
+
+- υπάρχει ακόμη `PatientSchedulingRuntime`,
+- λείπει `PatientProgramRuntime` ή `frmPatientScheduling`,
+- λείπουν τα νέα markers `lstTreatments`, `SavePatientProgramAtomic`, `BuildAutomaticRequestArguments`, `LoadPatientProgramConfig`, `CompletePatientProgram`,
+- ή βρεθούν legacy markers `cboTreatment`, `LoadRecurringSchedulingOptions`, `SavePatientRecurringAssignment`.
+
+Έτσι δεν επιτρέπεται πλέον να παραχθεί preview που είναι «μισό παλιό, μισό νέο» χωρίς να σταματήσει ο builder.
 
 ---
 
@@ -135,17 +157,19 @@
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. επανάληψη του focused pytest μετά την ενημέρωση του stale MASTER-format test,
-2. νέο preview build από clean V48 base,
-3. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
-4. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
-5. έλεγχος ότι providerless θεραπείες εμφανίζουν ώρα + ημέρες,
-6. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
-7. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα χωρίς να μπλοκάρει automatic completion,
-8. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
-9. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
-10. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό και μετά από αλλαγή θαλάμου/rebuild,
-11. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
+1. focused pytest για το νέο VBProject read-back verifier μαζί με MASTER renderer, patient-program form, edit flow και combo-clear integration,
+2. νέο preview **V67** από clean V48 base,
+3. το V67 build πρέπει είτε να ολοκληρωθεί με verified νέο VBA είτε να σταματήσει ρητά στο stage `verifying patient-program VBA replacement`,
+4. native Excel compile/open χωρίς Syntax Error και χωρίς legacy `cboTreatment` / `LoadRecurringSchedulingOptions`,
+5. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
+6. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
+7. έλεγχος ότι providerless θεραπείες εμφανίζουν ώρα + ημέρες,
+8. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
+9. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα χωρίς να μπλοκάρει automatic completion,
+10. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
+11. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
+12. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό και μετά από αλλαγή θαλάμου/rebuild,
+13. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
 
 ---
 
@@ -153,11 +177,12 @@
 
 ### Άμεσα
 
-1. Επανάληψη focused regression suite μετά το stale-test fix.
-2. Build επόμενου preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-3. Native smoke test πρώτα μόνο σε μία ΦΘ και μία providerless θεραπεία για να επιβεβαιωθεί το cell rendering.
-4. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
-5. Full regression suite όταν περάσει το native smoke test.
+1. Τρέξιμο focused regression suite με τον νέο VBProject verifier.
+2. Build **V67** από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+3. Αν το build σταματήσει στο verification stage, χρήση του explicit legacy-marker diagnostic για στοχευμένη διόρθωση.
+4. Αν το build περάσει, native compile/open και smoke test πρώτα σε μία ΦΘ και μία providerless θεραπεία.
+5. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
+6. Full regression suite όταν περάσει το native smoke test.
 
 ### Μετά το patient-program milestone
 
