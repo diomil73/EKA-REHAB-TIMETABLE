@@ -2,7 +2,7 @@ from datetime import date, time
 
 from rehab_core.models import Session
 from rehab_excel.master_toolbar_vba import MASTER_TOOLBAR_MODULE_CODE
-from rehab_excel.native_excel import NativeStylePalette, excel_rgb
+from rehab_excel.native_excel import NativeStylePalette, Win32ComExcelBackend, excel_rgb
 from rehab_excel.render_plan import _is_robotic_session
 
 
@@ -24,6 +24,15 @@ def test_outpatient_fill_is_readable_muted_green_not_marker_green():
     palette = NativeStylePalette()
     assert palette.outpatient_light_blue == excel_rgb(157, 181, 143)
     assert palette.outpatient_light_blue != excel_rgb(0, 255, 0)
+
+
+def test_outpatient_text_role_is_dark_green():
+    palette = NativeStylePalette()
+    assert palette.outpatient_dark_green == excel_rgb(0, 128, 0)
+    assert (
+        Win32ComExcelBackend._font_color_for_role("outpatient_dark_green", palette)
+        == palette.outpatient_dark_green
+    )
 
 
 def test_therapist_daily_navigation_reapplies_application_shell():
