@@ -44,9 +44,19 @@
 
 Παράδειγμα: ΦΘ `09:15-10:00` αποκλείει Ανακλινόμενο `09:00-09:30` και `09:30-10:00`. Αν οι διαθέσιμες recliner ώρες είναι `08:30, 09:00, 09:30, 10:00`, η καλύτερη adjacent επιλογή είναι `10:00`. Αν χρειαστεί να μπει πριν, η τελευταία συμβατή διαθέσιμη είναι `08:30` επειδή `08:45` δεν υπάρχει ως slot.
 
-### MASTER time display
+### MASTER treatment rendering
 
-Οι treatment columns του `MASTER_SCHEDULE` πρέπει να εμφανίζουν Excel time serials ως `hh:mm`, όχι ως δεκαδικούς αριθμούς.
+Το `MASTER_SCHEDULE` δεν πρέπει να εμφανίζει απλώς raw Excel time serial ούτε να εφαρμόζει γενικό `NumberFormat = "hh:mm"` στις treatment columns.
+
+Κάθε treatment cell είναι **derived presentation** από τα authoritative πεδία του `PATIENT_PLANNER` και πρέπει να εμφανίζει:
+
+```text
+09:15
+Δε-Τε-Πα
+Όνομα θεραπευτή
+```
+
+Η τρίτη γραμμή εμφανίζεται μόνο όταν υπάρχει όνομα. Για providerless θεραπείες εμφανίζονται ώρα + ημέρες. Η προβολή πρέπει να ανανεώνεται μετά από patient-program save και μετά από patient registry edit/rebuild.
 
 ---
 
@@ -94,16 +104,20 @@
 - Η **Επεξεργασία ασθενή** μετά την αποθήκευση registry αλλαγών καλεί `OpenPatientScheduling patientId` και οδηγεί στην ίδια scheduling φόρμα.
 - Duration-aware patient conflict logic: standard 45', Ανακλινόμενο 30'.
 - Recliner/ΦΘ adjacency scoring με πραγματικό gap μεταξύ intervals.
-- Preview installer εφαρμόζει `hh:mm` στις treatment columns `D:J` του `MASTER_SCHEDULE`.
+- Νέο `PatientProgramMasterRender` module χτίζει τα treatment cells του MASTER από ώρα + ημέρες + όνομα, αντί για global time number format.
+- Το patient-program save καλεί MASTER refresh πριν από το τελικό workbook save.
+- Το patient edit flow επαναφέρει το composite treatment rendering μετά από registry/master rebuild.
 
-### V65 installer hardening
+### V65 installer hardening και MASTER regression
 
 Το πρώτο V65 build σταμάτησε με Excel/VBE COM error `-2146828213`, που αντιστοιχεί σε **Run-time error 75 / Path/File access error**, μέσα στο scheduling UI installation stage.
 
-Έγιναν δύο διορθώσεις πριν από νέο native build:
+Έγιναν δύο installer διορθώσεις:
 
-- το `frmEditPatient` δεν αφαιρείται και δεν ξαναδημιουργείται πλέον όταν υπάρχει ήδη. Ο installer έγινε idempotent: επαναχρησιμοποιεί το υπάρχον UserForm, εξασφαλίζει τα controls και αντικαθιστά μόνο τον κώδικα,
-- ο scheduling UI installer απέκτησε stage-specific diagnostics ώστε νέο COM failure να αναφέρει αν συνέβη σε workbook open, VBA project access, patient-program form, edit form, combo handlers, MASTER formatting ή workbook save.
+- το `frmEditPatient` δεν αφαιρείται και δεν ξαναδημιουργείται πλέον όταν υπάρχει ήδη. Ο installer έγινε idempotent,
+- ο scheduling UI installer απέκτησε stage-specific diagnostics.
+
+Στο επόμενο native smoke test εντοπίστηκε δεύτερο regression: αντί για πραγματική ώρα εμφανίστηκε κυριολεκτικά `hh:mm` και δεν εμφανίστηκαν ημέρες/θεραπευτής. Η αιτία ήταν η λανθασμένη υπόθεση ότι το MASTER χρειάζεται μόνο `NumberFormat = "hh:mm"` πάνω στις treatment columns. Αυτό αφαιρέθηκε και αντικαταστάθηκε από explicit composite rendering από `PATIENT_PLANNER`.
 
 ### Τελευταίο verified gate
 
@@ -111,7 +125,7 @@
 
 **46 passed in 2.54s**
 
-Αυτό αφορούσε την προηγούμενη provider-optional αρχιτεκτονική πριν από το νεότερο batch edit/preload/manual-name/duration changes.
+Αυτό αφορούσε την προηγούμενη provider-optional αρχιτεκτονική πριν από το νεότερο batch edit/preload/manual-name/duration/MASTER-render changes.
 
 ---
 
@@ -119,16 +133,17 @@
 
 Πριν θεωρηθεί verified το νεότερο batch χρειάζονται:
 
-1. focused pytest για draft, solver, bridge, program form, edit flow, combo clear και scheduling slice, συμπεριλαμβανομένων των νέων installer-hardening regressions,
-2. νέο V65 preview build από clean V48 base,
-3. αν υπάρξει ξανά SAFETY STOP, καταγραφή του **ακριβούς installation stage** από το νέο diagnostic μήνυμα,
-4. έλεγχος ότι στο MASTER οι ώρες εμφανίζονται `hh:mm`, όχι δεκαδικά,
-5. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
-6. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα σε Ρομποτικό/Εργο/Λογο/Ψυχ χωρίς να μπλοκάρει automatic completion,
-7. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
-8. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
-9. επιβεβαίωση ότι η φόρμα ανοίγει με το ήδη υπάρχον πρόγραμμα του ασθενούς και επιτρέπει αλλαγές,
-10. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
+1. focused pytest για draft, solver, bridge, program form, edit flow, combo clear, MASTER renderer και scheduling slice,
+2. νέο preview build από clean V48 base,
+3. έλεγχος ότι κάθε treatment cell στο MASTER εμφανίζει πραγματική ώρα και ημέρες, όχι literal `hh:mm`,
+4. έλεγχος ότι ΦΘ εμφανίζει και θεραπευτή και ότι Ρομποτικό/Εργο/Λογο/Ψυχ εμφανίζουν προαιρετικό όνομα όταν έχει συμπληρωθεί,
+5. έλεγχος ότι providerless θεραπείες εμφανίζουν ώρα + ημέρες,
+6. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
+7. έλεγχος ότι optional όνομα μπορεί να γραφτεί χειροκίνητα χωρίς να μπλοκάρει automatic completion,
+8. έλεγχος ότι το optional όνομα αποθηκεύεται και ξαναφορτώνεται,
+9. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
+10. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό και μετά από αλλαγή θαλάμου/rebuild,
+11. έλεγχος atomic save μετά από edit υπάρχοντος προγράμματος.
 
 ---
 
@@ -136,10 +151,10 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused regression suite για το νέο batch και το installer hardening.
-2. Νέο build V65 από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-3. Αν ο installer αποτύχει, χρήση του stage-specific SAFETY STOP για στοχευμένη διόρθωση αντί για γενικό COM guess.
-4. Native Excel smoke test των τριών νέων απαιτήσεων: `hh:mm`, duration-safe adjacency, edit existing program + optional manual names.
+1. Τρέξιμο focused regression suite για MASTER renderer + νέο patient-program batch.
+2. Build επόμενου preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+3. Native smoke test πρώτα μόνο σε μία ΦΘ και μία providerless θεραπεία για να επιβεβαιωθεί το cell rendering.
+4. Μετά smoke test duration-safe adjacency, edit existing program και optional manual names.
 5. Full regression suite όταν περάσει το native smoke test.
 
 ### Μετά το patient-program milestone
