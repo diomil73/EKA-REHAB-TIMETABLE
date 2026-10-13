@@ -107,29 +107,31 @@ Regression tests added for:
 - manual occupied ΦΘ slot naming day/provider/patient,
 - detailed joint conflict ranges.
 
-These latest scheduling fixes are implemented but have not yet been user-run verified.
-
 ## Latest confirmed test checkpoint
 
-Latest confirmed user-run focused gate remains:
+Latest user-run narrow regression gate for the edit-draft replacement + detailed scheduling diagnostics batch:
 
-`57 passed in 3.96s`
+`16 passed in 2.87s`
 
-Do not claim the new draft-replacement/provider-diagnostic batch is green until the focused automatic-scheduling suite is rerun.
+This confirms `Tests/test_automatic_patient_schedule.py` is green after the new changes. The wider patient-program integration gate is still pending and should run before any new native preview is built.
 
 ## Immediate next start point
 
-1. Pull latest `feature/outpatient-scheduling`.
-2. Run focused automatic scheduling tests, especially `Tests/test_automatic_patient_schedule.py`.
-3. If green, rebuild the next fresh preview from clean V48.
-4. Native re-test:
+1. Run the wider focused patient-program gate:
+   - `Tests/test_automatic_patient_schedule.py`
+   - `Tests/test_patient_program_bridge.py`
+   - `Tests/test_patient_program_form_vba.py`
+   - `Tests/test_patient_program_master_render_vba.py`
+   - `Tests/test_patient_registration_scheduling_slice.py`
+2. If green, build the next fresh preview from clean V48, expected next version: V73.
+3. Native re-test:
    - manual ΦΘ occupied therapist slot gives precise patient/day/time diagnostic,
    - `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted,
    - true treatment overlaps identify exact therapies/day/time,
    - conflict dialog shows full message/buttons,
    - Γιαννιά Ρομποτικό time appears as `hh:mm`.
-5. Then continue with edit-existing-program and optional manual names.
-6. Full regression suite only after native edit smoke is clean.
+4. Then continue with edit-existing-program and optional manual names.
+5. Full regression suite only after native edit smoke is clean.
 
 ## Business rules that must not regress
 
