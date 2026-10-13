@@ -31,7 +31,7 @@
 
 Το V70 native smoke έδειξε ότι μια χειροκίνητη σύγκρουση, π.χ. ΦΘ και Λογο την ίδια Δευτέρα σε overlapping ώρα, εντοπιζόταν από την **Αυτόματη συμπλήρωση** αλλά μπορούσε να αποθηκευτεί κανονικά από το κουμπί **Αποθήκευση**.
 
-Η υλοποίηση του κοινού conflict gate ολοκληρώθηκε και το focused regression gate πέρασε. Το πρώτο V71 build όμως σταμάτησε πριν το save κατά την εγκατάσταση του νέου conflict dialog λόγω VBE COM property error στο `Width`.
+Η λειτουργική υλοποίηση του κοινού conflict gate έχει γραφτεί και το focused regression gate πέρασε. Το V71 όμως έχει αποκαλύψει δύο installer-level brittle assumptions πριν φτάσουμε ακόμη στο native behavior test.
 
 Η ζητούμενη συμπεριφορά παραμένει:
 
@@ -76,7 +76,8 @@
 - procedure-scoped patient-edit refresh patch.
 - runtime stage diagnostics για MASTER refresh.
 - empty MASTER patient cells guarded πριν από `Split`.
-- conflict-form geometry setters πλέον είναι best-effort απέναντι σε VBE COM rejection για `Width/Height` και `Left/Top`.
+- conflict-form geometry setters είναι best-effort απέναντι σε VBE COM rejection για `Width/Height` και `Left/Top`.
+- patient-program runtime validation patch έγινε procedure-scoped και δεν εξαρτάται πλέον από ακριβές multi-function text block.
 
 ### Verified native checkpoints
 
@@ -119,22 +120,36 @@ Focused regression gate μετά από αυτό το batch:
 
 **59 passed in 5.89s**
 
-### V71 conflict-dialog installer blocker
+### V71 installer blockers
+
+#### Conflict dialog geometry
 
 Το πρώτο V71 build σταμάτησε με:
 
 `Property '<unknown>.Width' can not be set.`
 
-Η αιτία ήταν ότι ο νέος `frmPatientProgramConflict` installer έγραφε απευθείας `designer.Width/Height` και control `Width/Height`, ενώ οι παλιότεροι installers ήδη αντιμετώπιζαν τέτοιες VBE COM properties ως best-effort.
+Η αιτία ήταν direct VBE COM property writes στο νέο conflict form. Το hardening πλέον κάνει guarded τα designer/control geometry setters και υπάρχει regression test με fake control που απορρίπτει Width/Height.
 
-Το hardening πλέον:
+#### PatientProgramRuntime validation marker
 
-- κάνει guarded το form Width/Height,
-- κάνει guarded το control Left/Top,
-- κάνει ξεχωριστά guarded το control Width/Height,
-- έχει regression test με fake control που απορρίπτει Width/Height.
+Το επόμενο V71 build πέρασε το geometry στάδιο αλλά σταμάτησε με:
 
-Το hardening είναι implemented αλλά περιμένει focused pytest και νέο V71 build.
+`MASTER render patch marker missing: patient-program validation runtime`
+
+Η αιτία ήταν exact marker που απαιτούσε ολόκληρο το `CompletePatientProgram` body και αμέσως μετά `FindPatientDisplayName`.
+
+Το runtime patcher πλέον:
+
+- εντοπίζει μόνο το `Public Function CompletePatientProgram(...)`,
+- βρίσκει το αντίστοιχο `End Function`,
+- εισάγει αμέσως μετά το `ValidatePatientProgram(...)`,
+- είναι CRLF-safe και idempotent,
+- δεν εξαρτάται από το επόμενο procedure ή από body spacing,
+- δίνει precise safety-stop αν λείπει πραγματικά το procedure ή το `End Function`.
+
+Προστέθηκαν regression tests για altered body/spacing και idempotence.
+
+Το τελευταίο αυτό hardening δεν έχει ακόμη user-run focused gate.
 
 ---
 
@@ -142,7 +157,7 @@ Focused regression gate μετά από αυτό το batch:
 
 Πριν θεωρηθεί verified το conflict batch χρειάζονται:
 
-1. focused pytest μετά το V71 Width/Height hardening,
+1. focused pytest μετά τα δύο V71 installer hardenings,
 2. clean rebuild του V71 από V48,
 3. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
 4. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
@@ -159,7 +174,7 @@ Focused regression gate μετά από αυτό το batch:
 ### Άμεσα
 
 1. `git pull origin feature/outpatient-scheduling`.
-2. Τρέξιμο focused tests με το νέο conflict-form sizing regression.
+2. Τρέξιμο focused conflict/installer tests.
 3. Rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
 4. Native smoke του conflict flow Auto + Save Return + Save Continue.
 5. ΦΘ/Ανακλινόμενο adjacency boundary smoke.
