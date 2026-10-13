@@ -71,10 +71,73 @@ def test_scheduling_ui_installer_refreshes_patient_edit_form_and_installs_master
     source = inspect.getsource(scheduling_slice._install_scheduling_ui)
     assert "install_patient_edit_form" in source
     assert "install_patient_program_master_render(vbproject)" in source
+    assert "install_conflict_runtime_layout(vbproject)" in source
+    assert "_refresh_existing_master_patient_programs(workbook)" in source
     assert 'Columns("D:J").NumberFormat = "hh:mm"' not in source
     assert 'stage = "installing MASTER patient-program renderer"' in source
+    assert 'stage = "installing conflict-dialog runtime layout"' in source
+    assert 'stage = "refreshing existing MASTER patient programs"' in source
     assert 'stage = "verifying patient-program VBA replacement"' in source
     assert "_verify_patient_program_vba(vbproject)" in source
+
+
+def test_existing_master_program_refresh_runs_renderer_for_each_patient_id():
+    calls = []
+
+    class FakeEndCell:
+        Row = 4
+
+    class FakeColumnEnd:
+        def End(self, direction):
+            assert direction == -4162
+            return FakeEndCell()
+
+    class FakeCell:
+        def __init__(self, value):
+            self.Value = value
+
+        def End(self, direction):
+            return FakeColumnEnd().End(direction)
+
+    class FakeCells:
+        values = {
+            (2, 1): "P001",
+            (3, 1): "",
+            (4, 1): "P003",
+        }
+
+        def __call__(self, row, col):
+            if row == 999 and col == 1:
+                return FakeColumnEnd()
+            return FakeCell(self.values.get((row, col)))
+
+    class FakeRows:
+        Count = 999
+
+    patients = SimpleNamespace(Cells=FakeCells(), Rows=FakeRows())
+
+    class FakeWorksheets:
+        def __call__(self, name):
+            assert name == "PATIENTS"
+            return patients
+
+    class FakeApplication:
+        def Run(self, macro, patient_id):
+            calls.append((macro, patient_id))
+
+    workbook = SimpleNamespace(
+        Worksheets=FakeWorksheets(),
+        Name="preview.xlsm",
+        Application=FakeApplication(),
+    )
+
+    refreshed = scheduling_slice._refresh_existing_master_patient_programs(workbook)
+
+    assert refreshed == 2
+    assert calls == [
+        ("'preview.xlsm'!RefreshMasterPatientProgram", "P001"),
+        ("'preview.xlsm'!RefreshMasterPatientProgram", "P003"),
+    ]
 
 
 def test_legacy_patient_scheduling_runtime_is_removed_before_new_runtime_install():
