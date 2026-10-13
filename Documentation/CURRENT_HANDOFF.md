@@ -51,10 +51,6 @@ The patient-program UI is patched so that:
 - **Επιστροφή** cancels before any write,
 - **Συνέχεια** is an explicit override.
 
-Focused regression before the later installer hardening:
-
-`59 passed in 5.89s`
-
 ## V71 installer blockers and hardening
 
 ### 1. Conflict form COM sizing
@@ -83,32 +79,28 @@ Fix implemented:
 - remains CRLF-safe and idempotent,
 - gives precise diagnostics if `CompletePatientProgram` or its `End Function` is genuinely missing.
 
-Regression coverage now includes altered procedure body/spacing and idempotence.
-
-This latest runtime-patcher hardening is not yet user-test-verified.
+Regression coverage includes altered procedure body/spacing and idempotence.
 
 ## Latest confirmed test checkpoint
 
-Latest user-reported gate before the two V71 installer hardening changes:
+Latest user-reported focused gate after both V71 installer hardening changes:
 
-`59 passed in 5.89s`
+`62 passed in 3.34s`
 
-Do not claim the latest V71 installer hardening is green until the focused suite is rerun.
+This confirms the conflict-form COM tolerance, procedure-scoped runtime validation patcher, bridge diagnostics, patient-program form patches, and related automatic scheduling paths are green at source-test level.
 
 ## Immediate next start point
 
-1. Pull latest `feature/outpatient-scheduling`.
-2. Run the focused conflict/installer suite.
-3. If green, rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` from clean V48.
-4. Native smoke the conflict scenario:
+1. Rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` from clean V48.
+2. If installer succeeds, native smoke the conflict scenario:
    - ΦΘ and Λογο on the same weekday with overlapping intervals,
    - **Αυτόματη συμπλήρωση** must name the exact day and both treatments/times,
    - **Αποθήκευση** must show **Συνέχεια / Επιστροφή** before any write,
    - choose **Επιστροφή** and verify nothing changed in MASTER,
    - repeat and choose **Συνέχεια** and verify intentional override saves.
-5. Verify adjacency boundary: ΦΘ `09:15-10:00` + Ανακλινόμενο `10:00-10:30` must not be treated as a conflict.
-6. Then continue with edit-existing-program and optional manual names.
-7. Full regression suite only after native edit smoke is clean.
+3. Verify adjacency boundary: ΦΘ `09:15-10:00` + Ανακλινόμενο `10:00-10:30` must not be treated as a conflict.
+4. Then continue with edit-existing-program and optional manual names.
+5. Full regression suite only after native edit smoke is clean.
 
 ## Business rules that must not regress
 
