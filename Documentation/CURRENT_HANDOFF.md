@@ -8,7 +8,7 @@ Last updated: 2026-10-13
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
 - Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V71.xlsm`
 - V71 builds and opens after the earlier installer hardening.
-- V72 source batch exists but native verification is not yet complete.
+- Next native preview to build: `MASTER_TOOLBAR_SMOKE_V73.xlsm` from clean V48.
 
 ## What is verified in native Excel
 
@@ -58,25 +58,21 @@ Implemented:
 - invokes `RefreshMasterPatientProgram` for each existing patient,
 - re-renders all treatment cells through the composite `hh:mm` renderer.
 
-Latest confirmed focused gate for these fixes:
+Focused gate for these fixes:
 
 `57 passed in 3.96s`
 
 ## New native scheduling observations
 
-Two further issues were reported while exercising the current patient-program flow.
+Two further issues were reported while exercising the patient-program flow.
 
-### 1. Manual ΦΘ provider/time conflict message is too generic
+### 1. Manual ΦΘ provider/time conflict message was too generic
 
-When the user changes ΦΘ time to a slot where the selected therapist is already occupied, the system should identify the real blocker instead of only saying that no valid combination exists.
-
-Desired diagnostic example:
-
-`Δευτέρα 11:30: ο θεραπευτής Σαρράς είναι απασχολημένος με τον ασθενή Χ (ΦΘ).`
+Desired behavior: if the selected therapist is already occupied, identify the concrete blocker, e.g. weekday, time, therapist and blocking patient/treatment.
 
 Implemented in source:
 
-- manual ΦΘ failure diagnostics now inspect provider occupancy,
+- manual ΦΘ failure diagnostics inspect provider occupancy,
 - when a concrete patient booking explains the failure, the reason includes weekday, time, therapist, patient name and treatment,
 - generic fallback remains only when no concrete blocker can be resolved.
 
@@ -88,7 +84,7 @@ Observed scenario:
 - Ανακλινόμενο `Δε-Τε-Πα` at `11:00`, duration 30',
 - these are exactly adjacent (`11:00-11:30` and `11:30-12:15`) and must be legal.
 
-Root cause identified:
+Root cause:
 
 - during automatic completion of an edit draft, the solver compared a new treatment against stale persisted assignments of other treatments from the same patient,
 - it ignored only the old assignment of the same treatment,
@@ -99,9 +95,9 @@ Fix implemented in `automatic_patient_schedule.py`:
 - all old persisted assignments whose treatment participates in the current draft are removed from the existing-patient conflict baseline,
 - the new draft assignments are then checked jointly against each other,
 - exact adjacency remains allowed,
-- true joint conflicts now return detailed weekday/treatment/time ranges instead of a generic conflict sentence.
+- true joint conflicts return detailed weekday/treatment/time ranges.
 
-Regression tests added for:
+Regression coverage includes:
 
 - stale old ΦΘ no longer blocking new `Ανακλινόμενο 11:00` + `ΦΘ 11:30`,
 - manual occupied ΦΘ slot naming day/provider/patient,
@@ -109,29 +105,32 @@ Regression tests added for:
 
 ## Latest confirmed test checkpoint
 
-Latest user-run narrow regression gate for the edit-draft replacement + detailed scheduling diagnostics batch:
+User-run gates after the latest scheduling changes:
 
-`16 passed in 2.87s`
+- narrow automatic-scheduling gate: `16 passed in 2.87s`
+- wider patient-program integration gate: `71 passed in 3.66s`
 
-This confirms `Tests/test_automatic_patient_schedule.py` is green after the new changes. The wider patient-program integration gate is still pending and should run before any new native preview is built.
+The wider gate covered:
+
+- `Tests/test_automatic_patient_schedule.py`
+- `Tests/test_patient_program_bridge.py`
+- `Tests/test_patient_program_form_vba.py`
+- `Tests/test_patient_program_master_render_vba.py`
+- `Tests/test_patient_registration_scheduling_slice.py`
+
+Source/integration verification is therefore green. Native V73 verification is next.
 
 ## Immediate next start point
 
-1. Run the wider focused patient-program gate:
-   - `Tests/test_automatic_patient_schedule.py`
-   - `Tests/test_patient_program_bridge.py`
-   - `Tests/test_patient_program_form_vba.py`
-   - `Tests/test_patient_program_master_render_vba.py`
-   - `Tests/test_patient_registration_scheduling_slice.py`
-2. If green, build the next fresh preview from clean V48, expected next version: V73.
-3. Native re-test:
+1. Build `MASTER_TOOLBAR_SMOKE_V73.xlsm` from clean V48.
+2. Native re-test:
    - manual ΦΘ occupied therapist slot gives precise patient/day/time diagnostic,
    - `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted,
    - true treatment overlaps identify exact therapies/day/time,
-   - conflict dialog shows full message/buttons,
+   - conflict dialog shows full message and both buttons,
    - Γιαννιά Ρομποτικό time appears as `hh:mm`.
-4. Then continue with edit-existing-program and optional manual names.
-5. Full regression suite only after native edit smoke is clean.
+3. Then continue with edit-existing-program and optional manual names.
+4. Full regression suite only after native edit smoke is clean.
 
 ## Business rules that must not regress
 
