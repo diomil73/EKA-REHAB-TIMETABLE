@@ -45,7 +45,9 @@
 - δίνει detailed joint conflict diagnostics με ημέρα, treatments και ranges,
 - για manual ΦΘ/provider failure, όταν υπάρχει concrete blocker, εμφανίζει ημέρα, ώρα, θεραπευτή, ασθενή και treatment που κρατά το slot.
 
-Το batch είναι implemented και περιμένει focused pytest + native verification.
+Το narrow automatic-scheduling gate είναι πλέον πράσινο: **16 passed in 2.87s**.
+
+Επόμενο βήμα: wider patient-program integration gate πριν χτιστεί νέο native preview.
 
 ---
 
@@ -93,6 +95,7 @@
 - Focused self-conflict regression gate: **32 passed in 1.40s**.
 - Focused V71 conflict/installer gate: **62 passed in 3.34s**.
 - Focused prebuild gate για runtime conflict layout + existing MASTER refresh: **57 passed in 3.96s**.
+- Narrow edit-draft/diagnostics gate: **16 passed in 2.87s**.
 
 ### Conflict-validation / Save override
 
@@ -145,7 +148,7 @@ Regression tests προστέθηκαν για:
 - occupied manual ΦΘ slot που ονοματίζει provider και blocking patient,
 - πραγματικό joint overlap που εμφανίζει ακριβή ranges.
 
-Το νέο batch δεν έχει ακόμη user-run test gate.
+Το narrow source gate είναι πράσινο: **16 passed in 2.87s**.
 
 ---
 
@@ -153,16 +156,20 @@ Regression tests προστέθηκαν για:
 
 Πριν θεωρηθεί κλειστό το τρέχον batch χρειάζονται:
 
-1. focused `python -m pytest Tests/test_automatic_patient_schedule.py -q`,
-2. σχετικό focused patient-program suite αν το πρώτο είναι πράσινο,
-3. fresh preview build από clean V48,
-4. native manual ΦΘ occupied-slot test με concrete patient diagnostic,
-5. native `Ανακλινόμενο 11:00` + `ΦΘ 11:30` adjacency test,
-6. native true-overlap test με explicit treatment/day/time diagnostic,
-7. conflict dialog full layout + Γιαννιά Ρομποτικό `hh:mm`,
-8. edit-existing-program flow,
-9. optional manual names persist/reload,
-10. full regression suite.
+1. wider focused patient-program suite:
+   - `Tests/test_automatic_patient_schedule.py`
+   - `Tests/test_patient_program_bridge.py`
+   - `Tests/test_patient_program_form_vba.py`
+   - `Tests/test_patient_program_master_render_vba.py`
+   - `Tests/test_patient_registration_scheduling_slice.py`
+2. fresh preview build από clean V48, expected next preview V73,
+3. native manual ΦΘ occupied-slot test με concrete patient diagnostic,
+4. native `Ανακλινόμενο 11:00` + `ΦΘ 11:30` adjacency test,
+5. native true-overlap test με explicit treatment/day/time diagnostic,
+6. conflict dialog full layout + Γιαννιά Ρομποτικό `hh:mm`,
+7. edit-existing-program flow,
+8. optional manual names persist/reload,
+9. full regression suite.
 
 ---
 
@@ -170,12 +177,11 @@ Regression tests προστέθηκαν για:
 
 ### Άμεσα
 
-1. Pull latest branch.
-2. Run focused automatic scheduling tests.
-3. Αν είναι πράσινα, rebuild επόμενου preview από clean V48.
-4. Native smoke των δύο νέων observations και των presentation fixes.
-5. Μετά edit-existing-program + optional names.
-6. Full regression suite.
+1. Run wider focused patient-program integration tests.
+2. Αν είναι πράσινα, build V73 από clean V48.
+3. Native smoke των δύο νέων observations και των presentation fixes.
+4. Μετά edit-existing-program + optional names.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
