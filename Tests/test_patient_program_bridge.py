@@ -31,6 +31,24 @@ def test_program_bridge_parser_accepts_completion_requests():
     assert args.request == ["ΦΘ|Δε-Τε-Πα|10:00|Φυσιο 1"]
 
 
+def test_program_bridge_parser_accepts_validation_requests():
+    parser = bridge.build_parser()
+    args = parser.parse_args(
+        [
+            "validate-vba",
+            "dummy.xlsm",
+            "--patient-id",
+            "P001",
+            "--request",
+            "ΦΘ|Δ|09:00|Φυσιο 1",
+            "--request",
+            "Λογο|Δ|09:00|",
+        ]
+    )
+    assert args.command == "validate-vba"
+    assert len(args.request) == 2
+
+
 def test_program_bridge_is_direct_launchable_without_import_error():
     script = Path(bridge.__file__).resolve()
     completed = subprocess.run(
@@ -135,6 +153,49 @@ def test_parse_completion_request_leaves_missing_day_for_solver():
     assert request.day_pattern is None
     assert request.start_time is None
     assert request.provider_id is None
+
+
+def test_validation_reports_day_treatments_and_time_ranges(capsys):
+    bridge._emit_validation(
+        "P001",
+        [
+            "ΦΘ|Δ|09:00|Φυσιο 1",
+            "Λογο|Δ|09:00|",
+        ],
+    )
+    output = capsys.readouterr().out
+
+    assert "CONFLICT\tΔευτέρα\tΦΘ\t09:00\tΛογο\t09:00\t" in output
+    assert "Δευτέρα: ΦΘ 09:00-09:45 συγκρούεται με Λογο 09:00-09:45." in output
+
+
+def test_validation_uses_real_duration_for_recliner_overlap(capsys):
+    bridge._emit_validation(
+        "P001",
+        [
+            "ΦΘ|Δ|09:15|Φυσιο 1",
+            "Ανακλινόμενο|Δ|09:30|",
+            "Εργο|Τρ|09:30|",
+        ],
+    )
+    output = capsys.readouterr().out
+
+    assert "ΦΘ 09:15-10:00" in output
+    assert "Ανακλινόμενο 09:30-10:00" in output
+    assert "Εργο" not in output
+
+
+def test_validation_allows_adjacent_intervals(capsys):
+    bridge._emit_validation(
+        "P001",
+        [
+            "ΦΘ|Δ|09:15|Φυσιο 1",
+            "Ανακλινόμενο|Δ|10:00|",
+        ],
+    )
+    output = capsys.readouterr().out
+
+    assert "CONFLICT" not in output
 
 
 def test_completion_sends_missing_day_pattern_to_solver(monkeypatch, capsys):
