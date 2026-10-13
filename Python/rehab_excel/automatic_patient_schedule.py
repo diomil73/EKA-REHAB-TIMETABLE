@@ -12,12 +12,22 @@ from .patient_recurring_scheduling import (
     RecurringTherapistChoice,
     recurring_therapist_choices,
 )
-from .reader import read_base_schedule, read_settings
+from .reader import read_base_schedule, read_patients, read_settings
 
 
 DEFAULT_PROVIDER_DAILY_CAPACITY = 6
 STANDARD_TREATMENT_DURATION_MINUTES = 45
 RECLINED_TREATMENT_DURATION_MINUTES = 30
+
+_WEEKDAY_NAMES = {
+    0: "Δευτέρα",
+    1: "Τρίτη",
+    2: "Τετάρτη",
+    3: "Πέμπτη",
+    4: "Παρασκευή",
+    5: "Σάββατο",
+    6: "Κυριακή",
+}
 
 
 @dataclass(frozen=True)
@@ -82,6 +92,24 @@ def _duration_minutes(treatment: str) -> int:
     if _normalize(treatment) == _normalize("Ανακλινόμενο"):
         return RECLINED_TREATMENT_DURATION_MINUTES
     return STANDARD_TREATMENT_DURATION_MINUTES
+
+
+def _time_from_minutes(value: int) -> time:
+    value %= 24 * 60
+    return time(value // 60, value % 60)
+
+
+def _time_text(value: time) -> str:
+    return value.strftime("%H:%M")
+
+
+def _interval_text(start: time, treatment: str) -> str:
+    end = _time_from_minutes(_minutes(start) + _duration_minutes(treatment))
+    return f"{_time_text(start)}-{_time_text(end)}"
+
+
+def _weekday_text(weekdays: Iterable[int]) -> str:
+    return ", ".join(_WEEKDAY_NAMES.get(day, str(day)) for day in sorted(set(weekdays)))
 
 
 def _intervals_overlap(
@@ -160,13 +188,19 @@ def _entry_weekdays(entry) -> frozenset[int]:
     return _request_weekdays(entry.day_pattern)
 
 
-def _conflicts_existing_patient(option: _Option, base_entries, patient_id: str) -> bool:
+def _existing_patient_conflicts(
+    option: _Option,
+    base_entries,
+    patient_id: str,
+    *,
+    ignored_treatments: frozenset[str] = frozenset(),
+) -> tuple[object, ...]:
     patient_key = _normalize(patient_id)
-    treatment_key = _normalize(option.treatment)
+    conflicts = []
     for entry in base_entries:
         if _normalize(entry.patient_id) != patient_key:
             continue
-        if _normalize(entry.treatment) == treatment_key:
+        if _normalize(entry.treatment) in ignored_treatments:
             continue
         if not option.weekdays.intersection(_entry_weekdays(entry)):
             continue
@@ -176,8 +210,48 @@ def _conflicts_existing_patient(option: _Option, base_entries, patient_id: str) 
             entry.start_time,
             entry.treatment,
         ):
-            return True
-    return False
+            conflicts.append(entry)
+    return tuple(conflicts)
+
+
+def _conflicts_existing_patient(
+    option: _Option,
+    base_entries,
+    patient_id: str,
+    *,
+    ignored_treatments: frozenset[str] = frozenset(),
+) -> bool:
+    return bool(
+        _existing_patient_conflicts(
+            option,
+            base_entries,
+            patient_id,
+            ignored_treatments=ignored_treatments,
+        )
+    )
+
+
+def _existing_patient_conflict_reason(
+    option: _Option,
+    base_entries,
+    patient_id: str,
+    *,
+    ignored_treatments: frozenset[str],
+) -> str | None:
+    conflicts = _existing_patient_conflicts(
+        option,
+        base_entries,
+        patient_id,
+        ignored_treatments=ignored_treatments,
+    )
+    if not conflicts:
+        return None
+    entry = conflicts[0]
+    shared = option.weekdays.intersection(_entry_weekdays(entry))
+    return (
+        f"{_weekday_text(shared)}: {option.treatment} {_interval_text(option.start_time, option.treatment)} "
+        f"συγκρούεται χρονικά με {entry.treatment} {_interval_text(entry.start_time, entry.treatment)}."
+    )
 
 
 def _provider_load_by_weekday(base_entries, provider: str) -> dict[int, set[time]]:
@@ -209,6 +283,54 @@ def _provider_is_free(
     return True, peak
 
 
+def _manual_provider_occupancy_reason(
+    workbook_path: str | Path,
+    *,
+    request: AutomaticTreatmentRequest,
+    patient_id: str,
+    day_patterns: Iterable[str],
+    base_entries,
+) -> str | None:
+    if not request.provider_id or request.start_time is None:
+        return None
+
+    provider_key = _normalize(request.provider_id)
+    patient_key = _normalize(patient_id)
+    requested_weekdays: set[int] = set()
+    for day_pattern in day_patterns:
+        requested_weekdays.update(_request_weekdays(day_pattern))
+
+    blockers: list[tuple[int, object]] = []
+    seen: set[tuple[int, str, str]] = set()
+    for entry in base_entries:
+        if _normalize(entry.patient_id) == patient_key:
+            continue
+        if not entry.therapist_id or _normalize(entry.therapist_id) != provider_key:
+            continue
+        if entry.start_time != request.start_time:
+            continue
+        for weekday in requested_weekdays.intersection(_entry_weekdays(entry)):
+            key = (weekday, entry.patient_id, entry.treatment)
+            if key in seen:
+                continue
+            seen.add(key)
+            blockers.append((weekday, entry))
+
+    if not blockers:
+        return None
+
+    patients = {_normalize(item.patient_id): item.display_name for item in read_patients(workbook_path)}
+    details = []
+    for weekday, entry in sorted(blockers, key=lambda item: (item[0], item[1].patient_id)):
+        patient_name = patients.get(_normalize(entry.patient_id), entry.patient_id)
+        details.append(
+            f"{_WEEKDAY_NAMES.get(weekday, str(weekday))} {_time_text(request.start_time)}: "
+            f"ο θεραπευτής {request.provider_id} είναι απασχολημένος με τον ασθενή "
+            f"{patient_name} ({entry.treatment})."
+        )
+    return " ".join(details)
+
+
 def _generic_options(
     workbook_path: str | Path,
     *,
@@ -217,6 +339,7 @@ def _generic_options(
     patient_id: str,
     day_patterns: Iterable[str],
     base_entries,
+    ignored_patient_treatments: frozenset[str],
 ) -> tuple[_Option, ...]:
     draft = build_patient_program_draft(workbook_path, patient_id=patient_id)
     spec = draft.spec_for(request.treatment)
@@ -250,7 +373,12 @@ def _generic_options(
                     start_time=slot,
                     workload_count=workload,
                 )
-                if _conflicts_existing_patient(option, base_entries, patient_id):
+                if _conflicts_existing_patient(
+                    option,
+                    base_entries,
+                    patient_id,
+                    ignored_treatments=ignored_patient_treatments,
+                ):
                     continue
                 options.append(option)
 
@@ -264,6 +392,7 @@ def _generic_failure_reason(
     patient_id: str,
     day_patterns: Iterable[str],
     base_entries,
+    ignored_patient_treatments: frozenset[str],
 ) -> str:
     draft = build_patient_program_draft(workbook_path, patient_id=patient_id)
     spec = draft.spec_for(request.treatment)
@@ -291,7 +420,7 @@ def _generic_failure_reason(
 
     providers = spec.provider_choices if spec.requires_provider else ("",)
     any_provider_slot = False
-    any_patient_compatible = False
+    first_patient_conflict: str | None = None
     for day_pattern in day_patterns:
         weekdays = _request_weekdays(day_pattern)
         for provider in providers:
@@ -315,21 +444,24 @@ def _generic_failure_reason(
                     start_time=slot,
                     workload_count=0,
                 )
-                if not _conflicts_existing_patient(option, base_entries, patient_id):
-                    any_patient_compatible = True
-                    break
-            if any_patient_compatible:
-                break
-        if any_patient_compatible:
-            break
+                conflict_reason = _existing_patient_conflict_reason(
+                    option,
+                    base_entries,
+                    patient_id,
+                    ignored_treatments=ignored_patient_treatments,
+                )
+                if conflict_reason is None:
+                    return "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα."
+                if first_patient_conflict is None:
+                    first_patient_conflict = conflict_reason
 
     if not any_provider_slot and spec.requires_provider:
         return (
             "Υπάρχουν providers στο SETTINGS, αλλά κανένας δεν έχει διαθέσιμο slot "
             "στο ζητούμενο εύρος ημερών/ωρών ή έχει φτάσει το ημερήσιο όριο."
         )
-    if any_provider_slot and not any_patient_compatible:
-        return "Υπάρχει διαθέσιμος provider/slot, αλλά συγκρούεται χρονικά με άλλη θεραπεία του ασθενούς."
+    if first_patient_conflict:
+        return first_patient_conflict
     return "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα."
 
 
@@ -387,6 +519,24 @@ def _recliner_adjacency_penalty(selected: dict[int, _Option]) -> int:
     return penalty
 
 
+def _joint_conflict_reason(
+    index: int,
+    options_by_request: dict[int, tuple[_Option, ...]],
+    selected: dict[int, _Option],
+) -> str:
+    for option in options_by_request.get(index, ()):
+        for existing in selected.values():
+            if not _patient_conflict(option, existing):
+                continue
+            shared = option.weekdays.intersection(existing.weekdays)
+            return (
+                f"{_weekday_text(shared)}: {option.treatment} "
+                f"{_interval_text(option.start_time, option.treatment)} συγκρούεται χρονικά με "
+                f"{existing.treatment} {_interval_text(existing.start_time, existing.treatment)}."
+            )
+    return "Οι διαθέσιμες επιλογές συγκρούονται χρονικά με άλλη θεραπεία του ασθενούς."
+
+
 def propose_automatic_patient_schedule(
     workbook_path: str | Path,
     *,
@@ -403,6 +553,11 @@ def propose_automatic_patient_schedule(
 
     Patient conflicts are interval-based: standard treatments occupy 45 minutes
     and Ανακλινόμενο occupies 30 minutes. Adjacent intervals are allowed.
+
+    When several treatments are being edited in one draft, their old persisted
+    assignments are treated as values being replaced. They are removed from the
+    existing-patient conflict baseline and the new draft assignments are checked
+    jointly against each other instead.
     """
 
     patient_key = patient_id.strip()
@@ -424,6 +579,7 @@ def propose_automatic_patient_schedule(
 
     settings = read_settings(workbook_path)
     base_entries = tuple(read_base_schedule(workbook_path))
+    draft_treatments = frozenset(_normalize(item.treatment) for item in request_list)
     authoritative_treatments = {_normalize(value) for value in settings.therapies}
     physio_supported = {_normalize("ΦΘ")}
     fixed_unresolved: dict[int, AutomaticUnresolvedTreatment] = {}
@@ -465,7 +621,12 @@ def propose_automatic_patient_schedule(
             options = [
                 option
                 for option in options
-                if not _conflicts_existing_patient(option, base_entries, patient_key)
+                if not _conflicts_existing_patient(
+                    option,
+                    base_entries,
+                    patient_key,
+                    ignored_treatments=draft_treatments,
+                )
             ]
         else:
             options.extend(
@@ -476,22 +637,29 @@ def propose_automatic_patient_schedule(
                     patient_id=patient_key,
                     day_patterns=candidate_patterns,
                     base_entries=base_entries,
+                    ignored_patient_treatments=draft_treatments,
                 )
             )
 
         constrained = _apply_manual_constraints(request, options)
         if not constrained:
-            reason = (
-                _generic_failure_reason(
+            if generic:
+                reason = _generic_failure_reason(
                     workbook_path,
                     request=request,
                     patient_id=patient_key,
                     day_patterns=candidate_patterns,
                     base_entries=base_entries,
+                    ignored_patient_treatments=draft_treatments,
                 )
-                if generic
-                else "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα."
-            )
+            else:
+                reason = _manual_provider_occupancy_reason(
+                    workbook_path,
+                    request=request,
+                    patient_id=patient_key,
+                    day_patterns=candidate_patterns,
+                    base_entries=base_entries,
+                ) or "Δεν βρέθηκε διαθέσιμος συνδυασμός που να τηρεί τις χειροκίνητες επιλογές και τη διαθεσιμότητα."
             fixed_unresolved[index] = AutomaticUnresolvedTreatment(
                 request.treatment,
                 request.day_pattern or "",
@@ -581,7 +749,7 @@ def propose_automatic_patient_schedule(
         unresolved_by_index[index] = AutomaticUnresolvedTreatment(
             request.treatment,
             request.day_pattern or "",
-            "Οι διαθέσιμες επιλογές συγκρούονται χρονικά με άλλη θεραπεία του ασθενούς.",
+            _joint_conflict_reason(index, options_by_request, selected),
         )
 
     unresolved = tuple(
