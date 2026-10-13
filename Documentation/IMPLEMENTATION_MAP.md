@@ -31,9 +31,9 @@
 
 Το V70 native smoke έδειξε ότι μια χειροκίνητη σύγκρουση, π.χ. ΦΘ και Λογο την ίδια Δευτέρα σε overlapping ώρα, εντοπιζόταν από την **Αυτόματη συμπλήρωση** αλλά μπορούσε να αποθηκευτεί κανονικά από το κουμπί **Αποθήκευση**.
 
-Η υλοποίηση του κοινού conflict gate ολοκληρώθηκε και το focused regression gate πέρασε. Επόμενο βήμα είναι native V71 verification.
+Η υλοποίηση του κοινού conflict gate ολοκληρώθηκε και το focused regression gate πέρασε. Το πρώτο V71 build όμως σταμάτησε πριν το save κατά την εγκατάσταση του νέου conflict dialog λόγω VBE COM property error στο `Width`.
 
-Η ζητούμενη συμπεριφορά είναι:
+Η ζητούμενη συμπεριφορά παραμένει:
 
 - αναλυτικό μήνυμα, π.χ. `Δευτέρα: ΦΘ 09:00-09:45 συγκρούεται με Λογο 09:00-09:45.`,
 - στην Αυτόματη συμπλήρωση η σύγκρουση σταματά τη διαδικασία και ζητά διόρθωση,
@@ -76,6 +76,7 @@
 - procedure-scoped patient-edit refresh patch.
 - runtime stage diagnostics για MASTER refresh.
 - empty MASTER patient cells guarded πριν από `Split`.
+- conflict-form geometry setters πλέον είναι best-effort απέναντι σε VBE COM rejection για `Width/Height` και `Left/Top`.
 
 ### Verified native checkpoints
 
@@ -118,7 +119,22 @@ Focused regression gate μετά από αυτό το batch:
 
 **59 passed in 5.89s**
 
-Άρα το Python/VBA source gate είναι πράσινο. Απομένει native Excel verification.
+### V71 conflict-dialog installer blocker
+
+Το πρώτο V71 build σταμάτησε με:
+
+`Property '<unknown>.Width' can not be set.`
+
+Η αιτία ήταν ότι ο νέος `frmPatientProgramConflict` installer έγραφε απευθείας `designer.Width/Height` και control `Width/Height`, ενώ οι παλιότεροι installers ήδη αντιμετώπιζαν τέτοιες VBE COM properties ως best-effort.
+
+Το hardening πλέον:
+
+- κάνει guarded το form Width/Height,
+- κάνει guarded το control Left/Top,
+- κάνει ξεχωριστά guarded το control Width/Height,
+- έχει regression test με fake control που απορρίπτει Width/Height.
+
+Το hardening είναι implemented αλλά περιμένει focused pytest και νέο V71 build.
 
 ---
 
@@ -126,14 +142,15 @@ Focused regression gate μετά από αυτό το batch:
 
 Πριν θεωρηθεί verified το conflict batch χρειάζονται:
 
-1. clean preview build από V48 ως V71,
-2. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
-3. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
-4. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
-5. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
-6. edit-existing-program flow,
-7. optional manual names persist/reload,
-8. full regression suite.
+1. focused pytest μετά το V71 Width/Height hardening,
+2. clean rebuild του V71 από V48,
+3. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
+4. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
+5. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
+6. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
+7. edit-existing-program flow,
+8. optional manual names persist/reload,
+9. full regression suite.
 
 ---
 
@@ -141,11 +158,13 @@ Focused regression gate μετά από αυτό το batch:
 
 ### Άμεσα
 
-1. Build `MASTER_TOOLBAR_SMOKE_V71.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-2. Native smoke του conflict flow Auto + Save Return + Save Continue.
-3. ΦΘ/Ανακλινόμενο adjacency boundary smoke.
-4. Μετά edit-existing-program + optional names.
-5. Full regression suite.
+1. `git pull origin feature/outpatient-scheduling`.
+2. Τρέξιμο focused tests με το νέο conflict-form sizing regression.
+3. Rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+4. Native smoke του conflict flow Auto + Save Return + Save Continue.
+5. ΦΘ/Ανακλινόμενο adjacency boundary smoke.
+6. Μετά edit-existing-program + optional names.
+7. Full regression suite.
 
 ### Μετά το patient-program milestone
 
