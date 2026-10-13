@@ -77,6 +77,11 @@ def rank_therapist_candidates(
     conflict engine.
 
     Robotic treatments additionally require ``robotic_capable``.
+
+    During edit/revalidation, ``ignore_session_id`` identifies the existing
+    session that is being replaced. That session is removed from the effective
+    session set before workload and availability checks so it does not block
+    either the patient or therapist against itself.
     """
 
     therapists = tuple(therapists)
@@ -87,6 +92,12 @@ def rank_therapist_candidates(
     cancellations = tuple(cancellations)
     ordered_slots = tuple(dict.fromkeys(timeslots))
 
+    effective_sessions = sessions
+    if ignore_session_id is not None:
+        effective_sessions = tuple(
+            session for session in sessions if session.session_id != ignore_session_id
+        )
+
     candidates: list[TherapistScheduleCandidate] = []
 
     for therapist in therapists:
@@ -96,7 +107,7 @@ def rank_therapist_candidates(
         workload = calculate_therapist_workload(
             therapist.therapist_id,
             target_date,
-            sessions=sessions,
+            sessions=effective_sessions,
             absences=absences,
             patients=patients,
             replacements=replacements,
@@ -113,7 +124,7 @@ def rank_therapist_candidates(
                 therapist.therapist_id,
                 target_date,
                 slot,
-                sessions=sessions,
+                sessions=effective_sessions,
                 absences=absences,
                 replacements=replacements,
                 cancellations=cancellations,
@@ -122,11 +133,10 @@ def rank_therapist_candidates(
                 patient_id,
                 target_date,
                 slot,
-                sessions=sessions,
+                sessions=effective_sessions,
                 absences=absences,
                 replacements=replacements,
                 cancellations=cancellations,
-                ignore_session_id=ignore_session_id,
             )
         )
 
