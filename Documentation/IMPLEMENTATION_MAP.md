@@ -4,7 +4,7 @@
 
 Το αρχείο αυτό είναι ο ζωντανός χάρτης υλοποίησης του project. Συμπληρώνει το `UI_APPLICATION_ROADMAP.md` και ενημερώνεται σε κάθε ουσιαστικό milestone με τέσσερα πράγματα: **τι φτιάχνουμε τώρα**, **τι έχει ολοκληρωθεί**, **ποιο είναι το verification gate**, **ποια είναι τα επόμενα βήματα**.
 
-Τελευταία ενημέρωση: 2026-10-11
+Τελευταία ενημέρωση: 2026-10-13
 
 ---
 
@@ -191,16 +191,25 @@
 
 Το native V69 smoke ολοκλήρωσε επιτυχώς την πρώτη αποθήκευση και το MASTER rendering. Ο προηγούμενος first-save blocker θεωρείται κλειστός.
 
-Κατά χειροκίνητη αλλαγή ώρας σε άλλη ειδικότητα και επανεκτέλεση της **Αυτόματης συμπλήρωσης**, εμφανίστηκε μη κρίσιμο false alarm για τη ΦΘ, ενώ η τελική **Αποθήκευση αλλαγών** περνούσε κανονικά. Η αιτία ήταν ότι ο therapist candidate engine έβλεπε την ήδη αποθηκευμένη ΦΘ του ίδιου ασθενούς ως κατειλημμένο session όταν επανεπικύρωνε το draft.
+Κατά χειροκίνητη αλλαγή ώρας σε άλλη ειδικότητα και επανεκτέλεση της **Αυτόματης συμπλήρωσης**, εμφανίστηκε μη κρίσιμο false alarm για τη ΦΘ, ενώ η τελική **Αποθήκευση αλλαγών** περνούσε κανονικά.
 
-Η διόρθωση είναι edit-aware:
+Η πρώτη edit-aware διόρθωση εντόπιζε σωστά το υπάρχον `base_entry_id` για ίδιο `PatientID + treatment` και το περνούσε ως `ignore_session_id`. Το focused gate όμως αποκάλυψε βαθύτερη ασυνέπεια: το core `rank_therapist_candidates()` χρησιμοποιούσε το ignored session μόνο στο patient availability, ενώ το ίδιο session παρέμενε μέσα σε therapist workload και therapist availability. Έτσι η υπάρχουσα ΦΘ εξακολουθούσε να μπλοκάρει τον θεραπευτή στο δικό της slot.
 
-- για τον ίδιο `PatientID` και την ίδια θεραπεία εντοπίζεται το υπάρχον `base_entry_id`,
-- αυτό περνά ως `ignore_session_id` στον therapist candidate engine,
-- η ήδη υπάρχουσα ΦΘ δεν συγκρούεται πλέον με τον εαυτό της,
-- οι πραγματικές συγκρούσεις με άλλους ασθενείς/συνεδρίες παραμένουν ενεργές.
+Το core fix πλέον δημιουργεί `effective_sessions` χωρίς το `ignore_session_id` και χρησιμοποιεί αυτό το ίδιο σύνολο για:
 
-Προστέθηκε regression test που απαιτεί το υπάρχον slot του ίδιου ασθενούς να παραμένει διαθέσιμο, ενώ slot άλλου ασθενούς στον ίδιο θεραπευτή παραμένει δεσμευμένο.
+- therapist workload,
+- therapist availability,
+- patient availability.
+
+Έτσι το session που αντικαθίσταται δεν μετρά ούτε ως patient conflict ούτε ως therapist conflict/capacity, ενώ οι πραγματικές συνεδρίες άλλων ασθενών παραμένουν ενεργές.
+
+Προστέθηκε core regression test που απαιτεί το ignored session του ίδιου therapist/patient να ελευθερώνει και το slot και το workload count.
+
+Το τελευταίο user-reported focused run πριν από αυτό το βαθύτερο core fix ήταν:
+
+**24 passed, 1 failed in 3.73s**
+
+Η μοναδική αποτυχία ήταν ακριβώς το self-conflict test. Το νέο core fix δεν έχει ακόμη ξανατρέξει στο Windows test gate.
 
 ---
 
@@ -208,7 +217,7 @@
 
 Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone χρειάζονται:
 
-1. focused pytest για το νέο edit-aware therapist self-conflict fix,
+1. rerun focused pytest μετά το core `effective_sessions` fix,
 2. native έλεγχος ότι αλλαγή ώρας σε άλλη ειδικότητα + **Αυτόματη συμπλήρωση** δεν εμφανίζει πλέον ψευδές error για αμετάβλητη ΦΘ,
 3. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
 4. έλεγχος ότι optional όνομα για Ρομποτικό/Εργο/Λογο/Ψυχ αποθηκεύεται και ξαναφορτώνεται,
@@ -223,11 +232,12 @@
 
 ### Άμεσα
 
-1. Τρέξιμο focused tests για `workbook_scheduling_candidates`, recurring scheduling και automatic patient schedule.
-2. Native retest του μικρού false-alarm scenario της ΦΘ.
-3. Smoke test edit υπάρχοντος προγράμματος και optional manual names.
-4. Smoke test duration-safe ΦΘ/Ανακλινόμενο adjacency.
-5. Full regression suite όταν περάσουν τα παραπάνω.
+1. `python -m pytest Tests/test_scheduling_candidates.py Tests/test_workbook_scheduling_candidates.py Tests/test_patient_recurring_scheduling.py Tests/test_automatic_patient_schedule.py -q`
+2. Αν είναι green, build νέου preview από clean V48 base.
+3. Native retest του μικρού false-alarm scenario της ΦΘ.
+4. Smoke test edit υπάρχοντος προγράμματος και optional manual names.
+5. Smoke test duration-safe ΦΘ/Ανακλινόμενο adjacency.
+6. Full regression suite όταν περάσουν τα παραπάνω.
 
 ### Μετά το patient-program milestone
 
