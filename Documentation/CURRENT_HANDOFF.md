@@ -6,18 +6,17 @@ Last updated: 2026-10-13
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested successfully by the user: `MASTER_TOOLBAR_SMOKE_V70.xlsm`
-- `MASTER_TOOLBAR_SMOKE_V71.xlsm` has not yet built successfully; two installer blockers were found and hardened in sequence.
+- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V71.xlsm`
+- V71 now builds and opens after the earlier installer hardening.
 
 ## What is verified in native Excel
 
 - The new patient-centric multi-treatment form opens and is usable.
 - Legacy single-treatment VBA no longer blocks the preview with the earlier syntax error.
 - First patient-program save succeeds.
-- MASTER patient-program rendering works after save instead of showing raw decimals or literal `hh:mm`.
-- MASTER rendering uses composite text from `PATIENT_PLANNER`: time + days + provider/name where applicable.
 - The former `Subscript out of range` during MASTER row lookup is fixed.
-- The ΦΘ self-conflict false alarm is fixed in native use: changing a non-ΦΘ treatment and pressing **Αυτόματη συμπλήρωση** no longer falsely reports unchanged ΦΘ.
+- The ΦΘ self-conflict false alarm is fixed in native use.
+- V71 conflict behavior now appears functionally correct in native use: overlap is detected and Save presents the intended conflict decision flow.
 
 ## Conflict-validation issue found in V70
 
@@ -28,9 +27,9 @@ Native smoke exposed a consistency gap:
 - **Αποθήκευση προγράμματος** accepted and persisted the conflict,
 - MASTER then displayed the conflicting program normally.
 
-The new common conflict gate is intended to fix this for both Auto and Save.
+The common conflict gate now addresses Auto and Save with detailed diagnostics and explicit override.
 
-## Conflict-validation fix implemented
+## Conflict-validation behavior
 
 A common `validate-vba` bridge command checks pairwise patient-program overlaps using the duration contract:
 
@@ -43,64 +42,71 @@ Detailed diagnostics have the form:
 
 `Δευτέρα: ΦΘ 09:00-09:45 συγκρούεται με Λογο 09:00-09:45.`
 
-The patient-program UI is patched so that:
+The patient-program UI:
 
-- **Αυτόματη συμπλήρωση** validates first and stops with explicit day/treatment/time diagnostics,
-- **Αποθήκευση** validates before any atomic write begins,
-- conflicts show a modal form with **Συνέχεια** and **Επιστροφή**,
-- **Επιστροφή** cancels before any write,
+- validates before **Αυτόματη συμπλήρωση**,
+- validates before any atomic Save write begins,
+- shows **Συνέχεια** and **Επιστροφή** on Save conflicts,
+- **Επιστροφή** cancels before writes,
 - **Συνέχεια** is an explicit override.
 
-## V71 installer blockers and hardening
+## V71 installer hardening already verified
 
-### 1. Conflict form COM sizing
+Two installer blockers were found and fixed before native V71 could open:
 
-First V71 build stopped with:
+1. VBE COM rejection of conflict-form `Width/Height`.
+2. brittle exact marker for injecting `ValidatePatientProgram()` into `PatientProgramRuntime`.
 
-`Property '<unknown>.Width' can not be set.`
+The runtime patcher is now procedure-scoped, CRLF-safe and idempotent, while designer geometry writes are guarded.
 
-Cause: the new conflict form directly wrote designer/control Width/Height. Fix: sizing/positioning is now best-effort with COM guards, matching the proven pattern used by older form installers. A regression test simulates Width/Height rejection.
-
-### 2. PatientProgramRuntime validation marker
-
-Next V71 build progressed past conflict-form installation but stopped with:
-
-`MASTER render patch marker missing: patient-program validation runtime`
-
-Cause: `_patch_runtime_validation()` required one exact multi-function text block containing `CompletePatientProgram` immediately followed by `FindPatientDisplayName`. Native VBE code differed enough that the exact marker did not match.
-
-Fix implemented:
-
-- runtime validation patch is now procedure-scoped,
-- it locates only `Public Function CompletePatientProgram(...)`,
-- finds that procedure's `End Function`,
-- inserts `ValidatePatientProgram(...)` immediately after it,
-- does not depend on which function follows next or on internal spacing,
-- remains CRLF-safe and idempotent,
-- gives precise diagnostics if `CompletePatientProgram` or its `End Function` is genuinely missing.
-
-Regression coverage includes altered procedure body/spacing and idempotence.
-
-## Latest confirmed test checkpoint
-
-Latest user-reported focused gate after both V71 installer hardening changes:
+Latest user-reported focused gate after those fixes:
 
 `62 passed in 3.34s`
 
-This confirms the conflict-form COM tolerance, procedure-scoped runtime validation patcher, bridge diagnostics, patient-program form patches, and related automatic scheduling paths are green at source-test level.
+## New native V71 follow-ups
+
+### Conflict dialog is too short
+
+The Save conflict dialog opens, but its installed/default form geometry is too short. The full conflict text and the **Συνέχεια / Επιστροφή** buttons are not fully visible.
+
+New fix implemented:
+
+- `patient_program_conflict_layout_vba.py` replaces the conflict-form code after installation,
+- the form now applies its own runtime layout in `Configure()`,
+- runtime layout explicitly sizes the form, message label and both buttons,
+- this avoids relying on VBE designer geometry persistence.
+
+This runtime-layout fix is implemented but not yet user-test-verified.
+
+### Existing Ρομποτικό time can still appear as decimal in MASTER
+
+Native V71 showed the Ρομποτικό time for patient Γιαννιά in raw decimal form.
+
+The likely cause is stale MASTER projection content for existing patients. `RefreshMasterPatientProgram()` already formats numeric times through `Format$(..., "hh:mm")`, but existing MASTER rows are not necessarily passed through that composite renderer during preview build.
+
+New fix implemented:
+
+- after the patient-program renderer is installed and verified, the preview installer iterates all nonblank PatientIDs in `PATIENTS`,
+- it invokes `RefreshMasterPatientProgram` for each existing patient before the workbook is saved,
+- this re-renders all current treatment cells as composite text and removes stale raw Excel time serials, not just the one observed Ρομποτικό cell.
+
+This initial-all-patients MASTER refresh is implemented but not yet user-test-verified.
 
 ## Immediate next start point
 
-1. Rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` from clean V48.
-2. If installer succeeds, native smoke the conflict scenario:
-   - ΦΘ and Λογο on the same weekday with overlapping intervals,
-   - **Αυτόματη συμπλήρωση** must name the exact day and both treatments/times,
-   - **Αποθήκευση** must show **Συνέχεια / Επιστροφή** before any write,
-   - choose **Επιστροφή** and verify nothing changed in MASTER,
-   - repeat and choose **Συνέχεια** and verify intentional override saves.
-3. Verify adjacency boundary: ΦΘ `09:15-10:00` + Ανακλινόμενο `10:00-10:30` must not be treated as a conflict.
-4. Then continue with edit-existing-program and optional manual names.
-5. Full regression suite only after native edit smoke is clean.
+1. Pull latest `feature/outpatient-scheduling`.
+2. Run focused tests including:
+   - `Tests/test_patient_program_conflict_layout_vba.py`
+   - `Tests/test_patient_registration_scheduling_slice.py`
+   - existing patient-program conflict/renderer tests.
+3. If green, rebuild a fresh preview from clean V48 using the next preview version after V71.
+4. Native re-test:
+   - Save conflict dialog shows the full message and both **Συνέχεια / Επιστροφή** buttons,
+   - patient Γιαννιά Ρομποτικό time appears as `hh:mm`, not decimal,
+   - spot-check one or two other existing MASTER treatment cells for raw decimals.
+5. Reconfirm conflict Return/Continue behavior and adjacency boundary.
+6. Then continue with edit-existing-program and optional manual names.
+7. Full regression suite only after native edit smoke is clean.
 
 ## Business rules that must not regress
 
