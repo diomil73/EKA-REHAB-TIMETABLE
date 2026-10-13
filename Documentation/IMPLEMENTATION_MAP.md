@@ -28,24 +28,25 @@
 - Recliner adjacency με ΦΘ: strong soft preference.
 - `PATIENT_PLANNER` authoritative, `MASTER_SCHEDULE` derived view.
 
-### Current focus: native V73 verification
+### Current focus: κλείσιμο του τελευταίου V73 display issue
 
-Το νέο edit-draft replacement model και τα precise diagnostics έχουν πλέον περάσει και narrow και wider source/integration gates.
+Το V73 native smoke πέρασε επιτυχώς στα λειτουργικά σημεία που θέλαμε:
 
-Η τρέχουσα υλοποίηση:
+- manual ΦΘ occupied-slot diagnostics με concrete blocker,
+- `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` γίνεται σωστά δεκτό ως adjacency,
+- πραγματικά overlaps δίνουν detailed treatment/day/time diagnostics,
+- το conflict dialog εμφανίζει ολόκληρο το μήνυμα και τα κουμπιά **Συνέχεια / Επιστροφή**.
 
-- αφαιρεί από το existing-patient baseline όλες τις παλιές εγγραφές treatments που συμμετέχουν στο τρέχον draft,
-- λύνει το νέο draft ως ενιαίο σύνολο και ελέγχει τις νέες επιλογές μεταξύ τους,
-- κρατά exact adjacency νόμιμη,
-- δίνει detailed joint conflict diagnostics με ημέρα, treatments και ranges,
-- για manual ΦΘ/provider failure, όταν υπάρχει concrete blocker, εμφανίζει ημέρα, ώρα, θεραπευτή, ασθενή και treatment που κρατά το slot.
+Μένει ένα μόνο ανοιχτό θέμα:
 
-Verification checkpoints:
+- η ώρα Ρομποτικού της ασθενούς Γιαννιά εξακολουθεί να εμφανίζεται στο MASTER ως raw decimal Excel time serial.
 
-- narrow automatic-scheduling gate: **16 passed in 2.87s**
-- wider patient-program integration gate: **71 passed in 3.66s**
+Ο χρήστης δοκιμάζει τώρα να ξαναγράψει/ξανασώσει την ίδια ώρα Ρομποτικού.
 
-Επόμενο βήμα: build του `MASTER_TOOLBAR_SMOKE_V73.xlsm` από clean V48 και native behavior verification.
+Αυτό θα ξεχωρίσει δύο περιπτώσεις:
+
+- αν γίνει `hh:mm` μετά το save, το πρόβλημα είναι stale existing MASTER content / incomplete initial normalization,
+- αν παραμείνει decimal, υπάρχει δεύτερο write/render path που ξαναγράφει raw Excel serial μετά το composite renderer.
 
 ---
 
@@ -89,7 +90,8 @@ Verification checkpoints:
 
 - V69: first save επιτυχές και MASTER composite rendering επιτυχές.
 - V70: το false alarm της αμετάβλητης ΦΘ κατά edit revalidation διορθώθηκε native.
-- V71: build/open επιτυχές μετά τα installer hardenings και το conflict flow φαίνεται λειτουργικά σωστό σε native χρήση.
+- V71: build/open επιτυχές μετά τα installer hardenings και το conflict flow λειτουργεί native.
+- V73: precise ΦΘ blocker diagnostics, exact adjacency, detailed true-overlap diagnostics και conflict-dialog layout επιβεβαιώθηκαν native.
 
 ### Source/integration checkpoints
 
@@ -117,6 +119,8 @@ Verification checkpoints:
 
 ### Runtime-layout fix του conflict dialog
 
+Native V73 verified:
+
 - runtime `Me.Width/Height`,
 - explicit sizing του `lblConflict`,
 - explicit placement **Συνέχεια / Επιστροφή**,
@@ -125,7 +129,8 @@ Verification checkpoints:
 ### Initial MASTER composite refresh
 
 - όλα τα existing PatientIDs περνούν από `RefreshMasterPatientProgram()` κατά το preview build,
-- στόχος: να μην παραμένουν stale decimal Excel times σε MASTER cells, όπως παρατηρήθηκε στο Ρομποτικό της Γιαννιά.
+- όμως η Γιαννιά εξακολουθεί να δείχνει decimal Ρομποτικό στο V73,
+- άρα η αιτία δεν έχει ακόμη απομονωθεί πλήρως.
 
 ### Edit-draft replacement fix
 
@@ -134,36 +139,30 @@ Verification checkpoints:
 - δημιουργείται set όλων των treatments του τρέχοντος request/draft,
 - persisted assignments του ίδιου ασθενή για αυτά τα treatments αγνοούνται ως values being replaced,
 - οι νέες assignments ελέγχονται joint μέσω `_patient_conflict`,
-- stale old ΦΘ δεν μπορεί πλέον να μπλοκάρει νέο Ανακλινόμενο όταν και τα δύο συμμετέχουν στο ίδιο edit draft.
+- stale old ΦΘ δεν μπλοκάρει πλέον νέο Ανακλινόμενο όταν και τα δύο συμμετέχουν στο ίδιο edit draft.
+
+Native V73 confirmed the key scenario `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15`.
 
 ### Detailed diagnostics
 
-Προστέθηκαν:
+Προστέθηκαν και επιβεβαιώθηκαν native στο V73:
 
 - concrete provider occupancy reason για manual ΦΘ με weekday/time/provider/patient/treatment,
 - detailed existing-patient conflict reason με treatment intervals,
 - detailed joint-draft conflict reason με shared weekdays και ακριβή ranges.
 
-Regression coverage περιλαμβάνει:
-
-- `Ανακλινόμενο 11:00-11:30` + νέα `ΦΘ 11:30-12:15` με stale old ΦΘ,
-- occupied manual ΦΘ slot που ονοματίζει provider και blocking patient,
-- πραγματικό joint overlap που εμφανίζει ακριβή ranges.
-
 ---
 
 ## Τρέχον verification gate
 
-Πριν θεωρηθεί κλειστό το τρέχον batch χρειάζονται:
+Για να κλείσει το V73 batch απομένει:
 
-1. build `MASTER_TOOLBAR_SMOKE_V73.xlsm` από clean V48,
-2. native manual ΦΘ occupied-slot test με concrete patient diagnostic,
-3. native `Ανακλινόμενο 11:00` + `ΦΘ 11:30` adjacency test,
-4. native true-overlap test με explicit treatment/day/time diagnostic,
-5. conflict dialog full layout + Γιαννιά Ρομποτικό `hh:mm`,
-6. edit-existing-program flow,
-7. optional manual names persist/reload,
-8. full regression suite.
+1. αποτέλεσμα από re-save της ώρας Ρομποτικού της Γιαννιά,
+2. εντοπισμός stale-content vs second-write-path αιτίας,
+3. διόρθωση και native verification του decimal-time issue,
+4. edit-existing-program flow,
+5. optional manual names persist/reload,
+6. full regression suite.
 
 ---
 
@@ -171,10 +170,11 @@ Regression coverage περιλαμβάνει:
 
 ### Άμεσα
 
-1. Build V73 από clean V48.
-2. Native smoke των precise diagnostics, adjacency και presentation fixes.
-3. Μετά edit-existing-program + optional names.
-4. Full regression suite.
+1. Περιμένουμε το αποτέλεσμα του re-save για Γιαννιά Ρομποτικό.
+2. Αν γίνει `hh:mm`, διορθώνουμε initial normalization/stale MASTER handling.
+3. Αν μείνει decimal, χαρτογραφούμε το post-save write order και κλείνουμε το δεύτερο raw-time writer.
+4. Μετά συνεχίζουμε edit-existing-program + optional names.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
