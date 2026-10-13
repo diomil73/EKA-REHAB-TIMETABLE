@@ -133,9 +133,9 @@ def test_candidate_is_omitted_when_patient_has_no_free_slot():
     assert candidates == ()
 
 
-def test_editing_can_ignore_current_session_for_patient_conflict_check():
+def test_editing_can_ignore_current_session_for_patient_and_therapist_conflicts():
     therapist = Therapist("T1", "Therapist")
-    current = Session("CURRENT", "P-NEW", "OLD", DAY, time(10, 0))
+    current = Session("CURRENT", "P-NEW", "T1", DAY, time(10, 0))
 
     candidates = rank_therapist_candidates(
         patient_id="P-NEW",
@@ -149,3 +149,4 @@ def test_editing_can_ignore_current_session_for_patient_conflict_check():
 
     assert len(candidates) == 1
     assert candidates[0].available_slots == (time(10, 0),)
+    assert candidates[0].active_sessions == 0
