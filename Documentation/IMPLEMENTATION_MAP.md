@@ -193,7 +193,7 @@
 
 Κατά χειροκίνητη αλλαγή ώρας σε άλλη ειδικότητα και επανεκτέλεση της **Αυτόματης συμπλήρωσης**, εμφανίστηκε μη κρίσιμο false alarm για τη ΦΘ, ενώ η τελική **Αποθήκευση αλλαγών** περνούσε κανονικά.
 
-Η πρώτη edit-aware διόρθωση εντόπιζε σωστά το υπάρχον `base_entry_id` για ίδιο `PatientID + treatment` και το περνούσε ως `ignore_session_id`. Το focused gate όμως αποκάλυψε βαθύτερη ασυνέπεια: το core `rank_therapist_candidates()` χρησιμοποιούσε το ignored session μόνο στο patient availability, ενώ το ίδιο session παρέμενε μέσα σε therapist workload και therapist availability. Έτσι η υπάρχουσα ΦΘ εξακολουθούσε να μπλοκάρει τον θεραπευτή στο δικό της slot.
+Η πρώτη edit-aware διόρθωση εντόπιζε σωστά το υπάρχον `base_entry_id` για ίδιο `PatientID + treatment` και το περνούσε ως `ignore_session_id`. Το focused gate αποκάλυψε βαθύτερη ασυνέπεια: το core `rank_therapist_candidates()` χρησιμοποιούσε το ignored session μόνο στο patient availability, ενώ το ίδιο session παρέμενε μέσα σε therapist workload και therapist availability.
 
 Το core fix πλέον δημιουργεί `effective_sessions` χωρίς το `ignore_session_id` και χρησιμοποιεί αυτό το ίδιο σύνολο για:
 
@@ -205,11 +205,11 @@
 
 Προστέθηκε core regression test που απαιτεί το ignored session του ίδιου therapist/patient να ελευθερώνει και το slot και το workload count.
 
-Το τελευταίο user-reported focused run πριν από αυτό το βαθύτερο core fix ήταν:
+Το focused rerun μετά το βαθύτερο core fix πέρασε:
 
-**24 passed, 1 failed in 3.73s**
+**32 passed in 1.40s**
 
-Η μοναδική αποτυχία ήταν ακριβώς το self-conflict test. Το νέο core fix δεν έχει ακόμη ξανατρέξει στο Windows test gate.
+Άρα το Python regression gate για το ΦΘ self-conflict θεωρείται κλειστό. Απομένει μόνο native Excel επιβεβαίωση στο επόμενο preview.
 
 ---
 
@@ -217,14 +217,13 @@
 
 Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone χρειάζονται:
 
-1. rerun focused pytest μετά το core `effective_sessions` fix,
-2. native έλεγχος ότι αλλαγή ώρας σε άλλη ειδικότητα + **Αυτόματη συμπλήρωση** δεν εμφανίζει πλέον ψευδές error για αμετάβλητη ΦΘ,
-3. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
-4. έλεγχος ότι optional όνομα για Ρομποτικό/Εργο/Λογο/Ψυχ αποθηκεύεται και ξαναφορτώνεται,
-5. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
-6. έλεγχος ότι υπάρχον πρόγραμμα φορτώνεται και μπορεί να τροποποιηθεί και να αποθηκευτεί atomic,
-7. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό μετά από edit/rebuild,
-8. full regression suite.
+1. native V70 έλεγχος ότι αλλαγή ώρας σε άλλη ειδικότητα + **Αυτόματη συμπλήρωση** δεν εμφανίζει πλέον ψευδές error για αμετάβλητη ΦΘ,
+2. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
+3. έλεγχος ότι optional όνομα για Ρομποτικό/Εργο/Λογο/Ψυχ αποθηκεύεται και ξαναφορτώνεται,
+4. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
+5. έλεγχος ότι υπάρχον πρόγραμμα φορτώνεται και μπορεί να τροποποιηθεί και να αποθηκευτεί atomic,
+6. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό μετά από edit/rebuild,
+7. full regression suite.
 
 ---
 
@@ -232,12 +231,11 @@
 
 ### Άμεσα
 
-1. `python -m pytest Tests/test_scheduling_candidates.py Tests/test_workbook_scheduling_candidates.py Tests/test_patient_recurring_scheduling.py Tests/test_automatic_patient_schedule.py -q`
-2. Αν είναι green, build νέου preview από clean V48 base.
-3. Native retest του μικρού false-alarm scenario της ΦΘ.
-4. Smoke test edit υπάρχοντος προγράμματος και optional manual names.
-5. Smoke test duration-safe ΦΘ/Ανακλινόμενο adjacency.
-6. Full regression suite όταν περάσουν τα παραπάνω.
+1. Build `MASTER_TOOLBAR_SMOKE_V70.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+2. Native retest του μικρού false-alarm scenario της ΦΘ.
+3. Smoke test edit υπάρχοντος προγράμματος και optional manual names.
+4. Smoke test duration-safe ΦΘ/Ανακλινόμενο adjacency.
+5. Full regression suite όταν περάσουν τα παραπάνω.
 
 ### Μετά το patient-program milestone
 
