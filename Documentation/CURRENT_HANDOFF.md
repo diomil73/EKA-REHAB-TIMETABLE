@@ -8,7 +8,7 @@ Last updated: 2026-10-13
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
 - Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V71.xlsm`
 - V71 builds and opens after the earlier installer hardening.
-- Next preview to build: `MASTER_TOOLBAR_SMOKE_V72.xlsm` from clean V48.
+- V72 source batch exists but native verification is not yet complete.
 
 ## What is verified in native Excel
 
@@ -28,10 +28,6 @@ A common `validate-vba` bridge command checks pairwise patient-program overlaps 
 - only shared weekdays count,
 - adjacent intervals are allowed.
 
-Detailed diagnostics have the form:
-
-`Δευτέρα: ΦΘ 09:00-09:45 συγκρούεται με Λογο 09:00-09:45.`
-
 The patient-program UI:
 
 - validates before **Αυτόματη συμπλήρωση**,
@@ -40,67 +36,98 @@ The patient-program UI:
 - **Επιστροφή** cancels before writes,
 - **Συνέχεια** is an explicit override.
 
-## V71 installer hardening already verified
+## V71/V72 presentation fixes
 
-Two installer blockers were found and fixed before native V71 could open:
+### Conflict dialog runtime layout
 
-1. VBE COM rejection of conflict-form `Width/Height`.
-2. brittle exact marker for injecting `ValidatePatientProgram()` into `PatientProgramRuntime`.
+The Save conflict dialog was too short and clipped the message/buttons.
 
-The runtime patcher is now procedure-scoped, CRLF-safe and idempotent, while designer geometry writes are guarded.
+Implemented:
 
-User-reported focused gate after those fixes:
+- `patient_program_conflict_layout_vba.py`,
+- runtime form sizing in `Configure()`,
+- explicit label/button placement independent of VBE designer geometry persistence.
 
-`62 passed in 3.34s`
+### Existing MASTER decimal times
 
-## New V71 native follow-ups
+The Ρομποτικό time for patient Γιαννιά appeared as a raw Excel decimal.
 
-### Conflict dialog too short
+Implemented:
 
-The Save conflict dialog opened, but its installed/default form geometry was too short. The full conflict text and the **Συνέχεια / Επιστροφή** buttons were not fully visible.
+- preview installer iterates all nonblank PatientIDs in `PATIENTS`,
+- invokes `RefreshMasterPatientProgram` for each existing patient,
+- re-renders all treatment cells through the composite `hh:mm` renderer.
 
-Fix implemented:
-
-- `patient_program_conflict_layout_vba.py` replaces the conflict-form code after installation,
-- the form applies its own runtime layout in `Configure()`,
-- runtime layout explicitly sizes the form, message label and both buttons,
-- this avoids relying on VBE designer geometry persistence.
-
-### Existing Ρομποτικό time shown as decimal in MASTER
-
-Native V71 showed the Ρομποτικό time for patient Γιαννιά in raw decimal form.
-
-Fix implemented:
-
-- after the patient-program renderer is installed and verified, the preview installer iterates all nonblank PatientIDs in `PATIENTS`,
-- it invokes `RefreshMasterPatientProgram` for each existing patient before the workbook is saved,
-- this re-renders all current treatment cells as composite text and removes stale raw Excel time serials, not just the one observed Ρομποτικό cell.
-
-## Latest confirmed test checkpoint
-
-Latest user-reported focused gate for the runtime conflict layout + existing-patient MASTER refresh batch:
+Latest confirmed focused gate for these fixes:
 
 `57 passed in 3.96s`
 
-This confirms the source/test gate is green for:
+## New native scheduling observations
 
-- runtime sizing of the conflict dialog,
-- initial refresh of existing MASTER patient-program rows,
-- composite time rendering,
-- scheduling-slice integration,
-- existing patient-program renderer/form/bridge regressions covered by the focused suite.
+Two further issues were reported while exercising the current patient-program flow.
 
-Native verification of these two presentation/consistency fixes is still pending.
+### 1. Manual ΦΘ provider/time conflict message is too generic
+
+When the user changes ΦΘ time to a slot where the selected therapist is already occupied, the system should identify the real blocker instead of only saying that no valid combination exists.
+
+Desired diagnostic example:
+
+`Δευτέρα 11:30: ο θεραπευτής Σαρράς είναι απασχολημένος με τον ασθενή Χ (ΦΘ).`
+
+Implemented in source:
+
+- manual ΦΘ failure diagnostics now inspect provider occupancy,
+- when a concrete patient booking explains the failure, the reason includes weekday, time, therapist, patient name and treatment,
+- generic fallback remains only when no concrete blocker can be resolved.
+
+### 2. False Ανακλινόμενο conflict during multi-treatment edit
+
+Observed scenario:
+
+- ΦΘ daily at `11:30`, duration 45',
+- Ανακλινόμενο `Δε-Τε-Πα` at `11:00`, duration 30',
+- these are exactly adjacent (`11:00-11:30` and `11:30-12:15`) and must be legal.
+
+Root cause identified:
+
+- during automatic completion of an edit draft, the solver compared a new treatment against stale persisted assignments of other treatments from the same patient,
+- it ignored only the old assignment of the same treatment,
+- therefore the new Ανακλινόμενο could collide with the patient's old persisted ΦΘ even though the draft's new ΦΘ was at 11:30.
+
+Fix implemented in `automatic_patient_schedule.py`:
+
+- all old persisted assignments whose treatment participates in the current draft are removed from the existing-patient conflict baseline,
+- the new draft assignments are then checked jointly against each other,
+- exact adjacency remains allowed,
+- true joint conflicts now return detailed weekday/treatment/time ranges instead of a generic conflict sentence.
+
+Regression tests added for:
+
+- stale old ΦΘ no longer blocking new `Ανακλινόμενο 11:00` + `ΦΘ 11:30`,
+- manual occupied ΦΘ slot naming day/provider/patient,
+- detailed joint conflict ranges.
+
+These latest scheduling fixes are implemented but have not yet been user-run verified.
+
+## Latest confirmed test checkpoint
+
+Latest confirmed user-run focused gate remains:
+
+`57 passed in 3.96s`
+
+Do not claim the new draft-replacement/provider-diagnostic batch is green until the focused automatic-scheduling suite is rerun.
 
 ## Immediate next start point
 
-1. Build `MASTER_TOOLBAR_SMOKE_V72.xlsm` from clean V48.
-2. Native re-test first:
-   - Save conflict dialog shows the full message and both **Συνέχεια / Επιστροφή** buttons,
-   - patient Γιαννιά Ρομποτικό time appears as `hh:mm`, not decimal,
-   - spot-check one or two other existing MASTER treatment cells for raw decimals.
-3. Reconfirm conflict **Επιστροφή / Συνέχεια** behavior.
-4. Verify adjacency boundary: ΦΘ `09:15-10:00` + Ανακλινόμενο `10:00-10:30` must not be treated as a conflict.
+1. Pull latest `feature/outpatient-scheduling`.
+2. Run focused automatic scheduling tests, especially `Tests/test_automatic_patient_schedule.py`.
+3. If green, rebuild the next fresh preview from clean V48.
+4. Native re-test:
+   - manual ΦΘ occupied therapist slot gives precise patient/day/time diagnostic,
+   - `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted,
+   - true treatment overlaps identify exact therapies/day/time,
+   - conflict dialog shows full message/buttons,
+   - Γιαννιά Ρομποτικό time appears as `hh:mm`.
 5. Then continue with edit-existing-program and optional manual names.
 6. Full regression suite only after native edit smoke is clean.
 
@@ -113,6 +140,7 @@ Native verification of these two presentation/consistency fixes is still pending
 - One final atomic save writes the included patient program.
 - Standard treatment duration currently used by the solver: 45 minutes.
 - Ανακλινόμενο duration: 30 minutes.
+- Exact adjacency is legal and is not an overlap.
 - Recliner adjacency to ΦΘ is a strong soft preference, not a hard rule.
 - MASTER is a derived view; `PATIENT_PLANNER` remains authoritative for the inpatient patient program.
 - Conflict override must be explicit. Returning for correction must perform no writes.
