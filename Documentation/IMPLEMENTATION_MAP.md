@@ -1,10 +1,12 @@
 # Implementation Map
 
+Τελευταία ενημέρωση: 2026-10-13
+
 ## Σκοπός
 
-Το αρχείο αυτό είναι ο ζωντανός χάρτης υλοποίησης του project. Συμπληρώνει το `UI_APPLICATION_ROADMAP.md` και ενημερώνεται σε κάθε ουσιαστικό milestone με τέσσερα πράγματα: **τι φτιάχνουμε τώρα**, **τι έχει ολοκληρωθεί**, **ποιο είναι το verification gate**, **ποια είναι τα επόμενα βήματα**.
+Ο ζωντανός χάρτης υλοποίησης του project. Για κάθε ουσιαστικό milestone καταγράφει: **τι φτιάχνουμε τώρα**, **τι έχει ολοκληρωθεί**, **ποιο είναι το verification gate** και **ποια είναι τα επόμενα βήματα**.
 
-Τελευταία ενημέρωση: 2026-10-13
+Για το ακριβές σημείο συνέχισης μετά από pause/context loss, πρώτο αρχείο είναι το `Documentation/CURRENT_HANDOFF.md`.
 
 ---
 
@@ -12,218 +14,121 @@
 
 ### Patient-centric multi-treatment scheduling
 
-Στόχος είναι μία ενιαία ροή προγραμματισμού ασθενούς, χωρίς ξεχωριστό Save ανά θεραπεία.
+Μία ενιαία patient-program φόρμα για νέο και υπάρχοντα ασθενή, με πολλές θεραπείες και ένα τελικό atomic save.
 
-Η ίδια patient-program φόρμα χρησιμοποιείται τόσο:
+Κύριοι κανόνες:
 
-- μετά την πρώτη καταχώρηση νέου ασθενούς,
-- όσο και μετά από **Βασικό μενού → Επεξεργασία ασθενή → Αποθήκευση αλλαγών**.
+- ΦΘ: provider υποχρεωτικός και solver-owned.
+- Ρομποτικό / Εργο / Λογο / Ψυχ: ημέρες + ώρα, optional free-text όνομα, όχι solver constraint.
+- Ανακλινόμενο / Πισίνα / ΕΦΑ: χωρίς provider/name.
+- Manual nonblank day/time/provider constraints δεν αντικαθίστανται σιωπηρά.
+- Standard treatment duration: 45 λεπτά.
+- Ανακλινόμενο: 30 λεπτά.
+- Recliner adjacency με ΦΘ: strong soft preference.
+- `PATIENT_PLANNER` authoritative, `MASTER_SCHEDULE` derived view.
 
-Στην edit περίπτωση η φόρμα πρέπει να φορτώνει το ήδη υπάρχον πρόγραμμα του ασθενούς από `PATIENT_PLANNER` και να επιτρέπει αλλαγές χωρίς δεύτερο παράλληλο scheduling UI.
+### Current focus: κοινό conflict gate για Auto + Save
 
-### Provider / όνομα προσωπικού
+Το V70 native smoke έδειξε ότι μια χειροκίνητη σύγκρουση, π.χ. ΦΘ και Λογο την ίδια Δευτέρα σε overlapping ώρα, εντοπιζόταν από την **Αυτόματη συμπλήρωση** αλλά μπορούσε να αποθηκευτεί κανονικά από το κουμπί **Αποθήκευση**.
 
-Η τρέχουσα επιχειρησιακή απόφαση είναι:
+Αυτό είναι consistency gap και όχι απλό UX θέμα. Η τελική αποθήκευση πρέπει να εκτελεί τον ίδιο conflict validation πριν αρχίσει οποιοδήποτε write.
 
-- **ΦΘ:** ο θεραπευτής είναι υποχρεωτικός και συμμετέχει στον automatic solver.
-- **Ρομποτικό, Εργο, Λογο, Ψυχ:** το scheduling απαιτεί μόνο **ημέρες + ώρα**. Το όνομα είναι **προαιρετικό**.
-- Για Ρομποτικό/Εργο/Λογο/Ψυχ ο χρήστης μπορεί να γράψει χειροκίνητα όνομα στη φόρμα. Αν υπάρχει configured λίστα, μπορεί να χρησιμοποιηθεί ως βοήθημα, αλλά το όνομα δεν είναι solver constraint.
-- **Ανακλινόμενο, Πισίνα, ΕΦΑ:** day/time scheduling χωρίς provider/name field.
-- Η τελική αποθήκευση γράφει τα προαιρετικά ονόματα στις υπάρχουσες στήλες του `PATIENT_PLANNER` όπου αυτές υπάρχουν.
+Η ζητούμενη συμπεριφορά είναι:
 
-> Μελλοντική optional επέκταση: provider-aware automatic scheduling για Ρομποτικό/Εργο/Λογο/Ψυχ μπορεί να προστεθεί αργότερα, χωρίς να γίνει ποτέ υποχρεωτικό για την εύρεση timeslot.
-
-### Duration-safe scheduling
-
-Ο solver πλέον πρέπει να θεωρεί πραγματικά χρονικά διαστήματα και όχι μόνο ίδια start times:
-
-- standard treatments, συμπεριλαμβανομένης της ΦΘ: **45 λεπτά**,
-- Ανακλινόμενο: **30 λεπτά**,
-- δύο θεραπείες του ίδιου ασθενούς δεν επιτρέπεται να επικαλύπτονται σε κοινές ημέρες,
-- ακριβώς συνεχόμενα intervals επιτρέπονται.
-
-Παράδειγμα: ΦΘ `09:15-10:00` αποκλείει Ανακλινόμενο `09:00-09:30` και `09:30-10:00`. Αν οι διαθέσιμες recliner ώρες είναι `08:30, 09:00, 09:30, 10:00`, η καλύτερη adjacent επιλογή είναι `10:00`. Αν χρειαστεί να μπει πριν, η τελευταία συμβατή διαθέσιμη είναι `08:30` επειδή `08:45` δεν υπάρχει ως slot.
-
-### MASTER treatment rendering
-
-Το `MASTER_SCHEDULE` δεν πρέπει να εμφανίζει raw Excel time serial ούτε να εφαρμόζει γενικό `NumberFormat = "hh:mm"` στις treatment columns.
-
-Κάθε treatment cell είναι derived presentation από τα authoritative πεδία του `PATIENT_PLANNER` και πρέπει να εμφανίζει:
-
-```text
-09:15
-Δε-Τε-Πα
-Όνομα θεραπευτή
-```
-
-Η τρίτη γραμμή εμφανίζεται μόνο όταν υπάρχει όνομα. Για providerless θεραπείες εμφανίζονται ώρα + ημέρες. Η προβολή πρέπει να ανανεώνεται μετά από patient-program save και μετά από patient registry edit/rebuild.
+- αναλυτικό μήνυμα, π.χ. `Δευτέρα: ΦΘ 09:00-09:45 συγκρούεται με Λογο 09:00-09:45.`,
+- στην Αυτόματη συμπλήρωση η σύγκρουση σταματά τη διαδικασία και ζητά διόρθωση,
+- στην Αποθήκευση εμφανίζεται modal επιλογή **Συνέχεια** / **Επιστροφή**,
+- **Επιστροφή** σημαίνει μηδενικά writes,
+- **Συνέχεια** είναι ρητή user override και επιτρέπει intentional conflicting save.
 
 ---
 
-## Τι έχει ολοκληρωθεί μέχρι τώρα
+## Τι έχει ολοκληρωθεί
 
 ### Application / workbook foundation
 
-- `MASTER_SCHEDULE` ως operational home και read-only hub.
-- Application shell με κρυμμένο Excel chrome στο app mode.
-- MASTER toolbar και βασική πλοήγηση.
+- `MASTER_SCHEDULE` operational home.
+- App-mode shell και βασική πλοήγηση.
 - `DAILY_INPUT` authoritative flow.
-- `THERAPIST_DAILY` recurring projection και writeback υποδομή.
-- Patient, therapist, student και outpatient registration vertical slices.
+- `THERAPIST_DAILY` recurring projection/writeback.
+- Patient / therapist / student / outpatient registration vertical slices.
 - Outpatient scheduling και unified base schedule compatibility.
-- MASTER projection, room sorting, infectious styling και outpatient markers.
-- Robotic και outpatient recurring visual rules.
+- MASTER projection, room sorting, infectious/outpatient/robotic visual rules.
 
 ### Patient scheduling architecture
 
-- Patient-centric draft model για πολλές θεραπείες.
-- Όλες οι θεραπείες προέρχονται από authoritative workbook configuration.
-- `PATIENT_PLANNER` blocks για ΦΘ, Ρομποτικό, Ανακλινόμενο, Πισίνα, Εργο, Λογο, ΕΦΑ και Ψυχ.
-- Recurring workload ως peak daily load, όχι άθροισμα recurrence.
-- Generalized automatic solver πέρα από ΦΘ/Ρομποτικό.
-- Automatic day-pattern completion όταν οι ημέρες μένουν κενές.
-- Manual day/time values ως fixed constraints.
-- Provider constraint μόνο στη ΦΘ.
-- Ρομποτικό/Εργο/Λογο/Ψυχ προγραμματίζονται χωρίς υποχρεωτικό provider.
-- Providerless treatment support.
-- Μία ενεργή θεραπεία για editing, με persistent draft ανά θεραπεία.
-- `Backspace`/`Delete` clear για scheduling πεδία.
-- Diagnostic failure reasons για πραγματικές scheduling συγκρούσεις.
-- Atomic final save με snapshot, events-off-before-write, verification, single workbook save και rollback.
+- Patient-centric draft πολλών θεραπειών.
+- Dynamic treatments από workbook SETTINGS.
+- Manual + partial-auto + fully-auto flow.
+- Atomic final save με snapshots, verification, rollback και single workbook save.
+- CURRENT preload από `PATIENT_PLANNER` για edit υπάρχοντος προγράμματος.
+- Ίδια patient-program φόρμα μετά από **Επεξεργασία ασθενή**.
+- Optional manual names για Ρομποτικό / Εργο / Λογο / Ψυχ.
+- Duration-aware patient conflicts.
+- ΦΘ / Ανακλινόμενο adjacency scoring.
+- MASTER composite renderer: ώρα + ημέρες + provider/name όπου υπάρχει.
+- MASTER refresh μετά από patient-program save και registry edit.
 
-### Νεότερο batch που έχει υλοποιηθεί σε κώδικα και περιμένει native verification
+### Installer/runtime hardening
 
-- Separation `supports_provider` από `requires_provider`.
-- Optional χειροκίνητο όνομα για Ρομποτικό/Εργο/Λογο/Ψυχ.
-- Optional name δεν περνά ως constraint στον automatic solver.
-- Optional name αποθηκεύεται στη σχετική provider/name στήλη του `PATIENT_PLANNER`.
-- Editable provider combo για optional names, ακόμη και όταν η configured λίστα είναι κενή.
-- `Delete`/`Backspace` καθαρίζει και typed free-text provider value.
-- `config-vba` φορτώνει υπάρχον πρόγραμμα ως `CURRENT` rows.
-- Η patient-program φόρμα προφορτώνει υπάρχουσες ημέρες/ώρες/ονόματα.
-- Η **Επεξεργασία ασθενή** μετά την αποθήκευση registry αλλαγών καλεί `OpenPatientScheduling patientId` και οδηγεί στην ίδια scheduling φόρμα.
-- Duration-aware patient conflict logic: standard 45', Ανακλινόμενο 30'.
-- Recliner/ΦΘ adjacency scoring με πραγματικό gap μεταξύ intervals.
-- Νέο `PatientProgramMasterRender` module χτίζει τα treatment cells του MASTER από ώρα + ημέρες + όνομα, αντί για global time number format.
-- Το patient-program save καλεί MASTER refresh πριν από το τελικό workbook save.
-- Το patient edit flow επαναφέρει το composite treatment rendering μετά από registry/master rebuild.
+- legacy `PatientSchedulingRuntime` και old single-treatment markers απορρίπτονται από read-back verifier.
+- CRLF/LF-safe VBE patching.
+- procedure-scoped patient-edit refresh patch.
+- runtime stage diagnostics για MASTER refresh.
+- empty MASTER patient cells guarded πριν από `Split`.
 
-### V65 installer hardening και MASTER regression
+### Verified native checkpoints
 
-Το πρώτο V65 build σταμάτησε με Excel/VBE COM error `-2146828213` μέσα στο scheduling UI installation stage.
+- V69: first save επιτυχές και MASTER composite rendering επιτυχές.
+- V70: το προηγούμενο false alarm της αμετάβλητης ΦΘ κατά edit revalidation διορθώθηκε native.
+- Focused self-conflict regression gate: **32 passed in 1.40s**.
 
-Έγιναν δύο installer διορθώσεις:
+### ΦΘ self-conflict fix
 
-- το `frmEditPatient` δεν αφαιρείται και δεν ξαναδημιουργείται πλέον όταν υπάρχει ήδη. Ο installer έγινε idempotent,
-- ο scheduling UI installer απέκτησε stage-specific diagnostics.
-
-Στο επόμενο native smoke test εντοπίστηκε δεύτερο regression: αντί για πραγματική ώρα εμφανίστηκε κυριολεκτικά `hh:mm` και δεν εμφανίστηκαν ημέρες/θεραπευτής. Η λανθασμένη global-formatting προσέγγιση αφαιρέθηκε και αντικαταστάθηκε από explicit composite rendering από `PATIENT_PLANNER`.
-
-Το focused regression μετά το stale-test fix πέρασε:
-
-**38 passed in 3.25s**
-
-### V66 legacy VBA compile regression
-
-Στο native V66 εμφανίστηκε **VBA Syntax Error** σε κώδικα της παλιάς single-treatment φόρμας. Τα markers `cboTreatment` και `LoadRecurringSchedulingOptions` αποδεικνύουν ότι το workbook εξακολουθούσε να περιέχει legacy scheduling code, παρότι ο νέος patient-program installer είχε εκτελεστεί.
-
-Ο retired μηχανισμός είναι:
-
-- module `PatientSchedulingRuntime`,
-- παλιό `frmPatientScheduling` με `cboTreatment`,
-- `LoadRecurringSchedulingOptions`,
-- `SavePatientRecurringAssignment`.
-
-Ο νέος authoritative μηχανισμός είναι:
-
-- module `PatientProgramRuntime`,
-- `frmPatientScheduling` με `lstTreatments`,
-- `LoadPatientProgramConfig`,
-- `CompletePatientProgram`,
-- `SavePatientProgramAtomic`.
-
-Προστέθηκε **VBProject read-back verification πριν από το workbook save**. Το preview build πλέον απορρίπτεται αν:
-
-- υπάρχει ακόμη `PatientSchedulingRuntime`,
-- λείπει `PatientProgramRuntime` ή `frmPatientScheduling`,
-- λείπουν τα νέα markers `lstTreatments`, `SavePatientProgramAtomic`, `BuildAutomaticRequestArguments`, `LoadPatientProgramConfig`, `CompletePatientProgram`,
-- ή βρεθούν legacy markers `cboTreatment`, `LoadRecurringSchedulingOptions`, `SavePatientRecurringAssignment`.
-
-Έτσι δεν επιτρέπεται πλέον να παραχθεί preview που είναι «μισό παλιό, μισό νέο» χωρίς να σταματήσει ο builder.
-
-### V67 MASTER-render installer hardening
-
-Στο πρώτο V67 build ο builder σταμάτησε σωστά πριν το save με:
-
-`MASTER render patch marker missing: patient-program save refresh`
-
-Η αιτία ήταν line-ending mismatch από το Excel VBE: `CRLF` στο `CodeModule.Lines(...)` έναντι `LF` στα Python patch markers. Ο `_patch_code_module` έγινε line-ending agnostic και απέκτησε regression tests για VBE-style `CRLF` και idempotent already-patched input.
-
-Στο επόμενο V67 build το patient-program save hook πέρασε, αλλά ο builder σταμάτησε στο δεύτερο hook:
-
-`MASTER render patch marker missing: patient-edit refresh`
-
-Αυτό έδειξε ότι και το edit hook ήταν υπερβολικά δεμένο με ακριβή γειτονική whitespace/blank-line μορφή γύρω από το multiline `UpdatePatientInWorkbook` call.
-
-Ο patient-edit hook έγινε πλέον **procedure-scoped**:
-
-- εντοπίζει αποκλειστικά το `Private Sub cmdSave_Click() ... End Sub`,
-- δεν βασίζεται σε άλλο occurrence του `Trim$(cboStatus.Value)` μέσα στη φόρμα,
-- εισάγει `RefreshMasterPatientProgram patientId` αμέσως πριν από το success `MsgBox`, δηλαδή μετά την επιτυχή `UpdatePatientInWorkbook`,
-- παραμένει idempotent αν το refresh υπάρχει ήδη,
-- διατηρεί explicit safety-stop αν λείπει το `cmdSave_Click` ή το αναμενόμενο success marker.
-
-Προστέθηκαν regression tests που καλύπτουν CRLF, διαφορετικό spacing και duplicate-looking `cboStatus` references εκτός `cmdSave_Click`.
-
-### V67/V68 first-save runtime blocker
-
-Μετά το installer hardening το preview άνοιξε και η νέα patient-program φόρμα λειτούργησε μέχρι το **πρώτο Save**. Αρχικά εμφανίστηκε γενικό `Subscript out of range`.
-
-Τα runtime stage diagnostics απομόνωσαν το failure σε:
-
-`MASTER refresh failed at locating MASTER row: Subscript out of range`
-
-Η αιτία βρέθηκε στη helper `FirstLine()`. Το `FindMasterPatientRow` σαρώνει τις γραμμές του MASTER και περνά το κελί ασθενούς από `FirstLine`. Σε κενές MASTER rows το `Split("", vbLf)` μπορούσε να προκαλέσει `Subscript out of range`.
-
-Η `FirstLine()` πλέον κάνει explicit empty-cell guard πριν από το `Split`.
-
-### V69 first-save verified και automatic edit revalidation
-
-Το native V69 smoke ολοκλήρωσε επιτυχώς την πρώτη αποθήκευση και το MASTER rendering. Ο προηγούμενος first-save blocker θεωρείται κλειστός.
-
-Κατά χειροκίνητη αλλαγή ώρας σε άλλη ειδικότητα και επανεκτέλεση της **Αυτόματης συμπλήρωσης**, εμφανίστηκε μη κρίσιμο false alarm για τη ΦΘ, ενώ η τελική **Αποθήκευση αλλαγών** περνούσε κανονικά.
-
-Η πρώτη edit-aware διόρθωση εντόπιζε σωστά το υπάρχον `base_entry_id` για ίδιο `PatientID + treatment` και το περνούσε ως `ignore_session_id`. Το focused gate αποκάλυψε βαθύτερη ασυνέπεια: το core `rank_therapist_candidates()` χρησιμοποιούσε το ignored session μόνο στο patient availability, ενώ το ίδιο session παρέμενε μέσα σε therapist workload και therapist availability.
-
-Το core fix πλέον δημιουργεί `effective_sessions` χωρίς το `ignore_session_id` και χρησιμοποιεί αυτό το ίδιο σύνολο για:
+Το same-patient/same-treatment `base_entry_id` γίνεται `ignore_session_id` και αφαιρείται από το effective session set για:
 
 - therapist workload,
 - therapist availability,
 - patient availability.
 
-Έτσι το session που αντικαθίσταται δεν μετρά ούτε ως patient conflict ούτε ως therapist conflict/capacity, ενώ οι πραγματικές συνεδρίες άλλων ασθενών παραμένουν ενεργές.
+Έτσι η παλιά ΦΘ που αντικαθίσταται δεν μπλοκάρει τον εαυτό της, ενώ πραγματικές συνεδρίες άλλων ασθενών παραμένουν blocking.
 
-Προστέθηκε core regression test που απαιτεί το ignored session του ίδιου therapist/patient να ελευθερώνει και το slot και το workload count.
+### Νέο conflict-validation batch, implemented / pending verification
 
-Το focused rerun μετά το βαθύτερο core fix πέρασε:
+Προστέθηκε `validate-vba` στο `patient_program_bridge.py`.
 
-**32 passed in 1.40s**
+Ο validator:
 
-Άρα το Python regression gate για το ΦΘ self-conflict θεωρείται κλειστό. Απομένει μόνο native Excel επιβεβαίωση στο επόμενο preview.
+- συγκρίνει όλα τα included complete treatments ανά ζεύγος,
+- κοιτά μόνο κοινές weekdays,
+- χρησιμοποιεί 45' standard και 30' Ανακλινόμενο,
+- επιτρέπει ακριβώς adjacent intervals,
+- επιστρέφει explicit `CONFLICT` rows με weekday, treatments, start times και human-readable message.
+
+Το installed VBA πλέον:
+
+- προσθέτει `ValidatePatientProgram()` στο `PatientProgramRuntime`,
+- καλεί τον validator πριν από Αυτόματη συμπλήρωση,
+- καλεί τον ίδιο validator στην `SavePatientProgramAtomic()` **πριν από worksheet access/snapshots/writes**,
+- εγκαθιστά `frmPatientProgramConflict` με κουμπιά **Συνέχεια** και **Επιστροφή**,
+- με **Επιστροφή** βγαίνει από το save πριν γραφτεί οτιδήποτε,
+- με **Συνέχεια** επιτρέπεται explicit override.
 
 ---
 
 ## Τρέχον verification gate
 
-Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone χρειάζονται:
+Το νέο conflict batch δεν χαρακτηρίζεται verified μέχρι να περάσουν:
 
-1. native V70 έλεγχος ότι αλλαγή ώρας σε άλλη ειδικότητα + **Αυτόματη συμπλήρωση** δεν εμφανίζει πλέον ψευδές error για αμετάβλητη ΦΘ,
-2. έλεγχος ΦΘ `09:15` + Ανακλινόμενο ώστε να μην επιτρέπεται overlap και να προτιμάται `10:00` έναντι `08:30` όταν είναι διαθέσιμο,
-3. έλεγχος ότι optional όνομα για Ρομποτικό/Εργο/Λογο/Ψυχ αποθηκεύεται και ξαναφορτώνεται,
-4. διαδρομή **Βασικό μενού → Επεξεργασία ασθενή → αλλαγή θαλάμου/στοιχείων → Αποθήκευση → ίδια patient-program φόρμα**,
-5. έλεγχος ότι υπάρχον πρόγραμμα φορτώνεται και μπορεί να τροποποιηθεί και να αποθηκευτεί atomic,
-6. επιβεβαίωση ότι το MASTER composite rendering παραμένει σωστό μετά από edit/rebuild,
-7. full regression suite.
+1. focused pytest για bridge diagnostics + VBA patching/conflict dialog,
+2. clean preview build από V48,
+3. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
+4. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
+5. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
+6. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
+7. edit-existing-program flow,
+8. optional manual names persist/reload,
+9. full regression suite.
 
 ---
 
@@ -231,29 +136,31 @@
 
 ### Άμεσα
 
-1. Build `MASTER_TOOLBAR_SMOKE_V70.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-2. Native retest του μικρού false-alarm scenario της ΦΘ.
-3. Smoke test edit υπάρχοντος προγράμματος και optional manual names.
-4. Smoke test duration-safe ΦΘ/Ανακλινόμενο adjacency.
-5. Full regression suite όταν περάσουν τα παραπάνω.
+1. Τρέξιμο:
+   `python -m pytest Tests/test_patient_program_bridge.py Tests/test_patient_program_master_render_vba.py Tests/test_patient_program_form_vba.py Tests/test_automatic_patient_schedule.py -q`
+2. Αν είναι green, build νέου preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm` με επόμενο version μετά το V70.
+3. Native smoke του conflict flow Auto + Save Return + Save Continue.
+4. Μετά edit-existing-program + optional names.
+5. ΦΘ/Ανακλινόμενο adjacency smoke.
+6. Full regression suite.
 
 ### Μετά το patient-program milestone
 
-- refresh dependent views μετά το final save όπου χρειάζεται,
-- τελικός UX έλεγχος labels και edit affordances,
-- cleanup παλιού single-treatment scheduling code,
-- ενημέρωση `UI_APPLICATION_ROADMAP.md` και `Documentation/PROJECT_STATUS.md` με verified status,
+- cleanup retired single-treatment scheduling code,
+- τελικός UX pass,
+- ενημέρωση `UI_APPLICATION_ROADMAP.md` και `PROJECT_STATUS.md`,
 - μετάβαση στο επόμενο ανοιχτό roadmap milestone.
 
 ---
 
-## Κανόνας ενημέρωσης αυτού του χάρτη
+## Recovery rule
 
-Σε κάθε ουσιαστική αλλαγή ενημερώνονται τουλάχιστον:
+Αν χαθεί context, διάβασε με αυτή τη σειρά:
 
-- **Τι φτιάχνουμε τώρα**
-- **Τι έχει ολοκληρωθεί μέχρι τώρα**
-- **Τρέχον verification gate**
-- **Επόμενα βήματα**
+1. `Documentation/CURRENT_HANDOFF.md`
+2. `Documentation/IMPLEMENTATION_MAP.md`
+3. `Documentation/PROJECT_STATUS.md`
+4. `Documentation/DECISIONS.md`
+5. active patient-program tests
 
-Κανένα milestone δεν χαρακτηρίζεται ολοκληρωμένο μόνο επειδή γράφτηκε κώδικας. Χρειάζεται regression verification και, όταν αφορά Excel/VBA συμπεριφορά, native workbook smoke test.
+Σε Windows χρησιμοποιούμε πάντα `python -m pytest`, ποτέ bare `pytest`.
