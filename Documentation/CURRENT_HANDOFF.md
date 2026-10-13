@@ -6,9 +6,8 @@ Last updated: 2026-10-13
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V71.xlsm`
-- V71 builds and opens after the earlier installer hardening.
-- Next native preview to build: `MASTER_TOOLBAR_SMOKE_V73.xlsm` from clean V48.
+- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V73.xlsm`
+- V73 builds and opens successfully.
 
 ## What is verified in native Excel
 
@@ -17,7 +16,11 @@ Last updated: 2026-10-13
 - First patient-program save succeeds.
 - The former `Subscript out of range` during MASTER row lookup is fixed.
 - The ΦΘ self-conflict false alarm is fixed in native use.
-- V71 conflict behavior appears functionally correct in native use: overlap is detected and Save presents the intended conflict decision flow.
+- Conflict validation before Auto and Save works.
+- Save conflict dialog now shows the full message and both **Συνέχεια / Επιστροφή** buttons.
+- Manual ΦΘ occupied-slot diagnostics now identify the real blocker with concrete day/time/provider/patient context.
+- `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted correctly as exact adjacency, not overlap.
+- True treatment overlaps produce detailed treatment/day/time diagnostics.
 
 ## Conflict-validation behavior
 
@@ -36,72 +39,22 @@ The patient-program UI:
 - **Επιστροφή** cancels before writes,
 - **Συνέχεια** is an explicit override.
 
-## V71/V72 presentation fixes
+## V73 native result
 
-### Conflict dialog runtime layout
+The V73 native smoke passed all intended behavioral checks except one remaining display issue:
 
-The Save conflict dialog was too short and clipped the message/buttons.
+- precise manual ΦΘ occupancy diagnostic: passed,
+- exact adjacency Ανακλινόμενο 11:00-11:30 + ΦΘ 11:30-12:15: passed,
+- true overlap diagnostics: passed,
+- conflict dialog runtime layout: passed,
+- existing Ρομποτικό time for patient Γιαννιά is still displayed as a raw decimal in MASTER.
 
-Implemented:
+The user is now testing whether re-entering/saving that same Ρομποτικό time changes the cell to `hh:mm`.
 
-- `patient_program_conflict_layout_vba.py`,
-- runtime form sizing in `Configure()`,
-- explicit label/button placement independent of VBE designer geometry persistence.
+Interpretation of that test:
 
-### Existing MASTER decimal times
-
-The Ρομποτικό time for patient Γιαννιά appeared as a raw Excel decimal.
-
-Implemented:
-
-- preview installer iterates all nonblank PatientIDs in `PATIENTS`,
-- invokes `RefreshMasterPatientProgram` for each existing patient,
-- re-renders all treatment cells through the composite `hh:mm` renderer.
-
-Focused gate for these fixes:
-
-`57 passed in 3.96s`
-
-## New native scheduling observations
-
-Two further issues were reported while exercising the patient-program flow.
-
-### 1. Manual ΦΘ provider/time conflict message was too generic
-
-Desired behavior: if the selected therapist is already occupied, identify the concrete blocker, e.g. weekday, time, therapist and blocking patient/treatment.
-
-Implemented in source:
-
-- manual ΦΘ failure diagnostics inspect provider occupancy,
-- when a concrete patient booking explains the failure, the reason includes weekday, time, therapist, patient name and treatment,
-- generic fallback remains only when no concrete blocker can be resolved.
-
-### 2. False Ανακλινόμενο conflict during multi-treatment edit
-
-Observed scenario:
-
-- ΦΘ daily at `11:30`, duration 45',
-- Ανακλινόμενο `Δε-Τε-Πα` at `11:00`, duration 30',
-- these are exactly adjacent (`11:00-11:30` and `11:30-12:15`) and must be legal.
-
-Root cause:
-
-- during automatic completion of an edit draft, the solver compared a new treatment against stale persisted assignments of other treatments from the same patient,
-- it ignored only the old assignment of the same treatment,
-- therefore the new Ανακλινόμενο could collide with the patient's old persisted ΦΘ even though the draft's new ΦΘ was at 11:30.
-
-Fix implemented in `automatic_patient_schedule.py`:
-
-- all old persisted assignments whose treatment participates in the current draft are removed from the existing-patient conflict baseline,
-- the new draft assignments are then checked jointly against each other,
-- exact adjacency remains allowed,
-- true joint conflicts return detailed weekday/treatment/time ranges.
-
-Regression coverage includes:
-
-- stale old ΦΘ no longer blocking new `Ανακλινόμενο 11:00` + `ΦΘ 11:30`,
-- manual occupied ΦΘ slot naming day/provider/patient,
-- detailed joint conflict ranges.
+- if re-save changes it to `hh:mm`, this points to stale legacy MASTER content that the initial all-patient refresh did not fully normalize,
+- if it remains decimal after re-save, there is still another write/render path that writes the raw Excel time serial after the composite renderer.
 
 ## Latest confirmed test checkpoint
 
@@ -110,27 +63,15 @@ User-run gates after the latest scheduling changes:
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
 
-The wider gate covered:
-
-- `Tests/test_automatic_patient_schedule.py`
-- `Tests/test_patient_program_bridge.py`
-- `Tests/test_patient_program_form_vba.py`
-- `Tests/test_patient_program_master_render_vba.py`
-- `Tests/test_patient_registration_scheduling_slice.py`
-
-Source/integration verification is therefore green. Native V73 verification is next.
+Source/integration verification is green, and V73 native behavior is green except for the single Γιαννιά decimal-time display issue.
 
 ## Immediate next start point
 
-1. Build `MASTER_TOOLBAR_SMOKE_V73.xlsm` from clean V48.
-2. Native re-test:
-   - manual ΦΘ occupied therapist slot gives precise patient/day/time diagnostic,
-   - `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted,
-   - true treatment overlaps identify exact therapies/day/time,
-   - conflict dialog shows full message and both buttons,
-   - Γιαννιά Ρομποτικό time appears as `hh:mm`.
-3. Then continue with edit-existing-program and optional manual names.
-4. Full regression suite only after native edit smoke is clean.
+1. Wait for the user's result after re-entering/saving Γιαννιά Ρομποτικό time.
+2. If it becomes `hh:mm`, investigate stale existing MASTER content / initial refresh normalization.
+3. If it stays decimal, trace the post-save write paths that can overwrite the composite renderer output.
+4. Once the decimal-time issue is closed, continue with edit-existing-program and optional manual names.
+5. Full regression suite only after native edit smoke is clean.
 
 ## Business rules that must not regress
 
