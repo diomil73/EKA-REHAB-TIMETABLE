@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-10-11
+Last updated: 2026-10-13
 
 ## Branch / working line
 
@@ -14,46 +14,46 @@ Last updated: 2026-10-11
 - Legacy single-treatment VBA no longer blocks the preview with the earlier syntax error.
 - First patient-program save succeeds.
 - MASTER patient-program rendering works after save instead of showing raw decimals or literal `hh:mm`.
-- MASTER rendering now uses composite text from `PATIENT_PLANNER`: time + days + provider/name where applicable.
+- MASTER rendering uses composite text from `PATIENT_PLANNER`: time + days + provider/name where applicable.
 - The former `Subscript out of range` during MASTER row lookup is fixed by guarding empty MASTER patient cells before `Split`.
-- Final save can succeed even after changing a treatment time.
+- Final save can succeed after changing a treatment time.
 
-## Latest small issue observed
+## Current small regression under verification
 
-After changing the time of a non-ΦΘ specialty and pressing **Αυτόματη συμπλήρωση**, the UI reported a false ΦΘ problem even though ΦΘ had not been changed. Pressing normal Save afterwards succeeded.
+Scenario: change the time of a non-ΦΘ specialty in an existing program and press **Αυτόματη συμπλήρωση**. V69 reported a false ΦΘ problem even though ΦΘ had not been changed; normal Save still succeeded.
 
-This was diagnosed as therapist-candidate self-conflict during edit/revalidation: the already stored ΦΘ session for the same patient/treatment was being counted as occupied against itself.
+The first fix correctly found the existing same-patient/same-treatment `base_entry_id` and passed it as `ignore_session_id`. The focused test exposed that the core candidate engine only ignored that session for patient availability, not therapist availability/workload.
 
-Code fix implemented:
+Deep fix now implemented:
 
-- identify the existing `base_entry_id` for the same `PatientID` + treatment,
-- pass it as `ignore_session_id` into the therapist candidate engine,
-- preserve real conflicts with other patients/sessions.
+- `rank_therapist_candidates()` builds `effective_sessions` excluding `ignore_session_id`.
+- The same effective set is used for therapist workload, therapist availability, and patient availability.
+- The session being replaced therefore does not occupy its own therapist slot or capacity.
+- Real sessions from other patients remain blocking.
 
-This fix is **implemented but not yet re-verified in native Excel**.
+Core regression test now checks both slot release and workload release for the ignored session.
 
-## Latest confirmed test checkpoint
+## Latest test checkpoint
 
-Latest user-reported focused green gate before the final self-conflict fix:
+Latest user-reported focused run:
 
-`44 passed in 3.84s`
+`24 passed, 1 failed in 3.73s`
 
-Do not claim the newest self-conflict fix is test-verified until the focused suite is rerun.
+The single failure was `test_existing_same_patient_treatment_is_ignored_during_edit_revalidation`, showing the therapist side still counted the old session. The deeper core fix was committed after that run and is **not yet test-verified**.
 
 ## Immediate next start point
 
 1. Pull latest `feature/outpatient-scheduling`.
-2. Run focused tests for:
-   - `Tests/test_workbook_scheduling_candidates.py`
-   - `Tests/test_patient_recurring_scheduling.py`
-   - `Tests/test_automatic_patient_schedule.py`
-   - relevant patient-program tests if needed.
-3. Build a fresh preview from V48, using the next preview number after V69.
-4. Re-test only the small scenario:
+2. Run:
+
+   `python -m pytest Tests/test_scheduling_candidates.py Tests/test_workbook_scheduling_candidates.py Tests/test_patient_recurring_scheduling.py Tests/test_automatic_patient_schedule.py -q`
+
+3. If green, build fresh preview from V48, using the next preview number after V69.
+4. Re-test:
    - existing patient program,
    - change one non-ΦΘ treatment time,
    - press **Αυτόματη συμπλήρωση**,
-   - confirm unchanged ΦΘ is no longer falsely reported.
+   - unchanged ΦΘ must no longer be falsely reported.
 5. Then move to the still-unverified edit workflow:
    - **Βασικό μενού → Επεξεργασία ασθενή**,
    - save registry changes,
