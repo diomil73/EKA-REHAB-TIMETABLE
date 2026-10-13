@@ -10,6 +10,7 @@ from .native_excel import apply_write_plan_to_copy
 from .outpatient_schedule_source import read_unified_base_schedule
 from .patient_edit_form_vba import install_patient_edit_form
 from .patient_program_combo_clear_vba import install_combo_clear_handlers
+from .patient_program_conflict_layout_vba import install_conflict_runtime_layout
 from .patient_program_form_vba import install_patient_program_ui
 from .patient_program_master_render_vba import install_patient_program_master_render
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
@@ -149,6 +150,24 @@ def _verify_patient_program_vba(vbproject) -> None:
         raise RuntimeError("Patient-program VBA verification failed: " + "; ".join(details))
 
 
+def _refresh_existing_master_patient_programs(workbook) -> int:
+    """Render existing patient-program cells through the composite MASTER renderer."""
+
+    patients = workbook.Worksheets("PATIENTS")
+    last_row = int(patients.Cells(patients.Rows.Count, 1).End(-4162).Row)
+    macro_name = f"'{workbook.Name}'!RefreshMasterPatientProgram"
+    refreshed = 0
+
+    for row in range(2, last_row + 1):
+        patient_id = str(patients.Cells(row, 1).Value or "").strip()
+        if not patient_id:
+            continue
+        workbook.Application.Run(macro_name, patient_id)
+        refreshed += 1
+
+    return refreshed
+
+
 def _install_base_patient_form(workbook_path: Path) -> None:
     """Ensure frmNewPatient exists on a private prerequisite copy."""
 
@@ -244,11 +263,17 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
         stage = "installing MASTER patient-program renderer"
         install_patient_program_master_render(vbproject)
 
+        stage = "installing conflict-dialog runtime layout"
+        install_conflict_runtime_layout(vbproject)
+
         stage = "installing combo clear handlers"
         install_combo_clear_handlers(vbproject)
 
         stage = "verifying patient-program VBA replacement"
         _verify_patient_program_vba(vbproject)
+
+        stage = "refreshing existing MASTER patient programs"
+        _refresh_existing_master_patient_programs(workbook)
 
         stage = "saving preview workbook"
         workbook.Save()
