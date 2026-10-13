@@ -1,8 +1,15 @@
+from rehab_excel.patient_program_form_vba import (
+    PATIENT_PROGRAM_FORM_CODE,
+    PATIENT_PROGRAM_MODULE_CODE,
+)
 from rehab_excel.patient_program_master_render_vba import (
+    CONFLICT_FORM_CODE,
     MASTER_RENDER_MODULE_CODE,
     MASTER_RENDER_MODULE_NAME,
     _patch_code_module,
     _patch_patient_edit_refresh,
+    _patch_program_conflict_validation,
+    _patch_runtime_validation,
 )
 
 
@@ -125,6 +132,43 @@ def test_master_render_patcher_is_idempotent_after_refresh_is_present():
     )
 
     assert module.add_count == 0
+
+
+def test_patient_program_runtime_gets_shared_validation_bridge():
+    module = _fake_code_module(PATIENT_PROGRAM_MODULE_CODE.replace("\n", "\r\n"))
+
+    _patch_runtime_validation(module)
+
+    assert "Public Function ValidatePatientProgram" in module.text
+    assert '"validate-vba "' in module.text
+
+
+def test_patient_program_form_validates_conflicts_before_auto_and_before_writes():
+    module = _fake_code_module(PATIENT_PROGRAM_FORM_CODE.replace("\n", "\r\n"))
+
+    _patch_program_conflict_validation(module)
+
+    code = module.text
+    assert "Private Function CurrentConflictText() As String" in code
+    assert "ValidatePatientProgram(mPatientId, requestArguments)" in code
+    assert 'MsgBox conflictText & vbCrLf & vbCrLf &' in code
+    assert '"Διόρθωσε τη σύγκρουση και ξαναπάτησε Αυτόματη συμπλήρωση."' in code
+    assert "If Not ConfirmConflictOverride(conflictText) Then" in code
+    assert 'lblStatus.Caption = "Η αποθήκευση ακυρώθηκε για να διορθωθεί η σύγκρουση."' in code
+    assert code.index("conflictText = CurrentConflictText()", code.index("Private Sub SavePatientProgramAtomic")) < code.index(
+        'Set ws = ThisWorkbook.Worksheets("PATIENT_PLANNER")',
+        code.index("Private Sub SavePatientProgramAtomic"),
+    )
+
+
+def test_conflict_form_has_explicit_continue_and_return_choices():
+    code = CONFLICT_FORM_CODE
+    assert "Public ContinueSelected As Boolean" in code
+    assert "Private Sub cmdContinue_Click()" in code
+    assert "Private Sub cmdReturn_Click()" in code
+    assert "ContinueSelected = True" in code
+    assert "ContinueSelected = False" in code
+    assert "Θέλετε να συνεχίσετε την αποθήκευση ή να επιστρέψετε για διόρθωση;" in code
 
 
 def test_patient_edit_refresh_patch_is_scoped_to_cmdsave_and_tolerates_vbe_spacing():
