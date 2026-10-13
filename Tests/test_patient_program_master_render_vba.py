@@ -6,6 +6,7 @@ from rehab_excel.patient_program_master_render_vba import (
     CONFLICT_FORM_CODE,
     MASTER_RENDER_MODULE_CODE,
     MASTER_RENDER_MODULE_NAME,
+    _ensure_conflict_control,
     _patch_code_module,
     _patch_patient_edit_refresh,
     _patch_program_conflict_validation,
@@ -169,6 +170,51 @@ def test_conflict_form_has_explicit_continue_and_return_choices():
     assert "ContinueSelected = True" in code
     assert "ContinueSelected = False" in code
     assert "Θέλετε να συνεχίσετε την αποθήκευση ή να επιστρέψετε για διόρθωση;" in code
+
+
+def test_conflict_control_sizing_tolerates_vbe_width_height_rejection():
+    class FakeControl:
+        Caption = ""
+        Left = 0
+        Top = 0
+
+        @property
+        def Width(self):
+            return 100
+
+        @Width.setter
+        def Width(self, value):
+            raise RuntimeError("Property '<unknown>.Width' can not be set")
+
+        @property
+        def Height(self):
+            return 20
+
+        @Height.setter
+        def Height(self, value):
+            raise RuntimeError("Property '<unknown>.Height' can not be set")
+
+    class FakeControls:
+        def __init__(self):
+            self.control = FakeControl()
+
+        def __call__(self, name):
+            return self.control
+
+        def Add(self, prog_id, name, visible):
+            return self.control
+
+    class FakeDesigner:
+        def __init__(self):
+            self.Controls = FakeControls()
+
+    control = _ensure_conflict_control(
+        FakeDesigner(), "Forms.Label.1", "lblConflict", "", 18, 18, 570, 220
+    )
+
+    assert control.Caption == ""
+    assert control.Left == 18
+    assert control.Top == 18
 
 
 def test_patient_edit_refresh_patch_is_scoped_to_cmdsave_and_tolerates_vbe_spacing():
