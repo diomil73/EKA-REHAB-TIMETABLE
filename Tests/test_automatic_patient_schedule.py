@@ -321,7 +321,11 @@ def test_recliner_0900_conflicts_with_physio_0915(monkeypatch, generalized_workb
 
     assert len(proposal.assignments) == 1
     assert len(proposal.unresolved) == 1
-    assert "συγκρούονται χρονικά" in proposal.unresolved[0].reason
+    reason = proposal.unresolved[0].reason
+    assert "συγκρού" in reason
+    assert "09:00-09:30" in reason
+    assert "09:15-10:00" in reason
+    assert "Δευτέρα" in reason
 
 
 def test_partial_proposal_when_fixed_options_conflict(monkeypatch):
@@ -343,4 +347,79 @@ def test_partial_proposal_when_fixed_options_conflict(monkeypatch):
 
     assert len(proposal.assignments) == 1
     assert len(proposal.unresolved) == 1
-    assert "συγκρούονται χρονικά" in proposal.unresolved[0].reason
+    assert "συγκρού" in proposal.unresolved[0].reason
+
+
+def test_edit_draft_ignores_old_physio_when_new_recliner_is_adjacent(monkeypatch, generalized_workbook):
+    generalized_workbook.standard_timeslots = (time(11, 30),)
+    generalized_workbook.reclined_timeslots = (time(11, 0),)
+
+    old_physio = SimpleNamespace(
+        patient_id="P1",
+        treatment="ΦΘ",
+        start_time=time(11, 0),
+        day_pattern="Δε-Τε-Πα",
+        therapist_id="Άλφα",
+    )
+    monkeypatch.setattr(automatic, "read_base_schedule", lambda *a, **k: (old_physio,))
+    monkeypatch.setattr(
+        automatic,
+        "recurring_therapist_choices",
+        lambda *args, **kwargs: (_choice("T1", "Άλφα", 1, time(11, 30)),),
+    )
+
+    proposal = propose_automatic_patient_schedule(
+        "dummy.xlsm",
+        patient_id="P1",
+        anchor_date=DAY,
+        requests=(
+            AutomaticTreatmentRequest("ΦΘ", "Καθ/να", start_time=time(11, 30)),
+            AutomaticTreatmentRequest("Ανακλινόμενο", "Δε-Τε-Πα", start_time=time(11, 0)),
+        ),
+    )
+
+    assert proposal.complete is True
+    by_treatment = {item.treatment: item for item in proposal.assignments}
+    assert by_treatment["Ανακλινόμενο"].start_time == time(11, 0)
+    assert by_treatment["ΦΘ"].start_time == time(11, 30)
+
+
+def test_manual_physio_busy_slot_names_day_provider_and_patient(monkeypatch):
+    occupied = SimpleNamespace(
+        patient_id="P2",
+        treatment="ΦΘ",
+        start_time=time(11, 30),
+        day_pattern="Δε-Τε-Πα",
+        therapist_id="Σαρράς",
+    )
+    monkeypatch.setattr(automatic, "read_base_schedule", lambda *a, **k: (occupied,))
+    monkeypatch.setattr(automatic, "recurring_therapist_choices", lambda *a, **k: ())
+    monkeypatch.setattr(
+        automatic,
+        "read_patients",
+        lambda *a, **k: (
+            SimpleNamespace(patient_id="P1", display_name="Τρέχων Ασθενής"),
+            SimpleNamespace(patient_id="P2", display_name="Άλλος Ασθενής"),
+        ),
+    )
+
+    proposal = propose_automatic_patient_schedule(
+        "dummy.xlsm",
+        patient_id="P1",
+        anchor_date=DAY,
+        requests=(
+            AutomaticTreatmentRequest(
+                "ΦΘ",
+                "Δε-Τε-Πα",
+                provider_id="Σαρράς",
+                start_time=time(11, 30),
+            ),
+        ),
+    )
+
+    assert proposal.complete is False
+    reason = proposal.unresolved[0].reason
+    assert "Δευτέρα 11:30" in reason
+    assert "Σαρράς" in reason
+    assert "Άλλος Ασθενής" in reason
+    assert "ΦΘ" in reason
