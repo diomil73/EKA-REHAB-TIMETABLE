@@ -27,17 +27,21 @@
 - Recliner adjacency με ΦΘ: strong soft preference.
 - `PATIENT_PLANNER` authoritative, `MASTER_SCHEDULE` derived view.
 
-### Current focus: V71 native polish και MASTER consistency
+### Current focus: V72 native verification
 
-Το V71 πλέον χτίζει και ανοίγει. Το conflict validation φαίνεται λειτουργικά σωστό σε native χρήση, αλλά εμφανίστηκαν δύο presentation/consistency follow-ups:
+Το V71 πλέον χτίζει και ανοίγει, και το conflict validation φαίνεται λειτουργικά σωστό σε native χρήση. Απέμειναν δύο presentation/consistency follow-ups που έχουν ήδη διορθωθεί σε source/test level:
 
-- το Save conflict dialog είναι πολύ κοντό και κόβει μέρος του μηνύματος και τα κουμπιά **Συνέχεια / Επιστροφή**,
-- η ώρα Ρομποτικού της ασθενούς Γιαννιά εμφανίστηκε στο MASTER ως raw decimal Excel time serial.
+- το Save conflict dialog ήταν πολύ κοντό και έκρυβε μέρος του μηνύματος και τα κουμπιά **Συνέχεια / Επιστροφή**,
+- η ώρα Ρομποτικού της ασθενούς Γιαννιά εμφανιζόταν στο MASTER ως raw decimal Excel time serial.
 
-Η τρέχουσα διόρθωση είναι γενική, όχι ειδική για μία περίπτωση:
+Η διόρθωση είναι γενική:
 
-- το conflict dialog εφαρμόζει πλέον runtime geometry όταν ανοίγει,
+- το conflict dialog εφαρμόζει runtime geometry όταν ανοίγει,
 - το preview build περνά όλους τους υπάρχοντες ασθενείς από `RefreshMasterPatientProgram()` ώστε τα MASTER treatment cells να ξαναγραφτούν ως composite text (`hh:mm` + ημέρες + όνομα όπου υπάρχει).
+
+Focused gate για αυτά τα δύο fixes: **57 passed in 3.96s**.
+
+Επόμενο βήμα: build και native έλεγχος του `MASTER_TOOLBAR_SMOKE_V72.xlsm` από clean V48.
 
 ---
 
@@ -84,6 +88,7 @@
 - V71: build/open επιτυχές μετά τα installer hardenings και το conflict flow φαίνεται λειτουργικά σωστό σε native χρήση.
 - Focused self-conflict regression gate: **32 passed in 1.40s**.
 - Focused V71 conflict/installer gate: **62 passed in 3.34s**.
+- Focused V72 prebuild gate για runtime conflict layout + existing MASTER refresh: **57 passed in 3.96s**.
 
 ### ΦΘ self-conflict fix
 
@@ -111,7 +116,7 @@
 - VBE `Width/Height` COM rejection στο conflict form: guarded installer geometry.
 - brittle `patient-program validation runtime` marker: procedure-scoped insertion μετά το `CompletePatientProgram()`.
 
-### Νέο V71 runtime-layout fix
+### Runtime-layout fix του conflict dialog
 
 Προστέθηκε `patient_program_conflict_layout_vba.py`.
 
@@ -122,7 +127,7 @@
 - τοποθετεί ρητά τα κουμπιά **Συνέχεια** και **Επιστροφή**,
 - δεν εξαρτάται από το αν το VBE designer δέχθηκε geometry properties κατά το build.
 
-### Νέο initial MASTER composite refresh
+### Initial MASTER composite refresh
 
 Στο `_install_scheduling_ui()` προστέθηκε `_refresh_existing_master_patient_programs(workbook)`.
 
@@ -133,23 +138,22 @@
 - έτσι τα ήδη υπάρχοντα MASTER treatment cells περνούν από το ίδιο composite formatting path,
 - στόχος είναι να εξαφανιστούν stale raw time serials όπως το decimal Ρομποτικό που παρατηρήθηκε για τη Γιαννιά.
 
-Τα δύο τελευταία fixes είναι implemented αλλά δεν έχουν ακόμη περάσει user-run focused/native gate.
+Το source/test gate αυτών των δύο τελευταίων fixes είναι πλέον πράσινο: **57 passed in 3.96s**. Native verification εκκρεμεί.
 
 ---
 
 ## Τρέχον verification gate
 
-Πριν θεωρηθεί κλειστό το V71 batch χρειάζονται:
+Πριν θεωρηθεί κλειστό το V72 batch χρειάζονται:
 
-1. focused pytest για conflict runtime layout + scheduling slice MASTER refresh + existing patient-program tests,
-2. fresh preview build από clean V48 με επόμενο version μετά το V71,
-3. native επιβεβαίωση ότι το conflict dialog δείχνει ολόκληρο το μήνυμα και τα δύο κουμπιά,
-4. native επιβεβαίωση ότι η Γιαννιά και άλλοι υπάρχοντες ασθενείς δεν έχουν decimal treatment times στο MASTER,
-5. επανέλεγχος Save **Επιστροφή / Συνέχεια**,
-6. adjacency test ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30,
-7. edit-existing-program flow,
-8. optional manual names persist/reload,
-9. full regression suite.
+1. build του `MASTER_TOOLBAR_SMOKE_V72.xlsm` από clean V48,
+2. native επιβεβαίωση ότι το conflict dialog δείχνει ολόκληρο το μήνυμα και τα δύο κουμπιά,
+3. native επιβεβαίωση ότι η Γιαννιά και άλλοι υπάρχοντες ασθενείς δεν έχουν decimal treatment times στο MASTER,
+4. επανέλεγχος Save **Επιστροφή / Συνέχεια**,
+5. adjacency test ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30,
+6. edit-existing-program flow,
+7. optional manual names persist/reload,
+8. full regression suite.
 
 ---
 
@@ -157,13 +161,11 @@
 
 ### Άμεσα
 
-1. Pull latest branch.
-2. Τρέξιμο focused tests για τα δύο νέα fixes.
-3. Build νέου preview από clean V48 με επόμενο version μετά το V71.
-4. Native smoke: conflict dialog layout + Γιαννιά Ρομποτικό `hh:mm` + spot-check άλλων MASTER cells.
-5. Reconfirm conflict Return/Continue και adjacency boundary.
-6. Μετά edit-existing-program + optional names.
-7. Full regression suite.
+1. Build `MASTER_TOOLBAR_SMOKE_V72.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+2. Native smoke: conflict dialog layout + Γιαννιά Ρομποτικό `hh:mm` + spot-check άλλων MASTER cells.
+3. Reconfirm conflict Return/Continue και adjacency boundary.
+4. Μετά edit-existing-program + optional names.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
