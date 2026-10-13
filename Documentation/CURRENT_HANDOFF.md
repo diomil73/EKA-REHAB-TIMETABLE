@@ -6,7 +6,7 @@ Last updated: 2026-10-13
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested successfully by the user: `MASTER_TOOLBAR_SMOKE_V69.xlsm`
+- Latest native preview tested successfully by the user: `MASTER_TOOLBAR_SMOKE_V70.xlsm`
 
 ## What is verified in native Excel
 
@@ -15,46 +15,65 @@ Last updated: 2026-10-13
 - First patient-program save succeeds.
 - MASTER patient-program rendering works after save instead of showing raw decimals or literal `hh:mm`.
 - MASTER rendering uses composite text from `PATIENT_PLANNER`: time + days + provider/name where applicable.
-- The former `Subscript out of range` during MASTER row lookup is fixed by guarding empty MASTER patient cells before `Split`.
-- Final save can succeed after changing a treatment time.
+- The former `Subscript out of range` during MASTER row lookup is fixed.
+- The ΦΘ self-conflict false alarm is fixed in native use: changing a non-ΦΘ treatment and pressing **Αυτόματη συμπλήρωση** no longer falsely reports unchanged ΦΘ.
 
-## Latest small regression under native verification
+## New conflict-validation issue found in V70
 
-Scenario: change the time of a non-ΦΘ specialty in an existing program and press **Αυτόματη συμπλήρωση**. V69 reported a false ΦΘ problem even though ΦΘ had not been changed; normal Save still succeeded.
+Native smoke exposed a more important consistency gap:
 
-The deeper fix is now test-verified:
+- a manual Λογο time was placed on top of ΦΘ on a shared day,
+- **Αυτόματη συμπλήρωση** detected that something was wrong, but the message was too vague,
+- **Αποθήκευση προγράμματος** accepted and persisted the conflict,
+- MASTER then displayed the conflicting program normally.
 
-- existing same-patient/same-treatment `base_entry_id` is resolved as `ignore_session_id`,
-- `rank_therapist_candidates()` builds `effective_sessions` excluding that session,
-- therapist workload, therapist availability, and patient availability all use the same effective set,
-- the session being replaced does not occupy its own therapist slot or capacity,
-- real sessions from other patients remain blocking.
+This means automatic completion and final save did not share the same conflict gate.
+
+## Fix now implemented, pending tests/native verification
+
+A common `validate-vba` bridge command now checks pairwise patient-program overlaps using the same duration contract:
+
+- standard treatments: 45 minutes,
+- Ανακλινόμενο: 30 minutes,
+- only shared weekdays count,
+- adjacent intervals are allowed.
+
+Detailed diagnostics now have the form:
+
+`Δευτέρα: ΦΘ 09:00-09:45 συγκρούεται με Λογο 09:00-09:45.`
+
+The patient-program UI is patched so that:
+
+- **Αυτόματη συμπλήρωση** runs detailed conflict validation first and stops with the explicit day/treatment/time message,
+- **Αποθήκευση** runs the same validation before any atomic write begins,
+- if a conflict exists, a modal form shows two explicit choices: **Συνέχεια** and **Επιστροφή**,
+- **Επιστροφή** cancels the save before anything is written,
+- **Συνέχεια** is an explicit user override and allows the conflicting program to be saved intentionally.
 
 ## Latest confirmed test checkpoint
 
-Latest user-reported focused run after the core self-conflict fix:
+Latest user-reported focused run before this new conflict-warning batch:
 
 `32 passed in 1.40s`
 
-This closes the focused regression gate for the ΦΘ self-conflict fix. Native Excel retest is still pending.
+The new `validate-vba` / conflict-dialog changes are implemented but **not yet test-verified by the user**.
 
 ## Immediate next start point
 
-1. Build a fresh preview from clean V48, using `MASTER_TOOLBAR_SMOKE_V70.xlsm`.
-2. Re-test only the small scenario:
-   - existing patient program,
-   - change one non-ΦΘ treatment time,
-   - press **Αυτόματη συμπλήρωση**,
-   - confirm unchanged ΦΘ is no longer falsely reported.
-3. If clean, move to the still-unverified edit workflow:
-   - **Βασικό μενού → Επεξεργασία ασθενή**,
-   - save registry changes,
-   - same patient-program form opens,
-   - existing program is preloaded,
-   - modify and atomic-save it.
-4. Verify optional manual names for Ρομποτικό / Εργο / Λογο / Ψυχ persist and reload.
-5. Verify duration rule ΦΘ 45' + Ανακλινόμενο 30', especially ΦΘ 09:15 and recliner preference for 10:00 when available.
-6. Run the full regression suite only after the native edit smoke is clean.
+1. Pull latest `feature/outpatient-scheduling`.
+2. Run focused tests for:
+   - `Tests/test_patient_program_bridge.py`
+   - `Tests/test_patient_program_master_render_vba.py`
+   - `Tests/test_patient_program_form_vba.py`
+   - `Tests/test_automatic_patient_schedule.py`
+3. If green, build a fresh preview from clean V48, using the next preview number after V70.
+4. Native smoke the conflict scenario:
+   - ΦΘ and Λογο on the same weekday with overlapping intervals,
+   - **Αυτόματη συμπλήρωση** must name the exact day and both treatments/times,
+   - **Αποθήκευση** must show **Συνέχεια / Επιστροφή** before any write,
+   - choose **Επιστροφή** and verify nothing changed in MASTER,
+   - repeat and choose **Συνέχεια** and verify intentional override saves.
+5. Then continue with edit-existing-program, optional manual names, and ΦΘ/Ανακλινόμενο adjacency smoke tests.
 
 ## Business rules that must not regress
 
@@ -67,6 +86,7 @@ This closes the focused regression gate for the ΦΘ self-conflict fix. Native E
 - Ανακλινόμενο duration: 30 minutes.
 - Recliner adjacency to ΦΘ is a strong soft preference, not a hard rule.
 - MASTER is a derived view; `PATIENT_PLANNER` remains authoritative for the inpatient patient program.
+- Conflict override must be explicit. Returning for correction must perform no writes.
 
 ## Recovery order if context is lost
 
