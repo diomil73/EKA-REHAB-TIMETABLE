@@ -31,7 +31,7 @@
 
 Το V70 native smoke έδειξε ότι μια χειροκίνητη σύγκρουση, π.χ. ΦΘ και Λογο την ίδια Δευτέρα σε overlapping ώρα, εντοπιζόταν από την **Αυτόματη συμπλήρωση** αλλά μπορούσε να αποθηκευτεί κανονικά από το κουμπί **Αποθήκευση**.
 
-Η λειτουργική υλοποίηση του κοινού conflict gate έχει γραφτεί και το focused regression gate πέρασε. Το V71 όμως έχει αποκαλύψει δύο installer-level brittle assumptions πριν φτάσουμε ακόμη στο native behavior test.
+Η λειτουργική υλοποίηση του κοινού conflict gate έχει γραφτεί. Το V71 αποκάλυψε δύο installer-level brittle assumptions, τα οποία πλέον έχουν διορθωθεί και πέρασαν focused source regression gate.
 
 Η ζητούμενη συμπεριφορά παραμένει:
 
@@ -116,10 +116,6 @@
 - με **Επιστροφή** βγαίνει από το save πριν γραφτεί οτιδήποτε,
 - με **Συνέχεια** επιτρέπεται explicit override.
 
-Focused regression gate μετά από αυτό το batch:
-
-**59 passed in 5.89s**
-
 ### V71 installer blockers
 
 #### Conflict dialog geometry
@@ -149,7 +145,13 @@ Focused regression gate μετά από αυτό το batch:
 
 Προστέθηκαν regression tests για altered body/spacing και idempotence.
 
-Το τελευταίο αυτό hardening δεν έχει ακόμη user-run focused gate.
+### Latest focused regression gate
+
+Μετά και τα δύο V71 installer hardenings, ο χρήστης επιβεβαίωσε:
+
+**62 passed in 3.34s**
+
+Άρα το source-level conflict/installer gate είναι πράσινο. Επόμενο βήμα είναι αποκλειστικά native rebuild/behavior verification του V71.
 
 ---
 
@@ -157,15 +159,14 @@ Focused regression gate μετά από αυτό το batch:
 
 Πριν θεωρηθεί verified το conflict batch χρειάζονται:
 
-1. focused pytest μετά τα δύο V71 installer hardenings,
-2. clean rebuild του V71 από V48,
-3. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
-4. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
-5. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
-6. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
-7. edit-existing-program flow,
-8. optional manual names persist/reload,
-9. full regression suite.
+1. clean rebuild του V71 από V48,
+2. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
+3. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
+4. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
+5. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
+6. edit-existing-program flow,
+7. optional manual names persist/reload,
+8. full regression suite.
 
 ---
 
@@ -173,13 +174,11 @@ Focused regression gate μετά από αυτό το batch:
 
 ### Άμεσα
 
-1. `git pull origin feature/outpatient-scheduling`.
-2. Τρέξιμο focused conflict/installer tests.
-3. Rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-4. Native smoke του conflict flow Auto + Save Return + Save Continue.
-5. ΦΘ/Ανακλινόμενο adjacency boundary smoke.
-6. Μετά edit-existing-program + optional names.
-7. Full regression suite.
+1. Rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+2. Native smoke του conflict flow Auto + Save Return + Save Continue.
+3. ΦΘ/Ανακλινόμενο adjacency boundary smoke.
+4. Μετά edit-existing-program + optional names.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
