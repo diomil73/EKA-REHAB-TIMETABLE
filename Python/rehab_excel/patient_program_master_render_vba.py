@@ -330,35 +330,35 @@ def _install_conflict_form(vbproject) -> None:
 
 
 def _patch_runtime_validation(code_module) -> None:
-    old = '''Public Function CompletePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String
-    CompletePatientProgram = RunProgramBridge( _
-        "complete-vba " & QuoteArg(ThisWorkbook.FullName) & _
-        " --patient-id " & QuoteArg(patientId) & requestArguments _
-    )
-End Function
+    count = int(getattr(code_module, "CountOfLines", 0) or 0)
+    raw_text = code_module.Lines(1, count) if count else ""
+    text = _normalize_newlines(raw_text)
 
-Public Function FindPatientDisplayName'''
-    new = '''Public Function CompletePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String
-    CompletePatientProgram = RunProgramBridge( _
-        "complete-vba " & QuoteArg(ThisWorkbook.FullName) & _
-        " --patient-id " & QuoteArg(patientId) & requestArguments _
-    )
-End Function
+    validation_marker = "Public Function ValidatePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String"
+    if validation_marker in text:
+        return
+
+    procedure_marker = "Public Function CompletePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String"
+    procedure_start = text.find(procedure_marker)
+    if procedure_start < 0:
+        raise RuntimeError("MASTER render patch marker missing: patient-program CompletePatientProgram")
+
+    procedure_end = text.find("\nEnd Function", procedure_start)
+    if procedure_end < 0:
+        raise RuntimeError("MASTER render patch marker missing: patient-program CompletePatientProgram end")
+    procedure_end += len("\nEnd Function")
+
+    validation_block = r'''
 
 Public Function ValidatePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String
     ValidatePatientProgram = RunProgramBridge( _
         "validate-vba " & QuoteArg(ThisWorkbook.FullName) & _
         " --patient-id " & QuoteArg(patientId) & requestArguments _
     )
-End Function
+End Function'''
 
-Public Function FindPatientDisplayName'''
-    _patch_code_module(
-        code_module,
-        old,
-        new,
-        description="patient-program validation runtime",
-    )
+    patched_text = text[:procedure_end] + validation_block + text[procedure_end:]
+    _write_code_module(code_module, patched_text)
 
 
 def _patch_program_conflict_validation(code_module) -> None:
