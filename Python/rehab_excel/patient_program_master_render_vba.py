@@ -2,8 +2,10 @@ from __future__ import annotations
 
 
 MASTER_RENDER_MODULE_NAME = "PatientProgramMasterRender"
+PATIENT_PROGRAM_RUNTIME_NAME = "PatientProgramRuntime"
 PATIENT_PROGRAM_FORM_NAME = "frmPatientScheduling"
 PATIENT_EDIT_FORM_NAME = "frmEditPatient"
+CONFLICT_FORM_NAME = "frmPatientProgramConflict"
 
 
 MASTER_RENDER_MODULE_CODE = r'''Option Explicit
@@ -203,6 +205,34 @@ End Sub
 '''
 
 
+CONFLICT_FORM_CODE = r'''Option Explicit
+
+Public ContinueSelected As Boolean
+
+Public Sub Configure(ByVal conflictText As String)
+    ContinueSelected = False
+    Me.Caption = "Σύγκρουση στο πρόγραμμα"
+    lblConflict.Caption = "Εντοπίστηκε η παρακάτω σύγκρουση:" & vbCrLf & vbCrLf & _
+                          conflictText & vbCrLf & vbCrLf & _
+                          "Θέλετε να συνεχίσετε την αποθήκευση ή να επιστρέψετε για διόρθωση;"
+End Sub
+
+Private Sub cmdContinue_Click()
+    ContinueSelected = True
+    Me.Hide
+End Sub
+
+Private Sub cmdReturn_Click()
+    ContinueSelected = False
+    Me.Hide
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    ContinueSelected = False
+End Sub
+'''
+
+
 def _get_component(vbproject, name: str):
     try:
         return vbproject.VBComponents(name)
@@ -244,6 +274,214 @@ def _patch_code_module(code_module, old: str, new: str, *, description: str) -> 
     _write_code_module(code_module, text.replace(old_normalized, new_normalized, 1))
 
 
+def _ensure_conflict_control(designer, prog_id: str, name: str, caption: str, left: float, top: float, width: float, height: float):
+    try:
+        control = designer.Controls(name)
+    except Exception:
+        control = designer.Controls.Add(prog_id, name, True)
+    control.Caption = caption
+    control.Left = left
+    control.Top = top
+    control.Width = width
+    control.Height = height
+    return control
+
+
+def _install_conflict_form(vbproject) -> None:
+    form = _get_component(vbproject, CONFLICT_FORM_NAME)
+    if form is None:
+        form = vbproject.VBComponents.Add(3)
+        form.Name = CONFLICT_FORM_NAME
+    designer = form.Designer
+    designer.Caption = "Σύγκρουση στο πρόγραμμα"
+    designer.Width = 620
+    designer.Height = 330
+
+    label = _ensure_conflict_control(
+        designer, "Forms.Label.1", "lblConflict", "", 18, 18, 570, 220
+    )
+    try:
+        label.WordWrap = True
+    except Exception:
+        pass
+
+    continue_button = _ensure_conflict_control(
+        designer, "Forms.CommandButton.1", "cmdContinue", "Συνέχεια", 320, 252, 125, 32
+    )
+    return_button = _ensure_conflict_control(
+        designer, "Forms.CommandButton.1", "cmdReturn", "Επιστροφή", 455, 252, 125, 32
+    )
+    try:
+        continue_button.Default = False
+        return_button.Cancel = True
+    except Exception:
+        pass
+
+    _replace_component_code(form, CONFLICT_FORM_CODE)
+
+
+def _patch_runtime_validation(code_module) -> None:
+    old = '''Public Function CompletePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String
+    CompletePatientProgram = RunProgramBridge( _
+        "complete-vba " & QuoteArg(ThisWorkbook.FullName) & _
+        " --patient-id " & QuoteArg(patientId) & requestArguments _
+    )
+End Function
+
+Public Function FindPatientDisplayName'''
+    new = '''Public Function CompletePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String
+    CompletePatientProgram = RunProgramBridge( _
+        "complete-vba " & QuoteArg(ThisWorkbook.FullName) & _
+        " --patient-id " & QuoteArg(patientId) & requestArguments _
+    )
+End Function
+
+Public Function ValidatePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String
+    ValidatePatientProgram = RunProgramBridge( _
+        "validate-vba " & QuoteArg(ThisWorkbook.FullName) & _
+        " --patient-id " & QuoteArg(patientId) & requestArguments _
+    )
+End Function
+
+Public Function FindPatientDisplayName'''
+    _patch_code_module(
+        code_module,
+        old,
+        new,
+        description="patient-program validation runtime",
+    )
+
+
+def _patch_program_conflict_validation(code_module) -> None:
+    helper_marker = "Private Sub ApplyAutomaticCompletion(ByVal response As String)"
+    helper_block = r'''Private Function ConflictTextFromValidation(ByVal response As String) As String
+    Dim lines() As String
+    Dim fields() As String
+    Dim i As Long
+
+    lines = Split(Replace(response, vbCrLf, vbLf), vbLf)
+    For i = LBound(lines) To UBound(lines)
+        If Len(Trim$(lines(i))) = 0 Then GoTo NextLine
+        fields = Split(lines(i), vbTab)
+        If fields(0) = "ERROR" Then Err.Raise vbObjectError + 2922, , fields(1)
+        If fields(0) = "CONFLICT" And UBound(fields) >= 6 Then
+            If Len(ConflictTextFromValidation) > 0 Then _
+                ConflictTextFromValidation = ConflictTextFromValidation & vbCrLf
+            ConflictTextFromValidation = ConflictTextFromValidation & fields(6)
+        End If
+NextLine:
+    Next i
+End Function
+
+Private Function CurrentConflictText() As String
+    Dim requestArguments As String
+    requestArguments = BuildAutomaticRequestArguments()
+    If Len(Trim$(requestArguments)) = 0 Then Exit Function
+    CurrentConflictText = ConflictTextFromValidation( _
+        ValidatePatientProgram(mPatientId, requestArguments) _
+    )
+End Function
+
+Private Function ConfirmConflictOverride(ByVal conflictText As String) As Boolean
+    Load frmPatientProgramConflict
+    frmPatientProgramConflict.Configure conflictText
+    frmPatientProgramConflict.Show vbModal
+    ConfirmConflictOverride = frmPatientProgramConflict.ContinueSelected
+    Unload frmPatientProgramConflict
+End Function
+
+Private Sub ApplyAutomaticCompletion(ByVal response As String)'''
+    _patch_code_module(
+        code_module,
+        helper_marker,
+        helper_block,
+        description="patient-program conflict helpers",
+    )
+
+    auto_old = '''Private Sub cmdAutoComplete_Click()
+    Dim requestArguments As String
+    Dim response As String
+
+    On Error GoTo AutoError'''
+    auto_new = '''Private Sub cmdAutoComplete_Click()
+    Dim requestArguments As String
+    Dim response As String
+    Dim conflictText As String
+
+    On Error GoTo AutoError'''
+    _patch_code_module(
+        code_module,
+        auto_old,
+        auto_new,
+        description="patient-program auto conflict declaration",
+    )
+
+    auto_validation_old = '''    lblStatus.Caption = "Υπολογίζονται τα κενά στοιχεία του προγράμματος..."
+    DoEvents
+    response = CompletePatientProgram(mPatientId, requestArguments)'''
+    auto_validation_new = '''    conflictText = CurrentConflictText()
+    If Len(conflictText) > 0 Then
+        lblStatus.Caption = "Υπάρχει χρονική σύγκρουση στο πρόγραμμα."
+        MsgBox conflictText & vbCrLf & vbCrLf & _
+               "Διόρθωσε τη σύγκρουση και ξαναπάτησε Αυτόματη συμπλήρωση.", _
+               vbExclamation, "Σύγκρουση στο πρόγραμμα"
+        Exit Sub
+    End If
+
+    lblStatus.Caption = "Υπολογίζονται τα κενά στοιχεία του προγράμματος..."
+    DoEvents
+    response = CompletePatientProgram(mPatientId, requestArguments)'''
+    _patch_code_module(
+        code_module,
+        auto_validation_old,
+        auto_validation_new,
+        description="patient-program auto conflict validation",
+    )
+
+    save_decl_old = '''    Dim writesStarted As Boolean
+    Dim errorText As String
+
+    SaveCurrentDraft'''
+    save_decl_new = '''    Dim writesStarted As Boolean
+    Dim errorText As String
+    Dim conflictText As String
+
+    SaveCurrentDraft'''
+    _patch_code_module(
+        code_module,
+        save_decl_old,
+        save_decl_new,
+        description="patient-program save conflict declaration",
+    )
+
+    save_validation_old = '''    If Not DraftIsComplete() Then
+        Err.Raise vbObjectError + 2930, "SavePatientProgramAtomic", _
+            "Το πρόγραμμα δεν είναι ακόμη πλήρες. Χρησιμοποίησε Αυτόματη συμπλήρωση ή συμπλήρωσε τα κενά πεδία."
+    End If
+
+    Set ws = ThisWorkbook.Worksheets("PATIENT_PLANNER")'''
+    save_validation_new = '''    If Not DraftIsComplete() Then
+        Err.Raise vbObjectError + 2930, "SavePatientProgramAtomic", _
+            "Το πρόγραμμα δεν είναι ακόμη πλήρες. Χρησιμοποίησε Αυτόματη συμπλήρωση ή συμπλήρωσε τα κενά πεδία."
+    End If
+
+    conflictText = CurrentConflictText()
+    If Len(conflictText) > 0 Then
+        If Not ConfirmConflictOverride(conflictText) Then
+            lblStatus.Caption = "Η αποθήκευση ακυρώθηκε για να διορθωθεί η σύγκρουση."
+            Exit Sub
+        End If
+    End If
+
+    Set ws = ThisWorkbook.Worksheets("PATIENT_PLANNER")'''
+    _patch_code_module(
+        code_module,
+        save_validation_old,
+        save_validation_new,
+        description="patient-program save conflict validation",
+    )
+
+
 def _patch_patient_edit_refresh(code_module) -> None:
     count = int(getattr(code_module, "CountOfLines", 0) or 0)
     raw_text = code_module.Lines(1, count) if count else ""
@@ -274,7 +512,7 @@ def _patch_patient_edit_refresh(code_module) -> None:
 
 
 def install_patient_program_master_render(vbproject) -> None:
-    """Install MASTER patient-program renderer and wire save/edit refresh calls."""
+    """Install MASTER renderer plus patient-program conflict validation hooks."""
 
     module = _get_component(vbproject, MASTER_RENDER_MODULE_NAME)
     if module is None:
@@ -282,7 +520,13 @@ def install_patient_program_master_render(vbproject) -> None:
         module.Name = MASTER_RENDER_MODULE_NAME
     _replace_component_code(module, MASTER_RENDER_MODULE_CODE)
 
+    _install_conflict_form(vbproject)
+
+    runtime = vbproject.VBComponents(PATIENT_PROGRAM_RUNTIME_NAME)
+    _patch_runtime_validation(runtime.CodeModule)
+
     program_form = vbproject.VBComponents(PATIENT_PROGRAM_FORM_NAME)
+    _patch_program_conflict_validation(program_form.CodeModule)
     _patch_code_module(
         program_form.CodeModule,
         "    ThisWorkbook.Save\n    Application.EnableEvents = previousEvents",
