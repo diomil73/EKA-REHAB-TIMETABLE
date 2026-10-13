@@ -18,51 +18,43 @@ Last updated: 2026-10-13
 - The former `Subscript out of range` during MASTER row lookup is fixed by guarding empty MASTER patient cells before `Split`.
 - Final save can succeed after changing a treatment time.
 
-## Current small regression under verification
+## Latest small regression under native verification
 
 Scenario: change the time of a non-ΦΘ specialty in an existing program and press **Αυτόματη συμπλήρωση**. V69 reported a false ΦΘ problem even though ΦΘ had not been changed; normal Save still succeeded.
 
-The first fix correctly found the existing same-patient/same-treatment `base_entry_id` and passed it as `ignore_session_id`. The focused test exposed that the core candidate engine only ignored that session for patient availability, not therapist availability/workload.
+The deeper fix is now test-verified:
 
-Deep fix now implemented:
+- existing same-patient/same-treatment `base_entry_id` is resolved as `ignore_session_id`,
+- `rank_therapist_candidates()` builds `effective_sessions` excluding that session,
+- therapist workload, therapist availability, and patient availability all use the same effective set,
+- the session being replaced does not occupy its own therapist slot or capacity,
+- real sessions from other patients remain blocking.
 
-- `rank_therapist_candidates()` builds `effective_sessions` excluding `ignore_session_id`.
-- The same effective set is used for therapist workload, therapist availability, and patient availability.
-- The session being replaced therefore does not occupy its own therapist slot or capacity.
-- Real sessions from other patients remain blocking.
+## Latest confirmed test checkpoint
 
-Core regression test now checks both slot release and workload release for the ignored session.
+Latest user-reported focused run after the core self-conflict fix:
 
-## Latest test checkpoint
+`32 passed in 1.40s`
 
-Latest user-reported focused run:
-
-`24 passed, 1 failed in 3.73s`
-
-The single failure was `test_existing_same_patient_treatment_is_ignored_during_edit_revalidation`, showing the therapist side still counted the old session. The deeper core fix was committed after that run and is **not yet test-verified**.
+This closes the focused regression gate for the ΦΘ self-conflict fix. Native Excel retest is still pending.
 
 ## Immediate next start point
 
-1. Pull latest `feature/outpatient-scheduling`.
-2. Run:
-
-   `python -m pytest Tests/test_scheduling_candidates.py Tests/test_workbook_scheduling_candidates.py Tests/test_patient_recurring_scheduling.py Tests/test_automatic_patient_schedule.py -q`
-
-3. If green, build fresh preview from V48, using the next preview number after V69.
-4. Re-test:
+1. Build a fresh preview from clean V48, using `MASTER_TOOLBAR_SMOKE_V70.xlsm`.
+2. Re-test only the small scenario:
    - existing patient program,
    - change one non-ΦΘ treatment time,
    - press **Αυτόματη συμπλήρωση**,
-   - unchanged ΦΘ must no longer be falsely reported.
-5. Then move to the still-unverified edit workflow:
+   - confirm unchanged ΦΘ is no longer falsely reported.
+3. If clean, move to the still-unverified edit workflow:
    - **Βασικό μενού → Επεξεργασία ασθενή**,
    - save registry changes,
    - same patient-program form opens,
    - existing program is preloaded,
    - modify and atomic-save it.
-6. Verify optional manual names for Ρομποτικό / Εργο / Λογο / Ψυχ persist and reload.
-7. Verify duration rule ΦΘ 45' + Ανακλινόμενο 30', especially ΦΘ 09:15 and recliner preference for 10:00 when available.
-8. Run the full regression suite only after the native edit smoke is clean.
+4. Verify optional manual names for Ρομποτικό / Εργο / Λογο / Ψυχ persist and reload.
+5. Verify duration rule ΦΘ 45' + Ανακλινόμενο 30', especially ΦΘ 09:15 and recliner preference for 10:00 when available.
+6. Run the full regression suite only after the native edit smoke is clean.
 
 ## Business rules that must not regress
 
