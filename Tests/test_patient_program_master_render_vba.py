@@ -144,6 +144,43 @@ def test_patient_program_runtime_gets_shared_validation_bridge():
     assert '"validate-vba "' in module.text
 
 
+def test_patient_program_runtime_validation_patch_is_procedure_scoped():
+    module = _fake_code_module(
+        "Option Explicit\r\n"
+        "\r\n"
+        "Public Function CompletePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String\r\n"
+        "    CompletePatientProgram = RunProgramBridge(\"different spacing is fine\")\r\n"
+        "End Function\r\n"
+        "\r\n"
+        "Public Function SomeOtherFunction() As String\r\n"
+        "    SomeOtherFunction = \"ok\"\r\n"
+        "End Function\r\n"
+    )
+
+    _patch_runtime_validation(module)
+
+    assert "Public Function ValidatePatientProgram" in module.text
+    assert module.text.index("Public Function ValidatePatientProgram") < module.text.index(
+        "Public Function SomeOtherFunction"
+    )
+
+
+def test_patient_program_runtime_validation_patch_is_idempotent():
+    module = _fake_code_module(
+        PATIENT_PROGRAM_MODULE_CODE.replace(
+            "Public Function FindPatientDisplayName",
+            "Public Function ValidatePatientProgram(ByVal patientId As String, ByVal requestArguments As String) As String\n"
+            "    ValidatePatientProgram = \"already here\"\n"
+            "End Function\n\n"
+            "Public Function FindPatientDisplayName",
+        ).replace("\n", "\r\n")
+    )
+
+    _patch_runtime_validation(module)
+
+    assert module.add_count == 0
+
+
 def test_patient_program_form_validates_conflicts_before_auto_and_before_writes():
     module = _fake_code_module(PATIENT_PROGRAM_FORM_CODE.replace("\n", "\r\n"))
 
