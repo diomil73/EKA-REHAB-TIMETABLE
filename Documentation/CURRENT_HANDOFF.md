@@ -29,7 +29,7 @@ Native smoke exposed a more important consistency gap:
 
 This means automatic completion and final save did not share the same conflict gate.
 
-## Fix now implemented, pending tests/native verification
+## Fix implemented and focused-test verified
 
 A common `validate-vba` bridge command now checks pairwise patient-program overlaps using the same duration contract:
 
@@ -52,28 +52,30 @@ The patient-program UI is patched so that:
 
 ## Latest confirmed test checkpoint
 
-Latest user-reported focused run before this new conflict-warning batch:
+Latest user-reported focused run after the conflict-validation batch:
 
-`32 passed in 1.40s`
+`59 passed in 5.89s`
 
-The new `validate-vba` / conflict-dialog changes are implemented but **not yet test-verified by the user**.
+This closes the focused regression gate for `validate-vba`, detailed diagnostics, the conflict dialog, and the surrounding patient-program VBA paths. Native Excel verification is now the next gate.
 
 ## Immediate next start point
 
-1. Pull latest `feature/outpatient-scheduling`.
-2. Run focused tests for:
-   - `Tests/test_patient_program_bridge.py`
-   - `Tests/test_patient_program_master_render_vba.py`
-   - `Tests/test_patient_program_form_vba.py`
-   - `Tests/test_automatic_patient_schedule.py`
-3. If green, build a fresh preview from clean V48, using the next preview number after V70.
-4. Native smoke the conflict scenario:
+1. Build a fresh preview from clean V48 as `MASTER_TOOLBAR_SMOKE_V71.xlsm`.
+2. Native smoke the conflict scenario:
    - ΦΘ and Λογο on the same weekday with overlapping intervals,
    - **Αυτόματη συμπλήρωση** must name the exact day and both treatments/times,
    - **Αποθήκευση** must show **Συνέχεια / Επιστροφή** before any write,
    - choose **Επιστροφή** and verify nothing changed in MASTER,
    - repeat and choose **Συνέχεια** and verify intentional override saves.
-5. Then continue with edit-existing-program, optional manual names, and ΦΘ/Ανακλινόμενο adjacency smoke tests.
+3. Verify adjacency boundary: ΦΘ `09:15-10:00` + Ανακλινόμενο `10:00-10:30` must not be treated as a conflict.
+4. Then continue with the still-unverified edit workflow:
+   - **Βασικό μενού → Επεξεργασία ασθενή**,
+   - save registry changes,
+   - same patient-program form opens,
+   - existing program is preloaded,
+   - modify and atomic-save it.
+5. Verify optional manual names for Ρομποτικό / Εργο / Λογο / Ψυχ persist and reload.
+6. Run the full regression suite only after the native edit smoke is clean.
 
 ## Business rules that must not regress
 
