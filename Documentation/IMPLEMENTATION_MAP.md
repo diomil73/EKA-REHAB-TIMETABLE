@@ -27,11 +27,11 @@
 - Recliner adjacency με ΦΘ: strong soft preference.
 - `PATIENT_PLANNER` authoritative, `MASTER_SCHEDULE` derived view.
 
-### Current focus: κοινό conflict gate για Auto + Save
+### Current focus: native verification του κοινού conflict gate
 
 Το V70 native smoke έδειξε ότι μια χειροκίνητη σύγκρουση, π.χ. ΦΘ και Λογο την ίδια Δευτέρα σε overlapping ώρα, εντοπιζόταν από την **Αυτόματη συμπλήρωση** αλλά μπορούσε να αποθηκευτεί κανονικά από το κουμπί **Αποθήκευση**.
 
-Αυτό είναι consistency gap και όχι απλό UX θέμα. Η τελική αποθήκευση πρέπει να εκτελεί τον ίδιο conflict validation πριν αρχίσει οποιοδήποτε write.
+Η υλοποίηση του κοινού conflict gate ολοκληρώθηκε και το focused regression gate πέρασε. Επόμενο βήμα είναι native V71 verification.
 
 Η ζητούμενη συμπεριφορά είναι:
 
@@ -93,7 +93,7 @@
 
 Έτσι η παλιά ΦΘ που αντικαθίσταται δεν μπλοκάρει τον εαυτό της, ενώ πραγματικές συνεδρίες άλλων ασθενών παραμένουν blocking.
 
-### Νέο conflict-validation batch, implemented / pending verification
+### Conflict-validation batch
 
 Προστέθηκε `validate-vba` στο `patient_program_bridge.py`.
 
@@ -114,21 +114,26 @@
 - με **Επιστροφή** βγαίνει από το save πριν γραφτεί οτιδήποτε,
 - με **Συνέχεια** επιτρέπεται explicit override.
 
+Focused regression gate μετά από αυτό το batch:
+
+**59 passed in 5.89s**
+
+Άρα το Python/VBA source gate είναι πράσινο. Απομένει native Excel verification.
+
 ---
 
 ## Τρέχον verification gate
 
-Το νέο conflict batch δεν χαρακτηρίζεται verified μέχρι να περάσουν:
+Πριν θεωρηθεί verified το conflict batch χρειάζονται:
 
-1. focused pytest για bridge diagnostics + VBA patching/conflict dialog,
-2. clean preview build από V48,
-3. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
-4. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
-5. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
-6. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
-7. edit-existing-program flow,
-8. optional manual names persist/reload,
-9. full regression suite.
+1. clean preview build από V48 ως V71,
+2. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
+3. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
+4. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
+5. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
+6. edit-existing-program flow,
+7. optional manual names persist/reload,
+8. full regression suite.
 
 ---
 
@@ -136,13 +141,11 @@
 
 ### Άμεσα
 
-1. Τρέξιμο:
-   `python -m pytest Tests/test_patient_program_bridge.py Tests/test_patient_program_master_render_vba.py Tests/test_patient_program_form_vba.py Tests/test_automatic_patient_schedule.py -q`
-2. Αν είναι green, build νέου preview από `MASTER_TOOLBAR_SMOKE_V48.xlsm` με επόμενο version μετά το V70.
-3. Native smoke του conflict flow Auto + Save Return + Save Continue.
+1. Build `MASTER_TOOLBAR_SMOKE_V71.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
+2. Native smoke του conflict flow Auto + Save Return + Save Continue.
+3. ΦΘ/Ανακλινόμενο adjacency boundary smoke.
 4. Μετά edit-existing-program + optional names.
-5. ΦΘ/Ανακλινόμενο adjacency smoke.
-6. Full regression suite.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
