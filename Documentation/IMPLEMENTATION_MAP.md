@@ -28,16 +28,11 @@
 - Recliner adjacency με ΦΘ: strong soft preference.
 - `PATIENT_PLANNER` authoritative, `MASTER_SCHEDULE` derived view.
 
-### Current focus: precise diagnostics + σωστό edit-draft replacement model
+### Current focus: native V73 verification
 
-Νέο native smoke έδειξε δύο θέματα:
+Το νέο edit-draft replacement model και τα precise diagnostics έχουν πλέον περάσει και narrow και wider source/integration gates.
 
-1. Όταν manual ΦΘ ώρα/provider δεν είναι διαθέσιμα, το μήνυμα είναι πολύ γενικό και δεν λέει ποιος ασθενής καταλαμβάνει το slot.
-2. `Ανακλινόμενο 11:00-11:30` με νέα `ΦΘ 11:30-12:15` αναφέρθηκε λανθασμένα ως conflict κατά automatic completion.
-
-Το δεύτερο δεν ήταν duration bug. Η interval λογική ήδη επιτρέπει adjacency. Η αιτία ήταν ότι σε multi-treatment edit ο solver έβλεπε stale persisted assignments των άλλων treatments του ίδιου ασθενή. Δηλαδή το νέο Ανακλινόμενο μπορούσε να συγκρουστεί με την παλιά ΦΘ, παρότι η νέα ΦΘ του draft ήταν 11:30.
-
-Η νέα υλοποίηση:
+Η τρέχουσα υλοποίηση:
 
 - αφαιρεί από το existing-patient baseline όλες τις παλιές εγγραφές treatments που συμμετέχουν στο τρέχον draft,
 - λύνει το νέο draft ως ενιαίο σύνολο και ελέγχει τις νέες επιλογές μεταξύ τους,
@@ -45,9 +40,12 @@
 - δίνει detailed joint conflict diagnostics με ημέρα, treatments και ranges,
 - για manual ΦΘ/provider failure, όταν υπάρχει concrete blocker, εμφανίζει ημέρα, ώρα, θεραπευτή, ασθενή και treatment που κρατά το slot.
 
-Το narrow automatic-scheduling gate είναι πλέον πράσινο: **16 passed in 2.87s**.
+Verification checkpoints:
 
-Επόμενο βήμα: wider patient-program integration gate πριν χτιστεί νέο native preview.
+- narrow automatic-scheduling gate: **16 passed in 2.87s**
+- wider patient-program integration gate: **71 passed in 3.66s**
+
+Επόμενο βήμα: build του `MASTER_TOOLBAR_SMOKE_V73.xlsm` από clean V48 και native behavior verification.
 
 ---
 
@@ -92,10 +90,14 @@
 - V69: first save επιτυχές και MASTER composite rendering επιτυχές.
 - V70: το false alarm της αμετάβλητης ΦΘ κατά edit revalidation διορθώθηκε native.
 - V71: build/open επιτυχές μετά τα installer hardenings και το conflict flow φαίνεται λειτουργικά σωστό σε native χρήση.
+
+### Source/integration checkpoints
+
 - Focused self-conflict regression gate: **32 passed in 1.40s**.
 - Focused V71 conflict/installer gate: **62 passed in 3.34s**.
 - Focused prebuild gate για runtime conflict layout + existing MASTER refresh: **57 passed in 3.96s**.
 - Narrow edit-draft/diagnostics gate: **16 passed in 2.87s**.
+- Wider patient-program integration gate: **71 passed in 3.66s**.
 
 ### Conflict-validation / Save override
 
@@ -125,7 +127,7 @@
 - όλα τα existing PatientIDs περνούν από `RefreshMasterPatientProgram()` κατά το preview build,
 - στόχος: να μην παραμένουν stale decimal Excel times σε MASTER cells, όπως παρατηρήθηκε στο Ρομποτικό της Γιαννιά.
 
-### Νέο edit-draft replacement fix
+### Edit-draft replacement fix
 
 Στο `automatic_patient_schedule.py`:
 
@@ -134,7 +136,7 @@
 - οι νέες assignments ελέγχονται joint μέσω `_patient_conflict`,
 - stale old ΦΘ δεν μπορεί πλέον να μπλοκάρει νέο Ανακλινόμενο όταν και τα δύο συμμετέχουν στο ίδιο edit draft.
 
-### Νέα detailed diagnostics
+### Detailed diagnostics
 
 Προστέθηκαν:
 
@@ -142,13 +144,11 @@
 - detailed existing-patient conflict reason με treatment intervals,
 - detailed joint-draft conflict reason με shared weekdays και ακριβή ranges.
 
-Regression tests προστέθηκαν για:
+Regression coverage περιλαμβάνει:
 
 - `Ανακλινόμενο 11:00-11:30` + νέα `ΦΘ 11:30-12:15` με stale old ΦΘ,
 - occupied manual ΦΘ slot που ονοματίζει provider και blocking patient,
 - πραγματικό joint overlap που εμφανίζει ακριβή ranges.
-
-Το narrow source gate είναι πράσινο: **16 passed in 2.87s**.
 
 ---
 
@@ -156,20 +156,14 @@ Regression tests προστέθηκαν για:
 
 Πριν θεωρηθεί κλειστό το τρέχον batch χρειάζονται:
 
-1. wider focused patient-program suite:
-   - `Tests/test_automatic_patient_schedule.py`
-   - `Tests/test_patient_program_bridge.py`
-   - `Tests/test_patient_program_form_vba.py`
-   - `Tests/test_patient_program_master_render_vba.py`
-   - `Tests/test_patient_registration_scheduling_slice.py`
-2. fresh preview build από clean V48, expected next preview V73,
-3. native manual ΦΘ occupied-slot test με concrete patient diagnostic,
-4. native `Ανακλινόμενο 11:00` + `ΦΘ 11:30` adjacency test,
-5. native true-overlap test με explicit treatment/day/time diagnostic,
-6. conflict dialog full layout + Γιαννιά Ρομποτικό `hh:mm`,
-7. edit-existing-program flow,
-8. optional manual names persist/reload,
-9. full regression suite.
+1. build `MASTER_TOOLBAR_SMOKE_V73.xlsm` από clean V48,
+2. native manual ΦΘ occupied-slot test με concrete patient diagnostic,
+3. native `Ανακλινόμενο 11:00` + `ΦΘ 11:30` adjacency test,
+4. native true-overlap test με explicit treatment/day/time diagnostic,
+5. conflict dialog full layout + Γιαννιά Ρομποτικό `hh:mm`,
+6. edit-existing-program flow,
+7. optional manual names persist/reload,
+8. full regression suite.
 
 ---
 
@@ -177,11 +171,10 @@ Regression tests προστέθηκαν για:
 
 ### Άμεσα
 
-1. Run wider focused patient-program integration tests.
-2. Αν είναι πράσινα, build V73 από clean V48.
-3. Native smoke των δύο νέων observations και των presentation fixes.
-4. Μετά edit-existing-program + optional names.
-5. Full regression suite.
+1. Build V73 από clean V48.
+2. Native smoke των precise diagnostics, adjacency και presentation fixes.
+3. Μετά edit-existing-program + optional names.
+4. Full regression suite.
 
 ### Μετά το patient-program milestone
 
