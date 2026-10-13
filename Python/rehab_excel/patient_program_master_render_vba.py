@@ -280,10 +280,16 @@ def _ensure_conflict_control(designer, prog_id: str, name: str, caption: str, le
     except Exception:
         control = designer.Controls.Add(prog_id, name, True)
     control.Caption = caption
-    control.Left = left
-    control.Top = top
-    control.Width = width
-    control.Height = height
+    try:
+        control.Left = left
+        control.Top = top
+    except Exception:
+        pass
+    try:
+        control.Width = width
+        control.Height = height
+    except Exception:
+        pass
     return control
 
 
@@ -294,8 +300,11 @@ def _install_conflict_form(vbproject) -> None:
         form.Name = CONFLICT_FORM_NAME
     designer = form.Designer
     designer.Caption = "Σύγκρουση στο πρόγραμμα"
-    designer.Width = 620
-    designer.Height = 330
+    try:
+        designer.Width = 620
+        designer.Height = 330
+    except Exception:
+        pass
 
     label = _ensure_conflict_control(
         designer, "Forms.Label.1", "lblConflict", "", 18, 18, 570, 220
