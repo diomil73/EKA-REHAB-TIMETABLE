@@ -27,19 +27,17 @@
 - Recliner adjacency με ΦΘ: strong soft preference.
 - `PATIENT_PLANNER` authoritative, `MASTER_SCHEDULE` derived view.
 
-### Current focus: native verification του κοινού conflict gate
+### Current focus: V71 native polish και MASTER consistency
 
-Το V70 native smoke έδειξε ότι μια χειροκίνητη σύγκρουση, π.χ. ΦΘ και Λογο την ίδια Δευτέρα σε overlapping ώρα, εντοπιζόταν από την **Αυτόματη συμπλήρωση** αλλά μπορούσε να αποθηκευτεί κανονικά από το κουμπί **Αποθήκευση**.
+Το V71 πλέον χτίζει και ανοίγει. Το conflict validation φαίνεται λειτουργικά σωστό σε native χρήση, αλλά εμφανίστηκαν δύο presentation/consistency follow-ups:
 
-Η λειτουργική υλοποίηση του κοινού conflict gate έχει γραφτεί. Το V71 αποκάλυψε δύο installer-level brittle assumptions, τα οποία πλέον έχουν διορθωθεί και πέρασαν focused source regression gate.
+- το Save conflict dialog είναι πολύ κοντό και κόβει μέρος του μηνύματος και τα κουμπιά **Συνέχεια / Επιστροφή**,
+- η ώρα Ρομποτικού της ασθενούς Γιαννιά εμφανίστηκε στο MASTER ως raw decimal Excel time serial.
 
-Η ζητούμενη συμπεριφορά παραμένει:
+Η τρέχουσα διόρθωση είναι γενική, όχι ειδική για μία περίπτωση:
 
-- αναλυτικό μήνυμα, π.χ. `Δευτέρα: ΦΘ 09:00-09:45 συγκρούεται με Λογο 09:00-09:45.`,
-- στην Αυτόματη συμπλήρωση η σύγκρουση σταματά τη διαδικασία και ζητά διόρθωση,
-- στην Αποθήκευση εμφανίζεται modal επιλογή **Συνέχεια** / **Επιστροφή**,
-- **Επιστροφή** σημαίνει μηδενικά writes,
-- **Συνέχεια** είναι ρητή user override και επιτρέπει intentional conflicting save.
+- το conflict dialog εφαρμόζει πλέον runtime geometry όταν ανοίγει,
+- το preview build περνά όλους τους υπάρχοντες ασθενείς από `RefreshMasterPatientProgram()` ώστε τα MASTER treatment cells να ξαναγραφτούν ως composite text (`hh:mm` + ημέρες + όνομα όπου υπάρχει).
 
 ---
 
@@ -76,97 +74,82 @@
 - procedure-scoped patient-edit refresh patch.
 - runtime stage diagnostics για MASTER refresh.
 - empty MASTER patient cells guarded πριν από `Split`.
-- conflict-form geometry setters είναι best-effort απέναντι σε VBE COM rejection για `Width/Height` και `Left/Top`.
-- patient-program runtime validation patch έγινε procedure-scoped και δεν εξαρτάται πλέον από ακριβές multi-function text block.
+- conflict-form designer geometry setters είναι best-effort απέναντι σε VBE COM rejection.
+- patient-program runtime validation patch είναι procedure-scoped και idempotent.
 
 ### Verified native checkpoints
 
 - V69: first save επιτυχές και MASTER composite rendering επιτυχές.
-- V70: το προηγούμενο false alarm της αμετάβλητης ΦΘ κατά edit revalidation διορθώθηκε native.
+- V70: το false alarm της αμετάβλητης ΦΘ κατά edit revalidation διορθώθηκε native.
+- V71: build/open επιτυχές μετά τα installer hardenings και το conflict flow φαίνεται λειτουργικά σωστό σε native χρήση.
 - Focused self-conflict regression gate: **32 passed in 1.40s**.
+- Focused V71 conflict/installer gate: **62 passed in 3.34s**.
 
 ### ΦΘ self-conflict fix
 
-Το same-patient/same-treatment `base_entry_id` γίνεται `ignore_session_id` και αφαιρείται από το effective session set για:
-
-- therapist workload,
-- therapist availability,
-- patient availability.
-
-Έτσι η παλιά ΦΘ που αντικαθίσταται δεν μπλοκάρει τον εαυτό της, ενώ πραγματικές συνεδρίες άλλων ασθενών παραμένουν blocking.
+Το same-patient/same-treatment `base_entry_id` γίνεται `ignore_session_id` και αφαιρείται από το effective session set για therapist workload, therapist availability και patient availability. Η συνεδρία που αντικαθίσταται δεν μπλοκάρει τον εαυτό της, ενώ πραγματικές συνεδρίες άλλων ασθενών παραμένουν blocking.
 
 ### Conflict-validation batch
 
-Προστέθηκε `validate-vba` στο `patient_program_bridge.py`.
-
-Ο validator:
+Το `validate-vba` στο `patient_program_bridge.py`:
 
 - συγκρίνει όλα τα included complete treatments ανά ζεύγος,
 - κοιτά μόνο κοινές weekdays,
 - χρησιμοποιεί 45' standard και 30' Ανακλινόμενο,
 - επιτρέπει ακριβώς adjacent intervals,
-- επιστρέφει explicit `CONFLICT` rows με weekday, treatments, start times και human-readable message.
+- επιστρέφει explicit diagnostics με ημέρα, θεραπείες και ranges.
 
-Το installed VBA πλέον:
+Το installed VBA:
 
 - προσθέτει `ValidatePatientProgram()` στο `PatientProgramRuntime`,
-- καλεί τον validator πριν από Αυτόματη συμπλήρωση,
-- καλεί τον ίδιο validator στην `SavePatientProgramAtomic()` **πριν από worksheet access/snapshots/writes**,
-- εγκαθιστά `frmPatientProgramConflict` με κουμπιά **Συνέχεια** και **Επιστροφή**,
-- με **Επιστροφή** βγαίνει από το save πριν γραφτεί οτιδήποτε,
-- με **Συνέχεια** επιτρέπεται explicit override.
+- ελέγχει πριν από Αυτόματη συμπλήρωση,
+- ελέγχει πριν από οποιοδήποτε Save write,
+- δείχνει **Συνέχεια / Επιστροφή** για explicit override.
 
-### V71 installer blockers
+### V71 installer blockers που έκλεισαν
 
-#### Conflict dialog geometry
+- VBE `Width/Height` COM rejection στο conflict form: guarded installer geometry.
+- brittle `patient-program validation runtime` marker: procedure-scoped insertion μετά το `CompletePatientProgram()`.
 
-Το πρώτο V71 build σταμάτησε με:
+### Νέο V71 runtime-layout fix
 
-`Property '<unknown>.Width' can not be set.`
+Προστέθηκε `patient_program_conflict_layout_vba.py`.
 
-Η αιτία ήταν direct VBE COM property writes στο νέο conflict form. Το hardening πλέον κάνει guarded τα designer/control geometry setters και υπάρχει regression test με fake control που απορρίπτει Width/Height.
+Το conflict form πλέον:
 
-#### PatientProgramRuntime validation marker
+- εφαρμόζει `Me.Width/Height` στο runtime,
+- μεγαλώνει το `lblConflict`,
+- τοποθετεί ρητά τα κουμπιά **Συνέχεια** και **Επιστροφή**,
+- δεν εξαρτάται από το αν το VBE designer δέχθηκε geometry properties κατά το build.
 
-Το επόμενο V71 build πέρασε το geometry στάδιο αλλά σταμάτησε με:
+### Νέο initial MASTER composite refresh
 
-`MASTER render patch marker missing: patient-program validation runtime`
+Στο `_install_scheduling_ui()` προστέθηκε `_refresh_existing_master_patient_programs(workbook)`.
 
-Η αιτία ήταν exact marker που απαιτούσε ολόκληρο το `CompletePatientProgram` body και αμέσως μετά `FindPatientDisplayName`.
+Μετά την εγκατάσταση/verification του renderer:
 
-Το runtime patcher πλέον:
+- διαβάζει όλα τα nonblank PatientIDs από `PATIENTS`,
+- καλεί `RefreshMasterPatientProgram` για κάθε υπάρχοντα ασθενή,
+- έτσι τα ήδη υπάρχοντα MASTER treatment cells περνούν από το ίδιο composite formatting path,
+- στόχος είναι να εξαφανιστούν stale raw time serials όπως το decimal Ρομποτικό που παρατηρήθηκε για τη Γιαννιά.
 
-- εντοπίζει μόνο το `Public Function CompletePatientProgram(...)`,
-- βρίσκει το αντίστοιχο `End Function`,
-- εισάγει αμέσως μετά το `ValidatePatientProgram(...)`,
-- είναι CRLF-safe και idempotent,
-- δεν εξαρτάται από το επόμενο procedure ή από body spacing,
-- δίνει precise safety-stop αν λείπει πραγματικά το procedure ή το `End Function`.
-
-Προστέθηκαν regression tests για altered body/spacing και idempotence.
-
-### Latest focused regression gate
-
-Μετά και τα δύο V71 installer hardenings, ο χρήστης επιβεβαίωσε:
-
-**62 passed in 3.34s**
-
-Άρα το source-level conflict/installer gate είναι πράσινο. Επόμενο βήμα είναι αποκλειστικά native rebuild/behavior verification του V71.
+Τα δύο τελευταία fixes είναι implemented αλλά δεν έχουν ακόμη περάσει user-run focused/native gate.
 
 ---
 
 ## Τρέχον verification gate
 
-Πριν θεωρηθεί verified το conflict batch χρειάζονται:
+Πριν θεωρηθεί κλειστό το V71 batch χρειάζονται:
 
-1. clean rebuild του V71 από V48,
-2. native Auto test με ΦΘ + Λογο overlap και explicit μήνυμα ημέρας/ωρών,
-3. native Save test με **Επιστροφή** και επιβεβαίωση ότι `PATIENT_PLANNER`/MASTER δεν άλλαξαν,
-4. native Save test με **Συνέχεια** και επιβεβαίωση intentional override,
-5. adjacency test που επιβεβαιώνει ότι ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30 δεν θεωρείται conflict,
-6. edit-existing-program flow,
-7. optional manual names persist/reload,
-8. full regression suite.
+1. focused pytest για conflict runtime layout + scheduling slice MASTER refresh + existing patient-program tests,
+2. fresh preview build από clean V48 με επόμενο version μετά το V71,
+3. native επιβεβαίωση ότι το conflict dialog δείχνει ολόκληρο το μήνυμα και τα δύο κουμπιά,
+4. native επιβεβαίωση ότι η Γιαννιά και άλλοι υπάρχοντες ασθενείς δεν έχουν decimal treatment times στο MASTER,
+5. επανέλεγχος Save **Επιστροφή / Συνέχεια**,
+6. adjacency test ΦΘ 09:15-10:00 + Ανακλινόμενο 10:00-10:30,
+7. edit-existing-program flow,
+8. optional manual names persist/reload,
+9. full regression suite.
 
 ---
 
@@ -174,11 +157,13 @@
 
 ### Άμεσα
 
-1. Rebuild `MASTER_TOOLBAR_SMOKE_V71.xlsm` από clean `MASTER_TOOLBAR_SMOKE_V48.xlsm`.
-2. Native smoke του conflict flow Auto + Save Return + Save Continue.
-3. ΦΘ/Ανακλινόμενο adjacency boundary smoke.
-4. Μετά edit-existing-program + optional names.
-5. Full regression suite.
+1. Pull latest branch.
+2. Τρέξιμο focused tests για τα δύο νέα fixes.
+3. Build νέου preview από clean V48 με επόμενο version μετά το V71.
+4. Native smoke: conflict dialog layout + Γιαννιά Ρομποτικό `hh:mm` + spot-check άλλων MASTER cells.
+5. Reconfirm conflict Return/Continue και adjacency boundary.
+6. Μετά edit-existing-program + optional names.
+7. Full regression suite.
 
 ### Μετά το patient-program milestone
 
