@@ -13,12 +13,7 @@ Last updated: 2026-10-14
 
 ## MASTER controls status
 
-Native experiments V74-V79 are retired as sidebar/persistent-control attempts:
-
-- V74/V75: earlier freeze approaches did not keep the intended UI reliably visible.
-- V76: legacy `Application.CommandBars` sidebar failed.
-- V77-V79: modeless UserForm path was ultimately rejected as operationally unreliable.
-- V80 restored a clean native-green MASTER baseline.
+Native experiments V74-V79 are retired as sidebar/persistent-control attempts.
 
 Final accepted MASTER UX:
 
@@ -35,35 +30,58 @@ Regression commits:
 - `2860fe43bd133e2e2bac663b422ff54f5985f2c4`
 - `b05426cd9cf68b39267159d84ce3d1982c145af8`
 
-Native V81 verification: green. Vertical scrolling keeps both the four MASTER buttons and row-4 treatment headers visible, with no unstable sidebar/window behavior.
+Native V81 verification: green. Vertical scrolling keeps both the four MASTER buttons and row-4 treatment headers visible.
 
-## Latest confirmed test checkpoints
+## Patient-program native verification
 
-- narrow automatic-scheduling gate: `16 passed in 2.87s`
-- wider patient-program integration gate: `71 passed in 3.66s`
-- persistent-controls history gates: `39`, `39`, `41`, `42`, `44`, `45` passes at successive iterations
-- cleanup/reset focused gate: `42 passed in 3.70s`
-- V80 native reset gate: green
-- row-4 toolbar/header pinning focused source gate: `43 passed in 1.92s`
-- V81 native toolbar/header pinning gate: green
-- optional manual names persistence/reload: native green
-
-## Current focus
-
-The MASTER UX milestone is closed.
-
-Patient-program native checks now confirmed green:
+Confirmed green by the user:
 
 1. edit-existing-program end to end,
 2. existing program preload,
 3. atomic resave without false self-conflict,
 4. optional manual names persistence/reload for Ρομποτικό / Εργο / Λογο / Ψυχ.
 
-Immediate next step:
+## Latest confirmed test checkpoints
 
-1. Run the full regression suite with `python -m pytest`.
-2. If green, update the implementation map/project status.
-3. Then clean up retired single-treatment scheduling code.
+- narrow automatic-scheduling gate: `16 passed in 2.87s`
+- wider patient-program integration gate: `71 passed in 3.66s`
+- cleanup/reset focused gate: `42 passed in 3.70s`
+- row-4 toolbar/header pinning focused source gate: `43 passed in 1.92s`
+- V81 native toolbar/header pinning gate: green
+- optional manual names persistence/reload: native green
+- **full regression before cleanup: `722 passed, 19 warnings`**
+
+## Current focus: retired single-treatment scheduling cleanup
+
+The full regression is green, so cleanup has started from a known-good baseline.
+
+Removed/retired source:
+
+- `Python/rehab_excel/patient_scheduling_flow.py`
+- `Python/rehab_excel/patient_scheduling_form_vba.py`
+- obsolete `plan`, `validate`, `plan-vba`, `validate-vba`, `recurring-vba`, and `validate-recurring-vba` commands from `Python/tools/patient_scheduling_bridge.py`
+
+Retained current behavior:
+
+- `auto-propose` / `auto-propose-vba` in `patient_scheduling_bridge.py`, used by the joint patient-program auto scheduler,
+- `PatientProgramRuntime` / current `frmPatientScheduling`,
+- legacy VBA component removal/verification in `patient_registration_scheduling_slice.py` so old workbooks cannot retain `PatientSchedulingRuntime`.
+
+Cleanup commits so far:
+
+- `93e2759726f002dd86c82168e6d3abfcf40a5d32` bridge cleanup
+- `ccc97c6f9e43cf32ca085cb42ba03f12469acb50` remove retired scheduling flow
+- `8c0bdd326e6727c04594a6284e0148f6846bdf74` remove retired scheduling form source
+- `8265d4000036a15323d0a0cb4ec95d6cc340e0f3` remove retired flow tests
+- `29a9221055f2057f9062af7f8853274271724ef2` remove retired form tests
+- `b0d40de9f3e0eb1b76ce9cca5b1a36aa1bda3c5f` keep bridge regression tests on joint auto path
+
+## Immediate next verification gate
+
+1. Pull latest branch.
+2. Run `python -m pytest`.
+3. If green, cleanup is accepted.
+4. Then update final project status / roadmap and decide the next roadmap milestone.
 
 ## Business rules that must not regress
 
@@ -75,7 +93,7 @@ Immediate next step:
 - Standard treatment duration: 45 minutes.
 - Ανακλινόμενο duration: 30 minutes.
 - Exact adjacency is legal.
-- MASTER is derived; `PATIENT_PLANNER` remains authoritative.
+- `PATIENT_PLANNER` authoritative, MASTER derived.
 - Conflict override must be explicit; return-for-correction performs zero writes.
 
 ## Recovery order if context is lost
