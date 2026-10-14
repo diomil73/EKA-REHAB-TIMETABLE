@@ -8,23 +8,17 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### MASTER: σταθερά κουμπιά + ορατά treatment headers στο vertical scroll
+### Patient-centric multi-treatment scheduling: optional manual names persistence/reload
 
-Μετά το V80 clean reset, ο χρήστης επιβεβαίωσε ότι το edit-existing-program flow λειτουργεί σωστά και ζήτησε ένα συγκεκριμένο UX improvement:
+Το MASTER UX milestone έκλεισε επιτυχώς στο V81.
 
-- καθώς κατεβαίνει η λίστα στο MASTER, να παραμένουν ορατά τα ονόματα των στηλών/θεραπειών,
-- και τα 4 βασικά action buttons να ακολουθούν είτε οριζόντια είτε κάθετα.
+Accepted MASTER behavior:
 
-Επιλέχθηκε η πιο απλή Excel-native λύση: **κρατάμε το υπάρχον horizontal top toolbar και παγώνουμε το πάνω τμήμα μέχρι και τη γραμμή 4**.
-
-Layout:
-
-- row 2: 4 MASTER buttons,
+- row 2: 4 horizontal MASTER action buttons,
 - row 4: treatment / column headers,
 - rows 1-4 μένουν σταθερές στο vertical scroll,
-- δεν χρησιμοποιείται UserForm/sidebar/CommandBars.
-
-Η προηγούμενη V74/V75 λογική πάγωνε λάθος boundary και δεν κάλυπτε αυτό το ακριβές requirement. Η νέα υλοποίηση χρησιμοποιεί `SplitRow = 4` και επαναφέρει το pin κάθε φορά που ενεργοποιείται το MASTER.
+- το application shell ξαναβάζει το pin κάθε φορά που ενεργοποιείται το MASTER,
+- no UserForm/sidebar/CommandBars.
 
 Implementation commit: `0c4b25eac6378e97366b6690b3443c5d46948f53`
 
@@ -35,14 +29,18 @@ Regression commits:
 
 Focused source gate: **43 passed in 1.92s**.
 
-### Patient-centric multi-treatment scheduling
+V81 native gate: **green**. Τα 4 κουμπιά και τα treatment headers παραμένουν ορατά στο vertical scroll χωρίς unstable sidebar/window behavior.
 
-Το edit-existing-program end-to-end ελέγχθηκε native από τον χρήστη χωρίς πρόβλημα.
+### Patient-program current milestone
 
-Επόμενα patient-program checks μετά το MASTER pinning smoke:
+Το edit-existing-program end-to-end έχει ήδη επαληθευτεί native από τον χρήστη.
+
+Τρέχον επόμενο checkpoint:
 
 - optional manual names persistence/reload για Ρομποτικό / Εργο / Λογο / Ψυχ,
-- full regression suite,
+- typed optional names να επιβιώνουν στο save,
+- να προφορτώνονται σωστά όταν γίνεται edit στο ίδιο patient program,
+- μετά full regression suite,
 - cleanup retired single-treatment scheduling code.
 
 ## Τι έχει ολοκληρωθεί
@@ -60,6 +58,7 @@ Focused source gate: **43 passed in 1.92s**.
 - Cleanup των αποτυχημένων sidebar mechanisms.
 - V80 native reset baseline verified green.
 - Edit-existing-program native flow verified green by the user.
+- V81 fixed top toolbar + treatment headers verified native green.
 
 ## Latest verified checkpoints
 
@@ -71,16 +70,14 @@ Focused source gate: **43 passed in 1.92s**.
 - cleanup/reset focused gate: **42 passed in 3.70s**
 - V80 native reset gate: **green**
 - row-4 toolbar/header pinning focused source gate: **43 passed in 1.92s**
+- V81 native pinning gate: **green**
 
 ## Τρέχον verification gate
 
-1. Build next preview from clean V48.
-2. Native confirm ότι στο vertical scroll μένουν ορατά:
-   - τα 4 horizontal MASTER buttons,
-   - τα row-4 treatment headers.
-3. Confirm no sidebar/UserForm and no unstable split/window behavior.
-4. Verify optional manual names persist/reload.
-5. Run full regression suite.
+1. Verify optional manual names persist/reload for Ρομποτικό / Εργο / Λογο / Ψυχ.
+2. Confirm names survive save and preload on edit.
+3. Run full regression suite.
+4. Cleanup retired single-treatment scheduling code.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
