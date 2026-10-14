@@ -174,11 +174,24 @@ def test_application_shell_consumes_one_shot_navigation_sidecar():
     assert 'Worksheets(targetName).Activate' in APP_SHELL_MODULE_CODE
 
 
-def test_application_shell_reapplies_master_view_on_activation_without_sidebar():
+def test_application_shell_reapplies_master_view_and_pins_toolbar_headers():
     assert "ApplyMasterView" in APP_SHELL_MODULE_CODE
     keep_start = APP_SHELL_MODULE_CODE.index("Public Sub KeepApplicationShell()")
     keep_end = APP_SHELL_MODULE_CODE.index("End Sub", keep_start)
     keep_source = APP_SHELL_MODULE_CODE[keep_start:keep_end]
-    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then ApplyMasterView' in keep_source
+    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then' in keep_source
+    assert "ApplyMasterView" in keep_source
+    assert "PinMasterToolbarAndHeaders" in keep_source
     assert "ShowMasterSidebar" not in APP_SHELL_MODULE_CODE
     assert "HideMasterSidebar" not in APP_SHELL_MODULE_CODE
+
+
+def test_master_pin_keeps_toolbar_and_row_four_headers_visible():
+    assert "Private Sub PinMasterToolbarAndHeaders()" in APP_SHELL_MODULE_CODE
+    pin_start = APP_SHELL_MODULE_CODE.index("Private Sub PinMasterToolbarAndHeaders()")
+    pin_end = APP_SHELL_MODULE_CODE.index("End Sub", pin_start)
+    pin_source = APP_SHELL_MODULE_CODE[pin_start:pin_end]
+    assert ".FreezePanes = False" in pin_source
+    assert ".SplitColumn = 0" in pin_source
+    assert ".SplitRow = 4" in pin_source
+    assert ".FreezePanes = True" in pin_source
