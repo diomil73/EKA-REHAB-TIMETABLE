@@ -32,7 +32,9 @@ Fix commit: `3138f6b792677e1183af23c6a5d467b41711d003`
 
 Regression update: `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 
-Επόμενο gate: focused pytest και μετά **V75 από clean V48**.
+Focused user-run gate μετά το ισχυρότερο fix: **39 passed in 2.56s**.
+
+Επόμενο gate: **V75 από clean V48** και native verification του vertical scroll.
 
 ### Patient-centric multi-treatment scheduling
 
@@ -65,7 +67,7 @@ Regression update: `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 ### Patient scheduling architecture
 
 - Patient-centric draft πολλών θεραπειών.
-- Dynamic treatments από SETTINGS.
+- Dynamic treatments από workbook SETTINGS.
 - Manual + partial-auto + fully-auto flow.
 - Atomic final save με snapshots, verification και rollback.
 - CURRENT preload από `PATIENT_PLANNER`.
@@ -90,6 +92,7 @@ Regression update: `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 - edit-draft diagnostics gate: **16 passed in 2.87s**
 - wider patient-program integration gate: **71 passed in 3.66s**
 - first persistent MASTER toolbar gate: **39 passed in 1.71s**
+- stronger selection-based freeze gate: **39 passed in 2.56s**
 
 ### Conflict-validation / Save override
 
@@ -114,11 +117,12 @@ Regression update: `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 
 Για το MASTER toolbar:
 
-1. focused pytest μετά το selection-based freeze fix,
-2. build `MASTER_TOOLBAR_SMOKE_V75.xlsm` από clean V48,
-3. native vertical scroll με τα τέσσερα κουμπιά συνεχώς ορατά,
-4. native test ότι τα κουμπιά εξακολουθούν να λειτουργούν,
-5. μετάβαση DAILY_INPUT / THERAPIST_DAILY και επιστροφή στο MASTER με αυτόματο re-pin.
+1. build `MASTER_TOOLBAR_SMOKE_V75.xlsm` από clean V48,
+2. native vertical scroll με τα τέσσερα κουμπιά συνεχώς ορατά,
+3. native test ότι τα κουμπιά εξακολουθούν να λειτουργούν,
+4. μετάβαση DAILY_INPUT / THERAPIST_DAILY και επιστροφή στο MASTER με αυτόματο re-pin.
+
+Το focused source gate μετά το ισχυρότερο freeze fix έχει ήδη περάσει: **39 passed in 2.56s**.
 
 Μετά συνεχίζει το patient-program gate:
 
@@ -132,11 +136,11 @@ Regression update: `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 
 ### Άμεσα
 
-1. Pull latest branch.
-2. Run focused toolbar tests.
-3. Αν είναι πράσινα, build V75 από clean V48.
-4. Native smoke του persistent MASTER toolbar.
-5. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
+1. Build V75 από clean V48.
+2. Native smoke του persistent MASTER toolbar.
+3. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
+4. Optional manual names persist/reload.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
