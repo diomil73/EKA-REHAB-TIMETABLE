@@ -40,7 +40,9 @@ Implementation commit: `decf535fa90a4ffd4d645efc0529762c72238744`
 
 Regression update: `dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
 
-Επόμενο gate: focused pytest και μετά νέο native preview από clean V48.
+Focused user-run gate: **42 passed in 1.52s**.
+
+Επόμενο gate: **V77 από clean V48** και native verification του modeless sidebar.
 
 ### Patient-centric multi-treatment scheduling
 
@@ -102,6 +104,7 @@ Regression update: `dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
 - first persistent MASTER toolbar gate: **39 passed in 1.71s**
 - stronger selection-based freeze gate: **39 passed in 2.56s**
 - command-sidebar gate: **41 passed in 2.78s**
+- modeless UserForm sidebar gate: **42 passed in 1.52s**
 
 ### Conflict-validation / Save override
 
@@ -126,12 +129,13 @@ Regression update: `dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
 
 Για το modeless MASTER sidebar:
 
-1. focused pytest για application shell/sidebar installer behavior,
-2. build νέου preview από clean V48,
-3. native επιβεβαίωση ότι το modeless sidebar εμφανίζεται στο MASTER και δεν μετακινείται με vertical scroll,
-4. έλεγχος και των τεσσάρων actions,
-5. μετάβαση σε άλλο sheet και επιβεβαίωση hide,
-6. επιστροφή στο MASTER και επιβεβαίωση restore.
+1. build `MASTER_TOOLBAR_SMOKE_V77.xlsm` από clean V48,
+2. native επιβεβαίωση ότι το modeless sidebar εμφανίζεται στο MASTER και δεν μετακινείται με vertical scroll,
+3. έλεγχος και των τεσσάρων actions,
+4. μετάβαση σε άλλο sheet και επιβεβαίωση hide,
+5. επιστροφή στο MASTER και επιβεβαίωση restore.
+
+Το focused source gate είναι πράσινο: **42 passed in 1.52s**.
 
 Μετά συνεχίζει το patient-program gate:
 
@@ -145,11 +149,11 @@ Regression update: `dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
 
 ### Άμεσα
 
-1. Pull latest branch.
-2. Run focused sidebar tests.
-3. Αν είναι πράσινα, build επόμενο preview από clean V48.
-4. Native smoke του modeless MASTER sidebar.
-5. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
+1. Build V77 από clean V48.
+2. Native smoke του modeless MASTER sidebar.
+3. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
+4. Optional manual names persist/reload.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
