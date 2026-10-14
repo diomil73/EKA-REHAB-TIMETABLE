@@ -28,15 +28,23 @@
 
 Source commit: `346247ea1dde7f9a3529bf6c25d786b08409699b`
 
-Regression coverage: `Tests/test_master_toolbar_pinned_view.py`
+Regression coverage:
 
-Test commit: `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
+- `Tests/test_master_toolbar_pinned_view.py`
+- application-shell activation regression updated για το multi-line MASTER path.
 
-Το νέο toolbar batch περιμένει user-run focused pytest και μετά native V74 verification.
+Test commits:
+
+- `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
+- `2226f27d7738d43974c213e952c076993afd4a0c`
+
+Focused user-run gate: **39 passed in 1.71s**.
+
+Επόμενο gate: build + native verification του V74.
 
 ### Patient-centric multi-treatment scheduling
 
-Το V73 scheduling/conflict batch είναι πλέον native green. Μετά το toolbar polish, επιστρέφουμε στο επόμενο patient-program milestone: edit-existing-program flow, optional manual names και full regression.
+Το V73 scheduling/conflict batch είναι native green. Μετά το toolbar polish, επιστρέφουμε στο επόμενο patient-program milestone: edit-existing-program flow, optional manual names και full regression.
 
 Κύριοι κανόνες που παραμένουν:
 
@@ -88,6 +96,7 @@ Test commit: `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
 - conflict layout + MASTER refresh gate: **57 passed in 3.96s**
 - edit-draft diagnostics gate: **16 passed in 2.87s**
 - wider patient-program integration gate: **71 passed in 3.66s**
+- persistent MASTER toolbar gate: **39 passed in 1.71s**
 
 ### Conflict-validation / Save override
 
@@ -112,11 +121,12 @@ Test commit: `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
 
 Για το MASTER toolbar:
 
-1. focused pytest για application shell + MASTER toolbar + pinned view,
-2. build `MASTER_TOOLBAR_SMOKE_V74.xlsm` από clean V48,
-3. native vertical scroll με τα τέσσερα κουμπιά συνεχώς ορατά,
-4. native test ότι τα κουμπιά εξακολουθούν να λειτουργούν,
-5. μετάβαση DAILY_INPUT / THERAPIST_DAILY και επιστροφή στο MASTER με αυτόματο re-pin.
+1. build `MASTER_TOOLBAR_SMOKE_V74.xlsm` από clean V48,
+2. native vertical scroll με τα τέσσερα κουμπιά συνεχώς ορατά,
+3. native test ότι τα κουμπιά εξακολουθούν να λειτουργούν,
+4. μετάβαση DAILY_INPUT / THERAPIST_DAILY και επιστροφή στο MASTER με αυτόματο re-pin.
+
+Το focused source gate έχει ήδη περάσει: **39 passed in 1.71s**.
 
 Μετά συνεχίζει το patient-program gate:
 
@@ -130,11 +140,11 @@ Test commit: `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
 
 ### Άμεσα
 
-1. Pull latest branch.
-2. Run focused toolbar tests.
-3. Αν είναι πράσινα, build V74 από clean V48.
-4. Native smoke του pinned MASTER toolbar.
-5. Επιστροφή στο edit-existing-program milestone.
+1. Build V74 από clean V48.
+2. Native smoke του pinned MASTER toolbar.
+3. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
+4. Optional manual names persist/reload.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
