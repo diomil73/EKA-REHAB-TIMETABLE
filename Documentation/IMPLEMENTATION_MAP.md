@@ -41,7 +41,7 @@ Cleanup commits:
 
 ### Patient-centric multi-treatment scheduling
 
-V73 scheduling/conflict batch είναι native green. Μόλις περάσει το cleanup gate, επιστρέφουμε στο επόμενο patient-program milestone:
+V73 scheduling/conflict batch είναι native green. Μόλις περάσει το native clean-reset preview, επιστρέφουμε στο επόμενο patient-program milestone:
 
 - edit-existing-program end to end,
 - optional manual names persistence/reload,
@@ -68,19 +68,19 @@ V73 scheduling/conflict batch είναι native green. Μόλις περάσει
 - wider patient-program integration gate: **71 passed in 3.66s**
 - persistent-controls iteration gates: **39 / 39 / 41 / 42 / 44 / 45 passed**
 - latest pre-cleanup focused gate: **45 passed in 1.34s**
+- cleanup/reset focused gate: **42 passed in 3.70s**
 
 ## Τρέχον verification gate
 
-1. Run focused application-shell / toolbar / preview-shell-refresh tests after cleanup.
-2. Αν είναι green, build ένα clean reset preview από V48.
-3. Native confirm:
+1. Build ένα clean reset preview από V48.
+2. Native confirm:
    - no sidebar/UserForm,
    - no odd freeze/split residue,
    - top MASTER toolbar works normally,
    - navigation and Save & Exit remain operational.
-4. Resume edit-existing-program end to end.
-5. Verify optional manual names persist/reload.
-6. Run full regression suite.
+3. Resume edit-existing-program end to end.
+4. Verify optional manual names persist/reload.
+5. Run full regression suite.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
