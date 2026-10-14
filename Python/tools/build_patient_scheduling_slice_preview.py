@@ -11,7 +11,7 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from rehab_excel.application_shell_vba import (  # noqa: E402
     APP_SHELL_MODULE_NAME,
-    MASTER_SIDEBAR_FORM_NAME,
+    RETIRED_MASTER_SIDEBAR_FORM_NAME,
     install_application_shell,
 )
 from rehab_excel.patient_registration_scheduling_slice import (  # noqa: E402
@@ -21,7 +21,7 @@ from rehab_excel.patient_registration_scheduling_slice import (  # noqa: E402
 
 
 def _refresh_application_shell(workbook_path: Path) -> None:
-    """Install the current application shell/sidebar into the final preview."""
+    """Install the current application shell into the final preview."""
 
     if sys.platform != "win32":
         raise PatientRegistrationBridgeVbaError(
@@ -54,12 +54,18 @@ def _refresh_application_shell(workbook_path: Path) -> None:
 
         stage = "verifying application shell"
         shell = vbproject.VBComponents(APP_SHELL_MODULE_NAME)
-        sidebar = vbproject.VBComponents(MASTER_SIDEBAR_FORM_NAME)
         shell_code = shell.CodeModule.Lines(1, shell.CodeModule.CountOfLines)
-        if "Public Sub ShowMasterSidebar()" not in str(shell_code):
-            raise RuntimeError("ShowMasterSidebar macro missing after shell refresh")
-        if sidebar is None:
-            raise RuntimeError("MASTER sidebar form missing after shell refresh")
+        if "Public Sub EnterApplicationShell()" not in str(shell_code):
+            raise RuntimeError("EnterApplicationShell macro missing after shell refresh")
+        if "Public Sub KeepApplicationShell()" not in str(shell_code):
+            raise RuntimeError("KeepApplicationShell macro missing after shell refresh")
+
+        try:
+            vbproject.VBComponents(RETIRED_MASTER_SIDEBAR_FORM_NAME)
+        except Exception:
+            pass
+        else:
+            raise RuntimeError("Retired MASTER sidebar form still present after shell refresh")
 
         stage = "saving final preview"
         workbook.Save()
