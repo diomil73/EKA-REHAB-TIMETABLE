@@ -10,7 +10,7 @@ Last updated: 2026-10-14
 - V73 scheduling/conflict behavior is native green.
 - V74 and V75 navigation actions work, but neither freeze-based implementation keeps the four MASTER buttons visible during vertical scrolling.
 - Freeze-based pinning is now abandoned.
-- Next preview will test a scroll-independent left MASTER sidebar.
+- Next preview will be `MASTER_TOOLBAR_SMOKE_V76.xlsm` from clean V48 and will test a scroll-independent left MASTER sidebar.
 
 ## What is verified in native Excel
 
@@ -31,6 +31,7 @@ Last updated: 2026-10-14
 - wider patient-program integration gate: `71 passed in 3.66s`
 - first focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
 - focused gate after selection-based freeze fix: `39 passed in 2.56s`
+- focused sidebar/application-shell gate: `41 passed in 2.78s`
 
 ## Current focus: scroll-independent MASTER sidebar
 
@@ -49,23 +50,23 @@ Implementation commit:
 
 `ad7bfbd7045a445eddb747d5b5f91d482c6046b0`
 
-Regression update:
+Regression commits:
 
-`37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
+- `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
+- `5fcbc3159a7c603a556be788a5596fd69fd34e34`
 
-This new sidebar implementation still needs user-run focused pytest and native preview verification.
+Focused source gate is green: `41 passed in 2.78s`.
 
 ## Immediate next start point
 
-1. Run focused application-shell/sidebar tests.
-2. If green, build the next preview from clean V48.
-3. Native verify:
+1. Build `MASTER_TOOLBAR_SMOKE_V76.xlsm` from clean V48.
+2. Native verify:
    - left sidebar is visible on MASTER,
    - vertical scroll does not move it,
    - all four actions work,
    - navigating away hides it,
    - returning to MASTER restores it.
-4. Once sidebar UX is native green, resume:
+3. Once sidebar UX is native green, resume:
    - edit-existing-program end to end,
    - optional manual names persist/reload,
    - full regression suite.
