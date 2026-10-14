@@ -12,33 +12,37 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### Persistent MASTER toolbar
+### Scroll-independent MASTER sidebar
 
 Ο χρήστης ζήτησε τα βασικά κουμπιά του MASTER να παραμένουν πάντα ορατά κατά το scroll ή να μεταφερθούν σε αριστερό sidebar.
 
-Επιλέχθηκε η ασφαλέστερη εκδοχή: **παραμένουν στην υπάρχουσα επάνω μπάρα και παγώνουν οι γραμμές 1–3**. Έτσι η γραμμή 2 με τα κουμπιά πρέπει να μένει συνεχώς ορατή χωρίς να αλλάξει ούτε μία στήλη του MASTER.
+Δοκιμάστηκαν δύο freeze-based εκδοχές:
 
-Η πρώτη υλοποίηση χρησιμοποίησε `SplitRow = 3` + `FreezePanes = True`. Το source gate πέρασε με **39 passed in 1.71s**, αλλά το V74 έδειξε native ότι τα κουμπιά δεν μένουν ορατά στο vertical scroll. Τα υπόλοιπα navigation actions λειτουργούν.
+- V74: `SplitRow = 3` + `FreezePanes = True`,
+- V75: selection-based freeze μέσω `A4` + `FreezePanes = True`.
 
-Η ισχυρότερη διόρθωση στο `application_shell_vba.py` χρησιμοποιεί πλέον την κανονική Excel selection-based διαδικασία:
+Και οι δύο πέρασαν source tests, αλλά απέτυχαν native στο βασικό requirement: τα worksheet shape-buttons εξακολουθούν να φεύγουν με το vertical scroll. Τα actions/navigation παρέμειναν λειτουργικά.
 
-- clear freeze/splits,
-- select `A4`,
-- `FreezePanes = True`,
-- restore selection στο `A1`,
-- reapply σε app entry και κάθε επιστροφή/activation του MASTER.
+Η freeze κατεύθυνση εγκαταλείφθηκε. Η νέα λύση είναι πραγματικό αριστερό Excel command sidebar, ανεξάρτητο από τα cells και το scroll.
 
-Fix commit: `3138f6b792677e1183af23c6a5d467b41711d003`
+Η νέα υλοποίηση στο `application_shell_vba.py`:
 
-Regression update: `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
+- δημιουργεί προσωρινό command bar `EKA_MASTER_SIDEBAR`, docked αριστερά,
+- έχει τις τέσσερις ενέργειες **Διαχείριση Μητρώων**, **Απουσίες / Ακυρώσεις**, **Ημερήσιο πρόγραμμα**, **Save & Exit**,
+- εμφανίζεται μόνο στο `MASTER_SCHEDULE`,
+- κρύβεται στα άλλα operational sheets,
+- κρύβει τα legacy `ekaToolbar_` shapes όταν είναι ενεργό ώστε να μην υπάρχουν διπλά controls,
+- διαγράφεται στο exit του application shell.
 
-Focused user-run gate μετά το ισχυρότερο fix: **39 passed in 2.56s**.
+Implementation commit: `ad7bfbd7045a445eddb747d5b5f91d482c6046b0`
 
-Επόμενο gate: **V75 από clean V48** και native verification του vertical scroll.
+Regression update: `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
+
+Επόμενο gate: focused pytest και μετά native preview του αριστερού sidebar.
 
 ### Patient-centric multi-treatment scheduling
 
-Το V73 scheduling/conflict batch είναι native green. Μετά το toolbar polish, επιστρέφουμε στο επόμενο patient-program milestone: edit-existing-program flow, optional manual names και full regression.
+Το V73 scheduling/conflict batch είναι native green. Μετά το sidebar UX, επιστρέφουμε στο επόμενο patient-program milestone: edit-existing-program flow, optional manual names και full regression.
 
 Κύριοι κανόνες που παραμένουν:
 
@@ -82,7 +86,8 @@ Focused user-run gate μετά το ισχυρότερο fix: **39 passed in 2.5
 - V70: ΦΘ self-conflict false alarm fixed.
 - V71: installer/conflict flow native operational.
 - V73: precise ΦΘ blocker diagnostics, exact adjacency, detailed overlap diagnostics, conflict-dialog layout και normal Ρομποτικό rendering verified native.
-- V74: toolbar navigation actions work, but persistent visibility while scrolling failed.
+- V74: toolbar actions work, freeze visibility failed.
+- V75: stronger freeze attempt still failed visibility; freeze direction retired.
 
 ### Source/integration checkpoints
 
@@ -115,14 +120,14 @@ Focused user-run gate μετά το ισχυρότερο fix: **39 passed in 2.5
 
 ## Τρέχον verification gate
 
-Για το MASTER toolbar:
+Για το MASTER sidebar:
 
-1. build `MASTER_TOOLBAR_SMOKE_V75.xlsm` από clean V48,
-2. native vertical scroll με τα τέσσερα κουμπιά συνεχώς ορατά,
-3. native test ότι τα κουμπιά εξακολουθούν να λειτουργούν,
-4. μετάβαση DAILY_INPUT / THERAPIST_DAILY και επιστροφή στο MASTER με αυτόματο re-pin.
-
-Το focused source gate μετά το ισχυρότερο freeze fix έχει ήδη περάσει: **39 passed in 2.56s**.
+1. focused pytest για application shell/sidebar behavior,
+2. build νέου preview από clean V48,
+3. native επιβεβαίωση ότι το αριστερό sidebar μένει ακίνητο ενώ γίνεται vertical scroll,
+4. έλεγχος και των τεσσάρων actions,
+5. μετάβαση σε άλλο sheet και επιβεβαίωση hide,
+6. επιστροφή στο MASTER και επιβεβαίωση restore.
 
 Μετά συνεχίζει το patient-program gate:
 
@@ -136,11 +141,11 @@ Focused user-run gate μετά το ισχυρότερο fix: **39 passed in 2.5
 
 ### Άμεσα
 
-1. Build V75 από clean V48.
-2. Native smoke του persistent MASTER toolbar.
-3. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
-4. Optional manual names persist/reload.
-5. Full regression suite.
+1. Pull latest branch.
+2. Run focused sidebar tests.
+3. Αν είναι πράσινα, build επόμενο preview από clean V48.
+4. Native smoke του αριστερού MASTER sidebar.
+5. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
 
 ### Μετά το patient-program milestone
 
