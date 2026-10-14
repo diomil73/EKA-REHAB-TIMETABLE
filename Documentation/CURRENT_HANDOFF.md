@@ -6,11 +6,12 @@ Last updated: 2026-10-14
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested: `MASTER_TOOLBAR_SMOKE_V77.xlsm`
+- Latest native preview tested: `MASTER_TOOLBAR_SMOKE_V78.xlsm`
 - V73 scheduling/conflict behavior is native green.
 - V74/V75 freeze-based pinning failed native.
 - V76 command-bar sidebar produced no visible native change.
-- V77 modeless sidebar also produced no visible change because the final scheduling preview builder was not refreshing the current `modApplicationShell` at all.
+- V77 modeless sidebar did not reach the final workbook because the scheduling preview builder kept stale shell VBA.
+- V78 confirms the final shell-refresh fix works: the modeless `frmMasterSidebar` appears and remains visible while the MASTER sheet scrolls.
 
 ## Latest confirmed test checkpoints
 
@@ -22,36 +23,32 @@ Last updated: 2026-10-14
 - modeless-sidebar gate: `42 passed in 1.52s`
 - final shell-refresh focused gate: `44 passed in 1.41s`
 
-## Current focus: final application-shell refresh in preview builder
+## Current focus: sidebar UI polish
 
-Native diagnostic on V77: Alt+F8 did not list `ShowMasterSidebar` at all. This proved the modeless UserForm code was not reaching the final preview workbook.
+Native V78 finally proves the chosen mechanism works: the modeless sidebar is visible and scroll-independent. The remaining issue is visual polish, specifically button typography/alignment.
 
-Root cause found in `Python/tools/build_patient_scheduling_slice_preview.py` / patient-scheduling build path: the final preview updated patient-program UI, renderer, conflict layout, etc., but did not reinstall the current application shell. Because V48 is the clean base, the final workbook kept its stale shell VBA.
+Current polish change in `application_shell_vba.py`:
 
-Fix implemented:
+- keeps the same modeless sidebar and the same four actions,
+- keeps equal button sizes and equal vertical spacing,
+- uses `Segoe UI` size 10 bold,
+- forces centered text with `TextAlign = 2`,
+- disables wrapping so every caption stays on one line,
+- uses uniform 146 x 36 buttons.
 
-- final preview builder now opens the completed output workbook,
-- calls `install_application_shell(vbproject, workbook=workbook)`,
-- verifies `modApplicationShell` exists,
-- verifies `frmMasterSidebar` exists,
-- verifies `Public Sub ShowMasterSidebar()` is present,
-- only then saves the final preview.
+Implementation commit: `befd4418c456be5936e6ddffddd4526009a4f725`
 
-Implementation commit: `9d3296a0cb8600b77a8cf1b6187494993a711cb7`
+Regression commit: `5cc195433709d2116c97d16e5c19c455956918a5`
 
-Regression test added: `Tests/test_patient_scheduling_preview_shell_refresh.py`
-
-Test commit: `e5851cc3b0b1f1db21679a70bbae37994de5d704`
-
-Focused gate after the build-pipeline fix is green: `44 passed in 1.41s`.
+The visual polish still needs focused pytest and a native preview check.
 
 ## Immediate next start point
 
-1. Build `MASTER_TOOLBAR_SMOKE_V78.xlsm` from clean V48.
-2. Open V78 and use Alt+F8 to confirm `ShowMasterSidebar` now exists.
-3. If it exists, run it manually once if needed and verify the modeless sidebar appears.
-4. Then verify scroll independence, all four actions, hide on other sheet, restore on return.
-5. Once sidebar UX is native green, resume edit-existing-program, optional manual names, then full regression.
+1. Pull latest branch.
+2. Run focused shell/sidebar tests plus `Tests/test_patient_scheduling_preview_shell_refresh.py`.
+3. If green, build the next preview from clean V48.
+4. Native verify the same working sidebar with improved button text alignment/spacing.
+5. Once the sidebar appearance is accepted, resume edit-existing-program, optional manual names, then full regression.
 
 ## Business rules that must not regress
 
