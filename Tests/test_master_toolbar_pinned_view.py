@@ -1,19 +1,31 @@
-from rehab_excel.application_shell_vba import APP_SHELL_MODULE_CODE
+import inspect
+
+from rehab_excel.application_shell_vba import (
+    APP_SHELL_MODULE_CODE,
+    MASTER_SIDEBAR_FORM_CODE,
+    MASTER_SIDEBAR_FORM_NAME,
+    _install_master_sidebar_form,
+)
 
 
-def test_master_sidebar_is_scroll_independent_command_bar():
-    assert 'MASTER_SIDEBAR_NAME As String = "EKA_MASTER_SIDEBAR"' in APP_SHELL_MODULE_CODE
+def test_master_sidebar_is_scroll_independent_modeless_form():
+    assert MASTER_SIDEBAR_FORM_NAME == "frmMasterSidebar"
     assert "Public Sub ShowMasterSidebar()" in APP_SHELL_MODULE_CODE
-    assert "Private Sub BuildMasterSidebar()" in APP_SHELL_MODULE_CODE
-    assert "Application.CommandBars.Add" in APP_SHELL_MODULE_CODE
-    assert "Position:=0" in APP_SHELL_MODULE_CODE
+    assert ".Show vbModeless" in APP_SHELL_MODULE_CODE
+    assert ".Left = Application.Left + 4" in APP_SHELL_MODULE_CODE
+    assert ".Top = Application.Top + 72" in APP_SHELL_MODULE_CODE
+    assert "Application.CommandBars.Add" not in APP_SHELL_MODULE_CODE
 
 
 def test_master_sidebar_contains_all_four_master_actions():
-    assert '"Διαχείριση Μητρώων", "ToolbarRegistryManagement"' in APP_SHELL_MODULE_CODE
-    assert '"Απουσίες / Ακυρώσεις", "ToolbarAbsences"' in APP_SHELL_MODULE_CODE
-    assert '"Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily"' in APP_SHELL_MODULE_CODE
-    assert '"Save & Exit", "ExitApplication"' in APP_SHELL_MODULE_CODE
+    assert "ToolbarRegistryManagement" in MASTER_SIDEBAR_FORM_CODE
+    assert "ToolbarAbsences" in MASTER_SIDEBAR_FORM_CODE
+    assert "ToolbarTherapistDaily" in MASTER_SIDEBAR_FORM_CODE
+    assert "ExitApplication" in MASTER_SIDEBAR_FORM_CODE
+    assert "Διαχείριση Μητρώων" in MASTER_SIDEBAR_FORM_CODE
+    assert "Απουσίες / Ακυρώσεις" in MASTER_SIDEBAR_FORM_CODE
+    assert "Ημερήσιο πρόγραμμα" in MASTER_SIDEBAR_FORM_CODE
+    assert "Save & Exit" in MASTER_SIDEBAR_FORM_CODE
 
 
 def test_master_sidebar_is_shown_only_on_master_and_hidden_elsewhere():
@@ -37,4 +49,14 @@ def test_master_sidebar_is_cleaned_up_when_app_shell_exits():
     exit_block = APP_SHELL_MODULE_CODE[exit_start:restore_start]
 
     assert "HideMasterSidebar" in exit_block
-    assert "Application.CommandBars(MASTER_SIDEBAR_NAME).Delete" in exit_block
+    assert "Unload frmMasterSidebar" in exit_block
+
+
+def test_master_sidebar_form_is_installed_with_four_buttons():
+    source = inspect.getsource(_install_master_sidebar_form)
+    assert "VBComponents.Add(3)" in source
+    assert '"cmdRegistry"' in source
+    assert '"cmdAbsences"' in source
+    assert '"cmdDaily"' in source
+    assert '"cmdExit"' in source
+    assert "form.CodeModule.AddFromString(MASTER_SIDEBAR_FORM_CODE)" in source
