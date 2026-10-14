@@ -33,6 +33,8 @@ Regression: `Tests/test_patient_scheduling_preview_shell_refresh.py`
 
 Test commit: `e5851cc3b0b1f1db21679a70bbae37994de5d704`
 
+Focused user-run gate after the pipeline fix: **44 passed in 1.41s**.
+
 ### Patient-centric multi-treatment scheduling
 
 V73 scheduling/conflict batch native green. Μετά το sidebar milestone συνεχίζουμε edit-existing-program, optional names persistence/reload και full regression.
@@ -59,14 +61,15 @@ V73 scheduling/conflict batch native green. Μετά το sidebar milestone συ
 - stronger freeze gate: **39 passed in 2.56s**
 - command-sidebar gate: **41 passed in 2.78s**
 - modeless-sidebar gate: **42 passed in 1.52s**
+- final shell-refresh focused gate: **44 passed in 1.41s**
 
 ## Τρέχον verification gate
 
-1. Pull latest branch.
-2. Run focused shell/sidebar tests plus `Tests/test_patient_scheduling_preview_shell_refresh.py`.
-3. Αν είναι green, build V78 από clean V48.
-4. Πριν από visual smoke, Alt+F8 και confirm ότι υπάρχει `ShowMasterSidebar`.
-5. Μετά confirm modeless sidebar visible on MASTER, scroll-independent, 4 actions work, hide on other sheet, restore on return.
+1. Build V78 από clean V48.
+2. Alt+F8 και confirm ότι υπάρχει `ShowMasterSidebar`.
+3. Αν υπάρχει, verify ότι το modeless sidebar εμφανίζεται στο MASTER.
+4. Confirm ότι μένει ακίνητο στο vertical scroll.
+5. Confirm και τα 4 actions, hide σε άλλο sheet, restore στην επιστροφή.
 6. Μετά resume edit-existing-program, optional names persist/reload, full regression.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
