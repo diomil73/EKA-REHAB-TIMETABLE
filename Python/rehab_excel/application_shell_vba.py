@@ -8,6 +8,7 @@ Private shellStateCaptured As Boolean
 Private previousFormulaBar As Boolean
 Private previousStatusBar As Boolean
 Private previousRibbonVisible As Boolean
+Private Const MASTER_SIDEBAR_NAME As String = "EKA_MASTER_SIDEBAR"
 
 Public Sub EnterApplicationShell()
     On Error GoTo SafeExit
@@ -18,7 +19,7 @@ Public Sub EnterApplicationShell()
         If WorksheetExists("MASTER_SCHEDULE") Then
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
             ApplyMasterView
-            PinMasterToolbar
+            ShowMasterSidebar
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
         End If
     End If
@@ -31,29 +32,88 @@ Public Sub KeepApplicationShell()
     ApplyApplicationChrome
     If ActiveSheet.Name = "MASTER_SCHEDULE" Then
         ApplyMasterView
-        PinMasterToolbar
+        ShowMasterSidebar
+    Else
+        HideMasterSidebar
     End If
     On Error GoTo 0
 End Sub
 
-Public Sub PinMasterToolbar()
-    Dim ws As Worksheet
+Public Sub ShowMasterSidebar()
+    Dim bar As Object
 
     On Error Resume Next
-    If ActiveWindow Is Nothing Then Exit Sub
     If ActiveSheet.Name <> "MASTER_SCHEDULE" Then Exit Sub
 
+    Set bar = Application.CommandBars(MASTER_SIDEBAR_NAME)
+    If bar Is Nothing Then
+        BuildMasterSidebar
+        Set bar = Application.CommandBars(MASTER_SIDEBAR_NAME)
+    End If
+
+    If Not bar Is Nothing Then
+        bar.Visible = True
+        bar.Position = 0
+    End If
+
+    SetMasterToolbarShapesVisible False
+    On Error GoTo 0
+End Sub
+
+Public Sub HideMasterSidebar()
+    Dim bar As Object
+
+    On Error Resume Next
+    Set bar = Application.CommandBars(MASTER_SIDEBAR_NAME)
+    If Not bar Is Nothing Then bar.Visible = False
+    SetMasterToolbarShapesVisible True
+    On Error GoTo 0
+End Sub
+
+Private Sub BuildMasterSidebar()
+    Dim bar As Object
+
+    On Error Resume Next
+    Application.CommandBars(MASTER_SIDEBAR_NAME).Delete
+    On Error GoTo 0
+
+    Set bar = Application.CommandBars.Add(Name:=MASTER_SIDEBAR_NAME, Position:=0, Temporary:=True)
+    If bar Is Nothing Then Exit Sub
+
+    AddSidebarButton bar, "Διαχείριση Μητρώων", "ToolbarRegistryManagement"
+    AddSidebarButton bar, "Απουσίες / Ακυρώσεις", "ToolbarAbsences"
+    AddSidebarButton bar, "Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily"
+    AddSidebarButton bar, "Save & Exit", "ExitApplication"
+
+    bar.Visible = True
+End Sub
+
+Private Sub AddSidebarButton(ByVal bar As Object, ByVal captionText As String, ByVal macroName As String)
+    Dim button As Object
+
+    Set button = bar.Controls.Add(Type:=1)
+    With button
+        .Caption = captionText
+        .Style = 2
+        .OnAction = "'" & ThisWorkbook.Name & "'!" & macroName
+        .Enabled = True
+        .Visible = True
+    End With
+End Sub
+
+Private Sub SetMasterToolbarShapesVisible(ByVal makeVisible As Boolean)
+    Dim ws As Worksheet
+    Dim shp As Shape
+
+    On Error Resume Next
     Set ws = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
     If ws Is Nothing Then Exit Sub
 
-    ActiveWindow.FreezePanes = False
-    ActiveWindow.SplitColumn = 0
-    ActiveWindow.SplitRow = 0
-
-    ws.Range("A4").Select
-    ActiveWindow.FreezePanes = True
-    ws.Range("A1").Select
-
+    For Each shp In ws.Shapes
+        If Left$(shp.Name, 11) = "ekaToolbar_" Then
+            shp.Visible = makeVisible
+        End If
+    Next shp
     On Error GoTo 0
 End Sub
 
@@ -78,6 +138,9 @@ End Sub
 
 Public Sub ExitApplicationShell()
     On Error Resume Next
+
+    HideMasterSidebar
+    Application.CommandBars(MASTER_SIDEBAR_NAME).Delete
 
     If Not ActiveWindow Is Nothing Then
         ActiveWindow.DisplayWorkbookTabs = True
@@ -230,9 +293,6 @@ def _workbook_document_component(vbproject, workbook=None):
             except Exception:
                 pass
 
-    # Fallback for localized/unusual projects. Worksheet and workbook modules
-    # are all document components (type 100), but only the workbook document
-    # exposes workbook-level event procedures such as Workbook_Open.
     for index in range(1, int(vbproject.VBComponents.Count) + 1):
         component = vbproject.VBComponents(index)
         try:
