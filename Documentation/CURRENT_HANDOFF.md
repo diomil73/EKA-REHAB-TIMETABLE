@@ -8,7 +8,7 @@ Last updated: 2026-10-14
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
 - Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V73.xlsm`
 - V73 builds and runs correctly in native Excel.
-- Next preview after the new MASTER toolbar pinning gate: `MASTER_TOOLBAR_SMOKE_V74.xlsm` from clean V48.
+- Next preview after the MASTER toolbar pinning gate: `MASTER_TOOLBAR_SMOKE_V74.xlsm` from clean V48.
 
 ## What is verified in native Excel
 
@@ -36,6 +36,7 @@ Latest user-run source/integration gates:
 
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
+- focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
 
 ## Current focus: persistent MASTER toolbar
 
@@ -45,7 +46,7 @@ Chosen implementation: keep the existing top toolbar and freeze the first three 
 
 Source implementation in `application_shell_vba.py`:
 
-- new `PinMasterToolbar()` applies `SplitRow = 3` and `FreezePanes = True`,
+- `PinMasterToolbar()` applies `SplitRow = 3` and `FreezePanes = True`,
 - horizontal split remains zero,
 - the pin is reapplied on application entry and whenever the shell returns to/activates `MASTER_SCHEDULE`,
 - row 2 therefore remains visible while the patient list scrolls vertically.
@@ -54,25 +55,28 @@ Implementation commit:
 
 `346247ea1dde7f9a3529bf6c25d786b08409699b`
 
-Regression test added:
+Regression coverage:
 
-`Tests/test_master_toolbar_pinned_view.py`
+- `Tests/test_master_toolbar_pinned_view.py`
+- application-shell regression updated for the multi-line MASTER activation path.
 
-Test commit:
+Test commits:
 
-`0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
+- `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
+- `2226f27d7738d43974c213e952c076993afd4a0c`
 
-This toolbar change is not yet user-run verified. Do not mark it green until the focused pytest and native V74 smoke pass.
+Focused source gate is green: `39 passed in 1.71s`.
+
+The toolbar change still needs native V74 verification before being marked fully complete.
 
 ## Immediate next start point
 
-1. Run focused toolbar/application-shell tests.
-2. If green, build `MASTER_TOOLBAR_SMOKE_V74.xlsm` from clean V48.
-3. Native verify on MASTER:
+1. Build `MASTER_TOOLBAR_SMOKE_V74.xlsm` from clean V48.
+2. Native verify on MASTER:
    - scroll well below the first screen and confirm the four row-2 buttons remain visible,
    - verify all four buttons still work,
    - go to DAILY_INPUT / THERAPIST_DAILY and return to MASTER, confirming the toolbar is pinned again.
-4. After that resume the patient-program milestone:
+3. After that resume the patient-program milestone:
    - native edit-existing-program flow end to end,
    - optional manual names persist/reload,
    - full regression suite.
