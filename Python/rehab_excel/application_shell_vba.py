@@ -1,64 +1,7 @@
 from __future__ import annotations
 
 APP_SHELL_MODULE_NAME = "modApplicationShell"
-MASTER_SIDEBAR_FORM_NAME = "frmMasterSidebar"
-
-MASTER_SIDEBAR_FORM_CODE = r'''Option Explicit
-
-Private Sub UserForm_Initialize()
-    With Me
-        .Caption = "EKA"
-        .Width = 180
-        .Height = 250
-        .StartUpPosition = 0
-        .BackColor = RGB(245, 247, 250)
-    End With
-
-    StyleSidebarButton cmdRegistry, "Διαχείριση Μητρώων", 28
-    StyleSidebarButton cmdAbsences, "Απουσίες / Ακυρώσεις", 76
-    StyleSidebarButton cmdDaily, "Ημερήσιο πρόγραμμα", 124
-    StyleSidebarButton cmdExit, "Save & Exit", 172
-End Sub
-
-Private Sub StyleSidebarButton(ByVal button As MSForms.CommandButton, ByVal text As String, ByVal topPosition As Single)
-    With button
-        .Caption = text
-        .Left = 16
-        .Top = topPosition
-        .Width = 146
-        .Height = 36
-        .Font.Name = "Segoe UI"
-        .Font.Size = 10
-        .Font.Bold = True
-        .TextAlign = 2
-        .WordWrap = False
-        .TakeFocusOnClick = False
-    End With
-End Sub
-
-Private Sub cmdRegistry_Click()
-    ToolbarRegistryManagement
-End Sub
-
-Private Sub cmdAbsences_Click()
-    ToolbarAbsences
-End Sub
-
-Private Sub cmdDaily_Click()
-    ToolbarTherapistDaily
-End Sub
-
-Private Sub cmdExit_Click()
-    ExitApplication
-End Sub
-
-Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    If CloseMode = 0 Then
-        Cancel = True
-        Me.Hide
-    End If
-End Sub
-'''
+RETIRED_MASTER_SIDEBAR_FORM_NAME = "frmMasterSidebar"
 
 APP_SHELL_MODULE_CODE = r'''Option Explicit
 
@@ -76,7 +19,6 @@ Public Sub EnterApplicationShell()
         If WorksheetExists("MASTER_SCHEDULE") Then
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
             ApplyMasterView
-            ShowMasterSidebar
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
         End If
     End If
@@ -87,50 +29,7 @@ End Sub
 Public Sub KeepApplicationShell()
     On Error Resume Next
     ApplyApplicationChrome
-    If ActiveSheet.Name = "MASTER_SCHEDULE" Then
-        ApplyMasterView
-        ShowMasterSidebar
-    Else
-        HideMasterSidebar
-    End If
-    On Error GoTo 0
-End Sub
-
-Public Sub ShowMasterSidebar()
-    On Error Resume Next
-    If ActiveSheet.Name <> "MASTER_SCHEDULE" Then Exit Sub
-
-    With frmMasterSidebar
-        .StartUpPosition = 0
-        .Left = Application.Left + 4
-        .Top = Application.Top + 72
-        If Not .Visible Then .Show vbModeless
-    End With
-
-    SetMasterToolbarShapesVisible False
-    On Error GoTo 0
-End Sub
-
-Public Sub HideMasterSidebar()
-    On Error Resume Next
-    frmMasterSidebar.Hide
-    SetMasterToolbarShapesVisible True
-    On Error GoTo 0
-End Sub
-
-Private Sub SetMasterToolbarShapesVisible(ByVal makeVisible As Boolean)
-    Dim ws As Worksheet
-    Dim shp As Shape
-
-    On Error Resume Next
-    Set ws = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
-    If ws Is Nothing Then Exit Sub
-
-    For Each shp In ws.Shapes
-        If Left$(shp.Name, 11) = "ekaToolbar_" Then
-            shp.Visible = makeVisible
-        End If
-    Next shp
+    If ActiveSheet.Name = "MASTER_SCHEDULE" Then ApplyMasterView
     On Error GoTo 0
 End Sub
 
@@ -155,9 +54,6 @@ End Sub
 
 Public Sub ExitApplicationShell()
     On Error Resume Next
-
-    HideMasterSidebar
-    Unload frmMasterSidebar
 
     If Not ActiveWindow Is Nothing Then
         ActiveWindow.DisplayWorkbookTabs = True
@@ -332,40 +228,13 @@ def _remove_component_if_present(vbproject, name: str) -> None:
     vbproject.VBComponents.Remove(component)
 
 
-def _install_master_sidebar_form(vbproject) -> None:
-    _remove_component_if_present(vbproject, MASTER_SIDEBAR_FORM_NAME)
-    form = vbproject.VBComponents.Add(3)
-    form.Name = MASTER_SIDEBAR_FORM_NAME
-    designer = form.Designer
-    try:
-        designer.Caption = "EKA"
-    except Exception:
-        pass
-
-    for name, caption, top in (
-        ("cmdRegistry", "Διαχείριση Μητρώων", 28),
-        ("cmdAbsences", "Απουσίες / Ακυρώσεις", 76),
-        ("cmdDaily", "Ημερήσιο πρόγραμμα", 124),
-        ("cmdExit", "Save & Exit", 172),
-    ):
-        button = designer.Controls.Add("Forms.CommandButton.1", name, True)
-        button.Caption = caption
-        button.Left = 16
-        button.Top = top
-        button.Width = 146
-        button.Height = 36
-
-    form.CodeModule.AddFromString(MASTER_SIDEBAR_FORM_CODE)
-
-
 def install_application_shell(vbproject, *, workbook=None) -> None:
     _remove_component_if_present(vbproject, APP_SHELL_MODULE_NAME)
+    _remove_component_if_present(vbproject, RETIRED_MASTER_SIDEBAR_FORM_NAME)
 
     module = vbproject.VBComponents.Add(1)
     module.Name = APP_SHELL_MODULE_NAME
     module.CodeModule.AddFromString(APP_SHELL_MODULE_CODE)
-
-    _install_master_sidebar_form(vbproject)
 
     this_workbook = _workbook_document_component(vbproject, workbook)
     code_module = this_workbook.CodeModule
