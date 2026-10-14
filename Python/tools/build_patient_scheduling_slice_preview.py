@@ -9,10 +9,77 @@ PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
+from rehab_excel.application_shell_vba import (  # noqa: E402
+    APP_SHELL_MODULE_NAME,
+    MASTER_SIDEBAR_FORM_NAME,
+    install_application_shell,
+)
 from rehab_excel.patient_registration_scheduling_slice import (  # noqa: E402
     PatientRegistrationBridgeVbaError,
     create_patient_registration_bridge_preview,
 )
+
+
+def _refresh_application_shell(workbook_path: Path) -> None:
+    """Install the current application shell/sidebar into the final preview."""
+
+    if sys.platform != "win32":
+        raise PatientRegistrationBridgeVbaError(
+            "Application-shell refresh requires Windows with Microsoft Excel"
+        )
+
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise PatientRegistrationBridgeVbaError("pywin32 is required") from exc
+
+    excel = None
+    workbook = None
+    stage = "starting Excel"
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.EnableEvents = False
+
+        stage = "opening final preview"
+        workbook = excel.Workbooks.Open(
+            str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
+        )
+
+        stage = "installing current application shell"
+        vbproject = workbook.VBProject
+        _ = vbproject.VBComponents.Count
+        install_application_shell(vbproject, workbook=workbook)
+
+        stage = "verifying application shell"
+        shell = vbproject.VBComponents(APP_SHELL_MODULE_NAME)
+        sidebar = vbproject.VBComponents(MASTER_SIDEBAR_FORM_NAME)
+        shell_code = shell.CodeModule.Lines(1, shell.CodeModule.CountOfLines)
+        if "Public Sub ShowMasterSidebar()" not in str(shell_code):
+            raise RuntimeError("ShowMasterSidebar macro missing after shell refresh")
+        if sidebar is None:
+            raise RuntimeError("MASTER sidebar form missing after shell refresh")
+
+        stage = "saving final preview"
+        workbook.Save()
+    except PatientRegistrationBridgeVbaError:
+        raise
+    except Exception as exc:
+        raise PatientRegistrationBridgeVbaError(
+            f"Final application-shell refresh failed during {stage}: {exc}"
+        ) from exc
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -36,6 +103,7 @@ def main() -> int:
             args.output,
             overwrite=args.overwrite,
         )
+        _refresh_application_shell(args.output)
     except PatientRegistrationBridgeVbaError as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
