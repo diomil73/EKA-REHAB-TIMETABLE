@@ -46,19 +46,24 @@ Native V81 verification: green. Vertical scrolling keeps both the four MASTER bu
 - V80 native reset gate: green
 - row-4 toolbar/header pinning focused source gate: `43 passed in 1.92s`
 - V81 native toolbar/header pinning gate: green
+- optional manual names persistence/reload: native green
 
 ## Current focus
 
 The MASTER UX milestone is closed.
 
-Next patient-program milestone:
+Patient-program native checks now confirmed green:
 
-1. Verify optional manual names persistence/reload for Ρομποτικό / Εργο / Λογο / Ψυχ.
-2. Confirm typed names survive save and preload when editing the same patient program.
-3. Run the full regression suite.
-4. Then clean up retired single-treatment scheduling code.
+1. edit-existing-program end to end,
+2. existing program preload,
+3. atomic resave without false self-conflict,
+4. optional manual names persistence/reload for Ρομποτικό / Εργο / Λογο / Ψυχ.
 
-The edit-existing-program end-to-end path has already been reported native green by the user.
+Immediate next step:
+
+1. Run the full regression suite with `python -m pytest`.
+2. If green, update the implementation map/project status.
+3. Then clean up retired single-treatment scheduling code.
 
 ## Business rules that must not regress
 
