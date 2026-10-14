@@ -28,6 +28,15 @@ def test_master_sidebar_contains_all_four_master_actions():
     assert "Save & Exit" in MASTER_SIDEBAR_FORM_CODE
 
 
+def test_master_sidebar_buttons_are_uniform_and_centered():
+    assert '.Font.Name = "Segoe UI"' in MASTER_SIDEBAR_FORM_CODE
+    assert ".Font.Size = 10" in MASTER_SIDEBAR_FORM_CODE
+    assert ".TextAlign = 2" in MASTER_SIDEBAR_FORM_CODE
+    assert ".WordWrap = False" in MASTER_SIDEBAR_FORM_CODE
+    assert ".Width = 146" in MASTER_SIDEBAR_FORM_CODE
+    assert ".Height = 36" in MASTER_SIDEBAR_FORM_CODE
+
+
 def test_master_sidebar_is_shown_only_on_master_and_hidden_elsewhere():
     keep_start = APP_SHELL_MODULE_CODE.index("Public Sub KeepApplicationShell()")
     show_start = APP_SHELL_MODULE_CODE.index("Public Sub ShowMasterSidebar()")
