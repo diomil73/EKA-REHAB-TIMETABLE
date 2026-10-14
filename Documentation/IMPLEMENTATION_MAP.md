@@ -8,7 +8,7 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### Patient-centric multi-treatment scheduling: optional manual names persistence/reload
+### Full regression before scheduling cleanup
 
 Το MASTER UX milestone έκλεισε επιτυχώς στο V81.
 
@@ -31,17 +31,20 @@ Focused source gate: **43 passed in 1.92s**.
 
 V81 native gate: **green**. Τα 4 κουμπιά και τα treatment headers παραμένουν ορατά στο vertical scroll χωρίς unstable sidebar/window behavior.
 
-### Patient-program current milestone
+### Patient-program native verification
 
-Το edit-existing-program end-to-end έχει ήδη επαληθευτεί native από τον χρήστη.
+Native green από τον χρήστη:
 
-Τρέχον επόμενο checkpoint:
+- edit-existing-program end to end,
+- υπάρχον program preload,
+- αλλαγή assignments και atomic resave,
+- no false self-conflict from replaced persisted assignments,
+- optional manual names persistence/reload για Ρομποτικό / Εργο / Λογο / Ψυχ.
 
-- optional manual names persistence/reload για Ρομποτικό / Εργο / Λογο / Ψυχ,
-- typed optional names να επιβιώνουν στο save,
-- να προφορτώνονται σωστά όταν γίνεται edit στο ίδιο patient program,
-- μετά full regression suite,
-- cleanup retired single-treatment scheduling code.
+Τρέχον checkpoint:
+
+- full regression suite,
+- μετά cleanup retired single-treatment scheduling code.
 
 ## Τι έχει ολοκληρωθεί
 
@@ -57,8 +60,9 @@ V81 native gate: **green**. Τα 4 κουμπιά και τα treatment headers 
 - Final preview-shell refresh ώστε το current application shell να φτάνει πάντα στο generated preview.
 - Cleanup των αποτυχημένων sidebar mechanisms.
 - V80 native reset baseline verified green.
-- Edit-existing-program native flow verified green by the user.
+- Edit-existing-program native flow verified green.
 - V81 fixed top toolbar + treatment headers verified native green.
+- Optional manual names save/reload verified native green.
 
 ## Latest verified checkpoints
 
@@ -71,13 +75,14 @@ V81 native gate: **green**. Τα 4 κουμπιά και τα treatment headers 
 - V80 native reset gate: **green**
 - row-4 toolbar/header pinning focused source gate: **43 passed in 1.92s**
 - V81 native pinning gate: **green**
+- optional manual names persistence/reload: **native green**
 
 ## Τρέχον verification gate
 
-1. Verify optional manual names persist/reload for Ρομποτικό / Εργο / Λογο / Ψυχ.
-2. Confirm names survive save and preload on edit.
-3. Run full regression suite.
-4. Cleanup retired single-treatment scheduling code.
+1. Run full regression suite with `python -m pytest`.
+2. If green, update project status / handoff.
+3. Cleanup retired single-treatment scheduling code.
+4. Re-run regression after cleanup.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
