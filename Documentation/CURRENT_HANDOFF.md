@@ -6,9 +6,10 @@ Last updated: 2026-10-14
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V73.xlsm`
-- V73 builds and runs correctly in native Excel.
-- Next preview after the MASTER toolbar pinning gate: `MASTER_TOOLBAR_SMOKE_V74.xlsm` from clean V48.
+- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V74.xlsm`
+- V73 scheduling/conflict behavior is native green.
+- V74 navigation buttons work, but the four MASTER buttons do **not** remain visible while vertically scrolling.
+- Next preview after the stronger pinning fix: `MASTER_TOOLBAR_SMOKE_V75.xlsm` from clean V48.
 
 ## What is verified in native Excel
 
@@ -20,19 +21,10 @@ Last updated: 2026-10-14
 - Manual ΦΘ occupied-slot diagnostics identify the real blocker with day/time/provider/patient context.
 - `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted correctly as exact adjacency.
 - True treatment overlaps produce detailed treatment/day/time diagnostics.
-- The previously observed Γιαννιά Ρομποτικό decimal display issue is resolved in normal use after re-entry/save; the user reports that everything plays correctly.
+- The previously observed Γιαννιά Ρομποτικό decimal display issue is resolved in normal use after re-entry/save.
+- V74 confirms the toolbar actions and navigation still work.
 
-## V73 native result
-
-The V73 scheduling/conflict batch is considered native green:
-
-- precise manual ΦΘ occupancy diagnostic: passed,
-- exact adjacency: passed,
-- true overlap diagnostics: passed,
-- conflict dialog runtime layout: passed,
-- normal Ρομποτικό time rendering after save/edit: passed.
-
-Latest user-run source/integration gates:
+## Latest confirmed test checkpoints
 
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
@@ -40,44 +32,40 @@ Latest user-run source/integration gates:
 
 ## Current focus: persistent MASTER toolbar
 
-The user requested that the four MASTER action buttons remain visible while scrolling, or alternatively become a left sidebar.
+The user wants the four MASTER action buttons continuously visible while scrolling.
 
-Chosen implementation: keep the existing top toolbar and freeze the first three MASTER rows. This is safer than a sidebar because it does not insert or shift any MASTER data columns.
+The first runtime approach used `SplitRow = 3` + `FreezePanes = True`. V74 showed that this did not actually keep the buttons visible in native Excel, even though navigation itself remained correct.
 
-Source implementation in `application_shell_vba.py`:
+The stronger fix now uses Excel's canonical selection-based freeze procedure inside `PinMasterToolbar()`:
 
-- `PinMasterToolbar()` applies `SplitRow = 3` and `FreezePanes = True`,
-- horizontal split remains zero,
-- the pin is reapplied on application entry and whenever the shell returns to/activates `MASTER_SCHEDULE`,
-- row 2 therefore remains visible while the patient list scrolls vertically.
+- activate/confirm `MASTER_SCHEDULE`,
+- clear existing freeze and splits,
+- select `A4`,
+- set `FreezePanes = True`,
+- restore selection to `A1`.
+
+This should freeze rows 1–3, keeping row 2 and its four buttons visible during vertical scrolling. Runtime reapplication on entry/return remains in place.
 
 Implementation commit:
 
-`346247ea1dde7f9a3529bf6c25d786b08409699b`
+`3138f6b792677e1183af23c6a5d467b41711d003`
 
-Regression coverage:
+Regression update:
 
-- `Tests/test_master_toolbar_pinned_view.py`
-- application-shell regression updated for the multi-line MASTER activation path.
+`71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 
-Test commits:
-
-- `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
-- `2226f27d7738d43974c213e952c076993afd4a0c`
-
-Focused source gate is green: `39 passed in 1.71s`.
-
-The toolbar change still needs native V74 verification before being marked fully complete.
+This stronger pinning fix is not yet user-run verified.
 
 ## Immediate next start point
 
-1. Build `MASTER_TOOLBAR_SMOKE_V74.xlsm` from clean V48.
-2. Native verify on MASTER:
-   - scroll well below the first screen and confirm the four row-2 buttons remain visible,
+1. Run the focused toolbar/application-shell tests again.
+2. If green, build `MASTER_TOOLBAR_SMOKE_V75.xlsm` from clean V48.
+3. Native verify:
+   - scroll far down on MASTER and confirm all four row-2 buttons remain visible,
    - verify all four buttons still work,
-   - go to DAILY_INPUT / THERAPIST_DAILY and return to MASTER, confirming the toolbar is pinned again.
-3. After that resume the patient-program milestone:
-   - native edit-existing-program flow end to end,
+   - navigate away and back to MASTER and confirm pinning remains/reapplies.
+4. Once toolbar pinning is native green, resume:
+   - edit-existing-program end to end,
    - optional manual names persist/reload,
    - full regression suite.
 
