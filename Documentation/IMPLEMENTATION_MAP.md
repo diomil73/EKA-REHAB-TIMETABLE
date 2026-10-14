@@ -8,38 +8,44 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### Modeless MASTER sidebar UI polish
+### Stable MASTER baseline after sidebar experiments
 
-Requirement: τα 4 βασικά MASTER actions να μένουν συνεχώς ορατά κατά το vertical scroll.
+Το requirement ήταν τα 4 βασικά MASTER actions να μένουν συνεχώς ορατά κατά το vertical scroll.
 
-Native history:
+Native ιστορικό:
 
 - V74: `SplitRow = 3` + `FreezePanes = True` απέτυχε.
-- V75: selection-based freeze via `A4` απέτυχε.
-- V76: legacy `Application.CommandBars` δεν έδωσε ορατό sidebar.
-- V77: modeless sidebar δεν έφτασε στο final workbook λόγω stale shell VBA στο preview builder.
-- V78: final shell refresh verified native. Το `frmMasterSidebar` εμφανίζεται και παραμένει ορατό ενώ γίνεται scroll στο MASTER.
+- V75: selection-based freeze μέσω `A4` απέτυχε.
+- V76: legacy `Application.CommandBars` δεν έδωσε αξιόπιστο visible sidebar.
+- V77: modeless sidebar δεν είχε περάσει στο final workbook λόγω stale shell VBA.
+- V78: επιβεβαίωσε ότι το final shell refresh fix δουλεύει και το UserForm μπορεί να μείνει visible στο scroll.
+- V79: το modeless UserForm απορρίφθηκε native λόγω ασυνεπούς εμφάνισης, Alt+F8/Alt+F4 interaction και unstable window behavior.
 
-Άρα ο μηχανισμός θεωρείται λειτουργικά σωστός. Τρέχον θέμα είναι μόνο το UI polish των κουμπιών.
+Απόφαση: σταματούν τα workbook-only sidebar experiments. Επιστρέφουμε σε σταθερό application shell και στο υπάρχον top MASTER toolbar. Πραγματικό docked sidebar θα απαιτούσε ξεχωριστό Excel add-in/custom task pane milestone.
 
-Polish στο `application_shell_vba.py`:
+Cleanup:
 
-- same 4 actions,
-- `Segoe UI` 10 bold,
-- centered caption μέσω `TextAlign = 2`,
-- `WordWrap = False`,
-- uniform button size `146 x 36`,
-- equal vertical spacing.
+- αφαιρέθηκαν `ShowMasterSidebar` / `HideMasterSidebar`,
+- αφαιρέθηκε το modeless UserForm runtime,
+- δεν υπάρχει runtime freeze/split pinning στο application shell,
+- το installer αφαιρεί ρητά το retired `frmMasterSidebar`,
+- κρατήθηκε το final preview-shell refresh ώστε το generated preview να παίρνει πάντα το current `modApplicationShell`.
 
-Implementation commit: `befd4418c456be5936e6ddffddd4526009a4f725`
+Cleanup commits:
 
-Regression commit: `5cc195433709d2116c97d16e5c19c455956918a5`
-
-Focused user-run polish gate: **45 passed in 1.34s**.
+- `a0158a479904c26cff8fe1f4265ad777dd8426e6`
+- `c7760808f2f5ad5b5f6798a7e34521ab0e50f3f5`
+- `87e6388cd73c1f62f67761d96130d1379c0904a4`
+- `effadb2973326046b0c395c72f71916647549c4e`
+- `a2fb0c266975c7322fe93f3733043a2a4807b2d2`
 
 ### Patient-centric multi-treatment scheduling
 
-V73 scheduling/conflict batch native green. Μετά το sidebar polish συνεχίζουμε edit-existing-program, optional names persistence/reload και full regression.
+V73 scheduling/conflict batch είναι native green. Μόλις περάσει το cleanup gate, επιστρέφουμε στο επόμενο patient-program milestone:
+
+- edit-existing-program end to end,
+- optional manual names persistence/reload,
+- full regression.
 
 ## Τι έχει ολοκληρωθεί
 
@@ -51,9 +57,8 @@ V73 scheduling/conflict batch native green. Μετά το sidebar polish συν�
 - Conflict validation + explicit override.
 - MASTER composite renderer.
 - Precise ΦΘ blocker diagnostics, adjacency and overlap diagnostics.
-- Optional manual provider/name fields for Ρομποτικό / Εργο / Λογο / Ψυχ.
-- Final preview-shell refresh so current application shell/UserForm reaches the generated preview.
-- Scroll-independent modeless MASTER sidebar mechanism verified native in V78.
+- Optional manual provider/name fields για Ρομποτικό / Εργο / Λογο / Ψυχ.
+- Final preview-shell refresh ώστε το current application shell να φτάνει πάντα στο generated preview.
 
 ## Latest verified checkpoints
 
@@ -61,20 +66,21 @@ V73 scheduling/conflict batch native green. Μετά το sidebar polish συν�
 - V71 conflict/installer gate: **62 passed in 3.34s**
 - edit-draft diagnostics gate: **16 passed in 2.87s**
 - wider patient-program integration gate: **71 passed in 3.66s**
-- freeze gate: **39 passed in 1.71s**
-- stronger freeze gate: **39 passed in 2.56s**
-- command-sidebar gate: **41 passed in 2.78s**
-- modeless-sidebar gate: **42 passed in 1.52s**
-- final shell-refresh focused gate: **44 passed in 1.41s**
-- sidebar UI-polish focused gate: **45 passed in 1.34s**
+- persistent-controls iteration gates: **39 / 39 / 41 / 42 / 44 / 45 passed**
+- latest pre-cleanup focused gate: **45 passed in 1.34s**
 
 ## Τρέχον verification gate
 
-1. Build V79 από clean V48.
-2. Native confirm ότι το sidebar παραμένει scroll-independent και τα captions είναι σωστά κεντραρισμένα/ομοιόμορφα.
-3. Confirm ότι και τα 4 actions λειτουργούν.
-4. Αν η εμφάνιση γίνει αποδεκτή, κλείνουμε το sidebar milestone.
-5. Μετά resume edit-existing-program, optional names persist/reload, full regression.
+1. Run focused application-shell / toolbar / preview-shell-refresh tests after cleanup.
+2. Αν είναι green, build ένα clean reset preview από V48.
+3. Native confirm:
+   - no sidebar/UserForm,
+   - no odd freeze/split residue,
+   - top MASTER toolbar works normally,
+   - navigation and Save & Exit remain operational.
+4. Resume edit-existing-program end to end.
+5. Verify optional manual names persist/reload.
+6. Run full regression suite.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
