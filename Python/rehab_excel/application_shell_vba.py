@@ -37,16 +37,23 @@ Public Sub KeepApplicationShell()
 End Sub
 
 Public Sub PinMasterToolbar()
+    Dim ws As Worksheet
+
     On Error Resume Next
     If ActiveWindow Is Nothing Then Exit Sub
     If ActiveSheet.Name <> "MASTER_SCHEDULE" Then Exit Sub
 
-    With ActiveWindow
-        .FreezePanes = False
-        .SplitColumn = 0
-        .SplitRow = 3
-        .FreezePanes = True
-    End With
+    Set ws = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
+    If ws Is Nothing Then Exit Sub
+
+    ActiveWindow.FreezePanes = False
+    ActiveWindow.SplitColumn = 0
+    ActiveWindow.SplitRow = 0
+
+    ws.Range("A4").Select
+    ActiveWindow.FreezePanes = True
+    ws.Range("A1").Select
+
     On Error GoTo 0
 End Sub
 
