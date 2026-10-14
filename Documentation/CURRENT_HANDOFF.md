@@ -28,7 +28,8 @@ Last updated: 2026-10-14
 
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
-- focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
+- first focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
+- focused gate after the stronger selection-based freeze fix: `39 passed in 2.56s`
 
 ## Current focus: persistent MASTER toolbar
 
@@ -54,17 +55,18 @@ Regression update:
 
 `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 
-This stronger pinning fix is not yet user-run verified.
+Focused source gate after this stronger pinning fix is green: `39 passed in 2.56s`.
+
+The stronger pinning fix is now ready for native V75 verification.
 
 ## Immediate next start point
 
-1. Run the focused toolbar/application-shell tests again.
-2. If green, build `MASTER_TOOLBAR_SMOKE_V75.xlsm` from clean V48.
-3. Native verify:
+1. Build `MASTER_TOOLBAR_SMOKE_V75.xlsm` from clean V48.
+2. Native verify:
    - scroll far down on MASTER and confirm all four row-2 buttons remain visible,
    - verify all four buttons still work,
    - navigate away and back to MASTER and confirm pinning remains/reapplies.
-4. Once toolbar pinning is native green, resume:
+3. Once toolbar pinning is native green, resume:
    - edit-existing-program end to end,
    - optional manual names persist/reload,
    - full regression suite.
