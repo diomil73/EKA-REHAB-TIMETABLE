@@ -35,6 +35,8 @@ Implementation commit: `befd4418c456be5936e6ddffddd4526009a4f725`
 
 Regression commit: `5cc195433709d2116c97d16e5c19c455956918a5`
 
+Focused user-run polish gate: **45 passed in 1.34s**.
+
 ### Patient-centric multi-treatment scheduling
 
 V73 scheduling/conflict batch native green. Μετά το sidebar polish συνεχίζουμε edit-existing-program, optional names persistence/reload και full regression.
@@ -64,13 +66,14 @@ V73 scheduling/conflict batch native green. Μετά το sidebar polish συν�
 - command-sidebar gate: **41 passed in 2.78s**
 - modeless-sidebar gate: **42 passed in 1.52s**
 - final shell-refresh focused gate: **44 passed in 1.41s**
+- sidebar UI-polish focused gate: **45 passed in 1.34s**
 
 ## Τρέχον verification gate
 
-1. Pull latest branch.
-2. Run focused sidebar/shell tests including preview-shell-refresh regression.
-3. Αν είναι green, build νέο preview από clean V48.
-4. Native confirm ότι το sidebar παραμένει scroll-independent και τα captions είναι σωστά κεντραρισμένα/ομοιόμορφα.
+1. Build V79 από clean V48.
+2. Native confirm ότι το sidebar παραμένει scroll-independent και τα captions είναι σωστά κεντραρισμένα/ομοιόμορφα.
+3. Confirm ότι και τα 4 actions λειτουργούν.
+4. Αν η εμφάνιση γίνει αποδεκτή, κλείνουμε το sidebar milestone.
 5. Μετά resume edit-existing-program, optional names persist/reload, full regression.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
