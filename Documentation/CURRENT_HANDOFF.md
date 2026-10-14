@@ -23,13 +23,6 @@ Final accepted MASTER UX:
 - the application shell reapplies the pin whenever MASTER becomes active,
 - no UserForm/sidebar/CommandBars mechanism is used.
 
-Implementation commit: `0c4b25eac6378e97366b6690b3443c5d46948f53`
-
-Regression commits:
-
-- `2860fe43bd133e2e2bac663b422ff54f5985f2c4`
-- `b05426cd9cf68b39267159d84ce3d1982c145af8`
-
 Native V81 verification: green. Vertical scrolling keeps both the four MASTER buttons and row-4 treatment headers visible.
 
 ## Patient-program native verification
@@ -41,6 +34,23 @@ Confirmed green by the user:
 3. atomic resave without false self-conflict,
 4. optional manual names persistence/reload for Ρομποτικό / Εργο / Λογο / Ψυχ.
 
+## Retired single-treatment cleanup
+
+Cleanup is complete and accepted.
+
+Removed/retired source:
+
+- `Python/rehab_excel/patient_scheduling_flow.py`
+- `Python/rehab_excel/patient_scheduling_form_vba.py`
+- obsolete `plan`, `validate`, `plan-vba`, `validate-vba`, `recurring-vba`, and `validate-recurring-vba` commands from `Python/tools/patient_scheduling_bridge.py`
+- tests that exercised only the retired single-treatment flow/form
+
+Retained current behavior:
+
+- `auto-propose` / `auto-propose-vba` in `patient_scheduling_bridge.py`, used by the joint patient-program auto scheduler,
+- current `PatientProgramRuntime` / `frmPatientScheduling`,
+- legacy VBA component removal/verification in `patient_registration_scheduling_slice.py` so old workbooks cannot retain `PatientSchedulingRuntime`.
+
 ## Latest confirmed test checkpoints
 
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
@@ -49,39 +59,16 @@ Confirmed green by the user:
 - row-4 toolbar/header pinning focused source gate: `43 passed in 1.92s`
 - V81 native toolbar/header pinning gate: green
 - optional manual names persistence/reload: native green
-- **full regression before cleanup: `722 passed, 19 warnings`**
+- full regression before cleanup: `722 passed, 19 warnings`
+- **full regression after cleanup: `699 passed, 19 warnings`**
 
-## Current focus: retired single-treatment scheduling cleanup
+The drop from 722 to 699 is expected because obsolete tests for the removed single-treatment code were deleted. No post-cleanup regression was reported.
 
-The full regression is green, so cleanup has started from a known-good baseline.
+## Current focus
 
-Removed/retired source:
+The patient-centric multi-treatment scheduling milestone and retired-code cleanup are closed.
 
-- `Python/rehab_excel/patient_scheduling_flow.py`
-- `Python/rehab_excel/patient_scheduling_form_vba.py`
-- obsolete `plan`, `validate`, `plan-vba`, `validate-vba`, `recurring-vba`, and `validate-recurring-vba` commands from `Python/tools/patient_scheduling_bridge.py`
-
-Retained current behavior:
-
-- `auto-propose` / `auto-propose-vba` in `patient_scheduling_bridge.py`, used by the joint patient-program auto scheduler,
-- `PatientProgramRuntime` / current `frmPatientScheduling`,
-- legacy VBA component removal/verification in `patient_registration_scheduling_slice.py` so old workbooks cannot retain `PatientSchedulingRuntime`.
-
-Cleanup commits so far:
-
-- `93e2759726f002dd86c82168e6d3abfcf40a5d32` bridge cleanup
-- `ccc97c6f9e43cf32ca085cb42ba03f12469acb50` remove retired scheduling flow
-- `8c0bdd326e6727c04594a6284e0148f6846bdf74` remove retired scheduling form source
-- `8265d4000036a15323d0a0cb4ec95d6cc340e0f3` remove retired flow tests
-- `29a9221055f2057f9062af7f8853274271724ef2` remove retired form tests
-- `b0d40de9f3e0eb1b76ce9cca5b1a36aa1bda3c5f` keep bridge regression tests on joint auto path
-
-## Immediate next verification gate
-
-1. Pull latest branch.
-2. Run `python -m pytest`.
-3. If green, cleanup is accepted.
-4. Then update final project status / roadmap and decide the next roadmap milestone.
+Next roadmap work should be chosen from the remaining outpatient/operational items in `Documentation/PROJECT_STATUS.md`, with priority on behavior that is still not native-verified or not fully integrated.
 
 ## Business rules that must not regress
 
