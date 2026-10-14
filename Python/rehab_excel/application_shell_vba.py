@@ -1,6 +1,62 @@
 from __future__ import annotations
 
 APP_SHELL_MODULE_NAME = "modApplicationShell"
+MASTER_SIDEBAR_FORM_NAME = "frmMasterSidebar"
+
+MASTER_SIDEBAR_FORM_CODE = r'''Option Explicit
+
+Private Sub UserForm_Initialize()
+    With Me
+        .Caption = "EKA"
+        .Width = 180
+        .Height = 250
+        .StartUpPosition = 0
+        .BackColor = RGB(245, 247, 250)
+    End With
+
+    StyleSidebarButton cmdRegistry, "Διαχείριση Μητρώων", 24
+    StyleSidebarButton cmdAbsences, "Απουσίες / Ακυρώσεις", 70
+    StyleSidebarButton cmdDaily, "Ημερήσιο πρόγραμμα", 116
+    StyleSidebarButton cmdExit, "Save & Exit", 174
+End Sub
+
+Private Sub StyleSidebarButton(ByVal button As MSForms.CommandButton, ByVal text As String, ByVal topPosition As Single)
+    With button
+        .Caption = text
+        .Left = 18
+        .Top = topPosition
+        .Width = 138
+        .Height = 34
+        .Font.Name = "Calibri"
+        .Font.Size = 10
+        .Font.Bold = True
+        .TakeFocusOnClick = False
+    End With
+End Sub
+
+Private Sub cmdRegistry_Click()
+    ToolbarRegistryManagement
+End Sub
+
+Private Sub cmdAbsences_Click()
+    ToolbarAbsences
+End Sub
+
+Private Sub cmdDaily_Click()
+    ToolbarTherapistDaily
+End Sub
+
+Private Sub cmdExit_Click()
+    ExitApplication
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = 0 Then
+        Cancel = True
+        Me.Hide
+    End If
+End Sub
+'''
 
 APP_SHELL_MODULE_CODE = r'''Option Explicit
 
@@ -8,7 +64,6 @@ Private shellStateCaptured As Boolean
 Private previousFormulaBar As Boolean
 Private previousStatusBar As Boolean
 Private previousRibbonVisible As Boolean
-Private Const MASTER_SIDEBAR_NAME As String = "EKA_MASTER_SIDEBAR"
 
 Public Sub EnterApplicationShell()
     On Error GoTo SafeExit
@@ -40,65 +95,25 @@ Public Sub KeepApplicationShell()
 End Sub
 
 Public Sub ShowMasterSidebar()
-    Dim bar As Object
-
     On Error Resume Next
     If ActiveSheet.Name <> "MASTER_SCHEDULE" Then Exit Sub
 
-    Set bar = Application.CommandBars(MASTER_SIDEBAR_NAME)
-    If bar Is Nothing Then
-        BuildMasterSidebar
-        Set bar = Application.CommandBars(MASTER_SIDEBAR_NAME)
-    End If
-
-    If Not bar Is Nothing Then
-        bar.Visible = True
-        bar.Position = 0
-    End If
+    With frmMasterSidebar
+        .StartUpPosition = 0
+        .Left = Application.Left + 4
+        .Top = Application.Top + 72
+        If Not .Visible Then .Show vbModeless
+    End With
 
     SetMasterToolbarShapesVisible False
     On Error GoTo 0
 End Sub
 
 Public Sub HideMasterSidebar()
-    Dim bar As Object
-
     On Error Resume Next
-    Set bar = Application.CommandBars(MASTER_SIDEBAR_NAME)
-    If Not bar Is Nothing Then bar.Visible = False
+    frmMasterSidebar.Hide
     SetMasterToolbarShapesVisible True
     On Error GoTo 0
-End Sub
-
-Private Sub BuildMasterSidebar()
-    Dim bar As Object
-
-    On Error Resume Next
-    Application.CommandBars(MASTER_SIDEBAR_NAME).Delete
-    On Error GoTo 0
-
-    Set bar = Application.CommandBars.Add(Name:=MASTER_SIDEBAR_NAME, Position:=0, Temporary:=True)
-    If bar Is Nothing Then Exit Sub
-
-    AddSidebarButton bar, "Διαχείριση Μητρώων", "ToolbarRegistryManagement"
-    AddSidebarButton bar, "Απουσίες / Ακυρώσεις", "ToolbarAbsences"
-    AddSidebarButton bar, "Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily"
-    AddSidebarButton bar, "Save & Exit", "ExitApplication"
-
-    bar.Visible = True
-End Sub
-
-Private Sub AddSidebarButton(ByVal bar As Object, ByVal captionText As String, ByVal macroName As String)
-    Dim button As Object
-
-    Set button = bar.Controls.Add(Type:=1)
-    With button
-        .Caption = captionText
-        .Style = 2
-        .OnAction = "'" & ThisWorkbook.Name & "'!" & macroName
-        .Enabled = True
-        .Visible = True
-    End With
 End Sub
 
 Private Sub SetMasterToolbarShapesVisible(ByVal makeVisible As Boolean)
@@ -140,7 +155,7 @@ Public Sub ExitApplicationShell()
     On Error Resume Next
 
     HideMasterSidebar
-    Application.CommandBars(MASTER_SIDEBAR_NAME).Delete
+    Unload frmMasterSidebar
 
     If Not ActiveWindow Is Nothing Then
         ActiveWindow.DisplayWorkbookTabs = True
@@ -307,17 +322,48 @@ def _workbook_document_component(vbproject, workbook=None):
     raise RuntimeError("Workbook VBA document module could not be resolved")
 
 
-def install_application_shell(vbproject, *, workbook=None) -> None:
+def _remove_component_if_present(vbproject, name: str) -> None:
     try:
-        existing = vbproject.VBComponents(APP_SHELL_MODULE_NAME)
+        component = vbproject.VBComponents(name)
     except Exception:
-        existing = None
-    if existing is not None:
-        vbproject.VBComponents.Remove(existing)
+        return
+    vbproject.VBComponents.Remove(component)
+
+
+def _install_master_sidebar_form(vbproject) -> None:
+    _remove_component_if_present(vbproject, MASTER_SIDEBAR_FORM_NAME)
+    form = vbproject.VBComponents.Add(3)
+    form.Name = MASTER_SIDEBAR_FORM_NAME
+    designer = form.Designer
+    try:
+        designer.Caption = "EKA"
+    except Exception:
+        pass
+
+    for name, caption, top in (
+        ("cmdRegistry", "Διαχείριση Μητρώων", 24),
+        ("cmdAbsences", "Απουσίες / Ακυρώσεις", 70),
+        ("cmdDaily", "Ημερήσιο πρόγραμμα", 116),
+        ("cmdExit", "Save & Exit", 174),
+    ):
+        button = designer.Controls.Add("Forms.CommandButton.1", name, True)
+        button.Caption = caption
+        button.Left = 18
+        button.Top = top
+        button.Width = 138
+        button.Height = 34
+
+    form.CodeModule.AddFromString(MASTER_SIDEBAR_FORM_CODE)
+
+
+def install_application_shell(vbproject, *, workbook=None) -> None:
+    _remove_component_if_present(vbproject, APP_SHELL_MODULE_NAME)
 
     module = vbproject.VBComponents.Add(1)
     module.Name = APP_SHELL_MODULE_NAME
     module.CodeModule.AddFromString(APP_SHELL_MODULE_CODE)
+
+    _install_master_sidebar_form(vbproject)
 
     this_workbook = _workbook_document_component(vbproject, workbook)
     code_module = this_workbook.CodeModule
