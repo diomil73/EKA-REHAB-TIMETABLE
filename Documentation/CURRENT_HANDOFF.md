@@ -6,10 +6,11 @@ Last updated: 2026-10-14
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V74.xlsm`
+- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V75.xlsm`
 - V73 scheduling/conflict behavior is native green.
-- V74 navigation buttons work, but the four MASTER buttons do **not** remain visible while vertically scrolling.
-- Next preview after the stronger pinning fix: `MASTER_TOOLBAR_SMOKE_V75.xlsm` from clean V48.
+- V74 and V75 navigation actions work, but neither freeze-based implementation keeps the four MASTER buttons visible during vertical scrolling.
+- Freeze-based pinning is now abandoned.
+- Next preview will test a scroll-independent left MASTER sidebar.
 
 ## What is verified in native Excel
 
@@ -22,51 +23,49 @@ Last updated: 2026-10-14
 - `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted correctly as exact adjacency.
 - True treatment overlaps produce detailed treatment/day/time diagnostics.
 - The previously observed Γιαννιά Ρομποτικό decimal display issue is resolved in normal use after re-entry/save.
-- V74 confirms the toolbar actions and navigation still work.
+- V74/V75 confirm the toolbar actions/navigation still work; only persistent visibility failed.
 
 ## Latest confirmed test checkpoints
 
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
 - first focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
-- focused gate after the stronger selection-based freeze fix: `39 passed in 2.56s`
+- focused gate after selection-based freeze fix: `39 passed in 2.56s`
 
-## Current focus: persistent MASTER toolbar
+## Current focus: scroll-independent MASTER sidebar
 
-The user wants the four MASTER action buttons continuously visible while scrolling.
+Two native freeze-pane attempts failed to keep worksheet shape-buttons continuously visible in V74 and V75. The project has therefore pivoted to a different mechanism rather than continuing to tune `FreezePanes`.
 
-The first runtime approach used `SplitRow = 3` + `FreezePanes = True`. V74 showed that this did not actually keep the buttons visible in native Excel, even though navigation itself remained correct.
+New implementation in `application_shell_vba.py`:
 
-The stronger fix now uses Excel's canonical selection-based freeze procedure inside `PinMasterToolbar()`:
-
-- activate/confirm `MASTER_SCHEDULE`,
-- clear existing freeze and splits,
-- select `A4`,
-- set `FreezePanes = True`,
-- restore selection to `A1`.
-
-This should freeze rows 1–3, keeping row 2 and its four buttons visible during vertical scrolling. Runtime reapplication on entry/return remains in place.
+- creates a temporary Excel command bar named `EKA_MASTER_SIDEBAR`, docked on the left,
+- contains the same four actions: **Διαχείριση Μητρώων**, **Απουσίες / Ακυρώσεις**, **Ημερήσιο πρόγραμμα**, **Save & Exit**,
+- is shown only while `MASTER_SCHEDULE` is active,
+- is hidden on other sheets,
+- hides the legacy `ekaToolbar_` worksheet shapes while the sidebar is active to avoid duplicate controls,
+- is deleted when the application shell exits.
 
 Implementation commit:
 
-`3138f6b792677e1183af23c6a5d467b41711d003`
+`ad7bfbd7045a445eddb747d5b5f91d482c6046b0`
 
 Regression update:
 
-`71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
+`37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
 
-Focused source gate after this stronger pinning fix is green: `39 passed in 2.56s`.
-
-The stronger pinning fix is now ready for native V75 verification.
+This new sidebar implementation still needs user-run focused pytest and native preview verification.
 
 ## Immediate next start point
 
-1. Build `MASTER_TOOLBAR_SMOKE_V75.xlsm` from clean V48.
-2. Native verify:
-   - scroll far down on MASTER and confirm all four row-2 buttons remain visible,
-   - verify all four buttons still work,
-   - navigate away and back to MASTER and confirm pinning remains/reapplies.
-3. Once toolbar pinning is native green, resume:
+1. Run focused application-shell/sidebar tests.
+2. If green, build the next preview from clean V48.
+3. Native verify:
+   - left sidebar is visible on MASTER,
+   - vertical scroll does not move it,
+   - all four actions work,
+   - navigating away hides it,
+   - returning to MASTER restores it.
+4. Once sidebar UX is native green, resume:
    - edit-existing-program end to end,
    - optional manual names persist/reload,
    - full regression suite.
@@ -83,7 +82,7 @@ The stronger pinning fix is now ready for native V75 verification.
 - Exact adjacency is legal.
 - MASTER is a derived view; `PATIENT_PLANNER` remains authoritative.
 - Conflict override must be explicit; returning for correction performs no writes.
-- MASTER toolbar pinning must not alter or shift MASTER data columns.
+- Persistent MASTER controls must not alter or shift MASTER data columns.
 
 ## Recovery order if context is lost
 
