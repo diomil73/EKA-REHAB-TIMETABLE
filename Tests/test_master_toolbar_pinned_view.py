@@ -1,34 +1,40 @@
 from rehab_excel.application_shell_vba import APP_SHELL_MODULE_CODE
 
 
-def test_master_toolbar_is_pinned_above_scrollable_program():
-    assert "Public Sub PinMasterToolbar()" in APP_SHELL_MODULE_CODE
-    assert "ActiveWindow.FreezePanes = False" in APP_SHELL_MODULE_CODE
-    assert "ActiveWindow.SplitColumn = 0" in APP_SHELL_MODULE_CODE
-    assert "ActiveWindow.SplitRow = 0" in APP_SHELL_MODULE_CODE
-    assert 'ws.Range("A4").Select' in APP_SHELL_MODULE_CODE
-    assert "ActiveWindow.FreezePanes = True" in APP_SHELL_MODULE_CODE
-    assert 'ws.Range("A1").Select' in APP_SHELL_MODULE_CODE
+def test_master_sidebar_is_scroll_independent_command_bar():
+    assert 'MASTER_SIDEBAR_NAME As String = "EKA_MASTER_SIDEBAR"' in APP_SHELL_MODULE_CODE
+    assert "Public Sub ShowMasterSidebar()" in APP_SHELL_MODULE_CODE
+    assert "Private Sub BuildMasterSidebar()" in APP_SHELL_MODULE_CODE
+    assert "Application.CommandBars.Add" in APP_SHELL_MODULE_CODE
+    assert "Position:=0" in APP_SHELL_MODULE_CODE
 
 
-def test_master_toolbar_pinning_is_reapplied_on_shell_entry_and_return():
-    enter_start = APP_SHELL_MODULE_CODE.index("Public Sub EnterApplicationShell()")
+def test_master_sidebar_contains_all_four_master_actions():
+    assert '"Διαχείριση Μητρώων", "ToolbarRegistryManagement"' in APP_SHELL_MODULE_CODE
+    assert '"Απουσίες / Ακυρώσεις", "ToolbarAbsences"' in APP_SHELL_MODULE_CODE
+    assert '"Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily"' in APP_SHELL_MODULE_CODE
+    assert '"Save & Exit", "ExitApplication"' in APP_SHELL_MODULE_CODE
+
+
+def test_master_sidebar_is_shown_only_on_master_and_hidden_elsewhere():
     keep_start = APP_SHELL_MODULE_CODE.index("Public Sub KeepApplicationShell()")
-    pin_start = APP_SHELL_MODULE_CODE.index("Public Sub PinMasterToolbar()")
+    show_start = APP_SHELL_MODULE_CODE.index("Public Sub ShowMasterSidebar()")
+    keep_block = APP_SHELL_MODULE_CODE[keep_start:show_start]
 
-    enter_block = APP_SHELL_MODULE_CODE[enter_start:keep_start]
-    keep_block = APP_SHELL_MODULE_CODE[keep_start:pin_start]
-
-    assert "ApplyMasterView" in enter_block
-    assert "PinMasterToolbar" in enter_block
-    assert "ApplyMasterView" in keep_block
-    assert "PinMasterToolbar" in keep_block
+    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then' in keep_block
+    assert "ShowMasterSidebar" in keep_block
+    assert "HideMasterSidebar" in keep_block
 
 
-def test_master_toolbar_pinning_only_applies_to_master_sheet():
-    pin_start = APP_SHELL_MODULE_CODE.index("Public Sub PinMasterToolbar()")
-    chrome_start = APP_SHELL_MODULE_CODE.index("Private Sub ApplyApplicationChrome()")
-    pin_block = APP_SHELL_MODULE_CODE[pin_start:chrome_start]
+def test_master_sidebar_hides_legacy_sheet_shapes_to_avoid_duplicates():
+    assert "SetMasterToolbarShapesVisible False" in APP_SHELL_MODULE_CODE
+    assert 'If Left$(shp.Name, 11) = "ekaToolbar_" Then' in APP_SHELL_MODULE_CODE
 
-    assert 'If ActiveSheet.Name <> "MASTER_SCHEDULE" Then Exit Sub' in pin_block
-    assert 'Set ws = ThisWorkbook.Worksheets("MASTER_SCHEDULE")' in pin_block
+
+def test_master_sidebar_is_cleaned_up_when_app_shell_exits():
+    exit_start = APP_SHELL_MODULE_CODE.index("Public Sub ExitApplicationShell()")
+    restore_start = APP_SHELL_MODULE_CODE.index("Public Sub RestoreExcelInterface()")
+    exit_block = APP_SHELL_MODULE_CODE[exit_start:restore_start]
+
+    assert "HideMasterSidebar" in exit_block
+    assert "Application.CommandBars(MASTER_SIDEBAR_NAME).Delete" in exit_block
