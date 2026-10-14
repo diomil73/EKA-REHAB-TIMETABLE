@@ -36,9 +36,14 @@
 
 Implementation commit: `ad7bfbd7045a445eddb747d5b5f91d482c6046b0`
 
-Regression update: `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
+Regression commits:
 
-Επόμενο gate: focused pytest και μετά native preview του αριστερού sidebar.
+- `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
+- `5fcbc3159a7c603a556be788a5596fd69fd34e34`
+
+Focused user-run gate: **41 passed in 2.78s**.
+
+Επόμενο gate: **V76 από clean V48** και native verification του αριστερού sidebar.
 
 ### Patient-centric multi-treatment scheduling
 
@@ -98,6 +103,7 @@ Regression update: `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
 - wider patient-program integration gate: **71 passed in 3.66s**
 - first persistent MASTER toolbar gate: **39 passed in 1.71s**
 - stronger selection-based freeze gate: **39 passed in 2.56s**
+- command-sidebar gate: **41 passed in 2.78s**
 
 ### Conflict-validation / Save override
 
@@ -122,12 +128,13 @@ Regression update: `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
 
 Για το MASTER sidebar:
 
-1. focused pytest για application shell/sidebar behavior,
-2. build νέου preview από clean V48,
-3. native επιβεβαίωση ότι το αριστερό sidebar μένει ακίνητο ενώ γίνεται vertical scroll,
-4. έλεγχος και των τεσσάρων actions,
-5. μετάβαση σε άλλο sheet και επιβεβαίωση hide,
-6. επιστροφή στο MASTER και επιβεβαίωση restore.
+1. build `MASTER_TOOLBAR_SMOKE_V76.xlsm` από clean V48,
+2. native επιβεβαίωση ότι το αριστερό sidebar μένει ακίνητο ενώ γίνεται vertical scroll,
+3. έλεγχος και των τεσσάρων actions,
+4. μετάβαση σε άλλο sheet και επιβεβαίωση hide,
+5. επιστροφή στο MASTER και επιβεβαίωση restore.
+
+Το focused source gate είναι πράσινο: **41 passed in 2.78s**.
 
 Μετά συνεχίζει το patient-program gate:
 
@@ -141,11 +148,11 @@ Regression update: `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
 
 ### Άμεσα
 
-1. Pull latest branch.
-2. Run focused sidebar tests.
-3. Αν είναι πράσινα, build επόμενο preview από clean V48.
-4. Native smoke του αριστερού MASTER sidebar.
-5. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
+1. Build V76 από clean V48.
+2. Native smoke του αριστερού MASTER sidebar.
+3. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
+4. Optional manual names persist/reload.
+5. Full regression suite.
 
 ### Μετά το patient-program milestone
 
