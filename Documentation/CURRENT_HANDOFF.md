@@ -6,8 +6,9 @@ Last updated: 2026-10-14
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested: `MASTER_TOOLBAR_SMOKE_V79.xlsm`
+- Latest native preview tested: `MASTER_TOOLBAR_SMOKE_V80.xlsm`
 - V73 scheduling/conflict behavior remains native green.
+- V80 clean reset preview is native green.
 
 ## MASTER persistent-controls conclusion
 
@@ -19,51 +20,60 @@ Native experiments V74-V79 are retired:
 - V78 proved the final shell-refresh build fix works and the UserForm can remain visible during scroll.
 - V79 showed the modeless UserForm is not operationally acceptable: inconsistent appearance, Alt+F8/Alt+F4 interaction, and unstable window behavior.
 
-Decision: stop workbook-only sidebar experiments. Restore the stable application shell and keep the normal top MASTER toolbar for now. A true docked sidebar would require a separate Excel add-in/custom task-pane architecture and is not part of the current `.xlsm` milestone.
+Decision: stop workbook-only sidebar experiments. Keep the normal top MASTER toolbar for the current `.xlsm` milestone. A true docked sidebar would require a separate Excel add-in/custom task-pane architecture.
 
-## Cleanup implemented
+V80 native reset verification is green:
 
-`Python/rehab_excel/application_shell_vba.py` now:
+- no sidebar/UserForm appears,
+- no strange freeze/split state remains,
+- normal top MASTER toolbar works,
+- navigation works,
+- Save & Exit works.
 
-- removes all `ShowMasterSidebar` / `HideMasterSidebar` runtime logic,
-- contains no `FreezePanes`, `SplitRow`, `SplitColumn`, `vbModeless`, or CommandBar sidebar code,
-- explicitly removes retired `frmMasterSidebar` if it is present in an older workbook,
-- keeps the normal application chrome, MASTER activation/view, navigation sidecar, and Excel restore behavior.
+## Cleanup retained
+
+`Python/rehab_excel/application_shell_vba.py`:
+
+- has no `ShowMasterSidebar` / `HideMasterSidebar` runtime logic,
+- has no runtime freeze/split pinning,
+- removes retired `frmMasterSidebar` if found in older workbooks,
+- keeps the stable application chrome, MASTER activation/view, navigation sidecar, and Excel restore behavior.
 
 Important build-pipeline fix retained:
 
-- the final patient-scheduling preview still reinstalls the current `modApplicationShell`,
-- verifies `EnterApplicationShell` and `KeepApplicationShell`,
-- verifies the retired `frmMasterSidebar` is absent before saving.
-
-Cleanup commits:
-
-- `a0158a479904c26cff8fe1f4265ad777dd8426e6` application shell reset
-- `c7760808f2f5ad5b5f6798a7e34521ab0e50f3f5` retired-sidebar regression tests
-- `87e6388cd73c1f62f67761d96130d1379c0904a4` baseline shell assertions
-- `effadb2973326046b0c395c72f71916647549c4e` final shell refresh without sidebar
-- `a2fb0c266975c7322fe93f3733043a2a4807b2d2` preview-shell cleanup regression
+- the final patient-scheduling preview reinstalls the current `modApplicationShell`,
+- verifies the shell entry points,
+- verifies the retired sidebar form is absent before saving.
 
 ## Latest confirmed test checkpoints
 
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
 - persistent-controls history gates: `39`, `39`, `41`, `42`, `44`, `45` passes at successive iterations
-- latest pre-cleanup focused gate: `45 passed in 1.34s`
 - cleanup/reset focused gate: `42 passed in 3.70s`
+- V80 native reset gate: green
 
-## Immediate next start point
+## Current focus: edit-existing-program end to end
 
-1. Build one clean reset preview from V48.
-2. Verify in native Excel:
-   - no sidebar/UserForm appears,
-   - no strange split/freeze state remains,
-   - normal top MASTER toolbar works,
-   - navigation and Save & Exit still work.
-3. Then resume the patient-program milestone:
-   - edit-existing-program end to end,
-   - optional manual names persist/reload,
-   - full regression suite.
+The persistent-controls detour is closed. Resume the patient-program milestone from the existing edit flow.
+
+Native verification target:
+
+1. MASTER / Βασικό μενού → **Επεξεργασία ασθενή**.
+2. Select an existing patient with an existing patient program.
+3. Save any registry edits.
+4. Confirm the same patient-program form opens.
+5. Confirm current treatments/day/time/provider values preload correctly.
+6. Modify one or more treatment assignments.
+7. Save atomically.
+8. Verify `PATIENT_PLANNER` and MASTER composite rendering reflect the edited program.
+9. Confirm no duplicate/self-conflict is created from the patient's old persisted assignments.
+
+After that:
+
+- optional manual names persistence/reload for Ρομποτικό / Εργο / Λογο / Ψυχ,
+- full regression suite,
+- retired single-treatment cleanup.
 
 ## Business rules that must not regress
 
