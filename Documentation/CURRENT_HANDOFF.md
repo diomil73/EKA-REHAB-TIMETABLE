@@ -6,11 +6,12 @@ Last updated: 2026-10-14
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V75.xlsm`
+- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V76.xlsm`
 - V73 scheduling/conflict behavior is native green.
-- V74 and V75 navigation actions work, but neither freeze-based implementation keeps the four MASTER buttons visible during vertical scrolling.
-- Freeze-based pinning is now abandoned.
-- Next preview will be `MASTER_TOOLBAR_SMOKE_V76.xlsm` from clean V48 and will test a scroll-independent left MASTER sidebar.
+- V74 and V75 freeze-based pinning failed native.
+- V76 command-bar sidebar also produced no visible native change.
+- FreezePanes and legacy `Application.CommandBars` are now both retired for this requirement.
+- Next preview will test a modeless UserForm sidebar.
 
 ## What is verified in native Excel
 
@@ -24,6 +25,7 @@ Last updated: 2026-10-14
 - True treatment overlaps produce detailed treatment/day/time diagnostics.
 - The previously observed Γιαννιά Ρομποτικό decimal display issue is resolved in normal use after re-entry/save.
 - V74/V75 confirm the toolbar actions/navigation still work; only persistent visibility failed.
+- V76 confirms the command-bar sidebar did not become visible in native Excel.
 
 ## Latest confirmed test checkpoints
 
@@ -31,42 +33,52 @@ Last updated: 2026-10-14
 - wider patient-program integration gate: `71 passed in 3.66s`
 - first focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
 - focused gate after selection-based freeze fix: `39 passed in 2.56s`
-- focused sidebar/application-shell gate: `41 passed in 2.78s`
+- focused command-sidebar/application-shell gate: `41 passed in 2.78s`
 
-## Current focus: scroll-independent MASTER sidebar
+## Current focus: modeless MASTER sidebar
 
-Two native freeze-pane attempts failed to keep worksheet shape-buttons continuously visible in V74 and V75. The project has therefore pivoted to a different mechanism rather than continuing to tune `FreezePanes`.
+The user wants the four MASTER action buttons continuously visible while scrolling.
+
+Three native approaches have now been evaluated:
+
+1. V74 `SplitRow = 3` + `FreezePanes = True`: failed persistent visibility.
+2. V75 selection-based freeze via `A4`: failed persistent visibility.
+3. V76 legacy Excel `Application.CommandBars`: no visible native UI change.
+
+The project has therefore moved to a fourth mechanism that is independent of worksheet cells, freeze panes, and legacy command bars: a modeless VBA UserForm named `frmMasterSidebar`.
 
 New implementation in `application_shell_vba.py`:
 
-- creates a temporary Excel command bar named `EKA_MASTER_SIDEBAR`, docked on the left,
+- installs `frmMasterSidebar` into the workbook VBA project,
+- shows it modeless only while `MASTER_SCHEDULE` is active,
+- positions it near the left edge of the Excel window,
 - contains the same four actions: **Διαχείριση Μητρώων**, **Απουσίες / Ακυρώσεις**, **Ημερήσιο πρόγραμμα**, **Save & Exit**,
-- is shown only while `MASTER_SCHEDULE` is active,
-- is hidden on other sheets,
-- hides the legacy `ekaToolbar_` worksheet shapes while the sidebar is active to avoid duplicate controls,
-- is deleted when the application shell exits.
+- hides the legacy worksheet `ekaToolbar_` shapes while the sidebar is visible,
+- hides on other sheets,
+- unloads when the application shell exits.
 
 Implementation commit:
 
-`ad7bfbd7045a445eddb747d5b5f91d482c6046b0`
+`decf535fa90a4ffd4d645efc0529762c72238744`
 
-Regression commits:
+Regression update:
 
-- `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
-- `5fcbc3159a7c603a556be788a5596fd69fd34e34`
+`dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
 
-Focused source gate is green: `41 passed in 2.78s`.
+This modeless-sidebar batch still needs user-run focused pytest and native preview verification.
 
 ## Immediate next start point
 
-1. Build `MASTER_TOOLBAR_SMOKE_V76.xlsm` from clean V48.
-2. Native verify:
-   - left sidebar is visible on MASTER,
-   - vertical scroll does not move it,
+1. Pull latest branch.
+2. Run focused application-shell/sidebar tests.
+3. If green, build the next preview from clean V48.
+4. Native verify:
+   - modeless left sidebar appears on MASTER,
+   - scrolling does not move it,
    - all four actions work,
    - navigating away hides it,
    - returning to MASTER restores it.
-3. Once sidebar UX is native green, resume:
+5. Once sidebar UX is native green, resume:
    - edit-existing-program end to end,
    - optional manual names persist/reload,
    - full regression suite.
