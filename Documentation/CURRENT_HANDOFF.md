@@ -11,7 +11,7 @@ Last updated: 2026-10-14
 - V74 and V75 freeze-based pinning failed native.
 - V76 command-bar sidebar also produced no visible native change.
 - FreezePanes and legacy `Application.CommandBars` are now both retired for this requirement.
-- Next preview will test a modeless UserForm sidebar.
+- Next preview will test the modeless VBA UserForm sidebar as `MASTER_TOOLBAR_SMOKE_V77.xlsm` from clean V48.
 
 ## What is verified in native Excel
 
@@ -34,20 +34,21 @@ Last updated: 2026-10-14
 - first focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
 - focused gate after selection-based freeze fix: `39 passed in 2.56s`
 - focused command-sidebar/application-shell gate: `41 passed in 2.78s`
+- focused modeless-UserForm sidebar gate: `42 passed in 1.52s`
 
 ## Current focus: modeless MASTER sidebar
 
 The user wants the four MASTER action buttons continuously visible while scrolling.
 
-Three native approaches have now been evaluated:
+Three native approaches have already been rejected:
 
 1. V74 `SplitRow = 3` + `FreezePanes = True`: failed persistent visibility.
 2. V75 selection-based freeze via `A4`: failed persistent visibility.
 3. V76 legacy Excel `Application.CommandBars`: no visible native UI change.
 
-The project has therefore moved to a fourth mechanism that is independent of worksheet cells, freeze panes, and legacy command bars: a modeless VBA UserForm named `frmMasterSidebar`.
+The project is now using a fourth mechanism that is independent of worksheet cells, freeze panes, Ribbon/CommandBars behavior, and vertical scrolling: a modeless VBA UserForm named `frmMasterSidebar`.
 
-New implementation in `application_shell_vba.py`:
+Current implementation in `application_shell_vba.py`:
 
 - installs `frmMasterSidebar` into the workbook VBA project,
 - shows it modeless only while `MASTER_SCHEDULE` is active,
@@ -65,20 +66,18 @@ Regression update:
 
 `dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
 
-This modeless-sidebar batch still needs user-run focused pytest and native preview verification.
+Focused source gate is green: `42 passed in 1.52s`.
 
 ## Immediate next start point
 
-1. Pull latest branch.
-2. Run focused application-shell/sidebar tests.
-3. If green, build the next preview from clean V48.
-4. Native verify:
+1. Build `MASTER_TOOLBAR_SMOKE_V77.xlsm` from clean V48.
+2. Native verify:
    - modeless left sidebar appears on MASTER,
-   - scrolling does not move it,
+   - vertical scroll does not move it,
    - all four actions work,
    - navigating away hides it,
    - returning to MASTER restores it.
-5. Once sidebar UX is native green, resume:
+3. Once sidebar UX is native green, resume:
    - edit-existing-program end to end,
    - optional manual names persist/reload,
    - full regression suite.
