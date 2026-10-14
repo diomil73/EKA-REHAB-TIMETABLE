@@ -5,82 +5,51 @@ Last updated: 2026-10-14
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V76.xlsm`
+- Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
+- Latest native preview tested: `MASTER_TOOLBAR_SMOKE_V77.xlsm`
 - V73 scheduling/conflict behavior is native green.
-- V74 and V75 freeze-based pinning failed native.
-- V76 command-bar sidebar also produced no visible native change.
-- FreezePanes and legacy `Application.CommandBars` are now both retired for this requirement.
-- Next preview will test the modeless VBA UserForm sidebar as `MASTER_TOOLBAR_SMOKE_V77.xlsm` from clean V48.
-
-## What is verified in native Excel
-
-- The patient-centric multi-treatment form opens and is usable.
-- First patient-program save succeeds.
-- ΦΘ self-conflict false alarm is fixed.
-- Conflict validation before Auto and Save works.
-- Save conflict dialog shows the full message and both **Συνέχεια / Επιστροφή** buttons.
-- Manual ΦΘ occupied-slot diagnostics identify the real blocker with day/time/provider/patient context.
-- `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted correctly as exact adjacency.
-- True treatment overlaps produce detailed treatment/day/time diagnostics.
-- The previously observed Γιαννιά Ρομποτικό decimal display issue is resolved in normal use after re-entry/save.
-- V74/V75 confirm the toolbar actions/navigation still work; only persistent visibility failed.
-- V76 confirms the command-bar sidebar did not become visible in native Excel.
+- V74/V75 freeze-based pinning failed native.
+- V76 command-bar sidebar produced no visible native change.
+- V77 modeless sidebar also produced no visible change because the final scheduling preview builder was not refreshing the current `modApplicationShell` at all.
 
 ## Latest confirmed test checkpoints
 
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
-- first focused MASTER toolbar/application-shell gate: `39 passed in 1.71s`
-- focused gate after selection-based freeze fix: `39 passed in 2.56s`
-- focused command-sidebar/application-shell gate: `41 passed in 2.78s`
-- focused modeless-UserForm sidebar gate: `42 passed in 1.52s`
+- first MASTER toolbar gate: `39 passed in 1.71s`
+- stronger freeze gate: `39 passed in 2.56s`
+- command-sidebar gate: `41 passed in 2.78s`
+- modeless-sidebar gate: `42 passed in 1.52s`
 
-## Current focus: modeless MASTER sidebar
+## Current focus: final application-shell refresh in preview builder
 
-The user wants the four MASTER action buttons continuously visible while scrolling.
+Native diagnostic on V77: Alt+F8 did not list `ShowMasterSidebar` at all. This proved the modeless UserForm code was not reaching the final preview workbook.
 
-Three native approaches have already been rejected:
+Root cause found in `Python/tools/build_patient_scheduling_slice_preview.py` / patient-scheduling build path: the final preview updated patient-program UI, renderer, conflict layout, etc., but did not reinstall the current application shell. Because V48 is the clean base, the final workbook kept its stale shell VBA.
 
-1. V74 `SplitRow = 3` + `FreezePanes = True`: failed persistent visibility.
-2. V75 selection-based freeze via `A4`: failed persistent visibility.
-3. V76 legacy Excel `Application.CommandBars`: no visible native UI change.
+Fix implemented:
 
-The project is now using a fourth mechanism that is independent of worksheet cells, freeze panes, Ribbon/CommandBars behavior, and vertical scrolling: a modeless VBA UserForm named `frmMasterSidebar`.
+- final preview builder now opens the completed output workbook,
+- calls `install_application_shell(vbproject, workbook=workbook)`,
+- verifies `modApplicationShell` exists,
+- verifies `frmMasterSidebar` exists,
+- verifies `Public Sub ShowMasterSidebar()` is present,
+- only then saves the final preview.
 
-Current implementation in `application_shell_vba.py`:
+Implementation commit: `9d3296a0cb8600b77a8cf1b6187494993a711cb7`
 
-- installs `frmMasterSidebar` into the workbook VBA project,
-- shows it modeless only while `MASTER_SCHEDULE` is active,
-- positions it near the left edge of the Excel window,
-- contains the same four actions: **Διαχείριση Μητρώων**, **Απουσίες / Ακυρώσεις**, **Ημερήσιο πρόγραμμα**, **Save & Exit**,
-- hides the legacy worksheet `ekaToolbar_` shapes while the sidebar is visible,
-- hides on other sheets,
-- unloads when the application shell exits.
+Regression test added: `Tests/test_patient_scheduling_preview_shell_refresh.py`
 
-Implementation commit:
-
-`decf535fa90a4ffd4d645efc0529762c72238744`
-
-Regression update:
-
-`dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
-
-Focused source gate is green: `42 passed in 1.52s`.
+Test commit: `e5851cc3b0b1f1db21679a70bbae37994de5d704`
 
 ## Immediate next start point
 
-1. Build `MASTER_TOOLBAR_SMOKE_V77.xlsm` from clean V48.
-2. Native verify:
-   - modeless left sidebar appears on MASTER,
-   - vertical scroll does not move it,
-   - all four actions work,
-   - navigating away hides it,
-   - returning to MASTER restores it.
-3. Once sidebar UX is native green, resume:
-   - edit-existing-program end to end,
-   - optional manual names persist/reload,
-   - full regression suite.
+1. Pull latest branch.
+2. Run focused tests including `Tests/test_patient_scheduling_preview_shell_refresh.py`.
+3. If green, build V78 from clean V48.
+4. Before visual smoke, open Alt+F8 and confirm `ShowMasterSidebar` exists.
+5. Then verify modeless sidebar visibility, scroll independence, four actions, hide/restore behavior.
+6. Once sidebar UX is native green, resume edit-existing-program, optional manual names, then full regression.
 
 ## Business rules that must not regress
 
@@ -92,18 +61,16 @@ Focused source gate is green: `42 passed in 1.52s`.
 - Standard treatment duration: 45 minutes.
 - Ανακλινόμενο duration: 30 minutes.
 - Exact adjacency is legal.
-- MASTER is a derived view; `PATIENT_PLANNER` remains authoritative.
+- MASTER is derived; `PATIENT_PLANNER` remains authoritative.
 - Conflict override must be explicit; returning for correction performs no writes.
 - Persistent MASTER controls must not alter or shift MASTER data columns.
 
 ## Recovery order if context is lost
 
-Read these in order:
-
 1. `Documentation/CURRENT_HANDOFF.md`
 2. `Documentation/IMPLEMENTATION_MAP.md`
 3. `Documentation/PROJECT_STATUS.md`
 4. `Documentation/DECISIONS.md`
-5. active tests for the current milestone
+5. active tests
 
 Use `python -m pytest` on Windows, never bare `pytest`.
