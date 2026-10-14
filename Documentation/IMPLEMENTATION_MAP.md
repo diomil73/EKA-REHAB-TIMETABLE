@@ -16,31 +16,23 @@
 
 Ο χρήστης ζήτησε τα βασικά κουμπιά του MASTER να παραμένουν πάντα ορατά κατά το scroll ή να μεταφερθούν σε αριστερό sidebar.
 
-Επιλέχθηκε η ασφαλέστερη εκδοχή: **παραμένουν στην υπάρχουσα επάνω μπάρα και παγώνουν οι γραμμές 1–3**. Έτσι η γραμμή 2 με τα κουμπιά μένει συνεχώς ορατή χωρίς να αλλάξει ούτε μία στήλη του MASTER.
+Επιλέχθηκε η ασφαλέστερη εκδοχή: **παραμένουν στην υπάρχουσα επάνω μπάρα και παγώνουν οι γραμμές 1–3**. Έτσι η γραμμή 2 με τα κουμπιά πρέπει να μένει συνεχώς ορατή χωρίς να αλλάξει ούτε μία στήλη του MASTER.
 
-Η υλοποίηση στο `application_shell_vba.py` προσθέτει `PinMasterToolbar()`:
+Η πρώτη υλοποίηση χρησιμοποίησε `SplitRow = 3` + `FreezePanes = True`. Το source gate πέρασε με **39 passed in 1.71s**, αλλά το V74 έδειξε native ότι τα κουμπιά δεν μένουν ορατά στο vertical scroll. Τα υπόλοιπα navigation actions λειτουργούν.
 
-- `FreezePanes = False`,
-- `SplitColumn = 0`,
-- `SplitRow = 3`,
+Η ισχυρότερη διόρθωση στο `application_shell_vba.py` χρησιμοποιεί πλέον την κανονική Excel selection-based διαδικασία:
+
+- clear freeze/splits,
+- select `A4`,
 - `FreezePanes = True`,
-- επανεφαρμογή στο app entry και σε κάθε επιστροφή/activation του MASTER.
+- restore selection στο `A1`,
+- reapply σε app entry και κάθε επιστροφή/activation του MASTER.
 
-Source commit: `346247ea1dde7f9a3529bf6c25d786b08409699b`
+Fix commit: `3138f6b792677e1183af23c6a5d467b41711d003`
 
-Regression coverage:
+Regression update: `71a50dc34bf9fc5aef3fb1c74b11812d929a81a8`
 
-- `Tests/test_master_toolbar_pinned_view.py`
-- application-shell activation regression updated για το multi-line MASTER path.
-
-Test commits:
-
-- `0b5eb5a18a2ba0307bf57d61099d38b9d6a612fb`
-- `2226f27d7738d43974c213e952c076993afd4a0c`
-
-Focused user-run gate: **39 passed in 1.71s**.
-
-Επόμενο gate: build + native verification του V74.
+Επόμενο gate: focused pytest και μετά **V75 από clean V48**.
 
 ### Patient-centric multi-treatment scheduling
 
@@ -88,6 +80,7 @@ Focused user-run gate: **39 passed in 1.71s**.
 - V70: ΦΘ self-conflict false alarm fixed.
 - V71: installer/conflict flow native operational.
 - V73: precise ΦΘ blocker diagnostics, exact adjacency, detailed overlap diagnostics, conflict-dialog layout και normal Ρομποτικό rendering verified native.
+- V74: toolbar navigation actions work, but persistent visibility while scrolling failed.
 
 ### Source/integration checkpoints
 
@@ -96,7 +89,7 @@ Focused user-run gate: **39 passed in 1.71s**.
 - conflict layout + MASTER refresh gate: **57 passed in 3.96s**
 - edit-draft diagnostics gate: **16 passed in 2.87s**
 - wider patient-program integration gate: **71 passed in 3.66s**
-- persistent MASTER toolbar gate: **39 passed in 1.71s**
+- first persistent MASTER toolbar gate: **39 passed in 1.71s**
 
 ### Conflict-validation / Save override
 
@@ -121,12 +114,11 @@ Focused user-run gate: **39 passed in 1.71s**.
 
 Για το MASTER toolbar:
 
-1. build `MASTER_TOOLBAR_SMOKE_V74.xlsm` από clean V48,
-2. native vertical scroll με τα τέσσερα κουμπιά συνεχώς ορατά,
-3. native test ότι τα κουμπιά εξακολουθούν να λειτουργούν,
-4. μετάβαση DAILY_INPUT / THERAPIST_DAILY και επιστροφή στο MASTER με αυτόματο re-pin.
-
-Το focused source gate έχει ήδη περάσει: **39 passed in 1.71s**.
+1. focused pytest μετά το selection-based freeze fix,
+2. build `MASTER_TOOLBAR_SMOKE_V75.xlsm` από clean V48,
+3. native vertical scroll με τα τέσσερα κουμπιά συνεχώς ορατά,
+4. native test ότι τα κουμπιά εξακολουθούν να λειτουργούν,
+5. μετάβαση DAILY_INPUT / THERAPIST_DAILY και επιστροφή στο MASTER με αυτόματο re-pin.
 
 Μετά συνεχίζει το patient-program gate:
 
@@ -140,11 +132,11 @@ Focused user-run gate: **39 passed in 1.71s**.
 
 ### Άμεσα
 
-1. Build V74 από clean V48.
-2. Native smoke του pinned MASTER toolbar.
-3. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
-4. Optional manual names persist/reload.
-5. Full regression suite.
+1. Pull latest branch.
+2. Run focused toolbar tests.
+3. Αν είναι πράσινα, build V75 από clean V48.
+4. Native smoke του persistent MASTER toolbar.
+5. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
 
 ### Μετά το patient-program milestone
 
