@@ -20,6 +20,7 @@ Last updated: 2026-10-14
 - stronger freeze gate: `39 passed in 2.56s`
 - command-sidebar gate: `41 passed in 2.78s`
 - modeless-sidebar gate: `42 passed in 1.52s`
+- final shell-refresh focused gate: `44 passed in 1.41s`
 
 ## Current focus: final application-shell refresh in preview builder
 
@@ -42,14 +43,15 @@ Regression test added: `Tests/test_patient_scheduling_preview_shell_refresh.py`
 
 Test commit: `e5851cc3b0b1f1db21679a70bbae37994de5d704`
 
+Focused gate after the build-pipeline fix is green: `44 passed in 1.41s`.
+
 ## Immediate next start point
 
-1. Pull latest branch.
-2. Run focused tests including `Tests/test_patient_scheduling_preview_shell_refresh.py`.
-3. If green, build V78 from clean V48.
-4. Before visual smoke, open Alt+F8 and confirm `ShowMasterSidebar` exists.
-5. Then verify modeless sidebar visibility, scroll independence, four actions, hide/restore behavior.
-6. Once sidebar UX is native green, resume edit-existing-program, optional manual names, then full regression.
+1. Build `MASTER_TOOLBAR_SMOKE_V78.xlsm` from clean V48.
+2. Open V78 and use Alt+F8 to confirm `ShowMasterSidebar` now exists.
+3. If it exists, run it manually once if needed and verify the modeless sidebar appears.
+4. Then verify scroll independence, all four actions, hide on other sheet, restore on return.
+5. Once sidebar UX is native green, resume edit-existing-program, optional manual names, then full regression.
 
 ## Business rules that must not regress
 
