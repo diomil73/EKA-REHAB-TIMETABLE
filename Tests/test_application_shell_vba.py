@@ -174,12 +174,11 @@ def test_application_shell_consumes_one_shot_navigation_sidecar():
     assert 'Worksheets(targetName).Activate' in APP_SHELL_MODULE_CODE
 
 
-def test_application_shell_reapplies_master_view_and_sidebar_on_activation():
+def test_application_shell_reapplies_master_view_on_activation_without_sidebar():
     assert "ApplyMasterView" in APP_SHELL_MODULE_CODE
     keep_start = APP_SHELL_MODULE_CODE.index("Public Sub KeepApplicationShell()")
     keep_end = APP_SHELL_MODULE_CODE.index("End Sub", keep_start)
     keep_source = APP_SHELL_MODULE_CODE[keep_start:keep_end]
-    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then' in keep_source
-    assert "ApplyMasterView" in keep_source
-    assert "ShowMasterSidebar" in keep_source
-    assert "HideMasterSidebar" in keep_source
+    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then ApplyMasterView' in keep_source
+    assert "ShowMasterSidebar" not in APP_SHELL_MODULE_CODE
+    assert "HideMasterSidebar" not in APP_SHELL_MODULE_CODE
