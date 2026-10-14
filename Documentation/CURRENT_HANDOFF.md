@@ -22,10 +22,11 @@ Last updated: 2026-10-14
 - command-sidebar gate: `41 passed in 2.78s`
 - modeless-sidebar gate: `42 passed in 1.52s`
 - final shell-refresh focused gate: `44 passed in 1.41s`
+- sidebar UI-polish focused gate: `45 passed in 1.34s`
 
 ## Current focus: sidebar UI polish
 
-Native V78 finally proves the chosen mechanism works: the modeless sidebar is visible and scroll-independent. The remaining issue is visual polish, specifically button typography/alignment.
+Native V78 proves the chosen mechanism works: the modeless sidebar is visible and scroll-independent. The remaining issue is visual polish, specifically button typography/alignment.
 
 Current polish change in `application_shell_vba.py`:
 
@@ -40,15 +41,14 @@ Implementation commit: `befd4418c456be5936e6ddffddd4526009a4f725`
 
 Regression commit: `5cc195433709d2116c97d16e5c19c455956918a5`
 
-The visual polish still needs focused pytest and a native preview check.
+Focused source gate after the polish change is green: `45 passed in 1.34s`.
 
 ## Immediate next start point
 
-1. Pull latest branch.
-2. Run focused shell/sidebar tests plus `Tests/test_patient_scheduling_preview_shell_refresh.py`.
-3. If green, build the next preview from clean V48.
-4. Native verify the same working sidebar with improved button text alignment/spacing.
-5. Once the sidebar appearance is accepted, resume edit-existing-program, optional manual names, then full regression.
+1. Build `MASTER_TOOLBAR_SMOKE_V79.xlsm` from clean V48.
+2. Native verify the same working sidebar with improved button text alignment/spacing.
+3. Confirm the sidebar remains scroll-independent and all four actions still work.
+4. Once the sidebar appearance is accepted, resume edit-existing-program, optional manual names, then full regression.
 
 ## Business rules that must not regress
 
