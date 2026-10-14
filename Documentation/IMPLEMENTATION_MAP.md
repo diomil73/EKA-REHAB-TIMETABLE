@@ -1,6 +1,6 @@
 # Implementation Map
 
-Τελευταία ενημέρωση: 2026-10-13
+Τελευταία ενημέρωση: 2026-10-14
 
 ## Σκοπός
 
@@ -28,25 +28,21 @@
 - Recliner adjacency με ΦΘ: strong soft preference.
 - `PATIENT_PLANNER` authoritative, `MASTER_SCHEDULE` derived view.
 
-### Current focus: κλείσιμο του τελευταίου V73 display issue
+### Current focus: edit-existing-program flow
 
-Το V73 native smoke πέρασε επιτυχώς στα λειτουργικά σημεία που θέλαμε:
+Το V73 scheduling/conflict batch έχει πλέον επιβεβαιωθεί native ως πράσινο.
 
-- manual ΦΘ occupied-slot diagnostics με concrete blocker,
-- `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` γίνεται σωστά δεκτό ως adjacency,
-- πραγματικά overlaps δίνουν detailed treatment/day/time diagnostics,
-- το conflict dialog εμφανίζει ολόκληρο το μήνυμα και τα κουμπιά **Συνέχεια / Επιστροφή**.
+Επόμενο milestone είναι να κλείσει end-to-end το edit υπάρχοντος ασθενή:
 
-Μένει ένα μόνο ανοιχτό θέμα:
+- Basic menu → **Επεξεργασία ασθενή**,
+- αποθήκευση registry αλλαγών,
+- άνοιγμα της ίδιας patient-program φόρμας για το ίδιο PatientID,
+- preload του υπάρχοντος προγράμματος από `PATIENT_PLANNER`,
+- αλλαγή μίας ή περισσότερων θεραπειών,
+- ένα τελικό atomic save,
+- σωστό MASTER composite refresh μετά την αλλαγή.
 
-- η ώρα Ρομποτικού της ασθενούς Γιαννιά εξακολουθεί να εμφανίζεται στο MASTER ως raw decimal Excel time serial.
-
-Ο χρήστης δοκιμάζει τώρα να ξαναγράψει/ξανασώσει την ίδια ώρα Ρομποτικού.
-
-Αυτό θα ξεχωρίσει δύο περιπτώσεις:
-
-- αν γίνει `hh:mm` μετά το save, το πρόβλημα είναι stale existing MASTER content / incomplete initial normalization,
-- αν παραμείνει decimal, υπάρχει δεύτερο write/render path που ξαναγράφει raw Excel serial μετά το composite renderer.
+Μετά από αυτό ακολουθεί verification των optional manual names και τέλος full regression.
 
 ---
 
@@ -91,7 +87,7 @@
 - V69: first save επιτυχές και MASTER composite rendering επιτυχές.
 - V70: το false alarm της αμετάβλητης ΦΘ κατά edit revalidation διορθώθηκε native.
 - V71: build/open επιτυχές μετά τα installer hardenings και το conflict flow λειτουργεί native.
-- V73: precise ΦΘ blocker diagnostics, exact adjacency, detailed true-overlap diagnostics και conflict-dialog layout επιβεβαιώθηκαν native.
+- V73: precise ΦΘ blocker diagnostics, exact adjacency, detailed true-overlap diagnostics, conflict-dialog layout και normal Ρομποτικό time rendering επιβεβαιώθηκαν native.
 
 ### Source/integration checkpoints
 
@@ -126,22 +122,21 @@ Native V73 verified:
 - explicit placement **Συνέχεια / Επιστροφή**,
 - ανεξαρτησία από VBE designer geometry persistence.
 
-### Initial MASTER composite refresh
+### MASTER composite rendering
 
-- όλα τα existing PatientIDs περνούν από `RefreshMasterPatientProgram()` κατά το preview build,
-- όμως η Γιαννιά εξακολουθεί να δείχνει decimal Ρομποτικό στο V73,
-- άρα η αιτία δεν έχει ακόμη απομονωθεί πλήρως.
+- existing PatientIDs περνούν από `RefreshMasterPatientProgram()` κατά το preview build,
+- normal patient-program saves/edit saves γράφουν composite treatment cells,
+- το προηγούμενο decimal Ρομποτικό της Γιαννιά δεν παραμένει ως λειτουργικό blocker μετά από re-entry/save.
 
 ### Edit-draft replacement fix
 
 Στο `automatic_patient_schedule.py`:
 
-- δημιουργείται set όλων των treatments του τρέχοντος request/draft,
-- persisted assignments του ίδιου ασθενή για αυτά τα treatments αγνοούνται ως values being replaced,
+- persisted assignments του ίδιου ασθενή για treatments που συμμετέχουν στο τρέχον draft αγνοούνται ως values being replaced,
 - οι νέες assignments ελέγχονται joint μέσω `_patient_conflict`,
 - stale old ΦΘ δεν μπλοκάρει πλέον νέο Ανακλινόμενο όταν και τα δύο συμμετέχουν στο ίδιο edit draft.
 
-Native V73 confirmed the key scenario `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15`.
+Native V73 confirmed το key scenario `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15`.
 
 ### Detailed diagnostics
 
@@ -155,14 +150,12 @@ Native V73 confirmed the key scenario `Ανακλινόμενο 11:00-11:30` + `
 
 ## Τρέχον verification gate
 
-Για να κλείσει το V73 batch απομένει:
+Πριν θεωρηθεί ολοκληρωμένο το patient-program milestone χρειάζονται:
 
-1. αποτέλεσμα από re-save της ώρας Ρομποτικού της Γιαννιά,
-2. εντοπισμός stale-content vs second-write-path αιτίας,
-3. διόρθωση και native verification του decimal-time issue,
-4. edit-existing-program flow,
-5. optional manual names persist/reload,
-6. full regression suite.
+1. native edit-existing-program flow end to end,
+2. optional manual names persist/reload για Ρομποτικό / Εργο / Λογο / Ψυχ,
+3. τελικό duration/recliner smoke όπου χρειάζεται,
+4. full regression suite.
 
 ---
 
@@ -170,11 +163,12 @@ Native V73 confirmed the key scenario `Ανακλινόμενο 11:00-11:30` + `
 
 ### Άμεσα
 
-1. Περιμένουμε το αποτέλεσμα του re-save για Γιαννιά Ρομποτικό.
-2. Αν γίνει `hh:mm`, διορθώνουμε initial normalization/stale MASTER handling.
-3. Αν μείνει decimal, χαρτογραφούμε το post-save write order και κλείνουμε το δεύτερο raw-time writer.
-4. Μετά συνεχίζουμε edit-existing-program + optional names.
-5. Full regression suite.
+1. Native test υπάρχοντος ασθενή μέσω **Επεξεργασία ασθενή**.
+2. Επιβεβαίωση preload του υπάρχοντος program.
+3. Αλλαγή treatment δεδομένων και atomic save.
+4. Έλεγχος `PATIENT_PLANNER` και MASTER μετά το edit.
+5. Optional manual names persist/reload.
+6. Full regression suite.
 
 ### Μετά το patient-program milestone
 
