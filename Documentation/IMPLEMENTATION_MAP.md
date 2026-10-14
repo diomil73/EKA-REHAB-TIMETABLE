@@ -8,9 +8,9 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### Cleanup retired single-treatment scheduling code
+### Επόμενο roadmap milestone
 
-Το patient-centric multi-treatment milestone είναι πλέον native green και πέρασε full regression πριν το cleanup.
+Το patient-centric multi-treatment scheduling milestone έκλεισε πλήρως, μαζί με το cleanup του retired single-treatment κώδικα.
 
 Confirmed green:
 
@@ -19,25 +19,10 @@ Confirmed green:
 - atomic resave χωρίς false self-conflict,
 - optional manual names persistence/reload για Ρομποτικό / Εργο / Λογο / Ψυχ,
 - MASTER fixed top toolbar + treatment headers στο V81,
-- full suite πριν το cleanup: **722 passed, 19 warnings**.
+- full suite πριν το cleanup: **722 passed, 19 warnings**,
+- full suite μετά το cleanup: **699 passed, 19 warnings**.
 
-Cleanup που έγινε:
-
-- αφαιρέθηκε `Python/rehab_excel/patient_scheduling_flow.py`,
-- αφαιρέθηκε `Python/rehab_excel/patient_scheduling_form_vba.py`,
-- αφαιρέθηκαν τα retired single-treatment bridge commands `plan`, `validate`, `plan-vba`, `validate-vba`, `recurring-vba`, `validate-recurring-vba`,
-- κρατήθηκαν μόνο `auto-propose` / `auto-propose-vba` στο `patient_scheduling_bridge.py`, επειδή χρησιμοποιούνται από το σημερινό joint patient-program auto scheduler,
-- αφαιρέθηκαν τα tests που αφορούσαν αποκλειστικά το retired single-treatment form/flow,
-- το bridge regression test πλέον ελέγχει το joint auto path.
-
-Cleanup commits:
-
-- `93e2759726f002dd86c82168e6d3abfcf40a5d32`
-- `ccc97c6f9e43cf32ca085cb42ba03f12469acb50`
-- `8c0bdd326e6727c04594a6284e0148f6846bdf74`
-- `8265d4000036a15323d0a0cb4ec95d6cc340e0f3`
-- `29a9221055f2057f9062af7f8853274271724ef2`
-- `b0d40de9f3e0eb1b76ce9cca5b1a36aa1bda3c5f`
+Η μείωση του test count είναι αναμενόμενη, επειδή αφαιρέθηκαν tests που κάλυπταν αποκλειστικά retired single-treatment code.
 
 ### Accepted MASTER UX
 
@@ -47,14 +32,24 @@ Cleanup commits:
 - το application shell ξαναβάζει το pin κάθε φορά που ενεργοποιείται το MASTER,
 - no UserForm/sidebar/CommandBars.
 
-Implementation commit: `0c4b25eac6378e97366b6690b3443c5d46948f53`
-
-Regression commits:
-
-- `2860fe43bd133e2e2bac663b422ff54f5985f2c4`
-- `b05426cd9cf68b39267159d84ce3d1982c145af8`
-
 V81 native gate: **green**.
+
+### Retired scheduling cleanup
+
+Ολοκληρώθηκε και επαληθεύτηκε.
+
+Αφαιρέθηκαν:
+
+- `Python/rehab_excel/patient_scheduling_flow.py`,
+- `Python/rehab_excel/patient_scheduling_form_vba.py`,
+- retired bridge commands `plan`, `validate`, `plan-vba`, `validate-vba`, `recurring-vba`, `validate-recurring-vba`,
+- tests αποκλειστικά για το retired single-treatment flow/form.
+
+Διατηρήθηκαν:
+
+- `auto-propose` / `auto-propose-vba` για το joint patient-program auto scheduler,
+- το current `PatientProgramRuntime` / `frmPatientScheduling`,
+- cleanup/verification ώστε παλιά workbooks να μην κρατούν `PatientSchedulingRuntime`.
 
 ## Τι έχει ολοκληρωθεί
 
@@ -73,27 +68,12 @@ V81 native gate: **green**.
 - Edit-existing-program native flow verified green.
 - V81 fixed top toolbar + treatment headers verified native green.
 - Optional manual names save/reload verified native green.
-- Pre-cleanup full regression: **722 passed, 19 warnings**.
-
-## Latest verified checkpoints
-
-- self-conflict gate: **32 passed in 1.40s**
-- V71 conflict/installer gate: **62 passed in 3.34s**
-- edit-draft diagnostics gate: **16 passed in 2.87s**
-- wider patient-program integration gate: **71 passed in 3.66s**
-- cleanup/reset focused gate: **42 passed in 3.70s**
-- row-4 toolbar/header pinning focused source gate: **43 passed in 1.92s**
-- V81 native pinning gate: **green**
-- optional manual names persistence/reload: **native green**
-- pre-cleanup full regression: **722 passed, 19 warnings**
+- Retired single-treatment scheduling cleanup complete.
+- Post-cleanup full regression: **699 passed, 19 warnings**.
 
 ## Τρέχον verification gate
 
-1. Pull latest branch.
-2. Run `python -m pytest` after cleanup.
-3. If green, accept retired-code cleanup.
-4. Update final project status / handoff.
-5. Move to the next roadmap milestone.
+Το προηγούμενο milestone είναι κλειστό. Το επόμενο gate θα οριστεί από το επόμενο roadmap item, με βάση τα υπόλοιπα outpatient/operational gaps στο `Documentation/PROJECT_STATUS.md`.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
