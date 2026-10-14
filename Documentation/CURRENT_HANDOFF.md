@@ -10,40 +10,32 @@ Last updated: 2026-10-14
 - V73 scheduling/conflict behavior remains native green.
 - V80 clean reset preview is native green.
 
-## MASTER persistent-controls conclusion
+## MASTER controls status
 
-Native experiments V74-V79 are retired:
+Native experiments V74-V79 are retired as sidebar/persistent-control attempts:
 
-- V74/V75: freeze-based pinning did not keep the worksheet buttons visible.
-- V76: legacy `Application.CommandBars` sidebar did not produce reliable visible UI.
-- V77: modeless UserForm had not reached the final workbook because the preview builder kept stale shell VBA.
-- V78 proved the final shell-refresh build fix works and the UserForm can remain visible during scroll.
-- V79 showed the modeless UserForm is not operationally acceptable: inconsistent appearance, Alt+F8/Alt+F4 interaction, and unstable window behavior.
+- V74/V75: earlier freeze approaches did not keep the intended UI reliably visible.
+- V76: legacy `Application.CommandBars` sidebar failed.
+- V77-V79: modeless UserForm path was ultimately rejected as operationally unreliable.
+- V80 restored a clean native-green MASTER baseline.
 
-Decision: stop workbook-only sidebar experiments. Keep the normal top MASTER toolbar for the current `.xlsm` milestone. A true docked sidebar would require a separate Excel add-in/custom task-pane architecture.
+New clarified requirement from the user: while scrolling vertically, at minimum the treatment column headers must remain visible, and the four MASTER action buttons must also follow either horizontally or vertically.
 
-V80 native reset verification is green:
+Chosen implementation: keep the existing horizontal top toolbar and freeze the MASTER top area through row 4.
 
-- no sidebar/UserForm appears,
-- no strange freeze/split state remains,
-- normal top MASTER toolbar works,
-- navigation works,
-- Save & Exit works.
+This is intentionally narrower than the retired sidebar experiments:
 
-## Cleanup retained
+- row 2 contains the four existing action buttons,
+- row 4 contains the MASTER column/treatment headers,
+- the application shell reapplies the pin whenever MASTER becomes active,
+- no UserForm/sidebar/CommandBars mechanism is used.
 
-`Python/rehab_excel/application_shell_vba.py`:
+Implementation commit: `0c4b25eac6378e97366b6690b3443c5d46948f53`
 
-- has no `ShowMasterSidebar` / `HideMasterSidebar` runtime logic,
-- has no runtime freeze/split pinning,
-- removes retired `frmMasterSidebar` if found in older workbooks,
-- keeps the stable application chrome, MASTER activation/view, navigation sidecar, and Excel restore behavior.
+Regression commits:
 
-Important build-pipeline fix retained:
-
-- the final patient-scheduling preview reinstalls the current `modApplicationShell`,
-- verifies the shell entry points,
-- verifies the retired sidebar form is absent before saving.
+- `2860fe43bd133e2e2bac663b422ff54f5985f2c4`
+- `b05426cd9cf68b39267159d84ce3d1982c145af8`
 
 ## Latest confirmed test checkpoints
 
@@ -52,28 +44,18 @@ Important build-pipeline fix retained:
 - persistent-controls history gates: `39`, `39`, `41`, `42`, `44`, `45` passes at successive iterations
 - cleanup/reset focused gate: `42 passed in 3.70s`
 - V80 native reset gate: green
+- new row-4 toolbar/header pinning: source changes ready, focused pytest pending
 
-## Current focus: edit-existing-program end to end
+## Current focus
 
-The persistent-controls detour is closed. Resume the patient-program milestone from the existing edit flow.
-
-Native verification target:
-
-1. MASTER / Βασικό μενού → **Επεξεργασία ασθενή**.
-2. Select an existing patient with an existing patient program.
-3. Save any registry edits.
-4. Confirm the same patient-program form opens.
-5. Confirm current treatments/day/time/provider values preload correctly.
-6. Modify one or more treatment assignments.
-7. Save atomically.
-8. Verify `PATIENT_PLANNER` and MASTER composite rendering reflect the edited program.
-9. Confirm no duplicate/self-conflict is created from the patient's old persisted assignments.
-
-After that:
-
-- optional manual names persistence/reload for Ρομποτικό / Εργο / Λογο / Ψυχ,
-- full regression suite,
-- retired single-treatment cleanup.
+1. Run focused application-shell / toolbar / preview-shell-refresh tests.
+2. If green, build the next preview from clean V48.
+3. Native verify that vertical scroll keeps both:
+   - the four horizontal MASTER buttons,
+   - row-4 treatment headers.
+4. Confirm no sidebar/UserForm appears and no odd split state is introduced.
+5. Then continue patient-program verification. The edit-existing-program path was already reported native green by the user.
+6. Next patient-program checks: optional manual names persistence/reload, then full regression.
 
 ## Business rules that must not regress
 
