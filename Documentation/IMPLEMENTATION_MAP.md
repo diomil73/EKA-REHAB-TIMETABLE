@@ -12,38 +12,35 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### Scroll-independent MASTER sidebar
+### Modeless MASTER sidebar
 
 Ο χρήστης ζήτησε τα βασικά κουμπιά του MASTER να παραμένουν πάντα ορατά κατά το scroll ή να μεταφερθούν σε αριστερό sidebar.
 
-Δοκιμάστηκαν δύο freeze-based εκδοχές:
+Έχουν ήδη απορριφθεί native τρεις μηχανισμοί:
 
 - V74: `SplitRow = 3` + `FreezePanes = True`,
-- V75: selection-based freeze μέσω `A4` + `FreezePanes = True`.
+- V75: selection-based freeze μέσω `A4`,
+- V76: legacy `Application.CommandBars` sidebar.
 
-Και οι δύο πέρασαν source tests, αλλά απέτυχαν native στο βασικό requirement: τα worksheet shape-buttons εξακολουθούν να φεύγουν με το vertical scroll. Τα actions/navigation παρέμειναν λειτουργικά.
+Οι δύο freeze εκδοχές δεν κράτησαν τα worksheet shape-buttons ορατά στο vertical scroll. Το command-bar sidebar δεν παρήγαγε ορατή native αλλαγή στο σύγχρονο Excel/app-mode setup.
 
-Η freeze κατεύθυνση εγκαταλείφθηκε. Η νέα λύση είναι πραγματικό αριστερό Excel command sidebar, ανεξάρτητο από τα cells και το scroll.
+Η νέα λύση είναι **modeless VBA UserForm** `frmMasterSidebar`, ανεξάρτητο από cells, scroll, freeze panes και legacy command bars.
 
 Η νέα υλοποίηση στο `application_shell_vba.py`:
 
-- δημιουργεί προσωρινό command bar `EKA_MASTER_SIDEBAR`, docked αριστερά,
-- έχει τις τέσσερις ενέργειες **Διαχείριση Μητρώων**, **Απουσίες / Ακυρώσεις**, **Ημερήσιο πρόγραμμα**, **Save & Exit**,
-- εμφανίζεται μόνο στο `MASTER_SCHEDULE`,
-- κρύβεται στα άλλα operational sheets,
-- κρύβει τα legacy `ekaToolbar_` shapes όταν είναι ενεργό ώστε να μην υπάρχουν διπλά controls,
-- διαγράφεται στο exit του application shell.
+- εγκαθιστά το `frmMasterSidebar` στο VBA project,
+- εμφανίζεται modeless μόνο στο `MASTER_SCHEDULE`,
+- τοποθετείται κοντά στο αριστερό άκρο του Excel window,
+- περιέχει τις τέσσερις ενέργειες **Διαχείριση Μητρώων**, **Απουσίες / Ακυρώσεις**, **Ημερήσιο πρόγραμμα**, **Save & Exit**,
+- κρύβει τα legacy `ekaToolbar_` shapes όσο το sidebar είναι ορατό,
+- κρύβεται όταν ο χρήστης πάει σε άλλο sheet,
+- unload στο application-shell exit.
 
-Implementation commit: `ad7bfbd7045a445eddb747d5b5f91d482c6046b0`
+Implementation commit: `decf535fa90a4ffd4d645efc0529762c72238744`
 
-Regression commits:
+Regression update: `dfb5a38ead7ea375811459abe45ffc458fd2e1fc`
 
-- `37f38b41df2f9a3d18cfba04046b7c45bbefcf4d`
-- `5fcbc3159a7c603a556be788a5596fd69fd34e34`
-
-Focused user-run gate: **41 passed in 2.78s**.
-
-Επόμενο gate: **V76 από clean V48** και native verification του αριστερού sidebar.
+Επόμενο gate: focused pytest και μετά νέο native preview από clean V48.
 
 ### Patient-centric multi-treatment scheduling
 
@@ -93,6 +90,7 @@ Focused user-run gate: **41 passed in 2.78s**.
 - V73: precise ΦΘ blocker diagnostics, exact adjacency, detailed overlap diagnostics, conflict-dialog layout και normal Ρομποτικό rendering verified native.
 - V74: toolbar actions work, freeze visibility failed.
 - V75: stronger freeze attempt still failed visibility; freeze direction retired.
+- V76: command-bar sidebar produced no visible native change; legacy CommandBars direction retired.
 
 ### Source/integration checkpoints
 
@@ -126,15 +124,14 @@ Focused user-run gate: **41 passed in 2.78s**.
 
 ## Τρέχον verification gate
 
-Για το MASTER sidebar:
+Για το modeless MASTER sidebar:
 
-1. build `MASTER_TOOLBAR_SMOKE_V76.xlsm` από clean V48,
-2. native επιβεβαίωση ότι το αριστερό sidebar μένει ακίνητο ενώ γίνεται vertical scroll,
-3. έλεγχος και των τεσσάρων actions,
-4. μετάβαση σε άλλο sheet και επιβεβαίωση hide,
-5. επιστροφή στο MASTER και επιβεβαίωση restore.
-
-Το focused source gate είναι πράσινο: **41 passed in 2.78s**.
+1. focused pytest για application shell/sidebar installer behavior,
+2. build νέου preview από clean V48,
+3. native επιβεβαίωση ότι το modeless sidebar εμφανίζεται στο MASTER και δεν μετακινείται με vertical scroll,
+4. έλεγχος και των τεσσάρων actions,
+5. μετάβαση σε άλλο sheet και επιβεβαίωση hide,
+6. επιστροφή στο MASTER και επιβεβαίωση restore.
 
 Μετά συνεχίζει το patient-program gate:
 
@@ -148,11 +145,11 @@ Focused user-run gate: **41 passed in 2.78s**.
 
 ### Άμεσα
 
-1. Build V76 από clean V48.
-2. Native smoke του αριστερού MASTER sidebar.
-3. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
-4. Optional manual names persist/reload.
-5. Full regression suite.
+1. Pull latest branch.
+2. Run focused sidebar tests.
+3. Αν είναι πράσινα, build επόμενο preview από clean V48.
+4. Native smoke του modeless MASTER sidebar.
+5. Αν είναι πράσινο, επιστροφή στο edit-existing-program milestone.
 
 ### Μετά το patient-program milestone
 
