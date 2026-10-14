@@ -44,18 +44,17 @@ Regression commits:
 - persistent-controls history gates: `39`, `39`, `41`, `42`, `44`, `45` passes at successive iterations
 - cleanup/reset focused gate: `42 passed in 3.70s`
 - V80 native reset gate: green
-- new row-4 toolbar/header pinning: source changes ready, focused pytest pending
+- new row-4 toolbar/header pinning focused source gate: `43 passed in 1.92s`
 
 ## Current focus
 
-1. Run focused application-shell / toolbar / preview-shell-refresh tests.
-2. If green, build the next preview from clean V48.
-3. Native verify that vertical scroll keeps both:
+1. Build the next preview from clean V48.
+2. Native verify that vertical scroll keeps both:
    - the four horizontal MASTER buttons,
    - row-4 treatment headers.
-4. Confirm no sidebar/UserForm appears and no odd split state is introduced.
-5. Then continue patient-program verification. The edit-existing-program path was already reported native green by the user.
-6. Next patient-program checks: optional manual names persistence/reload, then full regression.
+3. Confirm no sidebar/UserForm appears and no odd split/window behavior is introduced.
+4. Then continue patient-program verification. The edit-existing-program path was already reported native green by the user.
+5. Next patient-program checks: optional manual names persistence/reload, then full regression.
 
 ## Business rules that must not regress
 
