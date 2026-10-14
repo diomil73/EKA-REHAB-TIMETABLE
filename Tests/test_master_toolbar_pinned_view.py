@@ -7,21 +7,25 @@ from rehab_excel.application_shell_vba import (
 )
 
 
-def test_application_shell_has_no_runtime_sidebar_or_freeze_pinning():
+def test_application_shell_uses_only_targeted_master_freeze_pinning():
     assert "ShowMasterSidebar" not in APP_SHELL_MODULE_CODE
     assert "HideMasterSidebar" not in APP_SHELL_MODULE_CODE
     assert "vbModeless" not in APP_SHELL_MODULE_CODE
-    assert "FreezePanes" not in APP_SHELL_MODULE_CODE
-    assert "SplitRow" not in APP_SHELL_MODULE_CODE
-    assert "SplitColumn" not in APP_SHELL_MODULE_CODE
+    assert "Application.CommandBars.Add" not in APP_SHELL_MODULE_CODE
+    assert "Private Sub PinMasterToolbarAndHeaders()" in APP_SHELL_MODULE_CODE
+    assert ".SplitColumn = 0" in APP_SHELL_MODULE_CODE
+    assert ".SplitRow = 4" in APP_SHELL_MODULE_CODE
+    assert ".FreezePanes = True" in APP_SHELL_MODULE_CODE
 
 
-def test_application_shell_keeps_master_view_without_sidebar_hooks():
+def test_application_shell_keeps_master_view_and_reapplies_pin():
     keep_start = APP_SHELL_MODULE_CODE.index("Public Sub KeepApplicationShell()")
     keep_end = APP_SHELL_MODULE_CODE.index("End Sub", keep_start)
     keep_block = APP_SHELL_MODULE_CODE[keep_start:keep_end]
 
-    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then ApplyMasterView' in keep_block
+    assert 'If ActiveSheet.Name = "MASTER_SCHEDULE" Then' in keep_block
+    assert "ApplyMasterView" in keep_block
+    assert "PinMasterToolbarAndHeaders" in keep_block
     assert "ShowMasterSidebar" not in keep_block
     assert "HideMasterSidebar" not in keep_block
 
