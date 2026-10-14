@@ -50,11 +50,12 @@ Cleanup commits:
 - wider patient-program integration gate: `71 passed in 3.66s`
 - persistent-controls history gates: `39`, `39`, `41`, `42`, `44`, `45` passes at successive iterations
 - latest pre-cleanup focused gate: `45 passed in 1.34s`
+- cleanup/reset focused gate: `42 passed in 3.70s`
 
 ## Immediate next start point
 
-1. Run the focused application-shell / toolbar / preview-shell-refresh tests after cleanup.
-2. If green, build one clean reset preview from V48 and verify:
+1. Build one clean reset preview from V48.
+2. Verify in native Excel:
    - no sidebar/UserForm appears,
    - no strange split/freeze state remains,
    - normal top MASTER toolbar works,
