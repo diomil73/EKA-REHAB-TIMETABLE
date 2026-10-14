@@ -1,13 +1,13 @@
 # Current Handoff
 
-Last updated: 2026-10-13
+Last updated: 2026-10-14
 
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base for patient-scheduling builds: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
 - Latest native preview tested by the user: `MASTER_TOOLBAR_SMOKE_V73.xlsm`
-- V73 builds and opens successfully.
+- V73 builds and runs correctly in native Excel.
 
 ## What is verified in native Excel
 
@@ -17,10 +17,11 @@ Last updated: 2026-10-13
 - The former `Subscript out of range` during MASTER row lookup is fixed.
 - The ΦΘ self-conflict false alarm is fixed in native use.
 - Conflict validation before Auto and Save works.
-- Save conflict dialog now shows the full message and both **Συνέχεια / Επιστροφή** buttons.
-- Manual ΦΘ occupied-slot diagnostics now identify the real blocker with concrete day/time/provider/patient context.
+- Save conflict dialog shows the full message and both **Συνέχεια / Επιστροφή** buttons.
+- Manual ΦΘ occupied-slot diagnostics identify the real blocker with concrete day/time/provider/patient context.
 - `Ανακλινόμενο 11:00-11:30` + `ΦΘ 11:30-12:15` is accepted correctly as exact adjacency, not overlap.
 - True treatment overlaps produce detailed treatment/day/time diagnostics.
+- The previously observed Γιαννιά Ρομποτικό decimal display issue is now confirmed resolved in normal use after re-entry/save; the user reports that everything plays correctly.
 
 ## Conflict-validation behavior
 
@@ -41,20 +42,13 @@ The patient-program UI:
 
 ## V73 native result
 
-The V73 native smoke passed all intended behavioral checks except one remaining display issue:
+The V73 native smoke is now considered green for the current scheduling batch:
 
 - precise manual ΦΘ occupancy diagnostic: passed,
 - exact adjacency Ανακλινόμενο 11:00-11:30 + ΦΘ 11:30-12:15: passed,
 - true overlap diagnostics: passed,
 - conflict dialog runtime layout: passed,
-- existing Ρομποτικό time for patient Γιαννιά is still displayed as a raw decimal in MASTER.
-
-The user is now testing whether re-entering/saving that same Ρομποτικό time changes the cell to `hh:mm`.
-
-Interpretation of that test:
-
-- if re-save changes it to `hh:mm`, this points to stale legacy MASTER content that the initial all-patient refresh did not fully normalize,
-- if it remains decimal after re-save, there is still another write/render path that writes the raw Excel time serial after the composite renderer.
+- Ρομποτικό time rendering in normal save/edit use: passed.
 
 ## Latest confirmed test checkpoint
 
@@ -63,15 +57,21 @@ User-run gates after the latest scheduling changes:
 - narrow automatic-scheduling gate: `16 passed in 2.87s`
 - wider patient-program integration gate: `71 passed in 3.66s`
 
-Source/integration verification is green, and V73 native behavior is green except for the single Γιαννιά decimal-time display issue.
+Source/integration verification and the corresponding V73 native behavior are green.
 
 ## Immediate next start point
 
-1. Wait for the user's result after re-entering/saving Γιαννιά Ρομποτικό time.
-2. If it becomes `hh:mm`, investigate stale existing MASTER content / initial refresh normalization.
-3. If it stays decimal, trace the post-save write paths that can overwrite the composite renderer output.
-4. Once the decimal-time issue is closed, continue with edit-existing-program and optional manual names.
-5. Full regression suite only after native edit smoke is clean.
+1. Native-test the existing-patient edit flow end to end:
+   - Basic menu → **Επεξεργασία ασθενή**,
+   - save registry changes,
+   - same patient-program form opens for the same PatientID,
+   - existing program is preloaded from `PATIENT_PLANNER`,
+   - modify one or more treatments,
+   - final atomic save succeeds,
+   - MASTER reflects the edited composite program correctly.
+2. Then verify optional manual names persist/reload for Ρομποτικό / Εργο / Λογο / Ψυχ.
+3. Run final duration/recliner smoke if needed.
+4. Run the full regression suite only after native edit smoke is clean.
 
 ## Business rules that must not regress
 
