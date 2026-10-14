@@ -14,22 +14,24 @@ Private Sub UserForm_Initialize()
         .BackColor = RGB(245, 247, 250)
     End With
 
-    StyleSidebarButton cmdRegistry, "Διαχείριση Μητρώων", 24
-    StyleSidebarButton cmdAbsences, "Απουσίες / Ακυρώσεις", 70
-    StyleSidebarButton cmdDaily, "Ημερήσιο πρόγραμμα", 116
-    StyleSidebarButton cmdExit, "Save & Exit", 174
+    StyleSidebarButton cmdRegistry, "Διαχείριση Μητρώων", 28
+    StyleSidebarButton cmdAbsences, "Απουσίες / Ακυρώσεις", 76
+    StyleSidebarButton cmdDaily, "Ημερήσιο πρόγραμμα", 124
+    StyleSidebarButton cmdExit, "Save & Exit", 172
 End Sub
 
 Private Sub StyleSidebarButton(ByVal button As MSForms.CommandButton, ByVal text As String, ByVal topPosition As Single)
     With button
         .Caption = text
-        .Left = 18
+        .Left = 16
         .Top = topPosition
-        .Width = 138
-        .Height = 34
-        .Font.Name = "Calibri"
+        .Width = 146
+        .Height = 36
+        .Font.Name = "Segoe UI"
         .Font.Size = 10
         .Font.Bold = True
+        .TextAlign = 2
+        .WordWrap = False
         .TakeFocusOnClick = False
     End With
 End Sub
@@ -341,17 +343,17 @@ def _install_master_sidebar_form(vbproject) -> None:
         pass
 
     for name, caption, top in (
-        ("cmdRegistry", "Διαχείριση Μητρώων", 24),
-        ("cmdAbsences", "Απουσίες / Ακυρώσεις", 70),
-        ("cmdDaily", "Ημερήσιο πρόγραμμα", 116),
-        ("cmdExit", "Save & Exit", 174),
+        ("cmdRegistry", "Διαχείριση Μητρώων", 28),
+        ("cmdAbsences", "Απουσίες / Ακυρώσεις", 76),
+        ("cmdDaily", "Ημερήσιο πρόγραμμα", 124),
+        ("cmdExit", "Save & Exit", 172),
     ):
         button = designer.Controls.Add("Forms.CommandButton.1", name, True)
         button.Caption = caption
-        button.Left = 18
+        button.Left = 16
         button.Top = top
-        button.Width = 138
-        button.Height = 34
+        button.Width = 146
+        button.Height = 36
 
     form.CodeModule.AddFromString(MASTER_SIDEBAR_FORM_CODE)
 
