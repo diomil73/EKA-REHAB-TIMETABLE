@@ -18,6 +18,7 @@ Public Sub EnterApplicationShell()
         If WorksheetExists("MASTER_SCHEDULE") Then
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
             ApplyMasterView
+            PinMasterToolbar
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
         End If
     End If
@@ -28,7 +29,24 @@ End Sub
 Public Sub KeepApplicationShell()
     On Error Resume Next
     ApplyApplicationChrome
-    If ActiveSheet.Name = "MASTER_SCHEDULE" Then ApplyMasterView
+    If ActiveSheet.Name = "MASTER_SCHEDULE" Then
+        ApplyMasterView
+        PinMasterToolbar
+    End If
+    On Error GoTo 0
+End Sub
+
+Public Sub PinMasterToolbar()
+    On Error Resume Next
+    If ActiveWindow Is Nothing Then Exit Sub
+    If ActiveSheet.Name <> "MASTER_SCHEDULE" Then Exit Sub
+
+    With ActiveWindow
+        .FreezePanes = False
+        .SplitColumn = 0
+        .SplitRow = 3
+        .FreezePanes = True
+    End With
     On Error GoTo 0
 End Sub
 
