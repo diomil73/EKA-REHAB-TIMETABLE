@@ -16,6 +16,7 @@ Last updated: 2026-10-17
 - orphan suspension + statistics domain gate: `21 passed in 3.11s`
 - consolidated orphan operational gate: `43 passed, 3 warnings in 5.15s`
 - replacement fact focused gate: `28 passed, 3 warnings in 5.14s`
+- versioned-id + single/batch restore focused gate: **36 passed in 4.74s**
 - V87 mixed orphan resolution: native green
 - V88 full restart daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: **native green**
@@ -110,33 +111,31 @@ Commits:
 - selected/all tool: `d109af5eed7b09354e3e13bdf8e065d58ba817db`
 - selected/all pipeline tests: `b8690432a5927de671e5e08edc41e3a57bc0d5af`
 
-### 2026-10-17 focused gate regression
+### 2026-10-17 focused gate regression and resolution
 
-The first Windows focused source gate after the bulk-restore pull produced:
+The first Windows focused source gate after the bulk-restore pull produced `35 passed, 1 failed` because `Tests/test_daily_fact_reconstruction_verifier.py` still called `_replacement_id(session)` after the API became history-aware.
 
-- `35 passed`
-- `1 failed`
-
-Failure was isolated to `Tests/test_daily_fact_reconstruction_verifier.py`: the regression test still called `_replacement_id(session)` even though the implementation now requires the replacement-history argument used for immutable version allocation.
-
-The test was corrected to call `_replacement_id(session, [])` for the no-history/base-id case.
+The test was corrected to `_replacement_id(session, [])` for the no-history/base-id case.
 
 Fix commit:
 
-- `c43b677667c59d38b65b928d4126c36cf670f28c` — replacement-id regression test aligned with history-aware API.
+- `c43b677667c59d38b65b928d4126c36cf670f28c`
 
-Status: **focused Windows source gate must now be rerun before any V90 workbook mutation. Do not advance to V90 until green.**
+Rerun result:
+
+- **36 passed in 4.74s**
+
+Status: **focused source gate is green. Advance to V90 native re-placement.**
 
 ## Exact resume point
 
-1. Pull latest branch, including `c43b677667c59d38b65b928d4126c36cf670f28c` and documentation updates.
-2. Rerun focused tests for versioned ids + single restore + atomic batch restore; require green gate.
-3. Re-resolve the reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate, not suspension, and require new fact id `...:v2` and finalized day.
-4. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
-5. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-6. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-7. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
-8. Resume outpatient recurring create/edit native gate.
+1. Re-resolve the reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate, not suspension, and require new fact id `...:v2` and finalized day.
+2. Inspect V90 replacement facts; require the original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
+3. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
+4. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+5. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+6. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
+7. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
