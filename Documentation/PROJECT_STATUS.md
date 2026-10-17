@@ -23,6 +23,7 @@ Active milestone: **authoritative restore hardening + selected/all restore**.
 - V89 single authoritative restore + reconstruction: **native green**
 - V90 re-placement preview creation: **native green**
 - V90 fresh reconstruction verification: **native green**
+- V90 replacement-fact lifecycle inventory: **native green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -79,14 +80,14 @@ The focused source gate is green after the V90 rerun-persistence fix:
 
 - **37 passed in 7.13s**
 
-The previous V89 -> V90 native re-placement attempt exposed duplicate re-append of already persisted ACTIVE facts. That was fixed so only replacements created in the current run are appended, while existing ACTIVE facts remain in memory for workload/state reconstruction. Partial preview cleanup was also added.
+The earlier V89 -> V90 attempt exposed duplicate re-append of already persisted ACTIVE facts. That was fixed so only replacements created in the current run are appended, while existing ACTIVE facts remain in memory for workload/state reconstruction. Partial preview cleanup was also added.
 
 Commits:
 
 - `ae0f58d363ec0cbf357876cf6b4633e3f14d70e7` — rerun persistence + partial-preview cleanup
 - `88b75319273005b28d373d2a683701f82fe41fba` — regression coverage
 
-## V90 native re-placement and reconstruction result
+## V90 native re-placement, reconstruction and fact lifecycle result
 
 `Excel/previews/RERESOLVED_V90.xlsm` was recreated from V89 successfully using a candidate placement.
 
@@ -113,18 +114,23 @@ Fresh reconstruction then confirmed independently from the saved workbook:
 - finalized=ΝΑΙ
 - stored `DAILY_STATISTICS` matches reconstructed daily state exactly
 
-The day is operationally finalized and reconstruction-green again. The two suspensions in statistics are pre-existing durable facts, not new V90 suspensions.
+Explicit inventory then confirmed 6 historical replacement-fact rows:
 
-Current status: **V90 fresh reconstruction is green; explicit replacement-fact inventory remains the final precondition before V91/V92 restore testing.**
+- original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` = `RESTORED`,
+- four surviving unrelated facts = `ACTIVE`,
+- new `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19:v2` = `ACTIVE`.
+
+This validates the intended immutable lifecycle: restored history remains auditable and a later re-placement gets a new versioned id instead of reusing or resurrecting the old fact.
+
+Current status: **all V90 preconditions are green. Proceed to selected restore V91.**
 
 ## Immediate roadmap
 
-1. Inspect V90 and confirm old session/date fact remains `RESTORED` while new `:v2` fact is `ACTIVE`.
-2. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-3. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-4. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
-5. Resume outpatient recurring create/edit native gate.
-6. Later clean Python 3.14 ZipFile warnings.
+1. Restore exactly two ACTIVE facts from V90 into V91: the new `planner:57...:v2` fact and `planner:61...`; expect 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+2. Test `--all-active` restore from V90 into V92; expect 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+3. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
+4. Resume outpatient recurring create/edit native gate.
+5. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
