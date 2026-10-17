@@ -110,8 +110,27 @@ This pattern is now the preferred approach for future dynamically installed VBA 
 
 ## Documentation maintenance rule
 
-Whenever a major business rule, architectural choice, compatibility workaround, or project-stage transition is agreed:
-- update `Documentation/DECISIONS.md` if it is a durable decision
-- update `Documentation/PROJECT_STATUS.md` if it changes current progress, next steps, open risks or validation state
+Documentation is part of the implementation, not a cleanup task after implementation.
 
-These files are the recovery anchor for continuing the project after loss of conversational context.
+Whenever any meaningful development occurs, update the appropriate project records in the same work cycle. This includes:
+
+- implemented behaviour or changed semantics,
+- new tests or regression findings,
+- compatibility workarounds,
+- current validation state and native smoke results,
+- defects, risks and technical debt,
+- newly discovered necessities,
+- ideas or requirements that we decide should later be built,
+- functionality that should be removed, retired or replaced,
+- fixes that are known but intentionally deferred,
+- changes to implementation order or project priorities.
+
+Use the files by purpose:
+
+- `Documentation/DECISIONS.md` for durable business/architecture rules and agreed constraints,
+- `Documentation/PROJECT_STATUS.md` for current progress, open risks, validation state and immediate roadmap,
+- `Documentation/CURRENT_HANDOFF.md` for the exact resume point, latest checkpoints and commands/scenarios needed to continue safely,
+- `Documentation/IMPLEMENTATION_MAP.md` when ownership/location of implemented capability changes,
+- `CHANGELOG.md` for user-visible or implementation-relevant changes that belong in release history.
+
+Do not rely on chat history as the only record of a decision, requirement, idea, removal, deferred fix or newly discovered need. If it may affect future implementation, testing or recovery after context loss, it must be written into the repository documentation.
