@@ -22,6 +22,7 @@ Active milestone: **authoritative restore hardening + selected/all restore**.
 - V88 full restart reconstruction: **native green**
 - V89 single authoritative restore + reconstruction: **native green**
 - V90 re-placement preview creation: **native green**
+- V90 fresh reconstruction verification: **native green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -85,7 +86,7 @@ Commits:
 - `ae0f58d363ec0cbf357876cf6b4633e3f14d70e7` — rerun persistence + partial-preview cleanup
 - `88b75319273005b28d373d2a683701f82fe41fba` — regression coverage
 
-## V90 native re-placement result
+## V90 native re-placement and reconstruction result
 
 `Excel/previews/RERESOLVED_V90.xlsm` was recreated from V89 successfully using a candidate placement.
 
@@ -104,19 +105,26 @@ Confirmed from the native run:
 - source unchanged=True
 - VBA preserved=True
 
-The day is operationally finalized again. The two suspensions in statistics are pre-existing durable facts, not new V90 suspensions.
+Fresh reconstruction then confirmed independently from the saved workbook:
 
-Current status: **V90 preview creation is green; explicit fact inventory and fresh reconstruction verification are next and remain required before V91/V92 restore testing.**
+- persisted replacements reread: 5
+- treatment suspensions reread: 2
+- reconstructed unresolved: 0
+- finalized=ΝΑΙ
+- stored `DAILY_STATISTICS` matches reconstructed daily state exactly
+
+The day is operationally finalized and reconstruction-green again. The two suspensions in statistics are pre-existing durable facts, not new V90 suspensions.
+
+Current status: **V90 fresh reconstruction is green; explicit replacement-fact inventory remains the final precondition before V91/V92 restore testing.**
 
 ## Immediate roadmap
 
 1. Inspect V90 and confirm old session/date fact remains `RESTORED` while new `:v2` fact is `ACTIVE`.
-2. Verify V90 reconstructs with 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact DAILY_STATISTICS equivalence.
-3. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-4. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-5. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
-6. Resume outpatient recurring create/edit native gate.
-7. Later clean Python 3.14 ZipFile warnings.
+2. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+3. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+4. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
+5. Resume outpatient recurring create/edit native gate.
+6. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
