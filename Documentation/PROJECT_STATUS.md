@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Excel ledger authoritative restore bridge. Per-row and selected native correctness paths are green. Restore-all native gate remains, plus a Greek-only UI wording patch and a restore-latency performance item.**
+Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. The active ledger item is performance/UX latency.**
 
 ## Latest confirmed checkpoints
 
@@ -18,9 +18,11 @@ Active milestone: **Excel ledger authoritative restore bridge. Per-row and selec
 - ledger authoritative bridge source gate: **42 passed in 4.27s**
 - bridge preview-builder gate: **16 passed in 2.94s**
 - fact-to-ledger synchronization gate: **18 passed in 4.40s**
+- current focused bridge gate: **25 passed in 2.13s**
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row in-session Excel restore: **native green**
 - selected two-row in-session Excel restore: **native correctness green**
+- restore-all in-session Excel restore: **native correctness green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -32,83 +34,54 @@ Operational truth is reconstructable from durable facts:
 
 V88-V92 prove restart-safe reconstruction, immutable replacement lifecycle, atomic selected/all backend semantics, and exact stored-statistics equivalence.
 
-## ACTIVE: Excel ledger authoritative bridge
+## CLOSED: Excel ledger authoritative restore correctness
 
-### Projection contract
+`DAILY_REPLACEMENT_FACTS` is authoritative. `DAILY_CHANGE_LEDGER` is a UI/audit projection, never an independent truth source.
 
-`DAILY_REPLACEMENT_FACTS` is authoritative. `DAILY_CHANGE_LEDGER` is a UI/audit projection, never an independent truth source. The builder synchronizes the ledger from durable facts and preserves matching audit extras by immutable ReplacementId.
+The normal Excel restore workflow now:
 
-### UI lifecycle correction
+- runs the authoritative Python backend hidden and blocking
+- keeps the current workbook open
+- creates a rollback copy before apply
+- imports the verified operational state back into the open workbook
+- saves in-session
+- avoids the obsolete visible-console and close/reopen path
+- shows Greek-only business wording in the visible `Αιτία` column
 
-The first real Excel button test exposed two unacceptable lifecycle behaviors in the original bridge: visible `WScript.Shell.Exec` console and `ThisWorkbook.Close` failure. Git history showed that registration had already solved the same class of problem by moving the primary workflow into the already-open workbook.
+Native correctness is green for per-row, selected, and restore-all controls.
 
-The ledger now follows that pattern:
+Restore-all independently confirmed the expected end state:
 
-- authoritative Python restore/recompute still produces a verified preview
-- backend launch is hidden and blocking
-- current workbook remains open
-- rollback copy is created first
-- verified operational sheets are synchronized into the open workbook
-- workbook is saved in-session
-- no primary close/reopen worker
-- user success message contains no implementation wording
-
-### Per-row native result
-
-A fresh `LEDGER_ROW_SMOKE.xlsm` was built from trusted `RERESOLVED_V90.xlsm` with 5 ACTIVE ledger rows and exact authoritative parity. One ACTIVE row was restored from Excel without closing the workbook.
-
-Fact inventory after the action:
-
-- total facts = 6
-- RESTORED = 2
-- ACTIVE = 4
-- restored row = `planner:33...`
-- unrelated `planner:57...:v2` remained ACTIVE
-
-Fresh reconstruction independently confirmed:
-
-- persisted replacements = 4
+- active replacements = 0
 - treatment suspensions = 2
-- unresolved = 1
+- unresolved = 5
 - finalized = ΟΧΙ
 - stored `DAILY_STATISTICS` exactly matches reconstructed daily state
+- replacement history remains preserved as RESTORED facts
 
-The **per-row native gate is closed green**.
+The Greek reason rendering patch maps known internal values such as `DAILY_INPUT therapist absence` and `temporary replacement` to `Απουσία θεραπευτή` in the normal visible ledger.
 
-### Selected native result
+## ACTIVE: restore performance / UX latency
 
-The independent selected smoke restored exactly two ACTIVE rows atomically from Excel. The workbook remained open, no visible console appeared, and the user confirmed both fresh reconstruction and replacement inventory were fully green. The **selected correctness gate is closed green**.
+The remaining ledger issue is speed. Selected and restore-all actions take noticeably longer than acceptable.
 
-The selected action took noticeably longer than desired. This remains an explicit performance/UX item. Profile the backend preview/recompute phase and in-session workbook synchronization before changing safety guarantees.
+Profile before changing architecture. Likely hotspots are:
 
-### Greek-only user-facing cause labels
+- full Python preview/recompute work
+- Excel opening of the verified preview workbook
+- broad `UsedRange` copying across several operational sheets
+- repeated workbook saves
 
-Normal Excel UI must show only agreed Greek business terminology. Technical/internal English strings must not appear in `Αιτία`.
-
-The in-session ledger renderer now converts known legacy/internal replacement reasons `DAILY_INPUT therapist absence` and `temporary replacement` to `Απουσία θεραπευτή` for the visible ledger. Internal immutable IDs and historical technical storage remain unchanged.
-
-Recent commits:
-
-- in-session bridge implementation: `446f6f599a30f4a561b4be8a53967d1e02703e69`
-- builder wiring: `b7fdb206c2e9e3b3ed5758beb52e64d7056f5a54`
-- source regression updates: `8776b690f53d3b4972f87ad311da9efc863173dd`, `61a2f703936ea73dd1834095cf15e9ecf671a7f4`, `762b67dd086ad496f0c9cf3ac08927f955657eea`
-- success-message cleanup: `b1554ba1c5588ad936e704e5c91ab04cfdca306f`, `70cad9d1d3a44ea065a9a75da91202208518ab07`
-- Greek ledger reason rendering: `9bfa145175a0a7abc876084e2c767e2d1e570a7a`
-- Greek reason regression coverage: `74eb411e2e3eda455e5c920605fac013dbfd368a`
-- durable Greek-only UI decision: `9cd65165c9d14dbc52bb215e777c7acb6c2addb6`
+Optimization must preserve authoritative verification, rollback safety, immutable fact history, and exact reconstructed statistics.
 
 ## Immediate roadmap
 
-1. Pull latest branch.
-2. Run the focused ledger bridge tests after the Greek-only reason patch.
-3. Rebuild independent `LEDGER_ALL_SMOKE.xlsm` from trusted V90 so it contains the current bridge.
-4. Confirm visible `Αιτία` values are Greek only, then run restore-all.
-5. Restore-all expectation: active replacements 5 -> 0, unresolved=5, finalized=ΟΧΙ, suspensions=2, exact statistics.
-6. Require no visible console, no workbook close/reopen, correct ledger history, MASTER/THERAPIST_DAILY agreement, source/VBA safety.
-7. Once restore-all is native green, close the ledger migration correctness milestone.
-8. Profile and reduce the noticeable restore latency without weakening authoritative preview/recompute/rollback guarantees.
-9. Resume outpatient recurring create/edit native gate.
-10. Later clean Python 3.14 ZipFile warnings.
+1. Profile elapsed time across backend generation, preview open, sheet synchronization, and save phases.
+2. Reduce unnecessary Excel I/O and over-broad range copying.
+3. Add regression coverage for any narrower synchronization contract.
+4. Re-run focused bridge tests and one native restore smoke after each performance change.
+5. Once latency is acceptable, resume outpatient recurring create/edit native gate.
+6. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
