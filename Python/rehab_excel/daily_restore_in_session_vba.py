@@ -70,8 +70,7 @@ _IN_SESSION_BLOCK = r'''Private Function RunAuthoritativeRestore(ByVal replaceme
     RefreshDailyChangeLedgerView
     ThisWorkbook.Save
 
-    MsgBox "Η επαναφορά ολοκληρώθηκε και αποθηκεύτηκε χωρίς κλείσιμο του αρχείου.", _
-           vbInformation, "Επαναφορά"
+    MsgBox "Η επαναφορά ολοκληρώθηκε επιτυχώς.", vbInformation, "Επαναφορά"
 
     RunAuthoritativeRestore = True
 
