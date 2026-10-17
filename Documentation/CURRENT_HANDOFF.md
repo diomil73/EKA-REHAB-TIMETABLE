@@ -20,6 +20,7 @@ Last updated: 2026-10-17
 - V84 time-axis display + restore: native green
 - V85 stale-orange cleanup + restore: native green
 - V87 mixed orphan resolution: native green
+- V87 suspension/statistics reread persistence: native green
 
 Python 3.14 `ZipFile.__del__` warnings remain non-blocking technical debt.
 
@@ -29,13 +30,12 @@ Input: `ORPHAN_SMOKE_INPUT_V86.xlsm`
 Output: `ORPHAN_RESOLUTION_V87.xlsm`
 Date: `2026-10-19`
 
-Native result:
+Confirmed:
 
-- session cancellations: 2
 - accepted replacements: 5
 - treatment suspensions: 2
 - persisted suspension facts: 2
-- unresolved sessions: 0
+- unresolved: 0
 - scheduled: 80
 - performed: 78
 - replaced: 5
@@ -44,12 +44,7 @@ Native result:
 - VBA preserved: True
 - `DAILY_STATISTICS` created
 
-Suspended patients:
-
-- ΠΑΠΠΟΥ: Σάρρας 09:15 -> `Αναστολή θεραπείας`
-- ΣΑΒΒΑΚΗ: Σάρρας 10:45 -> `Αναστολή θεραπείας`
-
-Accepted placements:
+Placements:
 
 - ΤΣΙΚΟΒΑΣ -> Φιλιππούσης 10:45
 - ΜΑΛΑΠΑΝΗ -> Πέτσιος 10:00
@@ -57,41 +52,81 @@ Accepted placements:
 - ΜΑΡΙΝΟΠΟΥΛΟΥ -> Παπακίτσου 11:30
 - ΜΩΡΑΙΤΗΣ -> Αργέντος 10:45
 
-This confirms the mixed operational outcome works natively: one concrete day can contain both redistributions and explicit treatment suspensions, with unresolved=0.
+Suspensions:
 
-## Important architecture distinction discovered after V87
+- ΠΑΠΠΟΥ: Σάρρας 09:15 -> `Αναστολή θεραπείας`
+- ΣΑΒΒΑΚΗ: Σάρρας 10:45 -> `Αναστολή θεραπείας`
 
-Suspensions are now persisted authoritatively in output `DAILY_INPUT` and can be reconstructed by a fresh reader run.
+Fresh reread of V87 also confirmed:
 
-The five replacement placements in V87 are **not yet persisted as authoritative reread facts**. They exist in the generated effective workbook state, but a fresh recomputation after restart cannot yet reconstruct them from durable daily facts alone.
+- treatment suspensions reread: 2
+- stored statistics treatment_suspended: 2
+- stored unresolved: 0
+- stored finalized: ΝΑΙ
 
-Do not claim full daily-state restart persistence until replacement facts are persisted too.
+## ACTIVE milestone: authoritative replacement facts
 
-## Persistence verifier added
+The remaining restart gap was the five placement overlays. Source implementation is now in place, verification pending.
 
-New tool:
+New module:
 
-- `Python/tools/verify_orphan_resolution_persistence.py`
+- `Python/rehab_excel/daily_replacement_facts.py`
 
-It re-reads `DAILY_INPUT` from the saved workbook, counts `SessionCancellationKind.TREATMENT_SUSPENDED`, reads the stored `DAILY_STATISTICS`, and can assert:
+Structured very-hidden sheet:
 
-- expected suspended count,
-- expected unresolved count,
-- expected finalized flag.
+- `DAILY_REPLACEMENT_FACTS`
 
-Regression:
+Authoritative schema stores:
 
-- `Tests/test_verify_orphan_resolution_persistence.py`
+- ReplacementId
+- TargetSessionId
+- PatientId
+- OriginalTherapistId
+- ReplacementTherapistId
+- ReplacementDate
+- ReplacementTime
+- Reason
+- ProviderKind
+- Status (`ACTIVE`)
 
-Status: implementation committed; Windows source/native verification pending.
+Safety/semantics:
 
-## ACTIVE development focus
+- validates patient/original therapist/date against the concrete target Session,
+- rejects duplicate ReplacementId,
+- rejects multiple conflicting active facts for the same target session/date,
+- missing sheet is backward-compatible and means no persisted replacements,
+- blank provider kind defaults to therapist for legacy compatibility,
+- output writer is idempotent for the same semantic replacement,
+- conflicting replacement for the same target/date safety-stops,
+- replacement-date values are written as COM-safe datetime values,
+- fact sheet is `xlSheetVeryHidden`,
+- recurring/base remains untouched.
 
-1. Verify V87 suspension reread persistence.
-2. Persist replacement placements as authoritative date-specific daily facts so full daily state survives restart/recompute.
-3. Then connect restore to authoritative fact removal + full recompute instead of snapshot restoration.
-4. Test selected/all restore with multiple simultaneous changes.
-5. Resume outpatient recurring create/edit native gate.
+`apply_daily_input_replacements.py` now:
+
+- loads existing persisted replacement facts from the input workbook before resolution,
+- includes them in capacity/state calculations,
+- skips already resolved target sessions,
+- uses deterministic replacement IDs: `daily-input:<session_id>:<date>`,
+- persists all active replacement facts into the output workbook,
+- reports loaded and newly-written replacement fact counts.
+
+New full restart verifier:
+
+- `Python/tools/verify_daily_fact_reconstruction.py`
+
+It reconstructs the day from:
+
+`recurring/base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS`
+
+then compares reconstructed scheduled/performed/replaced/absent/postponed/no-show/suspended/unresolved/finalized values against stored `DAILY_STATISTICS`.
+
+New regressions:
+
+- `Tests/test_daily_replacement_facts.py`
+- `Tests/test_daily_fact_reconstruction_verifier.py`
+
+Status: **implemented, focused source gate pending; native V88 pending**.
 
 ## Locked orphan rule
 
@@ -115,11 +150,31 @@ Suspension representation:
 2. cancellations/no-shows release capacity,
 3. therapist absences,
 4. identify displaced/unscheduled existing patients,
-5. redistribute existing affected patients into net free capacity,
+5. load persisted replacements and redistribute existing affected patients into net free capacity,
 6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
 7. only then expose remaining capacity to new patients.
 
 Recomputation must remain idempotent and order-independent.
+
+## Exact resume point
+
+1. Run focused tests for replacement fact store + reconstruction verifier + orphan resolution imports.
+2. If green, rebuild from `ORPHAN_SMOKE_INPUT_V86.xlsm` to new `ORPHAN_RESOLUTION_V88.xlsm`, with at least one placement and one suspension.
+3. Native output must report persisted replacement facts and suspension facts, source unchanged and VBA preserved.
+4. Run `verify_daily_fact_reconstruction.py` against V88 and require replacement/suspension counts plus unresolved=0 and stored-statistics equivalence.
+5. Then use this authoritative fact store as the foundation for ledger restore by fact removal + full recompute.
+6. Test selected/all restore with multiple simultaneous changes.
+7. Resume outpatient recurring create/edit native gate.
+8. Clean Python 3.14 ZipFile warnings later.
+
+## Reversible daily change ledger
+
+Native green: active move rendering, MASTER sync, source trace, per-row restore, time-axis display, stale-orange cleanup.
+
+Still open:
+
+- selected/all restore with multiple simultaneous changes,
+- production restore via authoritative fact removal + recompute instead of snapshot restoration.
 
 ## Legacy `ΑΝΑΝΕΩΣΗ`
 
