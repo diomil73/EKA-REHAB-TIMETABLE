@@ -1,3 +1,4 @@
+import inspect
 from datetime import date, datetime, time
 
 from rehab_excel.daily_change_ledger_vba import (
@@ -6,6 +7,7 @@ from rehab_excel.daily_change_ledger_vba import (
     MODULE_NAME,
     VBA_CODE,
     _excel_date_value,
+    _remove_legacy_refresh_button,
 )
 
 
@@ -67,3 +69,10 @@ def test_ledger_refresh_preserves_readable_therapist_daily_time_axis():
     assert 'wsDaily.Range("A2:A8,A12:A18").NumberFormat = "hh:mm"' in VBA_CODE
     assert 'wsDaily.Range("A2:A8,A12:A18").HorizontalAlignment = xlCenter' in VBA_CODE
     assert 'wsDaily.Columns("A").ColumnWidth = 4' not in VBA_CODE
+
+
+def test_preview_removes_only_obsolete_refresh_button_by_caption():
+    source = inspect.getsource(_remove_legacy_refresh_button)
+    assert 'caption == "ανανέωση".casefold()' in source
+    assert "shape.Delete()" in source
+    assert "range(int(ws.Shapes.Count), 0, -1)" in source
