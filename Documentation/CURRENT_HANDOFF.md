@@ -28,6 +28,8 @@ Last updated: 2026-10-17
 - focused gate after MASTER batch-write patch: `35 passed in 3.67s`
 - diagnostic restore-all before MASTER batch write: Backend `45.70s`, rollback `0.14s`, preview open `0.88s`, sheet sync `0.20s`, final save `1.19s`
 - diagnostic restore-all after MASTER batch write: Backend `31.33s`, rollback `0.15s`, preview open `0.88s`, sheet sync `0.19s`, final save `1.23s`
+- direct backend profile after MASTER batch write: total `32.673s`, pre-Excel/verification `24.646s`, Excel output `8.027s`
+- Excel output sub-phases: dispatch `1.398s`, open `1.356s`, MASTER `1.787s`, daily patches `0.415s`, statistics `0.220s`, ledger rows `0.019s`, ledger refresh `0.033s`, save `1.626s`, close `0.363s`, quit `0.252s`
 - parity rebuild: row/selected/all smoke copies reported authoritative ledger parity and preserved source/VBA
 - in-session per-row restore: native green
 - in-session selected two-row restore: native correctness green
@@ -56,7 +58,7 @@ User-facing `Αιτία` is Greek-only for known replacement causes. Technical/i
 
 ## ACTIVE: restore performance / UX
 
-The first backend measurement isolated almost all latency inside the authoritative Python/backend leg. After batching MASTER projection COM writes, Backend fell from `45.70s` to `31.33s`, a reduction of about 14.4 seconds. Excel-side rollback/open/sync/save remains only about 2.45 seconds, so the remaining optimization target is still inside backend generation/output.
+The remaining bottleneck is no longer Excel output. Direct profiling shows roughly `24.646s` in the pre-Excel/verification leg versus `8.027s` for the complete hidden Excel output leg. MASTER write batching was still valuable, cutting native Backend from `45.70s` to `31.33s`, but further work must now focus on repeated workbook parsing and verification before Excel opens.
 
 Performance chain already applied:
 
@@ -68,20 +70,26 @@ Performance chain already applied:
 - bounded meaningful-range sync instead of broad `UsedRange`
 - explicit phase timing in the Excel success dialog
 - range-batched MASTER projection write-back
+- detailed backend profiler with Excel and pre-Excel sub-phase instrumentation
+- reuse of the already-loaded PATIENTS registry by `read_unified_base_schedule`
+- reuse of the already-computed MASTER projection by `build_master_daily_overlay_plan`
 
 MASTER batch implementation `d1fdced7ee46d63277dffa372c14572858345dea`, regression `eb6942296fbf3668e066c35bf672bb18fcc4cd4c`.
 
-A dedicated diagnostic tool now profiles the remaining backend output phases without changing the production restore contract: `Python/tools/profile_daily_restore_backend.py`. It reports backend total, non-Excel remainder, Excel dispatch, workbook open, MASTER projection, daily patches, statistics, ledger rows, ledger refresh, save, close and quit. Implementation `f75cc9ee2a3a9855306777862118610f4597c3ed`, tests `52b913a5f37bb0864bf9af902aa55241e0ac5e11`.
+Backend profiler implementation `f75cc9ee2a3a9855306777862118610f4597c3ed`; deeper pre-Excel instrumentation `6b28548e4a9a45c2ad8b59ffc5ea650db4fa4aca`, tests `836d4db2c5a568f3c1662244275bfcb9a3253bb6`.
+
+Pre-Excel read-reuse optimization commits: unified schedule API `a14c75a4c2664f348be67d59c5ccdbbe1d2ef17e`, MASTER overlay API `6eac109d96462f9255ad041c8c1d8d5649eec4cb`, restore integration `874b71c381e0996b2970960ba67a49f17f0e9eb0`, regression coverage `fc8cd34dfd074768f0723215036cd4cc16a61d13`, `d56eaadef3885645db4effa8b18f51c51b52c5c6`, `97f21934ae4b0e74af275ec89ee02f8c8af8f787`.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_profile_daily_restore_backend.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
-3. If green, run the backend profiler directly on a fresh trusted source copy:
-   `python Python/tools/profile_daily_restore_backend.py --input .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\BACKEND_PROFILE.xlsm --all-active --overwrite`
-4. Use the printed sub-phase timings to optimize the dominant remaining backend phase immediately. Do not spend more time on rollback/preview sync unless measurement changes.
+2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_profile_daily_restore_backend.py Tests/test_master_daily_overlay.py Tests/test_outpatient_schedule_source.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
+3. If green, rerun the backend profiler on trusted V90 with a fresh output:
+   `python Python/tools/profile_daily_restore_backend.py --input .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\BACKEND_PROFILE2.xlsm --all-active --overwrite`
+4. Use the newly printed pre-Excel sub-phases (`read_patients`, `read_base_schedule`, `read_daily_input`, `read_replacement_facts`, `build_master_projection`, `build_patient_preview`, `build_master_overlay`, hashes/VBA checks, etc.) to attack the largest remaining parser/read cost immediately.
 5. Re-run fresh reconstruction after the next performance change.
-6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+6. Keep the acceptance target at roughly `<=15s` total, ideally around 10s.
+7. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
@@ -112,7 +120,7 @@ Meaningful changes, regressions, native results, decisions, needs, planned addit
 
 Deferred/manual cosmetic cleanup. Not a blocker.
 
-## Recovery order if context is lost
+## Recovery order
 
 1. `Documentation/CURRENT_HANDOFF.md`
 2. `Documentation/IMPLEMENTATION_MAP.md`
