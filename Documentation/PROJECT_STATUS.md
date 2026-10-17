@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active. Backend improved materially but is still above target.**
+Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active. The dominant remaining cost is pre-Excel parsing/verification.**
 
 ## Latest confirmed checkpoints
 
@@ -26,8 +26,9 @@ Active milestone: **Restore correctness is closed green for per-row, selected, a
 - focused gate after bounded meaningful-range sync: **34 passed in 2.31s**
 - focused gate after timing instrumentation: **35 passed in 1.56s**
 - focused gate after MASTER batch-write patch: **35 passed in 3.67s**
-- native diagnostic before MASTER batch write: **Backend 45.70s**
 - native diagnostic after MASTER batch write: **Backend 31.33s**, rollback 0.15s, preview open 0.88s, sheet sync 0.19s, final save 1.23s
+- direct backend profile: **32.673s total**, **24.646s pre-Excel/verification**, **8.027s Excel output**
+- Excel output detail: dispatch 1.398s, workbook open 1.356s, MASTER 1.787s, daily patches 0.415s, statistics 0.220s, ledger rows 0.019s, refresh 0.033s, save 1.626s, close 0.363s, quit 0.252s
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row in-session Excel restore: **native green**
 - selected two-row in-session Excel restore: **native correctness green**
@@ -53,7 +54,7 @@ Native correctness is green for per-row, selected, and restore-all controls. Res
 
 ## ACTIVE: restore performance / UX latency
 
-The performance bottleneck is backend-side. MASTER projection batching produced a real gain: backend time fell from 45.70 seconds to 31.33 seconds, while Excel-side apply remains only about 2.45 seconds. This confirms that COM granularity inside backend output matters, but roughly 31 seconds still exceeds the target.
+MASTER projection batching produced a real gain: backend time fell from 45.70 seconds to 31.33 seconds. The next profiler run showed that only about 8.0 seconds now belong to the entire hidden Excel output session, while about 24.6 seconds occur before/around that session in parsing, reconstruction and verification. Excel-side apply after the backend remains about 2.4 seconds.
 
 Implemented optimization chain:
 
@@ -65,13 +66,14 @@ Implemented optimization chain:
 6. Broad `UsedRange` copies during verified-preview apply were replaced by bounded meaningful ranges resolved with Excel `Find`.
 7. The Excel bridge reports backend, rollback, preview-open, sheet-sync, and final-save timings.
 8. MASTER projection write-back is range-batched: one body clear, one 2-D formula-grid assignment, and at most two formatting PasteSpecial calls. Implementation `d1fdced7ee46d63277dffa372c14572858345dea`, regression `eb6942296fbf3668e066c35bf672bb18fcc4cd4c`.
-9. A dedicated backend profiler now instruments Excel dispatch, workbook open, MASTER projection, daily patch application, statistics, ledger rows, ledger refresh, workbook save, close, quit, total Excel-output time, and the non-Excel remainder. Production restore code is monkeypatched only within the profiler process and restored before exit. Implementation `f75cc9ee2a3a9855306777862118610f4597c3ed`, tests `52b913a5f37bb0864bf9af902aa55241e0ac5e11`.
+9. The backend profiler now instruments both Excel-output phases and individual pre-Excel phases. Deeper instrumentation commit `6b28548e4a9a45c2ad8b59ffc5ea650db4fa4aca`, tests `836d4db2c5a568f3c1662244275bfcb9a3253bb6`.
+10. The restore pipeline now reuses data it already computed instead of reopening/parsing the workbook for identical information: `read_unified_base_schedule(..., patients=patients)` avoids a duplicate PATIENTS load, and `build_master_daily_overlay_plan(..., master_projection_rows=master_projection)` avoids rebuilding MASTER projection a second time. Implementation commits `a14c75a4c2664f348be67d59c5ccdbbe1d2ef17e`, `6eac109d96462f9255ad041c8c1d8d5649eec4cb`, `874b71c381e0996b2970960ba67a49f17f0e9eb0`; regression commits `fc8cd34dfd074768f0723215036cd4cc16a61d13`, `d56eaadef3885645db4effa8b18f51c51b52c5c6`, `97f21934ae4b0e74af275ec89ee02f8c8af8f787`.
 
 ## Immediate roadmap
 
-1. Pull latest branch and run the focused tests including `Tests/test_profile_daily_restore_backend.py`.
-2. Run `Python/tools/profile_daily_restore_backend.py` against trusted `RERESOLVED_V90.xlsm` with a fresh output and `--all-active --overwrite`.
-3. Optimize the largest printed sub-phase immediately. Likely candidates are remaining daily patch COM traffic, workbook open/save, or non-Excel reconstruction/read work.
+1. Pull latest branch and run the focused test set including profiler, MASTER overlay, and outpatient schedule source tests.
+2. Rerun the backend profiler against trusted `RERESOLVED_V90.xlsm` using a fresh `BACKEND_PROFILE2.xlsm` output.
+3. Use the newly exposed pre-Excel timings to optimize the largest remaining read/parser phase. Likely candidates are repeated workbook loads in patient/base/daily/replacement readers, MASTER projection, patient preview role scanning, or final hash/VBA verification.
 4. Re-run fresh reconstruction after the next performance change.
 5. Keep the acceptance target at roughly **<=15 seconds total**, ideally around 10 seconds.
 6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
