@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **authoritative restore by daily-fact lifecycle + recompute**.
+Active milestone: **authoritative restore hardening + selected/all restore**.
 
 ## Latest confirmed checkpoints
 
@@ -17,89 +17,70 @@ Active milestone: **authoritative restore by daily-fact lifecycle + recompute**.
 - consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**
 - replacement fact focused gate: **28 passed, 3 warnings in 5.14s**
 - V87 mixed orphan scenario: **native green**
-- V87 suspension/statistics reread: **native green**
-- V88 full daily-state reconstruction across restart: **native green**
+- V88 full restart reconstruction: **native green**
+- V89 single authoritative restore + reconstruction: **native green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
 ## CLOSED: restart-safe authoritative daily state
 
-Fresh verification against `ORPHAN_RESOLUTION_V88.xlsm` confirmed:
+V88 proves the operational day survives restart through durable facts:
 
-- persisted replacements reread: 5
-- treatment suspensions reread: 2
-- reconstructed unresolved: 0
-- reconstructed finalized: ΝΑΙ
-- stored DAILY_STATISTICS exactly matches reconstructed DailySessionState
+`recurring/base + DAILY_INPUT + ACTIVE DAILY_REPLACEMENT_FACTS -> DailySessionState -> statistics`
 
-The operational day now survives restart through durable facts instead of relying on rendered workbook cells.
+Fresh reconstruction produced 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact DAILY_STATISTICS equivalence.
 
-## ACTIVE: authoritative restore
+## CLOSED: first authoritative restore
 
-The current Excel ledger macro still contains the old snapshot-copy implementation. New source foundation now exists to replace it safely.
+V89 restored one exact V88 fact through lifecycle change and full recompute.
 
-`daily_replacement_facts.py` now supports `ACTIVE` and `RESTORED` lifecycle:
+Confirmed after fresh reread:
 
-- RESTORED remains audit history,
-- RESTORED is excluded from effective daily state,
-- exact restore uses immutable ReplacementId,
-- stale undo cannot silently overwrite a newer fact,
-- same historical ReplacementId cannot be reused.
+- 1 historical fact = RESTORED,
+- 4 replacement facts = ACTIVE,
+- treatment suspensions=2,
+- unresolved=1,
+- finalized=ΟΧΙ,
+- stored statistics exactly match reconstructed state.
 
-New restore preview tool:
+The reopened orphan is expected because the original therapist absence remains active.
 
-- `Python/tools/restore_daily_replacement_fact.py`
+## ACTIVE: hardening and bulk restore
 
-It performs:
+Versioned replacement IDs are implemented:
 
-1. exact fact ACTIVE -> RESTORED,
-2. fresh daily-state reconstruction,
-3. statistics recomputation,
-4. MASTER recurring projection reset,
-5. THERAPIST_DAILY rebuild,
-6. surviving MASTER overlay reapplication,
-7. DAILY_STATISTICS rewrite,
-8. ledger history mark RESTORED,
-9. source/VBA preservation verification.
+- first generation keeps the legacy id,
+- re-placement after restore becomes `:v2`,
+- later cycles become `:v3`, etc.
 
-New regression:
+Atomic batch restore is also implemented:
 
-- `Tests/test_authoritative_daily_restore.py`
+- validate entire selected set before mutation,
+- missing/stale/already-restored member aborts the complete batch,
+- no partial restore,
+- selected restore by repeated exact ids,
+- restore-all over all ACTIVE facts,
+- one daily-state recompute and one statistics rewrite.
 
-Inventory helper:
+Files:
 
-- `Python/tools/inspect_daily_replacement_facts.py`
+- `Python/rehab_excel/daily_replacement_fact_batch.py`
+- `Python/tools/restore_daily_replacement_facts.py`
+- `Tests/test_daily_replacement_fact_batch.py`
+- `Tests/test_authoritative_bulk_daily_restore.py`
 
-Status: **implemented; focused source gate pending; first native authoritative restore V89 pending**.
-
-## Important restore behavior
-
-Undoing a placement does not imply the original session can run. If its therapist absence remains active, the session becomes orphan/unresolved again.
-
-Therefore after restoring one of the five V88 placements, the expected truth is likely:
-
-- active replacements: 4
-- treatment suspensions: 2
-- unresolved: 1
-- finalized: ΟΧΙ
-
-That is correct until the reopened orphan is re-placed or explicitly suspended.
-
-## Next hardening: replacement IDs
-
-Current IDs are `daily-input:<session_id>:<date>`. Once that ID is RESTORED, a later new placement for the same session/date must receive a new/versioned ID. The writer intentionally rejects historical ID reuse. Versioned ID generation follows the first successful V89 native restore.
+Status: **implementation complete; focused Windows gate pending**.
 
 ## Immediate roadmap
 
-1. Run focused lifecycle + restore tests.
-2. Inventory ACTIVE facts in V88.
-3. Restore one exact replacement into `AUTHORITATIVE_RESTORE_V89.xlsm`.
-4. Run full reconstruction verifier against V89 and verify recomputed statistics.
-5. Connect ledger per-row button to authoritative Python bridge instead of snapshot copy-back.
-6. Implement selected/all restore as safe multi-fact lifecycle change + one recompute.
-7. Add replacement-ID versioning for re-resolution.
-8. Resume outpatient recurring create/edit native gate.
-9. Later clean Python 3.14 ZipFile warnings.
+1. Pull latest branch and run focused tests for version IDs, single restore and batch restore.
+2. Re-resolve the one reopened V89 orphan with `apply_daily_input_replacements.py`; require new fact id ending `:v2`.
+3. Verify resulting workbook reconstructs with unresolved=0, finalized=ΝΑΙ and exact statistics equivalence.
+4. Test selected authoritative restore of two ACTIVE facts into a new preview.
+5. Test `--all-active` restore on a separate preview.
+6. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
+7. Resume outpatient recurring create/edit native gate.
+8. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
@@ -123,6 +104,7 @@ Legacy `ΑΝΑΝΕΩΣΗ` Form Control remains manual/deferred cosmetic cleanup.
 - preview workflows use copies,
 - preserve and verify VBA,
 - keep layout write zones narrow,
+- bulk restore validates the whole set before any mutation,
 - Windows tests use `python -m pytest`.
 
 ## Recovery order
