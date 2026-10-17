@@ -18,7 +18,8 @@ Active milestone: **Restore correctness is closed green for per-row, selected, a
 - ledger authoritative bridge source gate: **42 passed in 4.27s**
 - bridge preview-builder gate: **16 passed in 2.94s**
 - fact-to-ledger synchronization gate: **18 passed in 4.40s**
-- current focused bridge gate: **25 passed in 2.13s**
+- focused bridge/performance gate after first batching patch: **30 passed in 4.91s**
+- focused bridge/performance gate after statistics+ledger consolidation: **30 passed in 4.39s**
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row in-session Excel restore: **native green**
 - selected two-row in-session Excel restore: **native correctness green**
@@ -65,15 +66,17 @@ The Greek reason rendering patch maps known internal values such as `DAILY_INPUT
 
 The remaining ledger issue is speed. Selected and restore-all actions take noticeably longer than acceptable.
 
-First optimization is now implemented in `Python/tools/restore_daily_replacement_facts.py`: bulk selected/all restore no longer reopens Excel once per restored ReplacementId merely to mark ledger rows. All restored ledger rows are validated and marked in a single hidden Excel session, followed by one ledger refresh/save. This preserves the same authoritative fact lifecycle and visible result while removing repeated workbook open/save/close cycles. Regression coverage is in `Tests/test_authoritative_bulk_daily_restore.py`.
+Two optimization steps are implemented:
 
-Optimization commit: `fb445bbc08e6d2cbfd63820a13f8dc504192e954`; regression update: `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
+1. Bulk selected/all restore no longer reopens Excel once per restored ReplacementId merely to mark ledger rows. All restored ledger rows are validated and marked in a single hidden Excel session, followed by one ledger refresh/save. Implementation `fb445bbc08e6d2cbfd63820a13f8dc504192e954`, tests `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
+2. Daily statistics writing and ledger finalization now share that same hidden Excel session, removing another workbook open/save/close cycle. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
+
+Focused source gate after the second optimization: **30 passed in 4.39s**.
 
 Further profiling is still required. Remaining likely hotspots are:
 
 - MASTER projection Excel open/save
 - native write-plan Excel open/save
-- separate statistics write session
 - verified preview opening and broad `UsedRange` copying in the already-open workbook
 - repeated workbook saves around rollback/apply
 
@@ -81,10 +84,10 @@ Optimization must preserve authoritative verification, rollback safety, immutabl
 
 ## Immediate roadmap
 
-1. Run focused bulk-restore + bridge tests after the single-session ledger batching patch.
-2. Rebuild an independent selected/all smoke copy and compare perceived latency with the previous path.
-3. If latency remains high, consolidate remaining backend Excel sessions and profile the in-session preview synchronization/save phase.
-4. Re-run fresh reconstruction after every native performance smoke to prove no correctness regression.
+1. Rebuild an independent selected/all smoke copy from trusted V90 using the current branch.
+2. Repeat the native restore action and compare perceived latency with the previous path.
+3. Run fresh reconstruction after the action to prove no correctness regression.
+4. If latency remains high, consolidate the MASTER projection and native write-plan Excel phases next, then profile the in-session preview synchronization/save phase.
 5. Once latency is acceptable, resume outpatient recurring create/edit native gate.
 6. Later clean Python 3.14 ZipFile warnings.
 
