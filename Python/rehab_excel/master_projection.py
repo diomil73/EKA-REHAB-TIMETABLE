@@ -6,10 +6,9 @@ import re
 import unicodedata
 from typing import Iterable, Sequence
 
-from openpyxl import load_workbook
-
 from rehab_core.models import Patient, PatientType
 
+from .package_probe import WorkbookPackageProbe
 from .patient_registry_source import read_patient_registry
 
 
@@ -53,68 +52,84 @@ def _room_number(room: str | None) -> int | None:
     return int(match.group(1))
 
 
+def _package_patient_id(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        numeric = float(text)
+    except ValueError:
+        return text
+    if numeric.is_integer():
+        return str(int(numeric))
+    return text
+
+
 def _projection_metadata(
     path: str | Path,
     *,
     room_order: Sequence[str] | None,
 ) -> tuple[tuple[str, ...], dict[str, int], int]:
-    """Read all workbook metadata needed for MASTER in one openpyxl session."""
+    """Read lightweight MASTER metadata directly from the OOXML package.
 
-    workbook_path = Path(path)
-    wb = load_workbook(
-        workbook_path,
-        read_only=True,
-        data_only=True,
-        keep_vba=workbook_path.suffix.casefold() == ".xlsm",
-    )
-    try:
-        if "PATIENTS" not in wb.sheetnames:
-            raise MasterProjectionError("Workbook has no PATIENTS sheet")
+    These values are stored workbook data and do not require Excel formula
+    evaluation. Reading the package directly avoids loading the full macro-enabled
+    workbook with openpyxl during every daily restore.
+    """
 
-        patient_ws = wb["PATIENTS"]
-        row_by_id: dict[str, int] = {}
-        for row in range(2, patient_ws.max_row + 1):
-            raw = patient_ws.cell(row, 1).value
-            if raw is None:
-                continue
-            if isinstance(raw, float) and raw.is_integer():
-                patient_id = str(int(raw))
-            else:
-                patient_id = str(raw).strip()
-            if not patient_id:
-                continue
-            if patient_id in row_by_id:
-                raise MasterProjectionError(
-                    f"Duplicate PatientID {patient_id!r} in PATIENTS"
-                )
-            row_by_id[patient_id] = row
+    probe = WorkbookPackageProbe(path)
+    sheet_names = set(probe.sheet_names)
+    if "PATIENTS" not in sheet_names:
+        raise MasterProjectionError("Workbook has no PATIENTS sheet")
 
-        if room_order is None:
-            if "SETTINGS" not in wb.sheetnames:
-                raise MasterProjectionError("Workbook has no SETTINGS sheet")
-            settings_ws = wb["SETTINGS"]
-            rooms = tuple(
-                str(settings_ws.cell(row, 8).value).strip()
-                for row in range(2, settings_ws.max_row + 1)
-                if settings_ws.cell(row, 8).value is not None
-                and str(settings_ws.cell(row, 8).value).strip()
+    patient_values = probe.cell_values("PATIENTS")
+    row_by_id: dict[str, int] = {}
+    for address, raw in patient_values.items():
+        match = re.fullmatch(r"A(\d+)", address)
+        if match is None:
+            continue
+        row = int(match.group(1))
+        if row < 2:
+            continue
+        patient_id = _package_patient_id(raw)
+        if not patient_id:
+            continue
+        if patient_id in row_by_id:
+            raise MasterProjectionError(
+                f"Duplicate PatientID {patient_id!r} in PATIENTS"
             )
-        else:
-            rooms = tuple(room_order)
+        row_by_id[patient_id] = row
 
-        header_row = 1
-        if "MASTER_SCHEDULE" in wb.sheetnames:
-            master_ws = wb["MASTER_SCHEDULE"]
-            for row in range(1, min(master_ws.max_row, 10) + 1):
-                room = str(master_ws.cell(row, 2).value or "").strip().casefold()
-                patient = str(master_ws.cell(row, 3).value or "").strip().casefold()
-                if room == "θάλαμος".casefold() and patient == "ασθενής".casefold():
-                    header_row = row
-                    break
+    if room_order is None:
+        if "SETTINGS" not in sheet_names:
+            raise MasterProjectionError("Workbook has no SETTINGS sheet")
+        settings_values = probe.cell_values("SETTINGS")
+        room_rows: list[tuple[int, str]] = []
+        for address, raw in settings_values.items():
+            match = re.fullmatch(r"H(\d+)", address)
+            if match is None:
+                continue
+            row = int(match.group(1))
+            if row < 2:
+                continue
+            value = str(raw or "").strip()
+            if value:
+                room_rows.append((row, value))
+        rooms = tuple(value for _row, value in sorted(room_rows))
+    else:
+        rooms = tuple(room_order)
 
-        return rooms, row_by_id, header_row
-    finally:
-        wb.close()
+    header_row = 1
+    if "MASTER_SCHEDULE" in sheet_names:
+        master_values = probe.cell_values("MASTER_SCHEDULE")
+        for row in range(1, 11):
+            room = str(master_values.get(f"B{row}", "") or "").strip().casefold()
+            patient = str(master_values.get(f"C{row}", "") or "").strip().casefold()
+            if room == "θάλαμος".casefold() and patient == "ασθενής".casefold():
+                header_row = row
+                break
+
+    return rooms, row_by_id, header_row
 
 
 def build_master_projection(
