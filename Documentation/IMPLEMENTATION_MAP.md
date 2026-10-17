@@ -25,24 +25,30 @@ Architecture locked:
 - reason παραμένει auditable,
 - ημέρα finalized μόνο με `unresolved_sessions == 0`.
 
-Domain foundation: **source green, 21 passed in 3.11s**.
+Source status:
 
-Operational wiring τώρα implemented και περιμένει consolidated gate:
+- domain foundation green,
+- mandatory placement/suspension flow green,
+- suspension persistence green,
+- DAILY_INPUT reread support green,
+- `Αναστολή θεραπείας` dropdown green,
+- DAILY_STATISTICS writer green,
+- consolidated operational gate: **43 passed, 3 warnings in 5.15s**.
 
-- sequential flow δεν επιτρέπει πλέον `leave unresolved`,
-- candidate number = placement,
-- `S` = `Αναστολή θεραπείας`,
-- `Q` = abort whole preview,
-- no-candidate orphan απαιτεί `S` ή `Q`,
-- finalization safety gate πριν γραφτεί workbook,
-- generated suspension γράφεται στο output `DAILY_INPUT` ως date-specific fact,
-- `daily_input_reader.py` ξαναδιαβάζει το status ως `TREATMENT_SUSPENDED`,
-- dropdown του `DAILY_INPUT` περιλαμβάνει `Αναστολή θεραπείας`,
-- persistence writer είναι idempotent για patient/time/status.
+### 2. Native mixed-orphan verification
 
-### 2. Daily statistics
+Νέο deterministic helper:
 
-Domain statistics source green για:
+- `Python/tools/prepare_orphan_smoke_input.py`
+- output target: `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm`
+
+Ο helper διαλέγει αυτόματα therapist με τουλάχιστον δύο sessions στη συγκεκριμένη ημέρα και βάζει whole-day absence στο DAILY_INPUT. Στόχος native smoke: τουλάχιστον ένας orphan να τοποθετηθεί και τουλάχιστον ένας να πάρει `Αναστολή θεραπείας`.
+
+Regression: `Tests/test_prepare_orphan_smoke_input.py`.
+
+### 3. Daily statistics
+
+Το `DAILY_STATISTICS` sheet γράφεται από το ίδιο finalized `DailySessionState` και περιλαμβάνει:
 
 - scheduled,
 - performed,
@@ -51,13 +57,12 @@ Domain statistics source green για:
 - department postponed,
 - patient no-show,
 - treatment suspended,
-- unresolved.
+- unresolved,
+- finalized.
 
-Νέο `DAILY_STATISTICS` workbook sheet implemented. Γράφεται από το ίδιο finalized `DailySessionState` και περιλαμβάνει επίσης `finalized = ΝΑΙ/ΟΧΙ`.
+Source green. Native workbook verification pending.
 
-Status: **implemented, consolidated source gate + native verification pending**.
-
-### 3. Daily effective state: MASTER + THERAPIST_DAILY + ledger
+### 4. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
 Το stress case ΜΕΝΤΗΣ είναι native green για:
 
@@ -68,11 +73,11 @@ Status: **implemented, consolidated source gate + native verification pending**.
 - readable `hh:mm` time axis,
 - stale robotic-orange leak fix.
 
-### 4. Legacy `ΑΝΑΝΕΩΣΗ`
+### 5. Legacy `ΑΝΑΝΕΩΣΗ`
 
 **Deferred/manual cleanup**. Δεν είναι blocker και δεν ξανανοίγει τώρα.
 
-### 5. Reversible daily change ledger
+### 6. Reversible daily change ledger
 
 Native green:
 
@@ -87,7 +92,7 @@ Open:
 - selected/all restore σε multi-change preview,
 - production restore = authoritative overlay removal + recompute, όχι snapshot restore.
 
-### 6. Dynamic daily recomputation
+### 7. Dynamic daily recomputation
 
 Locked order:
 
@@ -101,14 +106,14 @@ Locked order:
 
 Recompute idempotent και order-independent, χωρίς destructive recurring edits.
 
-### 7. Replacement operational load semantics
+### 8. Replacement operational load semantics
 
 - authoritative load = occupied timeslots,
 - shared slot με πολλούς patients = ένα occupied timeslot,
 - ranking πρώτα occupied timeslots, μετά session count,
 - output `load x/y | patients n`.
 
-### 8. Outpatient recurring create/edit
+### 9. Outpatient recurring create/edit
 
 Παραμένει open και επιστρέφει μετά το current orphan/daily-state milestone.
 
@@ -129,33 +134,20 @@ Recompute idempotent και order-independent, χωρίς destructive recurring 
 - V83 MASTER sync + restore: native green.
 - V84 time-axis + restore: native green.
 - V85 stale-orange cleanup + restore: native green.
-- Suspension/statistics domain slice: **source green, 21 passed in 3.11s**.
+- Suspension/statistics domain slice: **21 passed in 3.11s**.
+- Consolidated orphan operational flow/persistence/statistics gate: **43 passed, 3 warnings in 5.15s**.
 
 ## Τρέχον verification gate
 
-1. Run consolidated source gate for orphan action flow, suspension persistence, DAILY_INPUT dropdown and DAILY_STATISTICS.
-2. Native mixed orphan scenario: τουλάχιστον μία placement και μία suspension.
-3. Verify output reread: suspension fact recognized, unresolved=0, finalized=ΝΑΙ, source unchanged, VBA preserved.
-4. Test selected/all restore with multiple changes.
-5. Replace snapshot restore with authoritative overlay removal + recompute.
-6. Resume outpatient recurring create/edit gate.
-7. Clean Python 3.14 ZipFile teardown warnings later.
-
-Focused Windows gate:
-
-```powershell
-python -m pytest `
-  Tests/test_daily_input_cancellations.py `
-  Tests/test_daily_input_sheet.py `
-  Tests/test_apply_daily_input_replacements_resolution.py `
-  Tests/test_daily_operational_fact_writer.py `
-  Tests/test_daily_statistics_writer.py `
-  Tests/test_orphan_treatment_suspension.py `
-  Tests/test_daily_treatment_statistics.py `
-  Tests/test_daily_state.py `
-  Tests/test_therapist_absence_queue.py `
-  Tests/test_cancellation_releases_replacement_capacity.py -q
-```
+1. Run `Tests/test_prepare_orphan_smoke_input.py`.
+2. Build `ORPHAN_SMOKE_INPUT_V86.xlsm` for `2026-10-19`.
+3. Resolve one orphan by placement and one by `S = Αναστολή θεραπείας` into V87.
+4. Verify DAILY_INPUT persisted fact + DAILY_STATISTICS unresolved=0/finalized=ΝΑΙ + source/VBA safety.
+5. Re-read output to confirm persistence.
+6. Test selected/all restore with multiple changes.
+7. Replace snapshot restore with authoritative overlay removal + recompute.
+8. Resume outpatient recurring create/edit gate.
+9. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
