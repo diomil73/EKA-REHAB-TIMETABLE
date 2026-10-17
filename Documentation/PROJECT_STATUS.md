@@ -6,62 +6,65 @@ Last updated: 2026-10-17
 
 The project remains on branch `feature/outpatient-scheduling`.
 
-The patient-centric multi-treatment scheduling milestone is closed. The active operational milestone is **one concrete-date effective state across MASTER + THERAPIST_DAILY + ledger + statistics**, with outpatient recurring create/edit still open behind it.
+The active operational milestone is **one concrete-date effective state across MASTER + THERAPIST_DAILY + ledger + statistics**, with orphan resolution and outpatient recurring create/edit still open behind it.
 
 Latest full-suite checkpoint after cleanup: **699 passed, 19 warnings**.
 Latest focused operational regression checkpoint: **31 passed in 2.04s**.
 Latest MASTER daily-overlay gate: **24 passed, 5 warnings in 4.39s**.
 
-The 5 warnings are Python 3.14 `PytestUnraisableExceptionWarning` messages from `ZipFile.__del__` during workbook-test teardown. They are currently non-blocking technical debt, not a failed functional gate.
+Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
 ## Current native checkpoint
 
-`Excel/previews/DAILY_CHANGE_LEDGER_V84.xlsm` is the latest native checkpoint.
+`Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm` is the latest native checkpoint.
 
 Stress case:
 
 - date `2026-10-19`,
 - patient `ΜΕΝΤΗΣ`,
 - original `Σκαρώνης 09:15`,
-- selected replacement `Μηλιδάκης 10:45`,
-- source unchanged,
-- VBA preserved,
-- ledger installed.
+- replacement `Μηλιδάκης 10:45`.
 
-Native behavior confirmed:
+Native green:
 
-- `THERAPIST_DAILY` shows the effective replacement and keeps the source-position trace,
-- `MASTER` shows the same effective daily assignment while the move is active,
-- individual restore returns both views to `Σκαρώνης 09:15`,
-- left-side time axis now shows readable `hh:mm`; the `####` issue is closed.
+- THERAPIST_DAILY effective move + source trace,
+- MASTER effective daily assignment,
+- individual restore returns both views to original,
+- readable left time axis with no `####`,
+- moved ΜΕΝΤΗΣ no longer inherits robotic-orange styling.
 
-Therefore MASTER daily-state integration, individual restore, and time-axis display are **native green for the V84 stress case**.
+## Remaining presentation issue: legacy refresh button
 
-## Current source fixes awaiting native verification
+The obsolete `ΑΝΑΝΕΩΣΗ` button still appeared in V85. Native diagnostic identified it exactly as:
 
-Two presentation issues remain visible in V84:
+- Excel Form Control / Shape type `8`,
+- name `Button 1`,
+- caption `ΑΝΑΝΕΩΣΗ`,
+- macro `DAILY_CHANGE_LEDGER_V85.xlsm!RefreshAll`,
+- OLEObjects `0`.
 
-1. moved non-robotic infectious ΜΕΝΤΗΣ appears orange at destination,
-2. obsolete legacy `ΑΝΑΝΕΩΣΗ` button remains.
+A surgical cleanup is now implemented:
 
-Implemented fixes:
+- enumerate `ws.Buttons()` directly,
+- remove only when name=`Button 1`, caption=`ΑΝΑΝΕΩΣΗ`, and terminal macro=`RefreshAll`,
+- keep a shape fallback with the same triple identity,
+- ledger and toolbar controls are explicitly outside the target pattern.
 
-- rich-text cell rewrite resets stale whole-cell font color to default black before semantic runs are applied,
-- only actual `robotic_orange` text runs receive orange,
-- ledger preview installer deletes only `THERAPIST_DAILY` shapes whose exact caption is `ΑΝΑΝΕΩΣΗ`, preserving ledger controls.
+Commits:
 
-Regression coverage added for both fixes.
+- `e62ce5354752a61c4b10568ba184991b51b24c67` regression
+- `5c51e8988797ce67358a6886e5e41f9bf5bb848c` implementation
 
-Status: **implemented, focused tests + native preview verification pending**.
+Status: **source implemented, focused/native verification pending**.
 
 ## Orphan workflow locked
 
-The daily `Ορφανοί` list is an operational queue. Every unresolved/displaced patient must end as either:
+Every patient in `Ορφανοί` for the concrete date must end as either:
 
 - placed in a valid therapist/time slot, or
 - `Αναστολή θεραπείας` for that date only.
 
-Suspension is a daily overlay/status, never a recurring delete, and feeds statistics as a non-performed treatment with explicit reason. No orphan may silently disappear.
+Suspension is a daily overlay/status, never a recurring delete, and must feed daily statistics as a non-performed treatment with explicit reason. Existing displaced patients precede new-patient allocation.
 
 ## Daily operational rules locked
 
@@ -70,11 +73,10 @@ Suspension is a daily overlay/status, never a recurring delete, and feeds statis
 - cancellations release same-day capacity,
 - therapist absences and cancellations may arrive in any order,
 - recomputation is idempotent,
-- displaced existing patients precede new patients,
 - remaining orphans are explicitly placed or suspended,
 - recurring/base schedules are never destructively edited for one-day facts,
 - date-specific moves are reversible,
-- mixed inpatient/outpatient presentation ambiguity must not block valid movement.
+- MASTER and THERAPIST_DAILY must agree on effective daily state.
 
 ## Accepted MASTER UX
 
@@ -89,21 +91,20 @@ Native V81 remains green:
 
 The branch contains inpatient/outpatient types, separate authoritative `OUTPATIENT_SCHEDULE`, unified base reads, outpatient presentation, daily operational integration, cancellation/no-show overlays, and outpatient schedule registration/suggestion/conflict infrastructure.
 
-Outpatient recurring create/edit native verification remains open after the current daily-state integration work.
+Outpatient recurring create/edit native verification remains open after the current daily-state/orphan work.
 
 ## Immediate roadmap
 
-1. Run focused tests for stale-font reset and legacy refresh-button removal.
+1. Run focused legacy-button regression.
 2. Build fresh guided replacement preview.
-3. Verify ΜΕΝΤΗΣ at `Μηλιδάκης 10:45` is not orange unless actually robotic.
-4. Verify legacy `ΑΝΑΝΕΩΣΗ` is gone while ledger controls remain.
-5. Verify individual restore still works and MASTER/THERAPIST_DAILY stay synchronized.
-6. Implement/verify orphan final outcomes and statistics.
-7. Test selected/all restore with multiple changes.
-8. Replace preview snapshot restore with authoritative overlay removal + full daily recomputation.
-9. Resume outpatient recurring create/edit native gate.
-10. Continue remaining native checks and branch/PR hardening.
-11. Clean up Python 3.14 ZipFile teardown warnings when convenient.
+3. Verify legacy `ΑΝΑΝΕΩΣΗ` is gone while toolbar/ledger controls remain.
+4. Close presentation cleanup milestone if green.
+5. Implement orphan placement / `Αναστολή θεραπείας` outcomes and statistics.
+6. Test selected/all restore with multiple changes.
+7. Replace preview snapshot restore with authoritative overlay removal + full daily recomputation.
+8. Resume outpatient recurring create/edit native gate.
+9. Continue remaining native checks and branch/PR hardening.
+10. Clean Python 3.14 ZipFile teardown warnings when convenient.
 
 ## Safety constraints
 
