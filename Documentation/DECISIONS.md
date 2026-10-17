@@ -90,6 +90,12 @@ This is a daily operational override, not a change to the patient's base program
 - Patient status options come from `SETTINGS` column F.
 - Inpatient-only controls are disabled/cleared when type changes to outpatient.
 
+## Daily operational UI terminology
+
+User-visible daily operational fields must use the agreed Greek business terminology only. Internal technical identifiers, source labels, command names or English implementation strings must never leak into normal Excel UI fields such as `Αιτία`.
+
+For replacement rows created by the `DAILY_INPUT` therapist-absence workflow, legacy technical values such as `DAILY_INPUT therapist absence` or `temporary replacement` are rendered to the user as `Απουσία θεραπευτή`. Internal immutable IDs may remain technical because they are not user-facing labels.
+
 ## Excel/VBA compatibility
 
 The target Excel/pywin32 installation rejected programmatic COM writes to some MSForms `Width`/`Height` properties.
