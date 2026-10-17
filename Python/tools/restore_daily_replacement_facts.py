@@ -30,7 +30,8 @@ from rehab_excel.daily_replacement_facts import (  # noqa: E402
 )
 from rehab_excel.daily_statistics_writer import (  # noqa: E402
     DailyStatisticsWriteError,
-    write_daily_statistics,
+    SHEET_NAME as DAILY_STATISTICS_SHEET,
+    build_daily_statistics_rows,
 )
 from rehab_excel.master_daily_overlay import (  # noqa: E402
     MasterDailyOverlayError,
@@ -101,30 +102,31 @@ def _requested_restore_ids(
     return cleaned
 
 
-def _mark_ledger_rows_restored_once(
+def _finalize_restore_output_once(
     workbook_path: Path,
+    *,
+    target_date,
+    statistics,
     replacement_ids: tuple[str, ...],
 ) -> None:
-    """Mark all restored ledger rows in one Excel session.
+    """Persist statistics and restored ledger rows in one native Excel session.
 
-    The previous bulk path reopened Excel once per replacement id. On selected/all
-    restores that dominated perceived latency. This keeps the same authoritative
-    semantics while collapsing those repeated workbook open/save/close cycles into
-    one native Excel transaction.
+    The output workbook already contains the recomputed operational write plan.
+    Final statistics plus ledger lifecycle metadata are both small workbook-local
+    updates, so reopening Excel separately for each phase only adds latency without
+    increasing safety. This helper applies both, refreshes the ledger view once,
+    and saves once per finalization stage.
     """
 
-    if not replacement_ids:
-        return
     if sys.platform != "win32":
         raise AuthoritativeDailyRestoreError(
-            "Ledger refresh requires Windows + Microsoft Excel"
+            "Restore output finalization requires Windows + Microsoft Excel"
         )
     try:
         import win32com.client  # type: ignore[import-not-found]
     except ImportError as exc:
         raise AuthoritativeDailyRestoreError("pywin32 is required") from exc
 
-    wanted = set(replacement_ids)
     excel = None
     workbook = None
     try:
@@ -136,51 +138,89 @@ def _mark_ledger_rows_restored_once(
         workbook = excel.Workbooks.Open(
             str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
         )
-        try:
-            ws = workbook.Worksheets(LEDGER_SHEET)
-        except Exception:
-            workbook.Save()
-            return
 
-        last_row = int(ws.Cells(ws.Rows.Count, 1).End(-4162).Row)
-        matches: dict[str, list[int]] = {replacement_id: [] for replacement_id in wanted}
-        for row in range(2, last_row + 1):
-            replacement_id = str(ws.Cells(row, 1).Value or "").strip()
-            if replacement_id in matches:
-                matches[replacement_id].append(row)
-
-        duplicates = [
-            replacement_id
-            for replacement_id, rows in matches.items()
-            if len(rows) > 1
-        ]
-        if duplicates:
-            raise AuthoritativeDailyRestoreError(
-                f"Duplicate ledger ChangeId(s): {duplicates!r}"
+        stats_sheet = None
+        for sheet in workbook.Worksheets:
+            if str(sheet.Name).casefold() == DAILY_STATISTICS_SHEET.casefold():
+                stats_sheet = sheet
+                break
+        if stats_sheet is None:
+            stats_sheet = workbook.Worksheets.Add(
+                After=workbook.Worksheets(workbook.Worksheets.Count)
             )
+            stats_sheet.Name = DAILY_STATISTICS_SHEET
+        else:
+            stats_sheet.Cells.Clear()
 
-        restored_at = datetime.now()
-        for replacement_id in replacement_ids:
-            rows = matches.get(replacement_id, [])
-            if not rows:
-                continue
-            row = rows[0]
-            ws.Cells(row, 12).Value = STATUS_RESTORED
-            ws.Cells(row, 17).Value = restored_at
+        rows = build_daily_statistics_rows(target_date, statistics)
+        stats_sheet.Range("A1:C1").Merge()
+        stats_sheet.Range("A1").Value = "ΗΜΕΡΗΣΙΑ ΣΤΑΤΙΣΤΙΚΑ ΘΕΡΑΠΕΙΩΝ"
+        stats_sheet.Range("A1").Font.Bold = True
+        stats_sheet.Range("A1").Font.Size = 14
+        stats_sheet.Range("A3").Value = "Δείκτης"
+        stats_sheet.Range("B3").Value = "Περιγραφή"
+        stats_sheet.Range("C3").Value = "Τιμή"
+        stats_sheet.Range("A3:C3").Font.Bold = True
+        for offset, item in enumerate(rows, start=4):
+            stats_sheet.Cells(offset, 1).Value = item.key
+            stats_sheet.Cells(offset, 2).Value = item.label
+            stats_sheet.Cells(offset, 3).Value = item.value
+        stats_sheet.Columns("A").ColumnWidth = 24
+        stats_sheet.Columns("B").ColumnWidth = 34
+        stats_sheet.Columns("C").ColumnWidth = 18
+        try:
+            stats_sheet.Range(f"A3:C{3 + len(rows)}").Borders.LineStyle = 1
+        except Exception:
+            pass
+
+        try:
+            ledger = workbook.Worksheets(LEDGER_SHEET)
+        except Exception:
+            ledger = None
+
+        if ledger is not None and replacement_ids:
+            wanted = set(replacement_ids)
+            last_row = int(ledger.Cells(ledger.Rows.Count, 1).End(-4162).Row)
+            matches: dict[str, list[int]] = {
+                replacement_id: [] for replacement_id in wanted
+            }
+            for row in range(2, last_row + 1):
+                replacement_id = str(ledger.Cells(row, 1).Value or "").strip()
+                if replacement_id in matches:
+                    matches[replacement_id].append(row)
+
+            duplicates = [
+                replacement_id
+                for replacement_id, matched_rows in matches.items()
+                if len(matched_rows) > 1
+            ]
+            if duplicates:
+                raise AuthoritativeDailyRestoreError(
+                    f"Duplicate ledger ChangeId(s): {duplicates!r}"
+                )
+
+            restored_at = datetime.now()
+            for replacement_id in replacement_ids:
+                matched_rows = matches.get(replacement_id, [])
+                if not matched_rows:
+                    continue
+                row = matched_rows[0]
+                ledger.Cells(row, 12).Value = STATUS_RESTORED
+                ledger.Cells(row, 17).Value = restored_at
 
         workbook.Save()
         try:
             excel.Run(f"'{workbook.Name}'!RefreshDailyChangeLedgerView")
             workbook.Save()
         except Exception:
-            # Facts and ledger history are already persisted. Rendering is a UI
-            # convenience and must not invalidate the authoritative restore.
+            # Facts, statistics and ledger lifecycle state are already persisted.
+            # Rendering is a UI convenience and must not invalidate the restore.
             pass
     except AuthoritativeDailyRestoreError:
         raise
     except Exception as exc:
         raise AuthoritativeDailyRestoreError(
-            f"Could not update daily change ledger after authoritative bulk restore: {exc}"
+            f"Could not finalize authoritative bulk restore output: {exc}"
         ) from exc
     finally:
         if workbook is not None:
@@ -281,8 +321,12 @@ def restore_replacements_and_recompute(
             output,
             overwrite=overwrite,
         )
-        write_daily_statistics(output, target_date, statistics)
-        _mark_ledger_rows_restored_once(output, tuple(restored_ids))
+        _finalize_restore_output_once(
+            output,
+            target_date=target_date,
+            statistics=statistics,
+            replacement_ids=tuple(restored_ids),
+        )
 
         source_after = _sha256(source)
         if source_before != source_after:
