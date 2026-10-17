@@ -110,16 +110,31 @@ Commits:
 - selected/all tool: `d109af5eed7b09354e3e13bdf8e065d58ba817db`
 - selected/all pipeline tests: `b8690432a5927de671e5e08edc41e3a57bc0d5af`
 
-Status: **implemented; Windows source gate pending**.
+### 2026-10-17 focused gate regression
+
+The first Windows focused source gate after the bulk-restore pull produced:
+
+- `35 passed`
+- `1 failed`
+
+Failure was isolated to `Tests/test_daily_fact_reconstruction_verifier.py`: the regression test still called `_replacement_id(session)` even though the implementation now requires the replacement-history argument used for immutable version allocation.
+
+The test was corrected to call `_replacement_id(session, [])` for the no-history/base-id case.
+
+Fix commit:
+
+- `c43b677667c59d38b65b928d4126c36cf670f28c` — replacement-id regression test aligned with history-aware API.
+
+Status: **focused Windows source gate must now be rerun before any V90 workbook mutation. Do not advance to V90 until green.**
 
 ## Exact resume point
 
-1. Pull latest branch.
-2. Run focused tests for versioned ids + single restore + atomic batch restore.
-3. Re-resolve the reopened V89 orphan with `apply_daily_input_replacements.py`; require new fact id `...:v2` and finalized day.
-4. Fresh reconstruction verifier must match stored statistics.
-5. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`.
-6. Native test `--all-active` on a copy and verify all replacement facts become RESTORED with one recomputed daily state.
+1. Pull latest branch, including `c43b677667c59d38b65b928d4126c36cf670f28c` and documentation updates.
+2. Rerun focused tests for versioned ids + single restore + atomic batch restore; require green gate.
+3. Re-resolve the reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate, not suspension, and require new fact id `...:v2` and finalized day.
+4. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
+5. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+6. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
 7. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
 8. Resume outpatient recurring create/edit native gate.
 
@@ -144,6 +159,10 @@ Recurring/base remains untouched. A finalized day requires unresolved=0.
 7. only then expose capacity to new patients.
 
 Operational capacity is timeslot-based. Existing displaced patients precede new patients. MASTER and THERAPIST_DAILY must agree.
+
+## Documentation discipline
+
+New developments, regressions, decisions, necessities, deferred fixes, planned removals and newly agreed features must be captured in repository documentation during the same work cycle. Chat history is not an acceptable sole record.
 
 ## Legacy `ΑΝΑΝΕΩΣΗ`
 
