@@ -63,22 +63,25 @@ User-facing `Αιτία` is Greek-only for known replacement causes. Technical/i
 
 Correctness is closed. The remaining ledger item is latency: selected and restore-all actions take noticeably longer than acceptable for normal use.
 
-Do not weaken the authoritative preview/recompute/rollback guarantees merely to mask the delay. Profile and optimize the expensive stages. Prime suspects:
+First performance patch is already on the branch:
 
-- full Python preview/reconstruction pipeline
-- opening the verified preview workbook in Excel
-- copying full `UsedRange` blocks for multiple operational sheets
-- repeated saves before/after apply
+- `Python/tools/restore_daily_replacement_facts.py` now marks all restored ledger rows in one hidden Excel session instead of reopening Excel once per ReplacementId.
+- The batch validates duplicate ledger ids before mutation, writes all requested RESTORED statuses, refreshes the visible ledger once, and saves once for that phase.
+- This specifically removes repeated workbook open/save/close cycles from selected/all restore while preserving the authoritative backend and rollback model.
+- implementation commit: `fb445bbc08e6d2cbfd63820a13f8dc504192e954`
+- regression commit: `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`
 
-The goal is materially faster native restore while preserving the same verified final state and rollback safety.
+Remaining likely hotspots after this patch are the MASTER projection Excel session, native write-plan Excel session, separate statistics Excel session, verified-preview open, broad `UsedRange` synchronization, and repeated saves around rollback/apply.
 
 ## Exact resume point
 
-1. Pull the latest branch if needed.
-2. Profile the in-session restore path and identify where elapsed time is spent.
-3. Reduce unnecessary workbook I/O and over-broad sheet synchronization without weakening authoritative verification or rollback.
-4. Re-run the focused bridge tests and one native restore smoke after each performance change.
-5. Once restore latency is acceptable, resume the outpatient recurring create/edit native gate.
+1. Pull latest branch.
+2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
+3. Rebuild an independent `LEDGER_ALL_SMOKE.xlsm` or `LEDGER_SELECTED_SMOKE.xlsm` from trusted V90 and repeat the same native action.
+4. Compare elapsed/perceived time with the previous path. The correctness expectation remains unchanged.
+5. Run fresh reconstruction after the action to prove the performance patch did not alter authoritative state.
+6. If still too slow, next optimization target is consolidation of the remaining backend Excel sessions before narrowing in-session sheet synchronization.
+7. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
