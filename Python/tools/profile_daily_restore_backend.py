@@ -10,6 +10,7 @@ PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
+import rehab_excel.native_excel as native_excel  # noqa: E402
 import tools.restore_daily_replacement_facts as restore_tool  # noqa: E402
 
 
@@ -164,6 +165,8 @@ def profile_restore_backend(
     patch(restore_tool, "compose_master_daily_overlay", "compose_master_overlay")
     patch(restore_tool, "apply_write_plan_to_copy", "apply_write_plan_total")
     patch(restore_tool, "_has_vba", "vba_checks")
+    patch(native_excel, "validate_write_plan", "native_write_plan_validation")
+    patch(native_excel, "_sha256", "native_write_hashes")
 
     total_started = perf_counter()
     try:
@@ -205,6 +208,8 @@ def profile_restore_backend(
             "compose_outpatient_plan",
             "build_master_overlay",
             "compose_master_overlay",
+            "native_write_plan_validation",
+            "native_write_hashes",
             "vba_checks",
         )
     )
@@ -266,6 +271,8 @@ def main() -> int:
         "compose_outpatient_plan",
         "build_master_overlay",
         "compose_master_overlay",
+        "native_write_plan_validation",
+        "native_write_hashes",
         "vba_checks",
         "pre_excel_unattributed",
         "apply_write_plan_total",
