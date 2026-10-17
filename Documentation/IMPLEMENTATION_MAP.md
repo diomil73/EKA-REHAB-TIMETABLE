@@ -31,11 +31,11 @@ V87 persistence verifier confirmed:
 - stored unresolved=0,
 - stored finalized=ΝΑΙ.
 
-Το ενεργό gap είναι πλέον η durable persistence των replacement placements.
+Durable replacement placement persistence is now implemented and its focused Windows source gate is green.
 
-Implemented source slice:
+Implemented slice:
 
-- νέο `rehab_excel/daily_replacement_facts.py`,
+- `rehab_excel/daily_replacement_facts.py`,
 - internal `DAILY_REPLACEMENT_FACTS` very-hidden sheet,
 - exact structured ReplacementAssignment fields,
 - validation against concrete Session,
@@ -44,9 +44,11 @@ Implemented source slice:
 - backward-compatible missing sheet = no persisted replacements,
 - deterministic replacement ids per session/date,
 - `apply_daily_input_replacements.py` reloads persisted replacements, uses them in capacity/state, skips already-resolved sessions and persists new placements,
-- νέο `verify_daily_fact_reconstruction.py` reconstructs daily state from base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS and compares with DAILY_STATISTICS.
+- `verify_daily_fact_reconstruction.py` reconstructs daily state from base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS and compares with DAILY_STATISTICS.
 
-Status: **implemented, focused source gate pending; native V88 pending**.
+Focused Windows gate: **28 passed, 3 warnings in 5.14s**.
+
+Status: **source gate green; native V88 + full restart reconstruction pending**.
 
 ### 2. Ορφανοί + treatment suspension
 
@@ -64,7 +66,7 @@ Operational flow source + native green through V87.
 
 `DAILY_STATISTICS` derives from the same finalized DailySessionState and stores scheduled, performed, replaced, patient absent, department postponed, no-show, treatment suspended, unresolved and finalized.
 
-Native-created in V87. Full reconstruction equivalence will be checked on V88 after replacement facts are persisted.
+Native-created in V87. Full reconstruction equivalence is the next V88 gate.
 
 ### 4. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
@@ -130,13 +132,14 @@ Deferred/manual cleanup. Not a blocker.
 - Consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**.
 - V87 mixed orphan resolution: **native green**.
 - V87 suspension/statistics reread: **native green**.
+- Replacement fact + reconstruction focused source gate: **28 passed, 3 warnings in 5.14s**.
 
 ## Τρέχον verification gate
 
-1. Run focused tests for `daily_replacement_facts`, reconstruction verifier and orphan resolution tool.
-2. Build V88 from existing V86 with at least one placement + one suspension.
-3. Verify persisted replacement facts written, suspension facts written, source unchanged, VBA preserved.
-4. Fresh reconstruction from V88 must reproduce replacement/suspension counts, unresolved=0, finalized=ΝΑΙ and exact DAILY_STATISTICS metrics.
+1. Build V88 from existing V86 with a mixed result, ideally 5 placements + 2 suspensions.
+2. Verify persisted replacement facts written, suspension facts written, source unchanged, VBA preserved.
+3. Fresh reconstruction from V88 must reproduce replacement/suspension counts, unresolved=0, finalized=ΝΑΙ and exact DAILY_STATISTICS metrics.
+4. If green, authoritative daily-state restart persistence is closed.
 5. Implement ledger restore via authoritative fact removal + recompute.
 6. Test selected/all restore with multiple changes.
 7. Resume outpatient recurring create/edit native gate.
