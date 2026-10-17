@@ -20,6 +20,7 @@ Active milestone: **Restore correctness is closed green for per-row, selected, a
 - fact-to-ledger synchronization gate: **18 passed in 4.40s**
 - focused bridge/performance gate after first batching patch: **30 passed in 4.91s**
 - focused bridge/performance gate after statistics+ledger consolidation: **30 passed in 4.39s**
+- focused bridge/performance gate after redundant in-session saves were removed: **31 passed in 3.34s**
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row in-session Excel restore: **native green**
 - selected two-row in-session Excel restore: **native correctness green**
@@ -66,19 +67,20 @@ The Greek reason rendering patch maps known internal values such as `DAILY_INPUT
 
 The remaining ledger issue is speed. Selected and restore-all actions take noticeably longer than acceptable.
 
-Three optimization steps are implemented:
+Four optimization steps are implemented:
 
 1. Bulk selected/all restore no longer reopens Excel once per restored ReplacementId merely to mark ledger rows. All restored ledger rows are validated and marked in a single hidden Excel session, followed by one ledger refresh/save. Implementation `fb445bbc08e6d2cbfd63820a13f8dc504192e954`, tests `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
 2. Daily statistics writing and ledger finalization now share that same hidden Excel session, removing another workbook open/save/close cycle. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
-3. The in-session apply path now removes two redundant success-path writes: it no longer re-saves the workbook immediately before `SaveCopyAs`, because the source was already saved before backend execution, and it no longer performs an extra ledger refresh/save after the verified preview has already been synchronized and saved. Rollback `SaveCopyAs`, authoritative preview synchronization, and the post-sync save remain. Implementation `4b58085fc416c456c603aefd1ae2942022715632`, tests `55b7e584080d6f9f657ce3b274dae9a90a85aa19`.
+3. The in-session apply path removes two redundant success-path writes: it no longer re-saves immediately before `SaveCopyAs`, because the source is already saved before backend execution, and it no longer performs an extra ledger refresh/save after the verified preview has already been synchronized and saved. Rollback `SaveCopyAs`, authoritative preview synchronization, and the post-sync save remain. Implementation `4b58085fc416c456c603aefd1ae2942022715632`, tests `55b7e584080d6f9f657ce3b274dae9a90a85aa19`. Focused source gate: **31 passed in 3.34s**.
+4. The native daily write plan, daily statistics, restored ledger lifecycle metadata, ledger refresh, and final output save now execute in one `_RestoreOutputBackend` Excel session. This removes the separate finalization Excel process and reduces that whole output leg to one workbook open and one save. Implementation `790f55babd18a75635d844cc4f6d1f24c2c5780e`, tests `0c166fff3e3dc26fd8b53062653e9764234d2b98`.
 
-Focused source gate after the second optimization: **30 passed in 4.39s**. The third optimization still needs the focused Windows source gate and one fresh native timing smoke.
+The fourth optimization still needs the focused Windows test gate and a fresh native timing smoke.
 
 Further profiling is still required. Remaining likely hotspots are:
 
-- MASTER projection Excel open/save
-- native write-plan Excel open/save
-- verified preview opening and broad `UsedRange` copying in the already-open workbook
+- separate MASTER projection Excel open/save
+- verified preview opening in the user's existing Excel session
+- broad `UsedRange` copying across the restore sheet set
 
 Optimization must preserve authoritative verification, rollback safety, immutable fact history, and exact reconstructed statistics.
 
@@ -88,7 +90,7 @@ Optimization must preserve authoritative verification, rollback safety, immutabl
 2. Rebuild a fresh selected/all smoke copy from trusted V90. Do not reuse a workbook that has already been restored.
 3. Repeat the native restore action without an extra manual save and compare elapsed time.
 4. Run fresh reconstruction after the action to prove no correctness regression.
-5. If latency remains high, consolidate the MASTER projection and native write-plan Excel phases next, then narrow the in-session synchronization contract.
+5. If latency remains high, consolidate or eliminate the separate MASTER projection Excel session next, then narrow the in-session synchronization contract.
 6. Once latency is acceptable, resume outpatient recurring create/edit native gate.
 7. Later clean Python 3.14 ZipFile warnings.
 
