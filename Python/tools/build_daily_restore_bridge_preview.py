@@ -21,6 +21,7 @@ from rehab_excel.daily_change_ledger_vba import (  # noqa: E402
     MODULE_NAME,
     VBA_CODE,
 )
+from rehab_excel.daily_restore_in_session_vba import build_in_session_ledger_vba  # noqa: E402
 from rehab_excel.daily_replacement_facts import (  # noqa: E402
     ACTIVE_STATUS,
     read_daily_replacement_fact_rows,
@@ -163,14 +164,12 @@ def _sync_ledger_from_authoritative_facts(workbook, rows) -> None:
 
     for row_index, row in enumerate(rows, start=2):
         replacement_id = str(row[0])
-        # Authoritative fields: id/date/patient/provider/time/reason.
         for col, value in enumerate(row[:9], start=1):
             ledger.Cells(row_index, col).Value = value
         ledger.Cells(row_index, 12).Value = row[9]
 
         old = preserved.get(replacement_id)
         if old is not None:
-            # Preserve OriginalCell, EffectiveCell and snapshot/audit metadata.
             for offset, value in enumerate(old, start=10):
                 if offset == 12:
                     continue
@@ -230,6 +229,7 @@ def build_daily_restore_bridge_preview(
     active_count = 0
     try:
         fact_rows, active_count = _authoritative_ledger_rows(output)
+        effective_vba = build_in_session_ledger_vba(VBA_CODE)
 
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
@@ -244,7 +244,7 @@ def build_daily_restore_bridge_preview(
         _remove_component_if_present(vbproject, MODULE_NAME)
         module = vbproject.VBComponents.Add(1)
         module.Name = MODULE_NAME
-        module.CodeModule.AddFromString(VBA_CODE)
+        module.CodeModule.AddFromString(effective_vba)
 
         workbook.Save()
         excel.Run(f"'{workbook.Name}'!RefreshDailyChangeLedgerView")
@@ -284,7 +284,7 @@ def _build_parser() -> argparse.ArgumentParser:
         description=(
             "Create a separate native Excel smoke-test copy of an authoritative daily "
             "workbook, synchronize DAILY_CHANGE_LEDGER from durable replacement facts, "
-            "and refresh modDailyChangeLedger to the current restore bridge."
+            "and refresh modDailyChangeLedger to the current in-session restore bridge."
         )
     )
     parser.add_argument("--source", type=Path, required=True)
@@ -313,6 +313,7 @@ def main() -> int:
     print("Source unchanged: True")
     print("VBA preserved: True")
     print("Ledger bridge module refreshed: True")
+    print("Restore execution mode: hidden Python + in-session Excel apply")
     print("NEXT: open only this preview and exercise the intended Excel restore control.")
     return 0
 
