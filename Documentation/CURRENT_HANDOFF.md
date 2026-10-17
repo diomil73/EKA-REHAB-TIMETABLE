@@ -20,6 +20,7 @@ Last updated: 2026-10-17
 - initial daily restore bridge preview-builder + ledger contract gate: **`16 passed in 2.94s`**
 - fact-to-ledger synchronization + ledger contract rerun: **`18 passed in 4.40s`**
 - first native bridge smoke-copy build: structurally green, but exposed ledger/fact parity regression (`1` ACTIVE ledger row vs `5` authoritative ACTIVE facts)
+- rebuilt row/selected/all smoke copies after parity fix: **all three green with `Active ledger rows: 5`, fact sync=True, source unchanged=True, VBA preserved=True, bridge module refreshed=True**
 - V87 mixed orphan resolution: native green
 - V88 restart-safe daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: native green
@@ -128,7 +129,7 @@ Fresh reconstruction independently confirmed persisted replacements=0, treatment
 
 ## ACTIVE: Excel ledger authoritative bridge
 
-The backend JSON response contract is source-green with `30 passed in 4.31s`, the complete ledger bridge source gate is green with **`42 passed in 4.27s`**, and the fact-to-ledger synchronization gate is now green with **`18 passed in 4.40s`**.
+The backend JSON response contract is source-green with `30 passed in 4.31s`, the complete ledger bridge source gate is green with **`42 passed in 4.27s`**, the fact-to-ledger synchronization gate is green with **`18 passed in 4.40s`**, and the rebuilt native smoke copies now have exact authoritative ledger parity.
 
 The VBA ledger bridge is implemented in `Python/rehab_excel/daily_change_ledger_vba.py`:
 
@@ -157,27 +158,25 @@ Commits:
 
 The first three smoke copies built successfully from trusted `RERESOLVED_V90.xlsm`, with source unchanged and VBA preserved, but every copy reported `Active ledger rows: 1`.
 
-That is not valid parity. V90 independently proves `DAILY_REPLACEMENT_FACTS` contains 6 facts for 2026-10-19: 1 RESTORED historical fact and 5 ACTIVE facts. The old `DAILY_CHANGE_LEDGER` contained only the latest V90-created row, so the UI projection had drifted behind the authoritative fact store. This would make the selected two-fact button smoke impossible and would leave restore-all history visually incomplete even though the backend correctly targets all ACTIVE facts.
+That was not valid parity. V90 independently proves `DAILY_REPLACEMENT_FACTS` contains 6 facts for 2026-10-19: 1 RESTORED historical fact and 5 ACTIVE facts. The old `DAILY_CHANGE_LEDGER` contained only the latest V90-created row, so the UI projection had drifted behind the authoritative fact store.
 
-The smoke-copy builder has therefore been changed so `DAILY_REPLACEMENT_FACTS`, not the existing ledger, drives the ledger projection. It now:
+The smoke-copy builder now treats `DAILY_REPLACEMENT_FACTS` as the ledger projection source. After the fix and the green 18-test source rerun, all three independent copies were rebuilt successfully:
 
-- reads all date-scoped authoritative facts including RESTORED history
-- reconstructs patient/provider/time display metadata from the patient registry and recurring schedule
-- rebuilds ledger columns 1-9 and authoritative status column 12 from facts
-- preserves existing snapshot/audit extras by immutable ReplacementId when available
-- never invents missing historical snapshot values
-- counts ACTIVE rows from authoritative facts
-- only then installs the current VBA bridge and re-renders controls
+- `LEDGER_ROW_SMOKE.xlsm`: ACTIVE ledger rows=5, synchronized=True, source unchanged=True, VBA preserved=True, bridge module refreshed=True
+- `LEDGER_SELECTED_SMOKE.xlsm`: ACTIVE ledger rows=5, synchronized=True, source unchanged=True, VBA preserved=True, bridge module refreshed=True
+- `LEDGER_ALL_SMOKE.xlsm`: ACTIVE ledger rows=5, synchronized=True, source unchanged=True, VBA preserved=True, bridge module refreshed=True
 
-The dedicated rerun of `Tests/test_daily_restore_bridge_preview.py` plus `Tests/test_daily_change_ledger_vba.py` is green at **18 passed in 4.40s**. The next native gate is to rebuild all three smoke copies and require `Active ledger rows: 5` plus `Ledger synchronized from authoritative facts: True` before opening Excel.
+This closes the projection-parity blocker. Excel button execution is now the active native gate.
 
 ## Exact resume point
 
-1. Rebuild the three independent smoke copies from trusted `RERESOLVED_V90.xlsm`.
-2. Require every copy to report `Active ledger rows: 5` and `Ledger synchronized from authoritative facts: True` before opening Excel.
-3. Then smoke-test from Excel itself: per-row restore first, selected two-fact restore second, restore-all third on its independent copy.
-4. For every native path require correct replacement-fact lifecycle, fresh recomputation, ledger statuses, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
-5. Once native-green, mark the legacy cell-copy restore path retired and resume outpatient recurring create/edit native gate.
+1. Open only `Excel/previews/LEDGER_ROW_SMOKE.xlsm` in native Excel.
+2. On `DAILY_CHANGE_LEDGER`, execute exactly one per-row `Επαναφορά` for an ACTIVE replacement row and allow the authoritative bridge/commit cycle to finish.
+3. Report the Excel-visible result, any message box text, whether the workbook closed/reopened as expected, and whether the restored row now shows `RESTORED`.
+4. Then run a fresh reconstruction/inventory check on `LEDGER_ROW_SMOKE.xlsm` before touching the selected/all copies.
+5. Only after per-row native green, test selected two-fact restore on `LEDGER_SELECTED_SMOKE.xlsm`, then restore-all on `LEDGER_ALL_SMOKE.xlsm`.
+6. For every native path require correct replacement-fact lifecycle, fresh recomputation, ledger statuses, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
+7. Once native-green, mark the legacy cell-copy restore path retired and resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
