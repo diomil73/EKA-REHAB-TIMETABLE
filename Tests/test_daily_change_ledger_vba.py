@@ -1,10 +1,11 @@
-from datetime import date, time
+from datetime import date, datetime, time
 
 from rehab_excel.daily_change_ledger_vba import (
     DailyChangeLedgerRecord,
     LEDGER_SHEET,
     MODULE_NAME,
     VBA_CODE,
+    _excel_date_value,
 )
 
 
@@ -23,6 +24,10 @@ def test_change_record_formats_human_readable_transition():
     )
 
     assert record.description == "Ασθενής Χ: Θεραπευτής Ψ 09:00 -> Θεραπευτής Α 10:30"
+
+
+def test_ledger_date_is_converted_to_excel_compatible_datetime():
+    assert _excel_date_value(date(2026, 10, 19)) == datetime(2026, 10, 19, 0, 0)
 
 
 def test_ledger_uses_hidden_sheet_and_stable_module_name():
