@@ -44,6 +44,11 @@ from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
     compose_outpatient_daily_plan,
 )
+from rehab_excel.daily_replacement_facts import (  # noqa: E402
+    DailyReplacementFactError,
+    append_daily_replacement_facts,
+    read_daily_replacement_facts,
+)
 from rehab_excel.daily_statistics_writer import (  # noqa: E402
     DailyStatisticsWriteError,
     write_daily_statistics,
@@ -165,6 +170,10 @@ def _append_treatment_suspension(
     return suspension
 
 
+def _replacement_id(target) -> str:
+    return f"daily-input:{target.session_id}:{target.session_date.isoformat()}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -203,6 +212,13 @@ def main() -> int:
         policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
         cancellations = list(daily.cancellations)
         suspensions: list[DailySessionCancellation] = []
+        replacements: list[ReplacementAssignment] = list(
+            read_daily_replacement_facts(
+                input_book,
+                sessions=sessions,
+                target_date=target_date,
+            )
+        )
 
         therapist_absences = tuple(
             absence
@@ -227,19 +243,26 @@ def main() -> int:
             policy_book=policy_book,
             base_entries=base_entries,
         )
-        if not initial_queue.items:
+        if not initial_queue.items and not replacements:
             raise DailyInputReadError(
                 "No session needs replacement after applying patient/therapist absences and cancellations"
             )
 
         session_by_id = {session.session_id: session for session in sessions}
         patient_by_id = {patient.patient_id: patient for patient in patients}
-        pending_ids = [item.session_id for item in initial_queue.items]
-        replacements: list[ReplacementAssignment] = []
+        persisted_target_ids = {replacement.target_session_id for replacement in replacements}
+        pending_ids = [
+            item.session_id
+            for item in initial_queue.items
+            if item.session_id not in persisted_target_ids
+        ]
+        initially_persisted_replacements = len(replacements)
 
         print("SEQUENTIAL THERAPIST ABSENCE RESOLUTION")
         print(f"Date: {target_date.isoformat()}")
         print(f"Sessions needing resolution: {len(pending_ids)}")
+        if initially_persisted_replacements:
+            print(f"Persisted replacements loaded: {initially_persisted_replacements}")
         if initial_queue.skipped_patient_absent:
             print(
                 "Patient-absent sessions excluded: "
@@ -337,7 +360,7 @@ def main() -> int:
                 base_entries=base_entries,
             )
             replacement = create_replacement_assignment(
-                replacement_id=f"daily-input-{len(replacements) + 1}",
+                replacement_id=_replacement_id(target),
                 target_session=target,
                 replacement_therapist_id=option.provider_id,
                 therapists=therapists,
@@ -387,6 +410,11 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
+        persisted_replacement_facts = append_daily_replacement_facts(
+            output,
+            replacements,
+            sessions=sessions,
+        )
         suspension_rows = build_treatment_suspension_rows(
             suspensions,
             sessions=sessions,
@@ -400,6 +428,7 @@ def main() -> int:
     except (
         DailyInputReadError,
         DailyOperationalFactWriteError,
+        DailyReplacementFactError,
         DailyStatisticsWriteError,
         PatientCentricPreviewError,
         PatientRegistrySourceError,
@@ -418,6 +447,8 @@ def main() -> int:
     print(f"Preview: {report.output_path}")
     print(f"Session cancellations: {len(cancellations)}")
     print(f"Accepted replacements: {len(replacements)}")
+    print(f"Persisted replacements loaded: {initially_persisted_replacements}")
+    print(f"Persisted replacement facts written: {persisted_replacement_facts}")
     print(f"Treatment suspensions: {len(suspensions)}")
     print(f"Persisted suspension facts: {persisted_suspensions}")
     print(f"Unresolved sessions: {statistics.unresolved_sessions}")
@@ -452,8 +483,8 @@ def main() -> int:
     print(f"Input unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
     print(
-        "NEXT: open only the output preview and inspect every placement/suspension, "
-        "the generated DAILY_INPUT suspension facts, and DAILY_STATISTICS."
+        "NEXT: re-read the output workbook and verify replacement facts, suspension facts, "
+        "and DAILY_STATISTICS reconstruct the finalized daily state."
     )
     return 0 if report.source_unchanged and vba_preserved else 3
 
