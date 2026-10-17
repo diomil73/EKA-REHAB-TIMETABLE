@@ -153,6 +153,31 @@ def test_reader_reconstructs_replacement_assignment(tmp_path):
     assert facts == (_replacement(),)
 
 
+def test_reader_normalizes_timezone_shifted_numeric_excel_date(tmp_path):
+    path = tmp_path / "facts.xlsx"
+    _write_fact_sheet(
+        path,
+        [
+            (
+                "R1",
+                "S1",
+                "P1",
+                "Σάρρας",
+                "Πέτσιος",
+                46313.875,
+                "10:00",
+                "DAILY_INPUT therapist absence",
+                "therapist",
+                "ACTIVE",
+            )
+        ],
+    )
+
+    facts = read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
+
+    assert facts == (_replacement(),)
+
+
 def test_reader_defaults_blank_provider_kind_to_therapist(tmp_path):
     path = tmp_path / "facts.xlsx"
     _write_fact_sheet(
