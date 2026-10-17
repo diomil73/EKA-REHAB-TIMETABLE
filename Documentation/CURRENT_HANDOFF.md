@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested: `Excel/previews/DAILY_CHANGE_LEDGER_V83.xlsm`
+- Latest native preview tested: `Excel/previews/DAILY_CHANGE_LEDGER_V84.xlsm`
 - V73 scheduling/conflict behavior remains native green.
 - V80 clean reset preview is native green.
 - V81 MASTER toolbar/header pinning is native green.
@@ -24,10 +24,11 @@ Last updated: 2026-10-17
 - V82 guided replacement native build: green
 - V82 individual ledger restore: **native green**
 - V83 MASTER active-overlay sync + restore: **native green**
+- V84 time-axis display + restore: **native green**
 
 The 5 warnings are `PytestUnraisableExceptionWarning` messages from Python 3.14 `ZipFile.__del__` during workbook test teardown. They did not fail the gate and are not currently treated as a functional blocker; keep them on the technical-cleanup list.
 
-## V83 native guided replacement checkpoint
+## V84 native guided replacement checkpoint
 
 Stress case:
 
@@ -35,49 +36,48 @@ Stress case:
 - patient: `ΜΕΝΤΗΣ`
 - original assignment: `Σκαρώνης 09:15`
 - selected replacement: `Μηλιδάκης 10:45`
-- candidate display for Μηλιδάκης: `load 5/6 | patients 6`
 - source workbook unchanged,
 - VBA preserved,
 - ledger installed.
 
-Native acceptance now confirmed:
+Native behavior confirmed:
 
 - `THERAPIST_DAILY` shows the moved patient at `Μηλιδάκης 10:45` while keeping the useful source-position trace,
-- `MASTER` now also shows the effective daily assignment while the overlay is active,
-- individual `Επαναφορά` returns both `MASTER` and `THERAPIST_DAILY` to `Σκαρώνης 09:15`.
+- `MASTER` shows the same effective daily assignment while the overlay is active,
+- individual `Επαναφορά` returns both `MASTER` and `THERAPIST_DAILY` to `Σκαρώνης 09:15`,
+- left-side timetable times are now readable as `hh:mm`; the `####` issue is closed.
 
-The invariant is therefore native green for this stress case:
+Open native cleanup still visible in V84:
 
-`DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger`
+- ΜΕΝΤΗΣ appears orange at the destination even though he is not robotic,
+- the obsolete `ΑΝΑΝΕΩΣΗ` button is still present.
 
-Statistics integration remains open.
+## Current styling + legacy-button source fix
 
-## Current THERAPIST_DAILY time-axis fix
+Root cause of the orange leak:
 
-V83 still showed `####` in the left time column because `RefreshDailyChangeLedgerView` reset column A width to 4.
+- rewritten destination cells could inherit a stale whole-cell orange font from an existing robotic presentation,
+- a new non-robotic line with no explicit text-run color then inherited that orange.
 
 Source fix added:
 
-- `wsDaily.Columns("A").ColumnWidth = 8`,
-- `A2:A8,A12:A18` forced to `hh:mm`,
-- time cells centered,
-- regression prevents reintroducing width 4.
+- native Excel rich-text writes now reset the rewritten cell to default black when no whole-cell font role is requested,
+- semantic rich-text runs are then reapplied, so only actual robotic lines receive `robotic_orange`,
+- this preserves mixed-cell per-line semantics instead of leaking old whole-cell formatting.
+
+Legacy cleanup added:
+
+- ledger preview installation now removes only shapes on `THERAPIST_DAILY` whose exact caption is `ΑΝΑΝΕΩΣΗ`,
+- ledger controls are not targeted.
 
 Commits:
 
-- `6f4a88a9d797e78d6a0ef1ffd2216a590b3d21f1`
-- `bad1632050736bee639337c3578ee6702b6421d5`
+- `f4e382e0f1039cbd9582e9138a7dacde5eabd404` rich-text stale font reset
+- `d83b36d0d38d782df9e3cc094eb0da18498906a1` remove legacy refresh button
+- `1785786c05f95ac39aa8f2e17d9efb6e8e46325c` refresh-button regression
+- `9fc4e948d0065dfbad838730584d2832ef8adef7` rich-text reset regression
 
 Status: **implemented, focused/native verification pending**.
-
-## Remaining native cleanup items
-
-1. verify the time-axis fix removes all `####`,
-2. ΜΕΝΤΗΣ received orange text incorrectly; orange is reserved for robotic participation only,
-3. ΜΕΝΤΗΣ is infectious and not robotic, so infectious presentation must win and no robotic-orange text may leak from destination/base styling,
-4. obsolete right-side VBA-era button `ΑΝΑΝΕΩΣΗ` remains and must be removed.
-
-Keep the useful source-position visual trace for moved patients.
 
 ## Locked orphan workflow
 
@@ -151,10 +151,10 @@ Prototype currently uses preview snapshots plus a MASTER recurring refresh hook;
 
 Priority order:
 
-1. **Run focused regression for the THERAPIST_DAILY time-axis fix.**
-2. Build fresh preview and verify all left-side times display as `hh:mm` with no `####`.
-3. Fix robotic-orange vs infectious styling precedence for moved patients.
-4. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+1. **Run focused regressions for stale-font reset + legacy `ΑΝΑΝΕΩΣΗ` removal.**
+2. Build fresh preview and verify ΜΕΝΤΗΣ is no longer orange at Μηλιδάκης 10:45.
+3. Verify `ΑΝΑΝΕΩΣΗ` is gone and ledger controls remain.
+4. Verify individual restore still works and MASTER/THERAPIST_DAILY remain synchronized.
 5. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
 6. Test selected/all restore with multiple changes.
 7. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
