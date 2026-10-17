@@ -60,3 +60,10 @@ def test_restore_refreshes_master_patient_program_back_to_recurring_state():
 def test_ledger_refresh_keeps_restored_rows_visible_as_history():
     assert 'wsDaily.Cells(displayRow, 6).Value = "Επαναφέρθηκε"' in VBA_CODE
     assert 'wsDaily.Cells(displayRow, 6).Value = "Ενεργή αλλαγή"' in VBA_CODE
+
+
+def test_ledger_refresh_preserves_readable_therapist_daily_time_axis():
+    assert 'wsDaily.Columns("A").ColumnWidth = 8' in VBA_CODE
+    assert 'wsDaily.Range("A2:A8,A12:A18").NumberFormat = "hh:mm"' in VBA_CODE
+    assert 'wsDaily.Range("A2:A8,A12:A18").HorizontalAlignment = xlCenter' in VBA_CODE
+    assert 'wsDaily.Columns("A").ColumnWidth = 4' not in VBA_CODE
