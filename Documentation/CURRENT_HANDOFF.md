@@ -52,21 +52,31 @@ Decision: **do not spend more engineering time on this now**. It is cosmetic, no
 
 ## ACTIVE development focus: orphan workflow + statistics
 
-The next substantive milestone is the daily `Ορφανοί` queue.
+The domain foundation for the daily `Ορφανοί` workflow is now implemented in source and awaits the focused source gate.
 
 Locked rule: every orphan for the concrete date must resolve as exactly one of:
 
 - placed into a valid therapist/time slot, or
 - `Αναστολή θεραπείας` for that date only.
 
-Required semantics:
+Architecture decision:
 
-- no orphan silently disappears,
-- `Αναστολή θεραπείας` is a date-specific daily fact/overlay, never a destructive recurring edit,
-- suspension must be auditable,
-- suspension must feed daily statistics as treatment not performed with explicit reason,
-- displaced existing patients have priority over new-patient allocation,
-- recomputation must remain idempotent and order-independent.
+- do **not** add a parallel `DailySessionStatus` for suspension,
+- represent suspension as `DailySessionStatus.CANCELLED` plus `SessionCancellationKind.TREATMENT_SUSPENDED`,
+- this preserves the existing cancellation precedence, releases the provider slot, keeps recurring/base untouched, and carries an auditable reason.
+
+Implemented domain slice:
+
+- `SessionCancellationKind.TREATMENT_SUSPENDED`,
+- `Python/rehab_core/orphan_resolution.py`,
+- `create_treatment_suspension(session)` with exact reason `Αναστολή θεραπείας`,
+- `Python/rehab_core/daily_statistics.py`,
+- statistics distinguish performed, replaced, patient absent, department postponed, no-show, treatment suspended and unresolved,
+- remaining `THERAPIST_ABSENT` sessions count as unresolved rather than silently cancelled,
+- the day is finalized only when unresolved sessions reach zero,
+- focused tests added in `Tests/test_orphan_treatment_suspension.py` and `Tests/test_daily_treatment_statistics.py`.
+
+Status: **implemented, source gate pending; Excel orphan actions/UI not yet wired**.
 
 ## Locked daily recomputation order
 
@@ -77,6 +87,8 @@ Required semantics:
 5. redistribute into net free capacity,
 6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
 7. only then expose remaining capacity to new patients.
+
+Recomputation must remain idempotent and order-independent.
 
 ## Reversible daily change ledger
 
@@ -98,15 +110,26 @@ Still open:
 
 Priority order:
 
-1. Inspect existing daily-state/cancellation/statistics architecture for the cleanest representation of `Αναστολή θεραπείας`.
-2. Implement orphan final outcomes: placement or date-specific suspension.
-3. Integrate suspension into daily statistics.
-4. Add focused tests for orphan resolution, auditability, and non-destructive recurring behavior.
-5. Native-check orphan workflow.
+1. **Run the focused source gate for treatment suspension + statistics + existing daily-state/queue/capacity regressions.**
+2. If green, wire orphan operational actions into the actual workflow: place or suspend.
+3. Persist `Αναστολή θεραπείας` as an authoritative date-specific daily fact, not preview-only state.
+4. Surface daily statistics in the workbook/reporting flow.
+5. Native-check orphan placement and suspension behavior.
 6. Test selected/all restore with multiple changes.
 7. Replace snapshot restore with authoritative overlay removal + recompute.
 8. Resume outpatient recurring create/edit native gate.
 9. Clean Python 3.14 ZipFile teardown warnings later.
+
+Focused Windows gate:
+
+```powershell
+python -m pytest `
+  Tests/test_orphan_treatment_suspension.py `
+  Tests/test_daily_treatment_statistics.py `
+  Tests/test_daily_state.py `
+  Tests/test_therapist_absence_queue.py `
+  Tests/test_cancellation_releases_replacement_capacity.py -q
+```
 
 ## Business rules that must not regress
 
