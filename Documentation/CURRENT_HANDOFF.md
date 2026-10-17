@@ -15,6 +15,7 @@ Last updated: 2026-10-17
 - versioned-id + single/batch restore focused gate: `36 passed in 4.74s`
 - rerun gate after V90 persistence fix: `37 passed in 7.13s`
 - restore JSON bridge/backend gate: `30 passed in 4.31s`
+- first ledger-VBA bridge gate attempt: `41 passed, 1 failed in 7.32s`
 - V87 mixed orphan resolution: native green
 - V88 restart-safe daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: native green
@@ -142,11 +143,16 @@ Commits:
 - backend bridge tests: `749c9f50625ae44ce247829a236b06a4e4244afd`
 - VBA authoritative bridge contract tests: `5c2269547752eedc923c741a1ed99a8786e06894`
 - VBA authoritative bridge implementation: `9f1b9449d4d4822c6e095ec2438405bc9e71f5c3`
+- selected-restore assertion compatibility fix: `3784c04a03f4ddebfa91cb73be19e8a7c1b926cc`
+
+### Latest source-gate regression
+
+The first post-wiring ledger bridge gate returned `41 passed, 1 failed in 7.32s`. The failure was not a behavior defect. The test expected the non-parenthesized VBA call text `RunAuthoritativeRestore replacementArgs, False`, while the implementation correctly uses `Call RunAuthoritativeRestore(replacementArgs, False)`. The source assertion was updated to match the implemented VBA syntax. No production code change was required.
 
 ## Exact resume point
 
-1. Pull latest branch.
-2. Run the ledger authoritative bridge source gate, especially `Tests/test_daily_change_ledger_vba.py`, `Tests/test_daily_restore_bridge_contract.py`, and the authoritative restore tests.
+1. Pull the latest branch.
+2. Rerun the same focused ledger authoritative bridge source gate.
 3. If source-green, build a fresh native preview containing the current ledger module.
 4. Smoke-test from Excel itself in separate trusted copies: per-row restore, selected two-fact restore, and restore-all.
 5. For every native path require correct replacement-fact lifecycle, fresh recomputation, ledger statuses, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
