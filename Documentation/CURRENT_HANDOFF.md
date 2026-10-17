@@ -20,6 +20,8 @@ Last updated: 2026-10-17
 - fact-to-ledger synchronization gate: `18 passed in 4.40s`
 - parity rebuild: row/selected/all smoke copies all reported 5 ACTIVE ledger rows, fact sync=True, source unchanged=True, VBA preserved=True
 - first native per-row close/reopen design: failed at workbook lifecycle with visible console + `Method 'Close' of object '_Workbook' failed`
+- in-session per-row restore: native green
+- in-session selected restore: Excel action completed successfully with no visible console and no close/reopen, but user reported noticeable execution delay; fresh reconstruction/inventory still required before closing the selected gate
 - replacement lifecycle history V87-V92: native green
 
 ## CLOSED: authoritative daily truth and replacement lifecycle
@@ -86,15 +88,19 @@ Fresh reconstruction then passed exactly:
 
 This closes the **per-row native restore gate**.
 
+### Selected restore timing note
+
+The first in-session selected two-row action completed with the intended UX and no lifecycle regression, but it took noticeably longer than desired. Treat this as a performance/UX item, not a correctness failure. Before optimizing, close the selected correctness gate with fresh reconstruction and fact inventory. Likely hotspots to profile after correctness is confirmed are the full Python preview/recompute cycle plus the in-session synchronization of multiple used ranges.
+
 ## Exact resume point
 
-1. Pull latest branch before building the next smoke copies because the success-message cleanup and in-session bridge code are newer than the original selected/all copies.
-2. Rebuild `LEDGER_SELECTED_SMOKE.xlsm` and `LEDGER_ALL_SMOKE.xlsm` independently from trusted `RERESOLVED_V90.xlsm` with `build_daily_restore_bridge_preview.py`.
-3. Native selected scenario: choose exactly two ACTIVE rows and press `Επαναφορά επιλεγμένων`. Require atomic restore, 5 -> 3 ACTIVE replacements, 2 unresolved, finalized=ΟΧΙ, 2 treatment suspensions, exact stored statistics.
-4. Run fresh reconstruction and replacement inventory before touching restore-all.
-5. Native restore-all scenario on the independent all-smoke copy: restore all 5 ACTIVE facts. Require 0 ACTIVE replacements, 5 unresolved, finalized=ΟΧΙ, 2 treatment suspensions, exact stored statistics.
-6. For both paths require no visible console, no workbook close/reopen, correct ledger statuses, MASTER/THERAPIST_DAILY agreement, source/VBA safety.
-7. Once selected + all are native green, mark the ledger migration closed and resume outpatient recurring create/edit native gate.
+1. Verify `LEDGER_SELECTED_SMOKE.xlsm` after the completed two-row restore. Expect ACTIVE replacements=3, unresolved=2, finalized=ΟΧΙ, treatment suspensions=2, exact stored statistics.
+2. Run replacement fact inventory and confirm exactly two formerly ACTIVE facts are now RESTORED while unrelated ACTIVE facts remain untouched.
+3. If selected verification is green, mark selected native gate green and then run the independent `LEDGER_ALL_SMOKE.xlsm` restore-all scenario.
+4. Restore-all expectation: 0 ACTIVE replacements, 5 unresolved, finalized=ΟΧΙ, 2 treatment suspensions, exact stored statistics.
+5. For both paths require no visible console, no workbook close/reopen, correct ledger statuses, MASTER/THERAPIST_DAILY agreement, source/VBA safety.
+6. After selected + all correctness gates close, profile and reduce the noticeable restore latency without weakening the authoritative preview/recompute/rollback guarantees.
+7. Once selected + all are native green and timing is acceptable, mark the ledger migration closed and resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
