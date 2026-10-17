@@ -23,6 +23,7 @@ Last updated: 2026-10-17
 - V89 single authoritative restore + fresh reconstruction: **native green**
 - V90 re-placement preview creation: **native green**
 - V90 fresh daily-fact reconstruction: **native green**
+- V90 replacement-fact lifecycle inventory: **native green**
 
 Known Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -158,7 +159,7 @@ Focused rerun after the fix:
 
 - **37 passed in 7.13s**
 
-### V90 native re-placement preview created successfully
+### V90 native re-placement, reconstruction and lifecycle inventory validated
 
 `RERESOLVED_V90.xlsm` was recreated from trusted V89 with candidate placement, not suspension.
 
@@ -174,9 +175,7 @@ Native output confirmed:
 - source unchanged: True
 - VBA preserved: True
 
-The two suspended treatments shown in statistics are inherited authoritative facts from the day; no new suspension was created during the V90 run.
-
-Fresh reconstruction verifier then confirmed:
+Fresh reconstruction verifier confirmed:
 
 - persisted replacements reread: 5
 - treatment suspensions reread: 2
@@ -184,15 +183,20 @@ Fresh reconstruction verifier then confirmed:
 - reconstructed finalized: ΝΑΙ
 - stored `DAILY_STATISTICS` exactly matches reconstructed daily state
 
-V90 is therefore reconstruction-green. The remaining precondition before V91/V92 is the explicit replacement-fact inventory check proving old v1 is `RESTORED` and new `:v2` is `ACTIVE`.
+Explicit replacement-fact inventory confirmed 6 historical rows total:
+
+- original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` remains `RESTORED`,
+- four unrelated surviving replacement facts remain `ACTIVE`,
+- new `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19:v2` is `ACTIVE`.
+
+This closes the V90 versioned-id lifecycle proof: restore history is preserved while the new authoritative occurrence receives a distinct immutable id.
 
 ## Exact resume point
 
-1. Inspect `RERESOLVED_V90.xlsm` replacement facts; require original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
-2. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-3. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-4. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
-5. Resume outpatient recurring create/edit native gate.
+1. Native test selected restore from V90 of exactly two ACTIVE facts: `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19:v2` and `daily-input:planner:61:ΦΘ@2026-10-19:2026-10-19`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+2. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+3. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
+4. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
