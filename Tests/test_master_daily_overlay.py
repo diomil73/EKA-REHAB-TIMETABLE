@@ -90,6 +90,41 @@ def test_replacement_overlays_master_with_effective_time_and_provider(tmp_path, 
     assert result.bindings[0].master_cell == "D7"
 
 
+def test_precomputed_projection_avoids_second_master_read(tmp_path, monkeypatch):
+    path = _book(tmp_path)
+    patient = Patient(
+        "P1",
+        "ΜΕΝΤΗΣ",
+        room="A01",
+        patient_type=PatientType.INPATIENT,
+    )
+    entry = BaseScheduleEntry(
+        base_entry_id="base-1",
+        patient_id="P1",
+        treatment="ΦΘ",
+        start_time=time(9, 15),
+        day_pattern="Δε-Τε-Πα",
+        therapist_id="Σκαρώνης",
+    )
+    projection = (
+        MasterProjectionRow(7, 2, "P1", "A01", "ΜΕΝΤΗΣ", False, "παρών"),
+    )
+    monkeypatch.setattr(
+        "rehab_excel.master_daily_overlay.build_master_projection",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("unexpected rebuild")),
+    )
+
+    result = build_master_daily_overlay_plan(
+        path,
+        base_entries=[entry],
+        states=[_replacement_state()],
+        patients=[patient],
+        master_projection_rows=projection,
+    )
+
+    assert result.write_plan.patches[0].cell == "D7"
+
+
 def test_outpatient_replacement_does_not_write_inpatient_master(tmp_path, monkeypatch):
     path = _book(tmp_path)
     patient = Patient(
