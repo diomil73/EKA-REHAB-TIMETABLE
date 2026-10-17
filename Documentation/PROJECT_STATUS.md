@@ -20,7 +20,7 @@ Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical de
 
 ## Current native checkpoint
 
-`Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm` remains the latest native checkpoint.
+`Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm` remains the latest fully accepted native checkpoint.
 
 Confirmed native green for the ΜΕΝΤΗΣ stress case:
 
@@ -36,44 +36,37 @@ The obsolete `ΑΝΑΝΕΩΣΗ` Form Control remains visible. Decision: **defer/
 
 ## Orphan workflow status
 
-Every patient in `Ορφανοί` for the concrete date must resolve as either:
+Every patient in `Ορφανοί` for the concrete date must resolve as either placement or `Αναστολή θεραπείας` for that date only.
 
-- placed in a valid therapist/time slot, or
-- `Αναστολή θεραπείας` for that date only.
+Operational implementation is source green:
 
-Architecture:
+- mandatory placement/suspension flow,
+- no unresolved completion path,
+- finalization gate requires unresolved=0,
+- suspension persists into output DAILY_INPUT,
+- reread recognizes `TREATMENT_SUSPENDED`,
+- DAILY_INPUT dropdown includes `Αναστολή θεραπείας`,
+- DAILY_STATISTICS writes from the same finalized daily state,
+- consolidated verification: **43 passed, 3 warnings in 5.15s**.
 
-- `Αναστολή θεραπείας` = `DailySessionStatus.CANCELLED` + `SessionCancellationKind.TREATMENT_SUSPENDED`,
-- recurring/base remains untouched,
-- provider slot is released,
-- explicit reason remains auditable,
-- finalized day requires unresolved=0.
+## Native V87 blocker and fix
 
-Operational implementation is now source green:
+The first mixed-orphan V87 run stopped safely before workbook output because `outpatient_presentation` emitted a stale-fill cleanup patch for `THERAPIST_DAILY!A21`, outside the confirmed write zones `B2:J8` and `B12:J18`.
 
-- `apply_daily_input_replacements.py` requires placement or suspension for every orphan,
-- `S` records suspension, `Q` aborts the preview, and no-candidate cases require S/Q,
-- finalization safety gate blocks output when unresolved sessions remain,
-- `daily_input_reader.py` recognizes `Αναστολή θεραπείας`,
-- DAILY_INPUT status dropdown includes `Αναστολή θεραπείας`,
-- `daily_operational_fact_writer.py` persists generated suspensions into output DAILY_INPUT for reread,
-- `daily_statistics_writer.py` writes visible `DAILY_STATISTICS` from finalized daily state,
-- terminal summary and workbook statistics use the same statistics object,
-- consolidated source verification: **43 passed, 3 warnings in 5.15s**.
+This was a stale-colour discovery bug, not a missing layout zone. The matching green fill at A21 was unrelated sheet furniture.
 
-## Native mixed-orphan smoke preparation
+Fix implemented:
 
-New helper:
+- outpatient stale-fill discovery and cleanup now operate only inside the two confirmed THERAPIST_DAILY patient grids,
+- write zones remain unchanged and narrow,
+- regression explicitly checks that `A21` is ignored.
 
-- `Python/tools/prepare_orphan_smoke_input.py`
-- regression: `Tests/test_prepare_orphan_smoke_input.py`
+Commits:
 
-It creates a copied DAILY_INPUT preview, automatically chooses a therapist with at least two scheduled sessions on the selected date, writes a whole-day absence, reports the affected sessions, and verifies source/VBA safety. Intended native outputs:
+- `5c81ce40256ddd36379d838c35b2a62debf0ef95`
+- `7e4031fd9f01b4b11233b6bc087078b4f94686aa`
 
-- input: `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm`
-- resolved output: `Excel/previews/ORPHAN_RESOLUTION_V87.xlsm`
-
-The V87 smoke should include at least one placement and at least one treatment suspension.
+Status: **focused source gate pending, then rerun V87 from existing V86**.
 
 ## Daily operational rules locked
 
@@ -89,19 +82,9 @@ Operational capacity remains timeslot-based. Recurring/base schedules are never 
 
 ## Ledger status
 
-Native green:
+Native green: active move rendering, MASTER sync, source trace, per-row restore, time-axis display, stale-orange cleanup.
 
-- active move rendering,
-- MASTER sync,
-- source trace,
-- per-row restore,
-- time-axis display,
-- stale-orange cleanup.
-
-Still open:
-
-- selected/all restore with multiple changes,
-- replacing preview snapshot restore with authoritative overlay removal + full daily recomputation.
+Still open: selected/all restore with multiple changes and replacing snapshot restore with authoritative overlay removal + full daily recomputation.
 
 ## Outpatient architecture
 
@@ -111,22 +94,22 @@ Outpatient recurring create/edit native verification remains open after the curr
 
 ## Immediate roadmap
 
-1. Run source test for the new native smoke preparer.
-2. Build V86 for `2026-10-19`.
-3. Run V87 with one placement + one suspension.
-4. Verify placement, suspended outcome, DAILY_INPUT persistence, DAILY_STATISTICS finalization, source unchanged and VBA preserved.
+1. Run focused tests for outpatient presentation + orphan operational flow after A21 fix.
+2. Re-run `apply_daily_input_replacements.py` from `ORPHAN_SMOKE_INPUT_V86.xlsm` to `ORPHAN_RESOLUTION_V87.xlsm`.
+3. Include at least one placement and one suspension.
+4. Verify output DAILY_INPUT persistence, DAILY_STATISTICS unresolved=0/finalized=ΝΑΙ, source unchanged and VBA preserved.
 5. Re-read V87 to confirm suspension persistence.
 6. Test selected/all restore with multiple changes.
 7. Replace snapshot restore with authoritative overlay removal + full recompute.
 8. Resume outpatient recurring create/edit native gate.
-9. Continue branch/PR hardening.
-10. Clean Python 3.14 ZipFile teardown warnings later.
+9. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Safety constraints
 
 - Never write directly to the baseline `.xlsm` during development or smoke testing.
 - Preview workflows operate on copied `.xlsm` files only.
 - Preserve/verify VBA when rebuilding previews.
+- Keep layout write zones narrow; fix producer logic rather than expanding zones without evidence.
 - Keep current scheduling behavior backward-compatible unless an explicit business rule changes it.
 - Windows test command is always `python -m pytest`.
 
