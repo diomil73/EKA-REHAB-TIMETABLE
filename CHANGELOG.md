@@ -26,9 +26,11 @@
 - Daily ledger restore no longer uses a visible `WScript.Shell.Exec` console or the detached workbook close/reopen commit worker on the primary UI path. Backend execution is hidden and blocking, then the verified operational sheet set is synchronized in-session and saved without closing the workbook.
 - Native Excel correctness is now confirmed for per-row restore, selected multi-row restore, and restore-all, with exact fresh reconstruction/statistics checks after each scenario.
 - User-facing ledger `Αιτία` now shows agreed Greek business wording for known technical replacement reasons instead of exposing internal English labels.
-- Restore performance work reduced backend latency from about 45.7s to 31.3s by batching MASTER projection COM writes; profiling then isolated roughly 24.6s in pre-Excel parsing/verification and about 8.0s in the complete hidden Excel output session.
+- Restore performance work reduced backend latency from about 45.7s to 31.3s by batching MASTER projection COM writes; profiling then isolated the remaining dominant pre-Excel phases.
 - Restore recomputation now reuses the already-loaded patient registry and already-built MASTER projection instead of reparsing those identical inputs a second time.
-- Restore latency remains an open performance/UX item despite correctness being complete.
+- Selected/all restore no longer starts a second hidden Excel process only to mark `DAILY_REPLACEMENT_FACTS` as RESTORED. The requested set is validated in memory, effective ACTIVE replacements are derived without mutating the stage, and authoritative fact statuses are persisted in the existing verified-output Excel session before its single save.
+- MASTER projection metadata now reads PATIENTS source rows, SETTINGS room order, and MASTER header position in one read-only workbook session instead of reopening the `.xlsm` three times.
+- Restore latency remains an open performance/UX item until native total time reaches the acceptance target.
 
 ### Unchanged
 - Base schedule remains immutable.
