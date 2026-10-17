@@ -8,25 +8,49 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### 1. Ορφανοί: operational queue με τελικό outcome
+### 1. Ορφανοί: operational queue + date-specific suspension
 
-Αυτό είναι πλέον το ενεργό milestone.
+Αυτό είναι το ενεργό milestone.
 
 Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει υποχρεωτικά σε ένα από:
 
 - `Τοποθετήθηκε` σε έγκυρο therapist/time,
 - `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
 
-Locked rules:
+Architecture locked:
 
-- κανένας ορφανός δεν εξαφανίζεται σιωπηλά,
-- `Αναστολή θεραπείας` είναι daily overlay/status, όχι recurring edit,
-- πρέπει να είναι auditable,
-- πρέπει να τροφοδοτεί daily statistics ως μη πραγματοποιηθείσα θεραπεία με explicit reason,
-- displaced existing patients προηγούνται των νέων ασθενών,
-- recomputation παραμένει idempotent και order-independent.
+- suspension δεν γίνεται νέο `DailySessionStatus`,
+- χρησιμοποιεί το υπάρχον `CANCELLED` με νέο `SessionCancellationKind.TREATMENT_SUSPENDED`,
+- recurring/base δεν αλλάζει,
+- το original provider slot απελευθερώνεται,
+- το reason παραμένει auditable.
 
-### 2. Daily effective state: MASTER + THERAPIST_DAILY + ledger
+Source implementation ήδη μπήκε:
+
+- `TREATMENT_SUSPENDED = "treatment_suspended"`,
+- νέο `rehab_core/orphan_resolution.py`,
+- `create_treatment_suspension()` με reason `Αναστολή θεραπείας`,
+- νέο `rehab_core/daily_statistics.py`,
+- νέα focused tests για suspension, queue removal και statistics.
+
+Status: **implemented, focused source gate pending**. Operational Excel UI/action wiring παραμένει επόμενο.
+
+### 2. Daily statistics
+
+Το νέο statistics layer μετρά ξεχωριστά:
+
+- scheduled,
+- performed (`ACTIVE` + `REPLACED`),
+- replaced,
+- patient absent,
+- department postponed,
+- patient no-show,
+- treatment suspended,
+- unresolved (`THERAPIST_ABSENT`).
+
+Unresolved orphan δεν καταγράφεται ψευδώς ως cancellation. Η ημέρα γίνεται `finalized` μόνο όταν `unresolved_sessions == 0`.
+
+### 3. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
 Το stress case ΜΕΝΤΗΣ είναι native green για:
 
@@ -37,15 +61,11 @@ Locked rules:
 - readable `hh:mm` time axis,
 - stale robotic-orange leak fix.
 
-Statistics integration παραμένει open και συνδέεται τώρα με το orphan/suspension milestone.
+### 4. Legacy `ΑΝΑΝΕΩΣΗ`
 
-### 3. Legacy `ΑΝΑΝΕΩΣΗ`
+Το κουμπί είναι **deferred/manual cleanup**. Δεν είναι blocker και δεν ξανανοίγει τώρα.
 
-Το κουμπί παραμένει οπτικά, αλλά είναι **deferred/manual cleanup**.
-
-Έχει ταυτοποιηθεί ως Form Control `Button 1`, caption `ΑΝΑΝΕΩΣΗ`, macro `RefreshAll`. Δεν είναι λειτουργικό blocker και δεν θα καταναλώσουμε άλλο engineering time τώρα. Ο χρήστης μπορεί να το αφαιρέσει χειροκίνητα στο Excel αργότερα.
-
-### 4. Reversible daily change ledger
+### 5. Reversible daily change ledger
 
 Native green:
 
@@ -60,7 +80,7 @@ Open:
 - selected/all restore σε multi-change preview,
 - production restore = authoritative overlay removal + recompute, όχι snapshot restore.
 
-### 5. Dynamic daily recomputation
+### 6. Dynamic daily recomputation
 
 Locked order:
 
@@ -72,16 +92,18 @@ Locked order:
 6. resolve remaining orphans με placement ή `Αναστολή θεραπείας`,
 7. μόνο μετά new-patient allocation.
 
-### 6. Replacement operational load semantics
+Recompute idempotent και order-independent, χωρίς destructive recurring edits.
+
+### 7. Replacement operational load semantics
 
 - authoritative load = occupied timeslots,
 - shared slot με πολλούς patients = ένα occupied timeslot,
 - ranking πρώτα occupied timeslots, μετά session count,
 - output `load x/y | patients n`.
 
-### 7. Outpatient recurring create/edit
+### 8. Outpatient recurring create/edit
 
-Παραμένει open και επιστρέφει αμέσως μετά το current orphan/daily-state milestone.
+Παραμένει open και επιστρέφει μετά το current orphan/daily-state milestone.
 
 ## Τι έχει ολοκληρωθεί
 
@@ -100,19 +122,30 @@ Locked order:
 - V83 MASTER sync + restore: native green.
 - V84 time-axis + restore: native green.
 - V85 stale-orange cleanup + restore: native green.
+- Suspension/statistics domain slice: implemented, source gate pending.
 
 ## Τρέχον verification gate
 
-1. Inspect daily-state, cancellation, reason/status and statistics models.
-2. Choose clean representation for date-specific `Αναστολή θεραπείας`.
-3. Implement orphan placement/suspension outcomes.
-4. Add statistics integration.
-5. Add focused regression tests for auditability, non-destructive recurring behavior and idempotent recompute.
-6. Native-check orphan workflow.
-7. Test selected/all restore with multiple changes.
-8. Replace snapshot restore with authoritative overlay removal + recompute.
-9. Resume outpatient recurring create/edit gate.
-10. Clean Python 3.14 ZipFile teardown warnings later.
+1. Run focused source tests for orphan suspension/statistics plus daily-state/queue/capacity regressions.
+2. Wire actual orphan actions: placement or suspension.
+3. Persist suspension as authoritative date-specific fact.
+4. Wire statistics into workbook/reporting.
+5. Native-check orphan workflow.
+6. Test selected/all restore with multiple changes.
+7. Replace snapshot restore with authoritative overlay removal + recompute.
+8. Resume outpatient recurring create/edit gate.
+9. Clean Python 3.14 ZipFile teardown warnings later.
+
+Focused Windows gate:
+
+```powershell
+python -m pytest `
+  Tests/test_orphan_treatment_suspension.py `
+  Tests/test_daily_treatment_statistics.py `
+  Tests/test_daily_state.py `
+  Tests/test_therapist_absence_queue.py `
+  Tests/test_cancellation_releases_replacement_capacity.py -q
+```
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
