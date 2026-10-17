@@ -112,10 +112,6 @@ Each effective daily move must preserve and display at least:
 - optional reason/source such as therapist absence, cancellation-driven redistribution, or manual move,
 - change/replacement identifier and status internally.
 
-Example presentation:
-
-`Ασθενής Χ: Θεραπευτής Ψ 09:00 -> Θεραπευτής Α 10:30`
-
 Required restore controls:
 
 - per-row `Επαναφορά`,
@@ -144,23 +140,26 @@ Architecture fit already exists in core:
 - `ReplacementAssignment` is already a date-specific overlay tied to one target session,
 - this makes the change ledger/revert workflow a natural extension of the existing daily-state model rather than a second schedule store.
 
-Native acceptance scenarios for this future milestone:
+### Prototype now implemented
 
-1. one patient moved, then restored individually,
-2. several moved patients, selected subset restored,
-3. restore all daily moves,
-4. cancellation arrives after earlier redistribution and triggers a better recompute,
-5. therapist absence is corrected after redistribution,
-6. attempt to restore an old change after the same patient has been moved again must be blocked or safely reconciled,
-7. next working day shows the recurring programme unless that new date has its own overlays.
+A first native UX prototype is wired into the existing guided replacement preview:
+
+- new module: `Python/rehab_excel/daily_change_ledger_vba.py`,
+- new focused tests: `Tests/test_daily_change_ledger_vba.py`,
+- `Python/tools/apply_replacement_choice.py` now installs the ledger after creating a real replacement preview,
+- the ledger uses a very-hidden `DAILY_CHANGE_LEDGER` sheet for preview-only metadata and exact source-cell snapshots,
+- `THERAPIST_DAILY` renders the date-scoped change section below the existing schedule,
+- per-row / selected / all restore controls are installed as native Excel form controls,
+- restore refuses to overwrite a cell whose current value no longer matches the expected changed state,
+- restore acts only on the preview copy and restores exact source-cell snapshots; recurring source schedules remain untouched.
+
+This prototype is intentionally a UX/native validation slice. After native acceptance, restore will be connected to the authoritative daily overlay store and recomputation engine rather than relying on preview cell snapshots.
 
 ## Current development focus
 
-**Outpatient recurring schedule create/edit end to end against `OUTPATIENT_SCHEDULE`.**
+Immediate gate: **source-test and native-smoke the reversible THERAPIST_DAILY ledger prototype using a real guided replacement preview**.
 
-The backend already supports update by `target_base_entry_id`; user-facing edit/preload support is being added by reusing the same form/backend rather than introducing a second writer.
-
-After the outpatient create/edit gate, the next operational milestone is the dynamic daily recomputation flow above, including the reversible `THERAPIST_DAILY` change ledger and native verification that cancellations and therapist absences can be entered in either order.
+The outpatient recurring create/edit work remains open and should resume after this UX spike is either accepted or adjusted.
 
 ## Business rules that must not regress
 
