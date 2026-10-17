@@ -158,8 +158,13 @@ class Win32ComExcelBackend:
                 border.Color = self.palette.infectious_yellow
 
         if patch.text_runs:
+            # Rewriting a cell value can otherwise inherit a stale whole-cell font
+            # colour from the old presentation (for example a robotic-orange cell).
+            # Start from neutral black, then apply only the semantic rich-text runs.
             cell.Font.Strikethrough = False
             cell.Font.Italic = False
+            if patch.font_role is None:
+                cell.Font.Color = self.palette.default_black
             for run in patch.text_runs:
                 chars = self._characters(cell, run.start, run.length)
                 chars.Font.Strikethrough = bool(run.strike_through)
