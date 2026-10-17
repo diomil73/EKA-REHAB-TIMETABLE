@@ -5,85 +5,68 @@ Last updated: 2026-10-17
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
 - Latest native preview tested: `Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm`
-- V73 scheduling/conflict behavior remains native green.
-- V80 clean reset preview is native green.
-- V81 MASTER toolbar/header pinning is native green.
+- V81 MASTER toolbar/header UX remains native green.
 
-## Latest confirmed test checkpoints
+## Latest confirmed checkpoints
 
-- narrow automatic-scheduling gate: `16 passed in 2.87s`
-- wider patient-program integration gate: `71 passed in 3.66s`
-- cleanup/reset focused gate: `42 passed in 3.70s`
-- row-4 toolbar/header pinning focused source gate: `43 passed in 1.92s`
-- full regression after cleanup: `699 passed, 19 warnings`
-- reversible daily change ledger focused source gate: `10 passed in 3.26s`
-- replacement load + mixed outpatient/inpatient regression gate: `31 passed in 2.04s`
-- MASTER daily overlay + ledger restore source gate: **24 passed, 5 warnings in 4.39s**
-- V82 individual ledger restore: **native green**
-- V83 MASTER active-overlay sync + restore: **native green**
-- V84 time-axis display + restore: **native green**
-- V85 stale-orange cleanup + restore: **native green**
+- full regression checkpoint: `699 passed, 19 warnings`
+- replacement load + mixed outpatient/inpatient regression: `31 passed in 2.04s`
+- MASTER daily overlay + ledger restore source gate: `24 passed, 5 warnings in 4.39s`
+- V82 individual ledger restore: native green
+- V83 MASTER active-overlay sync + restore: native green
+- V84 time-axis display + restore: native green
+- V85 stale-orange cleanup + restore: native green
 
-The 5 warnings are Python 3.14 `ZipFile.__del__` teardown warnings. They remain non-blocking technical debt.
+Python 3.14 `ZipFile.__del__` warnings remain non-blocking technical debt.
 
-## V85 native checkpoint
+## Native stress case now green
 
-Stress case:
+Case:
 
-- date: `2026-10-19`
-- patient: `ΜΕΝΤΗΣ`
-- original: `Σκαρώνης 09:15`
-- replacement: `Μηλιδάκης 10:45`
+- date `2026-10-19`
+- patient `ΜΕΝΤΗΣ`
+- original `Σκαρώνης 09:15`
+- replacement `Μηλιδάκης 10:45`
 
-Native behavior now confirmed:
+Confirmed native:
 
 - `THERAPIST_DAILY` and `MASTER` agree on the effective daily assignment,
-- left-side times display correctly as `hh:mm`,
-- ΜΕΝΤΗΣ no longer inherits stale robotic-orange text at the Μηλιδάκης destination,
-- individual `Επαναφορά` still works correctly and returns both views to `Σκαρώνης 09:15`,
-- source-position trace remains accepted UX.
+- source-position trace remains visible and is accepted UX,
+- individual `Επαναφορά` returns both views to the original assignment,
+- left-side time axis shows readable `hh:mm` with no `####`,
+- moved non-robotic ΜΕΝΤΗΣ no longer inherits stale robotic-orange styling.
 
-## Exact legacy `ΑΝΑΝΕΩΣΗ` identity
+## Legacy `ΑΝΑΝΕΩΣΗ` button: deferred/manual cleanup
 
-V85 still showed the obsolete refresh button. Native control inventory removed the ambiguity:
+The obsolete Form Control still remains despite targeted source cleanup attempts.
 
-- type: Excel Form Control button / Shape type `8`,
-- shape/button name: `Button 1`,
-- caption/text/alt: `ΑΝΑΝΕΩΣΗ`,
-- macro: `...!RefreshAll`,
-- OLEObjects: `0`.
+Native diagnostic identified it as:
 
-Therefore this is not ActiveX. The earlier generic shape-caption cleanup missed it because the COM caption path for this Form Control is inconsistent.
+- Form Control / Shape type `8`,
+- name `Button 1`,
+- caption `ΑΝΑΝΕΩΣΗ`,
+- macro `...!RefreshAll`.
 
-Surgical source fix now added:
+Decision: **do not spend more engineering time on this now**. It is cosmetic, not a functional blocker. The user will remove it manually in Excel later if needed. Do not reopen this item unless it becomes operationally relevant.
 
-- enumerate `ws.Buttons()` directly,
-- delete only when all three identifiers match: `Button 1` + `ΑΝΑΝΕΩΣΗ` + macro `RefreshAll`,
-- keep a shape fallback using the same triple identity,
-- do not target any `ekaLedger_*` or toolbar control.
+## ACTIVE development focus: orphan workflow + statistics
 
-Commits:
+The next substantive milestone is the daily `Ορφανοί` queue.
 
-- `e62ce5354752a61c4b10568ba184991b51b24c67` regression for exact Form Control identity
-- `5c51e8988797ce67358a6886e5e41f9bf5bb848c` surgical `ws.Buttons()` cleanup
-
-Status: **implemented, focused/native verification pending**.
-
-## Locked orphan workflow
-
-Every patient in the daily `Ορφανοί` queue must resolve for the concrete date as either:
+Locked rule: every orphan for the concrete date must resolve as exactly one of:
 
 - placed into a valid therapist/time slot, or
 - `Αναστολή θεραπείας` for that date only.
 
-Rules:
+Required semantics:
 
-- never silently disappear,
-- suspension is a daily overlay/status, not a recurring delete,
-- suspension feeds daily statistics as treatment not performed with explicit reason,
-- displaced existing patients have priority over new-patient allocation.
+- no orphan silently disappears,
+- `Αναστολή θεραπείας` is a date-specific daily fact/overlay, never a destructive recurring edit,
+- suspension must be auditable,
+- suspension must feed daily statistics as treatment not performed with explicit reason,
+- displaced existing patients have priority over new-patient allocation,
+- recomputation must remain idempotent and order-independent.
 
 ## Locked daily recomputation order
 
@@ -95,11 +78,9 @@ Rules:
 6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
 7. only then expose remaining capacity to new patients.
 
-Recomputation must be idempotent and recurring schedules are never destructively edited by one-day facts.
-
 ## Reversible daily change ledger
 
-Native green so far:
+Native green:
 
 - active move rendering,
 - MASTER synchronization,
@@ -110,18 +91,18 @@ Native green so far:
 
 Still open:
 
-- selected/all restore with multiple changes,
-- production restore as authoritative overlay removal + full daily recompute instead of snapshot restoration.
+- selected/all restore with multiple simultaneous changes,
+- production restore via authoritative overlay removal + full daily recompute instead of snapshot restoration.
 
-## Current development focus / exact resume point
+## Exact resume point
 
 Priority order:
 
-1. **Run focused regression for exact legacy Form Control removal.**
-2. Build fresh preview and verify `ΑΝΑΝΕΩΣΗ` is gone while ledger/toolbar controls remain.
-3. If green, close presentation cleanup milestone.
-4. Implement orphan queue semantics: placement or date-specific `Αναστολή θεραπείας`.
-5. Integrate suspension into daily statistics.
+1. Inspect existing daily-state/cancellation/statistics architecture for the cleanest representation of `Αναστολή θεραπείας`.
+2. Implement orphan final outcomes: placement or date-specific suspension.
+3. Integrate suspension into daily statistics.
+4. Add focused tests for orphan resolution, auditability, and non-destructive recurring behavior.
+5. Native-check orphan workflow.
 6. Test selected/all restore with multiple changes.
 7. Replace snapshot restore with authoritative overlay removal + recompute.
 8. Resume outpatient recurring create/edit native gate.
