@@ -290,6 +290,37 @@ def _remove_component_if_present(vbproject, component_name: str) -> None:
     vbproject.VBComponents.Remove(component)
 
 
+def _shape_caption(shape) -> str:
+    """Return a shape caption when available without assuming one control type."""
+
+    for reader in (
+        lambda: shape.TextFrame2.TextRange.Text,
+        lambda: shape.TextFrame.Characters().Text,
+        lambda: shape.TextFrame.Characters.Text,
+    ):
+        try:
+            value = reader()
+        except Exception:
+            continue
+        if value is not None:
+            return str(value).strip()
+    return ""
+
+
+def _remove_legacy_refresh_button(ws) -> int:
+    """Remove only the obsolete THERAPIST_DAILY button captioned ΑΝΑΝΕΩΣΗ."""
+
+    removed = 0
+    # Iterate backwards because deleting a Shape mutates the COM collection.
+    for index in range(int(ws.Shapes.Count), 0, -1):
+        shape = ws.Shapes.Item(index)
+        caption = _shape_caption(shape).strip().casefold()
+        if caption == "ανανέωση".casefold():
+            shape.Delete()
+            removed += 1
+    return removed
+
+
 def install_daily_change_ledger_preview(
     output_path: str | Path,
     source_path: str | Path,
@@ -331,6 +362,7 @@ def install_daily_change_ledger_preview(
         output_wb = excel.Workbooks.Open(str(output), UpdateLinks=0, ReadOnly=False)
         source_daily = source_wb.Worksheets("THERAPIST_DAILY")
         output_daily = output_wb.Worksheets("THERAPIST_DAILY")
+        _remove_legacy_refresh_button(output_daily)
 
         try:
             ledger = output_wb.Worksheets(LEDGER_SHEET)
