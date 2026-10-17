@@ -41,6 +41,14 @@ def test_bulk_restore_pipeline_uses_single_output_backend_for_master_plan_stats_
     assert "master_projection=master_projection" in source
 
 
+def test_bulk_restore_reuses_loaded_patients_and_master_projection():
+    source = inspect.getsource(restore_replacements_and_recompute)
+
+    assert "base_entries = read_unified_base_schedule(stage, patients=patients)" in source
+    assert "master_projection_rows=master_projection" in source
+    assert source.count("master_projection = build_master_projection(stage, patients=patients)") == 1
+
+
 def test_restore_output_backend_uses_one_excel_session_and_one_save():
     source = inspect.getsource(_RestoreOutputBackend.apply)
 
