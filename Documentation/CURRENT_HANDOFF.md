@@ -22,6 +22,7 @@ Last updated: 2026-10-17
 - V88 full restart daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: **native green**
 - V90 re-placement preview creation: **native green**
+- V90 fresh daily-fact reconstruction: **native green**
 
 Known Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -175,16 +176,23 @@ Native output confirmed:
 
 The two suspended treatments shown in statistics are inherited authoritative facts from the day; no new suspension was created during the V90 run.
 
-V90 is trusted as a newly created preview, but the versioned fact inventory and fresh reconstruction still require explicit verification before selected/all restore testing.
+Fresh reconstruction verifier then confirmed:
+
+- persisted replacements reread: 5
+- treatment suspensions reread: 2
+- reconstructed unresolved: 0
+- reconstructed finalized: ΝΑΙ
+- stored `DAILY_STATISTICS` exactly matches reconstructed daily state
+
+V90 is therefore reconstruction-green. The remaining precondition before V91/V92 is the explicit replacement-fact inventory check proving old v1 is `RESTORED` and new `:v2` is `ACTIVE`.
 
 ## Exact resume point
 
 1. Inspect `RERESOLVED_V90.xlsm` replacement facts; require original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
-2. Run fresh reconstruction verifier with expected replacements=5, suspended=2, unresolved=0; require exact stored statistics match.
-3. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-4. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-5. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
-6. Resume outpatient recurring create/edit native gate.
+2. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+3. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+4. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
+5. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
