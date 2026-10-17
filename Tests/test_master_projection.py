@@ -1,9 +1,11 @@
+import inspect
 from pathlib import Path
 
 from openpyxl import Workbook
 
 from rehab_core.models import Patient, PatientType
 from rehab_excel.master_projection import (
+    _projection_metadata,
     build_master_projection,
     remap_master_formula,
 )
@@ -26,6 +28,15 @@ def _workbook(tmp_path: Path) -> Path:
     return path
 
 
+def test_projection_metadata_uses_one_workbook_open_for_patients_settings_and_master():
+    source = inspect.getsource(_projection_metadata)
+
+    assert source.count("load_workbook(") == 1
+    assert 'wb["PATIENTS"]' in source
+    assert 'wb["SETTINGS"]' in source
+    assert 'wb["MASTER_SCHEDULE"]' in source
+
+
 def test_projection_sorts_rooms_naturally_then_patient_name(tmp_path):
     path = _workbook(tmp_path)
     patients = [
@@ -45,8 +56,6 @@ def test_projection_sorts_rooms_naturally_then_patient_name(tmp_path):
         room_order=("A09", "A02", "B01", "A01"),
     )
 
-    # SETTINGS order is intentionally stale; clinical natural order wins.
-    # Row 2 is deliberately reserved for the Α' ΚΛΙΝΙΚΗ banner.
     assert [(row.target_row, row.planner_row, row.patient_id) for row in rows] == [
         (3, 3, "2"),
         (4, 4, "3"),
@@ -74,7 +83,6 @@ def test_projection_never_interleaves_b_clinic_inside_a_clinic(tmp_path):
         ("A11", 4),
         ("B08", 6),
     ]
-    # Rows 2 and 5 are the Α' and Β' clinic banner rows.
 
 
 def test_projection_keeps_patient_registry_rows_as_formula_targets(tmp_path):
@@ -117,7 +125,6 @@ def test_projection_reserves_exactly_one_banner_row_at_clinic_transition(tmp_pat
         ("A09", 4),
         ("B01", 6),
     ]
-    # Rows 2 and 5 are reserved for Α' and Β' clinic labels respectively.
 
 
 def test_remap_master_formula_redirects_all_planner_references():
@@ -177,5 +184,4 @@ def test_projection_starts_below_shifted_master_header(tmp_path):
         room_order=("A02", "A09"),
     )
 
-    # Header is row 4, row 5 is reserved for Α' ΚΛΙΝΙΚΗ.
     assert [row.target_row for row in rows] == [6, 7]
