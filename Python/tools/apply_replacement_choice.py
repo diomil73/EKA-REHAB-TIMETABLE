@@ -21,6 +21,11 @@ from rehab_core.models import (  # noqa: E402
 )
 from rehab_core.replacement_options import find_replacement_options  # noqa: E402
 from rehab_core.replacement_workflow import choose_replacement_option  # noqa: E402
+from rehab_excel.daily_change_ledger_vba import (  # noqa: E402
+    DailyChangeLedgerPreviewError,
+    DailyChangeLedgerRecord,
+    install_daily_change_ledger_preview,
+)
 from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
     compose_outpatient_daily_plan,
@@ -235,14 +240,38 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
+
+        binding = next(
+            item for item in preview.bindings if item.session_id == target.session_id
+        )
+        if binding.effective_cell is None:
+            raise DailyChangeLedgerPreviewError(
+                "Replacement preview did not expose an effective destination cell"
+            )
+        ledger_record = DailyChangeLedgerRecord(
+            change_id=replacement.replacement_id,
+            change_date=args.date,
+            patient_id=patient.patient_id,
+            patient_name=patient.display_name,
+            original_provider=target.therapist_id,
+            original_time=target.start_time,
+            effective_provider=option.provider_id,
+            effective_time=option.recommended_time,
+            original_cell=binding.original_cell,
+            effective_cell=binding.effective_cell,
+            reason="προσωρινή ανακατανομή",
+        )
+        install_daily_change_ledger_preview(output, source, (ledger_record,))
     except (
         PatientCentricPreviewError,
         PatientRegistrySourceError,
         OutpatientScheduleSourceError,
         OutpatientPresentationError,
         DailyPreviewCompositionError,
+        DailyChangeLedgerPreviewError,
         ValueError,
         KeyError,
+        StopIteration,
     ) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
@@ -256,7 +285,8 @@ def main() -> int:
     print(f"Preview: {report.output_path}")
     print(f"Source unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
-    print("NEXT: open only the guided preview and inspect the original and destination cells.")
+    print("Daily change ledger installed: yes")
+    print("NEXT: open the preview, scroll below THERAPIST_DAILY, and test Restore / selected / all.")
     return 0 if report.source_unchanged and vba_preserved else 3
 
 
