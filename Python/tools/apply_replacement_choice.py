@@ -96,6 +96,12 @@ def _fmt_times(slots: tuple[time, ...]) -> str:
     return ", ".join(slot.strftime("%H:%M") for slot in slots)
 
 
+def _fmt_load(option) -> str:
+    if option.capacity_limit is None:
+        return str(option.active_timeslots)
+    return f"{option.active_timeslots}/{option.capacity_limit}"
+
+
 def _has_vba(path: Path) -> bool:
     with ZipFile(path) as archive:
         return "xl/vbaProject.bin" in archive.namelist()
@@ -191,7 +197,8 @@ def main() -> int:
         for index, option in enumerate(visible, start=1):
             exact = "exact" if option.exact_time_available else "alternative"
             print(
-                f"  {index}. {option.display_name} | load {option.active_sessions} | "
+                f"  {index}. {option.display_name} | load {_fmt_load(option)} | "
+                f"patients {option.active_sessions} | "
                 f"recommended {option.recommended_time.strftime('%H:%M')} ({exact}) | "
                 f"free: {_fmt_times(option.available_timeslots)}"
             )
