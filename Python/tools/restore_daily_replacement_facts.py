@@ -42,7 +42,10 @@ from rehab_excel.master_projection_writer import (  # noqa: E402
     MasterProjectionWriteError,
     refresh_master_projection_in_place,
 )
-from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.native_excel import (  # noqa: E402
+    Win32ComExcelBackend,
+    apply_write_plan_to_copy,
+)
 from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
 from rehab_excel.outpatient_schedule_source import (  # noqa: E402
     OutpatientScheduleSourceError,
@@ -102,43 +105,22 @@ def _requested_restore_ids(
     return cleaned
 
 
-def _finalize_restore_output_once(
-    workbook_path: Path,
-    *,
-    target_date,
-    statistics,
-    replacement_ids: tuple[str, ...],
-) -> None:
-    """Persist statistics and restored ledger rows in one native Excel session.
+class _RestoreOutputBackend(Win32ComExcelBackend):
+    """Apply the daily write plan, statistics and ledger lifecycle in one Excel session."""
 
-    The output workbook already contains the recomputed operational write plan.
-    Final statistics plus ledger lifecycle metadata are both small workbook-local
-    updates, so reopening Excel separately for each phase only adds latency without
-    increasing safety. This helper applies both, refreshes the ledger view once,
-    and saves once per finalization stage.
-    """
+    def __init__(
+        self,
+        *,
+        target_date,
+        statistics,
+        replacement_ids: tuple[str, ...],
+    ) -> None:
+        super().__init__()
+        self.target_date = target_date
+        self.statistics = statistics
+        self.replacement_ids = replacement_ids
 
-    if sys.platform != "win32":
-        raise AuthoritativeDailyRestoreError(
-            "Restore output finalization requires Windows + Microsoft Excel"
-        )
-    try:
-        import win32com.client  # type: ignore[import-not-found]
-    except ImportError as exc:
-        raise AuthoritativeDailyRestoreError("pywin32 is required") from exc
-
-    excel = None
-    workbook = None
-    try:
-        excel = win32com.client.DispatchEx("Excel.Application")
-        excel.Visible = False
-        excel.DisplayAlerts = False
-        excel.ScreenUpdating = False
-        excel.EnableEvents = False
-        workbook = excel.Workbooks.Open(
-            str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
-        )
-
+    def _write_statistics(self, workbook) -> None:
         stats_sheet = None
         for sheet in workbook.Worksheets:
             if str(sheet.Name).casefold() == DAILY_STATISTICS_SHEET.casefold():
@@ -152,7 +134,7 @@ def _finalize_restore_output_once(
         else:
             stats_sheet.Cells.Clear()
 
-        rows = build_daily_statistics_rows(target_date, statistics)
+        rows = build_daily_statistics_rows(self.target_date, self.statistics)
         stats_sheet.Range("A1:C1").Merge()
         stats_sheet.Range("A1").Value = "ΗΜΕΡΗΣΙΑ ΣΤΑΤΙΣΤΙΚΑ ΘΕΡΑΠΕΙΩΝ"
         stats_sheet.Range("A1").Font.Bold = True
@@ -173,66 +155,94 @@ def _finalize_restore_output_once(
         except Exception:
             pass
 
+    def _mark_ledger_rows(self, workbook) -> None:
+        if not self.replacement_ids:
+            return
         try:
             ledger = workbook.Worksheets(LEDGER_SHEET)
         except Exception:
-            ledger = None
+            return
 
-        if ledger is not None and replacement_ids:
-            wanted = set(replacement_ids)
-            last_row = int(ledger.Cells(ledger.Rows.Count, 1).End(-4162).Row)
-            matches: dict[str, list[int]] = {
-                replacement_id: [] for replacement_id in wanted
-            }
-            for row in range(2, last_row + 1):
-                replacement_id = str(ledger.Cells(row, 1).Value or "").strip()
-                if replacement_id in matches:
-                    matches[replacement_id].append(row)
+        wanted = set(self.replacement_ids)
+        last_row = int(ledger.Cells(ledger.Rows.Count, 1).End(-4162).Row)
+        matches: dict[str, list[int]] = {
+            replacement_id: [] for replacement_id in wanted
+        }
+        for row in range(2, last_row + 1):
+            replacement_id = str(ledger.Cells(row, 1).Value or "").strip()
+            if replacement_id in matches:
+                matches[replacement_id].append(row)
 
-            duplicates = [
-                replacement_id
-                for replacement_id, matched_rows in matches.items()
-                if len(matched_rows) > 1
-            ]
-            if duplicates:
-                raise AuthoritativeDailyRestoreError(
-                    f"Duplicate ledger ChangeId(s): {duplicates!r}"
-                )
+        duplicates = [
+            replacement_id
+            for replacement_id, matched_rows in matches.items()
+            if len(matched_rows) > 1
+        ]
+        if duplicates:
+            raise AuthoritativeDailyRestoreError(
+                f"Duplicate ledger ChangeId(s): {duplicates!r}"
+            )
 
-            restored_at = datetime.now()
-            for replacement_id in replacement_ids:
-                matched_rows = matches.get(replacement_id, [])
-                if not matched_rows:
-                    continue
-                row = matched_rows[0]
-                ledger.Cells(row, 12).Value = STATUS_RESTORED
-                ledger.Cells(row, 17).Value = restored_at
+        restored_at = datetime.now()
+        for replacement_id in self.replacement_ids:
+            matched_rows = matches.get(replacement_id, [])
+            if not matched_rows:
+                continue
+            row = matched_rows[0]
+            ledger.Cells(row, 12).Value = STATUS_RESTORED
+            ledger.Cells(row, 17).Value = restored_at
 
-        workbook.Save()
+    def apply(self, workbook_path: Path, patches) -> None:
+        if sys.platform != "win32":
+            raise AuthoritativeDailyRestoreError(
+                "Restore output write-back requires Windows + Microsoft Excel"
+            )
         try:
-            excel.Run(f"'{workbook.Name}'!RefreshDailyChangeLedgerView")
+            import win32com.client  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise AuthoritativeDailyRestoreError("pywin32 is required") from exc
+
+        excel = None
+        workbook = None
+        try:
+            excel = win32com.client.DispatchEx("Excel.Application")
+            excel.Visible = False
+            excel.DisplayAlerts = False
+            excel.ScreenUpdating = False
+            excel.EnableEvents = False
+            workbook = excel.Workbooks.Open(
+                str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
+            )
+
+            for patch in patches:
+                self._apply_patch(workbook, patch)
+            self._write_statistics(workbook)
+            self._mark_ledger_rows(workbook)
+
+            try:
+                excel.Run(f"'{workbook.Name}'!RefreshDailyChangeLedgerView")
+            except Exception:
+                # Rendering is a UI convenience. The authoritative facts,
+                # statistics and ledger lifecycle state are still persisted below.
+                pass
             workbook.Save()
-        except Exception:
-            # Facts, statistics and ledger lifecycle state are already persisted.
-            # Rendering is a UI convenience and must not invalidate the restore.
-            pass
-    except AuthoritativeDailyRestoreError:
-        raise
-    except Exception as exc:
-        raise AuthoritativeDailyRestoreError(
-            f"Could not finalize authoritative bulk restore output: {exc}"
-        ) from exc
-    finally:
-        if workbook is not None:
-            try:
-                workbook.Close(SaveChanges=False)
-            except Exception:
-                pass
-        if excel is not None:
-            try:
-                excel.Quit()
-            except Exception:
-                pass
+        except AuthoritativeDailyRestoreError:
+            raise
+        except Exception as exc:
+            raise AuthoritativeDailyRestoreError(
+                f"Could not write authoritative bulk restore output: {exc}"
+            ) from exc
+        finally:
+            if workbook is not None:
+                try:
+                    workbook.Close(SaveChanges=False)
+                except Exception:
+                    pass
+            if excel is not None:
+                try:
+                    excel.Quit()
+                except Exception:
+                    pass
 
 
 def restore_replacements_and_recompute(
@@ -319,13 +329,12 @@ def restore_replacements_and_recompute(
         report = apply_write_plan_to_copy(
             composed_plan,
             output,
+            backend=_RestoreOutputBackend(
+                target_date=target_date,
+                statistics=statistics,
+                replacement_ids=tuple(restored_ids),
+            ),
             overwrite=overwrite,
-        )
-        _finalize_restore_output_once(
-            output,
-            target_date=target_date,
-            statistics=statistics,
-            replacement_ids=tuple(restored_ids),
         )
 
         source_after = _sha256(source)
