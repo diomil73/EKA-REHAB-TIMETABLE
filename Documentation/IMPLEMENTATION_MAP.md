@@ -8,223 +8,152 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### Reversible daily change ledger: native UX prototype
+### 1. Ενοποίηση daily effective state σε MASTER + THERAPIST_DAILY
 
-Το τρέχον focus είναι native έλεγχος του ημερήσιου change ledger μέσα στο `THERAPIST_DAILY` πριν συνδεθεί με το authoritative recomputation engine.
+Το V82 απέδειξε ότι το `THERAPIST_DAILY` ακολουθεί σωστά το active daily replacement, αλλά το timetable στο `MASTER` μένει στο recurring/base πρόγραμμα. Αυτό είναι πλέον το πρώτο integration bug προς διόρθωση.
 
-Υλοποιήθηκε πρώτο native preview slice:
+Locked target:
 
-- `Python/rehab_excel/daily_change_ledger_vba.py`,
-- `Tests/test_daily_change_ledger_vba.py`,
-- integration στο `Python/tools/apply_replacement_choice.py`.
+`DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
 
-Το guided replacement preview παράγει πραγματική προσωρινή μετακίνηση και εμφανίζει από κάτω:
+Native acceptance για το stress case ΜΕΝΤΗΣ:
 
-`Αλλαγές για την dd/mm/yyyy`
+- active overlay: `Σκαρώνης 09:15 -> Μηλιδάκης 10:45`,
+- MASTER πρέπει να δείχνει `Μηλιδάκης 10:45` όσο η αλλαγή είναι ενεργή,
+- μετά `Επαναφορά`, MASTER πρέπει να ξαναδείξει `Σκαρώνης 09:15`,
+- κανένα view δεν πρέπει να κρατά δεύτερη/παλιά operational αλήθεια.
 
-με ασθενή, αρχική θέση, νέα θέση, αιτία και κατάσταση.
+### 2. V82 reversible daily change ledger
 
-Prototype controls:
-
-- `Επαναφορά` ανά row,
-- checkbox selection,
-- `Επαναφορά επιλεγμένων`,
-- `Επαναφορά όλων`.
-
-Prototype safety:
-
-- metadata/snapshots σε very-hidden `DAILY_CHANGE_LEDGER`,
-- restore μόνο πάνω στο preview copy,
-- exact source-cell snapshots για native visual restoration,
-- stale restore μπλοκάρεται πριν πατήσει νεότερη αλλαγή.
-
-Focused ledger source gate: **10 passed in 3.26s**.
-Replacement load + mixed-slot regression gate: **31 passed in 2.04s**.
-
-### V82 real guided replacement build
-
-Το πραγματικό stress test χτίστηκε επιτυχώς:
+Το πραγματικό stress test είναι native λειτουργικό:
 
 - date: `2026-10-19`
 - patient: `ΜΕΝΤΗΣ`
 - original: `Σκαρώνης 09:15`
 - replacement: `Μηλιδάκης 10:45`
-- Μηλιδάκης candidate: `load 5/6 | patients 6`
+- Μηλιδάκης: `load 5/6 | patients 6`
 - output: `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`
 - `Source unchanged: True`
 - `VBA preserved: True`
-- `Daily change ledger installed: yes`
+- ledger installed: yes
+- per-row `Επαναφορά`: **native green**
 
-Άρα build/install gate: **green**. Το επόμενο gate είναι visual/interactive native smoke μέσα στο `THERAPIST_DAILY`.
+Κρατάμε το χρήσιμο visual behavior στο source slot: ο moved patient παραμένει ορατός με ένδειξη προς τη νέα θέση.
 
-### Replacement operational load semantics
+Selected/all restore παραμένει open για multi-change preview.
 
-Κλειδώθηκε ότι το operational load είναι τα κατειλημμένα **timeslots** και όχι ο ακατέργαστος αριθμός sessions/patients.
+### 3. THERAPIST_DAILY native cleanup
 
-- `active_timeslots` = authoritative load/capacity.
-- shared slot με πολλούς ασθενείς μετρά ως ένα occupied timeslot.
-- candidate ranking ταξινομεί πρώτα με occupied timeslots και μετά με session count.
-- candidate output διαχωρίζει `load x/y` από `patients n`.
-- παράδειγμα: 6 sessions σε 5 διαφορετικά slots => `load 5/6 | patients 6`.
+Από το V82 καταγράφηκαν συγκεκριμένα cleanup items:
 
-### Mixed inpatient/outpatient slot presentation
+- η αριστερή στήλη ώρας εμφανίζει `###` σε ορισμένα rows, άρα χρειάζεται width + fixed `hh:mm`,
+- το orange font είναι αποκλειστικά robotic marker,
+- ο ΜΕΝΤΗΣ είναι infectious και όχι robotic, άρα δεν πρέπει να εμφανίζεται orange,
+- infectious styling πρέπει να διατηρεί σωστή precedence σε moved patients,
+- παλιό δεξί κουμπί `ΑΝΑΝΕΩΣΗ` από legacy VBA πρέπει να αφαιρεθεί.
 
-Mixed effective cell δεν πρέπει να ακυρώνει έγκυρη operational μετακίνηση.
+### 4. Ορφανοί: operational queue με τελικό outcome
 
-- δεν εφαρμόζεται ενιαίο outpatient whole-cell fill σε mixed cell,
-- το replacement preview συνεχίζει κανονικά,
-- το mixed cell μένει ουδέτερο μέχρι να έχουμε per-patient text styling.
+Η λίστα `Ορφανοί` είναι core daily workflow, όχι απλή ένδειξη.
 
-### Outpatient recurring schedule: create/edit end to end
+Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει υποχρεωτικά σε ένα από:
 
-Το patient-centric multi-treatment milestone και το retired single-treatment cleanup έχουν κλείσει πλήρως.
+- `Τοποθετήθηκε` σε έγκυρο therapist/time,
+- `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
 
-Confirmed green:
+Rules:
 
-- edit-existing-program end to end,
-- existing program preload,
-- atomic resave χωρίς false self-conflict,
-- optional manual names persistence/reload για Ρομποτικό / Εργο / Λογο / Ψυχ,
-- MASTER fixed top toolbar + treatment headers στο V81,
-- full suite πριν το cleanup: **722 passed, 19 warnings**,
-- full suite μετά το cleanup: **699 passed, 19 warnings**.
+- κανένας ορφανός δεν εξαφανίζεται σιωπηλά,
+- `Αναστολή θεραπείας` είναι daily overlay/status και όχι destructive recurring edit,
+- πρέπει να τροφοδοτεί τα daily statistics ως μη πραγματοποιηθείσα θεραπεία με αυτή την αιτία,
+- orphan resolution συμμετέχει στο ίδιο recomputable daily engine,
+- displaced existing patients προηγούνται των νέων ασθενών.
 
-Το outpatient recurring create/edit work παραμένει open και συνεχίζεται μόλις κλείσει ή προσαρμοστεί το ledger UX spike.
+### 5. Dynamic daily recomputation
 
-### Cancellation slot release
+Locked order κάθε refresh/recompute:
 
-Το source-level cancellation release είναι ήδη green:
-
-- cancelled occurrences αφαιρούνται από operational therapist/student workload,
-- availability checks αγνοούν cancelled occurrences,
-- replacement candidate capacity/availability λαμβάνει τα cancellations,
-- dedicated regression καλύπτει workload release και exact-slot reuse.
-
-### Κλειδωμένη λογική ημερήσιου operational recomputation
-
-Οι ακυρώσεις εσωτερικών και εξωτερικών ασθενών και οι απουσίες θεραπευτών πρέπει να λειτουργούν ανεξάρτητα από τη χρονική σειρά με την οποία καταχωρούνται.
-
-Η ημερήσια κατάσταση ξαναϋπολογίζεται από τα τελευταία γνωστά facts:
-
-1. recurring/base schedule για τη συγκεκριμένη ημερομηνία,
-2. patient cancellations/no-shows και release slots,
+1. recurring/base schedule για concrete date,
+2. cancellations/no-shows και release slots,
 3. therapist absences,
-4. displaced/unscheduled existing patients,
-5. redistribution στο καθαρό διαθέσιμο capacity,
-6. μόνο μετά new-patient allocation.
+4. identify displaced/unscheduled existing patients,
+5. redistribute στα net free slots,
+6. resolve remaining orphans με placement ή `Αναστολή θεραπείας`,
+7. μόνο μετά new-patient allocation.
 
-Temporal invariant:
+Η σειρά εισαγωγής των facts δεν πρέπει να αλλάζει το τελικό valid state. Η λειτουργία είναι idempotent.
 
-- absence μπορεί να προηγηθεί cancellation,
-- μεταγενέστερη cancellation πρέπει να βελτιώνει το recomputed plan,
-- correction/removal cancellation ξαναδεσμεύει slot και απαιτεί revalidation,
-- ούτε cancellation ούτε absence γράφει destructively στο recurring schedule,
-- recomputation idempotent.
+### 6. Replacement operational load semantics
 
-Priority invariant:
+Κλειδωμένο:
 
-- πρώτα displaced existing patients,
-- μετά new patients.
+- authoritative load = occupied **timeslots**,
+- shared slot με πολλούς patients = ένα occupied timeslot,
+- ranking πρώτα με occupied timeslots, μετά session count,
+- output: `load x/y | patients n`,
+- example confirmed native: Μηλιδάκης `load 5/6 | patients 6`.
 
-### Locked milestone: reversible daily change ledger στο THERAPIST_DAILY
+### 7. Mixed inpatient/outpatient presentation
 
-Κάτω από τα ημερήσια προγράμματα θεραπευτών υπάρχει date-scoped section:
+Mixed effective cell:
 
-`Αλλαγές για την dd/mm/yy`
+- δεν μπλοκάρει valid movement,
+- δεν παίρνει λάθος whole-cell outpatient fill,
+- μπορεί προσωρινά να μείνει neutral μέχρι per-patient styling.
 
-Κάθε ledger row πρέπει να περιγράφει τουλάχιστον:
+### 8. Outpatient recurring create/edit
 
-- ασθενή,
-- αρχικό θεραπευτή και ώρα,
-- νέο/effective θεραπευτή και ώρα,
-- reason/source,
-- stable internal change/replacement id,
-- active/restored status.
-
-Required production restore semantics:
-
-- αφαιρεί/reverses το date-specific override,
-- μετά full recompute για τη συγκεκριμένη ημερομηνία,
-- δεν γράφει ποτέ recurring/base schedule από UI text,
-- idempotent,
-- stale undo μπλοκάρεται,
-- capacity/conflicts/replacements ξαναϋπολογίζονται,
-- bulk restore ασφαλές και atomic/validated.
-
-Next-day invariant:
-
-- daily overrides ισχύουν μόνο για τη δική τους ημερομηνία,
-- η επόμενη μέρα ξεκινά από recurring/base + overlays της νέας ημέρας,
-- δεν χρειάζεται manual undo για επιστροφή στο recurring πρόγραμμα.
-
-Architecture fit:
-
-- `DailySessionState` κρατά original και effective therapist/time ξεχωριστά,
-- `ReplacementAssignment` είναι date-specific overlay,
-- το ledger/revert επεκτείνει το daily-state model και δεν δημιουργεί δεύτερο authoritative schedule store.
-
-### Accepted MASTER UX
-
-- row 2: 4 horizontal MASTER action buttons,
-- row 4: treatment / column headers,
-- rows 1-4 μένουν σταθερές στο vertical scroll,
-- application shell reapplies pin,
-- no UserForm/sidebar/CommandBars.
-
-V81 native gate: **green**.
+Παραμένει open και επιστρέφει αμέσως μετά το current daily-state/ledger integration milestone.
 
 ## Τι έχει ολοκληρωθεί
 
-- MASTER operational home και app shell.
+- MASTER operational home + accepted top toolbar/header pinning στο V81.
 - DAILY_INPUT authoritative flow.
-- THERAPIST_DAILY recurring projection/writeback.
-- Patient / therapist / student / outpatient registration slices.
-- Patient-centric multi-treatment scheduling, manual/auto hybrid, atomic save.
+- Patient-centric multi-treatment scheduling.
+- Edit-existing-program preload + atomic resave.
 - Conflict validation + explicit override.
-- MASTER composite renderer.
-- Precise ΦΘ blocker diagnostics, adjacency and overlap diagnostics.
-- Optional manual provider/name fields για Ρομποτικό / Εργο / Λογο / Ψυχ.
-- V80 native reset baseline verified green.
-- V81 fixed top toolbar + treatment headers verified native green.
-- Retired single-treatment scheduling cleanup complete.
-- Post-cleanup full regression: **699 passed, 19 warnings**.
-- Cancellation/released-slot propagation source implementation + dedicated regression coverage.
-- Reversible daily ledger prototype source gate: **10 passed in 3.26s**.
-- Replacement operational-load semantics + mixed-slot presentation fix: **31 passed in 2.04s**.
-- V82 real guided replacement preview build/install: **green**.
+- Optional manual provider/name persistence για Ρομποτικό / Εργο / Λογο / Ψυχ.
+- Retired single-treatment cleanup.
+- Full regression after cleanup: **699 passed, 19 warnings**.
+- Cancellation slot release source support.
+- Reversible ledger source gate: **10 passed in 3.26s**.
+- Replacement load + mixed-slot gate: **31 passed in 2.04s**.
+- V82 real preview build/install: **green**.
+- V82 individual restore: **native green**.
 
 ## Τρέχον verification gate
 
-1. Open `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`.
-2. Go to `THERAPIST_DAILY`.
-3. Confirm ΜΕΝΤΗΣ appears moved from Σκαρώνης 09:15 to Μηλιδάκης 10:45.
-4. Scroll below schedules and verify `Αλλαγές για την 19/10/2026`.
-5. Verify row details are correct.
-6. Test individual `Επαναφορά`.
-7. Confirm source/destination preview cells restore exactly.
-8. Confirm ledger row stays visible as restored history.
-9. Confirm recurring/base schedule remains untouched.
-10. Later test selected/all restore with multiple changes.
-11. After UX acceptance, replace snapshot restore with authoritative overlay removal + daily recompute.
-12. Resume outpatient recurring create/edit gate.
+1. Wire MASTER timetable to concrete-date `DailySessionState`.
+2. Build fresh preview with active ΜΕΝΤΗΣ move.
+3. Verify MASTER shows `Μηλιδάκης 10:45` while move active.
+4. Verify THERAPIST_DAILY still shows source trace + destination insertion.
+5. Press individual restore.
+6. Verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
+7. Fix left time-column display.
+8. Fix robotic-orange / infectious styling precedence.
+9. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+10. Implement/verify orphan outcomes + statistics.
+11. Test selected/all restore for multiple changes.
+12. Replace snapshot restore with authoritative overlay removal + full daily recompute.
+13. Resume outpatient recurring create/edit gate.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
 - ΦΘ provider required + solver-owned.
-- Ρομποτικό / Εργο / Λογο / Ψυχ optional free text, όχι solver constraint για inpatient patient-program flow.
+- Ρομποτικό / Εργο / Λογο / Ψυχ optional free text, όχι solver constraint για inpatient flow.
 - Outpatients cannot receive Ρομποτικό.
-- Ανακλινόμενο / Πισίνα / ΕΦΑ χωρίς provider/name στο inpatient flow.
+- Ανακλινόμενο / Πισίνα / ΕΦΑ χωρίς provider/name.
 - Nonblank manual constraints δεν αντικαθίστανται σιωπηλά.
-- One final atomic save για το inpatient patient-program flow.
 - Standard duration 45', Ανακλινόμενο 30'.
 - Exact adjacency allowed.
-- `PATIENT_PLANNER` authoritative για inpatient recurring schedule, `OUTPATIENT_SCHEDULE` authoritative για outpatient recurring schedule.
-- Cancellations/absences/replacements/manual redistributions είναι date-specific operational overlays και όχι destructive edits των recurring schedules.
-- Existing displaced patients προηγούνται των νέων ασθενών στη χρήση released capacity.
-- Restore operations αφαιρούν overlays και κάνουν recompute, δεν ανακατασκευάζουν recurring assignments από εμφανιζόμενο κείμενο.
-- Replacement operational load/capacity είναι timeslot-based και όχι raw session-count based.
-- Mixed inpatient/outpatient cell δεν μπλοκάρει valid operational movement μόνο λόγω whole-cell presentation ambiguity.
-- Conflict override explicit όπου υποστηρίζεται.
+- `PATIENT_PLANNER` authoritative για inpatient recurring, `OUTPATIENT_SCHEDULE` για outpatient recurring.
+- Daily cancellations/absences/replacements/suspensions/redistributions είναι overlays, όχι recurring edits.
+- Existing displaced patients προηγούνται των νέων ασθενών.
+- Orphans πρέπει να τοποθετηθούν ή να πάρουν explicit `Αναστολή θεραπείας`.
+- Daily restore αφαιρεί overlay + recompute, δεν γράφει recurring schedule από UI text.
+- MASTER και THERAPIST_DAILY πρέπει να συμφωνούν στο effective daily state.
+- Operational capacity είναι timeslot-based.
+- Mixed inpatient/outpatient presentation ambiguity δεν ακυρώνει valid schedule movement.
 
 ## Recovery rule
 
