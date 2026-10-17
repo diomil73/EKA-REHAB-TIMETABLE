@@ -35,6 +35,11 @@ from rehab_core.therapist_absence_queue import (  # noqa: E402
     build_therapist_absence_replacement_queue,
 )
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_operational_fact_writer import (  # noqa: E402
+    DailyOperationalFactWriteError,
+    append_treatment_suspensions_to_daily_input,
+    build_treatment_suspension_rows,
+)
 from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
     compose_outpatient_daily_plan,
@@ -378,8 +383,18 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
+        suspension_rows = build_treatment_suspension_rows(
+            suspensions,
+            sessions=sessions,
+            patients=patients,
+        )
+        persisted_suspensions = append_treatment_suspensions_to_daily_input(
+            output,
+            suspension_rows,
+        )
     except (
         DailyInputReadError,
+        DailyOperationalFactWriteError,
         PatientCentricPreviewError,
         PatientRegistrySourceError,
         OutpatientScheduleSourceError,
@@ -398,6 +413,7 @@ def main() -> int:
     print(f"Session cancellations: {len(cancellations)}")
     print(f"Accepted replacements: {len(replacements)}")
     print(f"Treatment suspensions: {len(suspensions)}")
+    print(f"Persisted suspension facts: {persisted_suspensions}")
     print(f"Unresolved sessions: {statistics.unresolved_sessions}")
     for replacement in replacements:
         patient = patient_by_id.get(replacement.patient_id)
@@ -430,7 +446,7 @@ def main() -> int:
     print(f"VBA preserved: {vba_preserved}")
     print(
         "NEXT: open only the output preview and inspect every placement/suspension. "
-        "Suspension persistence into the workbook operational-fact layer is the next gate."
+        "The output DAILY_INPUT now carries generated treatment-suspension facts."
     )
     return 0 if report.source_unchanged and vba_preserved else 3
 
