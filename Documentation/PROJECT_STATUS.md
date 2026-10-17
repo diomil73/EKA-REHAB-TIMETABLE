@@ -1,24 +1,22 @@
 # Project Status
 
-Last updated: 2026-10-17
+Last updated: 2026-10-18
 
 ## Current stage
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active. Backend is now down to about 23 seconds, the former 8.9-second fact-restore Excel process is gone, and the MASTER metadata path has moved to lightweight OOXML reads.**
+Active milestone: **Restore correctness remains closed green. Restore performance has improved enough for now and is deferred; focus returns to unfinished functional work, beginning with outpatient recurring create/edit native verification and the broader scheduling/UI roadmap.**
 
 ## Latest confirmed checkpoints
 
 - full regression: **699 passed, 19 warnings**
 - focused gate after MASTER batch-write patch: **35 passed in 3.67s**
-- native diagnostic after MASTER batch write: **Backend 31.33s**, rollback 0.15s, preview open 0.88s, sheet sync 0.19s, final save 1.23s
-- latest direct backend profile: **22.924s total**, **12.978s pre-Excel/verification**, **9.946s Excel output**
-- latest largest pre-Excel phase: **build_master_projection 6.142s**
-- previous **restore_fact_batch 8.863s** phase is gone after lifecycle consolidation
-- first OOXML projection gate exposed a package-absolute relationship-path bug: **5 failed, 51 passed in 5.06s**
-- package relationship normalization fix + regression now green: **59 passed in 6.85s**
-- latest Excel output: dispatch 2.133s, open 1.849s, MASTER 1.794s, daily patches 0.498s, statistics 0.277s, replacement facts 0.155s, ledger 0.174s, refresh 0.129s, save 2.189s, close 0.098s, quit 0.004s
+- package relationship normalization + OOXML projection gate: **59 passed in 6.85s**
+- latest direct backend profile: **16.509s total**, **7.976s pre-Excel/verification**, **8.533s Excel output**
+- `build_master_projection`: **0.089s**, down from **6.142s**
+- previous **restore_fact_batch 8.863s** phase remains eliminated
+- latest Excel output: dispatch 1.347s, workbook open 1.921s, MASTER 2.613s, daily patches 0.452s, statistics 0.316s, replacement facts 0.160s, ledger 0.024s, refresh 0.039s, save 1.390s, close 0.066s, quit 0.004s
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row / selected / restore-all in-session correctness: **native green**
 
@@ -40,36 +38,37 @@ The normal Excel restore workflow runs the authoritative Python backend hidden a
 
 Native correctness is green for per-row, selected, and restore-all controls.
 
-## ACTIVE: restore performance / UX latency
+## DEFERRED: restore performance / UX latency
 
-The optimization chain now includes:
+The optimization chain has reduced the trusted restore backend from about `45.70s` initially to `16.509s` in the latest direct profile. The MASTER projection parser, once a `6.142s` hotspot, is now `0.089s` through the read-only OOXML package path.
+
+The current end-user restore duration in the low-to-mid 20-second range is acceptable for this stage of development. Further performance work is explicitly postponed until the broader functional roadmap is much closer to completion.
+
+Completed performance work retained in the codebase:
 
 1. selected/all ledger lifecycle batching,
 2. statistics + ledger finalization consolidation,
 3. redundant in-session save removal,
 4. single restore output Excel session,
-5. MASTER projection moved into that output session,
+5. MASTER projection rebuilt inside that session,
 6. bounded meaningful-range sync instead of broad `UsedRange`,
-7. explicit phase timing in the Excel success dialog,
+7. phase timing instrumentation,
 8. range-batched MASTER projection write-back,
 9. detailed backend profiling,
 10. reuse of already-loaded PATIENTS and already-built MASTER projection,
-11. replacement fact lifecycle persistence moved into the existing output Excel session, eliminating the separate `8.863s` restore-fact Excel process,
-12. MASTER metadata consolidated first to one workbook load, then further optimized because the full `.xlsm` load itself remained expensive,
-13. `build_master_projection` now reads PATIENTS row ids, SETTINGS room order, and MASTER header directly through `WorkbookPackageProbe` from the OOXML ZIP/XML package. No full openpyxl load is used for these projection metadata reads. Implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`.
-14. OPC relationship targets are normalized correctly for package-absolute (`/xl/...`), relative and parent-relative forms before ZIP access. Fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`, regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`. Focused gate is now `59 passed in 6.85s`.
+11. replacement fact lifecycle persistence folded into the existing output Excel session,
+12. MASTER metadata migrated to direct OOXML package reads,
+13. OPC relationship target normalization for package-absolute and relative paths.
 
-Safety semantics are unchanged: the package probe is read-only, source bytes are not changed, validate-all-before-mutate remains intact, and native Excel still mutates only the output preview copy.
+Remaining latency sources such as `pre_excel_unattributed`, Excel process startup/open/save overhead, and further parser consolidation are deferred, not forgotten.
 
 ## Immediate roadmap
 
-1. Run `profile_daily_restore_backend.py` against trusted `RERESOLVED_V90.xlsm` using fresh `BACKEND_PROFILE4.xlsm`.
-2. Confirm that `build_master_projection` falls sharply from **6.142s**.
-3. Optimize the next largest measured phase immediately. Likely targets are `pre_excel_unattributed ~2.58s` and then Excel process startup/open/save overhead.
-4. Re-run fresh reconstruction after performance changes.
-5. Keep the acceptance target at roughly **<=15 seconds total**, ideally around 10 seconds.
-6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
-7. Later clean Python 3.14 ZipFile warnings.
+1. Resume outpatient recurring create/edit native verification.
+2. Continue the broader scheduling and Excel UI/functionality roadmap instead of spending more cycles on restore micro-optimization.
+3. Keep the current profiler and latest timings as the baseline for end-stage performance tuning.
+4. Revisit restore performance near project completion or sooner only if a correctness/performance regression appears.
+5. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
