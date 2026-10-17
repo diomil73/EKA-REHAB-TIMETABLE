@@ -11,7 +11,6 @@ from openpyxl import load_workbook
 from rehab_core.models import Patient, PatientType
 
 from .patient_registry_source import read_patient_registry
-from .reader import read_settings
 
 
 class MasterProjectionError(RuntimeError):
@@ -54,7 +53,13 @@ def _room_number(room: str | None) -> int | None:
     return int(match.group(1))
 
 
-def _patient_rows(path: str | Path) -> dict[str, int]:
+def _projection_metadata(
+    path: str | Path,
+    *,
+    room_order: Sequence[str] | None,
+) -> tuple[tuple[str, ...], dict[str, int], int]:
+    """Read all workbook metadata needed for MASTER in one openpyxl session."""
+
     workbook_path = Path(path)
     wb = load_workbook(
         workbook_path,
@@ -65,10 +70,11 @@ def _patient_rows(path: str | Path) -> dict[str, int]:
     try:
         if "PATIENTS" not in wb.sheetnames:
             raise MasterProjectionError("Workbook has no PATIENTS sheet")
-        ws = wb["PATIENTS"]
-        result: dict[str, int] = {}
-        for row in range(2, ws.max_row + 1):
-            raw = ws.cell(row, 1).value
+
+        patient_ws = wb["PATIENTS"]
+        row_by_id: dict[str, int] = {}
+        for row in range(2, patient_ws.max_row + 1):
+            raw = patient_ws.cell(row, 1).value
             if raw is None:
                 continue
             if isinstance(raw, float) and raw.is_integer():
@@ -77,36 +83,38 @@ def _patient_rows(path: str | Path) -> dict[str, int]:
                 patient_id = str(raw).strip()
             if not patient_id:
                 continue
-            if patient_id in result:
+            if patient_id in row_by_id:
                 raise MasterProjectionError(
                     f"Duplicate PatientID {patient_id!r} in PATIENTS"
                 )
-            result[patient_id] = row
-        return result
+            row_by_id[patient_id] = row
+
+        if room_order is None:
+            if "SETTINGS" not in wb.sheetnames:
+                raise MasterProjectionError("Workbook has no SETTINGS sheet")
+            settings_ws = wb["SETTINGS"]
+            rooms = tuple(
+                str(settings_ws.cell(row, 8).value).strip()
+                for row in range(2, settings_ws.max_row + 1)
+                if settings_ws.cell(row, 8).value is not None
+                and str(settings_ws.cell(row, 8).value).strip()
+            )
+        else:
+            rooms = tuple(room_order)
+
+        header_row = 1
+        if "MASTER_SCHEDULE" in wb.sheetnames:
+            master_ws = wb["MASTER_SCHEDULE"]
+            for row in range(1, min(master_ws.max_row, 10) + 1):
+                room = str(master_ws.cell(row, 2).value or "").strip().casefold()
+                patient = str(master_ws.cell(row, 3).value or "").strip().casefold()
+                if room == "θάλαμος".casefold() and patient == "ασθενής".casefold():
+                    header_row = row
+                    break
+
+        return rooms, row_by_id, header_row
     finally:
         wb.close()
-
-
-def _master_header_row(path: str | Path) -> int:
-    workbook_path = Path(path)
-    wb = load_workbook(
-        workbook_path,
-        read_only=True,
-        data_only=False,
-        keep_vba=workbook_path.suffix.casefold() == ".xlsm",
-    )
-    try:
-        if "MASTER_SCHEDULE" not in wb.sheetnames:
-            return 1
-        ws = wb["MASTER_SCHEDULE"]
-        for row in range(1, min(ws.max_row, 10) + 1):
-            room = str(ws.cell(row, 2).value or "").strip().casefold()
-            patient = str(ws.cell(row, 3).value or "").strip().casefold()
-            if room == "θάλαμος".casefold() and patient == "ασθενής".casefold():
-                return row
-    finally:
-        wb.close()
-    return 1
 
 
 def build_master_projection(
@@ -117,8 +125,10 @@ def build_master_projection(
 ) -> tuple[MasterProjectionRow, ...]:
     path = Path(workbook_path)
     patient_list = tuple(patients) if patients is not None else tuple(read_patient_registry(path))
-    rooms = tuple(room_order) if room_order is not None else read_settings(path).rooms
-    row_by_id = _patient_rows(path)
+    rooms, row_by_id, master_header_row = _projection_metadata(
+        path,
+        room_order=room_order,
+    )
 
     room_rank = {_sort_text(room): index for index, room in enumerate(rooms)}
 
@@ -135,8 +145,6 @@ def build_master_projection(
         number = _room_number(room)
 
         if clinic in {"A", "B"} and number is not None:
-            # MASTER clinical order is authoritative: all A rooms numerically,
-            # followed by all B rooms numerically. SETTINGS order may be stale.
             return (
                 0 if clinic == "A" else 1,
                 number,
@@ -145,7 +153,6 @@ def build_master_projection(
                 _sort_text(patient.patient_id),
             )
 
-        # Unknown room formats retain configured SETTINGS order as a safe fallback.
         return (
             2,
             room_rank.get(normalized_room, len(room_rank)),
@@ -156,14 +163,12 @@ def build_master_projection(
 
     ordered = sorted(inpatients, key=sort_key)
     projection: list[MasterProjectionRow] = []
-    next_target_row = _master_header_row(path) + 1
+    next_target_row = master_header_row + 1
     previous_clinic = ""
 
     for patient in ordered:
         clinic = _clinic_key(patient.room)
         if clinic and clinic != previous_clinic:
-            # Reserve one physical row for the clinic banner. The styling pass
-            # must decorate this row in place and must never insert/delete rows.
             next_target_row += 1
             previous_clinic = clinic
 
