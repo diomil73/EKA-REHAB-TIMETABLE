@@ -308,16 +308,64 @@ def _shape_caption(shape) -> str:
 
 
 def _remove_legacy_refresh_button(ws) -> int:
-    """Remove only the obsolete THERAPIST_DAILY button captioned ΑΝΑΝΕΩΣΗ."""
+    """Remove only the obsolete THERAPIST_DAILY RefreshAll form button."""
 
     removed = 0
-    # Iterate backwards because deleting a Shape mutates the COM collection.
+    try:
+        buttons = ws.Buttons()
+    except Exception:
+        buttons = None
+
+    if buttons is not None:
+        for index in range(int(buttons.Count), 0, -1):
+            button = buttons.Item(index)
+            try:
+                name = str(button.Name or "").strip().casefold()
+            except Exception:
+                name = ""
+            try:
+                caption = str(button.Caption or "").strip().casefold()
+            except Exception:
+                caption = ""
+            try:
+                action = str(button.OnAction or "").strip()
+            except Exception:
+                action = ""
+            macro = action.rsplit("!", 1)[-1].strip().casefold()
+
+            if (
+                name == "button 1"
+                and caption == "ανανέωση".casefold()
+                and macro == "refreshall"
+            ):
+                button.Delete()
+                removed += 1
+
+    # Fallback for workbook variants where the control is exposed only as a Shape.
     for index in range(int(ws.Shapes.Count), 0, -1):
         shape = ws.Shapes.Item(index)
-        caption = _shape_caption(shape).strip().casefold()
-        if caption == "ανανέωση".casefold():
+        try:
+            name = str(shape.Name or "").strip().casefold()
+        except Exception:
+            name = ""
+        try:
+            action = str(shape.OnAction or "").strip()
+        except Exception:
+            action = ""
+        try:
+            alt_text = str(shape.AlternativeText or "").strip().casefold()
+        except Exception:
+            alt_text = ""
+        caption = _shape_caption(shape).strip().casefold() or alt_text
+        macro = action.rsplit("!", 1)[-1].strip().casefold()
+        if (
+            name == "button 1"
+            and caption == "ανανέωση".casefold()
+            and macro == "refreshall"
+        ):
             shape.Delete()
             removed += 1
+
     return removed
 
 
