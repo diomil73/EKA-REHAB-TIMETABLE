@@ -5,7 +5,7 @@ Last updated: 2026-10-17
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Latest native restore preview: `Excel/previews/AUTHORITATIVE_RESTORE_V89.xlsm`
+- Latest trusted native restore preview: `Excel/previews/AUTHORITATIVE_RESTORE_V89.xlsm`
 - V81 MASTER toolbar/header UX remains native green.
 
 ## Latest confirmed checkpoints
@@ -62,7 +62,7 @@ This proves restore now changes authoritative fact lifecycle and recomputes the 
 
 ### Versioned replacement IDs implemented
 
-Operational placement now reads full replacement history, including RESTORED rows.
+Operational placement reads full replacement history, including RESTORED rows.
 
 ID rule:
 
@@ -125,17 +125,45 @@ Rerun result:
 
 - **36 passed in 4.74s**
 
-Status: **focused source gate is green. Advance to V90 native re-placement.**
+### V90 re-placement regression discovered
+
+The first native V89 -> V90 re-placement attempt stopped with:
+
+`SAFETY STOP: Duplicate ReplacementId 'daily-input:planner:61:ΦΘ@2026-10-19:2026-10-19'`
+
+Root cause:
+
+- `apply_daily_input_replacements.py` correctly reread the 4 surviving ACTIVE replacement facts from V89,
+- but after resolving the reopened orphan it passed the complete active replacement list back to `append_daily_replacement_facts`,
+- therefore the writer attempted to append the 4 already-persisted facts again before it could add only the new `:v2` fact.
+
+The duplicate-id guard behaved correctly; the caller was wrong.
+
+Fix now implemented:
+
+- existing ACTIVE replacements remain in memory for workload/state reconstruction,
+- only replacements created during the current run are appended as new facts,
+- post-copy persistence failures now remove the newly created preview so a half-written preview is not left behind,
+- output reporting distinguishes replacements loaded from disk, replacements created this run, and total active replacements after resolution.
+
+Commits:
+
+- implementation/safety cleanup: `ae0f58d363ec0cbf357876cf6b4633e3f14d70e7`
+- regression coverage: `88b75319273005b28d373d2a683701f82fe41fba`
+
+Important: any `RERESOLVED_V90.xlsm` left by the failed attempt is untrusted/partial and must not be inspected as authoritative evidence. The corrected rerun uses `--overwrite` and must recreate V90 from V89.
 
 ## Exact resume point
 
-1. Re-resolve the reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate, not suspension, and require new fact id `...:v2` and finalized day.
-2. Inspect V90 replacement facts; require the original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
-3. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
-4. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-5. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-6. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
-7. Resume outpatient recurring create/edit native gate.
+1. Pull latest branch including `ae0f58d...` and `88b7531...`.
+2. Rerun the focused source gate; require green before recreating V90.
+3. Re-run V89 -> V90 with `apply_daily_input_replacements.py`; choose a candidate, not suspension.
+4. Inspect V90 replacement facts; require the original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
+5. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
+6. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+7. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+8. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
+9. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
