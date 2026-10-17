@@ -27,6 +27,10 @@ from .daily_state import (
     DailySessionStatus,
     build_daily_session_states,
 )
+from .daily_statistics import (
+    DailyTreatmentStatistics,
+    calculate_daily_treatment_statistics,
+)
 from .day_patterns import (
     RehabWeekday,
     parse_day_pattern,
@@ -47,6 +51,10 @@ from .models import (
     Student,
     StudentAssignment,
     Therapist,
+)
+from .orphan_resolution import (
+    TREATMENT_SUSPENSION_REASON,
+    create_treatment_suspension,
 )
 from .registration import (
     NewPatientRequest,
@@ -87,6 +95,7 @@ from .workload import (
 __all__ = [
     "AbsenceKind",
     "DailyCapacityStatus",
+    "DailyTreatmentStatistics",
     "RecurringCapacityCheck",
     "RecurringCapacityIssue",
     "BaseScheduleEntry",
@@ -117,14 +126,17 @@ __all__ = [
     "StudentEndReassignmentOption",
     "StudentEndTransitionPlan",
     "StudentWorkload",
+    "TREATMENT_SUSPENSION_REASON",
     "Therapist",
     "TherapistWorkload",
     "build_daily_session_states",
     "build_operational_occurrences",
     "build_student_display_map",
+    "calculate_daily_treatment_statistics",
     "calculate_student_workload",
     "calculate_therapist_workload",
     "create_replacement_assignment",
+    "create_treatment_suspension",
     "expired_student_label",
     "find_operational_conflicts",
     "find_replacement_candidates",
