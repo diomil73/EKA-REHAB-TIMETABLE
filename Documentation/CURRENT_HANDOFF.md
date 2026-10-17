@@ -15,6 +15,7 @@ Last updated: 2026-10-17
 - MASTER daily overlay + ledger restore source gate: `24 passed, 5 warnings in 4.39s`
 - orphan suspension + statistics domain gate: `21 passed in 3.11s`
 - consolidated orphan operational gate: `43 passed, 3 warnings in 5.15s`
+- authoritative replacement fact focused source gate: `28 passed, 3 warnings in 5.14s`
 - V82 individual ledger restore: native green
 - V83 MASTER active-overlay sync + restore: native green
 - V84 time-axis display + restore: native green
@@ -66,7 +67,7 @@ Fresh reread of V87 also confirmed:
 
 ## ACTIVE milestone: authoritative replacement facts
 
-The remaining restart gap was the five placement overlays. Source implementation is now in place, verification pending.
+Source implementation is in place and the focused Windows gate is green.
 
 New module:
 
@@ -126,7 +127,12 @@ New regressions:
 - `Tests/test_daily_replacement_facts.py`
 - `Tests/test_daily_fact_reconstruction_verifier.py`
 
-Status: **implemented, focused source gate pending; native V88 pending**.
+Focused Windows result:
+
+- `28 passed, 3 warnings in 5.14s`
+- warnings are the known Python 3.14 `ZipFile.__del__` teardown issue and are non-blocking.
+
+Status: **source gate green; native V88 + full restart reconstruction gate pending**.
 
 ## Locked orphan rule
 
@@ -158,10 +164,10 @@ Recomputation must remain idempotent and order-independent.
 
 ## Exact resume point
 
-1. Run focused tests for replacement fact store + reconstruction verifier + orphan resolution imports.
-2. If green, rebuild from `ORPHAN_SMOKE_INPUT_V86.xlsm` to new `ORPHAN_RESOLUTION_V88.xlsm`, with at least one placement and one suspension.
-3. Native output must report persisted replacement facts and suspension facts, source unchanged and VBA preserved.
-4. Run `verify_daily_fact_reconstruction.py` against V88 and require replacement/suspension counts plus unresolved=0 and stored-statistics equivalence.
+1. Generate `ORPHAN_RESOLUTION_V88.xlsm` from `ORPHAN_SMOKE_INPUT_V86.xlsm`, using a mixed scenario with placements + suspensions.
+2. Native output must report persisted replacement facts and suspension facts, source unchanged and VBA preserved.
+3. Run `verify_daily_fact_reconstruction.py` against V88 and require replacement/suspension counts plus unresolved=0 and stored-statistics equivalence.
+4. If green, replacement placement persistence across restart is closed.
 5. Then use this authoritative fact store as the foundation for ledger restore by fact removal + full recompute.
 6. Test selected/all restore with multiple simultaneous changes.
 7. Resume outpatient recurring create/edit native gate.
