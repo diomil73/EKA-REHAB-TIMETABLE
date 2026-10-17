@@ -23,6 +23,9 @@
 - A provider busy at the requested time is no longer automatically removed from replacement suggestions when another common free timeslot exists.
 - Infectious workload is now a tie-breaker after total load and exact-time availability, rather than overriding the confirmed load-first priority.
 - Daily ledger restore no longer uses a visible `WScript.Shell.Exec` console or the detached workbook close/reopen commit worker on the primary UI path. Backend execution is hidden and blocking, then the verified operational sheet set is synchronized in-session and saved without closing the workbook.
+- Native Excel correctness is now confirmed for per-row restore, selected multi-row restore, and restore-all, with exact fresh reconstruction/statistics checks after each scenario.
+- User-facing ledger `Αιτία` now shows agreed Greek business wording for known technical replacement reasons instead of exposing internal English labels.
+- Restore latency remains an open performance/UX item despite correctness being complete.
 
 ### Unchanged
 - Base schedule remains immutable.
