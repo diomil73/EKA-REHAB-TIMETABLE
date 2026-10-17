@@ -151,8 +151,6 @@ NextLedgerRow:
     btn.TextFrame.Characters.Text = "Επαναφορά όλων"
     btn.OnAction = "RestoreAllDailyChanges"
 
-    ' Column A contains the two therapist timetable time axes. Keep enough
-    ' width for hh:mm and re-assert the time format after every ledger refresh.
     wsDaily.Columns("A").ColumnWidth = 8
     wsDaily.Range("A2:A8,A12:A18").NumberFormat = "hh:mm"
     wsDaily.Range("A2:A8,A12:A18").HorizontalAlignment = xlCenter
@@ -170,110 +168,316 @@ End Sub
 Public Sub RestoreDailyChangeRow()
     Dim callerName As String
     Dim rowIndex As Long
+    Dim replacementId As String
+    Dim wsLedger As Worksheet
 
+    On Error GoTo RestoreError
+    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)
     callerName = CStr(Application.Caller)
     rowIndex = CLng(Mid$(callerName, InStrRev(callerName, "_") + 1))
-    If RestoreLedgerRow(rowIndex, True) Then RefreshDailyChangeLedgerView
+
+    If Trim$(CStr(wsLedger.Cells(rowIndex, 12).Value)) <> STATUS_ACTIVE Then
+        MsgBox "Η αλλαγή έχει ήδη επαναφερθεί.", vbInformation, "Επαναφορά"
+        Exit Sub
+    End If
+
+    replacementId = Trim$(CStr(wsLedger.Cells(rowIndex, 1).Value))
+    If Len(replacementId) = 0 Then
+        MsgBox "Δεν βρέθηκε το αναγνωριστικό της αλλαγής.", vbExclamation, "Επαναφορά"
+        Exit Sub
+    End If
+
+    Call RunAuthoritativeRestore(" --replacement-id " & QuoteArg(replacementId), False)
+    Exit Sub
+
+RestoreError:
+    MsgBox "Δεν ήταν δυνατή η έναρξη της επαναφοράς: " & Err.Description, vbCritical, "Επαναφορά"
 End Sub
 
 Public Sub RestoreSelectedDailyChanges()
     Dim wsDaily As Worksheet
+    Dim wsLedger As Worksheet
     Dim shp As Shape
     Dim rowIndex As Long
-    Dim restored As Long
+    Dim replacementId As String
+    Dim replacementArgs As String
+    Dim selectedCount As Long
 
+    On Error GoTo RestoreError
     Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)
+    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)
+
     For Each shp In wsDaily.Shapes
         If Left$(shp.Name, Len(SHAPE_PREFIX & "Select_")) = SHAPE_PREFIX & "Select_" Then
             If shp.ControlFormat.Value = 1 Then
                 rowIndex = CLng(Mid$(shp.Name, Len(SHAPE_PREFIX & "Select_") + 1))
-                If RestoreLedgerRow(rowIndex, False) Then restored = restored + 1
+                If Trim$(CStr(wsLedger.Cells(rowIndex, 12).Value)) = STATUS_ACTIVE Then
+                    replacementId = Trim$(CStr(wsLedger.Cells(rowIndex, 1).Value))
+                    If Len(replacementId) > 0 Then
+                        replacementArgs = replacementArgs & " --replacement-id " & QuoteArg(replacementId)
+                        selectedCount = selectedCount + 1
+                    End If
+                End If
             End If
         End If
     Next shp
 
-    RefreshDailyChangeLedgerView
-    If restored = 0 Then
-        MsgBox "Δεν επιλέχθηκε ασφαλής αλλαγή για επαναφορά.", vbInformation
-    Else
-        MsgBox "Επαναφέρθηκαν " & CStr(restored) & " αλλαγές.", vbInformation
+    If selectedCount = 0 Then
+        MsgBox "Δεν επιλέχθηκε ενεργή αλλαγή για επαναφορά.", vbInformation, "Επαναφορά επιλεγμένων"
+        Exit Sub
     End If
+
+    Call RunAuthoritativeRestore(replacementArgs, False)
+    Exit Sub
+
+RestoreError:
+    MsgBox "Δεν ήταν δυνατή η έναρξη της επαναφοράς: " & Err.Description, vbCritical, "Επαναφορά επιλεγμένων"
 End Sub
 
 Public Sub RestoreAllDailyChanges()
-    Dim wsLedger As Worksheet
-    Dim lastRow As Long
-    Dim rowIndex As Long
-    Dim restored As Long
+    If MsgBox("Να επαναφερθούν όλες οι ενεργές αλλαγές της ημέρας;", _
+              vbYesNo + vbQuestion, "Επαναφορά όλων") <> vbYes Then Exit Sub
 
-    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)
-    lastRow = wsLedger.Cells(wsLedger.Rows.Count, 1).End(xlUp).Row
-
-    If MsgBox("Να επαναφερθούν όλες οι ενεργές αλλαγές της ημέρας;", vbYesNo + vbQuestion, "Επαναφορά όλων") <> vbYes Then Exit Sub
-
-    For rowIndex = 2 To lastRow
-        If Trim$(CStr(wsLedger.Cells(rowIndex, 12).Value)) = STATUS_ACTIVE Then
-            If RestoreLedgerRow(rowIndex, False) Then restored = restored + 1
-        End If
-    Next rowIndex
-
-    RefreshDailyChangeLedgerView
-    MsgBox "Επαναφέρθηκαν " & CStr(restored) & " αλλαγές.", vbInformation
+    Call RunAuthoritativeRestore("", True)
 End Sub
 
-Private Function RestoreLedgerRow(ByVal ledgerRow As Long, ByVal showMessage As Boolean) As Boolean
-    Dim wsDaily As Worksheet
-    Dim wsLedger As Worksheet
-    Dim originalCell As String
-    Dim effectiveCell As String
-    Dim expectedOriginal As String
-    Dim expectedEffective As String
-    Dim currentOriginal As String
-    Dim currentEffective As String
+Private Function RunAuthoritativeRestore(ByVal replacementArgs As String, ByVal restoreAll As Boolean) As Boolean
+    Dim scriptPath As String
+    Dim outputPath As String
+    Dim responsePath As String
+    Dim commandLine As String
+    Dim shell As Object
+    Dim exec As Object
+    Dim stdoutText As String
+    Dim stderrText As String
+    Dim responseText As String
+    Dim errorText As String
 
-    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)
-    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)
+    On Error GoTo RestoreError
 
-    If Trim$(CStr(wsLedger.Cells(ledgerRow, 12).Value)) <> STATUS_ACTIVE Then
-        If showMessage Then MsgBox "Η αλλαγή έχει ήδη επαναφερθεί.", vbInformation
+    If ThisWorkbook.ReadOnly Then
+        MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Δεν μπορεί να γίνει επαναφορά.", vbExclamation, "Επαναφορά"
         Exit Function
     End If
 
-    originalCell = Trim$(CStr(wsLedger.Cells(ledgerRow, 10).Value))
-    effectiveCell = Trim$(CStr(wsLedger.Cells(ledgerRow, 11).Value))
-    expectedOriginal = CStr(wsLedger.Cells(ledgerRow, 15).Value)
-    expectedEffective = CStr(wsLedger.Cells(ledgerRow, 16).Value)
-    currentOriginal = CStr(wsDaily.Range(originalCell).Value)
-    currentEffective = CStr(wsDaily.Range(effectiveCell).Value)
-
-    If currentOriginal <> expectedOriginal Then
-        If showMessage Then MsgBox "Η αρχική θέση έχει αλλάξει ξανά. Δεν έγινε αυτόματη επαναφορά.", vbExclamation
-        Exit Function
-    End If
-    If effectiveCell <> originalCell And currentEffective <> expectedEffective Then
-        If showMessage Then MsgBox "Η νέα θέση έχει αλλάξει ξανά. Δεν έγινε αυτόματη επαναφορά.", vbExclamation
+    scriptPath = ResolveAuthoritativeRestoreScript()
+    If Len(scriptPath) = 0 Then
+        MsgBox "Δεν βρέθηκε το authoritative εργαλείο επαναφοράς.", vbCritical, "Επαναφορά"
         Exit Function
     End If
 
-    wsLedger.Cells(ledgerRow, 13).Copy Destination:=wsDaily.Range(originalCell)
-    If effectiveCell <> originalCell Then
-        wsLedger.Cells(ledgerRow, 14).Copy Destination:=wsDaily.Range(effectiveCell)
-    End If
+    ThisWorkbook.Save
 
-    ' MASTER_SCHEDULE is a derived recurring view plus today's effective overlay.
-    ' Once this preview overlay is restored, rebuild this patient's MASTER row
-    ' from PATIENT_PLANNER so the two operational views cannot disagree.
+    outputPath = ThisWorkbook.Path & "\AUTHORITATIVE_LEDGER_RESTORE_PREVIEW.xlsm"
+    responsePath = Environ$("TEMP") & "\eka_daily_restore_response_" & _
+                   Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+
     On Error Resume Next
-    Call RefreshMasterPatientProgram(CStr(wsLedger.Cells(ledgerRow, 3).Value))
+    If Dir$(outputPath) <> "" Then Kill outputPath
+    On Error GoTo RestoreError
+
+    commandLine = QuoteArg("python") & " " & QuoteArg(scriptPath) & _
+                  " --input " & QuoteArg(ThisWorkbook.FullName) & _
+                  " --output " & QuoteArg(outputPath) & _
+                  " --response " & QuoteArg(responsePath) & _
+                  " --overwrite" & replacementArgs
+    If restoreAll Then commandLine = commandLine & " --all-active"
+
+    Set shell = CreateObject("WScript.Shell")
+    Set exec = shell.Exec(commandLine)
+    Do While exec.Status = 0
+        DoEvents
+    Loop
+
+    stdoutText = exec.StdOut.ReadAll
+    stderrText = exec.StdErr.ReadAll
+    If Dir$(responsePath) <> "" Then responseText = ReadUtf8Text(responsePath)
+
+    If exec.ExitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
+        errorText = JsonStringValue(responseText, "error")
+        If Len(errorText) = 0 Then errorText = Trim$(stderrText)
+        If Len(errorText) = 0 Then errorText = Trim$(stdoutText)
+        If Len(errorText) = 0 Then errorText = "Άγνωστο σφάλμα authoritative επαναφοράς."
+        MsgBox "Η επαναφορά δεν ολοκληρώθηκε:" & vbCrLf & vbCrLf & errorText, vbExclamation, "Επαναφορά"
+        GoTo FailedCleanup
+    End If
+
+    If Not StartAuthoritativeRestoreCommit( _
+        JsonStringValue(responseText, "output_path"), _
+        JsonStringValue(responseText, "source_sha256_before")) Then
+        GoTo FailedCleanup
+    End If
+
+    MsgBox "Η επαναφορά επαληθεύτηκε και είναι έτοιμη για ασφαλή αποθήκευση." & vbCrLf & vbCrLf & _
+           "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα.", _
+           vbInformation, "Επαναφορά"
+
+    On Error Resume Next
+    If Len(responsePath) > 0 Then Kill responsePath
     On Error GoTo 0
 
-    wsLedger.Cells(ledgerRow, 12).Value = STATUS_RESTORED
-    wsLedger.Cells(ledgerRow, 17).Value = Now
-    RestoreLedgerRow = True
+    RunAuthoritativeRestore = True
+    ThisWorkbook.Close SaveChanges:=True
+    Exit Function
 
-    If showMessage Then
-        MsgBox "Η αλλαγή επαναφέρθηκε στην προηγούμενη θέση της.", vbInformation
+FailedCleanup:
+    On Error Resume Next
+    If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
+    If Len(outputPath) > 0 And Dir$(outputPath) <> "" Then Kill outputPath
+    On Error GoTo 0
+    Exit Function
+
+RestoreError:
+    MsgBox "Δεν ήταν δυνατή η authoritative επαναφορά: " & Err.Description, vbCritical, "Επαναφορά"
+    Resume FailedCleanup
+End Function
+
+Private Function StartAuthoritativeRestoreCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
+    Dim workerScript As String
+    Dim commitRequestPath As String
+    Dim commitResponsePath As String
+    Dim commandLine As String
+
+    workerScript = ResolveAuthoritativeCommitWorkerScript()
+    If Len(workerScript) = 0 Then
+        MsgBox "Δεν βρέθηκε το authoritative save worker του συστήματος.", vbCritical, "Επαναφορά"
+        Exit Function
     End If
+
+    If Len(Trim$(previewPath)) = 0 Or Len(Trim$(sourceSha256)) = 0 Then
+        MsgBox "Το backend δεν επέστρεψε τα στοιχεία ασφαλούς αποθήκευσης.", vbCritical, "Επαναφορά"
+        Exit Function
+    End If
+
+    commitRequestPath = Environ$("TEMP") & "\eka_restore_commit_request_" & _
+                        Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+    commitResponsePath = Environ$("TEMP") & "\eka_restore_commit_response_" & _
+                         Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+
+    WriteUtf8Text commitRequestPath, BuildAuthoritativeRestoreCommitJson(previewPath, sourceSha256)
+
+    commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
+                  " --request " & QuoteArg(commitRequestPath) & _
+                  " --response " & QuoteArg(commitResponsePath)
+
+    On Error GoTo WorkerError
+    CreateObject("WScript.Shell").Run commandLine, 0, False
+    StartAuthoritativeRestoreCommit = True
+    Exit Function
+
+WorkerError:
+    MsgBox "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς αποθήκευσης: " & Err.Description, vbCritical, "Επαναφορά"
+End Function
+
+Private Function BuildAuthoritativeRestoreCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String
+    Dim q As String
+    q = Chr$(34)
+
+    BuildAuthoritativeRestoreCommitJson = _
+        "{" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "preview_path" & q & ":" & q & JsonEscape(previewPath) & q & "," & _
+        q & "expected_source_sha256" & q & ":" & q & JsonEscape(sourceSha256) & q & "," & _
+        q & "remove_preview_after_success" & q & ":true," & _
+        q & "reopen" & q & ":true," & _
+        q & "timeout_seconds" & q & ":30," & _
+        q & "poll_seconds" & q & ":0.5," & _
+        q & "post_reopen_target" & q & ":" & q & JsonEscape(DAILY_SHEET) & q & _
+        "}"
+End Function
+
+Private Function ResolveAuthoritativeRestoreScript() As String
+    Dim candidate As String
+
+    candidate = ThisWorkbook.Path & "\Python\tools\restore_daily_replacement_facts.py"
+    If Dir$(candidate) <> "" Then
+        ResolveAuthoritativeRestoreScript = candidate
+        Exit Function
+    End If
+
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\restore_daily_replacement_facts.py"
+    If Dir$(candidate) <> "" Then
+        ResolveAuthoritativeRestoreScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
+    End If
+End Function
+
+Private Function ResolveAuthoritativeCommitWorkerScript() As String
+    Dim candidate As String
+
+    candidate = ThisWorkbook.Path & "\Python\tools\authoritative_commit_worker_cli.py"
+    If Dir$(candidate) <> "" Then
+        ResolveAuthoritativeCommitWorkerScript = candidate
+        Exit Function
+    End If
+
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\authoritative_commit_worker_cli.py"
+    If Dir$(candidate) <> "" Then
+        ResolveAuthoritativeCommitWorkerScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
+    End If
+End Function
+
+Private Function JsonEscape(ByVal value As String) As String
+    Dim text As String
+    text = Replace(value, "\", "\\")
+    text = Replace(text, Chr$(34), "\" & Chr$(34))
+    text = Replace(text, vbCrLf, "\n")
+    text = Replace(text, vbCr, "\n")
+    text = Replace(text, vbLf, "\n")
+    JsonEscape = text
+End Function
+
+Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) As String
+    Dim marker As String, startPos As Long, index As Long, ch As String, escaped As Boolean, value As String
+    marker = Chr$(34) & key & Chr$(34) & ":"
+    startPos = InStr(1, jsonText, marker, vbTextCompare)
+    If startPos = 0 Then Exit Function
+    startPos = InStr(startPos + Len(marker), jsonText, Chr$(34))
+    If startPos = 0 Then Exit Function
+    For index = startPos + 1 To Len(jsonText)
+        ch = Mid$(jsonText, index, 1)
+        If escaped Then
+            Select Case ch
+                Case "n": value = value & vbLf
+                Case "r": value = value & vbCr
+                Case "t": value = value & vbTab
+                Case Else: value = value & ch
+            End Select
+            escaped = False
+        ElseIf ch = "\" Then
+            escaped = True
+        ElseIf ch = Chr$(34) Then
+            Exit For
+        Else
+            value = value & ch
+        End If
+    Next index
+    JsonStringValue = value
+End Function
+
+Private Sub WriteUtf8Text(ByVal filePath As String, ByVal text As String)
+    Dim stream As Object
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.WriteText text
+    stream.SaveToFile filePath, 2
+    stream.Close
+End Sub
+
+Private Function ReadUtf8Text(ByVal filePath As String) As String
+    Dim stream As Object
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.LoadFromFile filePath
+    ReadUtf8Text = stream.ReadText
+    stream.Close
+End Function
+
+Private Function QuoteArg(ByVal value As String) As String
+    QuoteArg = Chr$(34) & Replace(value, Chr$(34), Chr$(34) & Chr$(34)) & Chr$(34)
 End Function
 '''
 
@@ -341,7 +545,6 @@ def _remove_legacy_refresh_button(ws) -> int:
                 button.Delete()
                 removed += 1
 
-    # Fallback for workbook variants where the control is exposed only as a Shape.
     for index in range(int(ws.Shapes.Count), 0, -1):
         shape = ws.Shapes.Item(index)
         try:
@@ -377,8 +580,8 @@ def install_daily_change_ledger_preview(
     """Install a native reversible ledger into a preview workbook.
 
     The source workbook is opened read-only only long enough to copy exact cell
-    snapshots into a very-hidden ledger sheet. Restore buttons act only on the
-    preview workbook and refuse to overwrite cells that have changed again.
+    snapshots into a very-hidden ledger sheet. Restore buttons now delegate to
+    the authoritative replacement-fact backend; snapshots remain audit context.
     """
 
     output = Path(output_path).resolve()
@@ -455,7 +658,7 @@ def install_daily_change_ledger_preview(
             ledger.Cells(row_index, 15).Value = output_daily.Range(record.original_cell).Value
             ledger.Cells(row_index, 16).Value = output_daily.Range(record.effective_cell).Value
 
-        ledger.Visible = 2  # xlSheetVeryHidden
+        ledger.Visible = 2
 
         vbproject = output_wb.VBProject
         _remove_component_if_present(vbproject, MODULE_NAME)
