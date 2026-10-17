@@ -6,10 +6,12 @@ from openpyxl import Workbook
 from rehab_core.models import ReplacementAssignment, ReplacementProviderKind, Session
 from rehab_excel.daily_replacement_facts import (
     ACTIVE_STATUS,
+    RESTORED_STATUS,
     HEADERS,
     SHEET_NAME,
     DailyReplacementFactError,
     build_daily_replacement_fact_rows,
+    read_daily_replacement_fact_rows,
     read_daily_replacement_facts,
 )
 
@@ -67,6 +69,33 @@ def _write_fact_sheet(path, rows):
             ws.cell(row_number, col).value = value
     wb.save(path)
     wb.close()
+
+
+def _fact_row(
+    *,
+    replacement_id="R1",
+    target_session_id="S1",
+    patient_id="P1",
+    original_therapist_id="Σάρρας",
+    replacement_therapist_id="Πέτσιος",
+    replacement_date=DAY,
+    replacement_time="10:00",
+    reason="DAILY_INPUT therapist absence",
+    provider_kind="therapist",
+    status=ACTIVE_STATUS,
+):
+    return (
+        replacement_id,
+        target_session_id,
+        patient_id,
+        original_therapist_id,
+        replacement_therapist_id,
+        replacement_date,
+        replacement_time,
+        reason,
+        provider_kind,
+        status,
+    )
 
 
 def test_build_rows_preserves_exact_replacement_semantics():
@@ -130,23 +159,7 @@ def test_reader_missing_sheet_is_backward_compatible(tmp_path):
 
 def test_reader_reconstructs_replacement_assignment(tmp_path):
     path = tmp_path / "facts.xlsx"
-    _write_fact_sheet(
-        path,
-        [
-            (
-                "R1",
-                "S1",
-                "P1",
-                "Σάρρας",
-                "Πέτσιος",
-                DAY,
-                "10:00",
-                "DAILY_INPUT therapist absence",
-                "therapist",
-                "ACTIVE",
-            )
-        ],
-    )
+    _write_fact_sheet(path, [_fact_row()])
 
     facts = read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
 
@@ -155,23 +168,7 @@ def test_reader_reconstructs_replacement_assignment(tmp_path):
 
 def test_reader_normalizes_timezone_shifted_numeric_excel_date(tmp_path):
     path = tmp_path / "facts.xlsx"
-    _write_fact_sheet(
-        path,
-        [
-            (
-                "R1",
-                "S1",
-                "P1",
-                "Σάρρας",
-                "Πέτσιος",
-                46313.875,
-                "10:00",
-                "DAILY_INPUT therapist absence",
-                "therapist",
-                "ACTIVE",
-            )
-        ],
-    )
+    _write_fact_sheet(path, [_fact_row(replacement_date=46313.875)])
 
     facts = read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
 
@@ -180,23 +177,7 @@ def test_reader_normalizes_timezone_shifted_numeric_excel_date(tmp_path):
 
 def test_reader_defaults_blank_provider_kind_to_therapist(tmp_path):
     path = tmp_path / "facts.xlsx"
-    _write_fact_sheet(
-        path,
-        [
-            (
-                "R1",
-                "S1",
-                "P1",
-                "Σάρρας",
-                "Πέτσιος",
-                "2026-10-19",
-                "10:00",
-                "DAILY_INPUT therapist absence",
-                "",
-                "ACTIVE",
-            )
-        ],
-    )
+    _write_fact_sheet(path, [_fact_row(replacement_date="2026-10-19", provider_kind="")])
 
     facts = read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
 
@@ -208,30 +189,16 @@ def test_reader_filters_other_dates_before_session_validation(tmp_path):
     _write_fact_sheet(
         path,
         [
-            (
-                "OTHER-DAY",
-                "UNKNOWN",
-                "P-X",
-                "T-X",
-                "T-Y",
-                "2026-10-20",
-                "10:00",
-                "other day",
-                "therapist",
-                "ACTIVE",
+            _fact_row(
+                replacement_id="OTHER-DAY",
+                target_session_id="UNKNOWN",
+                patient_id="P-X",
+                original_therapist_id="T-X",
+                replacement_therapist_id="T-Y",
+                replacement_date="2026-10-20",
+                reason="other day",
             ),
-            (
-                "R1",
-                "S1",
-                "P1",
-                "Σάρρας",
-                "Πέτσιος",
-                "2026-10-19",
-                "10:00",
-                "DAILY_INPUT therapist absence",
-                "therapist",
-                "ACTIVE",
-            ),
+            _fact_row(replacement_date="2026-10-19"),
         ],
     )
 
@@ -240,39 +207,69 @@ def test_reader_filters_other_dates_before_session_validation(tmp_path):
     assert [fact.replacement_id for fact in facts] == ["R1"]
 
 
-def test_reader_rejects_conflicting_duplicate_target_date(tmp_path):
+def test_reader_rejects_conflicting_duplicate_active_target_date(tmp_path):
     path = tmp_path / "facts.xlsx"
     _write_fact_sheet(
         path,
         [
-            (
-                "R1",
-                "S1",
-                "P1",
-                "Σάρρας",
-                "Πέτσιος",
-                DAY,
-                "10:00",
-                "one",
-                "therapist",
-                "ACTIVE",
-            ),
-            (
-                "R2",
-                "S1",
-                "P1",
-                "Σάρρας",
-                "Φιλιππούσης",
-                DAY,
-                "10:45",
-                "two",
-                "therapist",
-                "ACTIVE",
+            _fact_row(replacement_id="R1", reason="one"),
+            _fact_row(
+                replacement_id="R2",
+                replacement_therapist_id="Φιλιππούσης",
+                replacement_time="10:45",
+                reason="two",
             ),
         ],
     )
 
     with pytest.raises(DailyReplacementFactError, match="Multiple active replacement facts"):
+        read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
+
+
+def test_restored_fact_is_history_not_effective_daily_state(tmp_path):
+    path = tmp_path / "facts.xlsx"
+    _write_fact_sheet(path, [_fact_row(status=RESTORED_STATUS)])
+
+    active = read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
+    history = read_daily_replacement_fact_rows(
+        path,
+        target_date=DAY,
+        include_restored=True,
+    )
+
+    assert active == ()
+    assert len(history) == 1
+    assert history[0].replacement_id == "R1"
+    assert history[0].status == RESTORED_STATUS
+
+
+def test_restored_history_does_not_conflict_with_new_active_fact_for_same_target(tmp_path):
+    path = tmp_path / "facts.xlsx"
+    _write_fact_sheet(
+        path,
+        [
+            _fact_row(replacement_id="R1", status=RESTORED_STATUS),
+            _fact_row(
+                replacement_id="R2",
+                replacement_therapist_id="Φιλιππούσης",
+                replacement_time="10:45",
+                status=ACTIVE_STATUS,
+            ),
+        ],
+    )
+
+    active = read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
+
+    assert len(active) == 1
+    assert active[0].replacement_id == "R2"
+    assert active[0].replacement_therapist_id == "Φιλιππούσης"
+
+
+def test_reader_rejects_unknown_status(tmp_path):
+    path = tmp_path / "facts.xlsx"
+    _write_fact_sheet(path, [_fact_row(status="MYSTERY")])
+
+    with pytest.raises(DailyReplacementFactError, match="unsupported Status"):
         read_daily_replacement_facts(path, sessions=[_session()], target_date=DAY)
 
 
