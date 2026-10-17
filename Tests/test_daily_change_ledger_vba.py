@@ -53,6 +53,10 @@ def test_restore_refuses_to_clobber_newer_changes_and_uses_snapshots():
     assert 'Cells(ledgerRow, 12).Value = STATUS_RESTORED' in VBA_CODE
 
 
+def test_restore_refreshes_master_patient_program_back_to_recurring_state():
+    assert 'Call RefreshMasterPatientProgram(CStr(wsLedger.Cells(ledgerRow, 3).Value))' in VBA_CODE
+
+
 def test_ledger_refresh_keeps_restored_rows_visible_as_history():
     assert 'wsDaily.Cells(displayRow, 6).Value = "Επαναφέρθηκε"' in VBA_CODE
     assert 'wsDaily.Cells(displayRow, 6).Value = "Ενεργή αλλαγή"' in VBA_CODE
