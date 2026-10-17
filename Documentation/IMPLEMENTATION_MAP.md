@@ -22,24 +22,46 @@ Confirmed green:
 - full suite πριν το cleanup: **722 passed, 19 warnings**,
 - full suite μετά το cleanup: **699 passed, 19 warnings**.
 
-Η μείωση του test count είναι αναμενόμενη, επειδή αφαιρέθηκαν tests που κάλυπταν αποκλειστικά retired single-treatment code.
-
 ### Cancellation slot release
 
-Το προηγούμενο roadmap candidate είναι ήδη source-green και δεν χρειάζεται νέα υλοποίηση:
+Το source-level cancellation release είναι ήδη green:
 
 - cancelled occurrences αφαιρούνται από operational therapist/student workload,
 - availability checks αγνοούν cancelled occurrences,
 - replacement candidate capacity/availability λαμβάνει τα cancellations,
-- το `Tests/test_cancellation_releases_replacement_capacity.py` καλύπτει ακριβώς workload release και exact-slot reuse.
+- dedicated regression καλύπτει workload release και exact-slot reuse.
 
-Native cancellation smoke παραμένει μελλοντικό verification item, όχι source implementation gap.
+### Κλειδωμένη λογική ημερήσιου operational recomputation
+
+Οι ακυρώσεις εσωτερικών και εξωτερικών ασθενών και οι απουσίες θεραπευτών πρέπει να λειτουργούν ανεξάρτητα από τη χρονική σειρά με την οποία καταχωρούνται.
+
+Η ημερήσια κατάσταση πρέπει να ξαναϋπολογίζεται από τα τελευταία γνωστά facts κάθε φορά που αλλάζει cancellation ή therapist absence:
+
+1. recurring/base schedule για τη συγκεκριμένη ημερομηνία,
+2. εφαρμογή όλων των patient cancellations / no-shows και απελευθέρωση των slots,
+3. εφαρμογή όλων των therapist absences και αφαίρεση της διαθεσιμότητας αυτών των θεραπευτών,
+4. εντοπισμός ασθενών που μένουν χωρίς εκτελέσιμη ανάθεση,
+5. redistribution αυτών των ήδη προγραμματισμένων/επηρεασμένων ασθενών στο καθαρό διαθέσιμο capacity,
+6. μόνο το capacity που απομένει μετά το redistribution προσφέρεται σε νέους ασθενείς.
+
+Temporal invariant:
+
+- therapist absence μπορεί να καταχωρηθεί νωρίς και να παράγει preliminary redistribution,
+- μεταγενέστερη cancellation πρέπει με refresh/recompute να ελευθερώνει αμέσως νέο slot,
+- correction/removal cancellation πρέπει να ξαναδεσμεύει το slot και να επανελέγχει conflicts,
+- ούτε cancellation ούτε therapist absence τροποποιεί καταστροφικά το recurring base schedule,
+- η λειτουργία πρέπει να είναι idempotent και να μπορεί να ξανατρέχει όσες φορές χρειάζεται μέσα στην ίδια ημέρα.
+
+Priority invariant:
+
+- πρώτα εξυπηρετούνται οι υπάρχοντες ασθενείς που επηρεάζονται από απουσία θεραπευτή,
+- μετά χρησιμοποιείται τυχόν υπόλοιπο capacity για νέους ασθενείς.
 
 ### Τρέχον outpatient milestone
 
 Στόχος: native create/edit flow για recurring outpatient schedule στο `OUTPATIENT_SCHEDULE`.
 
-Υπάρχει ήδη backend upsert με `OutpatientScheduleRequest.target_base_entry_id`, conflict validation, suggestions και source-hash/readback safety. Τώρα ελέγχουμε αν το Excel form διαθέτει user-facing edit/preload. Αν λείπει, θα προστεθεί πάνω στο υπάρχον backend αντί να δημιουργηθεί δεύτερος μηχανισμός.
+Υπάρχει ήδη backend upsert με `OutpatientScheduleRequest.target_base_entry_id`, conflict validation, suggestions και source-hash/readback safety. Προστίθεται user-facing edit/preload πάνω στο ίδιο form/backend.
 
 Acceptance:
 
@@ -74,23 +96,23 @@ V81 native gate: **green**.
 - MASTER composite renderer.
 - Precise ΦΘ blocker diagnostics, adjacency and overlap diagnostics.
 - Optional manual provider/name fields για Ρομποτικό / Εργο / Λογο / Ψυχ.
-- Final preview-shell refresh ώστε το current application shell να φτάνει πάντα στο generated preview.
-- Cleanup των αποτυχημένων sidebar mechanisms.
 - V80 native reset baseline verified green.
-- Edit-existing-program native flow verified green.
 - V81 fixed top toolbar + treatment headers verified native green.
-- Optional manual names save/reload verified native green.
 - Retired single-treatment scheduling cleanup complete.
 - Post-cleanup full regression: **699 passed, 19 warnings**.
 - Cancellation/released-slot propagation source implementation + dedicated regression coverage.
 
-## Τρέχον verification gate
+## Επόμενα gates
 
-1. Inspect outpatient form/bridge create-vs-edit support.
-2. Add missing edit/preload UI only if needed.
-3. Run focused outpatient schedule tests.
-4. Build native smoke preview.
-5. Verify create + edit against `OUTPATIENT_SCHEDULE` in Excel.
+1. Complete outpatient create/edit source wiring and focused tests.
+2. Native outpatient create/edit smoke against `OUTPATIENT_SCHEDULE`.
+3. Add/verify the dynamic daily recomputation contract for cancellations + therapist absences entered in either order.
+4. Native daily operational smoke with scenarios:
+   - absence first, cancellation later,
+   - cancellation first, absence later,
+   - cancellation correction/removal,
+   - inpatient and outpatient cancellations,
+   - redistribution before new-patient allocation.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
@@ -103,6 +125,8 @@ V81 native gate: **green**.
 - Standard duration 45', Ανακλινόμενο 30'.
 - Exact adjacency allowed.
 - `PATIENT_PLANNER` authoritative για inpatient recurring schedule, `OUTPATIENT_SCHEDULE` authoritative για outpatient recurring schedule.
+- Cancellations/absences είναι date-specific operational overlays και όχι destructive edits των recurring schedules.
+- Existing displaced patients προηγούνται των νέων ασθενών στη χρήση released capacity.
 - Conflict override explicit όπου υποστηρίζεται.
 
 ## Recovery rule
