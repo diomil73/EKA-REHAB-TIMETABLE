@@ -8,7 +8,7 @@ import pytest
 
 from tools.restore_daily_replacement_facts import (
     AuthoritativeDailyRestoreError,
-    _mark_ledger_rows_restored_once,
+    _finalize_restore_output_once,
     _requested_restore_ids,
     restore_replacements_and_recompute,
 )
@@ -23,28 +23,30 @@ def test_bulk_restore_pipeline_marks_set_before_single_recompute():
 
     assert restore_pos < read_pos < state_pos
     assert source.count("build_daily_session_states(") == 1
-    assert source.count("write_daily_statistics(output, target_date, statistics)") == 1
 
 
-def test_bulk_restore_pipeline_batches_ledger_rows_after_recomputed_output_exists():
+def test_bulk_restore_pipeline_finalizes_statistics_and_ledger_together():
     source = inspect.getsource(restore_replacements_and_recompute)
 
     apply_pos = source.index("apply_write_plan_to_copy(")
-    stats_pos = source.index("write_daily_statistics(output, target_date, statistics)")
-    ledger_pos = source.index("_mark_ledger_rows_restored_once(")
+    finalize_pos = source.index("_finalize_restore_output_once(")
 
-    assert apply_pos < stats_pos < ledger_pos
+    assert apply_pos < finalize_pos
+    assert "write_daily_statistics(output, target_date, statistics)" not in source
     assert "_mark_ledger_restored(output, replacement_id)" not in source
-    assert "_mark_ledger_rows_restored_once(output, tuple(restored_ids))" in source
+    assert "_mark_ledger_rows_restored_once(" not in source
+    assert "replacement_ids=tuple(restored_ids)" in source
 
 
-def test_bulk_ledger_finalization_uses_one_excel_session_for_whole_set():
-    source = inspect.getsource(_mark_ledger_rows_restored_once)
+def test_bulk_output_finalization_uses_one_excel_session_for_stats_and_ledger():
+    source = inspect.getsource(_finalize_restore_output_once)
 
     assert source.count('DispatchEx("Excel.Application")') == 1
+    assert "build_daily_statistics_rows(target_date, statistics)" in source
     assert "for replacement_id in replacement_ids:" in source
-    assert "workbook.Save()" in source
+    assert "STATUS_RESTORED" in source
     assert "RefreshDailyChangeLedgerView" in source
+    assert "workbook.Save()" in source
 
 
 def test_requested_restore_ids_uses_all_active_rows(monkeypatch):
