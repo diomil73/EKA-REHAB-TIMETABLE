@@ -46,24 +46,31 @@ Native UX findings:
 - individual restore is therefore native green,
 - selected/all restore remains to be tested once multiple simultaneous preview changes are supported.
 
-## NEW highest-priority integration gap: MASTER timetable does not follow daily effective state
+## MASTER daily-state synchronization: source implementation added, verification pending
 
-Native verification showed that while the replacement was active, `THERAPIST_DAILY` showed ΜΕΝΤΗΣ at `Μηλιδάκης 10:45`, but the timetable on `MASTER` did **not** change from the original recurring assignment.
+Native V82 showed that `THERAPIST_DAILY` followed the daily replacement while `MASTER` remained on the recurring assignment. This was confirmed as an integration bug.
 
-This is a confirmed bug/integration gap, not accepted behavior.
+Source implementation now exists:
 
-Locked rule:
+- new `Python/rehab_excel/master_daily_overlay.py`,
+- daily `REPLACED` states generate a safe patch only inside the MASTER treatment-cell write zone,
+- inpatient MASTER display uses effective daily time/provider while recurring `PATIENT_PLANNER` remains untouched,
+- `Python/tools/apply_replacement_choice.py` now composes the MASTER overlay into the same preview write plan as `THERAPIST_DAILY`,
+- ledger `Επαναφορά` now calls the existing `RefreshMasterPatientProgram(patient_id)` so the prototype restore returns MASTER to the recurring assignment too,
+- dedicated regression file: `Tests/test_master_daily_overlay.py`,
+- ledger regression now checks the MASTER restore hook.
 
-- `MASTER` timetable and `THERAPIST_DAILY` must project the same concrete-date `DailySessionState`,
-- while a daily move is active, MASTER must show the effective therapist/time,
-- after restore, MASTER must return to the original therapist/time,
-- MASTER must not keep a separate recurring-only truth when the selected/operational date has daily overlays.
+Status: **implemented in source, NOT YET test/native green**.
 
-Target architecture:
+Locked invariant:
 
 `DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
 
-This synchronization is now the first implementation task before cosmetic cleanup.
+Native acceptance remains:
+
+- active move: MASTER must show `Μηλιδάκης 10:45`,
+- restore: MASTER must return to `Σκαρώνης 09:15`,
+- source recurring programme remains unchanged.
 
 ## Native cleanup items discovered in V82
 
@@ -142,22 +149,23 @@ Production restore semantics:
 - recalculate capacity/conflicts/replacements after restore,
 - bulk restore validated and safe.
 
-Prototype currently uses preview snapshots only; after UX acceptance it must be connected to authoritative overlay removal + full daily recomputation.
+Prototype currently uses preview snapshots plus a MASTER recurring refresh hook; after UX acceptance it must be connected to authoritative overlay removal + full daily recomputation.
 
 ## Current development focus / exact resume point
 
 Priority order:
 
-1. **Wire MASTER timetable to the same daily effective-state projection as THERAPIST_DAILY.**
-2. Native test active move: ΜΕΝΤΗΣ must show `Μηλιδάκης 10:45` in MASTER while the overlay is active.
-3. Native test restore: MASTER must return to `Σκαρώνης 09:15` after `Επαναφορά`.
-4. Fix THERAPIST_DAILY time column width/format.
-5. Fix robotic-orange vs infectious styling precedence for moved patients.
-6. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
-7. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
-8. Test selected/all restore with multiple changes.
-9. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
-10. Resume outpatient recurring create/edit native gate.
+1. **Run focused source gate for the new MASTER daily overlay + ledger MASTER restore hook.**
+2. Build fresh preview with active ΜΕΝΤΗΣ move.
+3. Verify MASTER shows `Μηλιδάκης 10:45` while move is active.
+4. Press individual restore and verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
+5. Fix THERAPIST_DAILY time column width/format.
+6. Fix robotic-orange vs infectious styling precedence for moved patients.
+7. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+8. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
+9. Test selected/all restore with multiple changes.
+10. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
+11. Resume outpatient recurring create/edit native gate.
 
 ## Business rules that must not regress
 
