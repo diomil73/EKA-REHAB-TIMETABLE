@@ -10,6 +10,9 @@ The patient-centric multi-treatment scheduling milestone is closed. The active o
 
 Latest full-suite checkpoint after cleanup: **699 passed, 19 warnings**.
 Latest focused operational regression checkpoint: **31 passed in 2.04s**.
+Latest MASTER daily-overlay gate: **24 passed, 5 warnings in 4.39s**.
+
+The 5 warnings are Python 3.14 `PytestUnraisableExceptionWarning` messages from `ZipFile.__del__` during workbook-test teardown. They are currently non-blocking technical debt, not a failed functional gate.
 
 ## Current native checkpoint
 
@@ -29,21 +32,22 @@ Stress case:
 
 ## MASTER daily-state integration
 
-Confirmed native bug: while the move was active, `THERAPIST_DAILY` showed the replacement but MASTER remained on the recurring assignment.
+Confirmed native bug from V82: while the move was active, `THERAPIST_DAILY` showed the replacement but MASTER remained on the recurring assignment.
 
-Source fix is now implemented, pending focused tests and native verification:
+Source fix is now implemented and focused verification is green:
 
 - `Python/rehab_excel/master_daily_overlay.py` derives MASTER treatment-cell patches from `DailySessionState`,
 - guided replacement composes that overlay into the same preview plan,
 - recurring source stays unchanged,
 - ledger restore invokes the existing MASTER patient-program refresh so the preview can return MASTER to recurring state,
-- dedicated regression coverage was added.
+- dedicated regression coverage was added,
+- focused source gate: **24 passed, 5 warnings in 4.39s**.
 
 Required invariant:
 
 `DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
 
-Acceptance still pending:
+Native V83 acceptance is still pending:
 
 - active MASTER display `Μηλιδάκης 10:45`,
 - restore MASTER display `Σκαρώνης 09:15`.
@@ -95,18 +99,18 @@ Outpatient recurring create/edit native verification remains open after the curr
 
 ## Immediate roadmap
 
-1. Run focused MASTER daily-overlay + ledger restore-hook tests.
-2. Build fresh guided replacement preview.
-3. Verify active MASTER shows `Μηλιδάκης 10:45`.
-4. Verify restore returns MASTER and THERAPIST_DAILY to `Σκαρώνης 09:15`.
-5. Fix THERAPIST_DAILY time-column width/format.
-6. Fix infectious vs robotic styling for moved patients.
-7. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
-8. Implement/verify orphan final outcomes and statistics.
-9. Test selected/all restore with multiple changes.
-10. Replace preview snapshot restore with authoritative overlay removal + full daily recomputation.
-11. Resume outpatient recurring create/edit native gate.
-12. Continue remaining native checks and branch/PR hardening.
+1. Build fresh V83 guided replacement preview.
+2. Verify active MASTER shows `Μηλιδάκης 10:45`.
+3. Verify restore returns MASTER and THERAPIST_DAILY to `Σκαρώνης 09:15`.
+4. Fix THERAPIST_DAILY time-column width/format.
+5. Fix infectious vs robotic styling for moved patients.
+6. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+7. Implement/verify orphan final outcomes and statistics.
+8. Test selected/all restore with multiple changes.
+9. Replace preview snapshot restore with authoritative overlay removal + full daily recomputation.
+10. Resume outpatient recurring create/edit native gate.
+11. Continue remaining native checks and branch/PR hardening.
+12. Clean up Python 3.14 ZipFile teardown warnings when convenient.
 
 ## Safety constraints
 
