@@ -143,13 +143,24 @@ Required bridge behavior:
 - preserve source workbook and VBA
 - retire the old cell-copy VBA restore implementation only after the native bridge gate is green
 
+### First bridge slice implemented, source gate pending
+
+The existing VBA entry points were identified in `Python/rehab_excel/daily_change_ledger_vba.py`: `RestoreDailyChangeRow`, `RestoreSelectedDailyChanges`, and `RestoreAllDailyChanges`. The current private `RestoreLedgerRow` still performs the legacy direct cell-copy restore and must not be removed until the authoritative bridge is native-green.
+
+The authoritative bulk restore CLI now exposes an optional JSON response contract for Excel/VBA via `--response`. Success responses include the preview path, source SHA-256, restore counts, unresolved/finalized state, and source/VBA preservation flags. Failure responses include `ok=false`, the error, and source SHA when available. The restore tool remains preview-only and still refuses source=output.
+
+Commits:
+
+- JSON bridge response contract: `2c5a67388479f840d064172108bb61a38d1640fa`
+- focused bridge contract tests: `749c9f50625ae44ce247829a236b06a4e4244afd`
+
 ## Exact resume point
 
-1. Inspect current Excel ledger/VBA bridge implementation and identify the existing per-row/selected/all entry points.
-2. Add source tests for the bridge contract before changing VBA/Excel integration.
-3. Wire the ledger actions to the authoritative Python restore backend with exact replacement ids and atomic selected/all semantics.
-4. Run a Windows-native bridge smoke test from a trusted preview and require correct fact lifecycle, MASTER/daily overlay recompute, ledger status refresh, source unchanged, and VBA preserved.
-5. Only after that gate is green, retire the old cell-copy restore implementation.
+1. Pull the latest branch and run the focused bridge/backend source gate including `Tests/test_daily_restore_bridge_contract.py` and the existing authoritative restore tests.
+2. If green, implement the VBA side: row/selected/all controls must collect exact immutable replacement ids, run `restore_daily_replacement_facts.py` once per requested batch, read the JSON response, then hand the preview + source SHA to the existing authoritative commit worker.
+3. Add VBA source tests that require the bridge path and explicitly forbid the old `Cells(...).Copy Destination:=...` restore path once the new path is ready for native validation.
+4. Build a new native preview and smoke-test per-row, selected, and restore-all from Excel itself.
+5. Only after that native bridge gate is green, retire the old cell-copy restore implementation.
 6. Resume outpatient recurring create/edit native gate afterwards.
 
 ## Locked orphan rule
