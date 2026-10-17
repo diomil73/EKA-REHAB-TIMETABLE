@@ -3,6 +3,8 @@ from __future__ import annotations
 
 _RUN_START = "Private Function RunAuthoritativeRestore(ByVal replacementArgs As String, ByVal restoreAll As Boolean) As Boolean"
 _JSON_READER_START = "Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) As String"
+_LEDGER_REASON_ASSIGNMENT = "wsDaily.Cells(displayRow, 5).Value = wsLedger.Cells(ledgerRow, 9).Value"
+_LOCALIZED_LEDGER_REASON_ASSIGNMENT = "wsDaily.Cells(displayRow, 5).Value = GreekLedgerReason(CStr(wsLedger.Cells(ledgerRow, 9).Value))"
 
 
 _IN_SESSION_BLOCK = r'''Private Function RunAuthoritativeRestore(ByVal replacementArgs As String, ByVal restoreAll As Boolean) As Boolean
@@ -230,6 +232,18 @@ Private Function ResolveAuthoritativeRestoreScript() As String
     End If
 End Function
 
+Private Function GreekLedgerReason(ByVal rawReason As String) As String
+    Dim normalized As String
+
+    normalized = LCase$(Trim$(rawReason))
+    Select Case normalized
+        Case "", "temporary replacement", "daily_input therapist absence", "daily input therapist absence"
+            GreekLedgerReason = "Απουσία θεραπευτή"
+        Case Else
+            GreekLedgerReason = rawReason
+    End Select
+End Function
+
 '''
 
 
@@ -246,8 +260,15 @@ def build_in_session_ledger_vba(base_code: str) -> str:
     end = base_code.find(_JSON_READER_START)
     if start < 0 or end < 0 or end <= start:
         raise ValueError("Daily ledger VBA bridge markers were not found")
+    if _LEDGER_REASON_ASSIGNMENT not in base_code:
+        raise ValueError("Daily ledger reason assignment marker was not found")
 
     transformed = base_code[:start] + _IN_SESSION_BLOCK + base_code[end:]
+    transformed = transformed.replace(
+        _LEDGER_REASON_ASSIGNMENT,
+        _LOCALIZED_LEDGER_REASON_ASSIGNMENT,
+        1,
+    )
     forbidden = (
         "Set exec = shell.Exec(commandLine)",
         "ThisWorkbook.Close SaveChanges:=True",
