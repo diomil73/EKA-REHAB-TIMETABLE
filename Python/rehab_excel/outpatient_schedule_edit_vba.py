@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
 EDIT_MODULE_NAME = "modOutpatientScheduleEdit"
 EDIT_MACRO_NAME = "EditOutpatientSchedule"
 FORM_NAME = "frmOutpatientSchedule"
@@ -153,3 +156,38 @@ def install_outpatient_schedule_edit_support(vbproject) -> None:
         raise RuntimeError("Outpatient edit target state was not wired into form")
     if "Public Sub EditOutpatientSchedule()" not in installed_edit_code:
         raise RuntimeError("Outpatient edit macro was not installed")
+
+
+def install_outpatient_schedule_edit_support_in_workbook(workbook_path: str | Path) -> None:
+    """Patch an already-built outpatient schedule form preview in place."""
+
+    path = Path(workbook_path).resolve()
+    if sys.platform != "win32":
+        raise RuntimeError("Outpatient schedule edit support requires Windows Excel")
+
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError("pywin32 is required") from exc
+
+    excel = None
+    workbook = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.EnableEvents = False
+        workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
+        install_outpatient_schedule_edit_support(workbook.VBProject)
+        workbook.Save()
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
