@@ -47,6 +47,7 @@ from rehab_excel.daily_preview_composer import (  # noqa: E402
 from rehab_excel.daily_replacement_facts import (  # noqa: E402
     DailyReplacementFactError,
     append_daily_replacement_facts,
+    read_daily_replacement_fact_rows,
     read_daily_replacement_facts,
 )
 from rehab_excel.daily_statistics_writer import (  # noqa: E402
@@ -170,8 +171,24 @@ def _append_treatment_suspension(
     return suspension
 
 
-def _replacement_id(target) -> str:
-    return f"daily-input:{target.session_id}:{target.session_date.isoformat()}"
+def _replacement_id(target, history_rows) -> str:
+    """Allocate the next immutable replacement id for one session/date history."""
+
+    base = f"daily-input:{target.session_id}:{target.session_date.isoformat()}"
+    max_version = 0
+    for fact in history_rows:
+        replacement_id = str(getattr(fact, "replacement_id", "") or "").strip()
+        if replacement_id == base:
+            max_version = max(max_version, 1)
+            continue
+        prefix = f"{base}:v"
+        if replacement_id.startswith(prefix):
+            suffix = replacement_id[len(prefix) :]
+            if suffix.isdigit():
+                max_version = max(max_version, int(suffix))
+    if max_version == 0:
+        return base
+    return f"{base}:v{max_version + 1}"
 
 
 def main() -> int:
@@ -212,6 +229,13 @@ def main() -> int:
         policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
         cancellations = list(daily.cancellations)
         suspensions: list[DailySessionCancellation] = []
+        replacement_history = list(
+            read_daily_replacement_fact_rows(
+                input_book,
+                target_date=target_date,
+                include_restored=True,
+            )
+        )
         replacements: list[ReplacementAssignment] = list(
             read_daily_replacement_facts(
                 input_book,
@@ -360,7 +384,7 @@ def main() -> int:
                 base_entries=base_entries,
             )
             replacement = create_replacement_assignment(
-                replacement_id=_replacement_id(target),
+                replacement_id=_replacement_id(target, replacement_history),
                 target_session=target,
                 replacement_therapist_id=option.provider_id,
                 therapists=therapists,
