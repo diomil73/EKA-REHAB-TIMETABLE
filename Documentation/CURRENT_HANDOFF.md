@@ -56,7 +56,8 @@ Retained current patient-program behavior and legacy component cleanup.
 - optional manual names persistence/reload: native green
 - full regression before cleanup: `722 passed, 19 warnings`
 - full regression after cleanup: `699 passed, 19 warnings`
-- **reversible daily change ledger focused source gate: `10 passed in 3.26s`**
+- reversible daily change ledger focused source gate: `10 passed in 3.26s`
+- **replacement load + mixed outpatient/inpatient regression gate: `31 passed in 2.04s`**
 
 ## Cancellation slot release status
 
@@ -94,6 +95,24 @@ Important temporal behavior:
 - base recurring schedules must not be destructively edited to represent a one-day cancellation or absence.
 
 This is now a core invariant for the future daily allocation engine and native DAILY_INPUT/absence workflows.
+
+## Locked replacement load semantics
+
+Operational therapist load is measured in occupied daily **timeslots**, not patient/session count.
+
+- `active_timeslots` is the authoritative load/capacity measure.
+- Multiple patients sharing the same clock slot count as multiple sessions but one occupied timeslot.
+- Replacement ranking now sorts primarily by occupied timeslots, with session count as a secondary tie-breaker.
+- Candidate display now distinguishes `load x/y` from `patients n`.
+- Example: 6 sessions across 5 occupied slots must display operational load `5/6`, not `6`.
+
+## Mixed inpatient/outpatient presentation rule
+
+A mixed inpatient/outpatient effective slot must not block an otherwise valid operational preview.
+
+- do not apply one whole-cell outpatient fill when the cell contains mixed patient types,
+- do not abort the replacement preview solely because of that presentation ambiguity,
+- preserve correctness of schedule movement first; mixed-cell styling can remain neutral until per-patient text styling is implemented.
 
 ## Locked UX requirement: reversible daily change ledger in THERAPIST_DAILY
 
@@ -155,22 +174,26 @@ A first native UX prototype is wired into the existing guided replacement previe
 - restore acts only on the preview copy and restores exact source-cell snapshots; recurring source schedules remain untouched.
 
 Focused source verification is green: **10 passed in 3.26s**.
+Replacement-load / mixed-slot fixes are also green: **31 passed in 2.04s**.
 
 This prototype is intentionally a UX/native validation slice. After native acceptance, restore will be connected to the authoritative daily overlay store and recomputation engine rather than relying on preview cell snapshots.
 
 ## Current development focus
 
-Immediate gate: **build and native-smoke a real guided replacement preview with the reversible THERAPIST_DAILY ledger**.
+Immediate gate: **rerun the real guided replacement preview for ΜΕΝΤΗΣ 09:15 and stress-test selection of Μηλιδάκης after the load/mixed-slot fixes**.
 
 Next native check:
 
-1. create one real guided replacement preview from V81/current workbook state,
-2. open `THERAPIST_DAILY`,
-3. verify the `Αλλαγές για την dd/mm/yyyy` section appears below the schedules,
-4. verify patient/original/effective therapist-time details are correct,
-5. click the row `Επαναφορά`,
-6. confirm the exact source/destination cells return to their prior preview state,
-7. confirm the recurring/base schedule remains untouched.
+1. confirm candidate list shows timeslot-based load such as `load 5/6 | patients 6` where applicable,
+2. select Μηλιδάκης again,
+3. confirm mixed inpatient/outpatient presentation no longer raises SAFETY STOP,
+4. generate the preview successfully,
+5. open `THERAPIST_DAILY`,
+6. verify the `Αλλαγές για την dd/mm/yyyy` section appears below the schedules,
+7. verify patient/original/effective therapist-time details are correct,
+8. click the row `Επαναφορά`,
+9. confirm the exact source/destination cells return to their prior preview state,
+10. confirm the recurring/base schedule remains untouched.
 
 The outpatient recurring create/edit work remains open and should resume after this UX spike is either accepted or adjusted.
 
@@ -188,6 +211,8 @@ The outpatient recurring create/edit work remains open and should resume after t
 - One-day cancellations, therapist absences, replacements and manual redistributions are overlays on the daily operational state, not destructive edits of recurring source schedules.
 - Existing displaced patients have allocation priority over newly added patients when released capacity is redistributed.
 - Daily restore operations must remove/reverse overlays and recompute, never reconstruct the recurring schedule from UI text.
+- Replacement operational load/capacity is timeslot-based, not raw session-count based.
+- Mixed inpatient/outpatient cells must not abort valid schedule movement just because whole-cell colouring is ambiguous.
 - Conflict override must be explicit; return-for-correction performs zero writes.
 
 ## Recovery order if context is lost
