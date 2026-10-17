@@ -42,14 +42,9 @@ Removed/retired source:
 
 - `Python/rehab_excel/patient_scheduling_flow.py`
 - `Python/rehab_excel/patient_scheduling_form_vba.py`
-- obsolete `plan`, `validate`, `plan-vba`, `validate-vba`, `recurring-vba`, and `validate-recurring-vba` commands from `Python/tools/patient_scheduling_bridge.py`
-- tests that exercised only the retired single-treatment flow/form
+- obsolete single-treatment bridge commands and tests.
 
-Retained current behavior:
-
-- `auto-propose` / `auto-propose-vba` in `patient_scheduling_bridge.py`, used by the joint patient-program auto scheduler,
-- current `PatientProgramRuntime` / `frmPatientScheduling`,
-- legacy VBA component removal/verification in `patient_registration_scheduling_slice.py` so old workbooks cannot retain `PatientSchedulingRuntime`.
+Retained current patient-program behavior and legacy component cleanup.
 
 ## Latest confirmed test checkpoints
 
@@ -62,38 +57,50 @@ Retained current behavior:
 - full regression before cleanup: `722 passed, 19 warnings`
 - **full regression after cleanup: `699 passed, 19 warnings`**
 
-The drop from 722 to 699 is expected because obsolete tests for the removed single-treatment code were deleted. No post-cleanup regression was reported.
-
 ## Cancellation slot release status
 
-The first outpatient roadmap candidate is already implemented and regression-covered in source:
+Cancellation propagation is already implemented and regression-covered in source:
 
 - cancellations are passed into therapist/patient/student availability checks,
 - cancelled occurrences are excluded from therapist/student operational workload,
 - replacement candidate capacity reflects the released timeslot,
-- `Tests/test_cancellation_releases_replacement_capacity.py` verifies both workload release and exact-slot reuse.
+- `Tests/test_cancellation_releases_replacement_capacity.py` verifies workload release and exact-slot reuse.
 
-No duplicate implementation is needed here. Native operational smoke remains useful later, but the source gap is closed.
+## Locked daily-operations rule: cancellations + therapist absences
 
-## Current focus
+Patient cancellations for both inpatients and outpatients are operationally critical because they release same-day timeslots that can be reused for:
+
+- patients displaced by an absent therapist,
+- redistribution of active patients across therapists,
+- new patients when capacity remains.
+
+The workflow must NOT depend on one fixed chronological entry order. Therapist absences are often known earlier, while patient cancellations may arrive much later. Therefore both event types must be accepted at any time and the daily plan must be recomputable/idempotent from the latest facts.
+
+Required evaluation model whenever the operational plan is refreshed:
+
+1. start from the recurring/base schedule for the selected date,
+2. apply all known patient cancellations/no-shows for that date and release their occupied slots,
+3. apply all known therapist absences and mark those providers unavailable,
+4. identify the remaining displaced/unscheduled patients,
+5. redistribute those existing affected patients into the net free capacity,
+6. only after that expose remaining capacity for new-patient assignment.
+
+Important temporal behavior:
+
+- if therapist absence is entered first, the system may create a preliminary redistribution,
+- if a patient cancellation arrives later, refreshing/recalculating the same date must immediately release the slot and allow a better redistribution,
+- if a cancellation is removed/corrected, recalculation must reclaim the slot and revalidate assignments,
+- base recurring schedules must not be destructively edited to represent a one-day cancellation or absence.
+
+This is now a core invariant for the future daily allocation engine and native DAILY_INPUT/absence workflows.
+
+## Current development focus
 
 **Outpatient recurring schedule create/edit end to end against `OUTPATIENT_SCHEDULE`.**
 
-Immediate work:
+The backend already supports update by `target_base_entry_id`; user-facing edit/preload support is being added by reusing the same form/backend rather than introducing a second writer.
 
-1. inspect the existing `frmOutpatientSchedule` create flow and bridge,
-2. verify whether user-facing edit/preload already exists,
-3. if missing, add edit/preload while reusing `OutpatientScheduleRequest.target_base_entry_id`,
-4. focused source tests,
-5. build a native smoke preview and verify create + edit on Windows/Excel.
-
-Required invariants:
-
-- outpatient recurring rows stay in `OUTPATIENT_SCHEDULE`, not `PATIENT_PLANNER`,
-- robotic treatment remains unavailable to outpatients,
-- conflict/suggestion safeguards remain intact,
-- preview workflows never mutate the source workbook,
-- VBA is preserved in generated previews.
+After the outpatient create/edit gate, the next operational milestone is the dynamic daily recomputation flow above, with native verification that cancellations and therapist absences can be entered in either order.
 
 ## Business rules that must not regress
 
@@ -106,6 +113,8 @@ Required invariants:
 - Ανακλινόμενο duration: 30 minutes.
 - Exact adjacency is legal.
 - `PATIENT_PLANNER` authoritative for inpatient recurring schedules; `OUTPATIENT_SCHEDULE` authoritative for outpatient recurring schedules.
+- One-day cancellations and therapist absences are overlays on the daily operational state, not destructive edits of recurring source schedules.
+- Existing displaced patients have allocation priority over newly added patients when released capacity is redistributed.
 - Conflict override must be explicit; return-for-correction performs zero writes.
 
 ## Recovery order if context is lost
