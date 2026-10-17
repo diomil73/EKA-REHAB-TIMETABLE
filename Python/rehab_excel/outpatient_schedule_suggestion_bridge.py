@@ -24,6 +24,11 @@ def _required_text(values: Mapping[str, object], key: str) -> str:
     return value
 
 
+def _optional_text(values: Mapping[str, object], key: str) -> str | None:
+    value = str(values.get(key, "")).strip()
+    return value or None
+
+
 def _parse_time(value: str):
     try:
         return datetime.strptime(value, "%H:%M").time()
@@ -63,6 +68,7 @@ def run_outpatient_schedule_suggestion_bridge(
     preferred_therapist = _required_text(values, "therapist")
     preferred_time = _parse_time(_required_text(values, "time"))
     preferred_days = _required_text(values, "days")
+    target_base_entry_id = _optional_text(values, "target_base_entry_id")
     limit_value = values.get("limit", 5)
     try:
         limit = int(limit_value)
@@ -72,7 +78,11 @@ def run_outpatient_schedule_suggestion_bridge(
 
     try:
         settings = read_settings(source)
-        entries = read_unified_base_schedule(source)
+        entries = tuple(
+            entry
+            for entry in read_unified_base_schedule(source)
+            if entry.base_entry_id != target_base_entry_id
+        )
         suggestions = suggest_outpatient_schedule_slots(
             mode=mode,
             preferred_therapist=preferred_therapist,
