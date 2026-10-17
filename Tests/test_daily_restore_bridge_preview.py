@@ -54,13 +54,14 @@ def test_ledger_sync_projects_fact_fields_and_preserves_audit_extras_by_id():
     assert "if offset == 12" in source
 
 
-def test_bridge_preview_contract_syncs_ledger_and_refreshes_only_vba_module():
+def test_bridge_preview_contract_syncs_ledger_and_installs_in_session_vba():
     source = inspect.getsource(build_daily_restore_bridge_preview)
     assert "shutil.copy2(source, output)" in source
     assert "_authoritative_ledger_rows(output)" in source
     assert "_sync_ledger_from_authoritative_facts(workbook, fact_rows)" in source
+    assert "effective_vba = build_in_session_ledger_vba(VBA_CODE)" in source
     assert "_remove_component_if_present(vbproject, MODULE_NAME)" in source
-    assert "module.CodeModule.AddFromString(VBA_CODE)" in source
+    assert "module.CodeModule.AddFromString(effective_vba)" in source
     assert "RefreshDailyChangeLedgerView" in source
     assert "Source workbook changed during preview build" in source
     assert "output.unlink(missing_ok=True)" in source
