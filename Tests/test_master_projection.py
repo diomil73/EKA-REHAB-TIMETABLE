@@ -28,13 +28,14 @@ def _workbook(tmp_path: Path) -> Path:
     return path
 
 
-def test_projection_metadata_uses_one_workbook_open_for_patients_settings_and_master():
+def test_projection_metadata_uses_lightweight_ooxml_package_probe():
     source = inspect.getsource(_projection_metadata)
 
-    assert source.count("load_workbook(") == 1
-    assert 'wb["PATIENTS"]' in source
-    assert 'wb["SETTINGS"]' in source
-    assert 'wb["MASTER_SCHEDULE"]' in source
+    assert "WorkbookPackageProbe(path)" in source
+    assert 'probe.cell_values("PATIENTS")' in source
+    assert 'probe.cell_values("SETTINGS")' in source
+    assert 'probe.cell_values("MASTER_SCHEDULE")' in source
+    assert "load_workbook(" not in source
 
 
 def test_projection_sorts_rooms_naturally_then_patient_name(tmp_path):
