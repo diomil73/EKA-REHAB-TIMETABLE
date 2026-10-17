@@ -10,11 +10,11 @@
 
 ### 1. Ορφανοί: operational queue + date-specific suspension
 
-Ενεργό milestone.
+Το mixed native scenario είναι πλέον green.
 
-Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει υποχρεωτικά σε:
+Κάθε orphan πρέπει να καταλήγει υποχρεωτικά σε:
 
-- `Τοποθετήθηκε` σε έγκυρο therapist/time, ή
+- έγκυρη τοποθέτηση therapist/time, ή
 - `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
 
 Architecture locked:
@@ -22,8 +22,8 @@ Architecture locked:
 - suspension = `DailySessionStatus.CANCELLED` + `SessionCancellationKind.TREATMENT_SUSPENDED`,
 - recurring/base δεν αλλάζει,
 - original slot απελευθερώνεται,
-- reason παραμένει auditable,
-- ημέρα finalized μόνο με `unresolved_sessions == 0`.
+- reason auditable,
+- finalized day μόνο με unresolved=0.
 
 Source status:
 
@@ -31,57 +31,65 @@ Source status:
 - mandatory placement/suspension flow green,
 - suspension persistence green,
 - DAILY_INPUT reread support green,
-- `Αναστολή θεραπείας` dropdown green,
+- suspension dropdown green,
 - DAILY_STATISTICS writer green,
 - consolidated operational gate: **43 passed, 3 warnings in 5.15s**.
 
-### 2. Native mixed-orphan verification
+Native V87 status:
 
-Το πρώτο V87 attempt σταμάτησε σωστά από layout safety πριν γραφτεί workbook:
+- 5 accepted replacements,
+- 2 treatment suspensions,
+- 2 persisted suspension facts,
+- unresolved=0,
+- scheduled=80,
+- performed=78,
+- replaced=5,
+- suspended=2,
+- source unchanged=True,
+- VBA preserved=True.
 
-`THERAPIST_DAILY!A21 outside confirmed write zones B2:J8, B12:J18`.
+### 2. Restart persistence / authoritative daily facts
 
-Root cause: stale outpatient-fill cleanup έκανε scan σε όλο το sheet και θεώρησε unrelated πράσινο κελί `A21` ως outpatient presentation residue.
+Current truth split:
 
-Fix implemented:
+- `Αναστολή θεραπείας` is durably stored in output DAILY_INPUT and can be reread.
+- replacement placements are not yet durable authoritative reread facts.
 
-- stale outpatient cleanup περιορίζεται μόνο στα confirmed operational grids `B2:J8` και `B12:J18`,
-- οι write zones **δεν διευρύνθηκαν**,
-- `A21`/ledger/labels/other furniture αγνοούνται,
-- regression καλύπτει explicit το `A21`.
+New verifier:
 
-Commits:
+- `Python/tools/verify_orphan_resolution_persistence.py`
+- regression: `Tests/test_verify_orphan_resolution_persistence.py`
 
-- `5c81ce40256ddd36379d838c35b2a62debf0ef95`
-- `7e4031fd9f01b4b11233b6bc087078b4f94686aa`
+It verifies suspension reread and stored DAILY_STATISTICS counts without pretending that placements already survive restart.
 
-Native smoke target παραμένει:
-
-- input `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm`,
-- output `Excel/previews/ORPHAN_RESOLUTION_V87.xlsm`,
-- τουλάχιστον μία placement και μία `Αναστολή θεραπείας`.
+Next implementation target: persist replacement assignments as authoritative date-specific facts, then rebuild the full daily effective state from those facts after restart.
 
 ### 3. Daily statistics
 
-Το `DAILY_STATISTICS` sheet γράφεται από το ίδιο finalized `DailySessionState` και περιλαμβάνει scheduled, performed, replaced, patient absent, department postponed, patient no-show, treatment suspended, unresolved και finalized.
+`DAILY_STATISTICS` is native-created in V87 and derives from the same finalized `DailySessionState` used during resolution.
 
-Source green. Native workbook verification pending.
+Fields: scheduled, performed, replaced, patient absent, department postponed, no-show, treatment suspended, unresolved, finalized.
 
 ### 4. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
-Το stress case ΜΕΝΤΗΣ είναι native green για active move, MASTER + THERAPIST_DAILY sync, source trace, individual restore, readable time axis και stale robotic-orange fix.
+MENTIS stress case remains native green for active move, MASTER/THERAPIST_DAILY sync, source trace, individual restore, readable times and stale robotic-orange fix.
 
-### 5. Legacy `ΑΝΑΝΕΩΣΗ`
+### 5. Reversible daily change ledger
 
-**Deferred/manual cleanup**. Δεν είναι blocker.
+Native green:
 
-### 6. Reversible daily change ledger
+- per-row restore,
+- MASTER sync,
+- source trace,
+- styling cleanup,
+- time-axis display.
 
-Native green: per-row restore, MASTER sync, source trace, styling cleanup, time-axis display.
+Open:
 
-Open: selected/all restore σε multi-change preview και production restore μέσω authoritative overlay removal + recompute.
+- selected/all restore in a multi-change preview,
+- production restore through authoritative overlay removal + full recompute.
 
-### 7. Dynamic daily recomputation
+### 6. Dynamic daily recomputation
 
 Locked order:
 
@@ -89,24 +97,24 @@ Locked order:
 2. cancellations/no-shows release slots,
 3. therapist absences,
 4. identify displaced/unscheduled existing patients,
-5. redistribute στα net free slots,
-6. resolve remaining orphans με placement ή `Αναστολή θεραπείας`,
-7. μόνο μετά new-patient allocation.
+5. redistribute existing patients,
+6. resolve remaining orphans with placement or suspension,
+7. only then allocate new patients.
 
-Recompute idempotent και order-independent.
+Recompute idempotent and order-independent.
 
-### 8. Replacement operational load semantics
+### 7. Outpatient recurring create/edit
 
-Authoritative load = occupied timeslots. Shared slot με πολλούς patients = ένα occupied timeslot. Ranking πρώτα occupied timeslots, μετά session count.
+Implemented but native verification remains open after the authoritative daily-fact milestone.
 
-### 9. Outpatient recurring create/edit
+### 8. Legacy `ΑΝΑΝΕΩΣΗ`
 
-Παραμένει open μετά το current orphan/daily-state milestone.
+Deferred/manual cleanup. Not a blocker.
 
 ## Τι έχει ολοκληρωθεί
 
 - MASTER operational home + accepted V81 toolbar/header UX.
-- DAILY_INPUT authoritative flow.
+- DAILY_INPUT authoritative input flow.
 - Patient-centric multi-treatment scheduling.
 - Edit-existing-program preload + atomic resave.
 - Conflict validation + explicit override.
@@ -116,24 +124,23 @@ Authoritative load = occupied timeslots. Shared slot με πολλούς patient
 - Cancellation slot release support.
 - Replacement load + mixed-slot gate: **31 passed in 2.04s**.
 - MASTER daily overlay + restore gate: **24 passed, 5 warnings in 4.39s**.
-- V82 individual restore native green.
-- V83 MASTER sync + restore native green.
-- V84 time-axis + restore native green.
-- V85 stale-orange cleanup + restore native green.
-- Suspension/statistics domain slice: **21 passed in 3.11s**.
-- Consolidated orphan operational flow/persistence/statistics gate: **43 passed, 3 warnings in 5.15s**.
+- V82 restore native green.
+- V83 MASTER sync native green.
+- V84 time-axis native green.
+- V85 stale-orange cleanup native green.
+- Suspension/statistics domain gate: **21 passed in 3.11s**.
+- Consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**.
+- V87 mixed orphan resolution: **native green**.
 
 ## Τρέχον verification gate
 
-1. Run focused outpatient-presentation + orphan tests after A21 fix.
-2. Re-run V87 from existing V86.
-3. Resolve one orphan by placement and one by `S = Αναστολή θεραπείας`.
-4. Verify DAILY_INPUT persisted fact + DAILY_STATISTICS unresolved=0/finalized=ΝΑΙ + source/VBA safety.
-5. Re-read output to confirm persistence.
-6. Test selected/all restore with multiple changes.
-7. Replace snapshot restore with authoritative overlay removal + recompute.
-8. Resume outpatient recurring create/edit gate.
-9. Clean Python 3.14 ZipFile teardown warnings later.
+1. Run persistence verifier against V87: suspended=2, unresolved=0, finalized=ΝΑΙ.
+2. Persist replacement placements as authoritative date-specific facts.
+3. Add reread/recompute test proving 5 replacements + 2 suspensions reconstruct the same daily state.
+4. Connect restore to authoritative fact removal + recompute.
+5. Test selected/all restore with multiple changes.
+6. Resume outpatient recurring create/edit native gate.
+7. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
@@ -145,12 +152,12 @@ Authoritative load = occupied timeslots. Shared slot με πολλούς patient
 - Standard duration 45', Ανακλινόμενο 30'.
 - Exact adjacency allowed.
 - `PATIENT_PLANNER` authoritative για inpatient recurring, `OUTPATIENT_SCHEDULE` για outpatient recurring.
-- Daily cancellations/absences/replacements/suspensions/redistributions είναι overlays, όχι recurring edits.
-- Existing displaced patients προηγούνται των νέων ασθενών.
-- Orphans πρέπει να τοποθετηθούν ή να πάρουν explicit `Αναστολή θεραπείας`.
-- MASTER και THERAPIST_DAILY πρέπει να συμφωνούν στο effective daily state.
+- Daily facts είναι overlays, όχι recurring edits.
+- Existing displaced patients προηγούνται των νέων.
+- Orphans πρέπει να τοποθετηθούν ή να πάρουν explicit suspension.
+- MASTER και THERAPIST_DAILY συμφωνούν στο effective daily state.
 - Operational capacity είναι timeslot-based.
-- Layout safety zones παραμένουν στενές. Cleanup logic προσαρμόζεται στο contract, όχι το αντίστροφο.
+- Layout write zones παραμένουν στενές.
 
 ## Recovery rule
 
