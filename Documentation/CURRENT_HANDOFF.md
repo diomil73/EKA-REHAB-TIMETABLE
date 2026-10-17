@@ -18,7 +18,8 @@ Last updated: 2026-10-17
 - ledger authoritative bridge source gate: `42 passed in 4.27s`
 - initial restore bridge preview-builder gate: `16 passed in 2.94s`
 - fact-to-ledger synchronization gate: `18 passed in 4.40s`
-- current focused in-session bridge gate: `25 passed in 2.13s`
+- focused bridge/performance gate after first batching patch: `30 passed in 4.91s`
+- focused bridge/performance gate after statistics+ledger session consolidation: `30 passed in 4.39s`
 - parity rebuild: row/selected/all smoke copies reported authoritative ledger parity and preserved source/VBA
 - in-session per-row restore: native green
 - in-session selected two-row restore: native correctness green
@@ -63,25 +64,22 @@ User-facing `Αιτία` is Greek-only for known replacement causes. Technical/i
 
 Correctness is closed. The remaining ledger item is latency: selected and restore-all actions take noticeably longer than acceptable for normal use.
 
-First performance patch is already on the branch:
+Two performance patches are now on the branch:
 
-- `Python/tools/restore_daily_replacement_facts.py` now marks all restored ledger rows in one hidden Excel session instead of reopening Excel once per ReplacementId.
-- The batch validates duplicate ledger ids before mutation, writes all requested RESTORED statuses, refreshes the visible ledger once, and saves once for that phase.
-- This specifically removes repeated workbook open/save/close cycles from selected/all restore while preserving the authoritative backend and rollback model.
-- implementation commit: `fb445bbc08e6d2cbfd63820a13f8dc504192e954`
-- regression commit: `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`
+- Bulk selected/all restore marks all restored ledger rows in one hidden Excel session instead of reopening Excel once per ReplacementId. Implementation `fb445bbc08e6d2cbfd63820a13f8dc504192e954`, tests `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
+- Daily statistics write and ledger finalization are now consolidated into the same hidden Excel session, removing one more workbook open/save/close cycle. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
 
-Remaining likely hotspots after this patch are the MASTER projection Excel session, native write-plan Excel session, separate statistics Excel session, verified-preview open, broad `UsedRange` synchronization, and repeated saves around rollback/apply.
+Focused source gate after the second patch is green: `30 passed in 4.39s`.
+
+Remaining likely hotspots are the MASTER projection Excel session, native write-plan Excel session, verified-preview open, broad `UsedRange` synchronization, and repeated saves around rollback/apply.
 
 ## Exact resume point
 
-1. Pull latest branch.
-2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
-3. Rebuild an independent `LEDGER_ALL_SMOKE.xlsm` or `LEDGER_SELECTED_SMOKE.xlsm` from trusted V90 and repeat the same native action.
-4. Compare elapsed/perceived time with the previous path. The correctness expectation remains unchanged.
-5. Run fresh reconstruction after the action to prove the performance patch did not alter authoritative state.
-6. If still too slow, next optimization target is consolidation of the remaining backend Excel sessions before narrowing in-session sheet synchronization.
-7. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+1. Rebuild an independent `LEDGER_ALL_SMOKE.xlsm` or `LEDGER_SELECTED_SMOKE.xlsm` from trusted V90 using the current branch.
+2. Repeat the same native restore action and compare perceived elapsed time with the previous path.
+3. Run fresh reconstruction after the action to prove the performance patches did not alter authoritative state.
+4. If still too slow, next optimization target is consolidation of the MASTER projection and native write-plan Excel phases, then the in-session preview synchronization/save phase.
+5. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
