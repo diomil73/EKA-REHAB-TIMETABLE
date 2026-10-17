@@ -8,57 +8,53 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### 1. Authoritative daily facts / restart-safe recomputation
+### 1. Authoritative restore + recompute
 
-Το mixed orphan workflow είναι native green και οι αναστολές επιβιώνουν σε fresh reread.
+Το restart-safe daily truth είναι πλέον **native green** στο V88:
 
-V87 confirmed:
-
-- 5 placements,
-- 2 `Αναστολή θεραπείας`,
+- 5 persisted replacements reread,
+- 2 treatment suspensions reread,
 - unresolved=0,
-- scheduled=80,
-- performed=78,
-- replaced=5,
-- suspended=2,
-- source unchanged=True,
-- VBA preserved=True.
+- finalized=ΝΑΙ,
+- reconstructed statistics = stored DAILY_STATISTICS.
 
-V87 persistence verifier confirmed:
+Άρα κλείνει το milestone:
 
-- 2 suspensions reread from DAILY_INPUT,
-- stored suspended=2,
-- stored unresolved=0,
-- stored finalized=ΝΑΙ.
+`base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS -> DailySessionState -> statistics`
 
-Durable replacement placement persistence is implemented and its focused Windows source gate is green.
+Τώρα αντικαθιστούμε το προσωρινό snapshot undo του ledger με authoritative fact lifecycle.
 
-Implemented slice:
+Implemented:
 
-- `rehab_excel/daily_replacement_facts.py`,
-- internal `DAILY_REPLACEMENT_FACTS` very-hidden sheet,
-- exact structured ReplacementAssignment fields,
-- validation against concrete Session,
-- duplicate/conflict rejection,
-- idempotent persistence,
-- backward-compatible missing sheet = no persisted replacements,
-- deterministic replacement ids per session/date,
-- `apply_daily_input_replacements.py` reloads persisted replacements, uses them in capacity/state, skips already-resolved sessions and persists new placements,
-- `verify_daily_fact_reconstruction.py` reconstructs daily state from base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS and compares with DAILY_STATISTICS.
+- `DAILY_REPLACEMENT_FACTS` statuses `ACTIVE / RESTORED`,
+- RESTORED rows παραμένουν audit history αλλά δεν συμμετέχουν στο effective state,
+- exact restore by immutable ReplacementId,
+- stale/older undo δεν μπορεί να σβήσει νεότερη αλλαγή,
+- νέο `Python/tools/restore_daily_replacement_fact.py`,
+- MASTER reset σε recurring truth πριν από reapplication surviving overlays,
+- THERAPIST_DAILY rebuild από recomputed DailySessionState,
+- DAILY_STATISTICS rewrite,
+- ledger history mark RESTORED,
+- source/VBA preservation checks,
+- `inspect_daily_replacement_facts.py` για exact native fact inventory.
 
-Focused Windows gate: **28 passed, 3 warnings in 5.14s**.
+Status: **implemented, focused source gate pending, native V89 pending**.
 
-V88 exposed one native reader issue: `ReplacementDate` was persisted by COM as timezone-shifted numeric serial `46313.875`. The fix now:
+Σημαντική semantics: αν γίνει restore ενός placement ενώ η therapist absence εξακολουθεί να ισχύει, ο ασθενής ξαναγίνεται orphan. Άρα είναι σωστό να προκύψει unresolved>0 και finalized=ΟΧΙ μέχρι νέα τοποθέτηση ή `Αναστολή θεραπείας`.
 
-- normalizes legacy numeric calendar dates to nearest whole Excel day,
-- explicitly covers `46313.875 -> 2026-10-19`,
-- writes future ReplacementDate facts as ISO text `YYYY-MM-DD` to avoid timezone ambiguity.
+### 2. Replacement ID hardening
 
-Status: **V88 date-reader fix implemented; focused regression + reconstruction rerun pending**.
+Σήμερα τα operational IDs είναι deterministic:
 
-### 2. Ορφανοί + treatment suspension
+`daily-input:<session_id>:<date>`
 
-Locked rule: κάθε orphan πρέπει να καταλήγει σε:
+Μετά από RESTORED fact δεν πρέπει να ξαναχρησιμοποιηθεί το ίδιο historical ID. Ο writer πλέον το απορρίπτει. Μετά το πρώτο native authoritative restore gate θα προστεθεί versioned/new ID generation για re-resolution της ίδιας session/date.
+
+### 3. Ορφανοί + treatment suspension
+
+Native green through V88 persistence/reconstruction.
+
+Locked rule: κάθε orphan καταλήγει σε:
 
 - valid therapist/time placement, ή
 - `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
@@ -66,108 +62,88 @@ Locked rule: κάθε orphan πρέπει να καταλήγει σε:
 Suspension = `DailySessionStatus.CANCELLED` + `SessionCancellationKind.TREATMENT_SUSPENDED`.
 Recurring/base δεν αλλάζει. Finalized day μόνο με unresolved=0.
 
-Operational flow source + native green through V87.
+### 4. Daily statistics
 
-### 3. Daily statistics
+`DAILY_STATISTICS` derives from the same DailySessionState. V88 proves fresh reconstruction gives exact stored-statistics equivalence.
 
-`DAILY_STATISTICS` derives from the same finalized DailySessionState and stores scheduled, performed, replaced, patient absent, department postponed, no-show, treatment suspended, unresolved and finalized.
+### 5. Daily effective state: MASTER + THERAPIST_DAILY
 
-Native-created in V87. Full reconstruction equivalence remains the V88 gate.
+Native green for active replacement sync. Authoritative restore pipeline now explicitly resets MASTER to recurring projection and re-applies only surviving ACTIVE overlays.
 
-### 4. Daily effective state: MASTER + THERAPIST_DAILY + ledger
+### 6. Reversible daily change ledger
 
-MENTIS stress case remains native green for active move, MASTER/THERAPIST_DAILY sync, source trace, individual restore, readable times and stale robotic-orange fix.
+Earlier prototype native green:
 
-### 5. Reversible daily change ledger
-
-Native green:
-
-- per-row restore,
+- per-row snapshot restore,
 - MASTER sync,
 - source trace,
 - styling cleanup,
-- time-axis display.
+- readable time axis.
 
-Open:
+Current migration:
 
-- authoritative restore by removal/deactivation of daily facts + recompute,
-- selected/all restore in a multi-change preview.
+- authoritative per-row restore via fact RESTORED + recompute,
+- then selected/all restore by multi-fact change + one recompute.
 
-Replacement fact persistence is the prerequisite foundation for this.
-
-### 6. Dynamic daily recomputation
+### 7. Dynamic daily recomputation
 
 Locked order:
 
 1. recurring/base schedule,
 2. cancellations/no-shows release slots,
 3. therapist absences,
-4. identify displaced patients,
-5. load/apply persisted replacement overlays and redistribute existing patients,
+4. identify displaced/orphan sessions,
+5. apply ACTIVE persisted replacements,
 6. remaining orphans resolve by placement or suspension,
 7. new patients only after existing displaced patients are resolved.
 
-Recompute must be idempotent and order-independent.
+Recompute idempotent and order-independent.
 
-### 7. Outpatient recurring create/edit
+### 8. Outpatient recurring create/edit
 
-Implemented but native verification remains open after authoritative daily facts / restore milestone.
+Implemented but native verification remains open after authoritative restore milestone.
 
-### 8. Legacy `ΑΝΑΝΕΩΣΗ`
+### 9. Legacy `ΑΝΑΝΕΩΣΗ`
 
 Deferred/manual cleanup. Not a blocker.
 
-## Τι έχει ολοκληρωθεί
+## Ολοκληρωμένα checkpoints
 
-- MASTER operational home + accepted V81 toolbar/header UX.
-- DAILY_INPUT authoritative input flow.
-- Patient-centric multi-treatment scheduling.
-- Edit-existing-program preload + atomic resave.
-- Conflict validation + explicit override.
-- Optional manual provider/name persistence.
-- Retired single-treatment cleanup.
-- Full regression checkpoint: **699 passed, 19 warnings**.
-- Cancellation slot release support.
-- Replacement load + mixed-slot gate: **31 passed in 2.04s**.
-- MASTER daily overlay + restore gate: **24 passed, 5 warnings in 4.39s**.
-- V82 restore native green.
-- V83 MASTER sync native green.
-- V84 time-axis native green.
-- V85 stale-orange cleanup native green.
-- Suspension/statistics domain gate: **21 passed in 3.11s**.
-- Consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**.
-- V87 mixed orphan resolution: **native green**.
-- V87 suspension/statistics reread: **native green**.
-- Replacement fact + reconstruction focused source gate: **28 passed, 3 warnings in 5.14s**.
+- full regression: **699 passed, 19 warnings**
+- load + mixed-slot: **31 passed in 2.04s**
+- MASTER overlay + restore: **24 passed, 5 warnings in 4.39s**
+- suspension/statistics domain: **21 passed in 3.11s**
+- orphan operational: **43 passed, 3 warnings in 5.15s**
+- replacement fact focused gate: **28 passed, 3 warnings in 5.14s**
+- V87 mixed orphan flow: **native green**
+- V87 suspension persistence: **native green**
+- V88 full restart reconstruction: **native green**
+
+Python 3.14 ZipFile teardown warnings remain non-blocking technical debt.
 
 ## Τρέχον verification gate
 
-1. Pull latest branch.
-2. Run focused `Tests/test_daily_replacement_facts.py` regression.
-3. Re-run reconstruction directly against existing V88. No rebuild required for backward-compatible reader verification.
-4. Require 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact DAILY_STATISTICS equivalence.
-5. If green, close authoritative daily-state restart persistence.
-6. Implement ledger restore via authoritative fact removal + recompute.
-7. Test selected/all restore with multiple changes.
-8. Resume outpatient recurring create/edit native gate.
-9. Clean Python 3.14 ZipFile teardown warnings later.
+1. Run focused tests for fact lifecycle + authoritative restore pipeline + reconstruction verifier.
+2. Inventory V88 ACTIVE replacement IDs.
+3. Restore one exact fact into V89.
+4. Expected after one restore: active replacements 4; if absence still exists, unresolved 1 and finalized=ΟΧΙ.
+5. Re-run reconstruction verifier against V89 and require exact stored statistics equivalence.
+6. Connect Excel ledger per-row button to authoritative bridge.
+7. Implement selected/all authoritative restore and one recompute.
+8. Add replacement-ID versioning for re-resolution.
+9. Resume outpatient create/edit native gate.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
-- ΦΘ provider required + solver-owned.
-- Ρομποτικό / Εργο / Λογο / Ψυχ optional free text, όχι solver constraint.
-- Outpatients cannot receive Ρομποτικό.
-- Ανακλινόμενο / Πισίνα / ΕΦΑ χωρίς provider/name.
-- Nonblank manual constraints δεν αντικαθίστανται σιωπηλά.
-- Standard duration 45', Ανακλινόμενο 30'.
-- Exact adjacency allowed.
-- `PATIENT_PLANNER` authoritative για inpatient recurring, `OUTPATIENT_SCHEDULE` για outpatient recurring.
-- Daily facts είναι overlays, όχι recurring edits.
-- Existing displaced patients προηγούνται των νέων.
-- Orphans πρέπει να τοποθετηθούν ή να πάρουν explicit suspension.
-- MASTER και THERAPIST_DAILY συμφωνούν στο effective daily state.
-- Operational capacity είναι timeslot-based.
-- Layout write zones παραμένουν στενές.
+- daily facts are overlays, never destructive recurring edits,
+- operational capacity is timeslot-based,
+- existing displaced patients precede new patients,
+- orphan never silently disappears,
+- MASTER and THERAPIST_DAILY agree on effective state,
+- old restore cannot overwrite a newer change,
+- layout write zones remain narrow,
+- ΦΘ provider remains solver-owned,
+- outpatients cannot receive robotic treatment.
 
 ## Recovery rule
 
