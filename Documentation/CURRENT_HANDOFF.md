@@ -21,7 +21,7 @@ Last updated: 2026-10-17
 - parity rebuild: row/selected/all smoke copies all reported 5 ACTIVE ledger rows, fact sync=True, source unchanged=True, VBA preserved=True
 - first native per-row close/reopen design: failed at workbook lifecycle with visible console + `Method 'Close' of object '_Workbook' failed`
 - in-session per-row restore: native green
-- in-session selected restore: Excel action completed successfully with no visible console and no close/reopen, but user reported noticeable execution delay; fresh reconstruction/inventory still required before closing the selected gate
+- in-session selected two-row restore: native correctness green, no visible console, no close/reopen; user reported noticeable latency
 - replacement lifecycle history V87-V92: native green
 
 ## CLOSED: authoritative daily truth and replacement lifecycle
@@ -88,19 +88,32 @@ Fresh reconstruction then passed exactly:
 
 This closes the **per-row native restore gate**.
 
-### Selected restore timing note
+### NATIVE GREEN: selected restore correctness
 
-The first in-session selected two-row action completed with the intended UX and no lifecycle regression, but it took noticeably longer than desired. Treat this as a performance/UX item, not a correctness failure. Before optimizing, close the selected correctness gate with fresh reconstruction and fact inventory. Likely hotspots to profile after correctness is confirmed are the full Python preview/recompute cycle plus the in-session synchronization of multiple used ranges.
+The independent selected smoke restored exactly two ACTIVE rows through `Επαναφορά επιλεγμένων`. The workbook stayed open, no console appeared, and the user confirmed that the reconstruction and replacement inventory were fully green. This closes the selected correctness gate.
+
+A noticeable execution delay remains a performance/UX item. Do not weaken the authoritative preview/recompute/rollback guarantees merely to hide the delay; profile before optimizing.
+
+### Greek-only user-facing reason labels
+
+User-facing `Αιτία` values must not expose technical English labels. The current bridge now translates the known legacy/internal replacement reasons `DAILY_INPUT therapist absence` and `temporary replacement` to the agreed Greek label `Απουσία θεραπευτή` when rendering the ledger in `THERAPIST_DAILY`. Internal immutable IDs remain technical and unchanged.
+
+Implementation commits:
+
+- `9bfa145175a0a7abc876084e2c767e2d1e570a7a` localizes ledger reason rendering
+- `74eb411e2e3eda455e5c920605fac013dbfd368a` adds regression coverage
+- `9cd65165c9d14dbc52bb215e777c7acb6c2addb6` records the durable UI-language rule
 
 ## Exact resume point
 
-1. Verify `LEDGER_SELECTED_SMOKE.xlsm` after the completed two-row restore. Expect ACTIVE replacements=3, unresolved=2, finalized=ΟΧΙ, treatment suspensions=2, exact stored statistics.
-2. Run replacement fact inventory and confirm exactly two formerly ACTIVE facts are now RESTORED while unrelated ACTIVE facts remain untouched.
-3. If selected verification is green, mark selected native gate green and then run the independent `LEDGER_ALL_SMOKE.xlsm` restore-all scenario.
+1. Pull the latest branch and run the focused bridge tests after the Greek-only reason patch.
+2. Rebuild `LEDGER_ALL_SMOKE.xlsm` from trusted V90 so it contains the newest bridge.
+3. Open only `LEDGER_ALL_SMOKE.xlsm`, confirm the visible `Αιτία` column shows Greek business wording only, then run `Επαναφορά όλων`.
 4. Restore-all expectation: 0 ACTIVE replacements, 5 unresolved, finalized=ΟΧΙ, 2 treatment suspensions, exact stored statistics.
-5. For both paths require no visible console, no workbook close/reopen, correct ledger statuses, MASTER/THERAPIST_DAILY agreement, source/VBA safety.
-6. After selected + all correctness gates close, profile and reduce the noticeable restore latency without weakening the authoritative preview/recompute/rollback guarantees.
-7. Once selected + all are native green and timing is acceptable, mark the ledger migration closed and resume outpatient recurring create/edit native gate.
+5. Require no visible console, no workbook close/reopen, correct ledger statuses, MASTER/THERAPIST_DAILY agreement, source/VBA safety.
+6. After restore-all is native green, close the ledger migration correctness milestone.
+7. Keep the selected-restore latency as an explicit performance/UX item to profile next; likely hotspots are the full Python preview/recompute cycle and in-session used-range synchronization.
+8. Then resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
