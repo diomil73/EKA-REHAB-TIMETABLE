@@ -22,7 +22,8 @@ Active milestone: **Restore correctness is closed green for per-row, selected, a
 - focused bridge/performance gate after statistics+ledger consolidation: **30 passed in 4.39s**
 - focused bridge/performance gate after redundant in-session saves were removed: **31 passed in 3.34s**
 - focused gate after single output Excel session: **32 passed in 4.48s**
-- latest fresh restore-all native timing: **about 50-60 seconds**, still far above target
+- focused gate after MASTER-session removal: **33 passed in 3.81s**
+- latest fresh restore-all native timing: **about 50 seconds**, still far above target
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row in-session Excel restore: **native green**
 - selected two-row in-session Excel restore: **native correctness green**
@@ -48,7 +49,7 @@ Native correctness is green for per-row, selected, and restore-all controls. Res
 
 ## ACTIVE: restore performance / UX latency
 
-The latest native restore-all timing is about 50-60 seconds. This is not acceptable for routine operation, so optimization continues rather than treating the current path as finished.
+The latest native restore-all timing is about 50 seconds. This is not acceptable for routine operation, so optimization continues rather than treating the current path as finished.
 
 Implemented optimization chain:
 
@@ -56,16 +57,17 @@ Implemented optimization chain:
 2. Daily statistics and ledger finalization share the same session. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
 3. Redundant success-path saves in the in-session bridge were removed while rollback and authoritative post-sync save remain. Implementation `4b58085fc416c456c603aefd1ae2942022715632`, tests `55b7e584080d6f9f657ce3b274dae9a90a85aa19`.
 4. Native daily write plan, statistics, restored ledger metadata, ledger refresh, and final output save now share one `_RestoreOutputBackend` Excel session. Implementation `790f55babd18a75635d844cc4f6d1f24c2c5780e`, tests `0c166fff3e3dc26fd8b53062653e9764234d2b98`; focused gate **32 passed in 4.48s**.
-5. New optimization `0c2e566614679fa010ffec09fb52825eea17055b` removes the separate MASTER projection Excel open/save/close phase. The logical MASTER projection is built in Python and applied inside the already-open restore output workbook before daily patches. Regression coverage: `ac08df5a617fd159ba40f196299b86242a2546a3`.
+5. MASTER projection is derived in Python and rebuilt inside the already-open restore output workbook, removing a separate Excel open/save/close phase. Implementation `0c2e566614679fa010ffec09fb52825eea17055b`, regression `ac08df5a617fd159ba40f196299b86242a2546a3`; focused gate **33 passed in 3.81s**.
+6. New optimization `973094f4808dc3bd42b83499468b245c24d6dbde` replaces broad `UsedRange` copies during in-session verified-preview apply. Each restore sheet now finds the last meaningful formula/value row and column and copies only that bounded rectangle, retaining Excel-native formatting and rich-text transfer while avoiding inflated formatting-only tails. Regression coverage: `c456da245fc3df3fe35b1917551c01a5a15cc742`.
 
-Remaining likely hotspots are now concentrated in the Excel-side verified-preview application: opening the verified preview workbook and copying broad `UsedRange` blocks across `DAILY_REPLACEMENT_FACTS`, `DAILY_CHANGE_LEDGER`, `THERAPIST_DAILY`, `MASTER_SCHEDULE`, and `DAILY_STATISTICS`.
+The sixth optimization still needs the focused Windows test gate and a fresh native timing smoke.
 
 ## Immediate roadmap
 
 1. Pull latest branch and run the focused bridge/performance tests.
 2. Rebuild a fresh restore-all smoke copy from trusted V90 and re-time the native action. Do not reuse an already-restored workbook.
 3. Re-run fresh reconstruction after the timing smoke.
-4. If native latency remains above roughly 15 seconds, replace or narrow broad in-session `UsedRange` synchronization while preserving the verified-preview and rollback safety model.
+4. If native latency remains above roughly 15 seconds, add explicit phase timing for backend generation, rollback copy, preview opening, sheet synchronization, and final save before the next structural optimization.
 5. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 6. Later clean Python 3.14 ZipFile warnings.
 
