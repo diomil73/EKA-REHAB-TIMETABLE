@@ -16,6 +16,7 @@ LISTS_SHEET_NAME = "_PY_LISTS"
 PATIENT_CANCELLATION_STATUSES = (
     "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
     "ΔΕΝ ΠΡΟΣΗΛΘΕ",
+    "Αναστολή θεραπείας",
 )
 
 
@@ -323,6 +324,7 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
         ws.Application.ActiveWindow.FreezePanes = True
     except Exception:
         pass
+
 
 def create_daily_input_sheet(workbook_path: str | Path, spec: DailyInputSpec) -> None:
     if sys.platform != "win32":
