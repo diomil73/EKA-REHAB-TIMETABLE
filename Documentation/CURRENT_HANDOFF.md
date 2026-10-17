@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-10-14
+Last updated: 2026-10-17
 
 ## Branch / working line
 
@@ -64,11 +64,36 @@ Retained current behavior:
 
 The drop from 722 to 699 is expected because obsolete tests for the removed single-treatment code were deleted. No post-cleanup regression was reported.
 
+## Cancellation slot release status
+
+The first outpatient roadmap candidate is already implemented and regression-covered in source:
+
+- cancellations are passed into therapist/patient/student availability checks,
+- cancelled occurrences are excluded from therapist/student operational workload,
+- replacement candidate capacity reflects the released timeslot,
+- `Tests/test_cancellation_releases_replacement_capacity.py` verifies both workload release and exact-slot reuse.
+
+No duplicate implementation is needed here. Native operational smoke remains useful later, but the source gap is closed.
+
 ## Current focus
 
-The patient-centric multi-treatment scheduling milestone and retired-code cleanup are closed.
+**Outpatient recurring schedule create/edit end to end against `OUTPATIENT_SCHEDULE`.**
 
-Next roadmap work should be chosen from the remaining outpatient/operational items in `Documentation/PROJECT_STATUS.md`, with priority on behavior that is still not native-verified or not fully integrated.
+Immediate work:
+
+1. inspect the existing `frmOutpatientSchedule` create flow and bridge,
+2. verify whether user-facing edit/preload already exists,
+3. if missing, add edit/preload while reusing `OutpatientScheduleRequest.target_base_entry_id`,
+4. focused source tests,
+5. build a native smoke preview and verify create + edit on Windows/Excel.
+
+Required invariants:
+
+- outpatient recurring rows stay in `OUTPATIENT_SCHEDULE`, not `PATIENT_PLANNER`,
+- robotic treatment remains unavailable to outpatients,
+- conflict/suggestion safeguards remain intact,
+- preview workflows never mutate the source workbook,
+- VBA is preserved in generated previews.
 
 ## Business rules that must not regress
 
@@ -80,7 +105,7 @@ Next roadmap work should be chosen from the remaining outpatient/operational ite
 - Standard treatment duration: 45 minutes.
 - Ανακλινόμενο duration: 30 minutes.
 - Exact adjacency is legal.
-- `PATIENT_PLANNER` authoritative, MASTER derived.
+- `PATIENT_PLANNER` authoritative for inpatient recurring schedules; `OUTPATIENT_SCHEDULE` authoritative for outpatient recurring schedules.
 - Conflict override must be explicit; return-for-correction performs zero writes.
 
 ## Recovery order if context is lost
