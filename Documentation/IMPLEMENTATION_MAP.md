@@ -37,66 +37,55 @@ Source status:
 
 ### 2. Native mixed-orphan verification
 
-Νέο deterministic helper:
+Το πρώτο V87 attempt σταμάτησε σωστά από layout safety πριν γραφτεί workbook:
 
-- `Python/tools/prepare_orphan_smoke_input.py`
-- output target: `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm`
+`THERAPIST_DAILY!A21 outside confirmed write zones B2:J8, B12:J18`.
 
-Ο helper διαλέγει αυτόματα therapist με τουλάχιστον δύο sessions στη συγκεκριμένη ημέρα και βάζει whole-day absence στο DAILY_INPUT. Στόχος native smoke: τουλάχιστον ένας orphan να τοποθετηθεί και τουλάχιστον ένας να πάρει `Αναστολή θεραπείας`.
+Root cause: stale outpatient-fill cleanup έκανε scan σε όλο το sheet και θεώρησε unrelated πράσινο κελί `A21` ως outpatient presentation residue.
 
-Regression: `Tests/test_prepare_orphan_smoke_input.py`.
+Fix implemented:
+
+- stale outpatient cleanup περιορίζεται μόνο στα confirmed operational grids `B2:J8` και `B12:J18`,
+- οι write zones **δεν διευρύνθηκαν**,
+- `A21`/ledger/labels/other furniture αγνοούνται,
+- regression καλύπτει explicit το `A21`.
+
+Commits:
+
+- `5c81ce40256ddd36379d838c35b2a62debf0ef95`
+- `7e4031fd9f01b4b11233b6bc087078b4f94686aa`
+
+Native smoke target παραμένει:
+
+- input `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm`,
+- output `Excel/previews/ORPHAN_RESOLUTION_V87.xlsm`,
+- τουλάχιστον μία placement και μία `Αναστολή θεραπείας`.
 
 ### 3. Daily statistics
 
-Το `DAILY_STATISTICS` sheet γράφεται από το ίδιο finalized `DailySessionState` και περιλαμβάνει:
-
-- scheduled,
-- performed,
-- replaced,
-- patient absent,
-- department postponed,
-- patient no-show,
-- treatment suspended,
-- unresolved,
-- finalized.
+Το `DAILY_STATISTICS` sheet γράφεται από το ίδιο finalized `DailySessionState` και περιλαμβάνει scheduled, performed, replaced, patient absent, department postponed, patient no-show, treatment suspended, unresolved και finalized.
 
 Source green. Native workbook verification pending.
 
 ### 4. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
-Το stress case ΜΕΝΤΗΣ είναι native green για:
-
-- active move `Σκαρώνης 09:15 -> Μηλιδάκης 10:45`,
-- MASTER + THERAPIST_DAILY sync,
-- source trace,
-- individual restore,
-- readable `hh:mm` time axis,
-- stale robotic-orange leak fix.
+Το stress case ΜΕΝΤΗΣ είναι native green για active move, MASTER + THERAPIST_DAILY sync, source trace, individual restore, readable time axis και stale robotic-orange fix.
 
 ### 5. Legacy `ΑΝΑΝΕΩΣΗ`
 
-**Deferred/manual cleanup**. Δεν είναι blocker και δεν ξανανοίγει τώρα.
+**Deferred/manual cleanup**. Δεν είναι blocker.
 
 ### 6. Reversible daily change ledger
 
-Native green:
+Native green: per-row restore, MASTER sync, source trace, styling cleanup, time-axis display.
 
-- per-row `Επαναφορά`,
-- MASTER sync,
-- source trace,
-- styling cleanup,
-- time-axis display.
-
-Open:
-
-- selected/all restore σε multi-change preview,
-- production restore = authoritative overlay removal + recompute, όχι snapshot restore.
+Open: selected/all restore σε multi-change preview και production restore μέσω authoritative overlay removal + recompute.
 
 ### 7. Dynamic daily recomputation
 
 Locked order:
 
-1. recurring/base schedule για concrete date,
+1. recurring/base schedule,
 2. cancellations/no-shows release slots,
 3. therapist absences,
 4. identify displaced/unscheduled existing patients,
@@ -104,18 +93,15 @@ Locked order:
 6. resolve remaining orphans με placement ή `Αναστολή θεραπείας`,
 7. μόνο μετά new-patient allocation.
 
-Recompute idempotent και order-independent, χωρίς destructive recurring edits.
+Recompute idempotent και order-independent.
 
 ### 8. Replacement operational load semantics
 
-- authoritative load = occupied timeslots,
-- shared slot με πολλούς patients = ένα occupied timeslot,
-- ranking πρώτα occupied timeslots, μετά session count,
-- output `load x/y | patients n`.
+Authoritative load = occupied timeslots. Shared slot με πολλούς patients = ένα occupied timeslot. Ranking πρώτα occupied timeslots, μετά session count.
 
 ### 9. Outpatient recurring create/edit
 
-Παραμένει open και επιστρέφει μετά το current orphan/daily-state milestone.
+Παραμένει open μετά το current orphan/daily-state milestone.
 
 ## Τι έχει ολοκληρωθεί
 
@@ -130,18 +116,18 @@ Recompute idempotent και order-independent, χωρίς destructive recurring 
 - Cancellation slot release support.
 - Replacement load + mixed-slot gate: **31 passed in 2.04s**.
 - MASTER daily overlay + restore gate: **24 passed, 5 warnings in 4.39s**.
-- V82 individual restore: native green.
-- V83 MASTER sync + restore: native green.
-- V84 time-axis + restore: native green.
-- V85 stale-orange cleanup + restore: native green.
+- V82 individual restore native green.
+- V83 MASTER sync + restore native green.
+- V84 time-axis + restore native green.
+- V85 stale-orange cleanup + restore native green.
 - Suspension/statistics domain slice: **21 passed in 3.11s**.
 - Consolidated orphan operational flow/persistence/statistics gate: **43 passed, 3 warnings in 5.15s**.
 
 ## Τρέχον verification gate
 
-1. Run `Tests/test_prepare_orphan_smoke_input.py`.
-2. Build `ORPHAN_SMOKE_INPUT_V86.xlsm` for `2026-10-19`.
-3. Resolve one orphan by placement and one by `S = Αναστολή θεραπείας` into V87.
+1. Run focused outpatient-presentation + orphan tests after A21 fix.
+2. Re-run V87 from existing V86.
+3. Resolve one orphan by placement and one by `S = Αναστολή θεραπείας`.
 4. Verify DAILY_INPUT persisted fact + DAILY_STATISTICS unresolved=0/finalized=ΝΑΙ + source/VBA safety.
 5. Re-read output to confirm persistence.
 6. Test selected/all restore with multiple changes.
@@ -164,6 +150,7 @@ Recompute idempotent και order-independent, χωρίς destructive recurring 
 - Orphans πρέπει να τοποθετηθούν ή να πάρουν explicit `Αναστολή θεραπείας`.
 - MASTER και THERAPIST_DAILY πρέπει να συμφωνούν στο effective daily state.
 - Operational capacity είναι timeslot-based.
+- Layout safety zones παραμένουν στενές. Cleanup logic προσαρμόζεται στο contract, όχι το αντίστροφο.
 
 ## Recovery rule
 
