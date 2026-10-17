@@ -15,7 +15,6 @@ def _student() -> Student:
     return Student(
         student_id="STU-1",
         display_name="Μαρία Παπαδοπούλου",
-        student_number=1,
         placement_start=date(2026, 9, 1),
         placement_end=date(2026, 9, 20),
     )
@@ -47,7 +46,7 @@ def test_expired_student_uses_stable_short_label_but_keeps_identity():
     state = student_display_state(_student(), date(2026, 9, 21))
 
     assert state.student_id == "STU-1"
-    assert state.label == "Φοιτ.1"
+    assert state.label == "Φοιτ.STU-1"
     assert state.active is False
     assert state.use_green_font is False
 
@@ -95,7 +94,7 @@ def test_transition_plan_blocks_cross_specialty_patient_collision():
         standard_timeslots=[time(9, 0), time(10, 0)],
     )
 
-    assert plan.expired_label == "Φοιτ.1"
+    assert plan.expired_label == "Φοιτ.STU-1"
     assert plan.effective_from == date(2026, 9, 21)
     assert plan.affected_patient_ids == ("P1",)
     assert [(option.destination_provider_id, option.destination_time) for option in plan.options] == [

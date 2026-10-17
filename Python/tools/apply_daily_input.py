@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from zipfile import ZipFile
@@ -11,14 +12,32 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
+from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_input_preservation import (  # noqa: E402
+    DailyInputPreservationError,
+    assert_daily_input_preserved,
+    snapshot_daily_input,
+)
+from rehab_excel.daily_preview_composer import (  # noqa: E402
+    DailyPreviewCompositionError,
+    compose_outpatient_daily_plan,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
+from rehab_excel.outpatient_schedule_source import (  # noqa: E402
+    OutpatientScheduleSourceError,
+    read_unified_base_schedule,
+)
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.reader import read_base_schedule, read_patients  # noqa: E402
+from rehab_excel.patient_registry_source import (  # noqa: E402
+    PatientRegistrySourceError,
+    read_patient_registry,
+)
 
 
 def _has_vba(path: Path) -> bool:
@@ -45,23 +64,32 @@ def main() -> int:
         default=REPO_ROOT / "Excel" / "previews" / "DAILY_INPUT_APPLIED_PREVIEW.xlsm",
     )
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--response",
+        type=Path,
+        help="Optional UTF-8 JSON response file for the Excel/VBA bridge.",
+    )
     args = parser.parse_args()
 
     input_book = args.input.resolve()
     output = args.output.resolve()
     if not input_book.exists():
-        print(f"SAFETY STOP: input workbook not found: {input_book}")
+        message = f"input workbook not found: {input_book}"
+        if args.response:
+            args.response.write_text(
+                json.dumps({"ok": False, "error": message}, ensure_ascii=False),
+                encoding="utf-8-sig",
+            )
+        print(f"SAFETY STOP: {message}")
         return 2
 
-    try:
-        # DAILY_INPUT date is read first only after loading patient/base data.
-        patients = read_patients(input_book)
-        base_entries = read_base_schedule(input_book)
+    source_sha256_before = file_sha256(input_book)
 
-        # Sessions are needed to resolve therapist labels. Read the date from
-        # DAILY_INPUT with a temporary all-date materialization strategy: the
-        # reader itself validates B2, then we materialize the exact date and
-        # read once more with the correct dated sessions.
+    try:
+        daily_input_snapshot = snapshot_daily_input(input_book)
+        patients = read_patient_registry(input_book)
+        base_entries = read_unified_base_schedule(input_book)
+
         from openpyxl import load_workbook
         from datetime import datetime, date
 
@@ -86,9 +114,13 @@ def main() -> int:
             sessions,
             absences=daily.absences,
             replacements=(),
+            cancellations=daily.cancellations,
             target_date=daily.target_date,
         )
         changed = [state for state in states if state.status.value != "active"]
+        replacement_sessions_needed = sum(
+            1 for state in states if state.status.value == "therapist_absent"
+        )
         if not changed:
             raise DailyInputReadError(
                 "DAILY_INPUT rows did not match any scheduled session on the selected date"
@@ -102,12 +134,33 @@ def main() -> int:
             patients=patients,
             rebuild_multi_member_groups=True,
         )
-        report = apply_write_plan_to_copy(
+        composed_plan = compose_outpatient_daily_plan(
             preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        report = apply_write_plan_to_copy(
+            composed_plan,
             output,
             overwrite=args.overwrite,
         )
-    except (DailyInputReadError, PatientCentricPreviewError, ValueError, KeyError) as exc:
+        assert_daily_input_preserved(daily_input_snapshot, output)
+    except (
+        DailyInputReadError,
+        DailyInputPreservationError,
+        DailyPreviewCompositionError,
+        OutpatientPresentationError,
+        OutpatientScheduleSourceError,
+        PatientCentricPreviewError,
+        PatientRegistrySourceError,
+        ValueError,
+        KeyError,
+    ) as exc:
+        if args.response:
+            args.response.write_text(
+                json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False),
+                encoding="utf-8-sig",
+            )
         print(f"SAFETY STOP: {exc}")
         return 2
 
@@ -119,15 +172,40 @@ def main() -> int:
     print(f"Therapist rows read: {daily.therapist_rows_used}")
     print(f"Patient rows read: {daily.patient_rows_used}")
     print(f"Operational absences: {len(daily.absences)}")
+    print(f"Session cancellations: {len(daily.cancellations)}")
     print(f"Changed sessions: {len(preview.bindings)}")
+    print(f"Replacement sessions needed: {replacement_sessions_needed}")
     for warning in daily.warnings:
         print(f"WARNING: {warning}")
     for binding in preview.bindings:
         print(f"  {binding.status.value}: {binding.session_id} [{binding.original_cell}]")
     print(f"Input unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
-    print("NEXT: open only DAILY_INPUT_APPLIED_PREVIEW.xlsm and inspect the affected patient line.")
-    return 0 if report.source_unchanged and vba_preserved else 3
+    ok = bool(report.source_unchanged and vba_preserved)
+    if args.response:
+        args.response.write_text(
+            json.dumps(
+                {
+                    "ok": ok,
+                    "output_path": str(Path(report.output_path).resolve()),
+                    "source_sha256_before": source_sha256_before,
+                    "source_unchanged": bool(report.source_unchanged),
+                    "vba_preserved": bool(vba_preserved),
+                    "date": daily.target_date.isoformat(),
+                    "therapist_rows_read": daily.therapist_rows_used,
+                    "patient_rows_read": daily.patient_rows_used,
+                    "operational_absences": len(daily.absences),
+                    "session_cancellations": len(daily.cancellations),
+                    "changed_sessions": len(preview.bindings),
+                    "replacement_sessions_needed": replacement_sessions_needed,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8-sig",
+        )
+
+    print(f"NEXT: open only {Path(report.output_path).name} and inspect the affected patient line.")
+    return 0 if ok else 3
 
 
 if __name__ == "__main__":

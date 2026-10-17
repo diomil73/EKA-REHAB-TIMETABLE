@@ -43,8 +43,43 @@ Outpatients should not appear in inpatient-only patient views or the inpatient p
 
 Outpatients should appear in `THERAPIST DAILY`.
 
-### Visual rule
-Outpatient cells in `THERAPIST DAILY` must use a light-blue fill so they are visually distinguishable from inpatients.
+### Recurring schedule storage
+`PATIENT_PLANNER` remains the inpatient/hospitalized-patient planner and must not become the visible home of outpatient schedules.
+
+However, outpatient recurring appointments still need an authoritative persistent source. They must not exist only as text in `THERAPIST DAILY`, because workload, capacity, replacements, cancellations and future-day materialization all depend on the recurring source data.
+
+Architecture decision:
+- keep inpatient recurring rows in `PATIENT_PLANNER`
+- store outpatient recurring rows in a separate authoritative source, provisionally named `OUTPATIENT_SCHEDULE`
+- the scheduling engine reads/merges both sources into the same `BaseScheduleEntry` stream
+- after merging, inpatient and outpatient sessions use the same operational scheduling engine
+- `THERAPIST DAILY` remains the only normal operational view where outpatient names are shown
+
+The outpatient source may later be hidden/protected in Excel, but it remains data storage, not a second scheduling engine.
+
+### Strict visual / clinical rule
+An outpatient is **light blue only** in `THERAPIST DAILY`.
+
+An outpatient:
+- is never infectious/yellow
+- never receives robotic treatment / robotic extra programme
+- must not inherit yellow, pink, or any other patient colour from another patient who shares the same recurring therapist/time slot on other weekdays
+
+When a therapist/time slot is shared by different patients on different weekdays, `THERAPIST DAILY` presentation is determined by the patient actually active on the concrete date.
+
+If the same effective daily cell would contain both an inpatient and an outpatient simultaneously, cell-level colouring is ambiguous and the renderer must reject the situation rather than guess a colour.
+
+### Daily postponement / no-show rule
+The recurring outpatient appointment remains in the base schedule, but any specific occurrence may be cancelled for that date without deleting or moving the recurring slot.
+
+A daily cancelled occurrence must:
+- be marked with a reason, distinguishing at least `department_cancelled` from `patient_no_show`
+- stop counting as delivered treatment for that date
+- release the therapist timeslot so it can be used for replacement work if needed
+- preserve the original recurring appointment for future dates
+- remain auditable in daily history/statistics
+
+This is a daily operational override, not a change to the patient's base programme.
 
 ## Registration UI
 
@@ -54,6 +89,12 @@ Outpatient cells in `THERAPIST DAILY` must use a light-blue fill so they are vis
 - Room options come from `SETTINGS` column H.
 - Patient status options come from `SETTINGS` column F.
 - Inpatient-only controls are disabled/cleared when type changes to outpatient.
+
+## Daily operational UI terminology
+
+User-visible daily operational fields must use the agreed Greek business terminology only. Internal technical identifiers, source labels, command names or English implementation strings must never leak into normal Excel UI fields such as `Αιτία`.
+
+For replacement rows created by the `DAILY_INPUT` therapist-absence workflow, legacy technical values such as `DAILY_INPUT therapist absence` or `temporary replacement` are rendered to the user as `Απουσία θεραπευτή`. Internal immutable IDs may remain technical because they are not user-facing labels.
 
 ## Excel/VBA compatibility
 
@@ -75,8 +116,27 @@ This pattern is now the preferred approach for future dynamically installed VBA 
 
 ## Documentation maintenance rule
 
-Whenever a major business rule, architectural choice, compatibility workaround, or project-stage transition is agreed:
-- update `Documentation/DECISIONS.md` if it is a durable decision
-- update `Documentation/PROJECT_STATUS.md` if it changes current progress, next steps, open risks or validation state
+Documentation is part of the implementation, not a cleanup task after implementation.
 
-These files are the recovery anchor for continuing the project after loss of conversational context.
+Whenever any meaningful development occurs, update the appropriate project records in the same work cycle. This includes:
+
+- implemented behaviour or changed semantics,
+- new tests or regression findings,
+- compatibility workarounds,
+- current validation state and native smoke results,
+- defects, risks and technical debt,
+- newly discovered necessities,
+- ideas or requirements that we decide should later be built,
+- functionality that should be removed, retired or replaced,
+- fixes that are known but intentionally deferred,
+- changes to implementation order or project priorities.
+
+Use the files by purpose:
+
+- `Documentation/DECISIONS.md` for durable business/architecture rules and agreed constraints,
+- `Documentation/PROJECT_STATUS.md` for current progress, open risks, validation state and immediate roadmap,
+- `Documentation/CURRENT_HANDOFF.md` for the exact resume point, latest checkpoints and commands/scenarios needed to continue safely,
+- `Documentation/IMPLEMENTATION_MAP.md` when ownership/location of implemented capability changes,
+- `CHANGELOG.md` for user-visible or implementation-relevant changes that belong in release history.
+
+Do not rely on chat history as the only record of a decision, requirement, idea, removal, deferred fix or newly discovered need. If it may affect future implementation, testing or recovery after context loss, it must be written into the repository documentation.

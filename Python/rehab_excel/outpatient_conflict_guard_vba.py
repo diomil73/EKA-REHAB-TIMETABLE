@@ -1,0 +1,356 @@
+from __future__ import annotations
+
+from .outpatient_in_session_vba import install_outpatient_in_session_writer
+from .scheduling_conflict_popup_vba import install_scheduling_conflict_popup
+
+
+FORM_NAME = "frmOutpatientSchedule"
+PATIENT_FORM_NAME = "frmNewPatient"
+
+
+NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
+    Dim requestPath As String
+    Dim responsePath As String
+    Dim bridgeScript As String
+    Dim commandLine As String
+    Dim responseText As String
+    Dim exitCode As Long
+    Dim accepted As Boolean
+    Dim baseEntry As String
+    Dim previewPath As String
+    Dim selectedPatientId As String
+
+    If Not ValidateForm() Then Exit Sub
+    selectedPatientId = PatientIdFromSelection()
+    If Len(Trim$(selectedPatientId)) = 0 Then
+        MsgBox "Δεν ήταν δυνατή η ανάκτηση του PatientID από την επιλογή ασθενή.", vbCritical
+        Exit Sub
+    End If
+
+    bridgeScript = ResolveBridgeScript()
+    If Len(bridgeScript) = 0 Then
+        MsgBox "Δεν βρέθηκε το outpatient schedule bridge.", vbCritical
+        Exit Sub
+    End If
+
+    requestPath = Environ$("TEMP") & "\\eka_outpatient_schedule_request_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+    responsePath = Environ$("TEMP") & "\\eka_outpatient_schedule_response_" & Format$(Now, "yyyymmdd_hhnnss") & ".json"
+
+    commandLine = QuoteArg("python") & " " & QuoteArg(bridgeScript) & _
+                  " --request " & QuoteArg(requestPath) & _
+                  " --response " & QuoteArg(responsePath)
+
+    On Error GoTo BridgeError
+
+    WriteUtf8Text requestPath, BuildRequestJson(False)
+    exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
+    If Dir$(responsePath) = "" Then
+        MsgBox "Το backend δεν επέστρεψε αποτέλεσμα.", vbCritical
+        GoTo CleanUp
+    End If
+
+    responseText = ReadUtf8Text(responsePath)
+    If JsonStringValue(responseText, "conflict_type") = "therapist_double_booking" Then
+        accepted = ConfirmTherapistDoubleBooking( _
+            JsonStringValue(responseText, "therapist"), _
+            JsonStringValue(responseText, "time"), _
+            JsonStringValue(responseText, "existing_patient_name"), _
+            JsonStringValue(responseText, "new_patient_name"))
+
+        If Not accepted Then GoTo CleanUp
+
+        WriteUtf8Text requestPath, BuildRequestJson(True)
+        exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
+        If Dir$(responsePath) = "" Then
+            MsgBox "Το backend δεν επέστρεψε αποτέλεσμα μετά την επιβεβαίωση.", vbCritical
+            GoTo CleanUp
+        End If
+        responseText = ReadUtf8Text(responsePath)
+    End If
+
+    If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
+        MsgBox "Η καταχώρηση δεν ολοκληρώθηκε:" & vbCrLf & vbCrLf & JsonStringValue(responseText, "error"), vbExclamation
+        GoTo CleanUp
+    End If
+
+    previewPath = JsonStringValue(responseText, "output_path")
+
+    On Error GoTo InSessionSaveError
+    baseEntry = SaveOutpatientScheduleInWorkbook( _
+        selectedPatientId, _
+        cboTreatment.Value, _
+        cboTime.Value, _
+        cboDays.Value, _
+        cboTherapist.Value)
+
+    On Error Resume Next
+    If Len(previewPath) > 0 Then Kill previewPath
+    Kill requestPath
+    Kill responsePath
+    On Error GoTo 0
+
+    MsgBox "Το πρόγραμμα αποθηκεύτηκε επιτυχώς." & vbCrLf & _
+           "Base entry: " & baseEntry & vbCrLf & vbCrLf & _
+           "Η αλλαγή ισχύει άμεσα, χωρίς κλείσιμο ή επανεκκίνηση του αρχείου.", _
+           vbInformation, "Πρόγραμμα εξωτερικού ασθενή"
+
+    Unload Me
+    On Error Resume Next
+    Unload frmRegistrationMenu
+    GoToMaster
+    On Error GoTo 0
+    Exit Sub
+
+CleanUp:
+    On Error Resume Next
+    previewPath = JsonStringValue(responseText, "output_path")
+    If Len(previewPath) > 0 Then Kill previewPath
+    Kill requestPath
+    Kill responsePath
+    On Error GoTo 0
+    Exit Sub
+
+InSessionSaveError:
+    MsgBox "Ο έλεγχος πέρασε αλλά η καταχώρηση στο ανοιχτό αρχείο απέτυχε:" & vbCrLf & vbCrLf & Err.Description, _
+           vbCritical, "Πρόγραμμα εξωτερικού ασθενή"
+    Resume CleanUp
+
+BridgeError:
+    MsgBox "Δεν ήταν δυνατή η εκτέλεση του backend: " & Err.Description, vbCritical
+    Resume CleanUp
+End Sub'''
+
+
+NEW_REQUEST_BLOCK = r'''Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String
+    Dim q As String
+    q = Chr$(34)
+    BuildRequestJson = "{" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "preview_dir" & q & ":" & q & JsonEscape(ThisWorkbook.Path) & q & "," & _
+        q & "overwrite" & q & ":true," & _
+        q & "values" & q & ":{" & _
+        q & "patient_id" & q & ":" & q & JsonEscape(PatientIdFromSelection()) & q & "," & _
+        q & "treatment" & q & ":" & q & JsonEscape(cboTreatment.Value) & q & "," & _
+        q & "time" & q & ":" & q & JsonEscape(cboTime.Value) & q & "," & _
+        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _
+        q & "allow_double_booking" & q & ":" & LCase$(CStr(allowDoubleBooking)) & "," & _
+        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & _
+        "}}"
+End Function'''
+
+SELECT_PATIENT_BLOCK = r'''Public Sub SelectPatientById(ByVal patientId As String)
+    Dim index As Long
+    Dim prefix As String
+
+    patientId = Trim$(patientId)
+    If Len(patientId) = 0 Then Exit Sub
+    prefix = patientId & " | "
+
+    For index = 0 To cboPatient.ListCount - 1
+        If StrComp(Left$(CStr(cboPatient.List(index)), Len(prefix)), prefix, vbTextCompare) = 0 Then
+            cboPatient.ListIndex = index
+            Exit Sub
+        End If
+    Next index
+
+    Err.Raise vbObjectError + 2750, "SelectPatientById", _
+              "Ο νέος εξωτερικός ασθενής δεν βρέθηκε στη λίστα προγραμματισμού."
+End Sub'''
+
+
+NEW_PATIENT_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
+    Dim patientType As String
+    Dim roomValue As String
+    Dim patientId As String
+
+    If Not ValidateForm() Then Exit Sub
+
+    patientType = Trim$(cboPatientType.Value)
+    If patientType <> "Εξωτερικός" Then
+        roomValue = Trim$(cboRoom.Value)
+        If Len(roomValue) = 0 Then
+            MsgBox "Ο θάλαμος είναι υποχρεωτικός για εσωτερικό ασθενή.", _
+                   vbExclamation, "Νέος ασθενής"
+            cboRoom.SetFocus
+            Exit Sub
+        End If
+    Else
+        roomValue = ""
+    End If
+
+    On Error GoTo RegistrationError
+
+    patientId = RegisterPatientInWorkbook( _
+        patientType, _
+        Trim$(txtHospitalMRN.Text), _
+        Trim$(txtDisplayName.Text), _
+        roomValue, _
+        CBool(chkInfectious.Value), _
+        Trim$(txtResponsibleDoctor.Text), _
+        Trim$(cboStatus.Value) _
+    )
+
+    If patientType = "Εξωτερικός" Then
+        MsgBox "Ο ασθενής καταχωρήθηκε επιτυχώς." & vbCrLf & _
+               "Patient ID: " & patientId & vbCrLf & vbCrLf & _
+               "Συνεχίστε τώρα με το πρόγραμμά του.", _
+               vbInformation, "Νέος εξωτερικός ασθενής"
+
+        Unload Me
+        On Error Resume Next
+        Unload frmRegistrationMenu
+        On Error GoTo ScheduleOpenError
+
+        Load frmOutpatientSchedule
+        frmOutpatientSchedule.SelectPatientById patientId
+        frmOutpatientSchedule.Show
+        Exit Sub
+    End If
+
+    MsgBox "Ο ασθενής καταχωρήθηκε επιτυχώς." & vbCrLf & _
+           "Patient ID: " & patientId, _
+           vbInformation, "Νέος ασθενής"
+    Unload Me
+    Exit Sub
+
+ScheduleOpenError:
+    MsgBox "Ο εξωτερικός ασθενής καταχωρήθηκε, αλλά δεν άνοιξε η φόρμα προγράμματος: " & Err.Description, _
+           vbExclamation, "Νέος εξωτερικός ασθενής"
+    Exit Sub
+
+RegistrationError:
+    MsgBox "Η καταχώρηση δεν ολοκληρώθηκε: " & Err.Description, _
+           vbCritical, "Νέος ασθενής"
+End Sub'''
+
+
+def _replace_vba_procedure(
+    code: str,
+    *,
+    start_signature: str,
+    end_statement: str,
+    replacement: str,
+) -> str:
+    """Replace one VBA procedure without depending on CRLF/LF or exact body text."""
+
+    normalized = code.replace("\r\n", "\n").replace("\r", "\n")
+    positions: list[int] = []
+    search_from = 0
+    while True:
+        position = normalized.find(start_signature, search_from)
+        if position < 0:
+            break
+        positions.append(position)
+        search_from = position + len(start_signature)
+
+    if len(positions) != 1:
+        raise ValueError(
+            f"Expected exactly one VBA procedure starting with {start_signature!r}"
+        )
+
+    start = positions[0]
+    end_marker = "\n" + end_statement
+    end = normalized.find(end_marker, start + len(start_signature))
+    if end < 0:
+        raise ValueError(
+            f"Could not find {end_statement!r} for VBA procedure {start_signature!r}"
+        )
+    end += len(end_marker)
+
+    replacement_normalized = replacement.replace("\r\n", "\n").replace("\r", "\n")
+    return normalized[:start] + replacement_normalized + normalized[end:]
+
+
+def _remove_vba_procedure_if_present(
+    code: str,
+    *,
+    start_signature: str,
+    end_statement: str,
+) -> str:
+    if start_signature not in code:
+        return code
+    return _replace_vba_procedure(
+        code,
+        start_signature=start_signature,
+        end_statement=end_statement,
+        replacement="",
+    )
+
+
+def patch_outpatient_schedule_form_code(code: str) -> str:
+    patched = code
+
+    if "SaveOutpatientScheduleInWorkbook" not in patched or "selectedPatientId = PatientIdFromSelection()" not in patched:
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Sub cmdSave_Click()",
+            end_statement="End Sub",
+            replacement=NEW_SAVE_BLOCK,
+        )
+
+    if "Private Function BuildRequestJson() As String" in patched:
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Function BuildRequestJson() As String",
+            end_statement="End Function",
+            replacement=NEW_REQUEST_BLOCK,
+        )
+    elif "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" not in patched:
+        raise ValueError("Could not locate outpatient request builder")
+
+    patched = patched.replace(
+        'cmdSave.Caption = "Έλεγχος και preview"',
+        'cmdSave.Caption = "Αποθήκευση προγράμματος"',
+    )
+
+    if "Public Sub SelectPatientById(ByVal patientId As String)" not in patched:
+        patched = patched.rstrip() + "\n\n" + SELECT_PATIENT_BLOCK + "\n"
+
+    # The old preview/commit/reopen lifecycle is intentionally removed, not merely unused.
+    for signature in (
+        "Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean",
+        "Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String",
+        "Private Function ResolveAuthoritativeCommitWorkerScript() As String",
+    ):
+        patched = _remove_vba_procedure_if_present(
+            patched,
+            start_signature=signature,
+            end_statement="End Function",
+        )
+
+    return patched
+
+
+def patch_patient_registration_form_code(code: str) -> str:
+    if "frmOutpatientSchedule.SelectPatientById patientId" in code:
+        return code
+    return _replace_vba_procedure(
+        code,
+        start_signature="Private Sub cmdSave_Click()",
+        end_statement="End Sub",
+        replacement=NEW_PATIENT_SAVE_BLOCK,
+    )
+
+
+def _position_control(control, left: float, top: float) -> None:
+    control.Left = left
+    control.Top = top
+
+
+def install_outpatient_conflict_guard(vbproject) -> None:
+    install_scheduling_conflict_popup(vbproject, position_control=_position_control)
+    install_outpatient_in_session_writer(vbproject)
+
+    form = vbproject.VBComponents(FORM_NAME)
+    module = form.CodeModule
+    code = module.Lines(1, module.CountOfLines)
+    patched = patch_outpatient_schedule_form_code(code)
+    module.DeleteLines(1, module.CountOfLines)
+    module.AddFromString(patched)
+
+    patient_form = vbproject.VBComponents(PATIENT_FORM_NAME)
+    patient_module = patient_form.CodeModule
+    patient_code = patient_module.Lines(1, patient_module.CountOfLines)
+    patient_patched = patch_patient_registration_form_code(patient_code)
+    patient_module.DeleteLines(1, patient_module.CountOfLines)
+    patient_module.AddFromString(patient_patched)
