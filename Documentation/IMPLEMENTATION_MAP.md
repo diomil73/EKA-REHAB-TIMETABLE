@@ -10,18 +10,29 @@
 
 ### 1. Ενοποίηση daily effective state σε MASTER + THERAPIST_DAILY
 
-Το V82 απέδειξε ότι το `THERAPIST_DAILY` ακολουθεί σωστά το active daily replacement, αλλά το timetable στο `MASTER` μένει στο recurring/base πρόγραμμα. Αυτό είναι πλέον το πρώτο integration bug προς διόρθωση.
+Το V82 απέδειξε ότι το `THERAPIST_DAILY` ακολουθεί σωστά το active daily replacement, αλλά το timetable στο `MASTER` έμενε στο recurring/base πρόγραμμα.
 
 Locked target:
 
 `DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
 
-Native acceptance για το stress case ΜΕΝΤΗΣ:
+Source implementation προστέθηκε και περιμένει verification:
+
+- νέο `Python/rehab_excel/master_daily_overlay.py`,
+- `REPLACED` inpatient state γράφει effective time/provider μόνο στο ασφαλές treatment-cell zone του MASTER,
+- recurring `PATIENT_PLANNER` μένει ανέγγιχτο,
+- guided replacement tool συνθέτει MASTER + THERAPIST_DAILY patches στο ίδιο preview plan,
+- ledger restore καλεί `RefreshMasterPatientProgram(patient_id)` ώστε το prototype να επιστρέφει και το MASTER στο recurring state,
+- νέο `Tests/test_master_daily_overlay.py`,
+- ledger test καλύπτει το MASTER restore hook.
+
+Status: **implemented, source/native gate pending**.
+
+Native acceptance για ΜΕΝΤΗΣ:
 
 - active overlay: `Σκαρώνης 09:15 -> Μηλιδάκης 10:45`,
-- MASTER πρέπει να δείχνει `Μηλιδάκης 10:45` όσο η αλλαγή είναι ενεργή,
-- μετά `Επαναφορά`, MASTER πρέπει να ξαναδείξει `Σκαρώνης 09:15`,
-- κανένα view δεν πρέπει να κρατά δεύτερη/παλιά operational αλήθεια.
+- MASTER πρέπει να δείχνει `Μηλιδάκης 10:45`,
+- μετά `Επαναφορά`, MASTER πρέπει να ξαναδείξει `Σκαρώνης 09:15`.
 
 ### 2. V82 reversible daily change ledger
 
@@ -44,34 +55,31 @@ Selected/all restore παραμένει open για multi-change preview.
 
 ### 3. THERAPIST_DAILY native cleanup
 
-Από το V82 καταγράφηκαν συγκεκριμένα cleanup items:
+Από το V82 καταγράφηκαν:
 
-- η αριστερή στήλη ώρας εμφανίζει `###` σε ορισμένα rows, άρα χρειάζεται width + fixed `hh:mm`,
-- το orange font είναι αποκλειστικά robotic marker,
+- αριστερή στήλη ώρας με `###`: width + fixed `hh:mm`,
+- orange font αποκλειστικά robotic marker,
 - ο ΜΕΝΤΗΣ είναι infectious και όχι robotic, άρα δεν πρέπει να εμφανίζεται orange,
-- infectious styling πρέπει να διατηρεί σωστή precedence σε moved patients,
-- παλιό δεξί κουμπί `ΑΝΑΝΕΩΣΗ` από legacy VBA πρέπει να αφαιρεθεί.
+- infectious styling precedence σε moved patients,
+- αφαίρεση legacy δεξιού κουμπιού `ΑΝΑΝΕΩΣΗ`.
 
 ### 4. Ορφανοί: operational queue με τελικό outcome
 
-Η λίστα `Ορφανοί` είναι core daily workflow, όχι απλή ένδειξη.
+Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει σε:
 
-Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει υποχρεωτικά σε ένα από:
-
-- `Τοποθετήθηκε` σε έγκυρο therapist/time,
+- `Τοποθετήθηκε` σε έγκυρο therapist/time, ή
 - `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
 
 Rules:
 
 - κανένας ορφανός δεν εξαφανίζεται σιωπηλά,
-- `Αναστολή θεραπείας` είναι daily overlay/status και όχι destructive recurring edit,
-- πρέπει να τροφοδοτεί τα daily statistics ως μη πραγματοποιηθείσα θεραπεία με αυτή την αιτία,
-- orphan resolution συμμετέχει στο ίδιο recomputable daily engine,
+- `Αναστολή θεραπείας` είναι daily overlay/status, όχι recurring edit,
+- τροφοδοτεί daily statistics ως μη πραγματοποιηθείσα θεραπεία με αυτή την αιτία,
 - displaced existing patients προηγούνται των νέων ασθενών.
 
 ### 5. Dynamic daily recomputation
 
-Locked order κάθε refresh/recompute:
+Locked order:
 
 1. recurring/base schedule για concrete date,
 2. cancellations/no-shows και release slots,
@@ -81,17 +89,15 @@ Locked order κάθε refresh/recompute:
 6. resolve remaining orphans με placement ή `Αναστολή θεραπείας`,
 7. μόνο μετά new-patient allocation.
 
-Η σειρά εισαγωγής των facts δεν πρέπει να αλλάζει το τελικό valid state. Η λειτουργία είναι idempotent.
+Η σειρά εισαγωγής facts δεν αλλάζει το τελικό valid state. Recomputation idempotent.
 
 ### 6. Replacement operational load semantics
 
-Κλειδωμένο:
-
 - authoritative load = occupied **timeslots**,
 - shared slot με πολλούς patients = ένα occupied timeslot,
-- ranking πρώτα με occupied timeslots, μετά session count,
-- output: `load x/y | patients n`,
-- example confirmed native: Μηλιδάκης `load 5/6 | patients 6`.
+- ranking πρώτα occupied timeslots, μετά session count,
+- output `load x/y | patients n`,
+- confirmed: Μηλιδάκης `load 5/6 | patients 6`.
 
 ### 7. Mixed inpatient/outpatient presentation
 
@@ -123,13 +129,13 @@ Mixed effective cell:
 
 ## Τρέχον verification gate
 
-1. Wire MASTER timetable to concrete-date `DailySessionState`.
+1. Run focused tests for `master_daily_overlay` + ledger restore hook.
 2. Build fresh preview with active ΜΕΝΤΗΣ move.
 3. Verify MASTER shows `Μηλιδάκης 10:45` while move active.
 4. Verify THERAPIST_DAILY still shows source trace + destination insertion.
 5. Press individual restore.
 6. Verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
-7. Fix left time-column display.
+7. Fix time-column display.
 8. Fix robotic-orange / infectious styling precedence.
 9. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
 10. Implement/verify orphan outcomes + statistics.
