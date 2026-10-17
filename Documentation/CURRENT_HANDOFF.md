@@ -5,7 +5,7 @@ Last updated: 2026-10-17
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Latest trusted native preview: `Excel/previews/SELECTED_RESTORE_V91.xlsm`
+- Latest trusted native preview: `Excel/previews/RESTORE_ALL_V92.xlsm`
 - V81 MASTER toolbar/header UX remains native green.
 
 ## Latest confirmed checkpoints
@@ -18,8 +18,8 @@ Last updated: 2026-10-17
 - V88 restart-safe daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: native green
 - V90 re-placement, fresh reconstruction, and lifecycle inventory: native green
-- V91 selected authoritative restore: native green
-- V91 fresh reconstruction: native green
+- V91 selected authoritative restore + fresh reconstruction: native green
+- V92 restore-all native execution: native green
 
 Known Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -103,24 +103,34 @@ Native restore output:
 - source unchanged: True
 - VBA preserved: True
 
-Fresh reconstruction then independently confirmed:
-
-- persisted replacements reread: 3
-- treatment suspensions reread: 2
-- reconstructed unresolved: 2
-- reconstructed finalized: ΟΧΙ
-- stored `DAILY_STATISTICS` exactly matches reconstructed daily state
+Fresh reconstruction independently confirmed 3 active replacements, 2 treatment suspensions, unresolved=2, finalized=ΟΧΙ, and exact `DAILY_STATISTICS` equivalence.
 
 This closes the selected multi-fact restore proof.
 
+### V92 restore-all native execution validated
+
+`RESTORE_ALL_V92.xlsm` was created independently from trusted V90 using `--all-active`.
+
+Native authoritative restore output matched expectations exactly:
+
+- restored replacement facts: 5
+- active replacements after restore: 0
+- unresolved sessions after recompute: 5
+- finalized after recompute: ΟΧΙ
+- source unchanged: True
+- VBA preserved: True
+
+This is the first native proof that restore-all can retire every currently ACTIVE replacement fact in one authoritative batch and recompute the day from the remaining durable truth.
+
+V92 still requires fresh reconstruction verification before the selected/all restore milestone is considered fully closed.
+
 ## Exact resume point
 
-1. Run independent restore-all from trusted V90 into `RESTORE_ALL_V92.xlsm` using `--all-active`.
-2. Expected V92 native result: 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ, source unchanged=True, VBA preserved=True.
-3. Fresh-verify V92; expect persisted replacements=0, suspended=2, unresolved=5, finalized=ΟΧΙ, exact stored-statistics equivalence.
-4. Inspect V92 fact inventory if needed; all five formerly ACTIVE facts should now be `RESTORED`, including planner:57 `:v2`.
-5. Connect Excel ledger per-row/selected/all buttons to the authoritative backend path; only then retire the old cell-copy VBA restore implementation.
-6. Resume outpatient recurring create/edit native gate.
+1. Fresh-verify `RESTORE_ALL_V92.xlsm`; expect persisted replacements=0, suspended=2, unresolved=5, finalized=ΟΧΙ, and exact stored-statistics equivalence.
+2. Inspect V92 fact inventory if needed; all five formerly ACTIVE facts should now be `RESTORED`, including planner:57 `:v2`.
+3. If V92 is reconstruction-green, close selected/all authoritative restore and begin Excel ledger bridge work for per-row/selected/all restore controls.
+4. Retire the old cell-copy VBA restore implementation only after the native bridge gate is green.
+5. Resume outpatient recurring create/edit native gate afterwards.
 
 ## Locked orphan rule
 
