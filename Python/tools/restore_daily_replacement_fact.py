@@ -173,7 +173,7 @@ def restore_replacement_and_recompute(
 
     Removing a placement while its therapist absence still exists can make that
     session orphan/unresolved again. That is intentional: authoritative restore
-    removes the overlay and recomputes truth instead of copying old cell snapshots.
+    removes the overlay and recomputes truth from persisted daily facts.
     """
 
     source = Path(source_path).resolve()
