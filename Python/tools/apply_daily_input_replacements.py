@@ -219,6 +219,7 @@ def main() -> int:
         print(f"SAFETY STOP: input workbook not found: {input_book}")
         return 2
 
+    output_created = False
     try:
         target_date = _read_daily_input_date(input_book)
         patients = read_patient_registry(input_book)
@@ -243,6 +244,7 @@ def main() -> int:
                 target_date=target_date,
             )
         )
+        new_replacements: list[ReplacementAssignment] = []
 
         therapist_absences = tuple(
             absence
@@ -397,6 +399,7 @@ def main() -> int:
                 patients=patients,
             )
             replacements.append(replacement)
+            new_replacements.append(replacement)
             print(
                 f"   ACCEPTED: {option.display_name} "
                 f"{option.recommended_time.strftime('%H:%M')}"
@@ -434,9 +437,10 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
+        output_created = True
         persisted_replacement_facts = append_daily_replacement_facts(
             output,
-            replacements,
+            new_replacements,
             sessions=sessions,
         )
         suspension_rows = build_treatment_suspension_rows(
@@ -462,6 +466,11 @@ def main() -> int:
         ValueError,
         KeyError,
     ) as exc:
+        if output_created and output.exists():
+            try:
+                output.unlink()
+            except OSError:
+                pass
         print(f"SAFETY STOP: {exc}")
         return 2
 
@@ -470,7 +479,8 @@ def main() -> int:
     print(f"Input: {report.source_path}")
     print(f"Preview: {report.output_path}")
     print(f"Session cancellations: {len(cancellations)}")
-    print(f"Accepted replacements: {len(replacements)}")
+    print(f"Accepted replacements this run: {len(new_replacements)}")
+    print(f"Active replacements after resolution: {len(replacements)}")
     print(f"Persisted replacements loaded: {initially_persisted_replacements}")
     print(f"Persisted replacement facts written: {persisted_replacement_facts}")
     print(f"Treatment suspensions: {len(suspensions)}")
