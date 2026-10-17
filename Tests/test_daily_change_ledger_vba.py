@@ -61,7 +61,7 @@ def test_restore_actions_use_authoritative_backend_instead_of_cell_copy():
 def test_selected_restore_builds_one_atomic_backend_request():
     assert 'replacementArgs = replacementArgs & " --replacement-id " & QuoteArg(replacementId)' in VBA_CODE
     assert 'If selectedCount = 0 Then' in VBA_CODE
-    assert 'RunAuthoritativeRestore replacementArgs, False' in VBA_CODE
+    assert 'Call RunAuthoritativeRestore(replacementArgs, False)' in VBA_CODE
 
 
 def test_per_row_restore_passes_exact_immutable_replacement_id():
