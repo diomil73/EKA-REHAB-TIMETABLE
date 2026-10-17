@@ -128,6 +128,8 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
         self.master_projection = tuple(master_projection)
 
     def _apply_master_projection(self, workbook) -> None:
+        """Rebuild MASTER with range-level COM writes instead of cell-by-cell traffic."""
+
         backend = Win32ComMasterProjectionBackend(palette=self.palette)
         try:
             ws = workbook.Worksheets("MASTER_SCHEDULE")
@@ -148,30 +150,54 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
         )
         clear_last = max(old_last, new_last)
 
-        for row in range(template_row, clear_last + 1):
+        if clear_last >= template_row:
+            # Restore the established row shell with at most two format-copy calls,
+            # then clear the whole projection body in one COM operation. The old
+            # implementation repeated Copy/Paste/Clear once per row, which was the
+            # dominant cost on normal workbooks.
             try:
-                if row > old_last:
-                    end_col = "M" if total_cols == 13 else "K"
-                    ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()
-                    ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)
-                else:
-                    ws.Range(f"B{template_row}:C{template_row}").Copy()
-                    ws.Range(f"B{row}:C{row}").PasteSpecial(Paste=-4122)
+                ws.Range(f"B{template_row}:C{template_row}").Copy()
+                ws.Range(f"B{template_row}:C{clear_last}").PasteSpecial(Paste=-4122)
             except Exception:
                 pass
-            ws.Range(f"A{row}:P{row}").ClearContents()
+            if clear_last > old_last:
+                end_col = "M" if total_cols == 13 else "K"
+                try:
+                    ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()
+                    ws.Range(
+                        f"A{old_last + 1}:{end_col}{clear_last}"
+                    ).PasteSpecial(Paste=-4122)
+                except Exception:
+                    pass
+            ws.Range(f"A{template_row}:P{clear_last}").ClearContents()
 
+        if new_last >= template_row:
+            item_by_row = {item.target_row: item for item in self.master_projection}
+            formula_matrix: list[tuple[object, ...]] = []
+            for row in range(template_row, new_last + 1):
+                item = item_by_row.get(row)
+                values: list[object] = [None] * total_cols
+                if item is not None:
+                    for col, template in templates.items():
+                        values[col - 1] = remap_master_formula(
+                            template,
+                            item.planner_row,
+                        )
+                formula_matrix.append(tuple(values))
+            ws.Range(
+                ws.Cells(template_row, 1),
+                ws.Cells(new_last, total_cols),
+            ).Formula = tuple(formula_matrix)
+
+        # Only the exceptional rich-text / infectious presentation needs
+        # per-row COM work after the bulk formula assignment.
         for item in self.master_projection:
-            row = item.target_row
-            for col, template in templates.items():
-                ws.Cells(row, col).Formula = remap_master_formula(
-                    template,
-                    item.planner_row,
-                )
-
-            backend._render_patient_identity(ws.Cells(row, 3), item)
+            if item.responsible_doctor:
+                backend._render_patient_identity(ws.Cells(item.target_row, 3), item)
             if item.infectious:
-                backend._apply_infectious_style(ws.Range(f"B{row}:C{row}"))
+                backend._apply_infectious_style(
+                    ws.Range(f"B{item.target_row}:C{item.target_row}")
+                )
 
         workbook.Application.CutCopyMode = False
 
