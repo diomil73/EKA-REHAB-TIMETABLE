@@ -14,6 +14,7 @@ Latest confirmed checkpoints:
 - replacement load + mixed-slot gate: **31 passed in 2.04s**
 - MASTER daily-overlay + ledger restore gate: **24 passed, 5 warnings in 4.39s**
 - orphan suspension + statistics domain gate: **21 passed in 3.11s**
+- consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -48,18 +49,31 @@ Architecture:
 - explicit reason remains auditable,
 - finalized day requires unresolved=0.
 
-Domain foundation is **source green: 21 passed in 3.11s**.
+Operational implementation is now source green:
 
-New operational implementation, awaiting consolidated source/native gate:
-
-- `apply_daily_input_replacements.py` now requires placement or suspension for every orphan; old `leave unresolved` path removed,
+- `apply_daily_input_replacements.py` requires placement or suspension for every orphan,
 - `S` records suspension, `Q` aborts the preview, and no-candidate cases require S/Q,
 - finalization safety gate blocks output when unresolved sessions remain,
 - `daily_input_reader.py` recognizes `Αναστολή θεραπείας`,
 - DAILY_INPUT status dropdown includes `Αναστολή θεραπείας`,
-- `daily_operational_fact_writer.py` persists generated suspensions into output DAILY_INPUT so the output can reproduce the same fact on reread,
-- `daily_statistics_writer.py` writes a visible `DAILY_STATISTICS` sheet from the finalized daily state,
-- terminal summary and workbook statistics come from the same statistics object.
+- `daily_operational_fact_writer.py` persists generated suspensions into output DAILY_INPUT for reread,
+- `daily_statistics_writer.py` writes visible `DAILY_STATISTICS` from finalized daily state,
+- terminal summary and workbook statistics use the same statistics object,
+- consolidated source verification: **43 passed, 3 warnings in 5.15s**.
+
+## Native mixed-orphan smoke preparation
+
+New helper:
+
+- `Python/tools/prepare_orphan_smoke_input.py`
+- regression: `Tests/test_prepare_orphan_smoke_input.py`
+
+It creates a copied DAILY_INPUT preview, automatically chooses a therapist with at least two scheduled sessions on the selected date, writes a whole-day absence, reports the affected sessions, and verifies source/VBA safety. Intended native outputs:
+
+- input: `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm`
+- resolved output: `Excel/previews/ORPHAN_RESOLUTION_V87.xlsm`
+
+The V87 smoke should include at least one placement and at least one treatment suspension.
 
 ## Daily operational rules locked
 
@@ -97,30 +111,16 @@ Outpatient recurring create/edit native verification remains open after the curr
 
 ## Immediate roadmap
 
-1. Run consolidated source gate for orphan action flow + suspension persistence + DAILY_INPUT dropdown + DAILY_STATISTICS.
-2. Run native mixed orphan scenario with at least one placement and one treatment suspension.
-3. Verify output reread, stats finalization, source unchanged and VBA preserved.
-4. Test selected/all restore with multiple changes.
-5. Replace snapshot restore with authoritative overlay removal + full recompute.
-6. Resume outpatient recurring create/edit native gate.
-7. Continue branch/PR hardening.
-8. Clean Python 3.14 ZipFile teardown warnings later.
-
-Focused Windows gate:
-
-```powershell
-python -m pytest `
-  Tests/test_daily_input_cancellations.py `
-  Tests/test_daily_input_sheet.py `
-  Tests/test_apply_daily_input_replacements_resolution.py `
-  Tests/test_daily_operational_fact_writer.py `
-  Tests/test_daily_statistics_writer.py `
-  Tests/test_orphan_treatment_suspension.py `
-  Tests/test_daily_treatment_statistics.py `
-  Tests/test_daily_state.py `
-  Tests/test_therapist_absence_queue.py `
-  Tests/test_cancellation_releases_replacement_capacity.py -q
-```
+1. Run source test for the new native smoke preparer.
+2. Build V86 for `2026-10-19`.
+3. Run V87 with one placement + one suspension.
+4. Verify placement, suspended outcome, DAILY_INPUT persistence, DAILY_STATISTICS finalization, source unchanged and VBA preserved.
+5. Re-read V87 to confirm suspension persistence.
+6. Test selected/all restore with multiple changes.
+7. Replace snapshot restore with authoritative overlay removal + full recompute.
+8. Resume outpatient recurring create/edit native gate.
+9. Continue branch/PR hardening.
+10. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Safety constraints
 
