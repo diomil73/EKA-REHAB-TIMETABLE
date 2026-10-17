@@ -17,6 +17,7 @@ Last updated: 2026-10-17
 - restore JSON bridge/backend gate: `30 passed in 4.31s`
 - first ledger-VBA bridge gate attempt: `41 passed, 1 failed in 7.32s`
 - ledger authoritative bridge source gate after assertion fix: **`42 passed in 4.27s`**
+- daily restore bridge preview-builder + ledger contract gate: **`16 passed in 2.94s`**
 - V87 mixed orphan resolution: native green
 - V88 restart-safe daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: native green
@@ -125,7 +126,7 @@ Fresh reconstruction independently confirmed persisted replacements=0, treatment
 
 ## ACTIVE: Excel ledger authoritative bridge
 
-The backend JSON response contract is source-green with `30 passed in 4.31s` and the complete ledger bridge source gate is now green with **`42 passed in 4.27s`**.
+The backend JSON response contract is source-green with `30 passed in 4.31s`, the complete ledger bridge source gate is green with **`42 passed in 4.27s`**, and the dedicated smoke-copy builder gate is green with **`16 passed in 2.94s`**.
 
 The VBA ledger bridge is implemented in `Python/rehab_excel/daily_change_ledger_vba.py`:
 
@@ -152,16 +153,14 @@ Commits:
 
 The first post-wiring gate returned `41 passed, 1 failed in 7.32s`. The sole failure was an assertion-text mismatch, not a behavior defect. After correcting the assertion to the valid explicit VBA `Call` syntax, the exact gate reran green at `42 passed in 4.27s`.
 
-A dedicated Windows-native smoke-copy builder now exists at `Python/tools/build_daily_restore_bridge_preview.py`. It clones a trusted authoritative daily workbook, requires an existing `DAILY_CHANGE_LEDGER` with at least one ACTIVE row, refreshes only `modDailyChangeLedger` to the current bridge implementation, re-renders the ledger controls, verifies source immutability and VBA presence, and deletes a failed output copy. This avoids rebuilding V90 facts merely to test newer VBA.
+A dedicated Windows-native smoke-copy builder now exists at `Python/tools/build_daily_restore_bridge_preview.py`. It clones a trusted authoritative daily workbook, requires an existing `DAILY_CHANGE_LEDGER` with at least one ACTIVE row, refreshes only `modDailyChangeLedger` to the current bridge implementation, re-renders the ledger controls, verifies source immutability and VBA presence, and deletes a failed output copy. This avoids rebuilding V90 facts merely to test newer VBA. Its focused source gate is green at `16 passed in 2.94s`.
 
 ## Exact resume point
 
-1. Pull the latest branch.
-2. Run the focused preview-builder source test together with the already-green ledger bridge contract test.
-3. Build three independent smoke copies from trusted `RERESOLVED_V90.xlsm` using `build_daily_restore_bridge_preview.py`: one for per-row, one for selected, one for restore-all.
-4. Smoke-test from Excel itself: per-row restore first, then selected two-fact restore, then restore-all on its separate copy.
-5. For every native path require correct replacement-fact lifecycle, fresh recomputation, ledger statuses, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
-6. Once native-green, mark the legacy cell-copy restore path retired and resume outpatient recurring create/edit native gate.
+1. Build three independent smoke copies from trusted `RERESOLVED_V90.xlsm` using `build_daily_restore_bridge_preview.py`: one for per-row, one for selected, one for restore-all.
+2. Smoke-test from Excel itself: per-row restore first, then selected two-fact restore, then restore-all on its separate copy.
+3. For every native path require correct replacement-fact lifecycle, fresh recomputation, ledger statuses, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
+4. Once native-green, mark the legacy cell-copy restore path retired and resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
