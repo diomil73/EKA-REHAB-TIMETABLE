@@ -25,7 +25,9 @@ Last updated: 2026-10-17
 - focused gate after MASTER-session removal: `33 passed in 3.81s`
 - focused gate after bounded meaningful-range sync: `34 passed in 2.31s`
 - focused gate after timing instrumentation: `35 passed in 1.56s`
-- diagnostic restore-all timing: Backend `45.70s`, rollback `0.14s`, preview open `0.88s`, sheet sync `0.20s`, final save `1.19s`
+- focused gate after MASTER batch-write patch: `35 passed in 3.67s`
+- diagnostic restore-all before MASTER batch write: Backend `45.70s`, rollback `0.14s`, preview open `0.88s`, sheet sync `0.20s`, final save `1.19s`
+- diagnostic restore-all after MASTER batch write: Backend `31.33s`, rollback `0.15s`, preview open `0.88s`, sheet sync `0.19s`, final save `1.23s`
 - parity rebuild: row/selected/all smoke copies reported authoritative ledger parity and preserved source/VBA
 - in-session per-row restore: native green
 - in-session selected two-row restore: native correctness green
@@ -54,7 +56,7 @@ User-facing `Αιτία` is Greek-only for known replacement causes. Technical/i
 
 ## ACTIVE: restore performance / UX
 
-The diagnostic timing isolated the problem decisively: almost all latency is inside the authoritative Python/backend leg. Excel-side rollback/open/sync/save totals only about 2.4 seconds, while backend execution is about 45.7 seconds.
+The first backend measurement isolated almost all latency inside the authoritative Python/backend leg. After batching MASTER projection COM writes, Backend fell from `45.70s` to `31.33s`, a reduction of about 14.4 seconds. Excel-side rollback/open/sync/save remains only about 2.45 seconds, so the remaining optimization target is still inside backend generation/output.
 
 Performance chain already applied:
 
@@ -65,16 +67,20 @@ Performance chain already applied:
 - MASTER projection moved into that output session
 - bounded meaningful-range sync instead of broad `UsedRange`
 - explicit phase timing in the Excel success dialog
+- range-batched MASTER projection write-back
 
-The next backend optimization is now implemented: MASTER projection write-back no longer performs row-by-row Copy/Paste/Clear and cell-by-cell formula assignment. It restores formatting with at most two range-level PasteSpecial operations, clears the projection body in one range operation, and writes the formula grid in one bulk `.Formula` assignment. Only responsible-doctor rich text and infectious styling remain per-row. Implementation `d1fdced7ee46d63277dffa372c14572858345dea`, regression `eb6942296fbf3668e066c35bf672bb18fcc4cd4c`.
+MASTER batch implementation `d1fdced7ee46d63277dffa372c14572858345dea`, regression `eb6942296fbf3668e066c35bf672bb18fcc4cd4c`.
+
+A dedicated diagnostic tool now profiles the remaining backend output phases without changing the production restore contract: `Python/tools/profile_daily_restore_backend.py`. It reports backend total, non-Excel remainder, Excel dispatch, workbook open, MASTER projection, daily patches, statistics, ledger rows, ledger refresh, save, close and quit. Implementation `f75cc9ee2a3a9855306777862118610f4597c3ed`, tests `52b913a5f37bb0864bf9af902aa55241e0ac5e11`.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
-3. If green, build a fresh restore-all smoke copy from trusted V90 and run one restore-all. Never reuse an already-restored smoke workbook.
-4. Compare the new `Backend` timing with the previous `45.70s`; also record the remaining four phase timings.
-5. If backend is still materially above target, instrument sub-phases inside `_RestoreOutputBackend` next, especially workbook open, MASTER batch write, daily patches, statistics/ledger refresh, and output save.
+2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_profile_daily_restore_backend.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
+3. If green, run the backend profiler directly on a fresh trusted source copy:
+   `python Python/tools/profile_daily_restore_backend.py --input .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\BACKEND_PROFILE.xlsm --all-active --overwrite`
+4. Use the printed sub-phase timings to optimize the dominant remaining backend phase immediately. Do not spend more time on rollback/preview sync unless measurement changes.
+5. Re-run fresh reconstruction after the next performance change.
 6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
