@@ -44,6 +44,7 @@ class ReplacementProviderOption:
     display_name: str
     provider_kind: ReplacementProviderKind
     active_sessions: int
+    active_timeslots: int
     infectious_sessions: int
     robotic_sessions: int
     replacement_sessions: int
@@ -72,6 +73,7 @@ def _to_option(
         display_name=candidate.display_name,
         provider_kind=candidate.provider_kind,
         active_sessions=candidate.active_sessions,
+        active_timeslots=candidate.active_timeslots,
         infectious_sessions=candidate.infectious_sessions,
         robotic_sessions=candidate.robotic_sessions,
         replacement_sessions=candidate.replacement_sessions,
