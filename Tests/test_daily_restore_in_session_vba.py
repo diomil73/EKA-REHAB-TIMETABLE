@@ -16,6 +16,15 @@ def test_transformer_replaces_close_reopen_bridge_with_in_session_apply():
     assert 'authoritative_commit_worker_cli.py' not in transformed
 
 
+def test_in_session_restore_avoids_redundant_success_path_saves():
+    transformed = build_in_session_ledger_vba(VBA_CODE)
+
+    assert 'ApplyAuthoritativeRestorePreview previewPath\n    RefreshDailyChangeLedgerView\n    ThisWorkbook.Save' not in transformed
+    assert 'ThisWorkbook.Save\n    ThisWorkbook.SaveCopyAs rollbackPath' not in transformed
+    assert 'ThisWorkbook.SaveCopyAs rollbackPath' in transformed
+    assert 'SyncRestoreSheetSet previewWorkbook, ThisWorkbook\n    ThisWorkbook.Save' in transformed
+
+
 def test_transformer_keeps_atomic_selected_and_all_backend_arguments():
     transformed = build_in_session_ledger_vba(VBA_CODE)
 
