@@ -15,18 +15,21 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_core.daily_statistics import calculate_daily_treatment_statistics  # noqa: E402
+from rehab_core.models import ReplacementAssignment  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
 from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
     compose_outpatient_daily_plan,
 )
 from rehab_excel.daily_replacement_fact_batch import (  # noqa: E402
-    restore_daily_replacement_facts,
+    validate_batch_restore_request,
 )
 from rehab_excel.daily_replacement_facts import (  # noqa: E402
+    HEADERS as REPLACEMENT_FACT_HEADERS,
+    SHEET_NAME as REPLACEMENT_FACTS_SHEET,
     DailyReplacementFactError,
+    _validate_row_against_session,
     read_daily_replacement_fact_rows,
-    read_daily_replacement_facts,
 )
 from rehab_excel.daily_statistics_writer import (  # noqa: E402
     DailyStatisticsWriteError,
@@ -93,14 +96,19 @@ def _requested_restore_ids(
     target_date,
     explicit_ids: tuple[str, ...],
     restore_all: bool,
+    fact_rows=None,
 ) -> tuple[str, ...]:
     if restore_all:
-        facts = read_daily_replacement_fact_rows(
-            workbook_path,
-            target_date=target_date,
-            include_restored=False,
+        facts = (
+            tuple(fact_rows)
+            if fact_rows is not None
+            else read_daily_replacement_fact_rows(
+                workbook_path,
+                target_date=target_date,
+                include_restored=False,
+            )
         )
-        ids = tuple(fact.replacement_id for fact in facts)
+        ids = tuple(fact.replacement_id for fact in facts if fact.is_active)
         if not ids:
             raise AuthoritativeDailyRestoreError("No ACTIVE replacement facts to restore")
         return ids
@@ -110,8 +118,39 @@ def _requested_restore_ids(
     return cleaned
 
 
+def _active_replacements_after_restore(
+    fact_rows,
+    *,
+    restored_ids: tuple[str, ...],
+    sessions,
+) -> tuple[ReplacementAssignment, ...]:
+    """Derive effective ACTIVE replacements without mutating the staging workbook."""
+
+    restored = set(restored_ids)
+    session_by_id = {session.session_id: session for session in sessions}
+    assignments: list[ReplacementAssignment] = []
+    for fact in fact_rows:
+        if not fact.is_active or fact.replacement_id in restored:
+            continue
+        _validate_row_against_session(fact, session_by_id)
+        assignments.append(
+            ReplacementAssignment(
+                replacement_id=fact.replacement_id,
+                target_session_id=fact.target_session_id,
+                patient_id=fact.patient_id,
+                original_therapist_id=fact.original_therapist_id,
+                replacement_therapist_id=fact.replacement_therapist_id,
+                replacement_date=fact.replacement_date,
+                replacement_time=fact.replacement_time,
+                reason=fact.reason,
+                replacement_provider_kind=fact.provider_kind,
+            )
+        )
+    return tuple(assignments)
+
+
 class _RestoreOutputBackend(Win32ComExcelBackend):
-    """Apply MASTER rebuild, daily plan, stats and ledger in one Excel session."""
+    """Apply MASTER rebuild, daily plan, facts, stats and ledger in one Excel session."""
 
     def __init__(
         self,
@@ -230,6 +269,64 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
         except Exception:
             pass
 
+    def _mark_replacement_fact_rows(self, workbook) -> None:
+        if not self.replacement_ids:
+            return
+        try:
+            facts = workbook.Worksheets(REPLACEMENT_FACTS_SHEET)
+        except Exception as exc:
+            raise AuthoritativeDailyRestoreError(
+                f"Workbook has no {REPLACEMENT_FACTS_SHEET} sheet"
+            ) from exc
+
+        actual_headers = tuple(
+            str(facts.Cells(1, col).Value or "").strip()
+            for col in range(1, len(REPLACEMENT_FACT_HEADERS) + 1)
+        )
+        if actual_headers != REPLACEMENT_FACT_HEADERS:
+            raise AuthoritativeDailyRestoreError(
+                f"{REPLACEMENT_FACTS_SHEET} headers do not match authoritative schema"
+            )
+
+        wanted = set(self.replacement_ids)
+        last_row = max(int(facts.UsedRange.Rows.Count), 1)
+        matches: dict[str, list[int]] = {
+            replacement_id: [] for replacement_id in wanted
+        }
+        for row in range(2, last_row + 1):
+            replacement_id = str(facts.Cells(row, 1).Value or "").strip()
+            if replacement_id in matches:
+                matches[replacement_id].append(row)
+
+        duplicates = [
+            replacement_id
+            for replacement_id, matched_rows in matches.items()
+            if len(matched_rows) > 1
+        ]
+        missing = [
+            replacement_id
+            for replacement_id, matched_rows in matches.items()
+            if not matched_rows
+        ]
+        if duplicates:
+            raise AuthoritativeDailyRestoreError(
+                f"Duplicate replacement fact id(s): {duplicates!r}"
+            )
+        if missing:
+            raise AuthoritativeDailyRestoreError(
+                f"Missing replacement fact id(s): {missing!r}"
+            )
+
+        for replacement_id in self.replacement_ids:
+            row = matches[replacement_id][0]
+            current_status = str(facts.Cells(row, 10).Value or "ACTIVE").strip().upper()
+            if current_status != "ACTIVE":
+                raise AuthoritativeDailyRestoreError(
+                    f"Replacement fact {replacement_id!r} is not ACTIVE in output"
+                )
+            facts.Cells(row, 10).Value = STATUS_RESTORED
+        facts.Visible = 2
+
     def _mark_ledger_rows(self, workbook) -> None:
         if not self.replacement_ids:
             return
@@ -293,6 +390,7 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
             for patch in patches:
                 self._apply_patch(workbook, patch)
             self._write_statistics(workbook)
+            self._mark_replacement_fact_rows(workbook)
             self._mark_ledger_rows(workbook)
 
             try:
@@ -353,22 +451,28 @@ def restore_replacements_and_recompute(
 
     try:
         target_date = _read_daily_input_date(stage)
+        fact_rows = read_daily_replacement_fact_rows(
+            stage,
+            target_date=target_date,
+            include_restored=True,
+        )
         wanted_ids = _requested_restore_ids(
             stage,
             target_date=target_date,
             explicit_ids=replacement_ids,
             restore_all=restore_all,
+            fact_rows=fact_rows,
         )
-        restored_ids = restore_daily_replacement_facts(stage, wanted_ids)
+        restored_ids = validate_batch_restore_request(fact_rows, wanted_ids)
 
         patients = read_patient_registry(stage)
         base_entries = read_unified_base_schedule(stage, patients=patients)
         sessions = materialize_sessions_for_date(base_entries, target_date)
         daily = read_daily_input(stage, patients=patients, sessions=sessions)
-        replacements = read_daily_replacement_facts(
-            stage,
+        replacements = _active_replacements_after_restore(
+            fact_rows,
+            restored_ids=restored_ids,
             sessions=sessions,
-            target_date=target_date,
         )
         states = build_daily_session_states(
             sessions,
