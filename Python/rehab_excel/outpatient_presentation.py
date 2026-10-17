@@ -16,7 +16,12 @@ from rehab_core.models import (
 )
 from rehab_core.students import student_display_state
 
-from .layout_contract import LayoutSafetyError, resolve_therapist_daily_cell
+from .layout_contract import (
+    THERAPIST_DAILY_GRID_RANGES,
+    LayoutSafetyError,
+    cell_in_range,
+    resolve_therapist_daily_cell,
+)
 from .writeback import CellPatch, WriteIntent
 
 
@@ -202,12 +207,34 @@ def _normalized_fill_rgb(cell) -> str | None:
     return str(color.rgb).upper()[-6:]
 
 
+def _is_confirmed_daily_grid_cell(cell: str) -> bool:
+    """Return True only for patient cells inside confirmed THERAPIST_DAILY grids.
+
+    Outpatient presentation cleanup must never infer ownership from a matching
+    fill outside the two operational patient grids. Ledger rows, labels and other
+    sheet furniture may legitimately reuse the same colour and are not writeback
+    targets for this presentation layer.
+    """
+
+    try:
+        return any(
+            cell_in_range(cell, start, end)
+            for start, end in (
+                tuple(value.split(":")) for value in THERAPIST_DAILY_GRID_RANGES
+            )
+        )
+    except LayoutSafetyError:
+        return False
+
+
 def existing_outpatient_blue_cells(workbook_path: str | Path) -> tuple[str, ...]:
-    """Return cells carrying current or legacy outpatient presentation fill.
+    """Return outpatient-fill cells only from confirmed THERAPIST_DAILY grids.
 
     The legacy function name is retained for compatibility. Both the old blue,
     the previous muted green, and the current cypress green are detected so
     stale outpatient colouring is removed safely when the active patient changes.
+    Cells outside the confirmed patient grids are intentionally ignored even if
+    they happen to reuse the same fill colour.
     """
 
     path = Path(workbook_path)
@@ -225,7 +252,8 @@ def existing_outpatient_blue_cells(workbook_path: str | Path) -> tuple[str, ...]
             cell.coordinate
             for row in ws.iter_rows()
             for cell in row
-            if _normalized_fill_rgb(cell) in OUTPATIENT_PRESENTATION_RGBS
+            if _is_confirmed_daily_grid_cell(cell.coordinate)
+            and _normalized_fill_rgb(cell) in OUTPATIENT_PRESENTATION_RGBS
         ]
     finally:
         wb.close()
@@ -241,7 +269,7 @@ def build_outpatient_daily_patches(
     students: Iterable[Student] = (),
     existing_blue_cells: Iterable[str] | None = None,
 ) -> tuple[CellPatch, ...]:
-    """Build date-aware outpatient fill patches, including stale cleanup."""
+    """Build date-aware outpatient fill patches, including safe stale cleanup."""
 
     state_list = tuple(states)
     dates = {state.session_date for state in state_list}
@@ -282,6 +310,8 @@ def build_outpatient_daily_patches(
         else existing_outpatient_blue_cells(path)
     )
     for cell in previous_outpatient:
+        if not _is_confirmed_daily_grid_cell(cell):
+            continue
         if cell.upper() in target_cells:
             continue
         patches.append(
