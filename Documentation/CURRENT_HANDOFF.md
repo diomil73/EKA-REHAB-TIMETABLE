@@ -17,6 +17,7 @@ Last updated: 2026-10-17
 - consolidated orphan operational gate: `43 passed, 3 warnings in 5.15s`
 - replacement fact focused gate: `28 passed, 3 warnings in 5.14s`
 - versioned-id + single/batch restore focused gate: **36 passed in 4.74s**
+- rerun gate after V90 persistence fix: **37 passed in 7.13s**
 - V87 mixed orphan resolution: native green
 - V88 full restart daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: **native green**
@@ -125,7 +126,7 @@ Rerun result:
 
 - **36 passed in 4.74s**
 
-### V90 re-placement regression discovered
+### V90 re-placement regression discovered and fixed
 
 The first native V89 -> V90 re-placement attempt stopped with:
 
@@ -139,11 +140,11 @@ Root cause:
 
 The duplicate-id guard behaved correctly; the caller was wrong.
 
-Fix now implemented:
+Fix implemented:
 
 - existing ACTIVE replacements remain in memory for workload/state reconstruction,
 - only replacements created during the current run are appended as new facts,
-- post-copy persistence failures now remove the newly created preview so a half-written preview is not left behind,
+- post-copy persistence failures remove the newly created preview so a half-written preview is not left behind,
 - output reporting distinguishes replacements loaded from disk, replacements created this run, and total active replacements after resolution.
 
 Commits:
@@ -151,19 +152,21 @@ Commits:
 - implementation/safety cleanup: `ae0f58d363ec0cbf357876cf6b4633e3f14d70e7`
 - regression coverage: `88b75319273005b28d373d2a683701f82fe41fba`
 
+Focused rerun after the fix:
+
+- **37 passed in 7.13s**
+
 Important: any `RERESOLVED_V90.xlsm` left by the failed attempt is untrusted/partial and must not be inspected as authoritative evidence. The corrected rerun uses `--overwrite` and must recreate V90 from V89.
 
 ## Exact resume point
 
-1. Pull latest branch including `ae0f58d...` and `88b7531...`.
-2. Rerun the focused source gate; require green before recreating V90.
-3. Re-run V89 -> V90 with `apply_daily_input_replacements.py`; choose a candidate, not suspension.
-4. Inspect V90 replacement facts; require the original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
-5. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
-6. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-7. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-8. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
-9. Resume outpatient recurring create/edit native gate.
+1. Re-run V89 -> V90 with `apply_daily_input_replacements.py`; choose a candidate, not suspension.
+2. Inspect V90 replacement facts; require the original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
+3. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
+4. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+5. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+6. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
+7. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
