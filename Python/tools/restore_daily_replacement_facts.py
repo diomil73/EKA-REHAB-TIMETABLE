@@ -38,9 +38,14 @@ from rehab_excel.master_daily_overlay import (  # noqa: E402
     build_master_daily_overlay_plan,
     compose_master_daily_overlay,
 )
+from rehab_excel.master_projection import (  # noqa: E402
+    MasterProjectionError,
+    build_master_projection,
+    remap_master_formula,
+)
 from rehab_excel.master_projection_writer import (  # noqa: E402
     MasterProjectionWriteError,
-    refresh_master_projection_in_place,
+    Win32ComMasterProjectionBackend,
 )
 from rehab_excel.native_excel import (  # noqa: E402
     Win32ComExcelBackend,
@@ -106,7 +111,7 @@ def _requested_restore_ids(
 
 
 class _RestoreOutputBackend(Win32ComExcelBackend):
-    """Apply the daily write plan, statistics and ledger lifecycle in one Excel session."""
+    """Apply MASTER rebuild, daily plan, stats and ledger in one Excel session."""
 
     def __init__(
         self,
@@ -114,11 +119,61 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
         target_date,
         statistics,
         replacement_ids: tuple[str, ...],
+        master_projection,
     ) -> None:
         super().__init__()
         self.target_date = target_date
         self.statistics = statistics
         self.replacement_ids = replacement_ids
+        self.master_projection = tuple(master_projection)
+
+    def _apply_master_projection(self, workbook) -> None:
+        backend = Win32ComMasterProjectionBackend(palette=self.palette)
+        try:
+            ws = workbook.Worksheets("MASTER_SCHEDULE")
+        except Exception as exc:
+            raise AuthoritativeDailyRestoreError(
+                "Workbook has no MASTER_SCHEDULE sheet"
+            ) from exc
+
+        template_row, templates = backend._template_formulas(ws)
+        total_cols, _status_col = backend._schema(ws)
+        old_last = backend._last_value_row(ws)
+        new_last = max(
+            template_row - 1,
+            max(
+                (item.target_row for item in self.master_projection),
+                default=template_row - 1,
+            ),
+        )
+        clear_last = max(old_last, new_last)
+
+        for row in range(template_row, clear_last + 1):
+            try:
+                if row > old_last:
+                    end_col = "M" if total_cols == 13 else "K"
+                    ws.Range(f"A{template_row}:{end_col}{template_row}").Copy()
+                    ws.Range(f"A{row}:{end_col}{row}").PasteSpecial(Paste=-4122)
+                else:
+                    ws.Range(f"B{template_row}:C{template_row}").Copy()
+                    ws.Range(f"B{row}:C{row}").PasteSpecial(Paste=-4122)
+            except Exception:
+                pass
+            ws.Range(f"A{row}:P{row}").ClearContents()
+
+        for item in self.master_projection:
+            row = item.target_row
+            for col, template in templates.items():
+                ws.Cells(row, col).Formula = remap_master_formula(
+                    template,
+                    item.planner_row,
+                )
+
+            backend._render_patient_identity(ws.Cells(row, 3), item)
+            if item.infectious:
+                backend._apply_infectious_style(ws.Range(f"B{row}:C{row}"))
+
+        workbook.Application.CutCopyMode = False
 
     def _write_statistics(self, workbook) -> None:
         stats_sheet = None
@@ -214,6 +269,7 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
                 str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
             )
 
+            self._apply_master_projection(workbook)
             for patch in patches:
                 self._apply_patch(workbook, patch)
             self._write_statistics(workbook)
@@ -304,8 +360,8 @@ def restore_replacements_and_recompute(
             target_date=target_date,
         )
         statistics = calculate_daily_treatment_statistics(states)
+        master_projection = build_master_projection(stage, patients=patients)
 
-        refresh_master_projection_in_place(stage)
         preview = build_patient_centric_preview_plan(
             stage,
             base_entries=base_entries,
@@ -333,6 +389,7 @@ def restore_replacements_and_recompute(
                 target_date=target_date,
                 statistics=statistics,
                 replacement_ids=tuple(restored_ids),
+                master_projection=master_projection,
             ),
             overwrite=overwrite,
         )
@@ -401,6 +458,7 @@ def main() -> int:
         OutpatientPresentationError,
         DailyPreviewCompositionError,
         MasterDailyOverlayError,
+        MasterProjectionError,
         MasterProjectionWriteError,
         ValueError,
         KeyError,
