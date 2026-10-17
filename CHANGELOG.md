@@ -18,6 +18,7 @@
 - Provider-kind metadata so therapist and student replacements remain distinct.
 - Student double-booking conflict classification.
 - In-session daily-ledger restore bridge that keeps the authoritative Python preview/recompute gate while applying the verified result back into the already-open workbook with a rollback copy.
+- Backend restore profiler with Excel-output and pre-Excel phase timings for targeted latency work.
 
 ### Changed
 - A provider busy at the requested time is no longer automatically removed from replacement suggestions when another common free timeslot exists.
@@ -25,6 +26,8 @@
 - Daily ledger restore no longer uses a visible `WScript.Shell.Exec` console or the detached workbook close/reopen commit worker on the primary UI path. Backend execution is hidden and blocking, then the verified operational sheet set is synchronized in-session and saved without closing the workbook.
 - Native Excel correctness is now confirmed for per-row restore, selected multi-row restore, and restore-all, with exact fresh reconstruction/statistics checks after each scenario.
 - User-facing ledger `Αιτία` now shows agreed Greek business wording for known technical replacement reasons instead of exposing internal English labels.
+- Restore performance work reduced backend latency from about 45.7s to 31.3s by batching MASTER projection COM writes; profiling then isolated roughly 24.6s in pre-Excel parsing/verification and about 8.0s in the complete hidden Excel output session.
+- Restore recomputation now reuses the already-loaded patient registry and already-built MASTER projection instead of reparsing those identical inputs a second time.
 - Restore latency remains an open performance/UX item despite correctness being complete.
 
 ### Unchanged
@@ -43,7 +46,7 @@
 
 - Formalized `PATIENTS`, `PATIENT_PLANNER` and `SETTINGS` as the only current authoritative Excel import sources.
 - Added immutable read-only `WorkbookSnapshot`.
-- Added safety gate that blocks operational import when authoritative identity/source errors exist.
+- Added a safety gate that blocks operational import when authoritative identity/source errors exist.
 - Classified `SESSIONS` as audit-only and workbook output/UI sheets as non-authoritative.
 - Added a privacy rule: no automatic patient-data export to repository files.
 ## 2026-09-18 - Excel write-back dry run
