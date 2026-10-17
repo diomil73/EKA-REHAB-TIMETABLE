@@ -55,7 +55,8 @@ Retained current patient-program behavior and legacy component cleanup.
 - V81 native toolbar/header pinning gate: green
 - optional manual names persistence/reload: native green
 - full regression before cleanup: `722 passed, 19 warnings`
-- **full regression after cleanup: `699 passed, 19 warnings`**
+- full regression after cleanup: `699 passed, 19 warnings`
+- **reversible daily change ledger focused source gate: `10 passed in 3.26s`**
 
 ## Cancellation slot release status
 
@@ -98,7 +99,7 @@ This is now a core invariant for the future daily allocation engine and native D
 
 Many same-day operational redistributions are temporary and should not leak into the following working day. The user requires a visible, date-scoped change ledger below the normal therapist schedules in `THERAPIST_DAILY`.
 
-Proposed section title:
+Section title:
 
 `Αλλαγές για την dd/mm/yy`
 
@@ -153,11 +154,23 @@ A first native UX prototype is wired into the existing guided replacement previe
 - restore refuses to overwrite a cell whose current value no longer matches the expected changed state,
 - restore acts only on the preview copy and restores exact source-cell snapshots; recurring source schedules remain untouched.
 
+Focused source verification is green: **10 passed in 3.26s**.
+
 This prototype is intentionally a UX/native validation slice. After native acceptance, restore will be connected to the authoritative daily overlay store and recomputation engine rather than relying on preview cell snapshots.
 
 ## Current development focus
 
-Immediate gate: **source-test and native-smoke the reversible THERAPIST_DAILY ledger prototype using a real guided replacement preview**.
+Immediate gate: **build and native-smoke a real guided replacement preview with the reversible THERAPIST_DAILY ledger**.
+
+Next native check:
+
+1. create one real guided replacement preview from V81/current workbook state,
+2. open `THERAPIST_DAILY`,
+3. verify the `Αλλαγές για την dd/mm/yyyy` section appears below the schedules,
+4. verify patient/original/effective therapist-time details are correct,
+5. click the row `Επαναφορά`,
+6. confirm the exact source/destination cells return to their prior preview state,
+7. confirm the recurring/base schedule remains untouched.
 
 The outpatient recurring create/edit work remains open and should resume after this UX spike is either accepted or adjusted.
 
