@@ -12,6 +12,7 @@ from rehab_core import (
 )
 from rehab_excel.outpatient_presentation import (
     OutpatientPresentationError,
+    _is_confirmed_daily_grid_cell,
     build_outpatient_daily_patches,
     outpatient_daily_targets,
     validate_outpatient_base_entries,
@@ -126,7 +127,6 @@ def test_cancelled_outpatient_releases_slot_and_does_not_claim_blue_active_targe
 
 
 def test_same_recurring_slot_can_be_blue_on_outpatient_day_without_other_day_patient_affecting_it():
-    # Daily states contain only the patient actually active on the concrete day.
     targets = outpatient_daily_targets(
         [state("S-OUT", "P-OUT", therapist_id="T1", at=time(11, 0))],
         [outpatient(), inpatient()],
@@ -157,11 +157,11 @@ def test_mixed_slot_clears_stale_whole_cell_outpatient_fill():
         "dummy.xlsm",
         states=states,
         patients=[outpatient(), inpatient()],
-        existing_blue_cells=("C10",),
+        existing_blue_cells=("C2",),
     )
 
     assert len(patches) == 1
-    assert patches[0].cell == "C10"
+    assert patches[0].cell == "C2"
     assert patches[0].fill_role == "clear_fill"
 
 
@@ -209,38 +209,38 @@ def test_inpatient_robotic_assignment_remains_allowed():
     validate_outpatient_base_entries([entry], [inpatient()])
 
 
-def test_stale_blue_cell_is_cleared_when_today_is_inpatient(monkeypatch):
+def test_stale_blue_cell_is_cleared_when_today_is_inpatient():
     patches = build_outpatient_daily_patches(
         "dummy.xlsm",
         states=[state("S-IN", "P-IN")],
         patients=[inpatient()],
-        existing_blue_cells=("C10",),
+        existing_blue_cells=("C2",),
     )
 
     assert len(patches) == 1
-    assert patches[0].cell == "C10"
+    assert patches[0].cell == "C2"
     assert patches[0].fill_role == "clear_fill"
 
 
 def test_active_outpatient_target_is_not_cleared_as_stale(monkeypatch):
     monkeypatch.setattr(
         "rehab_excel.outpatient_presentation._provider_cell",
-        lambda *args, **kwargs: "C10",
+        lambda *args, **kwargs: "C2",
     )
 
     patches = build_outpatient_daily_patches(
         "dummy.xlsm",
         states=[state("S-OUT", "P-OUT")],
         patients=[outpatient()],
-        existing_blue_cells=("C10", "D10"),
+        existing_blue_cells=("C2", "D2"),
     )
 
     by_cell = {patch.cell: patch for patch in patches}
-    assert by_cell["C10"].fill_role == "outpatient_light_blue"
-    assert by_cell["D10"].fill_role == "clear_fill"
+    assert by_cell["C2"].fill_role == "outpatient_light_blue"
+    assert by_cell["D2"].fill_role == "clear_fill"
 
 
-def test_cleanup_never_creates_non_blue_semantic_fill(monkeypatch):
+def test_cleanup_never_creates_non_blue_semantic_fill():
     patches = build_outpatient_daily_patches(
         "dummy.xlsm",
         states=[state("S-IN", "P-IN")],
@@ -248,4 +248,29 @@ def test_cleanup_never_creates_non_blue_semantic_fill(monkeypatch):
         existing_blue_cells=("A1", "B2"),
     )
 
-    assert {patch.fill_role for patch in patches} == {"clear_fill"}
+    assert len(patches) == 1
+    assert patches[0].cell == "B2"
+    assert patches[0].fill_role == "clear_fill"
+
+
+def test_confirmed_grid_filter_accepts_only_patient_grids():
+    assert _is_confirmed_daily_grid_cell("B2") is True
+    assert _is_confirmed_daily_grid_cell("J8") is True
+    assert _is_confirmed_daily_grid_cell("B12") is True
+    assert _is_confirmed_daily_grid_cell("J18") is True
+    assert _is_confirmed_daily_grid_cell("A21") is False
+    assert _is_confirmed_daily_grid_cell("C10") is False
+    assert _is_confirmed_daily_grid_cell("A1") is False
+
+
+def test_stale_cleanup_ignores_matching_fill_cells_outside_confirmed_grids():
+    patches = build_outpatient_daily_patches(
+        "dummy.xlsm",
+        states=[state("S-IN", "P-IN")],
+        patients=[inpatient()],
+        existing_blue_cells=("A21", "C2"),
+    )
+
+    assert len(patches) == 1
+    assert patches[0].cell == "C2"
+    assert patches[0].fill_role == "clear_fill"
