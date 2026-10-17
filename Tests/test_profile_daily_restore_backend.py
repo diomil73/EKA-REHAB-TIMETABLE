@@ -17,6 +17,7 @@ def test_profiled_apply_captures_native_excel_subphases():
         'timings["master_projection"]',
         'timings["daily_patches"]',
         'timings["statistics"]',
+        'timings["replacement_fact_rows"]',
         'timings["ledger_rows"]',
         'timings["ledger_refresh"]',
         'timings["workbook_save"]',
@@ -44,11 +45,12 @@ def test_profiler_captures_pre_excel_pipeline_subphases():
     for marker in (
         'patch(restore_tool.shutil, "copy2", "stage_copy")',
         'patch(restore_tool, "_sha256", "sha256_checks")',
-        'patch(restore_tool, "restore_daily_replacement_facts", "restore_fact_batch")',
+        'patch(restore_tool, "read_daily_replacement_fact_rows", "read_replacement_fact_rows")',
+        'patch(restore_tool, "validate_batch_restore_request", "validate_restore_ids")',
         'patch(restore_tool, "read_patient_registry", "read_patients")',
         'patch(restore_tool, "read_unified_base_schedule", "read_base_schedule")',
         'patch(restore_tool, "read_daily_input", "read_daily_input")',
-        'patch(restore_tool, "read_daily_replacement_facts", "read_replacement_facts")',
+        'patch(restore_tool, "_active_replacements_after_restore", "derive_replacement_facts")',
         'patch(restore_tool, "build_master_projection", "build_master_projection")',
         'patch(restore_tool, "build_patient_centric_preview_plan", "build_patient_preview")',
         'patch(restore_tool, "build_master_daily_overlay_plan", "build_master_overlay")',
@@ -57,5 +59,6 @@ def test_profiler_captures_pre_excel_pipeline_subphases():
     ):
         assert marker in source
 
+    assert 'restore_fact_batch' not in source
     assert "for owner, name, original in reversed(originals):" in source
     assert "setattr(owner, name, original)" in source
