@@ -4,22 +4,22 @@ Last updated: 2026-10-17
 
 ## Current stage
 
-The branch remains `feature/outpatient-scheduling`.
+Branch: `feature/outpatient-scheduling`.
 
-The active operational milestone is **orphan resolution + date-specific treatment suspension + correct daily statistics**, built on top of the already working concrete-date effective state shared by MASTER, THERAPIST_DAILY and the ledger.
+Active milestone: **orphan resolution + date-specific treatment suspension + correct daily statistics**, on top of the shared concrete-date effective state used by MASTER, THERAPIST_DAILY and the ledger.
 
 Latest confirmed checkpoints:
 
 - full regression: **699 passed, 19 warnings**
 - replacement load + mixed-slot gate: **31 passed in 2.04s**
 - MASTER daily-overlay + ledger restore gate: **24 passed, 5 warnings in 4.39s**
-- orphan suspension + statistics focused source gate: **21 passed in 3.11s**
+- orphan suspension + statistics domain gate: **21 passed in 3.11s**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
 ## Current native checkpoint
 
-`Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm` is the latest native checkpoint.
+`Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm` remains the latest native checkpoint.
 
 Confirmed native green for the ΜΕΝΤΗΣ stress case:
 
@@ -31,34 +31,35 @@ Confirmed native green for the ΜΕΝΤΗΣ stress case:
 
 ## Deferred cosmetic issue
 
-The obsolete `ΑΝΑΝΕΩΣΗ` Form Control remains visible. Decision: **defer/manual cleanup**. It is not a functional blocker and should not consume more engineering time now.
+The obsolete `ΑΝΑΝΕΩΣΗ` Form Control remains visible. Decision: **defer/manual cleanup**. It is not a functional blocker.
 
-## Orphan workflow: domain foundation source-green
+## Orphan workflow status
 
 Every patient in `Ορφανοί` for the concrete date must resolve as either:
 
 - placed in a valid therapist/time slot, or
 - `Αναστολή θεραπείας` for that date only.
 
-Architecture decision:
+Architecture:
 
-- `Αναστολή θεραπείας` uses `DailySessionStatus.CANCELLED` plus `SessionCancellationKind.TREATMENT_SUSPENDED`,
-- no new parallel daily status is introduced,
-- recurring/base schedule stays untouched,
-- the provider slot is released,
-- the explicit reason remains auditable.
+- `Αναστολή θεραπείας` = `DailySessionStatus.CANCELLED` + `SessionCancellationKind.TREATMENT_SUSPENDED`,
+- recurring/base remains untouched,
+- provider slot is released,
+- explicit reason remains auditable,
+- finalized day requires unresolved=0.
 
-Implemented source slice:
+Domain foundation is **source green: 21 passed in 3.11s**.
 
-- `SessionCancellationKind.TREATMENT_SUSPENDED`,
-- `rehab_core/orphan_resolution.py` with `create_treatment_suspension()`,
-- exact reason `Αναστολή θεραπείας`,
-- `rehab_core/daily_statistics.py`,
-- statistics separate performed/replaced/absent/postponed/no-show/suspended/unresolved outcomes,
-- unresolved `THERAPIST_ABSENT` sessions remain unresolved until placed or explicitly suspended,
-- focused regression files added for suspension and statistics.
+New operational implementation, awaiting consolidated source/native gate:
 
-Status: **source green: 21 passed in 3.11s**. Excel operational actions and authoritative persistence are not wired yet.
+- `apply_daily_input_replacements.py` now requires placement or suspension for every orphan; old `leave unresolved` path removed,
+- `S` records suspension, `Q` aborts the preview, and no-candidate cases require S/Q,
+- finalization safety gate blocks output when unresolved sessions remain,
+- `daily_input_reader.py` recognizes `Αναστολή θεραπείας`,
+- DAILY_INPUT status dropdown includes `Αναστολή θεραπείας`,
+- `daily_operational_fact_writer.py` persists generated suspensions into output DAILY_INPUT so the output can reproduce the same fact on reread,
+- `daily_statistics_writer.py` writes a visible `DAILY_STATISTICS` sheet from the finalized daily state,
+- terminal summary and workbook statistics come from the same statistics object.
 
 ## Daily operational rules locked
 
@@ -66,7 +67,7 @@ Status: **source green: 21 passed in 3.11s**. Excel operational actions and auth
 2. cancellations/no-shows release same-day capacity,
 3. therapist absences,
 4. identify displaced/unscheduled existing patients,
-5. redistribute into net free capacity,
+5. redistribute existing patients into net free capacity,
 6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
 7. only then expose remaining capacity to new patients.
 
@@ -96,15 +97,30 @@ Outpatient recurring create/edit native verification remains open after the curr
 
 ## Immediate roadmap
 
-1. Wire the actual orphan operational actions: place or suspend.
-2. Persist suspension as an authoritative date-specific daily fact.
-3. Surface daily statistics in workbook/reporting.
-4. Native-check orphan placement and suspension.
-5. Test selected/all restore with multiple changes.
-6. Replace snapshot restore with authoritative overlay removal + full recompute.
-7. Resume outpatient recurring create/edit native gate.
-8. Continue branch/PR hardening.
-9. Clean Python 3.14 ZipFile teardown warnings later.
+1. Run consolidated source gate for orphan action flow + suspension persistence + DAILY_INPUT dropdown + DAILY_STATISTICS.
+2. Run native mixed orphan scenario with at least one placement and one treatment suspension.
+3. Verify output reread, stats finalization, source unchanged and VBA preserved.
+4. Test selected/all restore with multiple changes.
+5. Replace snapshot restore with authoritative overlay removal + full recompute.
+6. Resume outpatient recurring create/edit native gate.
+7. Continue branch/PR hardening.
+8. Clean Python 3.14 ZipFile teardown warnings later.
+
+Focused Windows gate:
+
+```powershell
+python -m pytest `
+  Tests/test_daily_input_cancellations.py `
+  Tests/test_daily_input_sheet.py `
+  Tests/test_apply_daily_input_replacements_resolution.py `
+  Tests/test_daily_operational_fact_writer.py `
+  Tests/test_daily_statistics_writer.py `
+  Tests/test_orphan_treatment_suspension.py `
+  Tests/test_daily_treatment_statistics.py `
+  Tests/test_daily_state.py `
+  Tests/test_therapist_absence_queue.py `
+  Tests/test_cancellation_releases_replacement_capacity.py -q
+```
 
 ## Safety constraints
 
