@@ -4,13 +4,15 @@ Last updated: 2026-10-17
 
 ## Current stage
 
-The project remains on branch `feature/outpatient-scheduling`.
+The branch remains `feature/outpatient-scheduling`.
 
-The active operational milestone is **one concrete-date effective state across MASTER + THERAPIST_DAILY + ledger + statistics**, with orphan resolution and outpatient recurring create/edit still open behind it.
+The active operational milestone is now **orphan resolution + date-specific treatment suspension + correct daily statistics**, built on top of the already working concrete-date effective state shared by MASTER, THERAPIST_DAILY and the ledger.
 
-Latest full-suite checkpoint after cleanup: **699 passed, 19 warnings**.
-Latest focused operational regression checkpoint: **31 passed in 2.04s**.
-Latest MASTER daily-overlay gate: **24 passed, 5 warnings in 4.39s**.
+Latest checkpoints:
+
+- full regression: **699 passed, 19 warnings**
+- replacement load + mixed-slot gate: **31 passed in 2.04s**
+- MASTER daily-overlay + ledger restore gate: **24 passed, 5 warnings in 4.39s**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -18,93 +20,82 @@ Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical de
 
 `Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm` is the latest native checkpoint.
 
-Stress case:
+Confirmed native green for the ΜΕΝΤΗΣ stress case:
 
-- date `2026-10-19`,
-- patient `ΜΕΝΤΗΣ`,
-- original `Σκαρώνης 09:15`,
-- replacement `Μηλιδάκης 10:45`.
-
-Native green:
-
-- THERAPIST_DAILY effective move + source trace,
-- MASTER effective daily assignment,
+- active replacement appears consistently in THERAPIST_DAILY and MASTER,
+- source trace remains visible,
 - individual restore returns both views to original,
-- readable left time axis with no `####`,
-- moved ΜΕΝΤΗΣ no longer inherits robotic-orange styling.
+- time axis displays `hh:mm` with no `####`,
+- moved non-robotic ΜΕΝΤΗΣ no longer inherits robotic-orange styling.
 
-## Remaining presentation issue: legacy refresh button
+## Deferred cosmetic issue
 
-The obsolete `ΑΝΑΝΕΩΣΗ` button still appeared in V85. Native diagnostic identified it exactly as:
+The obsolete `ΑΝΑΝΕΩΣΗ` Form Control remains visible.
 
-- Excel Form Control / Shape type `8`,
-- name `Button 1`,
-- caption `ΑΝΑΝΕΩΣΗ`,
-- macro `DAILY_CHANGE_LEDGER_V85.xlsm!RefreshAll`,
-- OLEObjects `0`.
+It has been identified exactly as `Button 1` with caption `ΑΝΑΝΕΩΣΗ` and macro `RefreshAll`. Multiple targeted cleanup attempts did not remove it reliably. Decision: **defer this issue and do not spend more engineering time on it now**. It is not a functional blocker; the user may remove it manually in Excel later.
 
-A surgical cleanup is now implemented:
+## Active orphan workflow
 
-- enumerate `ws.Buttons()` directly,
-- remove only when name=`Button 1`, caption=`ΑΝΑΝΕΩΣΗ`, and terminal macro=`RefreshAll`,
-- keep a shape fallback with the same triple identity,
-- ledger and toolbar controls are explicitly outside the target pattern.
-
-Commits:
-
-- `e62ce5354752a61c4b10568ba184991b51b24c67` regression
-- `5c51e8988797ce67358a6886e5e41f9bf5bb848c` implementation
-
-Status: **source implemented, focused/native verification pending**.
-
-## Orphan workflow locked
-
-Every patient in `Ορφανοί` for the concrete date must end as either:
+Every patient in `Ορφανοί` for the concrete date must resolve as either:
 
 - placed in a valid therapist/time slot, or
 - `Αναστολή θεραπείας` for that date only.
 
-Suspension is a daily overlay/status, never a recurring delete, and must feed daily statistics as a non-performed treatment with explicit reason. Existing displaced patients precede new-patient allocation.
+Required behavior:
+
+- no silent disappearance,
+- suspension is a daily overlay/status, never a recurring delete,
+- suspension is auditable,
+- suspension feeds daily statistics as treatment not performed with explicit reason,
+- existing displaced patients precede new-patient allocation,
+- recomputation remains idempotent and independent of input order.
 
 ## Daily operational rules locked
 
-- capacity/load is occupied timeslots,
-- shared slots may host multiple patients but consume one timeslot,
-- cancellations release same-day capacity,
-- therapist absences and cancellations may arrive in any order,
-- recomputation is idempotent,
-- remaining orphans are explicitly placed or suspended,
-- recurring/base schedules are never destructively edited for one-day facts,
-- date-specific moves are reversible,
-- MASTER and THERAPIST_DAILY must agree on effective daily state.
+1. recurring/base schedule for the concrete date,
+2. cancellations/no-shows release same-day capacity,
+3. therapist absences,
+4. identify displaced/unscheduled existing patients,
+5. redistribute into net free capacity,
+6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
+7. only then expose remaining capacity to new patients.
 
-## Accepted MASTER UX
+Operational capacity remains timeslot-based. Recurring/base schedules are never destructively edited by one-day facts.
 
-Native V81 remains green:
+## Ledger status
 
-- four action buttons horizontally at the top,
-- treatment/column headers visible,
-- rows 1-4 frozen during vertical scrolling,
-- no UserForm/sidebar/CommandBars workaround.
+Native green:
 
-## Outpatient architecture already in place
+- active move rendering,
+- MASTER sync,
+- source trace,
+- per-row restore,
+- time-axis display,
+- stale-orange cleanup.
 
-The branch contains inpatient/outpatient types, separate authoritative `OUTPATIENT_SCHEDULE`, unified base reads, outpatient presentation, daily operational integration, cancellation/no-show overlays, and outpatient schedule registration/suggestion/conflict infrastructure.
+Still open:
 
-Outpatient recurring create/edit native verification remains open after the current daily-state/orphan work.
+- selected/all restore with multiple changes,
+- replacing preview snapshot restore with authoritative overlay removal + full daily recomputation.
+
+## Outpatient architecture
+
+The branch already contains inpatient/outpatient types, separate authoritative `OUTPATIENT_SCHEDULE`, unified base reads, outpatient presentation, cancellation/no-show overlays and recurring schedule infrastructure.
+
+Outpatient recurring create/edit native verification remains open after the current orphan/daily-state milestone.
 
 ## Immediate roadmap
 
-1. Run focused legacy-button regression.
-2. Build fresh guided replacement preview.
-3. Verify legacy `ΑΝΑΝΕΩΣΗ` is gone while toolbar/ledger controls remain.
-4. Close presentation cleanup milestone if green.
-5. Implement orphan placement / `Αναστολή θεραπείας` outcomes and statistics.
+1. Inspect the existing daily-state, cancellation and statistics architecture.
+2. Implement date-specific `Αναστολή θεραπείας` and orphan final outcomes.
+3. Integrate the suspension reason into daily statistics.
+4. Add focused tests for auditability, idempotence and non-destructive recurring behavior.
+5. Native-check the orphan workflow.
 6. Test selected/all restore with multiple changes.
-7. Replace preview snapshot restore with authoritative overlay removal + full daily recomputation.
+7. Replace snapshot restore with authoritative overlay removal + full recompute.
 8. Resume outpatient recurring create/edit native gate.
-9. Continue remaining native checks and branch/PR hardening.
-10. Clean Python 3.14 ZipFile teardown warnings when convenient.
+9. Continue branch/PR hardening.
+10. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Safety constraints
 
