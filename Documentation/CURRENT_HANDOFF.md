@@ -58,49 +58,40 @@ Architecture:
 - original provider slot is released,
 - reason is auditable.
 
-### Domain foundation: source green
+### Domain + operational workflow: source green
 
 Implemented and verified:
 
 - `SessionCancellationKind.TREATMENT_SUSPENDED`,
-- `rehab_core/orphan_resolution.py`,
-- exact reason `Αναστολή θεραπείας`,
-- `rehab_core/daily_statistics.py`,
-- statistics distinguish performed/replaced/absent/postponed/no-show/suspended/unresolved,
-- day finalized only when unresolved reaches zero.
+- mandatory placement / `S = Αναστολή θεραπείας` / `Q = abort` flow,
+- no legal `leave unresolved` path,
+- finalization safety gate requires `unresolved_sessions == 0`,
+- output-only DAILY_INPUT persistence of generated suspension facts,
+- DAILY_INPUT reread support for `TREATMENT_SUSPENDED`,
+- DAILY_INPUT dropdown includes `Αναστολή θεραπείας`,
+- visible `DAILY_STATISTICS` sheet from the same finalized `DailySessionState`.
 
-### Operational workflow: source green
+Consolidated Windows source gate: **43 passed, 3 warnings in 5.15s**.
 
-The sequential daily replacement tool now enforces final orphan resolution:
+### Native mixed-orphan smoke: current blocker fixed in source, focused gate pending
 
-- old `0 = leave unresolved` path removed,
-- candidate number means placement,
-- `S` means date-specific `Αναστολή θεραπείας`,
-- `Q` aborts the whole preview,
-- if no candidate exists, only `S` or `Q` is accepted,
-- before workbook output, `calculate_daily_treatment_statistics()` must report `is_finalized=True`, otherwise the workflow safety-stops.
+Native V87 attempt stopped before workbook write with:
 
-The consolidated Windows source gate covering reader/dropdown/action flow/persistence/statistics/state/queue/capacity is now green: **43 passed, 3 warnings in 5.15s**.
+`WritebackSafetyError: Cell THERAPIST_DAILY!A21 is outside confirmed write zones: B2:J8, B12:J18`
 
-### Authoritative suspension persistence: source green, native pending
+Root cause was **not** missing layout permission. The outpatient stale-fill scanner searched the whole `THERAPIST_DAILY` sheet, saw an unrelated cell outside the operational grids using the same green fill, and emitted a `clear_fill` patch for `A21`. The layout contract correctly rejected it.
 
-Generated suspension choices are persisted into the **output copy only** in `DAILY_INPUT` as a date-specific operational fact. `daily_input_reader.py` recognizes `Αναστολή θεραπείας` as `TREATMENT_SUSPENDED`, and the DAILY_INPUT dropdown includes it.
+Fix implemented:
 
-### Workbook statistics surface: source green, native pending
+- `Python/rehab_excel/outpatient_presentation.py` now limits stale outpatient-fill discovery/cleanup strictly to confirmed grids `B2:J8` and `B12:J18`,
+- write zones were deliberately **not expanded**,
+- matching colours in ledger/labels/other sheet furniture are ignored,
+- regression in `Tests/test_outpatient_presentation.py` explicitly asserts `A21` is ignored.
 
-`Python/rehab_excel/daily_statistics_writer.py` writes visible `DAILY_STATISTICS` from the exact same finalized `DailySessionState`, including scheduled/performed/replaced/absent/postponed/no-show/suspended/unresolved/finalized.
+Commits:
 
-### Native mixed-orphan smoke helper: implemented, source gate pending
-
-New tool:
-
-- `Python/tools/prepare_orphan_smoke_input.py`
-
-It safely creates `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm` from V85, automatically chooses a therapist with at least two sessions on the selected date, writes one whole-day therapist absence into DAILY_INPUT, keeps the source unchanged, and reports the affected sessions. This gives a deterministic native case where one orphan can be placed and another can be suspended.
-
-Regression file:
-
-- `Tests/test_prepare_orphan_smoke_input.py`
+- implementation `5c81ce40256ddd36379d838c35b2a62debf0ef95`
+- regression `7e4031fd9f01b4b11233b6bc087078b4f94686aa`
 
 ## Locked daily recomputation order
 
@@ -134,27 +125,15 @@ Still open:
 
 Priority order:
 
-1. Run the small source gate for the new native smoke preparer.
-2. Build `ORPHAN_SMOKE_INPUT_V86.xlsm` for `2026-10-19`.
-3. Run `apply_daily_input_replacements.py` to `ORPHAN_RESOLUTION_V87.xlsm` and choose at least one placement plus at least one `S = Αναστολή θεραπείας`.
-4. Verify native output: placement visible, suspended patient removed from effective schedule, output DAILY_INPUT contains suspension fact, DAILY_STATISTICS has suspended count + unresolved=0 + finalized=ΝΑΙ, source unchanged and VBA preserved.
+1. Run focused source gate for `Tests/test_outpatient_presentation.py` plus orphan operational tests.
+2. Re-run `apply_daily_input_replacements.py` on `ORPHAN_SMOKE_INPUT_V86.xlsm` to produce `ORPHAN_RESOLUTION_V87.xlsm`.
+3. Choose at least one placement and one `S = Αναστολή θεραπείας`.
+4. Verify native output: placement visible, suspended patient absent from effective schedule, output DAILY_INPUT contains suspension fact, DAILY_STATISTICS has suspended count + unresolved=0 + finalized=ΝΑΙ, source unchanged and VBA preserved.
 5. Re-read the output to confirm suspension persistence.
 6. Then test selected/all restore with multiple changes.
 7. Replace snapshot restore with authoritative overlay removal + recompute.
 8. Resume outpatient recurring create/edit native gate.
 9. Clean Python 3.14 ZipFile teardown warnings later.
-
-Next Windows commands:
-
-```powershell
-python -m pytest Tests/test_prepare_orphan_smoke_input.py -q
-
-python Python\tools\prepare_orphan_smoke_input.py `
-  --source ".\Excel\previews\DAILY_CHANGE_LEDGER_V85.xlsm" `
-  --output ".\Excel\previews\ORPHAN_SMOKE_INPUT_V86.xlsm" `
-  --date 2026-10-19 `
-  --overwrite
-```
 
 ## Business rules that must not regress
 
@@ -170,7 +149,8 @@ python Python\tools\prepare_orphan_smoke_input.py `
 - operational load/capacity is timeslot-based,
 - existing displaced patients precede new patients,
 - unresolved orphans must be placed or explicitly suspended,
-- `MASTER` and `THERAPIST_DAILY` must agree on effective daily state.
+- `MASTER` and `THERAPIST_DAILY` must agree on effective daily state,
+- layout safety zones remain narrow; presentation cleanup must adapt to them rather than widening them casually.
 
 ## Recovery order if context is lost
 
