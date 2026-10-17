@@ -56,6 +56,8 @@ def test_profiler_captures_pre_excel_pipeline_subphases():
         'patch(restore_tool, "build_master_daily_overlay_plan", "build_master_overlay")',
         'patch(restore_tool, "apply_write_plan_to_copy", "apply_write_plan_total")',
         'patch(restore_tool, "_has_vba", "vba_checks")',
+        'patch(native_excel, "validate_write_plan", "native_write_plan_validation")',
+        'patch(native_excel, "_sha256", "native_write_hashes")',
     ):
         assert marker in source
 
