@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, time
+from datetime import date, datetime, time
 from pathlib import Path
 import sys
 
@@ -31,6 +31,12 @@ class DailyChangeLedgerRecord:
             f"{self.original_time.strftime('%H:%M')} -> "
             f"{self.effective_provider} {self.effective_time.strftime('%H:%M')}"
         )
+
+
+def _excel_date_value(value: date) -> datetime:
+    """Return a pywin32/Excel-compatible midnight datetime for a Python date."""
+
+    return datetime.combine(value, time.min)
 
 
 VBA_CODE = r'''Option Explicit
@@ -338,7 +344,7 @@ def install_daily_change_ledger_preview(
         for row_index, record in enumerate(records, start=2):
             values = (
                 record.change_id,
-                record.change_date,
+                _excel_date_value(record.change_date),
                 record.patient_id,
                 record.patient_name,
                 record.original_provider,
