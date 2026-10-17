@@ -21,8 +21,11 @@ Last updated: 2026-10-17
 - full regression after cleanup: `699 passed, 19 warnings`
 - reversible daily change ledger focused source gate: `10 passed in 3.26s`
 - replacement load + mixed outpatient/inpatient regression gate: `31 passed in 2.04s`
+- MASTER daily overlay + ledger restore source gate: **24 passed, 5 warnings in 4.39s**
 - V82 guided replacement native build: green
 - V82 individual ledger restore: **native green**
+
+The 5 warnings are `PytestUnraisableExceptionWarning` messages from Python 3.14 `ZipFile.__del__` during workbook test teardown. They did not fail the gate and are not currently treated as a functional blocker; keep them on the technical-cleanup list.
 
 ## V82 native guided replacement checkpoint
 
@@ -46,21 +49,22 @@ Native UX findings:
 - individual restore is therefore native green,
 - selected/all restore remains to be tested once multiple simultaneous preview changes are supported.
 
-## MASTER daily-state synchronization: source implementation added, verification pending
+## MASTER daily-state synchronization: source gate green, native V83 pending
 
 Native V82 showed that `THERAPIST_DAILY` followed the daily replacement while `MASTER` remained on the recurring assignment. This was confirmed as an integration bug.
 
-Source implementation now exists:
+Source implementation now exists and the focused source gate is green:
 
 - new `Python/rehab_excel/master_daily_overlay.py`,
 - daily `REPLACED` states generate a safe patch only inside the MASTER treatment-cell write zone,
 - inpatient MASTER display uses effective daily time/provider while recurring `PATIENT_PLANNER` remains untouched,
-- `Python/tools/apply_replacement_choice.py` now composes the MASTER overlay into the same preview write plan as `THERAPIST_DAILY`,
-- ledger `Επαναφορά` now calls the existing `RefreshMasterPatientProgram(patient_id)` so the prototype restore returns MASTER to the recurring assignment too,
+- `Python/tools/apply_replacement_choice.py` composes the MASTER overlay into the same preview write plan as `THERAPIST_DAILY`,
+- ledger `Επαναφορά` calls `RefreshMasterPatientProgram(patient_id)` so the prototype restore returns MASTER to the recurring assignment too,
 - dedicated regression file: `Tests/test_master_daily_overlay.py`,
-- ledger regression now checks the MASTER restore hook.
+- ledger regression checks the MASTER restore hook,
+- focused verification: **24 passed, 5 warnings in 4.39s**.
 
-Status: **implemented in source, NOT YET test/native green**.
+Status: **source green, native V83 acceptance pending**.
 
 Locked invariant:
 
@@ -155,17 +159,17 @@ Prototype currently uses preview snapshots plus a MASTER recurring refresh hook;
 
 Priority order:
 
-1. **Run focused source gate for the new MASTER daily overlay + ledger MASTER restore hook.**
-2. Build fresh preview with active ΜΕΝΤΗΣ move.
-3. Verify MASTER shows `Μηλιδάκης 10:45` while move is active.
-4. Press individual restore and verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
-5. Fix THERAPIST_DAILY time column width/format.
-6. Fix robotic-orange vs infectious styling precedence for moved patients.
-7. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
-8. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
-9. Test selected/all restore with multiple changes.
-10. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
-11. Resume outpatient recurring create/edit native gate.
+1. **Build V83 with the active ΜΕΝΤΗΣ replacement.**
+2. Verify MASTER shows `Μηλιδάκης 10:45` while the move is active.
+3. Press individual restore and verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
+4. Fix THERAPIST_DAILY time column width/format.
+5. Fix robotic-orange vs infectious styling precedence for moved patients.
+6. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+7. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
+8. Test selected/all restore with multiple changes.
+9. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
+10. Resume outpatient recurring create/edit native gate.
+11. Clean up Python 3.14 ZipFile teardown warnings when it does not distract from functional milestones.
 
 ## Business rules that must not regress
 
