@@ -44,6 +44,10 @@ from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
     compose_outpatient_daily_plan,
 )
+from rehab_excel.daily_statistics_writer import (  # noqa: E402
+    DailyStatisticsWriteError,
+    write_daily_statistics,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
 from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
 from rehab_excel.outpatient_schedule_source import (  # noqa: E402
@@ -392,9 +396,11 @@ def main() -> int:
             output,
             suspension_rows,
         )
+        write_daily_statistics(output, target_date, statistics)
     except (
         DailyInputReadError,
         DailyOperationalFactWriteError,
+        DailyStatisticsWriteError,
         PatientCentricPreviewError,
         PatientRegistrySourceError,
         OutpatientScheduleSourceError,
@@ -442,11 +448,12 @@ def main() -> int:
         f"patient_absent={statistics.patient_absent_sessions}, "
         f"unresolved={statistics.unresolved_sessions}"
     )
+    print("Daily statistics sheet: DAILY_STATISTICS")
     print(f"Input unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
     print(
-        "NEXT: open only the output preview and inspect every placement/suspension. "
-        "The output DAILY_INPUT now carries generated treatment-suspension facts."
+        "NEXT: open only the output preview and inspect every placement/suspension, "
+        "the generated DAILY_INPUT suspension facts, and DAILY_STATISTICS."
     )
     return 0 if report.source_unchanged and vba_preserved else 3
 
