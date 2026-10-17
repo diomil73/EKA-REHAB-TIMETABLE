@@ -16,8 +16,11 @@ Last updated: 2026-10-17
 - diagnostic restore-all after MASTER batch write: Backend `31.33s`, rollback `0.15s`, preview open `0.88s`, sheet sync `0.19s`, final save `1.23s`
 - direct backend profile after fact-session consolidation: total `22.924s`, pre-Excel/verification `12.978s`, Excel output `9.946s`
 - latest dominant pre-Excel phases: `build_master_projection 6.142s`, `pre_excel_unattributed 2.581s`, `read_target_date 1.121s`, `read_daily_input 0.855s`, `read_base_schedule 0.724s`
-- latest Excel output detail: dispatch `2.133s`, open `1.849s`, MASTER `1.794s`, daily patches `0.498s`, statistics `0.277s`, replacement fact rows `0.155s`, ledger rows `0.174s`, refresh `0.129s`, save `2.189s`, close `0.098s`, quit `0.004s`
 - `restore_fact_batch 8.863s` has been eliminated from the pipeline
+- first OOXML MASTER-projection gate after package-probe migration: `5 failed, 51 passed in 5.06s`
+- failure root cause: openpyxl-generated relationship targets may be package-absolute, e.g. `/xl/worksheets/sheet1.xml`, while `zipfile` archive members have no leading slash
+- fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`: normalize package-absolute and relative OPC relationship targets in `WorkbookPackageProbe._join_part`
+- regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`: direct coverage for absolute, relative, and parent-relative relationship targets
 - parity rebuild: row/selected/all smoke copies authoritative and VBA-preserving
 - per-row / selected / restore-all in-session correctness: native green
 - replacement lifecycle history V87-V92: native green
@@ -38,26 +41,27 @@ Native correctness is green for per-row, selected multi-row, and restore-all con
 
 ## ACTIVE: restore performance / UX
 
-The latest profile confirms the previous fact-lifecycle change worked: backend total fell to `22.924s` and the old `restore_fact_batch 8.863s` phase disappeared. The dominant remaining pre-Excel cost is now `build_master_projection 6.142s`.
+The latest profile confirms the previous fact-lifecycle change worked: backend total fell to `22.924s` and the old `restore_fact_batch 8.863s` phase disappeared. The dominant remaining pre-Excel cost is `build_master_projection 6.142s`.
 
-The one-openpyxl-session MASTER metadata change did not materially improve this because loading the full macro-enabled workbook itself remains expensive. MASTER projection metadata has therefore been moved to the existing read-only OOXML package probe. PATIENTS row ids, SETTINGS room order, and MASTER header position are now read directly from the workbook ZIP/XML package without loading the full `.xlsm` through openpyxl.
+MASTER projection metadata has been moved from full openpyxl workbook loads to the read-only OOXML package probe. The first Windows gate exposed an OPC-path compatibility bug rather than a projection-rule regression: relationship targets beginning with `/` were passed directly to `zipfile`, which expects archive member names such as `xl/worksheets/sheet1.xml`. The package probe now resolves both package-absolute and relative relationship targets to normalized ZIP member names before reading them.
 
-New implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`.
+OOXML projection implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, initial projection regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`, OPC target fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`, target-resolution regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`.
 
 Safety semantics are unchanged. The package path only reads cached/stored metadata needed for projection row mapping; it does not evaluate formulas or save the workbook.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run:
-   `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_profile_daily_restore_backend.py Tests/test_master_projection.py Tests/test_master_daily_overlay.py Tests/test_outpatient_schedule_source.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`
-3. If green, rerun the backend profiler with a fresh output:
+2. Re-run the focused gate including the new package-probe regression:
+   `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_profile_daily_restore_backend.py Tests/test_master_projection.py Tests/test_package_probe_relationship_targets.py Tests/test_master_daily_overlay.py Tests/test_outpatient_schedule_source.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`
+3. Require the previous five MASTER projection failures to be gone before profiling.
+4. If green, rerun the backend profiler with a fresh output:
    `python Python/tools/profile_daily_restore_backend.py --input .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\BACKEND_PROFILE4.xlsm --all-active --overwrite`
-4. Primary expectation: `build_master_projection` should drop sharply from `6.142s`.
-5. If backend remains above target, attack the next largest measured phase immediately. The current likely target is `pre_excel_unattributed ~2.58s`, then Excel process startup/open/save overhead.
-6. Re-run fresh reconstruction after performance changes.
-7. Keep the acceptance target at roughly `<=15s` total, ideally around 10s.
-8. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+5. Primary expectation: `build_master_projection` should drop sharply from `6.142s`.
+6. If backend remains above target, attack the next largest measured phase immediately. The current likely target is `pre_excel_unattributed ~2.58s`, then Excel process startup/open/save overhead.
+7. Re-run fresh reconstruction after performance changes.
+8. Keep the acceptance target at roughly `<=15s` total, ideally around 10s.
+9. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
