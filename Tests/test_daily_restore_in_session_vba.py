@@ -32,6 +32,18 @@ def test_success_message_is_user_facing_not_implementation_facing():
     assert 'χωρίς κλείσιμο του αρχείου' not in transformed
 
 
+def test_ledger_reason_uses_greek_business_label_for_legacy_technical_reasons():
+    transformed = build_in_session_ledger_vba(VBA_CODE)
+
+    assert (
+        'wsDaily.Cells(displayRow, 5).Value = '
+        'GreekLedgerReason(CStr(wsLedger.Cells(ledgerRow, 9).Value))'
+    ) in transformed
+    assert 'GreekLedgerReason = "Απουσία θεραπευτή"' in transformed
+    assert 'Case "", "temporary replacement", "daily_input therapist absence", "daily input therapist absence"' in transformed
+    assert 'wsDaily.Cells(displayRow, 5).Value = wsLedger.Cells(ledgerRow, 9).Value' not in transformed
+
+
 def test_transformer_requires_known_bridge_markers():
     with pytest.raises(ValueError, match="markers were not found"):
         build_in_session_ledger_vba("Option Explicit")
