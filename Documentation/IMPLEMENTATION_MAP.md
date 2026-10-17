@@ -31,7 +31,7 @@ V87 persistence verifier confirmed:
 - stored unresolved=0,
 - stored finalized=ΝΑΙ.
 
-Durable replacement placement persistence is now implemented and its focused Windows source gate is green.
+Durable replacement placement persistence is implemented and its focused Windows source gate is green.
 
 Implemented slice:
 
@@ -48,7 +48,13 @@ Implemented slice:
 
 Focused Windows gate: **28 passed, 3 warnings in 5.14s**.
 
-Status: **source gate green; native V88 + full restart reconstruction pending**.
+V88 exposed one native reader issue: `ReplacementDate` was persisted by COM as timezone-shifted numeric serial `46313.875`. The fix now:
+
+- normalizes legacy numeric calendar dates to nearest whole Excel day,
+- explicitly covers `46313.875 -> 2026-10-19`,
+- writes future ReplacementDate facts as ISO text `YYYY-MM-DD` to avoid timezone ambiguity.
+
+Status: **V88 date-reader fix implemented; focused regression + reconstruction rerun pending**.
 
 ### 2. Ορφανοί + treatment suspension
 
@@ -66,7 +72,7 @@ Operational flow source + native green through V87.
 
 `DAILY_STATISTICS` derives from the same finalized DailySessionState and stores scheduled, performed, replaced, patient absent, department postponed, no-show, treatment suspended, unresolved and finalized.
 
-Native-created in V87. Full reconstruction equivalence is the next V88 gate.
+Native-created in V87. Full reconstruction equivalence remains the V88 gate.
 
 ### 4. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
@@ -87,7 +93,7 @@ Open:
 - authoritative restore by removal/deactivation of daily facts + recompute,
 - selected/all restore in a multi-change preview.
 
-Replacement fact persistence is now the prerequisite foundation for this.
+Replacement fact persistence is the prerequisite foundation for this.
 
 ### 6. Dynamic daily recomputation
 
@@ -136,14 +142,15 @@ Deferred/manual cleanup. Not a blocker.
 
 ## Τρέχον verification gate
 
-1. Build V88 from existing V86 with a mixed result, ideally 5 placements + 2 suspensions.
-2. Verify persisted replacement facts written, suspension facts written, source unchanged, VBA preserved.
-3. Fresh reconstruction from V88 must reproduce replacement/suspension counts, unresolved=0, finalized=ΝΑΙ and exact DAILY_STATISTICS metrics.
-4. If green, authoritative daily-state restart persistence is closed.
-5. Implement ledger restore via authoritative fact removal + recompute.
-6. Test selected/all restore with multiple changes.
-7. Resume outpatient recurring create/edit native gate.
-8. Clean Python 3.14 ZipFile teardown warnings later.
+1. Pull latest branch.
+2. Run focused `Tests/test_daily_replacement_facts.py` regression.
+3. Re-run reconstruction directly against existing V88. No rebuild required for backward-compatible reader verification.
+4. Require 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact DAILY_STATISTICS equivalence.
+5. If green, close authoritative daily-state restart persistence.
+6. Implement ledger restore via authoritative fact removal + recompute.
+7. Test selected/all restore with multiple changes.
+8. Resume outpatient recurring create/edit native gate.
+9. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
