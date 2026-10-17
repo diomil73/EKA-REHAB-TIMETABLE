@@ -8,6 +8,39 @@
 
 ## Τι φτιάχνουμε τώρα
 
+### Reversible daily change ledger: native UX prototype
+
+Το τρέχον προσωρινό focus είναι να δούμε στην πράξη το ημερήσιο change ledger μέσα στο `THERAPIST_DAILY` πριν συνδεθεί με το authoritative recomputation engine.
+
+Υλοποιήθηκε πρώτο native preview slice:
+
+- `Python/rehab_excel/daily_change_ledger_vba.py`,
+- `Tests/test_daily_change_ledger_vba.py`,
+- integration στο υπάρχον `Python/tools/apply_replacement_choice.py`.
+
+Το guided replacement preview πλέον μπορεί να παράγει μία πραγματική προσωρινή μετακίνηση και να εμφανίζει από κάτω:
+
+`Αλλαγές για την dd/mm/yyyy`
+
+με ασθενή, αρχική θέση, νέα θέση, αιτία και κατάσταση.
+
+Prototype controls:
+
+- `Επαναφορά` ανά row,
+- checkbox selection,
+- `Επαναφορά επιλεγμένων`,
+- `Επαναφορά όλων`.
+
+Prototype safety:
+
+- metadata/snapshots αποθηκεύονται σε very-hidden `DAILY_CHANGE_LEDGER`,
+- restore ενεργεί μόνο πάνω στο preview copy,
+- exact source-cell snapshots χρησιμοποιούνται για native visual restoration,
+- πριν από restore ελέγχεται ότι τα affected cells δεν έχουν μεταβληθεί ξανά,
+- stale restore μπλοκάρεται αντί να πατάει νεότερη αλλαγή.
+
+Αυτό είναι UX/native spike. Μετά την αποδοχή του layout/behavior, τα ίδια controls θα συνδεθούν με removal/reversal των πραγματικών date-specific overlays και full daily recompute.
+
 ### Outpatient recurring schedule: create/edit end to end
 
 Το patient-centric multi-treatment milestone και το retired single-treatment cleanup έχουν κλείσει πλήρως.
@@ -21,6 +54,8 @@ Confirmed green:
 - MASTER fixed top toolbar + treatment headers στο V81,
 - full suite πριν το cleanup: **722 passed, 19 warnings**,
 - full suite μετά το cleanup: **699 passed, 19 warnings**.
+
+Το outpatient recurring create/edit work παραμένει open και συνεχίζεται μόλις κλείσει ή προσαρμοστεί το ledger UX spike.
 
 ### Cancellation slot release
 
@@ -57,7 +92,7 @@ Priority invariant:
 - πρώτα εξυπηρετούνται οι υπάρχοντες ασθενείς που επηρεάζονται από απουσία θεραπευτή,
 - μετά χρησιμοποιείται τυχόν υπόλοιπο capacity για νέους ασθενείς.
 
-### Νέο locked milestone: reversible daily change ledger στο THERAPIST_DAILY
+### Locked milestone: reversible daily change ledger στο THERAPIST_DAILY
 
 Κάτω από τα ημερήσια προγράμματα θεραπευτών θα υπάρχει date-scoped section:
 
@@ -74,24 +109,13 @@ Priority invariant:
 - stable internal change/replacement id,
 - active/restored status.
 
-Παράδειγμα:
-
-`Ασθενής Χ: Θεραπευτής Ψ 09:00 -> Θεραπευτής Α 10:30`
-
-Required controls:
-
-- `Επαναφορά` ανά γραμμή,
-- δυνατότητα επιλογής πολλών rows,
-- `Επαναφορά επιλεγμένων`,
-- `Επαναφορά όλων`.
-
-Restore semantics:
+Required production restore semantics:
 
 - αφαιρεί/reverses το date-specific override,
 - μετά ξανατρέχει recomputation για τη συγκεκριμένη ημερομηνία,
 - δεν γράφει ποτέ το recurring/base schedule από UI text,
 - είναι idempotent,
-- πριν από undo ελέγχει ότι δεν υπάρχει νεότερη μετακίνηση του ίδιου session που θα πατηθεί σιωπηλά,
+- πριν από undo ελέγχει ότι δεν υπάρχει νεότερη μετακίνηση του ίδιου session,
 - μετά από restore ξαναϋπολογίζονται capacity, conflicts και replacement needs,
 - bulk restore πρέπει να είναι ασφαλές και να αναφέρει conflicts αντί να αφήνει μισή/ασυνεπή κατάσταση.
 
@@ -106,24 +130,6 @@ Architecture fit:
 - το υπάρχον `DailySessionState` κρατά original therapist/time και effective therapist/time ξεχωριστά,
 - το `ReplacementAssignment` είναι ήδη date-specific overlay,
 - άρα το ledger/revert πρέπει να επεκτείνει το υπάρχον daily-state model και όχι να δημιουργήσει δεύτερο authoritative schedule store.
-
-### Τρέχον outpatient milestone
-
-Στόχος: native create/edit flow για recurring outpatient schedule στο `OUTPATIENT_SCHEDULE`.
-
-Υπάρχει ήδη backend upsert με `OutpatientScheduleRequest.target_base_entry_id`, conflict validation, suggestions και source-hash/readback safety. Προστίθεται user-facing edit/preload πάνω στο ίδιο form/backend.
-
-Acceptance:
-
-- create recurring outpatient entry,
-- edit το ίδιο entry με preload,
-- update της ίδιας authoritative row,
-- no outpatient writes to `PATIENT_PLANNER`,
-- robotic treatment unavailable,
-- conflict/suggestion safeguards preserved,
-- source workbook unchanged,
-- VBA preserved,
-- native Windows/Excel smoke green.
 
 ### Accepted MASTER UX
 
@@ -152,24 +158,15 @@ V81 native gate: **green**.
 - Post-cleanup full regression: **699 passed, 19 warnings**.
 - Cancellation/released-slot propagation source implementation + dedicated regression coverage.
 
-## Επόμενα gates
+## Τρέχον verification gate
 
-1. Complete outpatient create/edit source wiring and focused tests.
-2. Native outpatient create/edit smoke against `OUTPATIENT_SCHEDULE`.
-3. Add/verify dynamic daily recomputation for cancellations + therapist absences entered in either order.
-4. Add date-scoped reversible change ledger under `THERAPIST_DAILY`.
-5. Add individual / selected / all restore with safe recompute.
-6. Native daily operational smoke with scenarios:
-   - absence first, cancellation later,
-   - cancellation first, absence later,
-   - cancellation correction/removal,
-   - inpatient and outpatient cancellations,
-   - redistribution before new-patient allocation,
-   - individual restore,
-   - selected restore,
-   - restore all,
-   - stale restore attempt after a newer move,
-   - next-day automatic return to recurring programme.
+1. Run focused source tests for the new ledger module plus guided replacement integration.
+2. Build a real guided replacement preview from V81.
+3. Open `THERAPIST_DAILY` and inspect the ledger section under the schedules.
+4. Test individual restore.
+5. Rebuild and test selected/all restore once multiple preview changes are supported.
+6. If UX accepted, replace preview-snapshot restore with authoritative overlay removal + daily recompute.
+7. Resume outpatient recurring create/edit gate.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
