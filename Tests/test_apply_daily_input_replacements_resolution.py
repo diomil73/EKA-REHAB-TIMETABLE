@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, time
+from types import SimpleNamespace
 
 import pytest
 
@@ -9,6 +10,7 @@ from tools.apply_daily_input_replacements import (
     SUSPEND_CHOICE,
     _append_treatment_suspension,
     _ask_resolution,
+    _replacement_id,
 )
 
 
@@ -62,3 +64,27 @@ def test_append_treatment_suspension_creates_final_date_specific_fact():
     assert suspension.cancellation_date == date(2026, 10, 19)
     assert suspension.kind == SessionCancellationKind.TREATMENT_SUSPENDED
     assert suspension.reason == "Αναστολή θεραπείας"
+
+
+def test_replacement_id_uses_legacy_first_generation_then_versions_history():
+    session = Session(
+        session_id="planner:57:ΦΘ@2026-10-19",
+        patient_id="56",
+        therapist_id="Σάρρας",
+        session_date=date(2026, 10, 19),
+        start_time=time(8, 30),
+        treatment="ΦΘ",
+    )
+    base = "daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19"
+
+    assert _replacement_id(session, ()) == base
+
+    history_v1 = (SimpleNamespace(replacement_id=base),)
+    assert _replacement_id(session, history_v1) == f"{base}:v2"
+
+    history_v2 = (
+        SimpleNamespace(replacement_id=base),
+        SimpleNamespace(replacement_id=f"{base}:v2"),
+        SimpleNamespace(replacement_id="daily-input:unrelated:2026-10-19"),
+    )
+    assert _replacement_id(session, history_v2) == f"{base}:v3"
