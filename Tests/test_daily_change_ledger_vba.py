@@ -71,8 +71,10 @@ def test_ledger_refresh_preserves_readable_therapist_daily_time_axis():
     assert 'wsDaily.Columns("A").ColumnWidth = 4' not in VBA_CODE
 
 
-def test_preview_removes_only_obsolete_refresh_button_by_caption():
+def test_preview_removes_only_obsolete_refresh_form_button_surgically():
     source = inspect.getsource(_remove_legacy_refresh_button)
+    assert "ws.Buttons()" in source
+    assert 'name == "button 1"' in source
     assert 'caption == "ανανέωση".casefold()' in source
-    assert "shape.Delete()" in source
-    assert "range(int(ws.Shapes.Count), 0, -1)" in source
+    assert 'macro == "refreshall"' in source
+    assert "button.Delete()" in source
