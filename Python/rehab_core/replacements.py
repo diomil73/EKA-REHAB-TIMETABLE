@@ -30,6 +30,7 @@ class ReplacementCandidate:
     therapist_id: str
     display_name: str
     active_sessions: int
+    active_timeslots: int
     infectious_sessions: int
     robotic_sessions: int
     replacement_sessions: int
@@ -98,10 +99,12 @@ def find_replacement_candidates(
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
 ) -> list[ReplacementCandidate]:
-    """Rank replacement providers using the confirmed operational priority.
+    """Rank replacement providers using occupied timeslots as operational load.
 
     Daily cancellations remove only the concrete cancelled occurrence from
     provider/patient occupancy and workload. The recurring Session stays intact.
+    Multiple patients sharing one clock slot count as multiple sessions but one
+    occupied timeslot; the latter is the authoritative load/capacity measure.
     """
 
     sessions = tuple(sessions)
@@ -178,6 +181,7 @@ def find_replacement_candidates(
                 display_name=therapist.display_name,
                 provider_kind=ReplacementProviderKind.THERAPIST,
                 active_sessions=workload.active_sessions,
+                active_timeslots=workload.active_timeslots,
                 infectious_sessions=workload.infectious_sessions,
                 robotic_sessions=workload.robotic_sessions,
                 replacement_sessions=workload.replacement_sessions,
@@ -233,6 +237,7 @@ def find_replacement_candidates(
                 display_name=student.display_name,
                 provider_kind=ReplacementProviderKind.STUDENT,
                 active_sessions=workload.active_sessions,
+                active_timeslots=workload.active_timeslots,
                 infectious_sessions=workload.infectious_sessions,
                 robotic_sessions=workload.robotic_sessions,
                 replacement_sessions=workload.replacement_sessions,
@@ -246,6 +251,7 @@ def find_replacement_candidates(
 
     candidates.sort(
         key=lambda candidate: (
+            candidate.active_timeslots,
             candidate.active_sessions,
             0 if candidate.exact_time_available else 1,
             candidate.infectious_sessions if target_is_infectious else 0,
