@@ -199,11 +199,43 @@ Private Sub SyncRestoreSheetSet(ByVal sourceWorkbook As Workbook, ByVal targetWo
     For Each sheetName In sheetNames
         Set sourceSheet = sourceWorkbook.Worksheets(CStr(sheetName))
         Set targetSheet = targetWorkbook.Worksheets(CStr(sheetName))
-        Set sourceRange = sourceSheet.UsedRange
+        Set sourceRange = MeaningfulRestoreRange(sourceSheet)
         sourceRange.Copy Destination:=targetSheet.Range(sourceRange.Address)
     Next sheetName
     Application.CutCopyMode = False
 End Sub
+
+Private Function MeaningfulRestoreRange(ByVal ws As Worksheet) As Range
+    Dim lastRowCell As Range
+    Dim lastColumnCell As Range
+
+    On Error Resume Next
+    Set lastRowCell = ws.Cells.Find( _
+        What:="*", _
+        After:=ws.Cells(1, 1), _
+        LookIn:=xlFormulas, _
+        LookAt:=xlPart, _
+        SearchOrder:=xlByRows, _
+        SearchDirection:=xlPrevious, _
+        MatchCase:=False)
+    Set lastColumnCell = ws.Cells.Find( _
+        What:="*", _
+        After:=ws.Cells(1, 1), _
+        LookIn:=xlFormulas, _
+        LookAt:=xlPart, _
+        SearchOrder:=xlByColumns, _
+        SearchDirection:=xlPrevious, _
+        MatchCase:=False)
+    On Error GoTo 0
+
+    If lastRowCell Is Nothing Or lastColumnCell Is Nothing Then
+        Set MeaningfulRestoreRange = ws.Range("A1")
+    Else
+        Set MeaningfulRestoreRange = ws.Range( _
+            ws.Cells(1, 1), _
+            ws.Cells(lastRowCell.Row, lastColumnCell.Column))
+    End If
+End Function
 
 Private Function RestoreSheetNames() As Variant
     RestoreSheetNames = Array( _
