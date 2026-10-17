@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -60,6 +61,19 @@ from tools.restore_daily_replacement_fact import (  # noqa: E402
     _read_daily_input_date,
     _sha256,
 )
+
+
+def _write_response(path: Path | None, payload: dict[str, object]) -> None:
+    """Write the small UTF-8 JSON bridge response when requested by Excel/VBA."""
+
+    if path is None:
+        return
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False),
+        encoding="utf-8-sig",
+    )
 
 
 def _requested_restore_ids(
@@ -210,7 +224,15 @@ def main() -> int:
     parser.add_argument("--replacement-id", action="append", default=[])
     parser.add_argument("--all-active", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--response",
+        type=Path,
+        help="Optional UTF-8 JSON response file for the Excel/VBA authoritative bridge.",
+    )
     args = parser.parse_args()
+
+    input_path = args.input.resolve()
+    source_sha256_before = _sha256(input_path) if input_path.exists() else ""
 
     try:
         restored, active, unresolved, finalized = restore_replacements_and_recompute(
@@ -235,12 +257,36 @@ def main() -> int:
         ValueError,
         KeyError,
     ) as exc:
+        _write_response(
+            args.response,
+            {
+                "ok": False,
+                "error": str(exc),
+                "source_sha256_before": source_sha256_before,
+            },
+        )
         print(f"SAFETY STOP: {exc}")
         return 2
 
+    output_path = args.output.resolve()
+    _write_response(
+        args.response,
+        {
+            "ok": True,
+            "output_path": str(output_path),
+            "source_sha256_before": source_sha256_before,
+            "restored_replacement_facts": restored,
+            "active_replacements_after_restore": active,
+            "unresolved_sessions_after_recompute": unresolved,
+            "finalized_after_recompute": finalized,
+            "source_unchanged": True,
+            "vba_preserved": True,
+        },
+    )
+
     print("AUTHORITATIVE BULK DAILY RESTORE OK")
-    print(f"Input: {args.input.resolve()}")
-    print(f"Output: {args.output.resolve()}")
+    print(f"Input: {input_path}")
+    print(f"Output: {output_path}")
     print(f"Restored replacement facts: {restored}")
     print(f"Active replacements after restore: {active}")
     print(f"Unresolved sessions after recompute: {unresolved}")
