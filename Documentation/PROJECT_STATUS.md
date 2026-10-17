@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. The active ledger item is performance/UX latency.**
+Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active and is still unacceptable.**
 
 ## Latest confirmed checkpoints
 
@@ -21,6 +21,8 @@ Active milestone: **Restore correctness is closed green for per-row, selected, a
 - focused bridge/performance gate after first batching patch: **30 passed in 4.91s**
 - focused bridge/performance gate after statistics+ledger consolidation: **30 passed in 4.39s**
 - focused bridge/performance gate after redundant in-session saves were removed: **31 passed in 3.34s**
+- focused gate after single output Excel session: **32 passed in 4.48s**
+- latest fresh restore-all native timing: **about 50-60 seconds**, still far above target
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row in-session Excel restore: **native green**
 - selected two-row in-session Excel restore: **native correctness green**
@@ -40,59 +42,32 @@ V88-V92 prove restart-safe reconstruction, immutable replacement lifecycle, atom
 
 `DAILY_REPLACEMENT_FACTS` is authoritative. `DAILY_CHANGE_LEDGER` is a UI/audit projection, never an independent truth source.
 
-The normal Excel restore workflow now:
+The normal Excel restore workflow now runs the authoritative Python backend hidden and blocking, keeps the current workbook open, creates rollback protection, imports verified operational state, saves in-session, avoids visible console/close-reopen behavior, and renders Greek-only business wording in the visible `Αιτία` column.
 
-- runs the authoritative Python backend hidden and blocking
-- keeps the current workbook open
-- creates a rollback copy before apply
-- imports the verified operational state back into the open workbook
-- saves in-session
-- avoids the obsolete visible-console and close/reopen path
-- shows Greek-only business wording in the visible `Αιτία` column
-
-Native correctness is green for per-row, selected, and restore-all controls.
-
-Restore-all independently confirmed the expected end state:
-
-- active replacements = 0
-- treatment suspensions = 2
-- unresolved = 5
-- finalized = ΟΧΙ
-- stored `DAILY_STATISTICS` exactly matches reconstructed daily state
-- replacement history remains preserved as RESTORED facts
-
-The Greek reason rendering patch maps known internal values such as `DAILY_INPUT therapist absence` and `temporary replacement` to `Απουσία θεραπευτή` in the normal visible ledger.
+Native correctness is green for per-row, selected, and restore-all controls. Restore-all independently confirmed active replacements 0, treatment suspensions 2, unresolved 5, finalized ΟΧΙ, exact stored statistics, and preserved RESTORED history.
 
 ## ACTIVE: restore performance / UX latency
 
-The remaining ledger issue is speed. Selected and restore-all actions take noticeably longer than acceptable.
+The latest native restore-all timing is about 50-60 seconds. This is not acceptable for routine operation, so optimization continues rather than treating the current path as finished.
 
-Four optimization steps are implemented:
+Implemented optimization chain:
 
-1. Bulk selected/all restore no longer reopens Excel once per restored ReplacementId merely to mark ledger rows. All restored ledger rows are validated and marked in a single hidden Excel session, followed by one ledger refresh/save. Implementation `fb445bbc08e6d2cbfd63820a13f8dc504192e954`, tests `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
-2. Daily statistics writing and ledger finalization now share that same hidden Excel session, removing another workbook open/save/close cycle. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
-3. The in-session apply path removes two redundant success-path writes: it no longer re-saves immediately before `SaveCopyAs`, because the source is already saved before backend execution, and it no longer performs an extra ledger refresh/save after the verified preview has already been synchronized and saved. Rollback `SaveCopyAs`, authoritative preview synchronization, and the post-sync save remain. Implementation `4b58085fc416c456c603aefd1ae2942022715632`, tests `55b7e584080d6f9f657ce3b274dae9a90a85aa19`. Focused source gate: **31 passed in 3.34s**.
-4. The native daily write plan, daily statistics, restored ledger lifecycle metadata, ledger refresh, and final output save now execute in one `_RestoreOutputBackend` Excel session. This removes the separate finalization Excel process and reduces that whole output leg to one workbook open and one save. Implementation `790f55babd18a75635d844cc4f6d1f24c2c5780e`, tests `0c166fff3e3dc26fd8b53062653e9764234d2b98`.
+1. Bulk selected/all ledger rows are marked in one hidden Excel session instead of one session per ReplacementId. Implementation `fb445bbc08e6d2cbfd63820a13f8dc504192e954`, tests `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
+2. Daily statistics and ledger finalization share the same session. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
+3. Redundant success-path saves in the in-session bridge were removed while rollback and authoritative post-sync save remain. Implementation `4b58085fc416c456c603aefd1ae2942022715632`, tests `55b7e584080d6f9f657ce3b274dae9a90a85aa19`.
+4. Native daily write plan, statistics, restored ledger metadata, ledger refresh, and final output save now share one `_RestoreOutputBackend` Excel session. Implementation `790f55babd18a75635d844cc4f6d1f24c2c5780e`, tests `0c166fff3e3dc26fd8b53062653e9764234d2b98`; focused gate **32 passed in 4.48s**.
+5. New optimization `0c2e566614679fa010ffec09fb52825eea17055b` removes the separate MASTER projection Excel open/save/close phase. The logical MASTER projection is built in Python and applied inside the already-open restore output workbook before daily patches. Regression coverage: `ac08df5a617fd159ba40f196299b86242a2546a3`.
 
-The fourth optimization still needs the focused Windows test gate and a fresh native timing smoke.
-
-Further profiling is still required. Remaining likely hotspots are:
-
-- separate MASTER projection Excel open/save
-- verified preview opening in the user's existing Excel session
-- broad `UsedRange` copying across the restore sheet set
-
-Optimization must preserve authoritative verification, rollback safety, immutable fact history, and exact reconstructed statistics.
+Remaining likely hotspots are now concentrated in the Excel-side verified-preview application: opening the verified preview workbook and copying broad `UsedRange` blocks across `DAILY_REPLACEMENT_FACTS`, `DAILY_CHANGE_LEDGER`, `THERAPIST_DAILY`, `MASTER_SCHEDULE`, and `DAILY_STATISTICS`.
 
 ## Immediate roadmap
 
-1. Pull latest branch and run the focused bridge/performance test set.
-2. Rebuild a fresh selected/all smoke copy from trusted V90. Do not reuse a workbook that has already been restored.
-3. Repeat the native restore action without an extra manual save and compare elapsed time.
-4. Run fresh reconstruction after the action to prove no correctness regression.
-5. If latency remains high, consolidate or eliminate the separate MASTER projection Excel session next, then narrow the in-session synchronization contract.
-6. Once latency is acceptable, resume outpatient recurring create/edit native gate.
-7. Later clean Python 3.14 ZipFile warnings.
+1. Pull latest branch and run the focused bridge/performance tests.
+2. Rebuild a fresh restore-all smoke copy from trusted V90 and re-time the native action. Do not reuse an already-restored workbook.
+3. Re-run fresh reconstruction after the timing smoke.
+4. If native latency remains above roughly 15 seconds, replace or narrow broad in-session `UsedRange` synchronization while preserving the verified-preview and rollback safety model.
+5. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+6. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
