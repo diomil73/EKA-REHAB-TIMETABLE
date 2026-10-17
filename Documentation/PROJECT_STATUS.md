@@ -65,21 +65,26 @@ The Greek reason rendering patch maps known internal values such as `DAILY_INPUT
 
 The remaining ledger issue is speed. Selected and restore-all actions take noticeably longer than acceptable.
 
-Profile before changing architecture. Likely hotspots are:
+First optimization is now implemented in `Python/tools/restore_daily_replacement_facts.py`: bulk selected/all restore no longer reopens Excel once per restored ReplacementId merely to mark ledger rows. All restored ledger rows are validated and marked in a single hidden Excel session, followed by one ledger refresh/save. This preserves the same authoritative fact lifecycle and visible result while removing repeated workbook open/save/close cycles. Regression coverage is in `Tests/test_authoritative_bulk_daily_restore.py`.
 
-- full Python preview/recompute work
-- Excel opening of the verified preview workbook
-- broad `UsedRange` copying across several operational sheets
-- repeated workbook saves
+Optimization commit: `fb445bbc08e6d2cbfd63820a13f8dc504192e954`; regression update: `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
+
+Further profiling is still required. Remaining likely hotspots are:
+
+- MASTER projection Excel open/save
+- native write-plan Excel open/save
+- separate statistics write session
+- verified preview opening and broad `UsedRange` copying in the already-open workbook
+- repeated workbook saves around rollback/apply
 
 Optimization must preserve authoritative verification, rollback safety, immutable fact history, and exact reconstructed statistics.
 
 ## Immediate roadmap
 
-1. Profile elapsed time across backend generation, preview open, sheet synchronization, and save phases.
-2. Reduce unnecessary Excel I/O and over-broad range copying.
-3. Add regression coverage for any narrower synchronization contract.
-4. Re-run focused bridge tests and one native restore smoke after each performance change.
+1. Run focused bulk-restore + bridge tests after the single-session ledger batching patch.
+2. Rebuild an independent selected/all smoke copy and compare perceived latency with the previous path.
+3. If latency remains high, consolidate remaining backend Excel sessions and profile the in-session preview synchronization/save phase.
+4. Re-run fresh reconstruction after every native performance smoke to prove no correctness regression.
 5. Once latency is acceptable, resume outpatient recurring create/edit native gate.
 6. Later clean Python 3.14 ZipFile warnings.
 
