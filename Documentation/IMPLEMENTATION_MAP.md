@@ -39,9 +39,26 @@ Prototype safety:
 - πριν από restore ελέγχεται ότι τα affected cells δεν έχουν μεταβληθεί ξανά,
 - stale restore μπλοκάρεται αντί να πατάει νεότερη αλλαγή.
 
-Focused source gate: **10 passed in 3.26s**.
+Focused ledger source gate: **10 passed in 3.26s**.
+Replacement load + mixed-slot regression gate: **31 passed in 2.04s**.
 
-Άρα το επόμενο gate είναι native smoke σε πραγματικό guided replacement preview. Μετά την αποδοχή του layout/behavior, τα ίδια controls θα συνδεθούν με removal/reversal των πραγματικών date-specific overlays και full daily recompute.
+### Replacement operational load semantics
+
+Κλειδώθηκε ότι το operational load είναι τα κατειλημμένα **timeslots** και όχι ο ακατέργαστος αριθμός sessions/patients.
+
+- `active_timeslots` = authoritative load/capacity.
+- shared slot με πολλούς ασθενείς μετρά ως ένα occupied timeslot.
+- candidate ranking ταξινομεί πρώτα με occupied timeslots και μετά με session count.
+- candidate output διαχωρίζει `load x/y` από `patients n`.
+- παράδειγμα: 6 sessions σε 5 διαφορετικά slots => `load 5/6 | patients 6`.
+
+### Mixed inpatient/outpatient slot presentation
+
+Mixed effective cell δεν πρέπει να ακυρώνει έγκυρη operational μετακίνηση.
+
+- δεν εφαρμόζεται ενιαίο outpatient whole-cell fill σε mixed cell,
+- το replacement preview συνεχίζει κανονικά,
+- το mixed cell μένει ουδέτερο μέχρι να έχουμε per-patient text styling.
 
 ### Outpatient recurring schedule: create/edit end to end
 
@@ -160,17 +177,22 @@ V81 native gate: **green**.
 - Post-cleanup full regression: **699 passed, 19 warnings**.
 - Cancellation/released-slot propagation source implementation + dedicated regression coverage.
 - Reversible daily ledger prototype source gate: **10 passed in 3.26s**.
+- Replacement operational-load semantics + mixed-slot presentation fix: **31 passed in 2.04s**.
 
 ## Τρέχον verification gate
 
-1. Build a real guided replacement preview from V81/current workbook state.
-2. Open `THERAPIST_DAILY` and inspect the ledger section under the schedules.
-3. Verify the ledger row shows the correct patient and original/effective therapist-time values.
-4. Test individual `Επαναφορά`.
-5. Confirm exact source/destination preview cells are restored and recurring/base schedule is untouched.
-6. Rebuild and test selected/all restore once multiple preview changes are supported.
-7. If UX accepted, replace preview-snapshot restore with authoritative overlay removal + daily recompute.
-8. Resume outpatient recurring create/edit gate.
+1. Rerun the real guided replacement preview for ΜΕΝΤΗΣ at 09:15.
+2. Confirm candidates display timeslot-based load, e.g. `load 5/6 | patients 6`.
+3. Select Μηλιδάκης again as the stress test.
+4. Confirm mixed inpatient/outpatient presentation no longer raises SAFETY STOP.
+5. Generate the preview successfully.
+6. Open `THERAPIST_DAILY` and inspect the ledger section under the schedules.
+7. Verify the ledger row shows the correct patient and original/effective therapist-time values.
+8. Test individual `Επαναφορά`.
+9. Confirm exact source/destination preview cells are restored and recurring/base schedule is untouched.
+10. Rebuild and test selected/all restore once multiple preview changes are supported.
+11. If UX accepted, replace preview-snapshot restore with authoritative overlay removal + daily recompute.
+12. Resume outpatient recurring create/edit gate.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
@@ -186,6 +208,8 @@ V81 native gate: **green**.
 - Cancellations/absences/replacements/manual redistributions είναι date-specific operational overlays και όχι destructive edits των recurring schedules.
 - Existing displaced patients προηγούνται των νέων ασθενών στη χρήση released capacity.
 - Restore operations αφαιρούν overlays και κάνουν recompute, δεν ανακατασκευάζουν recurring assignments από εμφανιζόμενο κείμενο.
+- Replacement operational load/capacity είναι timeslot-based και όχι raw session-count based.
+- Mixed inpatient/outpatient cell δεν μπλοκάρει valid operational movement μόνο λόγω whole-cell presentation ambiguity.
 - Conflict override explicit όπου υποστηρίζεται.
 
 ## Recovery rule
