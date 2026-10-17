@@ -94,13 +94,73 @@ Important temporal behavior:
 
 This is now a core invariant for the future daily allocation engine and native DAILY_INPUT/absence workflows.
 
+## Locked UX requirement: reversible daily change ledger in THERAPIST_DAILY
+
+Many same-day operational redistributions are temporary and should not leak into the following working day. The user requires a visible, date-scoped change ledger below the normal therapist schedules in `THERAPIST_DAILY`.
+
+Proposed section title:
+
+`Αλλαγές για την dd/mm/yy`
+
+Each effective daily move must preserve and display at least:
+
+- patient identity/name,
+- original therapist,
+- original time,
+- effective/replacement therapist,
+- effective/replacement time,
+- optional reason/source such as therapist absence, cancellation-driven redistribution, or manual move,
+- change/replacement identifier and status internally.
+
+Example presentation:
+
+`Ασθενής Χ: Θεραπευτής Ψ 09:00 -> Θεραπευτής Α 10:30`
+
+Required restore controls:
+
+- per-row `Επαναφορά`,
+- row selection for bulk operations,
+- `Επαναφορά επιλεγμένων`,
+- `Επαναφορά όλων`.
+
+Restore semantics:
+
+- restore means remove/reverse the date-specific operational override and recompute that same day's effective plan from the surviving facts,
+- it must never destructively rewrite the recurring/base schedule,
+- restore must be idempotent,
+- restore must validate the current effective state before undoing so that an older ledger item cannot silently overwrite a newer change,
+- after a restore, capacity/conflicts/replacements for the date must be recalculated,
+- bulk restore must either process a validated set safely or stop/report conflicts rather than partially corrupting the day.
+
+Next-day behavior:
+
+- date-specific overlays expire naturally outside their target date,
+- therefore the following day starts again from the recurring/base programme plus that day's own cancellations/absences/overrides,
+- no manual "undo yesterday" should be necessary merely to return to the recurring schedule.
+
+Architecture fit already exists in core:
+
+- `DailySessionState` preserves `original_therapist_id` and `original_time` separately from effective therapist/time,
+- `ReplacementAssignment` is already a date-specific overlay tied to one target session,
+- this makes the change ledger/revert workflow a natural extension of the existing daily-state model rather than a second schedule store.
+
+Native acceptance scenarios for this future milestone:
+
+1. one patient moved, then restored individually,
+2. several moved patients, selected subset restored,
+3. restore all daily moves,
+4. cancellation arrives after earlier redistribution and triggers a better recompute,
+5. therapist absence is corrected after redistribution,
+6. attempt to restore an old change after the same patient has been moved again must be blocked or safely reconciled,
+7. next working day shows the recurring programme unless that new date has its own overlays.
+
 ## Current development focus
 
 **Outpatient recurring schedule create/edit end to end against `OUTPATIENT_SCHEDULE`.**
 
 The backend already supports update by `target_base_entry_id`; user-facing edit/preload support is being added by reusing the same form/backend rather than introducing a second writer.
 
-After the outpatient create/edit gate, the next operational milestone is the dynamic daily recomputation flow above, with native verification that cancellations and therapist absences can be entered in either order.
+After the outpatient create/edit gate, the next operational milestone is the dynamic daily recomputation flow above, including the reversible `THERAPIST_DAILY` change ledger and native verification that cancellations and therapist absences can be entered in either order.
 
 ## Business rules that must not regress
 
@@ -113,8 +173,9 @@ After the outpatient create/edit gate, the next operational milestone is the dyn
 - Ανακλινόμενο duration: 30 minutes.
 - Exact adjacency is legal.
 - `PATIENT_PLANNER` authoritative for inpatient recurring schedules; `OUTPATIENT_SCHEDULE` authoritative for outpatient recurring schedules.
-- One-day cancellations and therapist absences are overlays on the daily operational state, not destructive edits of recurring source schedules.
+- One-day cancellations, therapist absences, replacements and manual redistributions are overlays on the daily operational state, not destructive edits of recurring source schedules.
 - Existing displaced patients have allocation priority over newly added patients when released capacity is redistributed.
+- Daily restore operations must remove/reverse overlays and recompute, never reconstruct the recurring schedule from UI text.
 - Conflict override must be explicit; return-for-correction performs zero writes.
 
 ## Recovery order if context is lost
