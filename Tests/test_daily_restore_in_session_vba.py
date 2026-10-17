@@ -25,6 +25,13 @@ def test_transformer_keeps_atomic_selected_and_all_backend_arguments():
     assert 'replacementArgs = replacementArgs & " --replacement-id " & QuoteArg(replacementId)' in transformed
 
 
+def test_success_message_is_user_facing_not_implementation_facing():
+    transformed = build_in_session_ledger_vba(VBA_CODE)
+
+    assert 'Η επαναφορά ολοκληρώθηκε επιτυχώς.' in transformed
+    assert 'χωρίς κλείσιμο του αρχείου' not in transformed
+
+
 def test_transformer_requires_known_bridge_markers():
     with pytest.raises(ValueError, match="markers were not found"):
         build_in_session_ledger_vba("Option Explicit")
