@@ -15,6 +15,7 @@ Latest confirmed checkpoints:
 - MASTER daily-overlay + ledger restore gate: **24 passed, 5 warnings in 4.39s**
 - orphan suspension + statistics domain gate: **21 passed in 3.11s**
 - consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**
+- authoritative replacement fact focused source gate: **28 passed, 3 warnings in 5.14s**
 - V87 mixed orphan scenario: **native green**
 - V87 suspension/statistics reread persistence: **native green**
 
@@ -42,7 +43,7 @@ Fresh V87 reread confirmed 2 treatment suspensions, stored suspended=2, unresolv
 
 ## Replacement persistence implementation
 
-The previous restart gap was durable placement overlays. Source implementation now exists:
+The previous restart gap was durable placement overlays. Source implementation now exists and its focused Windows verification is green:
 
 - `Python/rehab_excel/daily_replacement_facts.py`
 - internal `DAILY_REPLACEMENT_FACTS` sheet, `xlSheetVeryHidden`
@@ -54,7 +55,7 @@ The previous restart gap was durable placement overlays. Source implementation n
 - reader returns no facts for older workbooks without the sheet
 - deterministic replacement IDs per session/date
 
-`apply_daily_input_replacements.py` now reloads persisted replacements before interactive resolution, counts them in capacity/daily state, skips already-resolved target sessions, and persists active placements into the output workbook.
+`apply_daily_input_replacements.py` reloads persisted replacements before interactive resolution, counts them in capacity/daily state, skips already-resolved target sessions, and persists active placements into the output workbook.
 
 New full restart verifier:
 
@@ -67,14 +68,16 @@ Regressions:
 - `Tests/test_daily_replacement_facts.py`
 - `Tests/test_daily_fact_reconstruction_verifier.py`
 
-Status: **implementation complete, focused source gate pending; native V88 pending**.
+Focused Windows gate: **28 passed, 3 warnings in 5.14s**. The warnings are the known Python 3.14 ZipFile teardown issue, not functional failures.
+
+Status: **source gate green; native V88 and restart reconstruction equivalence pending**.
 
 ## Immediate roadmap
 
-1. Run focused source tests for replacement fact storage, verifier and orphan resolution integration.
-2. Generate `ORPHAN_RESOLUTION_V88.xlsm` from existing `ORPHAN_SMOKE_INPUT_V86.xlsm`, with at least one placement and one suspension.
-3. Confirm replacement facts + suspension facts persist, input unchanged and VBA preserved.
-4. Run full fact reconstruction verifier against V88 and require replacement/suspension counts, unresolved=0, finalized=ΝΑΙ and stored-statistics equivalence.
+1. Generate `ORPHAN_RESOLUTION_V88.xlsm` from existing `ORPHAN_SMOKE_INPUT_V86.xlsm`, ideally reproducing 5 placements + 2 suspensions.
+2. Confirm replacement facts + suspension facts persist, input unchanged and VBA preserved.
+3. Run full fact reconstruction verifier against V88 and require replacement/suspension counts, unresolved=0, finalized=ΝΑΙ and stored-statistics equivalence.
+4. If green, close full authoritative daily-state restart persistence.
 5. Replace snapshot ledger restore with authoritative fact removal/deactivation + full recompute.
 6. Test selected/all restore with multiple simultaneous changes.
 7. Resume outpatient recurring create/edit native gate.
