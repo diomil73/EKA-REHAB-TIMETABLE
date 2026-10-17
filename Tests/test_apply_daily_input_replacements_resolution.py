@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from datetime import date, time
 from types import SimpleNamespace
 
@@ -11,6 +12,7 @@ from tools.apply_daily_input_replacements import (
     _append_treatment_suspension,
     _ask_resolution,
     _replacement_id,
+    main,
 )
 
 
@@ -88,3 +90,13 @@ def test_replacement_id_uses_legacy_first_generation_then_versions_history():
         SimpleNamespace(replacement_id="daily-input:unrelated:2026-10-19"),
     )
     assert _replacement_id(session, history_v2) == f"{base}:v3"
+
+
+def test_rerun_persists_only_new_replacement_facts_and_cleans_partial_output():
+    source = inspect.getsource(main)
+
+    assert "new_replacements: list[ReplacementAssignment] = []" in source
+    assert "new_replacements.append(replacement)" in source
+    assert "append_daily_replacement_facts(\n            output,\n            new_replacements," in source
+    assert "if output_created and output.exists():" in source
+    assert "output.unlink()" in source
