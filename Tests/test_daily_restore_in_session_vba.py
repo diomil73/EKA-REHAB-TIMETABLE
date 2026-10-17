@@ -25,6 +25,17 @@ def test_in_session_restore_avoids_redundant_success_path_saves():
     assert 'SyncRestoreSheetSet previewWorkbook, ThisWorkbook\n    ThisWorkbook.Save' in transformed
 
 
+def test_in_session_sync_avoids_bloated_used_range_copy():
+    transformed = build_in_session_ledger_vba(VBA_CODE)
+
+    assert 'Set sourceRange = MeaningfulRestoreRange(sourceSheet)' in transformed
+    assert 'sourceSheet.UsedRange' not in transformed
+    assert 'Private Function MeaningfulRestoreRange(ByVal ws As Worksheet) As Range' in transformed
+    assert 'SearchOrder:=xlByRows' in transformed
+    assert 'SearchOrder:=xlByColumns' in transformed
+    assert 'LookIn:=xlFormulas' in transformed
+
+
 def test_transformer_keeps_atomic_selected_and_all_backend_arguments():
     transformed = build_in_session_ledger_vba(VBA_CODE)
 
