@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active. Backend is now down to about 23 seconds and the dominant remaining parser cost has been replaced with a lightweight OOXML path.**
+Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active. Backend is now down to about 23 seconds, the former 8.9-second fact-restore Excel process is gone, and the MASTER metadata path has moved to lightweight OOXML reads.**
 
 ## Latest confirmed checkpoints
 
@@ -16,6 +16,8 @@ Active milestone: **Restore correctness is closed green for per-row, selected, a
 - latest direct backend profile: **22.924s total**, **12.978s pre-Excel/verification**, **9.946s Excel output**
 - latest largest pre-Excel phase: **build_master_projection 6.142s**
 - previous **restore_fact_batch 8.863s** phase is gone after lifecycle consolidation
+- first OOXML projection gate exposed a package-absolute relationship-path bug: **5 failed, 51 passed in 5.06s**
+- package relationship normalization fix + regression now green: **59 passed in 6.85s**
 - latest Excel output: dispatch 2.133s, open 1.849s, MASTER 1.794s, daily patches 0.498s, statistics 0.277s, replacement facts 0.155s, ledger 0.174s, refresh 0.129s, save 2.189s, close 0.098s, quit 0.004s
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row / selected / restore-all in-session correctness: **native green**
@@ -54,20 +56,20 @@ The optimization chain now includes:
 10. reuse of already-loaded PATIENTS and already-built MASTER projection,
 11. replacement fact lifecycle persistence moved into the existing output Excel session, eliminating the separate `8.863s` restore-fact Excel process,
 12. MASTER metadata consolidated first to one workbook load, then further optimized because the full `.xlsm` load itself remained expensive,
-13. **new:** `build_master_projection` now reads PATIENTS row ids, SETTINGS room order, and MASTER header directly through `WorkbookPackageProbe` from the OOXML ZIP/XML package. No full openpyxl load is used for these projection metadata reads. Implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`.
+13. `build_master_projection` now reads PATIENTS row ids, SETTINGS room order, and MASTER header directly through `WorkbookPackageProbe` from the OOXML ZIP/XML package. No full openpyxl load is used for these projection metadata reads. Implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`.
+14. OPC relationship targets are normalized correctly for package-absolute (`/xl/...`), relative and parent-relative forms before ZIP access. Fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`, regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`. Focused gate is now `59 passed in 6.85s`.
 
 Safety semantics are unchanged: the package probe is read-only, source bytes are not changed, validate-all-before-mutate remains intact, and native Excel still mutates only the output preview copy.
 
 ## Immediate roadmap
 
-1. Pull latest branch and run the focused tests including authoritative restore, profiler, MASTER projection/overlay, outpatient schedule source, and in-session bridge tests.
-2. Rerun `profile_daily_restore_backend.py` against trusted `RERESOLVED_V90.xlsm` using fresh `BACKEND_PROFILE4.xlsm`.
-3. Confirm that `build_master_projection` falls sharply from **6.142s**.
-4. Optimize the next largest measured phase immediately. Likely targets are `pre_excel_unattributed ~2.58s` and then Excel process startup/open/save overhead.
-5. Re-run fresh reconstruction after performance changes.
-6. Keep the acceptance target at roughly **<=15 seconds total**, ideally around 10 seconds.
-7. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
-8. Later clean Python 3.14 ZipFile warnings.
+1. Run `profile_daily_restore_backend.py` against trusted `RERESOLVED_V90.xlsm` using fresh `BACKEND_PROFILE4.xlsm`.
+2. Confirm that `build_master_projection` falls sharply from **6.142s**.
+3. Optimize the next largest measured phase immediately. Likely targets are `pre_excel_unattributed ~2.58s` and then Excel process startup/open/save overhead.
+4. Re-run fresh reconstruction after performance changes.
+5. Keep the acceptance target at roughly **<=15 seconds total**, ideally around 10 seconds.
+6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+7. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
