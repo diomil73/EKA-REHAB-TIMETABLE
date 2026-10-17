@@ -33,6 +33,7 @@ class SessionCancellationKind(str, Enum):
 
     DEPARTMENT_POSTPONED = "department_postponed"
     PATIENT_NO_SHOW = "patient_no_show"
+    TREATMENT_SUSPENDED = "treatment_suspended"
 
 
 @dataclass(frozen=True)
