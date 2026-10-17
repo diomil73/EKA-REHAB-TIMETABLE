@@ -22,7 +22,8 @@ def test_in_session_restore_avoids_redundant_success_path_saves():
     assert 'ApplyAuthoritativeRestorePreview previewPath\n    RefreshDailyChangeLedgerView\n    ThisWorkbook.Save' not in transformed
     assert 'ThisWorkbook.Save\n    ThisWorkbook.SaveCopyAs rollbackPath' not in transformed
     assert 'ThisWorkbook.SaveCopyAs rollbackPath' in transformed
-    assert 'SyncRestoreSheetSet previewWorkbook, ThisWorkbook\n    ThisWorkbook.Save' in transformed
+    assert 'SyncRestoreSheetSet previewWorkbook, ThisWorkbook\n    ThisWorkbook.Save' not in transformed
+    assert 'phaseStarted = Timer\n    ThisWorkbook.Save\n    saveSeconds = ElapsedRestoreSeconds(phaseStarted)' in transformed
 
 
 def test_in_session_sync_avoids_bloated_used_range_copy():
@@ -34,6 +35,24 @@ def test_in_session_sync_avoids_bloated_used_range_copy():
     assert 'SearchOrder:=xlByRows' in transformed
     assert 'SearchOrder:=xlByColumns' in transformed
     assert 'LookIn:=xlFormulas' in transformed
+
+
+def test_restore_success_reports_phase_timings_for_performance_diagnosis():
+    transformed = build_in_session_ledger_vba(VBA_CODE)
+
+    assert 'backendStarted = Timer' in transformed
+    assert 'backendSeconds = ElapsedRestoreSeconds(backendStarted)' in transformed
+    assert 'rollbackSeconds = ElapsedRestoreSeconds(phaseStarted)' in transformed
+    assert 'previewOpenSeconds = ElapsedRestoreSeconds(phaseStarted)' in transformed
+    assert 'syncSeconds = ElapsedRestoreSeconds(phaseStarted)' in transformed
+    assert 'saveSeconds = ElapsedRestoreSeconds(phaseStarted)' in transformed
+    assert 'Private Function ElapsedRestoreSeconds(ByVal startedAt As Double) As Double' in transformed
+    assert '"Διαγνωστικοί χρόνοι:"' in transformed
+    assert '"Backend: "' in transformed
+    assert '"Rollback copy: "' in transformed
+    assert '"Άνοιγμα preview: "' in transformed
+    assert '"Συγχρονισμός φύλλων: "' in transformed
+    assert '"Τελικό save: "' in transformed
 
 
 def test_transformer_keeps_atomic_selected_and_all_backend_arguments():
