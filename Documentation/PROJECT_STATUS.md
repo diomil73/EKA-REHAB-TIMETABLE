@@ -6,17 +6,14 @@ Last updated: 2026-10-17
 
 The project remains on branch `feature/outpatient-scheduling`.
 
-The patient-centric multi-treatment scheduling milestone is closed. The active operational milestone is the reversible daily change ledger / dynamic daily redistribution path, with outpatient recurring create/edit still open behind it.
+The patient-centric multi-treatment scheduling milestone is closed. The active operational milestone is now **one concrete-date effective state across MASTER + THERAPIST_DAILY + ledger + statistics**, with outpatient recurring create/edit still open behind it.
 
 Latest full-suite checkpoint after cleanup: **699 passed, 19 warnings**.
-
 Latest focused operational regression checkpoint: **31 passed in 2.04s**.
 
 ## Current native checkpoint
 
-A real guided replacement preview now builds successfully from V81 into:
-
-`Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`
+`Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm` builds successfully and the individual restore flow is native green.
 
 Stress case:
 
@@ -24,85 +21,99 @@ Stress case:
 - patient `ΜΕΝΤΗΣ`,
 - original `Σκαρώνης 09:15`,
 - selected replacement `Μηλιδάκης 10:45`,
-- candidate load shown correctly as `load 5/6 | patients 6`,
+- candidate load `load 5/6 | patients 6`,
 - source unchanged,
 - VBA preserved,
-- daily change ledger installed.
+- ledger installed,
+- per-row restore returns the patient correctly to the original position.
 
-The next gate is native visual/interactive acceptance of the ledger in `THERAPIST_DAILY`, especially individual restore behavior.
+## Confirmed integration bug
 
-## Completed scheduling milestone
+While the daily move is active, `THERAPIST_DAILY` shows the effective replacement correctly, but the timetable on `MASTER` remains on the recurring/original assignment.
 
-The current patient-program flow is native-verified for:
+This is not accepted behavior.
 
-- new-patient continuation into scheduling,
-- patient-centric multi-treatment selection,
-- hybrid manual/automatic scheduling,
-- one final atomic save,
-- conflict validation with explicit override,
-- exact adjacency support,
-- edit-existing-program preload and resave,
-- no false self-conflict from replaced persisted assignments,
-- optional free-text provider/name persistence for Ρομποτικό / Εργο / Λογο / Ψυχ,
-- MASTER composite rendering,
-- final shell refresh in generated previews.
+Required invariant:
 
-Retired single-treatment scheduling code has been removed while preserving the joint `auto-propose` bridge path used by the current patient-program scheduler.
+`DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
+
+MASTER must show the effective therapist/time while an overlay is active and return to the original therapist/time after restore.
+
+## V82 native cleanup backlog
+
+- left time column in `THERAPIST_DAILY` shows `###` in some rows; widen/fix `hh:mm`,
+- orange text remains reserved for robotic participation only,
+- moved infectious patient ΜΕΝΤΗΣ must not inherit robotic-orange styling,
+- remove obsolete legacy `ΑΝΑΝΕΩΣΗ` button on the right side,
+- keep the useful source-slot trace showing the moved patient and arrow to the effective assignment.
+
+## Orphan workflow now locked
+
+The daily `Ορφανοί` list is an operational queue. Every unresolved/displaced patient for the date must end as either:
+
+- placed in a valid therapist/time slot, or
+- `Αναστολή θεραπείας` for that date only.
+
+`Αναστολή θεραπείας` is a daily overlay/status, never a recurring delete, and must feed daily statistics as a non-performed treatment with that explicit reason.
+
+No orphan may silently disappear from the plan.
+
+## Daily operational rules locked
+
+- capacity/load is measured by occupied timeslots,
+- shared slots may host multiple patients but consume one timeslot,
+- cancellations release same-day capacity,
+- therapist absences and cancellations may arrive in any order,
+- daily recomputation must be idempotent,
+- displaced existing patients precede new-patient allocation,
+- remaining orphans must be explicitly placed or suspended,
+- recurring/base schedules are never destructively edited for one-day operational facts,
+- date-specific moves are reversible through the daily ledger,
+- mixed inpatient/outpatient presentation ambiguity must not block a valid movement.
 
 ## Accepted MASTER UX
 
-Native V81 behavior is green:
+Native V81 behavior remains green:
 
-- the four action buttons remain horizontally at the top,
-- treatment/column headers remain visible,
-- rows 1-4 are frozen during vertical scrolling,
-- no UserForm/sidebar/CommandBars workaround is used.
-
-Earlier V74-V79 persistent-control/sidebar experiments are retired.
-
-## Daily operational rules now locked
-
-- therapist load/capacity is measured by occupied timeslots, not raw session count,
-- shared slots may contain multiple patients but consume one timeslot of daily capacity,
-- replacement candidate ranking uses occupied timeslots first,
-- mixed inpatient/outpatient cells must not abort otherwise valid operational movement solely because whole-cell colouring is ambiguous,
-- cancellations release same-day capacity,
-- therapist absences and cancellations can arrive in any order and the daily plan must be recomputable/idempotent,
-- displaced existing patients take priority over new-patient allocation,
-- recurring/base schedules are never destructively edited for one-day operational changes,
-- date-specific moves must be reversible through a visible daily change ledger.
+- four action buttons horizontally at the top,
+- treatment/column headers visible,
+- rows 1-4 frozen during vertical scrolling,
+- no UserForm/sidebar/CommandBars workaround.
 
 ## Outpatient architecture already in place
 
 The branch contains:
 
-- `PatientType` support with inpatient/outpatient distinction,
-- outpatient registry storage extensions,
+- inpatient/outpatient patient types,
 - separate authoritative `OUTPATIENT_SCHEDULE`,
-- unified base-schedule reads for operational logic,
-- outpatient presentation rules in `THERAPIST_DAILY`,
-- operational integration for daily input/replacements,
+- unified base-schedule reads,
+- outpatient presentation rules,
+- daily operational integration,
 - cancellation/no-show overlays,
 - outpatient schedule registration/suggestion/conflict infrastructure.
 
-Important invariant: outpatient status changes storage/presentation routing, not operational workload/capacity semantics.
+Outpatient recurring create/edit native verification remains open after the current daily-state integration work.
 
 ## Immediate roadmap
 
-1. Native-smoke `DAILY_CHANGE_LEDGER_V82.xlsm` in `THERAPIST_DAILY`.
-2. Verify ΜΕΝΤΗΣ appears at Μηλιδάκης 10:45 and the ledger shows the exact transition from Σκαρώνης 09:15.
-3. Test individual `Επαναφορά` and verify exact visual restoration without recurring-source mutation.
-4. Extend native testing to selected/all restore when multiple simultaneous preview changes are supported.
-5. Replace preview snapshot restoration with authoritative overlay removal + full daily recomputation.
-6. Resume outpatient recurring schedule create/edit native gate against `OUTPATIENT_SCHEDULE`.
-7. Continue remaining daily operational and outpatient native checks, then branch/PR hardening.
+1. Wire MASTER timetable to concrete-date `DailySessionState`.
+2. Verify active move appears on MASTER as `Μηλιδάκης 10:45`.
+3. Verify restore returns MASTER to `Σκαρώνης 09:15`.
+4. Fix THERAPIST_DAILY time-column width/format.
+5. Fix infectious vs robotic styling for moved patients.
+6. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+7. Implement/verify orphan final outcomes and statistics.
+8. Test selected/all restore with multiple changes.
+9. Replace preview snapshot restore with authoritative overlay removal + full daily recomputation.
+10. Resume outpatient recurring create/edit native gate.
+11. Continue remaining daily operational native checks and branch/PR hardening.
 
 ## Safety constraints
 
 - Never write directly to the baseline `.xlsm` during development or smoke testing.
-- Preview workflows must operate on copied `.xlsm` files only.
+- Preview workflows operate on copied `.xlsm` files only.
 - Preserve/verify VBA when rebuilding previews.
-- Keep existing scheduling behavior backward-compatible unless an explicit business rule changes it.
+- Keep current scheduling behavior backward-compatible unless an explicit business rule changes it.
 - Windows test command is always `python -m pytest`.
 
 ## Recovery order
