@@ -30,6 +30,11 @@ from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
     compose_outpatient_daily_plan,
 )
+from rehab_excel.master_daily_overlay import (  # noqa: E402
+    MasterDailyOverlayError,
+    build_master_daily_overlay_plan,
+    compose_master_daily_overlay,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
 from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
 from rehab_excel.outpatient_schedule_source import (  # noqa: E402
@@ -242,6 +247,13 @@ def main() -> int:
             states=states,
             patients=patients,
         )
+        master_overlay = build_master_daily_overlay_plan(
+            source,
+            base_entries=base_entries,
+            states=states,
+            patients=patients,
+        )
+        composed_plan = compose_master_daily_overlay(composed_plan, master_overlay)
         report = apply_write_plan_to_copy(
             composed_plan,
             output,
@@ -275,6 +287,7 @@ def main() -> int:
         OutpatientScheduleSourceError,
         OutpatientPresentationError,
         DailyPreviewCompositionError,
+        MasterDailyOverlayError,
         DailyChangeLedgerPreviewError,
         ValueError,
         KeyError,
@@ -292,8 +305,9 @@ def main() -> int:
     print(f"Preview: {report.output_path}")
     print(f"Source unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
+    print("MASTER daily overlay installed: yes")
     print("Daily change ledger installed: yes")
-    print("NEXT: open the preview, scroll below THERAPIST_DAILY, and test Restore / selected / all.")
+    print("NEXT: verify MASTER and THERAPIST_DAILY before Restore, then verify both return after Restore.")
     return 0 if report.source_unchanged and vba_preserved else 3
 
 
