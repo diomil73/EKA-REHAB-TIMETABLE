@@ -18,6 +18,7 @@ def test_daily_input_spec_keeps_existing_statuses_and_appends_cancellation_optio
         timeslots=(time(8, 30), time(9, 15)),
     )
     assert spec.patient_statuses == (*statuses, *PATIENT_CANCELLATION_STATUSES)
+    assert "Αναστολή θεραπείας" in spec.patient_statuses
 
 
 def test_daily_input_spec_deduplicates_dropdown_values_without_reordering():
@@ -40,6 +41,7 @@ def test_daily_input_spec_deduplicates_dropdown_values_without_reordering():
         "ΑΠΩΝ",
         "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
         "ΔΕΝ ΠΡΟΣΗΛΘΕ",
+        "Αναστολή θεραπείας",
     )
 
 
@@ -58,7 +60,6 @@ def test_daily_input_layout_has_separate_therapist_and_patient_sections():
     assert spec.patient_header_row == 20
     assert spec.patient_first_row == 21
     assert spec.patient_last_row == 40
-
 
 
 class _FakeCells:
@@ -126,7 +127,6 @@ def test_get_or_create_sheet_creates_missing_sheet_in_requested_position():
 
     assert result.Name == "DAILY_INPUT"
     assert workbook.Worksheets(1) is result
-
 
 
 def test_daily_input_sheet_contains_outpatient_marker_rule():
