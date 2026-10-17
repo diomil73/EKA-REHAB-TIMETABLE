@@ -84,7 +84,8 @@ def test_authoritative_restore_runs_hidden_and_applies_inside_open_workbook():
     assert 'ThisWorkbook.SaveCopyAs rollbackPath' in EFFECTIVE_VBA
     assert 'SyncRestoreSheetSet previewWorkbook, ThisWorkbook' in EFFECTIVE_VBA
     assert 'RefreshDailyChangeLedgerView' in EFFECTIVE_VBA
-    assert 'χωρίς κλείσιμο του αρχείου' in EFFECTIVE_VBA
+    assert 'Η επαναφορά ολοκληρώθηκε επιτυχώς.' in EFFECTIVE_VBA
+    assert 'χωρίς κλείσιμο του αρχείου' not in EFFECTIVE_VBA
 
 
 def test_primary_restore_path_forbids_terminal_and_close_reopen_worker():
