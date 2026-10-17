@@ -151,10 +151,6 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
         clear_last = max(old_last, new_last)
 
         if clear_last >= template_row:
-            # Restore the established row shell with at most two format-copy calls,
-            # then clear the whole projection body in one COM operation. The old
-            # implementation repeated Copy/Paste/Clear once per row, which was the
-            # dominant cost on normal workbooks.
             try:
                 ws.Range(f"B{template_row}:C{template_row}").Copy()
                 ws.Range(f"B{template_row}:C{clear_last}").PasteSpecial(Paste=-4122)
@@ -189,8 +185,6 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
                 ws.Cells(new_last, total_cols),
             ).Formula = tuple(formula_matrix)
 
-        # Only the exceptional rich-text / infectious presentation needs
-        # per-row COM work after the bulk formula assignment.
         for item in self.master_projection:
             if item.responsible_doctor:
                 backend._render_patient_identity(ws.Cells(item.target_row, 3), item)
@@ -304,8 +298,6 @@ class _RestoreOutputBackend(Win32ComExcelBackend):
             try:
                 excel.Run(f"'{workbook.Name}'!RefreshDailyChangeLedgerView")
             except Exception:
-                # Rendering is a UI convenience. The authoritative facts,
-                # statistics and ledger lifecycle state are still persisted below.
                 pass
             workbook.Save()
         except AuthoritativeDailyRestoreError:
@@ -370,7 +362,7 @@ def restore_replacements_and_recompute(
         restored_ids = restore_daily_replacement_facts(stage, wanted_ids)
 
         patients = read_patient_registry(stage)
-        base_entries = read_unified_base_schedule(stage)
+        base_entries = read_unified_base_schedule(stage, patients=patients)
         sessions = materialize_sessions_for_date(base_entries, target_date)
         daily = read_daily_input(stage, patients=patients, sessions=sessions)
         replacements = read_daily_replacement_facts(
@@ -406,6 +398,7 @@ def restore_replacements_and_recompute(
             base_entries=base_entries,
             states=states,
             patients=patients,
+            master_projection_rows=master_projection,
         )
         composed_plan = compose_master_daily_overlay(composed_plan, master_overlay)
         report = apply_write_plan_to_copy(
