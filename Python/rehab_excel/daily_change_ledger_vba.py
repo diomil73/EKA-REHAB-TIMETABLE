@@ -256,6 +256,13 @@ Private Function RestoreLedgerRow(ByVal ledgerRow As Long, ByVal showMessage As 
         wsLedger.Cells(ledgerRow, 14).Copy Destination:=wsDaily.Range(effectiveCell)
     End If
 
+    ' MASTER_SCHEDULE is a derived recurring view plus today's effective overlay.
+    ' Once this preview overlay is restored, rebuild this patient's MASTER row
+    ' from PATIENT_PLANNER so the two operational views cannot disagree.
+    On Error Resume Next
+    Call RefreshMasterPatientProgram(CStr(wsLedger.Cells(ledgerRow, 3).Value))
+    On Error GoTo 0
+
     wsLedger.Cells(ledgerRow, 12).Value = STATUS_RESTORED
     wsLedger.Cells(ledgerRow, 17).Value = Now
     RestoreLedgerRow = True
