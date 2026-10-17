@@ -5,151 +5,141 @@ Last updated: 2026-10-17
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Latest native orphan preview: `Excel/previews/ORPHAN_RESOLUTION_V88.xlsm`
+- Latest native daily preview: `Excel/previews/ORPHAN_RESOLUTION_V88.xlsm`
 - V81 MASTER toolbar/header UX remains native green.
 
 ## Latest confirmed checkpoints
 
 - full regression checkpoint: `699 passed, 19 warnings`
-- replacement load + mixed outpatient/inpatient regression: `31 passed in 2.04s`
+- replacement load + mixed outpatient/inpatient: `31 passed in 2.04s`
 - MASTER daily overlay + ledger restore source gate: `24 passed, 5 warnings in 4.39s`
 - orphan suspension + statistics domain gate: `21 passed in 3.11s`
 - consolidated orphan operational gate: `43 passed, 3 warnings in 5.15s`
-- authoritative replacement fact focused source gate: `28 passed, 3 warnings in 5.14s`
-- V82 individual ledger restore: native green
-- V83 MASTER active-overlay sync + restore: native green
-- V84 time-axis display + restore: native green
-- V85 stale-orange cleanup + restore: native green
+- replacement fact focused gate: `28 passed, 3 warnings in 5.14s`
 - V87 mixed orphan resolution: native green
-- V87 suspension/statistics reread persistence: native green
+- V87 suspension/statistics reread: native green
+- V88 full daily-fact reconstruction across restart: **native green**
 
-Python 3.14 `ZipFile.__del__` warnings remain non-blocking technical debt.
+Known Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
-## Native V87 orphan checkpoint
+## CLOSED milestone: restart-safe daily truth
 
-Input: `ORPHAN_SMOKE_INPUT_V86.xlsm`
-Output: `ORPHAN_RESOLUTION_V87.xlsm`
-Date: `2026-10-19`
+`ORPHAN_RESOLUTION_V88.xlsm` fresh-process reconstruction confirmed:
 
-Confirmed:
-
-- accepted replacements: 5
-- treatment suspensions: 2
-- persisted suspension facts: 2
-- unresolved: 0
-- scheduled: 80
-- performed: 78
-- replaced: 5
-- suspended: 2
-- source unchanged: True
-- VBA preserved: True
-- `DAILY_STATISTICS` created
-
-Placements:
-
-- ΤΣΙΚΟΒΑΣ -> Φιλιππούσης 10:45
-- ΜΑΛΑΠΑΝΗ -> Πέτσιος 10:00
-- ΟΛΥΜΠΙΟΣ -> Πέτσιος 10:45
-- ΜΑΡΙΝΟΠΟΥΛΟΥ -> Παπακίτσου 11:30
-- ΜΩΡΑΙΤΗΣ -> Αργέντος 10:45
-
-Suspensions:
-
-- ΠΑΠΠΟΥ: Σάρρας 09:15 -> `Αναστολή θεραπείας`
-- ΣΑΒΒΑΚΗ: Σάρρας 10:45 -> `Αναστολή θεραπείας`
-
-Fresh reread of V87 also confirmed:
-
+- persisted replacements reread: 5
 - treatment suspensions reread: 2
-- stored statistics treatment_suspended: 2
-- stored unresolved: 0
-- stored finalized: ΝΑΙ
+- reconstructed unresolved: 0
+- reconstructed finalized: ΝΑΙ
+- stored `DAILY_STATISTICS` exactly matches reconstructed daily state
 
-## ACTIVE milestone: authoritative replacement facts
+Therefore the concrete operational day can now be reconstructed from durable facts:
 
-Source implementation is in place and the focused Windows gate is green.
+`recurring/base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS -> DailySessionState -> statistics`
 
-New module:
+The earlier COM date issue (`46313.875`) is also closed:
 
-- `Python/rehab_excel/daily_replacement_facts.py`
+- legacy numeric ReplacementDate values normalize to nearest whole Excel day,
+- future writes use ISO text `YYYY-MM-DD`.
 
-Structured very-hidden sheet:
+## ACTIVE milestone: authoritative restore + recompute
 
-- `DAILY_REPLACEMENT_FACTS`
+The old VBA `RestoreLedgerRow()` still performs temporary snapshot cell copy-back. We are replacing that architecture with fact lifecycle + recomputation.
 
-Authoritative schema stores:
+### Replacement fact lifecycle implemented
 
-- ReplacementId
-- TargetSessionId
-- PatientId
-- OriginalTherapistId
-- ReplacementTherapistId
-- ReplacementDate
-- ReplacementTime
-- Reason
-- ProviderKind
-- Status (`ACTIVE`)
+`Python/rehab_excel/daily_replacement_facts.py` now supports:
 
-Safety/semantics:
+- `ACTIVE`
+- `RESTORED`
 
-- validates patient/original therapist/date against the concrete target Session,
-- rejects duplicate ReplacementId,
-- rejects multiple conflicting active facts for the same target session/date,
-- missing sheet is backward-compatible and means no persisted replacements,
-- blank provider kind defaults to therapist for legacy compatibility,
-- output writer is idempotent for the same semantic replacement,
-- conflicting replacement for the same target/date safety-stops,
-- fact sheet is `xlSheetVeryHidden`,
-- recurring/base remains untouched.
+Rules:
 
-`apply_daily_input_replacements.py` now:
+- RESTORED rows remain immutable audit history,
+- effective daily-state readers ignore RESTORED facts,
+- conflict checks only consider ACTIVE facts,
+- exact restore matches immutable `ReplacementId`, not cells,
+- already-restored fact is idempotent,
+- a stale restore cannot silently erase a newer replacement,
+- unsupported statuses safety-stop.
 
-- loads existing persisted replacement facts from the input workbook before resolution,
-- includes them in capacity/state calculations,
-- skips already resolved target sessions,
-- uses deterministic replacement IDs: `daily-input:<session_id>:<date>`,
-- persists all active replacement facts into the output workbook,
-- reports loaded and newly-written replacement fact counts.
+Function:
 
-New full restart verifier:
-
-- `Python/tools/verify_daily_fact_reconstruction.py`
-
-It reconstructs the day from:
-
-`recurring/base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS`
-
-then compares reconstructed scheduled/performed/replaced/absent/postponed/no-show/suspended/unresolved/finalized values against stored `DAILY_STATISTICS`.
-
-Focused Windows result:
-
-- `28 passed, 3 warnings in 5.14s`
-- warnings are the known Python 3.14 `ZipFile.__del__` teardown issue and are non-blocking.
-
-## V88 native reconstruction blocker and fix
-
-Running the full reconstruction verifier against `ORPHAN_RESOLUTION_V88.xlsm` stopped on:
-
-`DAILY_REPLACEMENT_FACTS row 2: invalid ReplacementDate 46313.875`
-
-Root cause:
-
-- Excel/COM persisted the calendar-only date through a timezone-shifted numeric serial.
-- For the intended 2026-10-19 date, the saved serial appeared as `46313.875` (previous UTC day at 21:00).
-- Simple truncation would incorrectly reconstruct 2026-10-18.
-
-Fix implemented:
-
-- legacy numeric `ReplacementDate` values are normalized to the nearest whole Excel day before conversion,
-- exact regression added for `46313.875 -> 2026-10-19`,
-- future writes store `ReplacementDate` as ISO text (`YYYY-MM-DD`) instead of COM datetime, eliminating timezone ambiguity.
+- `restore_daily_replacement_fact(workbook_path, replacement_id)`
 
 Commits:
 
-- `030acf0987d992bb2611a78f0f18df24a0b2c859` implementation
-- `7091fd91543eeaa219c370b2579712a10376651d` regression
+- lifecycle implementation: `d5bba940e6ca531fd5a969409941aeb6def5b8e3`
+- lifecycle regressions: `14c0566c04c9489fe7ec1a88a74779e2b68d0371`
 
-Status: **fix implemented; focused test + rerun of existing V88 verifier pending**.
+### Authoritative restore preview implemented
+
+New tool:
+
+- `Python/tools/restore_daily_replacement_fact.py`
+
+Flow:
+
+1. copy source workbook to staging,
+2. mark exact replacement fact RESTORED,
+3. reread all surviving facts,
+4. rebuild DailySessionState,
+5. recompute statistics,
+6. rebuild MASTER back to recurring truth with `refresh_master_projection_in_place`,
+7. rebuild THERAPIST_DAILY from recomputed state,
+8. reapply surviving MASTER daily overlays,
+9. rewrite DAILY_STATISTICS,
+10. mark matching ledger ChangeId as RESTORED history,
+11. preserve source and VBA.
+
+Commit: `dfc7c0424361eb293110e79f34545f15792bf20d`
+
+Regression:
+
+- `Tests/test_authoritative_daily_restore.py`
+- commit `29c28397c478a17ab69d24d1cba0e52c27128270`
+
+Fact inventory helper:
+
+- `Python/tools/inspect_daily_replacement_facts.py`
+- commit `3d622d4003e17252af58ce0dcd9b1364797b1c36`
+
+Status: **implemented; focused source gate pending; native V89 restore pending**.
+
+## Important restore semantic
+
+Restoring a replacement means removing that daily placement overlay. If the original therapist absence still exists, that patient becomes orphan/unresolved again.
+
+That is correct behavior. The system must not silently put the patient back under an absent therapist.
+
+Therefore a valid authoritative restore can produce:
+
+- fewer active replacements,
+- `unresolved > 0`,
+- `finalized = ΟΧΙ`,
+
+until that orphan is placed again or receives `Αναστολή θεραπείας`.
+
+## ID hardening item
+
+Current operational flow uses deterministic replacement IDs:
+
+`daily-input:<session_id>:<date>`
+
+After one such fact becomes RESTORED, a later new replacement for the same session/date must not reuse that historical ID. The writer now rejects reuse intentionally.
+
+Next hardening after the first native restore gate: add versioned/new replacement-ID generation for re-resolution of a previously restored session.
+
+## Exact resume point
+
+1. Run focused lifecycle + authoritative restore tests.
+2. Inventory exact ACTIVE replacement IDs in V88.
+3. Restore one exact V88 replacement into `AUTHORITATIVE_RESTORE_V89.xlsm`.
+4. Expect active replacements to drop from 5 to 4. If therapist absence persists, expect unresolved to rise to 1 and finalized to become ΟΧΙ.
+5. Run fresh reconstruction verifier against V89 and require exact DAILY_STATISTICS equivalence.
+6. After V89 is native green, connect Excel ledger buttons to this authoritative path through an existing bridge pattern.
+7. Implement selected/all restore as multi-fact deactivation followed by one recompute.
+8. Add replacement-ID versioning for re-resolution after restore.
+9. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
@@ -158,66 +148,40 @@ Every orphan for the concrete date must resolve as exactly one of:
 - valid therapist/time placement, or
 - `Αναστολή θεραπείας` for that date only.
 
-Suspension representation:
-
-- `DailySessionStatus.CANCELLED`
-- `SessionCancellationKind.TREATMENT_SUSPENDED`
-- recurring/base untouched
-- original slot released
-- auditable reason
-- finalized day requires unresolved=0
+Suspension = `DailySessionStatus.CANCELLED` + `SessionCancellationKind.TREATMENT_SUSPENDED`.
+Recurring/base remains untouched. A finalized day requires unresolved=0.
 
 ## Locked daily recomputation order
 
-1. recurring/base schedule for concrete date,
+1. recurring/base schedule,
 2. cancellations/no-shows release capacity,
 3. therapist absences,
-4. identify displaced/unscheduled existing patients,
-5. load persisted replacements and redistribute existing affected patients into net free capacity,
+4. identify displaced/orphan sessions,
+5. apply surviving ACTIVE replacement overlays,
 6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
-7. only then expose remaining capacity to new patients.
+7. only then expose capacity to new patients.
 
-Recomputation must remain idempotent and order-independent.
-
-## Exact resume point
-
-1. Pull latest branch.
-2. Run `Tests/test_daily_replacement_facts.py` focused regression.
-3. Re-run `verify_daily_fact_reconstruction.py` directly against existing `ORPHAN_RESOLUTION_V88.xlsm`; no V88 rebuild is required for reader verification.
-4. If green, optionally regenerate a future preview once to confirm new ISO-date writer output.
-5. Then use the authoritative fact store as the foundation for ledger restore by fact removal + full recompute.
-6. Test selected/all restore with multiple simultaneous changes.
-7. Resume outpatient recurring create/edit native gate.
-8. Clean Python 3.14 ZipFile warnings later.
+Operational capacity is timeslot-based. Existing displaced patients precede new patients. MASTER and THERAPIST_DAILY must agree on effective daily state.
 
 ## Reversible daily change ledger
 
-Native green: active move rendering, MASTER sync, source trace, per-row restore, time-axis display, stale-orange cleanup.
+Native green from earlier prototype:
 
-Still open:
+- active move rendering,
+- MASTER sync,
+- source trace,
+- per-row snapshot restore,
+- readable time axis,
+- stale-orange cleanup.
 
-- selected/all restore with multiple simultaneous changes,
-- production restore via authoritative fact removal + recompute instead of snapshot restoration.
+Open:
+
+- replace snapshot restore with authoritative fact restore + recompute,
+- selected/all authoritative restore with multiple simultaneous changes.
 
 ## Legacy `ΑΝΑΝΕΩΣΗ`
 
-Deferred/manual cleanup. Not a blocker. Do not reopen unless operationally relevant.
-
-## Business rules that must not regress
-
-- ΦΘ provider required and solver-owned.
-- Ρομποτικό / Εργο / Λογο / Ψυχ optional free text, not solver constraints.
-- Ανακλινόμενο / Πισίνα / ΕΦΑ have no provider/name field.
-- Outpatients cannot receive Ρομποτικό.
-- Nonblank manual constraints are never silently overwritten.
-- Standard duration 45 minutes; Ανακλινόμενο 30 minutes.
-- Exact adjacency is legal.
-- `PATIENT_PLANNER` authoritative for inpatient recurring; `OUTPATIENT_SCHEDULE` authoritative for outpatient recurring.
-- daily cancellations/absences/replacements/suspensions/redistributions are overlays, not recurring edits.
-- operational capacity is timeslot-based.
-- existing displaced patients precede new patients.
-- MASTER and THERAPIST_DAILY must agree on effective daily state.
-- layout safety zones remain narrow.
+Deferred/manual cosmetic cleanup. Not a blocker. Do not reopen unless operationally relevant.
 
 ## Recovery order if context is lost
 
