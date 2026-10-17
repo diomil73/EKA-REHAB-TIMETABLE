@@ -8,13 +8,27 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### 1. Daily effective state: MASTER + THERAPIST_DAILY + ledger
+### 1. Ορφανοί: operational queue με τελικό outcome
 
-Locked target:
+Αυτό είναι πλέον το ενεργό milestone.
 
-`DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
+Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει υποχρεωτικά σε ένα από:
 
-Το stress case ΜΕΝΤΗΣ είναι πλέον native green για:
+- `Τοποθετήθηκε` σε έγκυρο therapist/time,
+- `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
+
+Locked rules:
+
+- κανένας ορφανός δεν εξαφανίζεται σιωπηλά,
+- `Αναστολή θεραπείας` είναι daily overlay/status, όχι recurring edit,
+- πρέπει να είναι auditable,
+- πρέπει να τροφοδοτεί daily statistics ως μη πραγματοποιηθείσα θεραπεία με explicit reason,
+- displaced existing patients προηγούνται των νέων ασθενών,
+- recomputation παραμένει idempotent και order-independent.
+
+### 2. Daily effective state: MASTER + THERAPIST_DAILY + ledger
+
+Το stress case ΜΕΝΤΗΣ είναι native green για:
 
 - active move `Σκαρώνης 09:15 -> Μηλιδάκης 10:45`,
 - MASTER + THERAPIST_DAILY sync,
@@ -23,35 +37,15 @@ Locked target:
 - readable `hh:mm` time axis,
 - stale robotic-orange leak fix.
 
-Statistics integration παραμένει open.
+Statistics integration παραμένει open και συνδέεται τώρα με το orphan/suspension milestone.
 
-### 2. Legacy `ΑΝΑΝΕΩΣΗ` cleanup
+### 3. Legacy `ΑΝΑΝΕΩΣΗ`
 
-V85 control inventory έδειξε ακριβώς:
+Το κουμπί παραμένει οπτικά, αλλά είναι **deferred/manual cleanup**.
 
-- Form Control / Shape type `8`,
-- name `Button 1`,
-- caption `ΑΝΑΝΕΩΣΗ`,
-- macro `...!RefreshAll`,
-- όχι ActiveX (`OLEObjects: 0`).
+Έχει ταυτοποιηθεί ως Form Control `Button 1`, caption `ΑΝΑΝΕΩΣΗ`, macro `RefreshAll`. Δεν είναι λειτουργικό blocker και δεν θα καταναλώσουμε άλλο engineering time τώρα. Ο χρήστης μπορεί να το αφαιρέσει χειροκίνητα στο Excel αργότερα.
 
-Το προηγούμενο generic caption cleanup δεν ήταν αρκετό λόγω COM behavior του Form Control.
-
-Νέο surgical fix:
-
-- direct enumeration `ws.Buttons()`,
-- delete μόνο με triple identity `Button 1` + `ΑΝΑΝΕΩΣΗ` + `RefreshAll`,
-- shape fallback με τα ίδια τρία identifiers,
-- κανένα `ekaLedger_*` ή toolbar control δεν στοχεύεται.
-
-Commits:
-
-- `e62ce5354752a61c4b10568ba184991b51b24c67`
-- `5c51e8988797ce67358a6886e5e41f9bf5bb848c`
-
-Status: **implemented, native verification pending**.
-
-### 3. Reversible daily change ledger
+### 4. Reversible daily change ledger
 
 Native green:
 
@@ -66,20 +60,6 @@ Open:
 - selected/all restore σε multi-change preview,
 - production restore = authoritative overlay removal + recompute, όχι snapshot restore.
 
-### 4. Ορφανοί: operational queue με τελικό outcome
-
-Κάθε unresolved/displaced patient πρέπει να καταλήγει σε:
-
-- `Τοποθετήθηκε` σε έγκυρο therapist/time, ή
-- `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
-
-Rules:
-
-- κανένας ορφανός δεν εξαφανίζεται σιωπηλά,
-- `Αναστολή θεραπείας` = daily overlay/status, όχι recurring edit,
-- τροφοδοτεί daily statistics ως μη πραγματοποιηθείσα θεραπεία με explicit reason,
-- displaced existing patients προηγούνται των νέων ασθενών.
-
 ### 5. Dynamic daily recomputation
 
 Locked order:
@@ -92,8 +72,6 @@ Locked order:
 6. resolve remaining orphans με placement ή `Αναστολή θεραπείας`,
 7. μόνο μετά new-patient allocation.
 
-Recompute idempotent, χωρίς destructive recurring edits.
-
 ### 6. Replacement operational load semantics
 
 - authoritative load = occupied timeslots,
@@ -103,7 +81,7 @@ Recompute idempotent, χωρίς destructive recurring edits.
 
 ### 7. Outpatient recurring create/edit
 
-Παραμένει open και επιστρέφει αμέσως μετά το current daily-state/ledger/orphan milestone.
+Παραμένει open και επιστρέφει αμέσως μετά το current orphan/daily-state milestone.
 
 ## Τι έχει ολοκληρωθεί
 
@@ -125,12 +103,12 @@ Recompute idempotent, χωρίς destructive recurring edits.
 
 ## Τρέχον verification gate
 
-1. Run focused legacy-button regression.
-2. Build fresh preview.
-3. Verify `ΑΝΑΝΕΩΣΗ` is gone.
-4. Verify `ekaToolbar_*` and `ekaLedger_*` controls remain.
-5. If green, close presentation cleanup milestone.
-6. Implement orphan outcomes + `Αναστολή θεραπείας` statistics.
+1. Inspect daily-state, cancellation, reason/status and statistics models.
+2. Choose clean representation for date-specific `Αναστολή θεραπείας`.
+3. Implement orphan placement/suspension outcomes.
+4. Add statistics integration.
+5. Add focused regression tests for auditability, non-destructive recurring behavior and idempotent recompute.
+6. Native-check orphan workflow.
 7. Test selected/all restore with multiple changes.
 8. Replace snapshot restore with authoritative overlay removal + recompute.
 9. Resume outpatient recurring create/edit gate.
