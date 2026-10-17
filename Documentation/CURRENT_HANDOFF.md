@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested: `Excel/previews/DAILY_CHANGE_LEDGER_V84.xlsm`
+- Latest native preview tested: `Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm`
 - V73 scheduling/conflict behavior remains native green.
 - V80 clean reset preview is native green.
 - V81 MASTER toolbar/header pinning is native green.
@@ -21,145 +21,111 @@ Last updated: 2026-10-17
 - reversible daily change ledger focused source gate: `10 passed in 3.26s`
 - replacement load + mixed outpatient/inpatient regression gate: `31 passed in 2.04s`
 - MASTER daily overlay + ledger restore source gate: **24 passed, 5 warnings in 4.39s**
-- V82 guided replacement native build: green
 - V82 individual ledger restore: **native green**
 - V83 MASTER active-overlay sync + restore: **native green**
 - V84 time-axis display + restore: **native green**
+- V85 stale-orange cleanup + restore: **native green**
 
-The 5 warnings are `PytestUnraisableExceptionWarning` messages from Python 3.14 `ZipFile.__del__` during workbook test teardown. They did not fail the gate and are not currently treated as a functional blocker; keep them on the technical-cleanup list.
+The 5 warnings are Python 3.14 `ZipFile.__del__` teardown warnings. They remain non-blocking technical debt.
 
-## V84 native guided replacement checkpoint
+## V85 native checkpoint
 
 Stress case:
 
 - date: `2026-10-19`
 - patient: `ΜΕΝΤΗΣ`
-- original assignment: `Σκαρώνης 09:15`
-- selected replacement: `Μηλιδάκης 10:45`
-- source workbook unchanged,
-- VBA preserved,
-- ledger installed.
+- original: `Σκαρώνης 09:15`
+- replacement: `Μηλιδάκης 10:45`
 
-Native behavior confirmed:
+Native behavior now confirmed:
 
-- `THERAPIST_DAILY` shows the moved patient at `Μηλιδάκης 10:45` while keeping the useful source-position trace,
-- `MASTER` shows the same effective daily assignment while the overlay is active,
-- individual `Επαναφορά` returns both `MASTER` and `THERAPIST_DAILY` to `Σκαρώνης 09:15`,
-- left-side timetable times are now readable as `hh:mm`; the `####` issue is closed.
+- `THERAPIST_DAILY` and `MASTER` agree on the effective daily assignment,
+- left-side times display correctly as `hh:mm`,
+- ΜΕΝΤΗΣ no longer inherits stale robotic-orange text at the Μηλιδάκης destination,
+- individual `Επαναφορά` still works correctly and returns both views to `Σκαρώνης 09:15`,
+- source-position trace remains accepted UX.
 
-Open native cleanup still visible in V84:
+## Exact legacy `ΑΝΑΝΕΩΣΗ` identity
 
-- ΜΕΝΤΗΣ appears orange at the destination even though he is not robotic,
-- the obsolete `ΑΝΑΝΕΩΣΗ` button is still present.
+V85 still showed the obsolete refresh button. Native control inventory removed the ambiguity:
 
-## Current styling + legacy-button source fix
+- type: Excel Form Control button / Shape type `8`,
+- shape/button name: `Button 1`,
+- caption/text/alt: `ΑΝΑΝΕΩΣΗ`,
+- macro: `...!RefreshAll`,
+- OLEObjects: `0`.
 
-Root cause of the orange leak:
+Therefore this is not ActiveX. The earlier generic shape-caption cleanup missed it because the COM caption path for this Form Control is inconsistent.
 
-- rewritten destination cells could inherit a stale whole-cell orange font from an existing robotic presentation,
-- a new non-robotic line with no explicit text-run color then inherited that orange.
+Surgical source fix now added:
 
-Source fix added:
-
-- native Excel rich-text writes now reset the rewritten cell to default black when no whole-cell font role is requested,
-- semantic rich-text runs are then reapplied, so only actual robotic lines receive `robotic_orange`,
-- this preserves mixed-cell per-line semantics instead of leaking old whole-cell formatting.
-
-Legacy cleanup added:
-
-- ledger preview installation now removes only shapes on `THERAPIST_DAILY` whose exact caption is `ΑΝΑΝΕΩΣΗ`,
-- ledger controls are not targeted.
+- enumerate `ws.Buttons()` directly,
+- delete only when all three identifiers match: `Button 1` + `ΑΝΑΝΕΩΣΗ` + macro `RefreshAll`,
+- keep a shape fallback using the same triple identity,
+- do not target any `ekaLedger_*` or toolbar control.
 
 Commits:
 
-- `f4e382e0f1039cbd9582e9138a7dacde5eabd404` rich-text stale font reset
-- `d83b36d0d38d782df9e3cc094eb0da18498906a1` remove legacy refresh button
-- `1785786c05f95ac39aa8f2e17d9efb6e8e46325c` refresh-button regression
-- `9fc4e948d0065dfbad838730584d2832ef8adef7` rich-text reset regression
+- `e62ce5354752a61c4b10568ba184991b51b24c67` regression for exact Form Control identity
+- `5c51e8988797ce67358a6886e5e41f9bf5bb848c` surgical `ws.Buttons()` cleanup
 
 Status: **implemented, focused/native verification pending**.
 
 ## Locked orphan workflow
 
-Do not forget the daily list of unresolved/displaced patients (`Ορφανοί`). Every orphan for the concrete date must end in one of two operational outcomes:
+Every patient in the daily `Ορφανοί` queue must resolve for the concrete date as either:
 
-- **placed** into a valid therapist/time slot, or
-- **removed for that date only** with reason `Αναστολή θεραπείας`.
+- placed into a valid therapist/time slot, or
+- `Αναστολή θεραπείας` for that date only.
 
 Rules:
 
-- this is a daily overlay/status, never a destructive edit of the recurring/base schedule,
-- an orphan must not silently disappear from the operational plan,
-- `Αναστολή θεραπείας` must feed daily statistics as a treatment not performed for that explicit reason,
-- orphan resolution participates in the same recomputable daily-state engine,
+- never silently disappear,
+- suspension is a daily overlay/status, not a recurring delete,
+- suspension feeds daily statistics as treatment not performed with explicit reason,
 - displaced existing patients have priority over new-patient allocation.
 
-## Locked daily-operations rule: cancellations + therapist absences
+## Locked daily recomputation order
 
-Patient cancellations for both inpatients and outpatients release same-day timeslots. Daily computation must be independent of entry order:
-
-1. recurring/base schedule for selected date,
-2. apply cancellations/no-shows and release slots,
-3. apply therapist absences,
-4. identify displaced/unscheduled patients,
-5. redistribute existing affected patients into net free capacity,
-6. resolve any remaining orphans by placement or `Αναστολή θεραπείας`,
+1. recurring/base schedule for concrete date,
+2. cancellations/no-shows release capacity,
+3. therapist absences,
+4. identify displaced/unscheduled existing patients,
+5. redistribute into net free capacity,
+6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
 7. only then expose remaining capacity to new patients.
 
-Recomputation must be idempotent and recurring schedules must never be destructively edited for one-day facts.
-
-## Locked replacement load semantics
-
-Operational therapist load is occupied daily **timeslots**, not patient/session count.
-
-- `active_timeslots` is authoritative load/capacity,
-- multiple patients sharing one clock slot count as multiple sessions but one occupied timeslot,
-- replacement ranking sorts primarily by occupied timeslots,
-- candidate display distinguishes `load x/y` from `patients n`.
-
-## Mixed inpatient/outpatient presentation rule
-
-A mixed inpatient/outpatient effective slot must not block a valid operational preview. Do not apply one whole-cell outpatient fill to a mixed cell; keep it neutral until per-patient styling exists.
+Recomputation must be idempotent and recurring schedules are never destructively edited by one-day facts.
 
 ## Reversible daily change ledger
 
-Required section in `THERAPIST_DAILY`:
+Native green so far:
 
-`Αλλαγές για την dd/mm/yy`
+- active move rendering,
+- MASTER synchronization,
+- source trace,
+- per-row restore,
+- time-axis display,
+- stale-orange cleanup.
 
-Each move preserves patient, original/effective therapist and time, reason/source, stable id and status.
+Still open:
 
-Controls:
-
-- per-row `Επαναφορά`,
-- selection,
-- `Επαναφορά επιλεγμένων`,
-- `Επαναφορά όλων`.
-
-Production restore semantics:
-
-- remove/reverse the date-specific override and recompute the day,
-- never reconstruct or rewrite recurring schedule from UI text,
-- idempotent,
-- stale undo blocked,
-- recalculate capacity/conflicts/replacements after restore,
-- bulk restore validated and safe.
-
-Prototype currently uses preview snapshots plus a MASTER recurring refresh hook; after UX acceptance it must be connected to authoritative overlay removal + full daily recomputation.
+- selected/all restore with multiple changes,
+- production restore as authoritative overlay removal + full daily recompute instead of snapshot restoration.
 
 ## Current development focus / exact resume point
 
 Priority order:
 
-1. **Run focused regressions for stale-font reset + legacy `ΑΝΑΝΕΩΣΗ` removal.**
-2. Build fresh preview and verify ΜΕΝΤΗΣ is no longer orange at Μηλιδάκης 10:45.
-3. Verify `ΑΝΑΝΕΩΣΗ` is gone and ledger controls remain.
-4. Verify individual restore still works and MASTER/THERAPIST_DAILY remain synchronized.
-5. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
+1. **Run focused regression for exact legacy Form Control removal.**
+2. Build fresh preview and verify `ΑΝΑΝΕΩΣΗ` is gone while ledger/toolbar controls remain.
+3. If green, close presentation cleanup milestone.
+4. Implement orphan queue semantics: placement or date-specific `Αναστολή θεραπείας`.
+5. Integrate suspension into daily statistics.
 6. Test selected/all restore with multiple changes.
-7. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
+7. Replace snapshot restore with authoritative overlay removal + recompute.
 8. Resume outpatient recurring create/edit native gate.
-9. Clean up Python 3.14 ZipFile teardown warnings when it does not distract from functional milestones.
+9. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Business rules that must not regress
 
@@ -170,12 +136,12 @@ Priority order:
 - Nonblank manual constraints are never silently overwritten.
 - Standard duration 45 minutes; Ανακλινόμενο 30 minutes.
 - Exact adjacency is legal.
-- `PATIENT_PLANNER` authoritative for inpatient recurring schedules; `OUTPATIENT_SCHEDULE` authoritative for outpatient recurring schedules.
-- one-day cancellations, absences, replacements, suspensions and redistributions are daily overlays, not destructive recurring edits,
+- `PATIENT_PLANNER` authoritative for inpatient recurring; `OUTPATIENT_SCHEDULE` authoritative for outpatient recurring.
+- one-day cancellations, absences, replacements, suspensions and redistributions are overlays, not recurring edits,
 - operational load/capacity is timeslot-based,
 - existing displaced patients precede new patients,
-- unresolved orphans must be placed or explicitly suspended for the date,
-- `MASTER` and `THERAPIST_DAILY` must agree on the effective daily state.
+- unresolved orphans must be placed or explicitly suspended,
+- `MASTER` and `THERAPIST_DAILY` must agree on effective daily state.
 
 ## Recovery order if context is lost
 
