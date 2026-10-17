@@ -14,18 +14,21 @@ from tools.restore_daily_replacement_facts import (
 )
 
 
-def test_bulk_restore_pipeline_marks_set_before_single_recompute():
+def test_bulk_restore_validates_set_before_single_recompute_without_stage_excel_mutation():
     source = inspect.getsource(restore_replacements_and_recompute)
 
-    restore_pos = source.index("restore_daily_replacement_facts(stage, wanted_ids)")
-    read_pos = source.index("read_daily_replacement_facts(")
+    facts_pos = source.index("fact_rows = read_daily_replacement_fact_rows(")
+    validate_pos = source.index("validate_batch_restore_request(fact_rows, wanted_ids)")
+    derive_pos = source.index("_active_replacements_after_restore(")
     state_pos = source.index("build_daily_session_states(")
 
-    assert restore_pos < read_pos < state_pos
+    assert facts_pos < validate_pos < derive_pos < state_pos
+    assert "restore_daily_replacement_facts(stage, wanted_ids)" not in source
+    assert "read_daily_replacement_facts(" not in source
     assert source.count("build_daily_session_states(") == 1
 
 
-def test_bulk_restore_pipeline_uses_single_output_backend_for_master_plan_stats_and_ledger():
+def test_bulk_restore_pipeline_uses_single_output_backend_for_master_plan_stats_facts_and_ledger():
     source = inspect.getsource(restore_replacements_and_recompute)
 
     projection_pos = source.index("master_projection = build_master_projection(stage, patients=patients)")
@@ -56,9 +59,20 @@ def test_restore_output_backend_uses_one_excel_session_and_one_save():
     assert "self._apply_master_projection(workbook)" in source
     assert "for patch in patches:" in source
     assert "self._write_statistics(workbook)" in source
+    assert "self._mark_replacement_fact_rows(workbook)" in source
     assert "self._mark_ledger_rows(workbook)" in source
     assert "RefreshDailyChangeLedgerView" in source
     assert source.count("workbook.Save()") == 1
+
+
+def test_restore_output_backend_marks_authoritative_fact_rows_in_same_session():
+    source = inspect.getsource(_RestoreOutputBackend._mark_replacement_fact_rows)
+
+    assert "REPLACEMENT_FACTS_SHEET" in source
+    assert "REPLACEMENT_FACT_HEADERS" in source
+    assert "facts.Cells(row, 10).Value = STATUS_RESTORED" in source
+    assert "facts.Visible = 2" in source
+    assert "Missing replacement fact id(s)" in source
 
 
 def test_restore_output_backend_rebuilds_master_with_batched_com_writes():
@@ -88,8 +102,8 @@ def test_restore_output_backend_keeps_stats_and_ledger_helpers_in_same_backend()
 
 def test_requested_restore_ids_uses_all_active_rows(monkeypatch):
     rows = (
-        SimpleNamespace(replacement_id="R1"),
-        SimpleNamespace(replacement_id="R2"),
+        SimpleNamespace(replacement_id="R1", is_active=True),
+        SimpleNamespace(replacement_id="R2", is_active=True),
     )
     monkeypatch.setattr(
         "tools.restore_daily_replacement_facts.read_daily_replacement_fact_rows",
