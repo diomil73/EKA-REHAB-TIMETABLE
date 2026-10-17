@@ -99,10 +99,35 @@ def test_reads_patient_no_show_as_session_cancellation(tmp_path):
     assert result.cancellations[0].kind == SessionCancellationKind.PATIENT_NO_SHOW
 
 
+def test_reads_treatment_suspension_as_session_cancellation(tmp_path):
+    path = tmp_path / "input.xlsm"
+    _book(path)
+    _write_patient_row(path, status="Αναστολή θεραπείας")
+
+    result = read_daily_input(path, patients=[_patient()], sessions=[_session()])
+
+    assert result.absences == ()
+    assert len(result.cancellations) == 1
+    cancellation = result.cancellations[0]
+    assert cancellation.target_session_id == "S1"
+    assert cancellation.cancellation_date == DAY
+    assert cancellation.kind == SessionCancellationKind.TREATMENT_SUSPENDED
+    assert cancellation.reason == "Αναστολή θεραπείας"
+
+
 def test_session_cancellation_rejects_all_day_flag(tmp_path):
     path = tmp_path / "input.xlsm"
     _book(path)
     _write_patient_row(path, status="ΔΕΝ ΠΡΟΣΗΛΘΕ", all_day="ΝΑΙ")
+
+    with pytest.raises(DailyInputReadError, match="must target one session"):
+        read_daily_input(path, patients=[_patient()], sessions=[_session()])
+
+
+def test_treatment_suspension_rejects_all_day_flag(tmp_path):
+    path = tmp_path / "input.xlsm"
+    _book(path)
+    _write_patient_row(path, status="Αναστολή θεραπείας", all_day="ΝΑΙ")
 
     with pytest.raises(DailyInputReadError, match="must target one session"):
         read_daily_input(path, patients=[_patient()], sessions=[_session()])
