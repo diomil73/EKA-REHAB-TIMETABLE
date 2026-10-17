@@ -51,7 +51,7 @@ Locked rule: κάθε orphan καταλήγει σε valid therapist/time placem
 
 Native green for active replacement and authoritative restore flows. Restore resets recurring truth, reapplies surviving ACTIVE overlays, and rebuilds operational views.
 
-`build_master_projection` now reads its workbook metadata in one read-only openpyxl session: PATIENTS source-row ids, SETTINGS room order, and MASTER header location. This replaces three separate workbook opens without changing projection semantics. Implementation `63e6920c700cd73644d93a9fe8ffd79c365105cc`.
+`build_master_projection` no longer loads the full `.xlsm` through openpyxl merely to discover PATIENTS source-row ids, SETTINGS room order, and MASTER header location. Those stored metadata values are now read directly by `WorkbookPackageProbe` from the OOXML ZIP/XML package. Projection semantics and formula-row mapping are unchanged. Implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`.
 
 ### 7. Excel ledger migration
 
@@ -77,10 +77,11 @@ Measured evolution:
 
 - Backend before MASTER batching: `45.70s`,
 - after MASTER range-batched COM write: `31.33s`,
-- direct backend profile after read reuse: `28.794s total`, `20.911s pre-Excel`, `7.883s Excel output`,
-- dominant old phases: `restore_fact_batch 8.863s`, `build_master_projection 5.833s`.
+- after replacement-fact session consolidation: `22.924s total`, `12.978s pre-Excel`, `9.946s Excel output`,
+- old `restore_fact_batch 8.863s` phase is eliminated,
+- current dominant pre-Excel phase before the OOXML metadata patch: `build_master_projection 6.142s`.
 
-Both dominant phases have now been redesigned. The profiler at `Python/tools/profile_daily_restore_backend.py` measures pre-Excel and Excel output sub-phases and is updated for in-session replacement fact persistence.
+The profiler at `Python/tools/profile_daily_restore_backend.py` measures pre-Excel and Excel output sub-phases. Next verification is `BACKEND_PROFILE4.xlsm`; expected result is a sharp drop in `build_master_projection` after the OOXML package path.
 
 ### 9. Dynamic daily recomputation
 
@@ -117,9 +118,9 @@ Python 3.14 ZipFile teardown warnings remain non-blocking technical debt.
 
 1. Pull latest branch.
 2. Run the focused restore/profiler/MASTER/bridge tests listed in `CURRENT_HANDOFF.md`.
-3. If green, run a fresh `BACKEND_PROFILE3.xlsm` from trusted `RERESOLVED_V90.xlsm`.
-4. Confirm the dedicated `restore_fact_batch` phase is gone and MASTER projection metadata time is materially lower.
-5. Attack the next largest measured phase immediately.
+3. If green, run a fresh `BACKEND_PROFILE4.xlsm` from trusted `RERESOLVED_V90.xlsm`.
+4. Confirm `build_master_projection` drops sharply from `6.142s`.
+5. Attack the next largest measured phase immediately, currently expected to be the ~`2.58s` unattributed pre-Excel gap and/or Excel startup/open/save overhead.
 6. Preserve source hash/VBA, validate-all-before-mutate, and exact reconstruction.
 7. Keep acceptance target roughly `<=15s` total, ideally around 10s.
 
