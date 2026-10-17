@@ -53,13 +53,18 @@ def test_restore_output_backend_uses_one_excel_session_and_one_save():
     assert source.count("workbook.Save()") == 1
 
 
-def test_restore_output_backend_rebuilds_master_inside_open_output_workbook():
+def test_restore_output_backend_rebuilds_master_with_batched_com_writes():
     source = inspect.getsource(_RestoreOutputBackend._apply_master_projection)
 
     assert "Win32ComMasterProjectionBackend(palette=self.palette)" in source
     assert 'workbook.Worksheets("MASTER_SCHEDULE")' in source
     assert "backend._template_formulas(ws)" in source
-    assert "remap_master_formula(" in source
+    assert 'ws.Range(f"A{template_row}:P{clear_last}").ClearContents()' in source
+    assert ").Formula = tuple(formula_matrix)" in source
+    assert "item_by_row = {item.target_row: item" in source
+    assert "ws.Cells(row, col).Formula" not in source
+    assert 'ws.Range(f"A{row}:P{row}").ClearContents()' not in source
+    assert "if item.responsible_doctor:" in source
     assert "backend._render_patient_identity" in source
     assert "backend._apply_infectious_style" in source
 
