@@ -33,7 +33,7 @@ Source implementation ήδη μπήκε:
 - νέο `rehab_core/daily_statistics.py`,
 - νέα focused tests για suspension, queue removal και statistics.
 
-Status: **implemented, focused source gate pending**. Operational Excel UI/action wiring παραμένει επόμενο.
+Status: **source green: 21 passed in 3.11s**. Operational Excel UI/action wiring και authoritative persistence είναι τώρα το αμέσως επόμενο βήμα.
 
 ### 2. Daily statistics
 
@@ -122,30 +122,18 @@ Recompute idempotent και order-independent, χωρίς destructive recurring 
 - V83 MASTER sync + restore: native green.
 - V84 time-axis + restore: native green.
 - V85 stale-orange cleanup + restore: native green.
-- Suspension/statistics domain slice: implemented, source gate pending.
+- Suspension/statistics domain slice: **source green, 21 passed in 3.11s**.
 
 ## Τρέχον verification gate
 
-1. Run focused source tests for orphan suspension/statistics plus daily-state/queue/capacity regressions.
-2. Wire actual orphan actions: placement or suspension.
-3. Persist suspension as authoritative date-specific fact.
-4. Wire statistics into workbook/reporting.
-5. Native-check orphan workflow.
-6. Test selected/all restore with multiple changes.
-7. Replace snapshot restore with authoritative overlay removal + recompute.
-8. Resume outpatient recurring create/edit gate.
-9. Clean Python 3.14 ZipFile teardown warnings later.
-
-Focused Windows gate:
-
-```powershell
-python -m pytest `
-  Tests/test_orphan_treatment_suspension.py `
-  Tests/test_daily_treatment_statistics.py `
-  Tests/test_daily_state.py `
-  Tests/test_therapist_absence_queue.py `
-  Tests/test_cancellation_releases_replacement_capacity.py -q
-```
+1. Wire actual orphan actions: placement or suspension.
+2. Persist suspension as authoritative date-specific fact.
+3. Wire statistics into workbook/reporting.
+4. Native-check orphan workflow.
+5. Test selected/all restore with multiple changes.
+6. Replace snapshot restore with authoritative overlay removal + recompute.
+7. Resume outpatient recurring create/edit gate.
+8. Clean Python 3.14 ZipFile teardown warnings later.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
