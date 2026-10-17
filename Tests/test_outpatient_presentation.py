@@ -136,14 +136,33 @@ def test_same_recurring_slot_can_be_blue_on_outpatient_day_without_other_day_pat
     assert targets[0].patient_ids == ("P-OUT",)
 
 
-def test_mixed_inpatient_and_outpatient_in_same_effective_daily_cell_is_rejected():
+def test_mixed_inpatient_and_outpatient_in_same_effective_daily_cell_is_left_unfilled():
     states = [
         state("S-OUT", "P-OUT", therapist_id="T1", at=time(11, 0)),
         state("S-IN", "P-IN", therapist_id="T1", at=time(11, 0)),
     ]
 
-    with pytest.raises(OutpatientPresentationError, match="mixed inpatient/outpatient"):
-        outpatient_daily_targets(states, [outpatient(), inpatient()])
+    targets = outpatient_daily_targets(states, [outpatient(), inpatient()])
+
+    assert targets == ()
+
+
+def test_mixed_slot_clears_stale_whole_cell_outpatient_fill():
+    states = [
+        state("S-OUT", "P-OUT", therapist_id="T1", at=time(11, 0)),
+        state("S-IN", "P-IN", therapist_id="T1", at=time(11, 0)),
+    ]
+
+    patches = build_outpatient_daily_patches(
+        "dummy.xlsm",
+        states=states,
+        patients=[outpatient(), inpatient()],
+        existing_blue_cells=("C10",),
+    )
+
+    assert len(patches) == 1
+    assert patches[0].cell == "C10"
+    assert patches[0].fill_role == "clear_fill"
 
 
 def test_outpatient_robotic_flag_is_rejected():
