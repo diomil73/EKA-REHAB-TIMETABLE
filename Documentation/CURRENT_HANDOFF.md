@@ -6,8 +6,7 @@ Last updated: 2026-10-17
 
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
-- Latest native preview tested: `MASTER_TOOLBAR_SMOKE_V81.xlsm`
-- Latest successfully generated ledger preview: `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`
+- Latest native preview tested: `Excel/previews/DAILY_CHANGE_LEDGER_V83.xlsm`
 - V73 scheduling/conflict behavior remains native green.
 - V80 clean reset preview is native green.
 - V81 MASTER toolbar/header pinning is native green.
@@ -24,63 +23,56 @@ Last updated: 2026-10-17
 - MASTER daily overlay + ledger restore source gate: **24 passed, 5 warnings in 4.39s**
 - V82 guided replacement native build: green
 - V82 individual ledger restore: **native green**
+- V83 MASTER active-overlay sync + restore: **native green**
 
 The 5 warnings are `PytestUnraisableExceptionWarning` messages from Python 3.14 `ZipFile.__del__` during workbook test teardown. They did not fail the gate and are not currently treated as a functional blocker; keep them on the technical-cleanup list.
 
-## V82 native guided replacement checkpoint
+## V83 native guided replacement checkpoint
 
-Real stress case:
+Stress case:
 
 - date: `2026-10-19`
 - patient: `ΜΕΝΤΗΣ`
 - original assignment: `Σκαρώνης 09:15`
 - selected replacement: `Μηλιδάκης 10:45`
 - candidate display for Μηλιδάκης: `load 5/6 | patients 6`
-- source workbook unchanged: `True`
-- VBA preserved: `True`
-- daily change ledger installed: `yes`
-- output: `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`
+- source workbook unchanged,
+- VBA preserved,
+- ledger installed.
 
-Native UX findings:
+Native acceptance now confirmed:
 
-- source cell intentionally keeps ΜΕΝΤΗΣ visible with a movement arrow/note; user likes this and it should be retained,
-- destination shows the moved patient,
-- per-row `Επαναφορά` works correctly and returns the patient to the original position,
-- individual restore is therefore native green,
-- selected/all restore remains to be tested once multiple simultaneous preview changes are supported.
+- `THERAPIST_DAILY` shows the moved patient at `Μηλιδάκης 10:45` while keeping the useful source-position trace,
+- `MASTER` now also shows the effective daily assignment while the overlay is active,
+- individual `Επαναφορά` returns both `MASTER` and `THERAPIST_DAILY` to `Σκαρώνης 09:15`.
 
-## MASTER daily-state synchronization: source gate green, native V83 pending
+The invariant is therefore native green for this stress case:
 
-Native V82 showed that `THERAPIST_DAILY` followed the daily replacement while `MASTER` remained on the recurring assignment. This was confirmed as an integration bug.
+`DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger`
 
-Source implementation now exists and the focused source gate is green:
+Statistics integration remains open.
 
-- new `Python/rehab_excel/master_daily_overlay.py`,
-- daily `REPLACED` states generate a safe patch only inside the MASTER treatment-cell write zone,
-- inpatient MASTER display uses effective daily time/provider while recurring `PATIENT_PLANNER` remains untouched,
-- `Python/tools/apply_replacement_choice.py` composes the MASTER overlay into the same preview write plan as `THERAPIST_DAILY`,
-- ledger `Επαναφορά` calls `RefreshMasterPatientProgram(patient_id)` so the prototype restore returns MASTER to the recurring assignment too,
-- dedicated regression file: `Tests/test_master_daily_overlay.py`,
-- ledger regression checks the MASTER restore hook,
-- focused verification: **24 passed, 5 warnings in 4.39s**.
+## Current THERAPIST_DAILY time-axis fix
 
-Status: **source green, native V83 acceptance pending**.
+V83 still showed `####` in the left time column because `RefreshDailyChangeLedgerView` reset column A width to 4.
 
-Locked invariant:
+Source fix added:
 
-`DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
+- `wsDaily.Columns("A").ColumnWidth = 8`,
+- `A2:A8,A12:A18` forced to `hh:mm`,
+- time cells centered,
+- regression prevents reintroducing width 4.
 
-Native acceptance remains:
+Commits:
 
-- active move: MASTER must show `Μηλιδάκης 10:45`,
-- restore: MASTER must return to `Σκαρώνης 09:15`,
-- source recurring programme remains unchanged.
+- `6f4a88a9d797e78d6a0ef1ffd2216a590b3d21f1`
+- `bad1632050736bee639337c3578ee6702b6421d5`
 
-## Native cleanup items discovered in V82
+Status: **implemented, focused/native verification pending**.
 
-The user identified these concrete UI issues in `THERAPIST_DAILY`:
+## Remaining native cleanup items
 
-1. left time column is too narrow / some times render as `###`; widen and lock `hh:mm` display,
+1. verify the time-axis fix removes all `####`,
 2. ΜΕΝΤΗΣ received orange text incorrectly; orange is reserved for robotic participation only,
 3. ΜΕΝΤΗΣ is infectious and not robotic, so infectious presentation must win and no robotic-orange text may leak from destination/base styling,
 4. obsolete right-side VBA-era button `ΑΝΑΝΕΩΣΗ` remains and must be removed.
@@ -159,17 +151,15 @@ Prototype currently uses preview snapshots plus a MASTER recurring refresh hook;
 
 Priority order:
 
-1. **Build V83 with the active ΜΕΝΤΗΣ replacement.**
-2. Verify MASTER shows `Μηλιδάκης 10:45` while the move is active.
-3. Press individual restore and verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
-4. Fix THERAPIST_DAILY time column width/format.
-5. Fix robotic-orange vs infectious styling precedence for moved patients.
-6. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
-7. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
-8. Test selected/all restore with multiple changes.
-9. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
-10. Resume outpatient recurring create/edit native gate.
-11. Clean up Python 3.14 ZipFile teardown warnings when it does not distract from functional milestones.
+1. **Run focused regression for the THERAPIST_DAILY time-axis fix.**
+2. Build fresh preview and verify all left-side times display as `hh:mm` with no `####`.
+3. Fix robotic-orange vs infectious styling precedence for moved patients.
+4. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+5. Implement/verify orphan queue semantics, including `Αναστολή θεραπείας` and statistics.
+6. Test selected/all restore with multiple changes.
+7. Replace preview snapshot restore with authoritative overlay removal + daily recompute.
+8. Resume outpatient recurring create/edit native gate.
+9. Clean up Python 3.14 ZipFile teardown warnings when it does not distract from functional milestones.
 
 ## Business rules that must not regress
 
