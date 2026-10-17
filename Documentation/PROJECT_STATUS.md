@@ -16,6 +16,7 @@ Active milestone: **authoritative restore hardening + selected/all restore**.
 - orphan suspension + statistics domain gate: **21 passed in 3.11s**
 - consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**
 - replacement fact focused gate: **28 passed, 3 warnings in 5.14s**
+- versioned-id + single/batch restore focused gate: **36 passed in 4.74s**
 - V87 mixed orphan scenario: **native green**
 - V88 full restart reconstruction: **native green**
 - V89 single authoritative restore + reconstruction: **native green**
@@ -71,29 +72,30 @@ Files:
 
 ## Current validation state
 
-The first focused Windows gate after the latest bulk-restore pull returned **35 passed, 1 failed**.
+The first focused Windows gate after the latest bulk-restore pull returned **35 passed, 1 failed** due only to a stale regression call in `Tests/test_daily_fact_reconstruction_verifier.py`.
 
-The failure was not in the backend restore logic. It was a stale regression call in `Tests/test_daily_fact_reconstruction_verifier.py`, which still invoked `_replacement_id(session)` although the implementation now requires `history_rows` to allocate stable versioned ids.
-
-The regression was corrected to use `_replacement_id(session, [])` for the base/no-history case.
+That test was aligned with the history-aware API by calling `_replacement_id(session, [])` for the base/no-history case.
 
 Fix commit:
 
 - `c43b677667c59d38b65b928d4126c36cf670f28c`
 
-Current status: **focused Windows source gate pending rerun; V90 must not be created until that gate is green**.
+The focused source gate was then rerun successfully:
+
+- **36 passed in 4.74s**
+
+Current status: **source gate green; proceed to V90 native orphan re-placement.**
 
 ## Immediate roadmap
 
-1. Pull latest branch and rerun focused tests for version IDs, single restore and batch restore.
-2. Require a green source gate before any workbook mutation.
-3. Re-resolve the one reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate and require new fact id ending `:v2`.
-4. Verify resulting V90 reconstructs with 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact statistics equivalence.
-5. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-6. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-7. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
-8. Resume outpatient recurring create/edit native gate.
-9. Later clean Python 3.14 ZipFile warnings.
+1. Re-resolve the one reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate and require new fact id ending `:v2`.
+2. Inspect V90 and confirm old session/date fact remains `RESTORED` while new `:v2` fact is `ACTIVE`.
+3. Verify resulting V90 reconstructs with 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact statistics equivalence.
+4. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+5. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+6. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
+7. Resume outpatient recurring create/edit native gate.
+8. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
