@@ -19,7 +19,7 @@ Last updated: 2026-10-17
 - V89 single authoritative restore + fresh reconstruction: native green
 - V90 re-placement, fresh reconstruction, and lifecycle inventory: native green
 - V91 selected authoritative restore + fresh reconstruction: native green
-- V92 restore-all native execution: native green
+- V92 restore-all + fresh reconstruction: **native green**
 
 Known Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -62,7 +62,7 @@ Relevant commits:
 - rerun persistence / partial-preview cleanup: `ae0f58d363ec0cbf357876cf6b4633e3f14d70e7`
 - rerun regression coverage: `88b75319273005b28d373d2a683701f82fe41fba`
 
-## ACTIVE: selected/all authoritative restore
+## CLOSED: selected/all authoritative restore
 
 Atomic batch restore is implemented in:
 
@@ -107,7 +107,7 @@ Fresh reconstruction independently confirmed 3 active replacements, 2 treatment 
 
 This closes the selected multi-fact restore proof.
 
-### V92 restore-all native execution validated
+### V92 restore-all fully validated
 
 `RESTORE_ALL_V92.xlsm` was created independently from trusted V90 using `--all-active`.
 
@@ -120,17 +120,37 @@ Native authoritative restore output matched expectations exactly:
 - source unchanged: True
 - VBA preserved: True
 
-This is the first native proof that restore-all can retire every currently ACTIVE replacement fact in one authoritative batch and recompute the day from the remaining durable truth.
+Fresh reconstruction then independently confirmed from the saved V92 workbook:
 
-V92 still requires fresh reconstruction verification before the selected/all restore milestone is considered fully closed.
+- persisted replacements reread: 0
+- treatment suspensions reread: 2
+- reconstructed unresolved: 5
+- reconstructed finalized: ΟΧΙ
+- stored `DAILY_STATISTICS` exactly matches reconstructed daily state
+
+This closes the native selected/all authoritative restore milestone. Both selected and restore-all paths now mutate authoritative replacement-fact lifecycle state, recompute from surviving truth, preserve immutable history, preserve VBA/source, and survive a fresh-process reconstruction check.
+
+## ACTIVE: Excel ledger authoritative bridge
+
+Next milestone is to connect the Excel replacement ledger controls to the authoritative backend rather than the old cell-copy restore path.
+
+Required bridge behavior:
+
+- per-row restore calls the authoritative restore backend for exactly that fact id
+- selected restore sends the complete selected id set atomically
+- restore-all targets the current ACTIVE set atomically
+- after restore, refresh/recompute MASTER, daily overlays, ledger statuses, and `DAILY_STATISTICS` from authoritative truth
+- preserve source workbook and VBA
+- retire the old cell-copy VBA restore implementation only after the native bridge gate is green
 
 ## Exact resume point
 
-1. Fresh-verify `RESTORE_ALL_V92.xlsm`; expect persisted replacements=0, suspended=2, unresolved=5, finalized=ΟΧΙ, and exact stored-statistics equivalence.
-2. Inspect V92 fact inventory if needed; all five formerly ACTIVE facts should now be `RESTORED`, including planner:57 `:v2`.
-3. If V92 is reconstruction-green, close selected/all authoritative restore and begin Excel ledger bridge work for per-row/selected/all restore controls.
-4. Retire the old cell-copy VBA restore implementation only after the native bridge gate is green.
-5. Resume outpatient recurring create/edit native gate afterwards.
+1. Inspect current Excel ledger/VBA bridge implementation and identify the existing per-row/selected/all entry points.
+2. Add source tests for the bridge contract before changing VBA/Excel integration.
+3. Wire the ledger actions to the authoritative Python restore backend with exact replacement ids and atomic selected/all semantics.
+4. Run a Windows-native bridge smoke test from a trusted preview and require correct fact lifecycle, MASTER/daily overlay recompute, ledger status refresh, source unchanged, and VBA preserved.
+5. Only after that gate is green, retire the old cell-copy restore implementation.
+6. Resume outpatient recurring create/edit native gate afterwards.
 
 ## Locked orphan rule
 
