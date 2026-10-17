@@ -38,7 +38,7 @@ OUTPATIENT_PRESENTATION_RGBS = {
 
 @dataclass(frozen=True)
 class OutpatientDailyTarget:
-    """One effective THERAPIST_DAILY slot that must use outpatient styling."""
+    """One effective THERAPIST_DAILY slot that may use whole-cell outpatient styling."""
 
     provider_id: str
     provider_kind: ReplacementProviderKind
@@ -94,7 +94,12 @@ def outpatient_daily_targets(
     states: Iterable[DailySessionState],
     patients: Iterable[Patient],
 ) -> tuple[OutpatientDailyTarget, ...]:
-    """Return effective daily slots that must receive outpatient styling."""
+    """Return effective slots safe for whole-cell outpatient styling.
+
+    Mixed inpatient/outpatient cells are deliberately left without a whole-cell
+    outpatient fill. That preserves correct semantics and must not block the
+    operational preview merely because two patient types share one timeslot.
+    """
 
     patient_by_id = {patient.patient_id: patient for patient in patients}
     occupants: dict[
@@ -116,10 +121,10 @@ def outpatient_daily_targets(
     for (provider_kind, provider_id, start_time), slot_patients in occupants.items():
         outpatient_flags = {patient.is_outpatient for patient in slot_patients}
         if len(outpatient_flags) > 1:
-            raise OutpatientPresentationError(
-                f"Cannot apply one cell colour to mixed inpatient/outpatient slot "
-                f"{provider_id!r} at {start_time.strftime('%H:%M')}"
-            )
+            # A single Excel cell cannot safely represent mixed patient types with
+            # one semantic fill. Leave the cell unfilled rather than aborting the
+            # whole daily operational preview.
+            continue
         if True not in outpatient_flags:
             continue
         targets.append(
