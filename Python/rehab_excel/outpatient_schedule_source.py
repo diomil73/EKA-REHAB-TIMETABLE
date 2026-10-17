@@ -148,15 +148,22 @@ def read_outpatient_schedule(
         wb.close()
 
 
-def read_unified_base_schedule(path: str | Path) -> list[BaseScheduleEntry]:
+def read_unified_base_schedule(
+    path: str | Path,
+    *,
+    patients: Iterable[Patient] | None = None,
+) -> list[BaseScheduleEntry]:
     """Merge inpatient PATIENT_PLANNER and outpatient recurring sources.
 
     Patient type controls source/view routing only. Downstream scheduling sees
     one BaseScheduleEntry stream and therefore preserves identical workload,
     capacity, replacement, and daily-state semantics for both patient types.
+
+    Callers that already loaded PATIENTS may pass them here to avoid reopening
+    the same workbook solely to reconstruct the identical patient registry.
     """
 
-    patients = read_patient_registry(path)
+    patient_list = list(patients) if patients is not None else read_patient_registry(path)
     inpatient_entries = read_base_schedule(path)
-    outpatient_entries = read_outpatient_schedule(path, patients=patients)
+    outpatient_entries = read_outpatient_schedule(path, patients=patient_list)
     return [*inpatient_entries, *outpatient_entries]
