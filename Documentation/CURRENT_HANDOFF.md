@@ -62,24 +62,27 @@ User-facing `Αιτία` is Greek-only for known replacement causes. Technical/i
 
 ## ACTIVE: restore performance / UX
 
-Correctness is closed. The remaining ledger item is latency: selected and restore-all actions take noticeably longer than acceptable for normal use.
+Correctness is closed. The remaining ledger item is latency: selected and restore-all actions still take longer than acceptable for normal use.
 
-Two performance patches are now on the branch:
+Three performance patches are now on the branch:
 
 - Bulk selected/all restore marks all restored ledger rows in one hidden Excel session instead of reopening Excel once per ReplacementId. Implementation `fb445bbc08e6d2cbfd63820a13f8dc504192e954`, tests `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
-- Daily statistics write and ledger finalization are now consolidated into the same hidden Excel session, removing one more workbook open/save/close cycle. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
+- Daily statistics write and ledger finalization are consolidated into the same hidden Excel session, removing one more workbook open/save/close cycle. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
+- In-session apply no longer performs the redundant second pre-rollback `ThisWorkbook.Save`, nor a second ledger refresh/save after importing the already-verified preview. The source is still saved once before backend execution, a full rollback copy is still created, and the imported authoritative state is still saved once after synchronization. Implementation `4b58085fc416c456c603aefd1ae2942022715632`, tests `55b7e584080d6f9f657ce3b274dae9a90a85aa19`.
 
-Focused source gate after the second patch is green: `30 passed in 4.39s`.
+Focused source gate after the second patch is green: `30 passed in 4.39s`. The third patch still needs the focused Windows test gate and a fresh native timing smoke.
 
-Remaining likely hotspots are the MASTER projection Excel session, native write-plan Excel session, verified-preview open, broad `UsedRange` synchronization, and repeated saves around rollback/apply.
+Remaining likely hotspots after this save-cycle cleanup are the MASTER projection Excel session, native write-plan Excel session, verified-preview open, and broad `UsedRange` synchronization.
 
 ## Exact resume point
 
-1. Rebuild an independent `LEDGER_ALL_SMOKE.xlsm` or `LEDGER_SELECTED_SMOKE.xlsm` from trusted V90 using the current branch.
-2. Repeat the same native restore action and compare perceived elapsed time with the previous path.
-3. Run fresh reconstruction after the action to prove the performance patches did not alter authoritative state.
-4. If still too slow, next optimization target is consolidation of the MASTER projection and native write-plan Excel phases, then the in-session preview synchronization/save phase.
-5. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+1. Pull latest branch.
+2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
+3. If green, rebuild a fresh `LEDGER_ALL_SMOKE.xlsm` from trusted V90. Never reuse an already-restored smoke workbook for timing.
+4. Run restore-all without a manual extra save and compare elapsed time with the previous attempt.
+5. Run fresh reconstruction to prove the save-cycle optimization did not alter authoritative state.
+6. If latency remains high, next target is consolidation of the MASTER projection and native write-plan Excel phases, then narrowing broad in-session sheet synchronization.
+7. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
