@@ -8,6 +8,7 @@ import pytest
 
 from tools.restore_daily_replacement_facts import (
     AuthoritativeDailyRestoreError,
+    _mark_ledger_rows_restored_once,
     _requested_restore_ids,
     restore_replacements_and_recompute,
 )
@@ -25,15 +26,25 @@ def test_bulk_restore_pipeline_marks_set_before_single_recompute():
     assert source.count("write_daily_statistics(output, target_date, statistics)") == 1
 
 
-def test_bulk_restore_pipeline_marks_each_ledger_row_only_after_recomputed_output_exists():
+def test_bulk_restore_pipeline_batches_ledger_rows_after_recomputed_output_exists():
     source = inspect.getsource(restore_replacements_and_recompute)
 
     apply_pos = source.index("apply_write_plan_to_copy(")
     stats_pos = source.index("write_daily_statistics(output, target_date, statistics)")
-    ledger_pos = source.index("for replacement_id in restored_ids:")
+    ledger_pos = source.index("_mark_ledger_rows_restored_once(")
 
     assert apply_pos < stats_pos < ledger_pos
-    assert "_mark_ledger_restored(output, replacement_id)" in source
+    assert "_mark_ledger_restored(output, replacement_id)" not in source
+    assert "_mark_ledger_rows_restored_once(output, tuple(restored_ids))" in source
+
+
+def test_bulk_ledger_finalization_uses_one_excel_session_for_whole_set():
+    source = inspect.getsource(_mark_ledger_rows_restored_once)
+
+    assert source.count('DispatchEx("Excel.Application")') == 1
+    assert "for replacement_id in replacement_ids:" in source
+    assert "workbook.Save()" in source
+    assert "RefreshDailyChangeLedgerView" in source
 
 
 def test_requested_restore_ids_uses_all_active_rows(monkeypatch):
