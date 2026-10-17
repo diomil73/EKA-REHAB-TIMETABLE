@@ -69,8 +69,6 @@ _IN_SESSION_BLOCK = r'''Private Function RunAuthoritativeRestore(ByVal replaceme
     End If
 
     ApplyAuthoritativeRestorePreview previewPath
-    RefreshDailyChangeLedgerView
-    ThisWorkbook.Save
 
     MsgBox "Η επαναφορά ολοκληρώθηκε επιτυχώς.", vbInformation, "Επαναφορά"
 
@@ -110,7 +108,6 @@ Private Sub ApplyAuthoritativeRestorePreview(ByVal previewPath As String)
     rollbackPath = Environ$("TEMP") & "\eka_daily_restore_rollback_" & _
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
 
-    ThisWorkbook.Save
     ThisWorkbook.SaveCopyAs rollbackPath
 
     Application.EnableEvents = False
