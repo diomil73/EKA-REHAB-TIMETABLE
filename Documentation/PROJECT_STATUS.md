@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **authoritative restore hardening + selected/all restore**.
+Active milestone: **Excel ledger authoritative restore bridge**.
 
 ## Latest confirmed checkpoints
 
@@ -19,7 +19,7 @@ Active milestone: **authoritative restore hardening + selected/all restore**.
 - V89 single authoritative restore + reconstruction: **native green**
 - V90 re-placement + reconstruction + versioned lifecycle: **native green**
 - V91 selected authoritative restore + fresh reconstruction: **native green**
-- V92 restore-all native execution: **native green**
+- V92 restore-all + fresh reconstruction: **native green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -41,7 +41,7 @@ Replacement facts preserve immutable history across restore/re-placement cycles:
 
 V90 proved this natively: the original planner:57 fact remained `RESTORED`, the later placement became a distinct `:v2` ACTIVE fact, and fresh reconstruction remained exact.
 
-## ACTIVE: atomic selected/all restore
+## CLOSED: atomic selected/all restore
 
 Implemented rules:
 
@@ -83,7 +83,7 @@ This closes the selected multi-fact authoritative restore proof.
 
 `Excel/previews/RESTORE_ALL_V92.xlsm` was created independently from trusted V90 using `--all-active`.
 
-Native result matched the expected complete-batch behavior exactly:
+Native result:
 
 - restored replacement facts=5
 - active replacements after restore=0
@@ -92,18 +92,40 @@ Native result matched the expected complete-batch behavior exactly:
 - source unchanged=True
 - VBA preserved=True
 
-This proves the restore-all path can retire every ACTIVE replacement fact in one authoritative operation and recompute the operational day without mutating the source workbook or losing VBA.
+Fresh reconstruction independently confirmed:
 
-Current status: **V92 native restore-all execution is green. Fresh reconstruction verification of V92 is the final validation step before closing the selected/all restore milestone and moving to the Excel ledger bridge.**
+- persisted replacements reread=0
+- treatment suspensions reread=2
+- reconstructed unresolved=5
+- reconstructed finalized=ΟΧΙ
+- stored `DAILY_STATISTICS` matches reconstructed daily state exactly
+
+This closes restore-all and therefore the complete selected/all authoritative restore milestone. The backend now has native proof for single, selected, and all-active lifecycle restoration with restart-safe reconstruction.
+
+## ACTIVE: Excel ledger authoritative bridge
+
+The next implementation target is to connect ledger controls in Excel to the proven authoritative restore backend.
+
+Required behavior:
+
+- per-row restore passes exactly one replacement id
+- selected restore passes the complete selected id set and remains atomic
+- restore-all targets all current ACTIVE replacement facts
+- after the backend mutation, rebuild daily state and presentation from authoritative truth
+- update ledger status, MASTER/daily overlays, and `DAILY_STATISTICS`
+- preserve source workbook and VBA
+- do not retire the existing cell-copy VBA path until native bridge validation is green
 
 ## Immediate roadmap
 
-1. Fresh-verify V92; expect 0 active replacements, 2 suspensions, unresolved=5, finalized=ΟΧΙ, and exact `DAILY_STATISTICS` equivalence.
-2. Inspect V92 replacement fact inventory if needed; all formerly ACTIVE facts should now be `RESTORED`.
-3. Close selected/all authoritative restore once V92 reconstruction is green.
-4. Connect Excel ledger per-row/selected/all controls to the authoritative backend; retire old cell-copy VBA only after native bridge validation.
-5. Resume outpatient recurring create/edit native gate.
-6. Later clean Python 3.14 ZipFile warnings.
+1. Inspect existing ledger/VBA controls and identify per-row, selected, and restore-all entry points.
+2. Add source tests that lock the bridge contract before implementation changes.
+3. Wire the controls to `restore_daily_replacement_facts.py` or an equivalent stable authoritative bridge entry point.
+4. Run Windows-native smoke tests for row, selected, and all restore paths from trusted previews.
+5. Require exact fact lifecycle, recomputation, ledger refresh, source unchanged, and VBA preserved.
+6. Retire the old cell-copy restore logic only after the bridge gate is green.
+7. Resume outpatient recurring create/edit native gate.
+8. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
