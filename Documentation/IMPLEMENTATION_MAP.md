@@ -16,7 +16,7 @@ Locked target:
 
 `DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
 
-Source implementation προστέθηκε και περιμένει verification:
+Source implementation προστέθηκε και το focused source gate είναι πλέον green:
 
 - νέο `Python/rehab_excel/master_daily_overlay.py`,
 - `REPLACED` inpatient state γράφει effective time/provider μόνο στο ασφαλές treatment-cell zone του MASTER,
@@ -24,9 +24,12 @@ Source implementation προστέθηκε και περιμένει verificatio
 - guided replacement tool συνθέτει MASTER + THERAPIST_DAILY patches στο ίδιο preview plan,
 - ledger restore καλεί `RefreshMasterPatientProgram(patient_id)` ώστε το prototype να επιστρέφει και το MASTER στο recurring state,
 - νέο `Tests/test_master_daily_overlay.py`,
-- ledger test καλύπτει το MASTER restore hook.
+- ledger test καλύπτει το MASTER restore hook,
+- focused gate: **24 passed, 5 warnings in 4.39s**.
 
-Status: **implemented, source/native gate pending**.
+Status: **source green, native V83 gate pending**.
+
+Τα warnings είναι Python 3.14 `ZipFile.__del__` teardown warnings και δεν αποτελούν λειτουργικό blocker αυτή τη στιγμή.
 
 Native acceptance για ΜΕΝΤΗΣ:
 
@@ -124,24 +127,25 @@ Mixed effective cell:
 - Cancellation slot release source support.
 - Reversible ledger source gate: **10 passed in 3.26s**.
 - Replacement load + mixed-slot gate: **31 passed in 2.04s**.
+- MASTER daily overlay + restore source gate: **24 passed, 5 warnings in 4.39s**.
 - V82 real preview build/install: **green**.
 - V82 individual restore: **native green**.
 
 ## Τρέχον verification gate
 
-1. Run focused tests for `master_daily_overlay` + ledger restore hook.
-2. Build fresh preview with active ΜΕΝΤΗΣ move.
-3. Verify MASTER shows `Μηλιδάκης 10:45` while move active.
-4. Verify THERAPIST_DAILY still shows source trace + destination insertion.
-5. Press individual restore.
-6. Verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
-7. Fix time-column display.
-8. Fix robotic-orange / infectious styling precedence.
-9. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
-10. Implement/verify orphan outcomes + statistics.
-11. Test selected/all restore for multiple changes.
-12. Replace snapshot restore with authoritative overlay removal + full daily recompute.
-13. Resume outpatient recurring create/edit gate.
+1. Build fresh V83 preview with active ΜΕΝΤΗΣ move.
+2. Verify MASTER shows `Μηλιδάκης 10:45` while move active.
+3. Verify THERAPIST_DAILY still shows source trace + destination insertion.
+4. Press individual restore.
+5. Verify both MASTER and THERAPIST_DAILY return to `Σκαρώνης 09:15`.
+6. Fix time-column display.
+7. Fix robotic-orange / infectious styling precedence.
+8. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
+9. Implement/verify orphan outcomes + statistics.
+10. Test selected/all restore for multiple changes.
+11. Replace snapshot restore with authoritative overlay removal + full daily recompute.
+12. Resume outpatient recurring create/edit gate.
+13. Clean up Python 3.14 ZipFile teardown warnings later unless they become functional failures.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
