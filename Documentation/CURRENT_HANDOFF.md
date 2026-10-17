@@ -5,7 +5,7 @@ Last updated: 2026-10-17
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Latest native orphan preview: `Excel/previews/ORPHAN_RESOLUTION_V87.xlsm`
+- Latest native orphan preview: `Excel/previews/ORPHAN_RESOLUTION_V88.xlsm`
 - V81 MASTER toolbar/header UX remains native green.
 
 ## Latest confirmed checkpoints
@@ -99,7 +99,6 @@ Safety/semantics:
 - blank provider kind defaults to therapist for legacy compatibility,
 - output writer is idempotent for the same semantic replacement,
 - conflicting replacement for the same target/date safety-stops,
-- replacement-date values are written as COM-safe datetime values,
 - fact sheet is `xlSheetVeryHidden`,
 - recurring/base remains untouched.
 
@@ -122,17 +121,35 @@ It reconstructs the day from:
 
 then compares reconstructed scheduled/performed/replaced/absent/postponed/no-show/suspended/unresolved/finalized values against stored `DAILY_STATISTICS`.
 
-New regressions:
-
-- `Tests/test_daily_replacement_facts.py`
-- `Tests/test_daily_fact_reconstruction_verifier.py`
-
 Focused Windows result:
 
 - `28 passed, 3 warnings in 5.14s`
 - warnings are the known Python 3.14 `ZipFile.__del__` teardown issue and are non-blocking.
 
-Status: **source gate green; native V88 + full restart reconstruction gate pending**.
+## V88 native reconstruction blocker and fix
+
+Running the full reconstruction verifier against `ORPHAN_RESOLUTION_V88.xlsm` stopped on:
+
+`DAILY_REPLACEMENT_FACTS row 2: invalid ReplacementDate 46313.875`
+
+Root cause:
+
+- Excel/COM persisted the calendar-only date through a timezone-shifted numeric serial.
+- For the intended 2026-10-19 date, the saved serial appeared as `46313.875` (previous UTC day at 21:00).
+- Simple truncation would incorrectly reconstruct 2026-10-18.
+
+Fix implemented:
+
+- legacy numeric `ReplacementDate` values are normalized to the nearest whole Excel day before conversion,
+- exact regression added for `46313.875 -> 2026-10-19`,
+- future writes store `ReplacementDate` as ISO text (`YYYY-MM-DD`) instead of COM datetime, eliminating timezone ambiguity.
+
+Commits:
+
+- `030acf0987d992bb2611a78f0f18df24a0b2c859` implementation
+- `7091fd91543eeaa219c370b2579712a10376651d` regression
+
+Status: **fix implemented; focused test + rerun of existing V88 verifier pending**.
 
 ## Locked orphan rule
 
@@ -164,11 +181,11 @@ Recomputation must remain idempotent and order-independent.
 
 ## Exact resume point
 
-1. Generate `ORPHAN_RESOLUTION_V88.xlsm` from `ORPHAN_SMOKE_INPUT_V86.xlsm`, using a mixed scenario with placements + suspensions.
-2. Native output must report persisted replacement facts and suspension facts, source unchanged and VBA preserved.
-3. Run `verify_daily_fact_reconstruction.py` against V88 and require replacement/suspension counts plus unresolved=0 and stored-statistics equivalence.
-4. If green, replacement placement persistence across restart is closed.
-5. Then use this authoritative fact store as the foundation for ledger restore by fact removal + full recompute.
+1. Pull latest branch.
+2. Run `Tests/test_daily_replacement_facts.py` focused regression.
+3. Re-run `verify_daily_fact_reconstruction.py` directly against existing `ORPHAN_RESOLUTION_V88.xlsm`; no V88 rebuild is required for reader verification.
+4. If green, optionally regenerate a future preview once to confirm new ISO-date writer output.
+5. Then use the authoritative fact store as the foundation for ledger restore by fact removal + full recompute.
 6. Test selected/all restore with multiple simultaneous changes.
 7. Resume outpatient recurring create/edit native gate.
 8. Clean Python 3.14 ZipFile warnings later.
