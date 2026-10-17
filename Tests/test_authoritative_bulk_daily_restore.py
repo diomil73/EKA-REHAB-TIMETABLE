@@ -8,7 +8,7 @@ import pytest
 
 from tools.restore_daily_replacement_facts import (
     AuthoritativeDailyRestoreError,
-    _finalize_restore_output_once,
+    _RestoreOutputBackend,
     _requested_restore_ids,
     restore_replacements_and_recompute,
 )
@@ -25,28 +25,37 @@ def test_bulk_restore_pipeline_marks_set_before_single_recompute():
     assert source.count("build_daily_session_states(") == 1
 
 
-def test_bulk_restore_pipeline_finalizes_statistics_and_ledger_together():
+def test_bulk_restore_pipeline_uses_single_output_backend_for_plan_stats_and_ledger():
     source = inspect.getsource(restore_replacements_and_recompute)
 
     apply_pos = source.index("apply_write_plan_to_copy(")
-    finalize_pos = source.index("_finalize_restore_output_once(")
+    backend_pos = source.index("backend=_RestoreOutputBackend(")
 
-    assert apply_pos < finalize_pos
+    assert apply_pos < backend_pos
     assert "write_daily_statistics(output, target_date, statistics)" not in source
+    assert "_finalize_restore_output_once(" not in source
     assert "_mark_ledger_restored(output, replacement_id)" not in source
-    assert "_mark_ledger_rows_restored_once(" not in source
     assert "replacement_ids=tuple(restored_ids)" in source
 
 
-def test_bulk_output_finalization_uses_one_excel_session_for_stats_and_ledger():
-    source = inspect.getsource(_finalize_restore_output_once)
+def test_restore_output_backend_uses_one_excel_session_and_one_save():
+    source = inspect.getsource(_RestoreOutputBackend.apply)
 
     assert source.count('DispatchEx("Excel.Application")') == 1
-    assert "build_daily_statistics_rows(target_date, statistics)" in source
-    assert "for replacement_id in replacement_ids:" in source
-    assert "STATUS_RESTORED" in source
+    assert "for patch in patches:" in source
+    assert "self._write_statistics(workbook)" in source
+    assert "self._mark_ledger_rows(workbook)" in source
     assert "RefreshDailyChangeLedgerView" in source
-    assert "workbook.Save()" in source
+    assert source.count("workbook.Save()") == 1
+
+
+def test_restore_output_backend_keeps_stats_and_ledger_helpers_in_same_backend():
+    stats_source = inspect.getsource(_RestoreOutputBackend._write_statistics)
+    ledger_source = inspect.getsource(_RestoreOutputBackend._mark_ledger_rows)
+
+    assert "build_daily_statistics_rows(self.target_date, self.statistics)" in stats_source
+    assert "for replacement_id in self.replacement_ids:" in ledger_source
+    assert "STATUS_RESTORED" in ledger_source
 
 
 def test_requested_restore_ids_uses_all_active_rows(monkeypatch):
