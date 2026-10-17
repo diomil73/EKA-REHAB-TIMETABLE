@@ -8,7 +8,7 @@ from typing import Iterable, Mapping
 from rehab_core.daily_state import DailySessionState, DailySessionStatus
 from rehab_core.models import BaseScheduleEntry, Patient, PatientType
 
-from .master_projection import MasterProjectionError, build_master_projection
+from .master_projection import MasterProjectionError, MasterProjectionRow, build_master_projection
 from .writeback import CellPatch, WritePlan, build_write_plan
 
 
@@ -94,12 +94,16 @@ def build_master_daily_overlay_plan(
     states: Iterable[DailySessionState],
     patients: Iterable[Patient],
     provider_labels: Mapping[str, str] | None = None,
+    master_projection_rows: Iterable[MasterProjectionRow] | None = None,
 ) -> MasterDailyOverlayPlan:
     """Build date-specific MASTER treatment-cell patches from DailySessionState.
 
     MASTER_SCHEDULE remains a derived view. Recurring source rows are never
     edited. For now this overlay writes active REPLACED states; other daily
     statuses will be added as their explicit MASTER presentation is locked.
+
+    Callers that already computed the logical MASTER projection may provide it
+    so the workbook does not need to be parsed a second time for identical rows.
     """
 
     path = Path(workbook_path)
@@ -107,10 +111,13 @@ def build_master_daily_overlay_plan(
     patient_map = {patient.patient_id: patient for patient in patients}
     labels = dict(provider_labels or {})
 
-    try:
-        projection = build_master_projection(path, patients=patient_map.values())
-    except MasterProjectionError as exc:
-        raise MasterDailyOverlayError(str(exc)) from exc
+    if master_projection_rows is None:
+        try:
+            projection = build_master_projection(path, patients=patient_map.values())
+        except MasterProjectionError as exc:
+            raise MasterDailyOverlayError(str(exc)) from exc
+    else:
+        projection = tuple(master_projection_rows)
     row_by_patient = {item.patient_id: item.target_row for item in projection}
 
     patches: list[CellPatch] = []
