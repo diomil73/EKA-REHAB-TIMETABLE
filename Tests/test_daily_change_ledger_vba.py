@@ -47,16 +47,39 @@ def test_vba_renders_daily_change_list_and_all_restore_controls():
     assert "Public Sub RestoreAllDailyChanges()" in VBA_CODE
 
 
-def test_restore_refuses_to_clobber_newer_changes_and_uses_snapshots():
-    assert 'If currentOriginal <> expectedOriginal Then' in VBA_CODE
-    assert 'If effectiveCell <> originalCell And currentEffective <> expectedEffective Then' in VBA_CODE
-    assert 'Cells(ledgerRow, 13).Copy Destination:=wsDaily.Range(originalCell)' in VBA_CODE
-    assert 'Cells(ledgerRow, 14).Copy Destination:=wsDaily.Range(effectiveCell)' in VBA_CODE
-    assert 'Cells(ledgerRow, 12).Value = STATUS_RESTORED' in VBA_CODE
+def test_restore_actions_use_authoritative_backend_instead_of_cell_copy():
+    assert 'ResolveAuthoritativeRestoreScript()' in VBA_CODE
+    assert 'restore_daily_replacement_facts.py' in VBA_CODE
+    assert ' --replacement-id ' in VBA_CODE
+    assert ' --all-active' in VBA_CODE
+    assert ' --response ' in VBA_CODE
+    assert 'RunAuthoritativeRestore(' in VBA_CODE
+    assert 'Cells(ledgerRow, 13).Copy Destination:=wsDaily.Range(originalCell)' not in VBA_CODE
+    assert 'Cells(ledgerRow, 14).Copy Destination:=wsDaily.Range(effectiveCell)' not in VBA_CODE
 
 
-def test_restore_refreshes_master_patient_program_back_to_recurring_state():
-    assert 'Call RefreshMasterPatientProgram(CStr(wsLedger.Cells(ledgerRow, 3).Value))' in VBA_CODE
+def test_selected_restore_builds_one_atomic_backend_request():
+    assert 'replacementArgs = replacementArgs & " --replacement-id " & QuoteArg(replacementId)' in VBA_CODE
+    assert 'If selectedCount = 0 Then' in VBA_CODE
+    assert 'RunAuthoritativeRestore replacementArgs, False' in VBA_CODE
+
+
+def test_per_row_restore_passes_exact_immutable_replacement_id():
+    assert 'replacementId = Trim$(CStr(wsLedger.Cells(rowIndex, 1).Value))' in VBA_CODE
+    assert 'RunAuthoritativeRestore(" --replacement-id " & QuoteArg(replacementId), False)' in VBA_CODE
+
+
+def test_restore_all_uses_backend_active_set_semantics():
+    assert 'RunAuthoritativeRestore("", True)' in VBA_CODE
+    assert 'commandLine = commandLine & " --all-active"' in VBA_CODE
+
+
+def test_authoritative_restore_commit_closes_and_reopens_daily_sheet():
+    assert 'ResolveAuthoritativeCommitWorkerScript()' in VBA_CODE
+    assert 'authoritative_commit_worker_cli.py' in VBA_CODE
+    assert '"post_reopen_target"' in VBA_CODE
+    assert 'JsonEscape(DAILY_SHEET)' in VBA_CODE
+    assert 'ThisWorkbook.Close SaveChanges:=True' in VBA_CODE
 
 
 def test_ledger_refresh_keeps_restored_rows_visible_as_history():
