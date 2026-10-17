@@ -21,7 +21,7 @@ def test_replacement_id_is_stable_per_session_and_date():
         start_time=time(9, 15),
     )
 
-    assert _replacement_id(session) == "daily-input:S-123:2026-10-19"
+    assert _replacement_id(session, []) == "daily-input:S-123:2026-10-19"
 
 
 def test_stored_statistics_reads_key_value_rows(tmp_path):
