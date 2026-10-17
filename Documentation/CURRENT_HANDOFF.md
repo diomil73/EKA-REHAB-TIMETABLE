@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-10-17
+Last updated: 2026-10-18
 
 ## Branch / working line
 
@@ -15,13 +15,11 @@ Last updated: 2026-10-17
 - diagnostic restore-all before MASTER batch write: Backend `45.70s`
 - diagnostic restore-all after MASTER batch write: Backend `31.33s`, rollback `0.15s`, preview open `0.88s`, sheet sync `0.19s`, final save `1.23s`
 - direct backend profile after fact-session consolidation: total `22.924s`, pre-Excel/verification `12.978s`, Excel output `9.946s`
-- latest dominant pre-Excel phases: `build_master_projection 6.142s`, `pre_excel_unattributed 2.581s`, `read_target_date 1.121s`, `read_daily_input 0.855s`, `read_base_schedule 0.724s`
 - `restore_fact_batch 8.863s` has been eliminated from the pipeline
-- first OOXML MASTER-projection gate after package-probe migration: `5 failed, 51 passed in 5.06s`
-- failure root cause: openpyxl-generated relationship targets may be package-absolute, e.g. `/xl/worksheets/sheet1.xml`, while `zipfile` archive members have no leading slash
-- fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`: normalize package-absolute and relative OPC relationship targets in `WorkbookPackageProbe._join_part`
-- regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`: direct coverage for absolute, relative, and parent-relative relationship targets
-- **post-fix focused gate: `59 passed in 6.85s`**
+- OOXML MASTER projection path is regression-green: `59 passed in 6.85s`
+- latest direct backend profile after OOXML projection migration: total `16.509s`, pre-Excel/verification `7.976s`, Excel output `8.533s`
+- latest `build_master_projection`: `0.089s` (down from `6.142s`)
+- latest Excel output detail: dispatch `1.347s`, open `1.921s`, MASTER `2.613s`, daily patches `0.452s`, statistics `0.316s`, replacement fact rows `0.160s`, ledger rows `0.024s`, refresh `0.039s`, save `1.390s`, close `0.066s`, quit `0.004s`
 - parity rebuild: row/selected/all smoke copies authoritative and VBA-preserving
 - per-row / selected / restore-all in-session correctness: native green
 - replacement lifecycle history V87-V92: native green
@@ -40,25 +38,34 @@ Replacement facts preserve immutable history. First placement keeps the legacy i
 
 Native correctness is green for per-row, selected multi-row, and restore-all controls. User-facing `Αιτία` remains Greek-only for known replacement causes.
 
-## ACTIVE: restore performance / UX
+## DEFERRED: restore performance / UX latency
 
-The latest profile confirms the previous fact-lifecycle change worked: backend total fell to `22.924s` and the old `restore_fact_batch 8.863s` phase disappeared. The dominant remaining pre-Excel cost is `build_master_projection 6.142s`.
+Restore latency has improved materially and is no longer the active engineering priority. Backend profiling is now `16.509s` on the trusted V90 scenario, with the MASTER metadata parser reduced from `6.142s` to `0.089s`. End-user restore time around the low-to-mid 20-second range is accepted for the current development stage.
 
-MASTER projection metadata has been moved from full openpyxl workbook loads to the read-only OOXML package probe. The first Windows gate exposed an OPC-path compatibility bug rather than a projection-rule regression: relationship targets beginning with `/` were passed directly to `zipfile`, which expects archive member names such as `xl/worksheets/sheet1.xml`. The package probe now resolves both package-absolute and relative relationship targets to normalized ZIP member names before reading them. The complete focused gate is now green at `59 passed in 6.85s`.
+Do not spend more time on restore micro-optimization now. Remaining latency work, including `pre_excel_unattributed`, Excel process startup/open/save overhead, and any further batching, is explicitly deferred until the broader feature set is substantially complete.
 
-OOXML projection implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, initial projection regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`, OPC target fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`, target-resolution regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`.
+Performance work already completed and retained:
 
-Safety semantics are unchanged. The package path only reads cached/stored metadata needed for projection row mapping; it does not evaluate formulas or save the workbook.
+- selected/all lifecycle batching,
+- statistics + ledger finalization consolidation,
+- redundant in-session save removal,
+- single restore output Excel session,
+- MASTER projection moved into that output session,
+- bounded meaningful-range sync,
+- range-batched MASTER projection write-back,
+- detailed backend profiler,
+- reuse of already-loaded data,
+- replacement fact status persistence folded into the existing output Excel session,
+- OOXML package-probe metadata path for MASTER projection,
+- OPC relationship target normalization for package-absolute and relative paths.
 
 ## Exact resume point
 
-1. Run the backend profiler with a fresh output:
-   `python Python/tools/profile_daily_restore_backend.py --input .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\BACKEND_PROFILE4.xlsm --all-active --overwrite`
-2. Primary expectation: `build_master_projection` should drop sharply from `6.142s`.
-3. If backend remains above target, attack the next largest measured phase immediately. The current likely target is `pre_excel_unattributed ~2.58s`, then Excel process startup/open/save overhead.
-4. Re-run fresh reconstruction after performance changes.
-5. Keep the acceptance target at roughly `<=15s` total, ideally around 10s.
-6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+1. Do not resume restore performance tuning unless a new correctness regression appears or the broader project reaches final polish.
+2. Resume the next unfinished functional milestone: outpatient recurring create/edit native verification and the wider scheduling/UI roadmap.
+3. Preserve the current restore profiler and timings as the baseline for end-stage optimization.
+4. Keep correctness gates locked: source/VBA preservation, immutable history, validate-all-before-mutate, exact statistics, and MASTER/THERAPIST_DAILY agreement.
+5. Windows tests always use `python -m pytest`.
 
 ## Locked orphan rule
 
