@@ -10,15 +10,15 @@
 
 ### Reversible daily change ledger: native UX prototype
 
-Το τρέχον προσωρινό focus είναι να δούμε στην πράξη το ημερήσιο change ledger μέσα στο `THERAPIST_DAILY` πριν συνδεθεί με το authoritative recomputation engine.
+Το τρέχον focus είναι native έλεγχος του ημερήσιου change ledger μέσα στο `THERAPIST_DAILY` πριν συνδεθεί με το authoritative recomputation engine.
 
 Υλοποιήθηκε πρώτο native preview slice:
 
 - `Python/rehab_excel/daily_change_ledger_vba.py`,
 - `Tests/test_daily_change_ledger_vba.py`,
-- integration στο υπάρχον `Python/tools/apply_replacement_choice.py`.
+- integration στο `Python/tools/apply_replacement_choice.py`.
 
-Το guided replacement preview πλέον μπορεί να παράγει μία πραγματική προσωρινή μετακίνηση και να εμφανίζει από κάτω:
+Το guided replacement preview παράγει πραγματική προσωρινή μετακίνηση και εμφανίζει από κάτω:
 
 `Αλλαγές για την dd/mm/yyyy`
 
@@ -33,14 +33,29 @@ Prototype controls:
 
 Prototype safety:
 
-- metadata/snapshots αποθηκεύονται σε very-hidden `DAILY_CHANGE_LEDGER`,
-- restore ενεργεί μόνο πάνω στο preview copy,
-- exact source-cell snapshots χρησιμοποιούνται για native visual restoration,
-- πριν από restore ελέγχεται ότι τα affected cells δεν έχουν μεταβληθεί ξανά,
-- stale restore μπλοκάρεται αντί να πατάει νεότερη αλλαγή.
+- metadata/snapshots σε very-hidden `DAILY_CHANGE_LEDGER`,
+- restore μόνο πάνω στο preview copy,
+- exact source-cell snapshots για native visual restoration,
+- stale restore μπλοκάρεται πριν πατήσει νεότερη αλλαγή.
 
 Focused ledger source gate: **10 passed in 3.26s**.
 Replacement load + mixed-slot regression gate: **31 passed in 2.04s**.
+
+### V82 real guided replacement build
+
+Το πραγματικό stress test χτίστηκε επιτυχώς:
+
+- date: `2026-10-19`
+- patient: `ΜΕΝΤΗΣ`
+- original: `Σκαρώνης 09:15`
+- replacement: `Μηλιδάκης 10:45`
+- Μηλιδάκης candidate: `load 5/6 | patients 6`
+- output: `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`
+- `Source unchanged: True`
+- `VBA preserved: True`
+- `Daily change ledger installed: yes`
+
+Άρα build/install gate: **green**. Το επόμενο gate είναι visual/interactive native smoke μέσα στο `THERAPIST_DAILY`.
 
 ### Replacement operational load semantics
 
@@ -89,73 +104,71 @@ Confirmed green:
 
 Οι ακυρώσεις εσωτερικών και εξωτερικών ασθενών και οι απουσίες θεραπευτών πρέπει να λειτουργούν ανεξάρτητα από τη χρονική σειρά με την οποία καταχωρούνται.
 
-Η ημερήσια κατάσταση πρέπει να ξαναϋπολογίζεται από τα τελευταία γνωστά facts κάθε φορά που αλλάζει cancellation ή therapist absence:
+Η ημερήσια κατάσταση ξαναϋπολογίζεται από τα τελευταία γνωστά facts:
 
 1. recurring/base schedule για τη συγκεκριμένη ημερομηνία,
-2. εφαρμογή όλων των patient cancellations / no-shows και απελευθέρωση των slots,
-3. εφαρμογή όλων των therapist absences και αφαίρεση της διαθεσιμότητας αυτών των θεραπευτών,
-4. εντοπισμός ασθενών που μένουν χωρίς εκτελέσιμη ανάθεση,
-5. redistribution αυτών των ήδη προγραμματισμένων/επηρεασμένων ασθενών στο καθαρό διαθέσιμο capacity,
-6. μόνο το capacity που απομένει μετά το redistribution προσφέρεται σε νέους ασθενείς.
+2. patient cancellations/no-shows και release slots,
+3. therapist absences,
+4. displaced/unscheduled existing patients,
+5. redistribution στο καθαρό διαθέσιμο capacity,
+6. μόνο μετά new-patient allocation.
 
 Temporal invariant:
 
-- therapist absence μπορεί να καταχωρηθεί νωρίς και να παράγει preliminary redistribution,
-- μεταγενέστερη cancellation πρέπει με refresh/recompute να ελευθερώνει αμέσως νέο slot,
-- correction/removal cancellation πρέπει να ξαναδεσμεύει το slot και να επανελέγχει conflicts,
-- ούτε cancellation ούτε therapist absence τροποποιεί καταστροφικά το recurring base schedule,
-- η λειτουργία πρέπει να είναι idempotent και να μπορεί να ξανατρέχει όσες φορές χρειάζεται μέσα στην ίδια ημέρα.
+- absence μπορεί να προηγηθεί cancellation,
+- μεταγενέστερη cancellation πρέπει να βελτιώνει το recomputed plan,
+- correction/removal cancellation ξαναδεσμεύει slot και απαιτεί revalidation,
+- ούτε cancellation ούτε absence γράφει destructively στο recurring schedule,
+- recomputation idempotent.
 
 Priority invariant:
 
-- πρώτα εξυπηρετούνται οι υπάρχοντες ασθενείς που επηρεάζονται από απουσία θεραπευτή,
-- μετά χρησιμοποιείται τυχόν υπόλοιπο capacity για νέους ασθενείς.
+- πρώτα displaced existing patients,
+- μετά new patients.
 
 ### Locked milestone: reversible daily change ledger στο THERAPIST_DAILY
 
-Κάτω από τα ημερήσια προγράμματα θεραπευτών θα υπάρχει date-scoped section:
+Κάτω από τα ημερήσια προγράμματα θεραπευτών υπάρχει date-scoped section:
 
 `Αλλαγές για την dd/mm/yy`
-
-Στόχος: κάθε προσωρινή operational μετακίνηση να είναι ορατή, traceable και αναστρέψιμη χωρίς destructive αλλαγή στο recurring πρόγραμμα.
 
 Κάθε ledger row πρέπει να περιγράφει τουλάχιστον:
 
 - ασθενή,
 - αρχικό θεραπευτή και ώρα,
 - νέο/effective θεραπευτή και ώρα,
-- reason/source της αλλαγής,
+- reason/source,
 - stable internal change/replacement id,
 - active/restored status.
 
 Required production restore semantics:
 
 - αφαιρεί/reverses το date-specific override,
-- μετά ξανατρέχει recomputation για τη συγκεκριμένη ημερομηνία,
-- δεν γράφει ποτέ το recurring/base schedule από UI text,
-- είναι idempotent,
-- πριν από undo ελέγχει ότι δεν υπάρχει νεότερη μετακίνηση του ίδιου session,
-- μετά από restore ξαναϋπολογίζονται capacity, conflicts και replacement needs,
-- bulk restore πρέπει να είναι ασφαλές και να αναφέρει conflicts αντί να αφήνει μισή/ασυνεπή κατάσταση.
+- μετά full recompute για τη συγκεκριμένη ημερομηνία,
+- δεν γράφει ποτέ recurring/base schedule από UI text,
+- idempotent,
+- stale undo μπλοκάρεται,
+- capacity/conflicts/replacements ξαναϋπολογίζονται,
+- bulk restore ασφαλές και atomic/validated.
 
 Next-day invariant:
 
-- τα daily overrides ισχύουν μόνο για τη δική τους ημερομηνία,
-- την επόμενη μέρα το πρόγραμμα ξεκινά ξανά από recurring/base schedule + τα overlays της νέας ημερομηνίας,
-- δεν χρειάζεται χειροκίνητο undo μόνο και μόνο για να επιστρέψει ο ασθενής στη συνηθισμένη θέση του την επόμενη ημέρα.
+- daily overrides ισχύουν μόνο για τη δική τους ημερομηνία,
+- η επόμενη μέρα ξεκινά από recurring/base + overlays της νέας ημέρας,
+- δεν χρειάζεται manual undo για επιστροφή στο recurring πρόγραμμα.
 
 Architecture fit:
 
-- το υπάρχον `DailySessionState` κρατά original therapist/time και effective therapist/time ξεχωριστά,
-- το `ReplacementAssignment` είναι ήδη date-specific overlay,
-- άρα το ledger/revert πρέπει να επεκτείνει το υπάρχον daily-state model και όχι να δημιουργήσει δεύτερο authoritative schedule store.
+- `DailySessionState` κρατά original και effective therapist/time ξεχωριστά,
+- `ReplacementAssignment` είναι date-specific overlay,
+- το ledger/revert επεκτείνει το daily-state model και δεν δημιουργεί δεύτερο authoritative schedule store.
 
 ### Accepted MASTER UX
 
 - row 2: 4 horizontal MASTER action buttons,
 - row 4: treatment / column headers,
 - rows 1-4 μένουν σταθερές στο vertical scroll,
-- το application shell ξαναβάζει το pin κάθε φορά που ενεργοποιείται το MASTER,
+- application shell reapplies pin,
 - no UserForm/sidebar/CommandBars.
 
 V81 native gate: **green**.
@@ -178,20 +191,21 @@ V81 native gate: **green**.
 - Cancellation/released-slot propagation source implementation + dedicated regression coverage.
 - Reversible daily ledger prototype source gate: **10 passed in 3.26s**.
 - Replacement operational-load semantics + mixed-slot presentation fix: **31 passed in 2.04s**.
+- V82 real guided replacement preview build/install: **green**.
 
 ## Τρέχον verification gate
 
-1. Rerun the real guided replacement preview for ΜΕΝΤΗΣ at 09:15.
-2. Confirm candidates display timeslot-based load, e.g. `load 5/6 | patients 6`.
-3. Select Μηλιδάκης again as the stress test.
-4. Confirm mixed inpatient/outpatient presentation no longer raises SAFETY STOP.
-5. Generate the preview successfully.
-6. Open `THERAPIST_DAILY` and inspect the ledger section under the schedules.
-7. Verify the ledger row shows the correct patient and original/effective therapist-time values.
-8. Test individual `Επαναφορά`.
-9. Confirm exact source/destination preview cells are restored and recurring/base schedule is untouched.
-10. Rebuild and test selected/all restore once multiple preview changes are supported.
-11. If UX accepted, replace preview-snapshot restore with authoritative overlay removal + daily recompute.
+1. Open `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`.
+2. Go to `THERAPIST_DAILY`.
+3. Confirm ΜΕΝΤΗΣ appears moved from Σκαρώνης 09:15 to Μηλιδάκης 10:45.
+4. Scroll below schedules and verify `Αλλαγές για την 19/10/2026`.
+5. Verify row details are correct.
+6. Test individual `Επαναφορά`.
+7. Confirm source/destination preview cells restore exactly.
+8. Confirm ledger row stays visible as restored history.
+9. Confirm recurring/base schedule remains untouched.
+10. Later test selected/all restore with multiple changes.
+11. After UX acceptance, replace snapshot restore with authoritative overlay removal + daily recompute.
 12. Resume outpatient recurring create/edit gate.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
