@@ -17,10 +17,12 @@
 - Student workload and exact-timeslot availability engine.
 - Provider-kind metadata so therapist and student replacements remain distinct.
 - Student double-booking conflict classification.
+- In-session daily-ledger restore bridge that keeps the authoritative Python preview/recompute gate while applying the verified result back into the already-open workbook with a rollback copy.
 
 ### Changed
 - A provider busy at the requested time is no longer automatically removed from replacement suggestions when another common free timeslot exists.
 - Infectious workload is now a tie-breaker after total load and exact-time availability, rather than overriding the confirmed load-first priority.
+- Daily ledger restore no longer uses a visible `WScript.Shell.Exec` console or the detached workbook close/reopen commit worker on the primary UI path. Backend execution is hidden and blocking, then the verified operational sheet set is synchronized in-session and saved without closing the workbook.
 
 ### Unchanged
 - Base schedule remains immutable.
