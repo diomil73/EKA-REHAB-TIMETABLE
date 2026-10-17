@@ -13,6 +13,7 @@ Last updated: 2026-10-17
 - full regression checkpoint: `699 passed, 19 warnings`
 - replacement load + mixed outpatient/inpatient regression: `31 passed in 2.04s`
 - MASTER daily overlay + ledger restore source gate: `24 passed, 5 warnings in 4.39s`
+- orphan suspension + statistics focused source gate: `21 passed in 3.11s`
 - V82 individual ledger restore: native green
 - V83 MASTER active-overlay sync + restore: native green
 - V84 time-axis display + restore: native green
@@ -52,7 +53,7 @@ Decision: **do not spend more engineering time on this now**. It is cosmetic, no
 
 ## ACTIVE development focus: orphan workflow + statistics
 
-The domain foundation for the daily `Ορφανοί` workflow is now implemented in source and awaits the focused source gate.
+The domain foundation for the daily `Ορφανοί` workflow is implemented and the focused source gate is green.
 
 Locked rule: every orphan for the concrete date must resolve as exactly one of:
 
@@ -76,7 +77,7 @@ Implemented domain slice:
 - the day is finalized only when unresolved sessions reach zero,
 - focused tests added in `Tests/test_orphan_treatment_suspension.py` and `Tests/test_daily_treatment_statistics.py`.
 
-Status: **implemented, source gate pending; Excel orphan actions/UI not yet wired**.
+Status: **source green: 21 passed in 3.11s; Excel orphan actions/UI and authoritative persistence are not yet wired**.
 
 ## Locked daily recomputation order
 
@@ -110,25 +111,19 @@ Still open:
 
 Priority order:
 
-1. **Run the focused source gate for treatment suspension + statistics + existing daily-state/queue/capacity regressions.**
-2. If green, wire orphan operational actions into the actual workflow: place or suspend.
-3. Persist `Αναστολή θεραπείας` as an authoritative date-specific daily fact, not preview-only state.
-4. Surface daily statistics in the workbook/reporting flow.
-5. Native-check orphan placement and suspension behavior.
-6. Test selected/all restore with multiple changes.
-7. Replace snapshot restore with authoritative overlay removal + recompute.
-8. Resume outpatient recurring create/edit native gate.
-9. Clean Python 3.14 ZipFile teardown warnings later.
+1. **Wire orphan operational actions into the actual workflow: place or suspend.**
+2. Persist `Αναστολή θεραπείας` as an authoritative date-specific daily fact, not preview-only state.
+3. Surface daily statistics in the workbook/reporting flow.
+4. Native-check orphan placement and suspension behavior.
+5. Test selected/all restore with multiple changes.
+6. Replace snapshot restore with authoritative overlay removal + recompute.
+7. Resume outpatient recurring create/edit native gate.
+8. Clean Python 3.14 ZipFile teardown warnings later.
 
-Focused Windows gate:
+Latest focused Windows gate result:
 
-```powershell
-python -m pytest `
-  Tests/test_orphan_treatment_suspension.py `
-  Tests/test_daily_treatment_statistics.py `
-  Tests/test_daily_state.py `
-  Tests/test_therapist_absence_queue.py `
-  Tests/test_cancellation_releases_replacement_capacity.py -q
+```text
+21 passed in 3.11s
 ```
 
 ## Business rules that must not regress
