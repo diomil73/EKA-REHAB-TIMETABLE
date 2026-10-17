@@ -5,7 +5,7 @@ Last updated: 2026-10-17
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Latest trusted native preview: `Excel/previews/RERESOLVED_V90.xlsm`
+- Latest trusted native preview: `Excel/previews/SELECTED_RESTORE_V91.xlsm`
 - V81 MASTER toolbar/header UX remains native green.
 
 ## Latest confirmed checkpoints
@@ -24,6 +24,7 @@ Last updated: 2026-10-17
 - V90 re-placement preview creation: **native green**
 - V90 fresh daily-fact reconstruction: **native green**
 - V90 replacement-fact lifecycle inventory: **native green**
+- V91 selected authoritative restore: **native green**
 
 Known Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -115,50 +116,6 @@ Commits:
 - selected/all tool: `d109af5eed7b09354e3e13bdf8e065d58ba817db`
 - selected/all pipeline tests: `b8690432a5927de671e5e08edc41e3a57bc0d5af`
 
-### 2026-10-17 focused gate regression and resolution
-
-The first Windows focused source gate after the bulk-restore pull produced `35 passed, 1 failed` because `Tests/test_daily_fact_reconstruction_verifier.py` still called `_replacement_id(session)` after the API became history-aware.
-
-The test was corrected to `_replacement_id(session, [])` for the no-history/base-id case.
-
-Fix commit:
-
-- `c43b677667c59d38b65b928d4126c36cf670f28c`
-
-Rerun result:
-
-- **36 passed in 4.74s**
-
-### V90 re-placement regression discovered and fixed
-
-The first native V89 -> V90 re-placement attempt stopped with:
-
-`SAFETY STOP: Duplicate ReplacementId 'daily-input:planner:61:ΦΘ@2026-10-19:2026-10-19'`
-
-Root cause:
-
-- `apply_daily_input_replacements.py` correctly reread the 4 surviving ACTIVE replacement facts from V89,
-- but after resolving the reopened orphan it passed the complete active replacement list back to `append_daily_replacement_facts`,
-- therefore the writer attempted to append the 4 already-persisted facts again before it could add only the new `:v2` fact.
-
-The duplicate-id guard behaved correctly; the caller was wrong.
-
-Fix implemented:
-
-- existing ACTIVE replacements remain in memory for workload/state reconstruction,
-- only replacements created during the current run are appended as new facts,
-- post-copy persistence failures remove the newly created preview so a half-written preview is not left behind,
-- output reporting distinguishes replacements loaded from disk, replacements created this run, and total active replacements after resolution.
-
-Commits:
-
-- implementation/safety cleanup: `ae0f58d363ec0cbf357876cf6b4633e3f14d70e7`
-- regression coverage: `88b75319273005b28d373d2a683701f82fe41fba`
-
-Focused rerun after the fix:
-
-- **37 passed in 7.13s**
-
 ### V90 native re-placement, reconstruction and lifecycle inventory validated
 
 `RERESOLVED_V90.xlsm` was recreated from trusted V89 with candidate placement, not suspension.
@@ -175,13 +132,7 @@ Native output confirmed:
 - source unchanged: True
 - VBA preserved: True
 
-Fresh reconstruction verifier confirmed:
-
-- persisted replacements reread: 5
-- treatment suspensions reread: 2
-- reconstructed unresolved: 0
-- reconstructed finalized: ΝΑΙ
-- stored `DAILY_STATISTICS` exactly matches reconstructed daily state
+Fresh reconstruction verifier confirmed 5 active replacements, 2 treatment suspensions, unresolved=0, finalized=ΝΑΙ, and exact `DAILY_STATISTICS` equivalence.
 
 Explicit replacement-fact inventory confirmed 6 historical rows total:
 
@@ -191,12 +142,31 @@ Explicit replacement-fact inventory confirmed 6 historical rows total:
 
 This closes the V90 versioned-id lifecycle proof: restore history is preserved while the new authoritative occurrence receives a distinct immutable id.
 
+### V91 selected authoritative restore validated
+
+`SELECTED_RESTORE_V91.xlsm` was created from V90 by restoring exactly two ACTIVE facts:
+
+- `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19:v2`
+- `daily-input:planner:61:ΦΘ@2026-10-19:2026-10-19`
+
+Native output matched the expected atomic recompute result exactly:
+
+- restored replacement facts: 2
+- active replacements after restore: 3
+- unresolved sessions after recompute: 2
+- finalized after recompute: ΟΧΙ
+- source unchanged: True
+- VBA preserved: True
+
+This is the first native proof that multi-select authoritative restore mutates the requested fact set together and recomputes the day from surviving truth rather than copying cells.
+
 ## Exact resume point
 
-1. Native test selected restore from V90 of exactly two ACTIVE facts: `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19:v2` and `daily-input:planner:61:ΦΘ@2026-10-19:2026-10-19`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-2. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-3. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
-4. Resume outpatient recurring create/edit native gate.
+1. Fresh-verify `SELECTED_RESTORE_V91.xlsm`; expect persisted replacements=3, suspended=2, unresolved=2, finalized=ΟΧΙ, and exact stored-statistics equivalence.
+2. Native test `--all-active` from V90 on a separate `RESTORE_ALL_V92.xlsm`; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+3. Fresh-verify V92 and inspect fact inventory if needed.
+4. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
+5. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
