@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 import sys
 from typing import Iterable
@@ -71,6 +71,14 @@ def _parse_date(value: object, *, row: int) -> date:
         return value.date()
     if isinstance(value, date):
         return value
+    if isinstance(value, (int, float)):
+        try:
+            # Excel's Windows date system uses 1899-12-30 as the practical
+            # serial origin. Fractional values carry a time-of-day component,
+            # which is intentionally ignored for ReplacementDate.
+            return (datetime(1899, 12, 30) + timedelta(days=float(value))).date()
+        except (OverflowError, TypeError, ValueError):
+            pass
     text = str(value or "").strip()
     for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
         try:
