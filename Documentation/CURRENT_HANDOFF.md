@@ -7,6 +7,7 @@ Last updated: 2026-10-17
 - Branch: `feature/outpatient-scheduling`
 - Clean preview base: `Excel/previews/MASTER_TOOLBAR_SMOKE_V48.xlsm`
 - Latest native preview tested: `MASTER_TOOLBAR_SMOKE_V81.xlsm`
+- Latest successfully generated ledger preview: `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`
 - V73 scheduling/conflict behavior remains native green.
 - V80 clean reset preview is native green.
 - V81 MASTER toolbar/header pinning is native green.
@@ -57,7 +58,26 @@ Retained current patient-program behavior and legacy component cleanup.
 - full regression before cleanup: `722 passed, 19 warnings`
 - full regression after cleanup: `699 passed, 19 warnings`
 - reversible daily change ledger focused source gate: `10 passed in 3.26s`
-- **replacement load + mixed outpatient/inpatient regression gate: `31 passed in 2.04s`**
+- replacement load + mixed outpatient/inpatient regression gate: `31 passed in 2.04s`
+- V82 guided replacement native build: green
+
+## V82 native guided replacement checkpoint
+
+The real stress case now builds successfully from V81:
+
+- date: `2026-10-19`
+- patient: `ΜΕΝΤΗΣ`
+- original assignment: `Σκαρώνης 09:15`
+- selected replacement: `Μηλιδάκης 10:45`
+- candidate display for Μηλιδάκης: `load 5/6 | patients 6`
+- source workbook unchanged: `True`
+- VBA preserved: `True`
+- daily change ledger installed: `yes`
+- output: `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`
+
+This confirms the timeslot-based load semantics, mixed inpatient/outpatient non-blocking rule, COM-safe ledger date write, successful preview write, and ledger installation path.
+
+The ledger UX itself is NOT yet native-accepted. The next gate is visual/interactive inspection inside `THERAPIST_DAILY`.
 
 ## Cancellation slot release status
 
@@ -175,27 +195,27 @@ A first native UX prototype is wired into the existing guided replacement previe
 
 Focused source verification is green: **10 passed in 3.26s**.
 Replacement-load / mixed-slot fixes are also green: **31 passed in 2.04s**.
+V82 guided replacement build and ledger installation are native green.
 
 This prototype is intentionally a UX/native validation slice. After native acceptance, restore will be connected to the authoritative daily overlay store and recomputation engine rather than relying on preview cell snapshots.
 
 ## Current development focus
 
-Immediate gate: **rerun the real guided replacement preview for ΜΕΝΤΗΣ 09:15 and stress-test selection of Μηλιδάκης after the load/mixed-slot fixes**.
+Immediate gate: **open `DAILY_CHANGE_LEDGER_V82.xlsm` and native-smoke the reversible ledger inside `THERAPIST_DAILY`**.
 
 Next native check:
 
-1. confirm candidate list shows timeslot-based load such as `load 5/6 | patients 6` where applicable,
-2. select Μηλιδάκης again,
-3. confirm mixed inpatient/outpatient presentation no longer raises SAFETY STOP,
-4. generate the preview successfully,
-5. open `THERAPIST_DAILY`,
-6. verify the `Αλλαγές για την dd/mm/yyyy` section appears below the schedules,
-7. verify patient/original/effective therapist-time details are correct,
-8. click the row `Επαναφορά`,
-9. confirm the exact source/destination cells return to their prior preview state,
-10. confirm the recurring/base schedule remains untouched.
+1. open `Excel/previews/DAILY_CHANGE_LEDGER_V82.xlsm`,
+2. go to `THERAPIST_DAILY`,
+3. confirm ΜΕΝΤΗΣ moved from Σκαρώνης 09:15 to Μηλιδάκης 10:45,
+4. scroll below the schedules and verify `Αλλαγές για την 19/10/2026`,
+5. verify the row shows ΜΕΝΤΗΣ, `Σκαρώνης 09:15` and `Μηλιδάκης 10:45`,
+6. click the row `Επαναφορά`,
+7. confirm the exact source/destination cells return to their prior preview state,
+8. confirm the ledger row remains visible as restored history,
+9. confirm recurring/base schedule remains untouched.
 
-The outpatient recurring create/edit work remains open and should resume after this UX spike is either accepted or adjusted.
+After individual restore is native green, test selected/all restore once multiple preview changes are supported. Then replace preview-snapshot restore with authoritative overlay removal + daily recompute. The outpatient recurring create/edit work remains open and resumes after this UX spike is accepted or adjusted.
 
 ## Business rules that must not regress
 
