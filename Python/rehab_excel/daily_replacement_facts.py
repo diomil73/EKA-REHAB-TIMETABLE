@@ -73,10 +73,12 @@ def _parse_date(value: object, *, row: int) -> date:
         return value
     if isinstance(value, (int, float)):
         try:
-            # Excel's Windows date system uses 1899-12-30 as the practical
-            # serial origin. Fractional values carry a time-of-day component,
-            # which is intentionally ignored for ReplacementDate.
-            return (datetime(1899, 12, 30) + timedelta(days=float(value))).date()
+            # COM can persist local midnight as a timezone-shifted Excel serial
+            # (for example 2026-10-19 -> 46313.875). ReplacementDate is a
+            # calendar-only field, so normalize a legacy numeric value to the
+            # nearest whole Excel day before converting it back to a date.
+            serial_day = int(float(value) + 0.5)
+            return (datetime(1899, 12, 30) + timedelta(days=serial_day)).date()
         except (OverflowError, TypeError, ValueError):
             pass
     text = str(value or "").strip()
@@ -301,10 +303,6 @@ def read_daily_replacement_facts(
     return tuple(assignments)
 
 
-def _excel_date(value: date) -> datetime:
-    return datetime.combine(value, time.min)
-
-
 def _time_text(value: object) -> str:
     if isinstance(value, datetime):
         return value.strftime("%H:%M")
@@ -419,8 +417,8 @@ def append_daily_replacement_facts(
             ws.Cells(next_row, 3).Value = fact.patient_id
             ws.Cells(next_row, 4).Value = fact.original_therapist_id
             ws.Cells(next_row, 5).Value = fact.replacement_therapist_id
-            ws.Cells(next_row, 6).Value = _excel_date(fact.replacement_date)
-            ws.Cells(next_row, 6).NumberFormat = "yyyy-mm-dd"
+            ws.Cells(next_row, 6).NumberFormat = "@"
+            ws.Cells(next_row, 6).Value2 = fact.replacement_date.isoformat()
             ws.Cells(next_row, 7).NumberFormat = "@"
             ws.Cells(next_row, 7).Value2 = fact.replacement_time.strftime("%H:%M")
             ws.Cells(next_row, 8).Value = fact.reason or ""
