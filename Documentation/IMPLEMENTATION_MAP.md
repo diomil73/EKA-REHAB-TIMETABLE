@@ -8,55 +8,63 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### 1. Ενοποίηση daily effective state σε MASTER + THERAPIST_DAILY
+### 1. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
 Locked target:
 
 `DailySessionState -> THERAPIST_DAILY + MASTER timetable + ledger + statistics`
 
-Το V83 πέρασε native το βασικό integration stress test:
+Το V83/V84 έχει περάσει native το βασικό integration stress test:
 
 - ΜΕΝΤΗΣ `Σκαρώνης 09:15 -> Μηλιδάκης 10:45`,
 - `THERAPIST_DAILY` δείχνει σωστά active move + source trace,
 - `MASTER` δείχνει επίσης το effective daily assignment,
-- individual `Επαναφορά` γυρίζει και τα δύο views στο `Σκαρώνης 09:15`.
+- individual `Επαναφορά` γυρίζει και τα δύο views στο `Σκαρώνης 09:15`,
+- η αριστερή time axis πλέον δείχνει σωστά `hh:mm` χωρίς `####`.
 
-Status: **MASTER + THERAPIST_DAILY + ledger native green για το V83 stress case**. Statistics integration παραμένει open.
+Status: **MASTER + THERAPIST_DAILY + ledger + time-axis native green για το stress case**. Statistics integration παραμένει open.
 
 Focused source gate πριν το V83: **24 passed, 5 warnings in 4.39s**. Τα warnings είναι Python 3.14 `ZipFile.__del__` teardown warnings και δεν αποτελούν functional blocker.
 
-### 2. THERAPIST_DAILY time-axis cleanup
+### 2. THERAPIST_DAILY styling / legacy cleanup
 
-Το V83 επιβεβαίωσε ότι οι ώρες αριστερά εξακολουθούν να εμφανίζονται ως `####`.
+Native V84 έδειξε δύο εναπομείναντα presentation bugs:
 
-Root cause: `RefreshDailyChangeLedgerView` ξαναέβαζε τη στήλη A σε width 4.
+- ο ΜΕΝΤΗΣ εμφανίζεται πορτοκαλί στο destination παρότι δεν είναι robotic,
+- το legacy κουμπί `ΑΝΑΝΕΩΣΗ` παραμένει.
+
+Root cause styling:
+
+- rewritten rich-text cell μπορεί να κληρονομήσει stale whole-cell orange font από παλιό robotic presentation,
+- non-robotic γραμμή χωρίς explicit color τότε εμφανίζεται orange.
 
 Fix implemented:
 
-- column A width 8,
-- `A2:A8,A12:A18` fixed `hh:mm`,
-- centered time display,
-- regression απαγορεύει επιστροφή σε width 4.
+- πριν εφαρμοστούν semantic rich-text runs, rewritten cell reset σε default black όταν δεν ζητείται whole-cell font role,
+- μόνο actual `robotic_orange` runs ξαναγίνονται orange.
+
+Legacy fix implemented:
+
+- preview installer αφαιρεί μόνο shape με ακριβές caption `ΑΝΑΝΕΩΣΗ`,
+- ledger controls δεν στοχεύονται.
+
+Commits:
+
+- `f4e382e0f1039cbd9582e9138a7dacde5eabd404`
+- `d83b36d0d38d782df9e3cc094eb0da18498906a1`
+- `1785786c05f95ac39aa8f2e17d9efb6e8e46325c`
+- `9fc4e948d0065dfbad838730584d2832ef8adef7`
 
 Status: **implemented, focused/native verification pending**.
 
-### 3. V82/V83 reversible daily change ledger
+### 3. Reversible daily change ledger
 
 - per-row `Επαναφορά`: native green,
 - source trace διατηρείται και είναι αποδεκτό UX,
 - selected/all restore παραμένει open για multi-change preview,
 - production restore αργότερα θα γίνει authoritative overlay removal + recompute αντί snapshot restore.
 
-### 4. THERAPIST_DAILY styling / legacy cleanup
-
-Open items:
-
-- orange font αποκλειστικά robotic marker,
-- ο ΜΕΝΤΗΣ είναι infectious και όχι robotic, άρα δεν πρέπει να εμφανίζεται orange,
-- infectious styling precedence σε moved patients,
-- αφαίρεση legacy δεξιού κουμπιού `ΑΝΑΝΕΩΣΗ`.
-
-### 5. Ορφανοί: operational queue με τελικό outcome
+### 4. Ορφανοί: operational queue με τελικό outcome
 
 Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει σε:
 
@@ -70,7 +78,7 @@ Rules:
 - τροφοδοτεί daily statistics ως μη πραγματοποιηθείσα θεραπεία με αυτή την αιτία,
 - displaced existing patients προηγούνται των νέων ασθενών.
 
-### 6. Dynamic daily recomputation
+### 5. Dynamic daily recomputation
 
 Locked order:
 
@@ -84,7 +92,7 @@ Locked order:
 
 Η σειρά εισαγωγής facts δεν αλλάζει το τελικό valid state. Recomputation idempotent.
 
-### 7. Replacement operational load semantics
+### 6. Replacement operational load semantics
 
 - authoritative load = occupied **timeslots**,
 - shared slot με πολλούς patients = ένα occupied timeslot,
@@ -92,7 +100,7 @@ Locked order:
 - output `load x/y | patients n`,
 - confirmed: Μηλιδάκης `load 5/6 | patients 6`.
 
-### 8. Mixed inpatient/outpatient presentation
+### 7. Mixed inpatient/outpatient presentation
 
 Mixed effective cell:
 
@@ -100,7 +108,7 @@ Mixed effective cell:
 - δεν παίρνει λάθος whole-cell outpatient fill,
 - μπορεί προσωρινά να μείνει neutral μέχρι per-patient styling.
 
-### 9. Outpatient recurring create/edit
+### 8. Outpatient recurring create/edit
 
 Παραμένει open και επιστρέφει αμέσως μετά το current daily-state/ledger integration milestone.
 
@@ -118,21 +126,22 @@ Mixed effective cell:
 - Reversible ledger source gate: **10 passed in 3.26s**.
 - Replacement load + mixed-slot gate: **31 passed in 2.04s**.
 - MASTER daily overlay + restore source gate: **24 passed, 5 warnings in 4.39s**.
-- V82 real preview build/install: green.
 - V82 individual restore: native green.
-- V83 MASTER active-overlay sync + restore: **native green**.
+- V83 MASTER active-overlay sync + restore: native green.
+- V84 time-axis display + restore: native green.
 
 ## Τρέχον verification gate
 
-1. Run `Tests/test_daily_change_ledger_vba.py` after the time-axis fix.
-2. Build fresh preview and verify no `####` remain in the left time column.
-3. Fix robotic-orange / infectious styling precedence.
-4. Remove legacy `ΑΝΑΝΕΩΣΗ` button.
-5. Implement/verify orphan outcomes + statistics.
-6. Test selected/all restore for multiple changes.
-7. Replace snapshot restore with authoritative overlay removal + full daily recompute.
-8. Resume outpatient recurring create/edit gate.
-9. Clean up Python 3.14 ZipFile teardown warnings later unless they become functional failures.
+1. Run focused tests for stale-font reset + legacy `ΑΝΑΝΕΩΣΗ` removal.
+2. Build fresh preview.
+3. Verify ΜΕΝΤΗΣ at Μηλιδάκης 10:45 is not orange unless actually robotic.
+4. Verify `ΑΝΑΝΕΩΣΗ` is gone and ledger buttons remain.
+5. Verify individual restore still works and both views stay synchronized.
+6. Implement/verify orphan outcomes + statistics.
+7. Test selected/all restore for multiple changes.
+8. Replace snapshot restore with authoritative overlay removal + full daily recompute.
+9. Resume outpatient recurring create/edit gate.
+10. Clean up Python 3.14 ZipFile teardown warnings later unless they become functional failures.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
