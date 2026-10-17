@@ -39,7 +39,9 @@ Prototype safety:
 - πριν από restore ελέγχεται ότι τα affected cells δεν έχουν μεταβληθεί ξανά,
 - stale restore μπλοκάρεται αντί να πατάει νεότερη αλλαγή.
 
-Αυτό είναι UX/native spike. Μετά την αποδοχή του layout/behavior, τα ίδια controls θα συνδεθούν με removal/reversal των πραγματικών date-specific overlays και full daily recompute.
+Focused source gate: **10 passed in 3.26s**.
+
+Άρα το επόμενο gate είναι native smoke σε πραγματικό guided replacement preview. Μετά την αποδοχή του layout/behavior, τα ίδια controls θα συνδεθούν με removal/reversal των πραγματικών date-specific overlays και full daily recompute.
 
 ### Outpatient recurring schedule: create/edit end to end
 
@@ -157,16 +159,18 @@ V81 native gate: **green**.
 - Retired single-treatment scheduling cleanup complete.
 - Post-cleanup full regression: **699 passed, 19 warnings**.
 - Cancellation/released-slot propagation source implementation + dedicated regression coverage.
+- Reversible daily ledger prototype source gate: **10 passed in 3.26s**.
 
 ## Τρέχον verification gate
 
-1. Run focused source tests for the new ledger module plus guided replacement integration.
-2. Build a real guided replacement preview from V81.
-3. Open `THERAPIST_DAILY` and inspect the ledger section under the schedules.
-4. Test individual restore.
-5. Rebuild and test selected/all restore once multiple preview changes are supported.
-6. If UX accepted, replace preview-snapshot restore with authoritative overlay removal + daily recompute.
-7. Resume outpatient recurring create/edit gate.
+1. Build a real guided replacement preview from V81/current workbook state.
+2. Open `THERAPIST_DAILY` and inspect the ledger section under the schedules.
+3. Verify the ledger row shows the correct patient and original/effective therapist-time values.
+4. Test individual `Επαναφορά`.
+5. Confirm exact source/destination preview cells are restored and recurring/base schedule is untouched.
+6. Rebuild and test selected/all restore once multiple preview changes are supported.
+7. If UX accepted, replace preview-snapshot restore with authoritative overlay removal + daily recompute.
+8. Resume outpatient recurring create/edit gate.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
