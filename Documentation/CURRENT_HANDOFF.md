@@ -5,7 +5,7 @@ Last updated: 2026-10-17
 ## Branch / working line
 
 - Branch: `feature/outpatient-scheduling`
-- Latest trusted native restore preview: `Excel/previews/AUTHORITATIVE_RESTORE_V89.xlsm`
+- Latest trusted native preview: `Excel/previews/RERESOLVED_V90.xlsm`
 - V81 MASTER toolbar/header UX remains native green.
 
 ## Latest confirmed checkpoints
@@ -21,6 +21,7 @@ Last updated: 2026-10-17
 - V87 mixed orphan resolution: native green
 - V88 full restart daily-fact reconstruction: native green
 - V89 single authoritative restore + fresh reconstruction: **native green**
+- V90 re-placement preview creation: **native green**
 
 Known Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -57,7 +58,7 @@ Fresh reconstruction confirmed:
 - finalized: ΟΧΙ
 - stored `DAILY_STATISTICS` exactly matches reconstructed state
 
-This proves restore now changes authoritative fact lifecycle and recomputes the day instead of copying old cells. Reopened orphan after restore is expected because the therapist absence still exists.
+This proves restore changes authoritative fact lifecycle and recomputes the day instead of copying old cells. Reopened orphan after restore is expected because the therapist absence still exists.
 
 ## ACTIVE: versioned IDs + selected/all authoritative restore
 
@@ -156,17 +157,34 @@ Focused rerun after the fix:
 
 - **37 passed in 7.13s**
 
-Important: any `RERESOLVED_V90.xlsm` left by the failed attempt is untrusted/partial and must not be inspected as authoritative evidence. The corrected rerun uses `--overwrite` and must recreate V90 from V89.
+### V90 native re-placement preview created successfully
+
+`RERESOLVED_V90.xlsm` was recreated from trusted V89 with candidate placement, not suspension.
+
+Native output confirmed:
+
+- accepted replacements this run: 1
+- active replacements after resolution: 5
+- persisted replacements loaded: 4
+- persisted replacement facts written: 1
+- treatment suspensions created this run: 0
+- unresolved sessions: 0
+- statistics: scheduled=80, performed=78, replaced=5, suspended=2, unresolved=0
+- source unchanged: True
+- VBA preserved: True
+
+The two suspended treatments shown in statistics are inherited authoritative facts from the day; no new suspension was created during the V90 run.
+
+V90 is trusted as a newly created preview, but the versioned fact inventory and fresh reconstruction still require explicit verification before selected/all restore testing.
 
 ## Exact resume point
 
-1. Re-run V89 -> V90 with `apply_daily_input_replacements.py`; choose a candidate, not suspension.
-2. Inspect V90 replacement facts; require the original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
-3. Fresh reconstruction verifier must match stored statistics with expected replacements=5, suspended=2, unresolved=0.
-4. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-5. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-6. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
-7. Resume outpatient recurring create/edit native gate.
+1. Inspect `RERESOLVED_V90.xlsm` replacement facts; require original `daily-input:planner:57:ΦΘ@2026-10-19:2026-10-19` as `RESTORED` and new `...:v2` as `ACTIVE`.
+2. Run fresh reconstruction verifier with expected replacements=5, suspended=2, unresolved=0; require exact stored statistics match.
+3. Native test selected restore of two ACTIVE facts with `restore_daily_replacement_facts.py`; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+4. Native test `--all-active` from V90 on a separate preview; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+5. Connect Excel ledger per-row/selected/all buttons to authoritative bridge path; only then retire old cell-copy VBA restore implementation.
+6. Resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
