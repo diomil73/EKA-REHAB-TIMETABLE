@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Excel ledger authoritative restore bridge; smoke copies parity-green, native Excel per-row button gate next**.
+Active milestone: **Excel ledger authoritative restore bridge; parity-green, but first native per-row button exposed an unacceptable close/reopen + visible-console lifecycle regression. In-session commit redesign is now active.**
 
 ## Latest confirmed checkpoints
 
@@ -20,6 +20,7 @@ Active milestone: **Excel ledger authoritative restore bridge; smoke copies pari
 - initial daily restore bridge preview-builder + ledger contract gate: **16 passed in 2.94s**
 - fact-to-ledger synchronization + ledger contract rerun: **18 passed in 4.40s**
 - rebuilt row/selected/all smoke copies: **all three parity-green with 5 ACTIVE ledger rows, fact sync=True, source unchanged=True, VBA preserved=True, bridge module refreshed=True**
+- first native per-row button smoke: **backend preview reached verified-success state, but UI lifecycle failed** with visible Python console and `Method 'Close' of object '_Workbook' failed`
 - V87 mixed orphan scenario: **native green**
 - V88 full restart reconstruction: **native green**
 - V89 single authoritative restore + reconstruction: **native green**
@@ -102,18 +103,7 @@ Fresh reconstruction independently confirmed persisted replacements=0, treatment
 
 The restore CLI JSON response contract is green at **30 passed in 4.31s**, the complete post-wiring ledger bridge source gate is green at **42 passed in 4.27s**, the fact-to-ledger synchronization rerun is green at **18 passed in 4.40s**, and all three rebuilt smoke copies now match authoritative fact counts.
 
-The ledger VBA is wired to authoritative semantics:
-
-- per-row sends exactly one immutable ReplacementId
-- selected sends one atomic request containing all selected exact ids
-- restore-all uses one `--all-active` request
-- each action calls `restore_daily_replacement_facts.py` once
-- the JSON response returns verified preview path + source SHA
-- the existing authoritative commit worker performs the final safe replace only after Excel releases the source workbook
-- the workbook reopens on `THERAPIST_DAILY`
-- direct VBA snapshot cell-copy restore statements are removed; snapshots remain audit context only
-
-### Native projection regression and fix
+### Projection regression already fixed
 
 The first three bridge copies exposed a stale UI projection: only 1 ACTIVE ledger row versus 5 authoritative ACTIVE facts. The builder was fixed so `DAILY_REPLACEMENT_FACTS` drives the ledger projection, including RESTORED history, while preserving any matching audit/snapshot extras by immutable ReplacementId.
 
@@ -125,25 +115,52 @@ The post-fix source gate passed **18/18**. The three smoke workbooks were then r
 - `VBA preserved: True`
 - `Ledger bridge module refreshed: True`
 
-This closes the parity blocker. The next gate is real Excel button execution, starting with the single-row restore path.
+### Native per-row lifecycle failure
 
-Relevant commits:
+The first real Excel per-row button test did not fail in replacement validation/recomputation. It reached the message that the restore preview had been verified and was ready for commit. The failure was the bridge's UI/process lifecycle:
 
+- `WScript.Shell.Exec(commandLine)` opened a visible black Python console window.
+- the bridge then attempted the detached commit-worker workflow and executes `ThisWorkbook.Close SaveChanges:=True`.
+- the close attempt failed with `Method 'Close' of object '_Workbook' failed`.
+- the user explicitly requires the normal restore action to keep the workbook open and not flash a console window.
+
+Selected/all native tests are paused until this is corrected.
+
+### Recovered historical solution
+
+Git history shows the same class of workbook-lifecycle problem was solved earlier during registration work. The evolution was:
+
+- deferred worker and worker-driven close were introduced (`86678fd...`, `b06d3ea...`)
+- sentinel/self-close and direct COM-close variants were tried (`0af80eec...`, `97691a1f...`)
+- `7b03cfd5...` restored the proven close fallback but explicitly documented that the **primary registration UI no longer depends on it**
+- `db67abb6487182c12c2634627b04f2972b70b912` moved registration to **direct writes inside the already-open workbook**
+
+The current `patient_registration_bridge_vba.py` and `outpatient_in_session_vba.py` follow that in-session pattern: suspend events/screen updates, mutate the open workbook through Excel/VBA, save `ThisWorkbook`, restore application state. No normal close/reopen cycle is required.
+
+The ledger bridge must now follow the same UX principle while retaining Python as the authoritative validator/recompute engine. The detached close/reopen commit worker remains a fallback/recovery mechanism, not the primary ledger action.
+
+Relevant bridge commits to date:
+
+- JSON bridge response contract: `2c5a67388479f840d064172108bb61a38d1640fa`
+- JSON bridge tests: `749c9f50625ae44ce247829a236b06a4e4244afd`
+- VBA bridge contract tests: `5c2269547752eedc923c741a1ed99a8786e06894`
+- VBA bridge implementation: `9f1b9449d4d4822c6e095ec2438405bc9e71f5c3`
+- selected-restore assertion compatibility fix: `3784c04a03f4ddebfa91cb73be19e8a7c1b926cc`
+- native bridge preview builder: `f3d3dc4c2b2afa7943bb1fd243c59f469eebb092`
+- preview-builder source tests: `6796a9a4453a5dc8b2c8a219e8bff7134ed1a798`
 - authoritative fact-to-ledger synchronization: `618110bc2430ab96b3ebf365f1f68fe29c11b390`
 - parity regression source tests: `1206c90f318cec4d0ea1bb0c63f49075b5acd37c`
-- green post-fix source checkpoint docs: `1e1408562e3ff6656eb7d3e1e0e8f3247207aebb`
 
 ## Immediate roadmap
 
-1. Open only `Excel/previews/LEDGER_ROW_SMOKE.xlsm` in native Excel.
-2. On `DAILY_CHANGE_LEDGER`, run exactly one per-row `Επαναφορά` for an ACTIVE replacement.
-3. Confirm the authoritative bridge completes, the workbook closes/reopens as designed, and the restored row becomes `RESTORED`.
-4. Run fresh reconstruction/inventory checks on `LEDGER_ROW_SMOKE.xlsm` before touching the other two copies.
-5. If green, run selected two-fact restore on `LEDGER_SELECTED_SMOKE.xlsm`.
-6. Then run restore-all on `LEDGER_ALL_SMOKE.xlsm`.
-7. For every path verify fact lifecycle, daily-state recomputation, ledger status, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
-8. Once native-green, close the ledger migration milestone and resume outpatient recurring create/edit native gate.
-9. Later clean Python 3.14 ZipFile warnings.
+1. Stop selected/all native button testing until the per-row lifecycle is corrected.
+2. Add regressions forbidding visible `Shell.Exec`, `ThisWorkbook.Close`, and primary reliance on `authoritative_commit_worker_cli.py` in the ledger path.
+3. Implement hidden backend invocation and an **in-session authoritative apply/save** path for the verified restore result.
+4. Rebuild only `LEDGER_ROW_SMOKE.xlsm` from trusted V90.
+5. Repeat one per-row restore and require: no console, workbook remains open, exact fact lifecycle/recompute, ledger status, MASTER/THERAPIST_DAILY agreement, exact `DAILY_STATISTICS`, source/VBA safety.
+6. Only after that is native-green, rebuild/test selected two-fact restore and restore-all independently.
+7. Once all three are native-green, close the ledger migration milestone and resume outpatient recurring create/edit native gate.
+8. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
@@ -174,9 +191,9 @@ Legacy `ΑΝΑΝΕΩΣΗ` Form Control remains manual/deferred cosmetic cleanup.
 - existing replacement facts must never be re-appended during rerun
 - partial preview files created before a later persistence failure must be removed
 - bulk restore validates the whole set before any mutation
-- Excel ledger restore actions must mutate authoritative fact lifecycle, never directly copy operational cells back
+- Excel ledger restore actions must mutate authoritative fact lifecycle, never directly copy old snapshot cells back
 - `DAILY_CHANGE_LEDGER` is a UI/audit projection of authoritative replacement facts, not an independent source of daily truth
-- bridge smoke copies must be independent because a successful button action authoritatively replaces that smoke workbook
+- normal ledger UI must not require workbook close/reopen and must not expose a console window
 - Windows tests use `python -m pytest`
 
 ## Recovery order
