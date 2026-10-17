@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **authoritative daily operational facts + restart-safe recomputation**, following successful native orphan resolution and suspension reread.
+Active milestone: **authoritative daily operational facts + restart-safe recomputation**.
 
 Latest confirmed checkpoints:
 
@@ -43,7 +43,7 @@ Fresh V87 reread confirmed 2 treatment suspensions, stored suspended=2, unresolv
 
 ## Replacement persistence implementation
 
-The previous restart gap was durable placement overlays. Source implementation now exists and its focused Windows verification is green:
+Durable placement overlays are implemented through:
 
 - `Python/rehab_excel/daily_replacement_facts.py`
 - internal `DAILY_REPLACEMENT_FACTS` sheet, `xlSheetVeryHidden`
@@ -51,37 +51,46 @@ The previous restart gap was durable placement overlays. Source implementation n
 - concrete-session validation
 - duplicate/conflicting active target rejection
 - idempotent write behavior
-- COM-safe date serialization
-- reader returns no facts for older workbooks without the sheet
+- reader compatibility with older workbooks without the sheet
 - deterministic replacement IDs per session/date
 
 `apply_daily_input_replacements.py` reloads persisted replacements before interactive resolution, counts them in capacity/daily state, skips already-resolved target sessions, and persists active placements into the output workbook.
 
-New full restart verifier:
+`Python/tools/verify_daily_fact_reconstruction.py` reconstructs daily state from recurring/base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS and compares the reconstructed statistics against saved DAILY_STATISTICS.
 
-- `Python/tools/verify_daily_fact_reconstruction.py`
+Focused Windows gate: **28 passed, 3 warnings in 5.14s**.
 
-It reconstructs daily state from recurring/base + DAILY_INPUT + DAILY_REPLACEMENT_FACTS and compares the reconstructed statistics against saved DAILY_STATISTICS.
+## V88 native blocker
 
-Regressions:
+The first reconstruction run against `ORPHAN_RESOLUTION_V88.xlsm` stopped on:
 
-- `Tests/test_daily_replacement_facts.py`
-- `Tests/test_daily_fact_reconstruction_verifier.py`
+`DAILY_REPLACEMENT_FACTS row 2: invalid ReplacementDate 46313.875`
 
-Focused Windows gate: **28 passed, 3 warnings in 5.14s**. The warnings are the known Python 3.14 ZipFile teardown issue, not functional failures.
+This exposed a COM timezone serialization issue for calendar-only dates. The value represents the intended 2026-10-19 date shifted to the previous UTC day at 21:00.
 
-Status: **source gate green; native V88 and restart reconstruction equivalence pending**.
+Fix implemented:
+
+- numeric legacy ReplacementDate values normalize to the nearest whole Excel day,
+- regression covers the exact native value `46313.875 -> 2026-10-19`,
+- future ReplacementDate persistence uses ISO text (`YYYY-MM-DD`) rather than COM datetime.
+
+Commits:
+
+- `030acf0987d992bb2611a78f0f18df24a0b2c859`
+- `7091fd91543eeaa219c370b2579712a10376651d`
+
+Status: **reader/writer fix implemented; focused test and existing-V88 reconstruction rerun pending**.
 
 ## Immediate roadmap
 
-1. Generate `ORPHAN_RESOLUTION_V88.xlsm` from existing `ORPHAN_SMOKE_INPUT_V86.xlsm`, ideally reproducing 5 placements + 2 suspensions.
-2. Confirm replacement facts + suspension facts persist, input unchanged and VBA preserved.
-3. Run full fact reconstruction verifier against V88 and require replacement/suspension counts, unresolved=0, finalized=ΝΑΙ and stored-statistics equivalence.
-4. If green, close full authoritative daily-state restart persistence.
+1. Pull latest branch.
+2. Run `python -m pytest Tests/test_daily_replacement_facts.py -q`.
+3. Re-run `verify_daily_fact_reconstruction.py` against the existing V88, with expected 5 replacements, 2 suspensions, unresolved=0.
+4. If reconstructed statistics exactly match stored DAILY_STATISTICS, close full authoritative daily-state restart persistence.
 5. Replace snapshot ledger restore with authoritative fact removal/deactivation + full recompute.
 6. Test selected/all restore with multiple simultaneous changes.
 7. Resume outpatient recurring create/edit native gate.
-8. Continue branch hardening and later clean Python 3.14 ZipFile warnings.
+8. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
