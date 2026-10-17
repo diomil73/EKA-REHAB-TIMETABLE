@@ -57,6 +57,56 @@ Priority invariant:
 - πρώτα εξυπηρετούνται οι υπάρχοντες ασθενείς που επηρεάζονται από απουσία θεραπευτή,
 - μετά χρησιμοποιείται τυχόν υπόλοιπο capacity για νέους ασθενείς.
 
+### Νέο locked milestone: reversible daily change ledger στο THERAPIST_DAILY
+
+Κάτω από τα ημερήσια προγράμματα θεραπευτών θα υπάρχει date-scoped section:
+
+`Αλλαγές για την dd/mm/yy`
+
+Στόχος: κάθε προσωρινή operational μετακίνηση να είναι ορατή, traceable και αναστρέψιμη χωρίς destructive αλλαγή στο recurring πρόγραμμα.
+
+Κάθε ledger row πρέπει να περιγράφει τουλάχιστον:
+
+- ασθενή,
+- αρχικό θεραπευτή και ώρα,
+- νέο/effective θεραπευτή και ώρα,
+- reason/source της αλλαγής,
+- stable internal change/replacement id,
+- active/restored status.
+
+Παράδειγμα:
+
+`Ασθενής Χ: Θεραπευτής Ψ 09:00 -> Θεραπευτής Α 10:30`
+
+Required controls:
+
+- `Επαναφορά` ανά γραμμή,
+- δυνατότητα επιλογής πολλών rows,
+- `Επαναφορά επιλεγμένων`,
+- `Επαναφορά όλων`.
+
+Restore semantics:
+
+- αφαιρεί/reverses το date-specific override,
+- μετά ξανατρέχει recomputation για τη συγκεκριμένη ημερομηνία,
+- δεν γράφει ποτέ το recurring/base schedule από UI text,
+- είναι idempotent,
+- πριν από undo ελέγχει ότι δεν υπάρχει νεότερη μετακίνηση του ίδιου session που θα πατηθεί σιωπηλά,
+- μετά από restore ξαναϋπολογίζονται capacity, conflicts και replacement needs,
+- bulk restore πρέπει να είναι ασφαλές και να αναφέρει conflicts αντί να αφήνει μισή/ασυνεπή κατάσταση.
+
+Next-day invariant:
+
+- τα daily overrides ισχύουν μόνο για τη δική τους ημερομηνία,
+- την επόμενη μέρα το πρόγραμμα ξεκινά ξανά από recurring/base schedule + τα overlays της νέας ημερομηνίας,
+- δεν χρειάζεται χειροκίνητο undo μόνο και μόνο για να επιστρέψει ο ασθενής στη συνηθισμένη θέση του την επόμενη ημέρα.
+
+Architecture fit:
+
+- το υπάρχον `DailySessionState` κρατά original therapist/time και effective therapist/time ξεχωριστά,
+- το `ReplacementAssignment` είναι ήδη date-specific overlay,
+- άρα το ledger/revert πρέπει να επεκτείνει το υπάρχον daily-state model και όχι να δημιουργήσει δεύτερο authoritative schedule store.
+
 ### Τρέχον outpatient milestone
 
 Στόχος: native create/edit flow για recurring outpatient schedule στο `OUTPATIENT_SCHEDULE`.
@@ -106,13 +156,20 @@ V81 native gate: **green**.
 
 1. Complete outpatient create/edit source wiring and focused tests.
 2. Native outpatient create/edit smoke against `OUTPATIENT_SCHEDULE`.
-3. Add/verify the dynamic daily recomputation contract for cancellations + therapist absences entered in either order.
-4. Native daily operational smoke with scenarios:
+3. Add/verify dynamic daily recomputation for cancellations + therapist absences entered in either order.
+4. Add date-scoped reversible change ledger under `THERAPIST_DAILY`.
+5. Add individual / selected / all restore with safe recompute.
+6. Native daily operational smoke with scenarios:
    - absence first, cancellation later,
    - cancellation first, absence later,
    - cancellation correction/removal,
    - inpatient and outpatient cancellations,
-   - redistribution before new-patient allocation.
+   - redistribution before new-patient allocation,
+   - individual restore,
+   - selected restore,
+   - restore all,
+   - stale restore attempt after a newer move,
+   - next-day automatic return to recurring programme.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
@@ -125,8 +182,9 @@ V81 native gate: **green**.
 - Standard duration 45', Ανακλινόμενο 30'.
 - Exact adjacency allowed.
 - `PATIENT_PLANNER` authoritative για inpatient recurring schedule, `OUTPATIENT_SCHEDULE` authoritative για outpatient recurring schedule.
-- Cancellations/absences είναι date-specific operational overlays και όχι destructive edits των recurring schedules.
+- Cancellations/absences/replacements/manual redistributions είναι date-specific operational overlays και όχι destructive edits των recurring schedules.
 - Existing displaced patients προηγούνται των νέων ασθενών στη χρήση released capacity.
+- Restore operations αφαιρούν overlays και κάνουν recompute, δεν ανακατασκευάζουν recurring assignments από εμφανιζόμενο κείμενο.
 - Conflict override explicit όπου υποστηρίζεται.
 
 ## Recovery rule
