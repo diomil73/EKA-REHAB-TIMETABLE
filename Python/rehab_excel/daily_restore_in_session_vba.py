@@ -31,8 +31,8 @@ _IN_SESSION_BLOCK = r'''Private Function RunAuthoritativeRestore(ByVal replaceme
 
     ThisWorkbook.Save
 
-    outputPath = ThisWorkbook.Path & "\\AUTHORITATIVE_LEDGER_RESTORE_PREVIEW.xlsm"
-    responsePath = Environ$("TEMP") & "\\eka_daily_restore_response_" & _
+    outputPath = ThisWorkbook.Path & "\AUTHORITATIVE_LEDGER_RESTORE_PREVIEW.xlsm"
+    responsePath = Environ$("TEMP") & "\eka_daily_restore_response_" & _
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
 
     On Error Resume Next
@@ -106,7 +106,7 @@ Private Sub ApplyAuthoritativeRestorePreview(ByVal previewPath As String)
     previousAlerts = Application.DisplayAlerts
     previousCalculation = Application.Calculation
 
-    rollbackPath = Environ$("TEMP") & "\\eka_daily_restore_rollback_" & _
+    rollbackPath = Environ$("TEMP") & "\eka_daily_restore_rollback_" & _
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
 
     ThisWorkbook.Save
@@ -173,10 +173,12 @@ Private Sub HideWorkbookWindow(ByVal workbookValue As Workbook)
 End Sub
 
 Private Sub ValidateRestoreSheetSet(ByVal workbookValue As Workbook)
+    Dim sheetNames As Variant
     Dim sheetName As Variant
     Dim ws As Worksheet
 
-    For Each sheetName In RestoreSheetNames()
+    sheetNames = RestoreSheetNames()
+    For Each sheetName In sheetNames
         Set ws = Nothing
         On Error Resume Next
         Set ws = workbookValue.Worksheets(CStr(sheetName))
@@ -189,12 +191,14 @@ Private Sub ValidateRestoreSheetSet(ByVal workbookValue As Workbook)
 End Sub
 
 Private Sub SyncRestoreSheetSet(ByVal sourceWorkbook As Workbook, ByVal targetWorkbook As Workbook)
+    Dim sheetNames As Variant
     Dim sheetName As Variant
     Dim sourceSheet As Worksheet
     Dim targetSheet As Worksheet
     Dim sourceRange As Range
 
-    For Each sheetName In RestoreSheetNames()
+    sheetNames = RestoreSheetNames()
+    For Each sheetName In sheetNames
         Set sourceSheet = sourceWorkbook.Worksheets(CStr(sheetName))
         Set targetSheet = targetWorkbook.Worksheets(CStr(sheetName))
         Set sourceRange = sourceSheet.UsedRange
@@ -215,13 +219,13 @@ End Function
 Private Function ResolveAuthoritativeRestoreScript() As String
     Dim candidate As String
 
-    candidate = ThisWorkbook.Path & "\\Python\\tools\\restore_daily_replacement_facts.py"
+    candidate = ThisWorkbook.Path & "\Python\tools\restore_daily_replacement_facts.py"
     If Dir$(candidate) <> "" Then
         ResolveAuthoritativeRestoreScript = candidate
         Exit Function
     End If
 
-    candidate = ThisWorkbook.Path & "\\..\\..\\Python\\tools\\restore_daily_replacement_facts.py"
+    candidate = ThisWorkbook.Path & "\..\..\Python\tools\restore_daily_replacement_facts.py"
     If Dir$(candidate) <> "" Then
         ResolveAuthoritativeRestoreScript = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
     End If
