@@ -24,7 +24,8 @@ Last updated: 2026-10-17
 - focused gate after single output Excel session: `32 passed in 4.48s`
 - focused gate after MASTER-session removal: `33 passed in 3.81s`
 - focused gate after bounded meaningful-range sync: `34 passed in 2.31s`
-- native restore-all timing after bounded sync: about `48s`, still unacceptable
+- focused gate after timing instrumentation: `35 passed in 1.56s`
+- diagnostic restore-all timing: Backend `45.70s`, rollback `0.14s`, preview open `0.88s`, sheet sync `0.20s`, final save `1.19s`
 - parity rebuild: row/selected/all smoke copies reported authoritative ledger parity and preserved source/VBA
 - in-session per-row restore: native green
 - in-session selected two-row restore: native correctness green
@@ -45,50 +46,36 @@ Atomic selected/all backend restore is implemented and native green independentl
 
 `DAILY_REPLACEMENT_FACTS` is authoritative. `DAILY_CHANGE_LEDGER` is a projection. The smoke-copy builder rebuilds the ledger from durable facts and preserves matching audit/snapshot extras by immutable ReplacementId.
 
-The primary Excel restore path now keeps the workbook open, launches Python hidden and blocking, creates a rollback copy, imports the verified operational state in-session, and saves the workbook. The obsolete visible-console and close/reopen lifecycle is not part of the normal path.
+The primary Excel restore path keeps the workbook open, launches Python hidden and blocking, creates a rollback copy, imports the verified operational state in-session, and saves the workbook. The obsolete visible-console and close/reopen lifecycle is not part of the normal path.
 
-Native correctness is green for all three Excel controls:
-
-- per-row restore
-- selected multi-row restore
-- restore-all
-
-Restore-all was verified from an independent V90 copy with the expected final state:
-
-- ACTIVE replacements: 0
-- treatment suspensions: 2
-- unresolved sessions: 5
-- finalized: ΟΧΙ
-- stored `DAILY_STATISTICS` matches fresh reconstruction
-- historical replacement facts remain auditable as RESTORED
-- workbook stayed open during the action, with no visible console
+Native correctness is green for per-row, selected multi-row, and restore-all controls. Restore-all independently verified ACTIVE replacements 0, treatment suspensions 2, unresolved 5, finalized ΟΧΙ, exact stored statistics, preserved historical RESTORED facts, and no visible console.
 
 User-facing `Αιτία` is Greek-only for known replacement causes. Technical/internal reason values such as `DAILY_INPUT therapist absence` and `temporary replacement` render as `Απουσία θεραπευτή`. Internal immutable IDs remain unchanged.
 
 ## ACTIVE: restore performance / UX
 
-Correctness is closed. The remaining ledger item is latency. The latest fresh restore-all smoke still takes about 48 seconds, so performance is far from the acceptance target.
+The diagnostic timing isolated the problem decisively: almost all latency is inside the authoritative Python/backend leg. Excel-side rollback/open/sync/save totals only about 2.4 seconds, while backend execution is about 45.7 seconds.
 
-Six performance patches are green on the branch:
+Performance chain already applied:
 
-- Bulk selected/all restore marks all restored ledger rows in one hidden Excel session instead of reopening Excel once per ReplacementId. Implementation `fb445bbc08e6d2cbfd63820a13f8dc504192e954`, tests `de7dbe61a8bae19e469cbe93c309a6fcdf18d4c7`.
-- Daily statistics write and ledger finalization are consolidated into the same hidden Excel session. Implementation `d92dda3b82b9d12ea32e63592cfe80110f5af22c`, tests `7b38e29996a17557190984f5ab9763382e1ab33e`.
-- In-session apply removes redundant success-path saves while preserving rollback and post-sync save. Implementation `4b58085fc416c456c603aefd1ae2942022715632`, tests `55b7e584080d6f9f657ce3b274dae9a90a85aa19`.
-- Native daily write plan, statistics, restored-ledger lifecycle marking, ledger refresh, and output save share one `_RestoreOutputBackend` Excel session. Implementation `790f55babd18a75635d844cc4f6d1f24c2c5780e`, tests `0c166fff3e3dc26fd8b53062653e9764234d2b98`. Focused gate: `32 passed in 4.48s`.
-- MASTER projection no longer uses a separate Excel process. It is derived in Python and rebuilt inside the already-open restore output workbook. Implementation `0c2e566614679fa010ffec09fb52825eea17055b`, regression `ac08df5a617fd159ba40f196299b86242a2546a3`. Focused gate: `33 passed in 3.81s`.
-- Broad `UsedRange` copying was replaced by bounded formula/value ranges resolved with Excel `Find`. Implementation `973094f4808dc3bd42b83499468b245c24d6dbde`, regression `c456da245fc3df3fe35b1917551c01a5a15cc742`. Focused gate: `34 passed in 2.31s`.
+- selected/all ledger lifecycle batching
+- statistics + ledger finalization consolidation
+- redundant in-session save removal
+- single restore output Excel session
+- MASTER projection moved into that output session
+- bounded meaningful-range sync instead of broad `UsedRange`
+- explicit phase timing in the Excel success dialog
 
-Because the native action still takes about 48 seconds, the next step is measurement rather than another blind structural change. Diagnostic timing is now instrumented in the Excel bridge. The success message reports backend execution, rollback copy, preview open, sheet synchronization, and final save separately. Implementation `c160cffc16e44ba6ecb8b2ca84cd86506bdacd48`, regression `3e9629a29e5311376d13bb9a937b83780463e96c`.
+The next backend optimization is now implemented: MASTER projection write-back no longer performs row-by-row Copy/Paste/Clear and cell-by-cell formula assignment. It restores formatting with at most two range-level PasteSpecial operations, clears the projection body in one range operation, and writes the formula grid in one bulk `.Formula` assignment. Only responsible-doctor rich text and infectious styling remain per-row. Implementation `d1fdced7ee46d63277dffa372c14572858345dea`, regression `eb6942296fbf3668e066c35bf672bb18fcc4cd4c`.
 
 ## Exact resume point
 
 1. Pull latest branch.
 2. Run `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`.
-3. If green, rebuild a fresh restore-all smoke copy from trusted V90. Never reuse an already-restored smoke workbook.
-4. Run restore-all without a manual extra save.
-5. Record the five diagnostic values shown in the success message: Backend, Rollback copy, Άνοιγμα preview, Συγχρονισμός φύλλων, Τελικό save.
-6. Use those timings to target the actual dominant phase. Do not make another large performance change before this measurement.
-7. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+3. If green, build a fresh restore-all smoke copy from trusted V90 and run one restore-all. Never reuse an already-restored smoke workbook.
+4. Compare the new `Backend` timing with the previous `45.70s`; also record the remaining four phase timings.
+5. If backend is still materially above target, instrument sub-phases inside `_RestoreOutputBackend` next, especially workbook open, MASTER batch write, daily patches, statistics/ledger refresh, and output save.
+6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
