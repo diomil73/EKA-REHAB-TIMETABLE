@@ -72,30 +72,47 @@ Files:
 
 ## Current validation state
 
-The first focused Windows gate after the latest bulk-restore pull returned **35 passed, 1 failed** due only to a stale regression call in `Tests/test_daily_fact_reconstruction_verifier.py`.
-
-That test was aligned with the history-aware API by calling `_replacement_id(session, [])` for the base/no-history case.
-
-Fix commit:
-
-- `c43b677667c59d38b65b928d4126c36cf670f28c`
-
-The focused source gate was then rerun successfully:
+The focused source gate is green:
 
 - **36 passed in 4.74s**
 
-Current status: **source gate green; proceed to V90 native orphan re-placement.**
+The first V89 -> V90 native re-placement attempt then exposed a separate persistence bug:
+
+`SAFETY STOP: Duplicate ReplacementId 'daily-input:planner:61:ΦΘ@2026-10-19:2026-10-19'`
+
+Cause:
+
+- existing ACTIVE facts were correctly loaded for operational reconstruction,
+- but `apply_daily_input_replacements.py` attempted to append the complete active set again after adding the new re-placement,
+- the duplicate-id safety guard stopped the write before a duplicate could be persisted.
+
+Fix implemented:
+
+- only replacement assignments created during the current run are appended as new durable facts,
+- previously persisted ACTIVE facts are used for state/workload only and are not re-appended,
+- if a failure occurs after the preview copy is created but before persistence completes, the newly created preview is deleted to avoid leaving a partial workbook,
+- reporting now distinguishes loaded, newly accepted, and total active replacements.
+
+Commits:
+
+- `ae0f58d363ec0cbf357876cf6b4633e3f14d70e7` — rerun persistence + partial-preview cleanup
+- `88b75319273005b28d373d2a683701f82fe41fba` — regression coverage
+
+Current status: **fix committed; Windows focused gate rerun required before recreating V90**.
+
+Any `RERESOLVED_V90.xlsm` from the failed run is untrusted/partial and must be overwritten from V89 after the gate passes.
 
 ## Immediate roadmap
 
-1. Re-resolve the one reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate and require new fact id ending `:v2`.
-2. Inspect V90 and confirm old session/date fact remains `RESTORED` while new `:v2` fact is `ACTIVE`.
-3. Verify resulting V90 reconstructs with 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact statistics equivalence.
-4. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
-5. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
-6. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
-7. Resume outpatient recurring create/edit native gate.
-8. Later clean Python 3.14 ZipFile warnings.
+1. Pull latest branch and rerun the focused source gate.
+2. Recreate V90 from V89 with `apply_daily_input_replacements.py`; choose a candidate and require new fact id ending `:v2`.
+3. Inspect V90 and confirm old session/date fact remains `RESTORED` while new `:v2` fact is `ACTIVE`.
+4. Verify resulting V90 reconstructs with 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact statistics equivalence.
+5. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+6. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+7. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
+8. Resume outpatient recurring create/edit native gate.
+9. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
@@ -123,6 +140,8 @@ Legacy `ΑΝΑΝΕΩΣΗ` Form Control remains manual/deferred cosmetic cleanup.
 - preview workflows use copies,
 - preserve and verify VBA,
 - keep layout write zones narrow,
+- existing replacement facts must never be re-appended during a rerun,
+- partial preview files created before a later persistence failure must be removed,
 - bulk restore validates the whole set before any mutation,
 - Windows tests use `python -m pytest`.
 
