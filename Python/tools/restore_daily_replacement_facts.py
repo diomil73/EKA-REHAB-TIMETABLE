@@ -4,6 +4,7 @@ import argparse
 import json
 import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -56,8 +57,9 @@ from rehab_excel.patient_registry_source import (  # noqa: E402
 )
 from tools.restore_daily_replacement_fact import (  # noqa: E402
     AuthoritativeDailyRestoreError,
+    LEDGER_SHEET,
+    STATUS_RESTORED,
     _has_vba,
-    _mark_ledger_restored,
     _read_daily_input_date,
     _sha256,
 )
@@ -97,6 +99,100 @@ def _requested_restore_ids(
     if not cleaned:
         raise AuthoritativeDailyRestoreError("At least one --replacement-id is required")
     return cleaned
+
+
+def _mark_ledger_rows_restored_once(
+    workbook_path: Path,
+    replacement_ids: tuple[str, ...],
+) -> None:
+    """Mark all restored ledger rows in one Excel session.
+
+    The previous bulk path reopened Excel once per replacement id. On selected/all
+    restores that dominated perceived latency. This keeps the same authoritative
+    semantics while collapsing those repeated workbook open/save/close cycles into
+    one native Excel transaction.
+    """
+
+    if not replacement_ids:
+        return
+    if sys.platform != "win32":
+        raise AuthoritativeDailyRestoreError(
+            "Ledger refresh requires Windows + Microsoft Excel"
+        )
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise AuthoritativeDailyRestoreError("pywin32 is required") from exc
+
+    wanted = set(replacement_ids)
+    excel = None
+    workbook = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
+        excel.EnableEvents = False
+        workbook = excel.Workbooks.Open(
+            str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
+        )
+        try:
+            ws = workbook.Worksheets(LEDGER_SHEET)
+        except Exception:
+            workbook.Save()
+            return
+
+        last_row = int(ws.Cells(ws.Rows.Count, 1).End(-4162).Row)
+        matches: dict[str, list[int]] = {replacement_id: [] for replacement_id in wanted}
+        for row in range(2, last_row + 1):
+            replacement_id = str(ws.Cells(row, 1).Value or "").strip()
+            if replacement_id in matches:
+                matches[replacement_id].append(row)
+
+        duplicates = [
+            replacement_id
+            for replacement_id, rows in matches.items()
+            if len(rows) > 1
+        ]
+        if duplicates:
+            raise AuthoritativeDailyRestoreError(
+                f"Duplicate ledger ChangeId(s): {duplicates!r}"
+            )
+
+        restored_at = datetime.now()
+        for replacement_id in replacement_ids:
+            rows = matches.get(replacement_id, [])
+            if not rows:
+                continue
+            row = rows[0]
+            ws.Cells(row, 12).Value = STATUS_RESTORED
+            ws.Cells(row, 17).Value = restored_at
+
+        workbook.Save()
+        try:
+            excel.Run(f"'{workbook.Name}'!RefreshDailyChangeLedgerView")
+            workbook.Save()
+        except Exception:
+            # Facts and ledger history are already persisted. Rendering is a UI
+            # convenience and must not invalidate the authoritative restore.
+            pass
+    except AuthoritativeDailyRestoreError:
+        raise
+    except Exception as exc:
+        raise AuthoritativeDailyRestoreError(
+            f"Could not update daily change ledger after authoritative bulk restore: {exc}"
+        ) from exc
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
 
 
 def restore_replacements_and_recompute(
@@ -186,8 +282,7 @@ def restore_replacements_and_recompute(
             overwrite=overwrite,
         )
         write_daily_statistics(output, target_date, statistics)
-        for replacement_id in restored_ids:
-            _mark_ledger_restored(output, replacement_id)
+        _mark_ledger_rows_restored_once(output, tuple(restored_ids))
 
         source_after = _sha256(source)
         if source_before != source_after:
