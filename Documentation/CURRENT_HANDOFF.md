@@ -21,6 +21,7 @@ Last updated: 2026-10-17
 - failure root cause: openpyxl-generated relationship targets may be package-absolute, e.g. `/xl/worksheets/sheet1.xml`, while `zipfile` archive members have no leading slash
 - fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`: normalize package-absolute and relative OPC relationship targets in `WorkbookPackageProbe._join_part`
 - regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`: direct coverage for absolute, relative, and parent-relative relationship targets
+- **post-fix focused gate: `59 passed in 6.85s`**
 - parity rebuild: row/selected/all smoke copies authoritative and VBA-preserving
 - per-row / selected / restore-all in-session correctness: native green
 - replacement lifecycle history V87-V92: native green
@@ -43,7 +44,7 @@ Native correctness is green for per-row, selected multi-row, and restore-all con
 
 The latest profile confirms the previous fact-lifecycle change worked: backend total fell to `22.924s` and the old `restore_fact_batch 8.863s` phase disappeared. The dominant remaining pre-Excel cost is `build_master_projection 6.142s`.
 
-MASTER projection metadata has been moved from full openpyxl workbook loads to the read-only OOXML package probe. The first Windows gate exposed an OPC-path compatibility bug rather than a projection-rule regression: relationship targets beginning with `/` were passed directly to `zipfile`, which expects archive member names such as `xl/worksheets/sheet1.xml`. The package probe now resolves both package-absolute and relative relationship targets to normalized ZIP member names before reading them.
+MASTER projection metadata has been moved from full openpyxl workbook loads to the read-only OOXML package probe. The first Windows gate exposed an OPC-path compatibility bug rather than a projection-rule regression: relationship targets beginning with `/` were passed directly to `zipfile`, which expects archive member names such as `xl/worksheets/sheet1.xml`. The package probe now resolves both package-absolute and relative relationship targets to normalized ZIP member names before reading them. The complete focused gate is now green at `59 passed in 6.85s`.
 
 OOXML projection implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, initial projection regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`, OPC target fix `0057aa38b9fc90b66a4bd5bef543a82edf5262b7`, target-resolution regression `65dc8827dfa0d3f047d1823b68682f6232b2b395`.
 
@@ -51,17 +52,13 @@ Safety semantics are unchanged. The package path only reads cached/stored metada
 
 ## Exact resume point
 
-1. Pull latest branch.
-2. Re-run the focused gate including the new package-probe regression:
-   `python -m pytest Tests/test_authoritative_bulk_daily_restore.py Tests/test_profile_daily_restore_backend.py Tests/test_master_projection.py Tests/test_package_probe_relationship_targets.py Tests/test_master_daily_overlay.py Tests/test_outpatient_schedule_source.py Tests/test_daily_restore_in_session_vba.py Tests/test_daily_change_ledger_vba.py Tests/test_daily_restore_bridge_preview.py -q`
-3. Require the previous five MASTER projection failures to be gone before profiling.
-4. If green, rerun the backend profiler with a fresh output:
+1. Run the backend profiler with a fresh output:
    `python Python/tools/profile_daily_restore_backend.py --input .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\BACKEND_PROFILE4.xlsm --all-active --overwrite`
-5. Primary expectation: `build_master_projection` should drop sharply from `6.142s`.
-6. If backend remains above target, attack the next largest measured phase immediately. The current likely target is `pre_excel_unattributed ~2.58s`, then Excel process startup/open/save overhead.
-7. Re-run fresh reconstruction after performance changes.
-8. Keep the acceptance target at roughly `<=15s` total, ideally around 10s.
-9. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
+2. Primary expectation: `build_master_projection` should drop sharply from `6.142s`.
+3. If backend remains above target, attack the next largest measured phase immediately. The current likely target is `pre_excel_unattributed ~2.58s`, then Excel process startup/open/save overhead.
+4. Re-run fresh reconstruction after performance changes.
+5. Keep the acceptance target at roughly `<=15s` total, ideally around 10s.
+6. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
