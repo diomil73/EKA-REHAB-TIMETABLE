@@ -7,6 +7,7 @@ from rehab_core.models import Patient, PatientType
 from rehab_excel.outpatient_schedule_source import (
     OutpatientScheduleSourceError,
     read_outpatient_schedule,
+    read_unified_base_schedule,
 )
 
 
@@ -54,6 +55,27 @@ def test_reads_one_row_per_outpatient_recurring_treatment(tmp_path):
     assert entry.day_pattern == "Δε-Τε-Πα"
     assert entry.therapist_id == "T1"
     assert entry.robotic is False
+
+
+def test_unified_schedule_reuses_supplied_patient_registry(monkeypatch):
+    patients = [outpatient()]
+    monkeypatch.setattr(
+        "rehab_excel.outpatient_schedule_source.read_patient_registry",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("unexpected patient reread")),
+    )
+    monkeypatch.setattr(
+        "rehab_excel.outpatient_schedule_source.read_base_schedule",
+        lambda *_args, **_kwargs: ["inpatient-entry"],
+    )
+    monkeypatch.setattr(
+        "rehab_excel.outpatient_schedule_source.read_outpatient_schedule",
+        lambda *_args, patients=None, **_kwargs: [patients[0].patient_id],
+    )
+
+    assert read_unified_base_schedule("book.xlsm", patients=patients) == [
+        "inpatient-entry",
+        "O1",
+    ]
 
 
 def test_outpatient_schedule_rejects_inpatient_identity(tmp_path):
