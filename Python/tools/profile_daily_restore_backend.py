@@ -64,6 +64,10 @@ def _profiled_apply_factory(timings: dict[str, float]):
             timings["statistics"] = _seconds(started)
 
             started = perf_counter()
+            self._mark_replacement_fact_rows(workbook)
+            timings["replacement_fact_rows"] = _seconds(started)
+
+            started = perf_counter()
             self._mark_ledger_rows(workbook)
             timings["ledger_rows"] = _seconds(started)
 
@@ -140,19 +144,17 @@ def profile_restore_backend(
     original_apply = restore_tool._RestoreOutputBackend.apply
     restore_tool._RestoreOutputBackend.apply = _profiled_apply_factory(timings)
 
-    # Pre-Excel pipeline instrumentation. These wrappers deliberately live only
-    # in this profiler, so the production restore contract and response payload
-    # stay unchanged.
     patch(restore_tool.shutil, "copy2", "stage_copy")
     patch(restore_tool, "_sha256", "sha256_checks")
     patch(restore_tool, "_read_daily_input_date", "read_target_date")
+    patch(restore_tool, "read_daily_replacement_fact_rows", "read_replacement_fact_rows")
     patch(restore_tool, "_requested_restore_ids", "resolve_restore_ids")
-    patch(restore_tool, "restore_daily_replacement_facts", "restore_fact_batch")
+    patch(restore_tool, "validate_batch_restore_request", "validate_restore_ids")
     patch(restore_tool, "read_patient_registry", "read_patients")
     patch(restore_tool, "read_unified_base_schedule", "read_base_schedule")
     patch(restore_tool, "materialize_sessions_for_date", "materialize_sessions")
     patch(restore_tool, "read_daily_input", "read_daily_input")
-    patch(restore_tool, "read_daily_replacement_facts", "read_replacement_facts")
+    patch(restore_tool, "_active_replacements_after_restore", "derive_replacement_facts")
     patch(restore_tool, "build_daily_session_states", "build_daily_states")
     patch(restore_tool, "calculate_daily_treatment_statistics", "calculate_statistics")
     patch(restore_tool, "build_master_projection", "build_master_projection")
@@ -188,13 +190,14 @@ def profile_restore_backend(
             "stage_copy",
             "sha256_checks",
             "read_target_date",
+            "read_replacement_fact_rows",
             "resolve_restore_ids",
-            "restore_fact_batch",
+            "validate_restore_ids",
             "read_patients",
             "read_base_schedule",
             "materialize_sessions",
             "read_daily_input",
-            "read_replacement_facts",
+            "derive_replacement_facts",
             "build_daily_states",
             "calculate_statistics",
             "build_master_projection",
@@ -248,13 +251,14 @@ def main() -> int:
         "stage_copy",
         "sha256_checks",
         "read_target_date",
+        "read_replacement_fact_rows",
         "resolve_restore_ids",
-        "restore_fact_batch",
+        "validate_restore_ids",
         "read_patients",
         "read_base_schedule",
         "materialize_sessions",
         "read_daily_input",
-        "read_replacement_facts",
+        "derive_replacement_facts",
         "build_daily_states",
         "calculate_statistics",
         "build_master_projection",
@@ -271,6 +275,7 @@ def main() -> int:
         "master_projection",
         "daily_patches",
         "statistics",
+        "replacement_fact_rows",
         "ledger_rows",
         "ledger_refresh",
         "workbook_save",
