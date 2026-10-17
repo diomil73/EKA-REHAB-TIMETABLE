@@ -12,7 +12,7 @@
 
 Το restart-safe daily truth είναι native green από V88 έως V92.
 
-Το restore πλέον σημαίνει authoritative replacement-fact lifecycle + πλήρες recompute, όχι cell copy-back.
+Το restore σημαίνει authoritative replacement-fact lifecycle + πλήρες recompute, όχι cell copy-back.
 
 ### 2. Replacement ID hardening
 
@@ -23,24 +23,19 @@ Implemented:
 - later cycles get `:v3`, etc.,
 - full replacement history including RESTORED rows drives version allocation.
 
-This prevents an old restore request from targeting a later change.
-
 ### 3. Selected/all authoritative restore
 
-Implemented and native green:
+Implemented and native green for correctness. Current ownership after the performance redesign:
 
-- `daily_replacement_fact_batch.py` validates the whole requested set before mutation,
-- missing/stale/already-restored member aborts the complete batch,
-- no partial restore,
+- `daily_replacement_fact_batch.py` owns validate-all-before-mutate semantics through `validate_batch_restore_request`,
+- `Python/tools/restore_daily_replacement_facts.py` reads the authoritative fact set once, validates the requested ids, and derives the post-restore ACTIVE replacement set in memory,
+- the staging workbook is no longer opened/saved by a dedicated Excel process just to flip fact status,
+- `_RestoreOutputBackend` owns persistence of selected fact rows to `RESTORED` in `DAILY_REPLACEMENT_FACTS`, together with MASTER, daily patches, statistics, ledger lifecycle, refresh, and the single output save,
+- missing/stale/already-restored member still aborts the whole batch before authoritative mutation,
 - selected restore accepts multiple exact ids,
-- restore-all selects all currently ACTIVE facts,
-- one batch mutation + one recompute + one statistics rewrite.
+- restore-all selects all currently ACTIVE facts.
 
-Tool:
-
-- `Python/tools/restore_daily_replacement_facts.py`
-
-V91 selected restore and V92 restore-all both passed fresh reconstruction and statistics equivalence.
+Performance ownership change: implementation `c7895e28e5843df30a889b55326189764c3dec0a`.
 
 ### 4. Ορφανοί + treatment suspension
 
@@ -56,50 +51,38 @@ Locked rule: κάθε orphan καταλήγει σε valid therapist/time placem
 
 Native green for active replacement and authoritative restore flows. Restore resets recurring truth, reapplies surviving ACTIVE overlays, and rebuilds operational views.
 
+`build_master_projection` now reads its workbook metadata in one read-only openpyxl session: PATIENTS source-row ids, SETTINGS room order, and MASTER header location. This replaces three separate workbook opens without changing projection semantics. Implementation `63e6920c700cd73644d93a9fe8ffd79c365105cc`.
+
 ### 7. Excel ledger migration
 
-Current active implementation.
+Correctness is closed green. Current bridge:
 
-Backend bridge:
-
-- `restore_daily_replacement_facts.py` supports `--response` JSON for Excel/VBA,
-- backend bridge gate: **30 passed in 4.31s**.
-
-The first native per-row bridge attempt proved backend preview/recompute but exposed two UI lifecycle regressions: visible `WScript.Shell.Exec` console and `ThisWorkbook.Close` failure from the active macro. The close/reopen design is therefore retired from the primary ledger UI path.
-
-Current in-session bridge implementation:
-
-- base ledger VBA remains in `Python/rehab_excel/daily_change_ledger_vba.py`,
-- `Python/rehab_excel/daily_restore_in_session_vba.py` transforms the obsolete close/reopen leg into the current in-session transaction path,
-- `Python/tools/build_daily_restore_bridge_preview.py` installs the transformed VBA into smoke copies,
-- per-row / selected / all still send the same authoritative immutable-id requests,
-- Python runs hidden and blocking through `WScript.Shell.Run(..., 0, True)`, so no console window is intended,
-- Python still creates and validates a separate authoritative preview,
-- Excel opens that verified preview with events/screen updating disabled and synchronizes the authoritative operational sheet set into the already-open workbook,
-- the sheet set is `DAILY_REPLACEMENT_FACTS`, `DAILY_CHANGE_LEDGER`, `THERAPIST_DAILY`, `MASTER_SCHEDULE`, `DAILY_STATISTICS`,
-- an in-session rollback copy is created before synchronization,
-- the workbook is saved without `ThisWorkbook.Close` and without automatic reopen,
-- regression tests forbid the old `Shell.Exec`, close/reopen worker, and `ThisWorkbook.Close SaveChanges:=True` markers in the effective bridge.
+- base ledger VBA: `Python/rehab_excel/daily_change_ledger_vba.py`,
+- in-session transformer: `Python/rehab_excel/daily_restore_in_session_vba.py`,
+- smoke builder: `Python/tools/build_daily_restore_bridge_preview.py`,
+- backend CLI: `Python/tools/restore_daily_replacement_facts.py`,
+- Python runs hidden and blocking through `WScript.Shell.Run(..., 0, True)`,
+- verified preview is applied to the already-open workbook,
+- rollback copy protects the in-session apply,
+- authoritative sheet set: `DAILY_REPLACEMENT_FACTS`, `DAILY_CHANGE_LEDGER`, `THERAPIST_DAILY`, `MASTER_SCHEDULE`, `DAILY_STATISTICS`,
+- no primary-path `Shell.Exec`, `ThisWorkbook.Close`, or detached reopen worker.
 
 The old VBA direct snapshot cell-copy restore path remains retired. Snapshot cells are audit evidence only.
 
-Implementation commits for the in-session correction:
+### 8. Restore performance / profiling
 
-- `446f6f599a30f4a561b4be8a53967d1e02703e69`: in-session transformer/bridge added,
-- `b7fdb206c2e9e3b3ed5758beb52e64d7056f5a54`: smoke builder installs effective in-session VBA,
-- `8776b690f53d3b4972f87ad311da9efc863173dd`: ledger regression tests switched to effective VBA and forbid close/reopen,
-- `61a2f703936ea73dd1834095cf15e9ecf671a7f4`: preview-builder tests updated,
-- `762b67dd086ad496f0c9cf3ac08927f955657eea`: dedicated transformer regressions,
-- `2e67d5364c67d86ca51a2f795d8522c2326da3a3`: VBA sheet-iteration/path hardening.
+Current active engineering item.
 
-Pending:
+Measured evolution:
 
-- Windows source test gate for the new in-session implementation,
-- rebuild of `LEDGER_ROW_SMOKE.xlsm`,
-- native per-row smoke with workbook remaining open and no console window,
-- only then selected/all native smoke.
+- Backend before MASTER batching: `45.70s`,
+- after MASTER range-batched COM write: `31.33s`,
+- direct backend profile after read reuse: `28.794s total`, `20.911s pre-Excel`, `7.883s Excel output`,
+- dominant old phases: `restore_fact_batch 8.863s`, `build_master_projection 5.833s`.
 
-### 8. Dynamic daily recomputation
+Both dominant phases have now been redesigned. The profiler at `Python/tools/profile_daily_restore_backend.py` measures pre-Excel and Excel output sub-phases and is updated for in-session replacement fact persistence.
+
+### 9. Dynamic daily recomputation
 
 Locked order:
 
@@ -113,46 +96,32 @@ Locked order:
 
 Recompute remains idempotent and order-independent.
 
-### 9. Outpatient recurring create/edit
+### 10. Outpatient recurring create/edit
 
-Implemented but native verification remains open after ledger authoritative-restore migration.
+Implemented but native verification remains open until restore latency reaches acceptance.
 
-### 10. Legacy `ΑΝΑΝΕΩΣΗ`
+### 11. Legacy `ΑΝΑΝΕΩΣΗ`
 
 Deferred/manual cleanup. Not a blocker.
 
 ## Ολοκληρωμένα checkpoints
 
 - full regression: **699 passed, 19 warnings**
-- load + mixed-slot: **31 passed in 2.04s**
-- MASTER overlay + restore: **24 passed, 5 warnings in 4.39s**
-- suspension/statistics domain: **21 passed in 3.11s**
-- orphan operational: **43 passed, 3 warnings in 5.15s**
-- replacement fact focused gate: **28 passed, 3 warnings in 5.14s**
-- versioned-id + restore focused gate: **36 passed in 4.74s**
-- rerun persistence gate: **37 passed in 7.13s**
-- restore JSON bridge/backend gate: **30 passed in 4.31s**
-- pre-regression ledger source gate: **42 passed in 4.27s**
-- fact-to-ledger synchronization gate: **18 passed in 4.40s**
-- V87 mixed orphan flow: **native green**
-- V88 full restart reconstruction: **native green**
-- V89 single authoritative restore + reconstruction: **native green**
-- V90 re-placement + versioned lifecycle: **native green**
-- V91 selected authoritative restore: **native green**
-- V92 restore-all authoritative restore: **native green**
+- replacement lifecycle V87-V92: **native green**
+- authoritative ledger restore per-row / selected / restore-all: **native green**
+- focused source gates through MASTER batch-write: **green**
 
 Python 3.14 ZipFile teardown warnings remain non-blocking technical debt.
 
 ## Τρέχον verification gate
 
 1. Pull latest branch.
-2. Run the focused in-session ledger source tests.
-3. If green, rebuild only `LEDGER_ROW_SMOKE.xlsm` from trusted `RERESOLVED_V90.xlsm`.
-4. Open only that copy and run one per-row restore.
-5. Require: no console window, workbook stays open throughout, restored fact/ledger status is correct, MASTER/THERAPIST_DAILY agree, `DAILY_STATISTICS` is exact, and VBA remains preserved.
-6. Run fresh reconstruction/inventory on that copy.
-7. Only after per-row native green, rebuild/test selected two-fact restore and restore-all independently.
-8. Close ledger migration and resume outpatient create/edit native gate.
+2. Run the focused restore/profiler/MASTER/bridge tests listed in `CURRENT_HANDOFF.md`.
+3. If green, run a fresh `BACKEND_PROFILE3.xlsm` from trusted `RERESOLVED_V90.xlsm`.
+4. Confirm the dedicated `restore_fact_batch` phase is gone and MASTER projection metadata time is materially lower.
+5. Attack the next largest measured phase immediately.
+6. Preserve source hash/VBA, validate-all-before-mutate, and exact reconstruction.
+7. Keep acceptance target roughly `<=15s` total, ideally around 10s.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
@@ -163,7 +132,9 @@ Python 3.14 ZipFile teardown warnings remain non-blocking technical debt.
 - MASTER and THERAPIST_DAILY agree on effective state,
 - old restore cannot overwrite a newer change,
 - bulk restore is validate-all-before-mutate,
-- Excel restore controls mutate authoritative facts, not operational cells directly,
+- Python does not save the staging/production `.xlsm` with openpyxl,
+- authoritative fact lifecycle is persisted only to the verified output through native Excel,
+- Excel restore controls mutate authoritative facts, not snapshot cells directly,
 - primary ledger restore UX must not close/reopen the workbook or expose a console window,
 - layout write zones remain narrow,
 - ΦΘ provider remains solver-owned,
