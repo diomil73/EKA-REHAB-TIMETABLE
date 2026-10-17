@@ -83,6 +83,8 @@ def _cancellation_kind(value: object) -> SessionCancellationKind | None:
         return SessionCancellationKind.DEPARTMENT_POSTPONED
     if normalized in {"ΔΕΝ ΠΡΟΣΗΛΘΕ", "PATIENT NO SHOW", "NO SHOW"}:
         return SessionCancellationKind.PATIENT_NO_SHOW
+    if normalized in {"ΑΝΑΣΤΟΛΗ ΘΕΡΑΠΕΙΑΣ", "TREATMENT SUSPENDED"}:
+        return SessionCancellationKind.TREATMENT_SUSPENDED
     return None
 
 
@@ -173,9 +175,10 @@ def read_daily_input(
     row. Whole-day rows ignore time fields. A therapist row with only a start
     time (or equal start/end) means exactly that timeslot.
 
-    Patient statuses ``ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ`` and ``ΔΕΝ ΠΡΟΣΗΛΘΕ`` are explicit
-    session-specific cancellations. They require one concrete time and must
-    resolve to exactly one scheduled session for that patient/date/time.
+    Patient statuses ``ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ``, ``ΔΕΝ ΠΡΟΣΗΛΘΕ`` and
+    ``Αναστολή θεραπείας`` are explicit session-specific cancellations. They
+    require one concrete time and must resolve to exactly one scheduled session
+    for that patient/date/time.
     """
 
     workbook_path = Path(workbook_path)
