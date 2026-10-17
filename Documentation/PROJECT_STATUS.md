@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Excel ledger authoritative restore bridge**.
+Active milestone: **Excel ledger authoritative restore bridge, source gate pending after VBA wiring**.
 
 ## Latest confirmed checkpoints
 
@@ -14,6 +14,7 @@ Active milestone: **Excel ledger authoritative restore bridge**.
 - replacement fact focused gate: **28 passed, 3 warnings in 5.14s**
 - versioned-id + single/batch restore focused gate: **36 passed in 4.74s**
 - rerun gate after V90 persistence fix: **37 passed in 7.13s**
+- restore JSON bridge/backend gate: **30 passed in 4.31s**
 - V87 mixed orphan scenario: **native green**
 - V88 full restart reconstruction: **native green**
 - V89 single authoritative restore + reconstruction: **native green**
@@ -77,8 +78,6 @@ Native result:
 
 Fresh reconstruction independently confirmed 3 active replacements, 2 treatment suspensions, unresolved=2, finalized=ΟΧΙ, and exact `DAILY_STATISTICS` equivalence.
 
-This closes the selected multi-fact authoritative restore proof.
-
 ## V92 restore-all result
 
 `Excel/previews/RESTORE_ALL_V92.xlsm` was created independently from trusted V90 using `--all-active`.
@@ -92,40 +91,43 @@ Native result:
 - source unchanged=True
 - VBA preserved=True
 
-Fresh reconstruction independently confirmed:
-
-- persisted replacements reread=0
-- treatment suspensions reread=2
-- reconstructed unresolved=5
-- reconstructed finalized=ΟΧΙ
-- stored `DAILY_STATISTICS` matches reconstructed daily state exactly
-
-This closes restore-all and therefore the complete selected/all authoritative restore milestone. The backend now has native proof for single, selected, and all-active lifecycle restoration with restart-safe reconstruction.
+Fresh reconstruction independently confirmed persisted replacements=0, treatment suspensions=2, unresolved=5, finalized=ΟΧΙ, and exact stored-statistics equivalence.
 
 ## ACTIVE: Excel ledger authoritative bridge
 
-The next implementation target is to connect ledger controls in Excel to the proven authoritative restore backend.
+The restore CLI now has a JSON response contract for Excel/VBA and its backend-focused gate is green at **30 passed in 4.31s**.
 
-Required behavior:
+The ledger VBA has now been rewired to authoritative semantics:
 
-- per-row restore passes exactly one replacement id
-- selected restore passes the complete selected id set and remains atomic
-- restore-all targets all current ACTIVE replacement facts
-- after the backend mutation, rebuild daily state and presentation from authoritative truth
-- update ledger status, MASTER/daily overlays, and `DAILY_STATISTICS`
-- preserve source workbook and VBA
-- do not retire the existing cell-copy VBA path until native bridge validation is green
+- per-row sends exactly one immutable ReplacementId
+- selected sends one atomic request containing all selected exact ids
+- restore-all uses one `--all-active` request
+- each action calls `restore_daily_replacement_facts.py` once
+- the JSON response returns verified preview path + source SHA
+- the existing authoritative commit worker performs the final safe replace only after Excel releases the source workbook
+- the workbook reopens on `THERAPIST_DAILY`
+- direct VBA snapshot cell-copy restore statements are removed; snapshots remain audit context only
+
+New source-test contract also explicitly forbids the legacy `Cells(...).Copy Destination:=...` restore path.
+
+Relevant commits:
+
+- JSON bridge response contract: `2c5a67388479f840d064172108bb61a38d1640fa`
+- JSON bridge tests: `749c9f50625ae44ce247829a236b06a4e4244afd`
+- VBA bridge contract tests: `5c2269547752eedc923c741a1ed99a8786e06894`
+- VBA bridge implementation: `9f1b9449d4d4822c6e095ec2438405bc9e71f5c3`
 
 ## Immediate roadmap
 
-1. Inspect existing ledger/VBA controls and identify per-row, selected, and restore-all entry points.
-2. Add source tests that lock the bridge contract before implementation changes.
-3. Wire the controls to `restore_daily_replacement_facts.py` or an equivalent stable authoritative bridge entry point.
-4. Run Windows-native smoke tests for row, selected, and all restore paths from trusted previews.
-5. Require exact fact lifecycle, recomputation, ledger refresh, source unchanged, and VBA preserved.
-6. Retire the old cell-copy restore logic only after the bridge gate is green.
-7. Resume outpatient recurring create/edit native gate.
-8. Later clean Python 3.14 ZipFile warnings.
+1. Pull latest branch.
+2. Run the ledger bridge source gate after the VBA change.
+3. If green, build a fresh native preview containing the new ledger module.
+4. Smoke-test per-row restore from Excel.
+5. Smoke-test selected two-fact restore from Excel.
+6. Smoke-test restore-all from Excel on a separate trusted copy.
+7. For each path verify fact lifecycle, fresh daily-state recompute, ledger status, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
+8. Once native-green, close the ledger migration milestone and resume outpatient recurring create/edit native gate.
+9. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
@@ -156,6 +158,7 @@ Legacy `ΑΝΑΝΕΩΣΗ` Form Control remains manual/deferred cosmetic cleanup.
 - existing replacement facts must never be re-appended during rerun
 - partial preview files created before a later persistence failure must be removed
 - bulk restore validates the whole set before any mutation
+- Excel ledger restore actions must mutate authoritative fact lifecycle, never directly copy operational cells back
 - Windows tests use `python -m pytest`
 
 ## Recovery order
