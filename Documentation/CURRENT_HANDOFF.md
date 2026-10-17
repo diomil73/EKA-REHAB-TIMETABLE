@@ -14,12 +14,13 @@ Last updated: 2026-10-17
 - replacement load + mixed outpatient/inpatient regression: `31 passed in 2.04s`
 - MASTER daily overlay + ledger restore source gate: `24 passed, 5 warnings in 4.39s`
 - orphan suspension + statistics domain gate: `21 passed in 3.11s`
+- consolidated orphan operational gate: **`43 passed, 3 warnings in 5.15s`**
 - V82 individual ledger restore: native green
 - V83 MASTER active-overlay sync + restore: native green
 - V84 time-axis display + restore: native green
 - V85 stale-orange cleanup + restore: native green
 
-Python 3.14 `ZipFile.__del__` warnings remain non-blocking technical debt.
+Python 3.14 `ZipFile.__del__` warnings remain non-blocking technical debt. The 43-test gate produced only this already-known warning class.
 
 ## Native stress case already green
 
@@ -59,7 +60,7 @@ Architecture:
 
 ### Domain foundation: source green
 
-Implemented and previously verified with **21 passed in 3.11s**:
+Implemented and verified:
 
 - `SessionCancellationKind.TREATMENT_SUSPENDED`,
 - `rehab_core/orphan_resolution.py`,
@@ -68,63 +69,38 @@ Implemented and previously verified with **21 passed in 3.11s**:
 - statistics distinguish performed/replaced/absent/postponed/no-show/suspended/unresolved,
 - day finalized only when unresolved reaches zero.
 
-### Operational workflow: implemented, new source gate pending
+### Operational workflow: source green
 
-The sequential daily replacement tool has now been converted into mandatory orphan resolution:
+The sequential daily replacement tool now enforces final orphan resolution:
 
-- removed the old `0 = leave unresolved` path,
+- old `0 = leave unresolved` path removed,
 - candidate number means placement,
 - `S` means date-specific `Αναστολή θεραπείας`,
 - `Q` aborts the whole preview,
 - if no candidate exists, only `S` or `Q` is accepted,
 - before workbook output, `calculate_daily_treatment_statistics()` must report `is_finalized=True`, otherwise the workflow safety-stops.
 
-Files:
+The consolidated Windows source gate covering reader/dropdown/action flow/persistence/statistics/state/queue/capacity is now green: **43 passed, 3 warnings in 5.15s**.
 
-- `Python/tools/apply_daily_input_replacements.py`
-- `Tests/test_apply_daily_input_replacements_resolution.py`
+### Authoritative suspension persistence: source green, native pending
 
-### Authoritative suspension persistence: implemented, native gate pending
+Generated suspension choices are persisted into the **output copy only** in `DAILY_INPUT` as a date-specific operational fact. `daily_input_reader.py` recognizes `Αναστολή θεραπείας` as `TREATMENT_SUSPENDED`, and the DAILY_INPUT dropdown includes it.
 
-Generated suspension choices no longer live only in Python memory.
+### Workbook statistics surface: source green, native pending
 
-`Python/rehab_excel/daily_operational_fact_writer.py` appends each generated suspension into the **output copy only** in `DAILY_INPUT` as:
+`Python/rehab_excel/daily_statistics_writer.py` writes visible `DAILY_STATISTICS` from the exact same finalized `DailySessionState`, including scheduled/performed/replaced/absent/postponed/no-show/suspended/unresolved/finalized.
 
-- patient,
-- `ΟΧΙ` for whole-day,
-- original `HH:MM`,
-- status `Αναστολή θεραπείας`,
-- comment `Ορφανός - ημερήσια επιχειρησιακή απόφαση`.
+### Native mixed-orphan smoke helper: implemented, source gate pending
 
-The writer is idempotent for patient/time/status. Re-reading the output workbook therefore recreates the same `TREATMENT_SUSPENDED` fact. Recurring/base source is not edited.
+New tool:
 
-`daily_input_reader.py` now recognizes `Αναστολή θεραπείας` as a session-specific cancellation and the generated DAILY_INPUT dropdown includes it as a selectable status.
+- `Python/tools/prepare_orphan_smoke_input.py`
 
-Relevant tests:
+It safely creates `Excel/previews/ORPHAN_SMOKE_INPUT_V86.xlsm` from V85, automatically chooses a therapist with at least two sessions on the selected date, writes one whole-day therapist absence into DAILY_INPUT, keeps the source unchanged, and reports the affected sessions. This gives a deterministic native case where one orphan can be placed and another can be suspended.
 
-- `Tests/test_daily_input_cancellations.py`
-- `Tests/test_daily_operational_fact_writer.py`
-- `Tests/test_daily_input_sheet.py`
+Regression file:
 
-### Workbook statistics surface: implemented, native gate pending
-
-`Python/rehab_excel/daily_statistics_writer.py` writes a visible `DAILY_STATISTICS` sheet into the output preview from the exact same finalized `DailySessionState` used by scheduling.
-
-It surfaces:
-
-- scheduled,
-- performed,
-- replaced,
-- patient absent,
-- department postponed,
-- patient no-show,
-- treatment suspended,
-- unresolved,
-- finalized `ΝΑΙ/ΟΧΙ`.
-
-`apply_daily_input_replacements.py` now writes this sheet after suspension-fact persistence.
-
-Test: `Tests/test_daily_statistics_writer.py`.
+- `Tests/test_prepare_orphan_smoke_input.py`
 
 ## Locked daily recomputation order
 
@@ -158,28 +134,26 @@ Still open:
 
 Priority order:
 
-1. **Run the consolidated source gate for the new orphan operational workflow, persistence, DAILY_INPUT dropdown and workbook statistics surface.**
-2. If green, run one native mixed orphan scenario with at least one placement and one `S = Αναστολή θεραπείας`.
-3. Verify output `DAILY_INPUT` can be re-read with suspension fact, `DAILY_STATISTICS` has suspended count + unresolved=0 + finalized=ΝΑΙ, source unchanged and VBA preserved.
-4. Then test selected/all restore with multiple changes.
-5. Replace snapshot restore with authoritative overlay removal + recompute.
-6. Resume outpatient recurring create/edit native gate.
-7. Clean Python 3.14 ZipFile teardown warnings later.
+1. Run the small source gate for the new native smoke preparer.
+2. Build `ORPHAN_SMOKE_INPUT_V86.xlsm` for `2026-10-19`.
+3. Run `apply_daily_input_replacements.py` to `ORPHAN_RESOLUTION_V87.xlsm` and choose at least one placement plus at least one `S = Αναστολή θεραπείας`.
+4. Verify native output: placement visible, suspended patient removed from effective schedule, output DAILY_INPUT contains suspension fact, DAILY_STATISTICS has suspended count + unresolved=0 + finalized=ΝΑΙ, source unchanged and VBA preserved.
+5. Re-read the output to confirm suspension persistence.
+6. Then test selected/all restore with multiple changes.
+7. Replace snapshot restore with authoritative overlay removal + recompute.
+8. Resume outpatient recurring create/edit native gate.
+9. Clean Python 3.14 ZipFile teardown warnings later.
 
-Next focused Windows gate:
+Next Windows commands:
 
 ```powershell
-python -m pytest `
-  Tests/test_daily_input_cancellations.py `
-  Tests/test_daily_input_sheet.py `
-  Tests/test_apply_daily_input_replacements_resolution.py `
-  Tests/test_daily_operational_fact_writer.py `
-  Tests/test_daily_statistics_writer.py `
-  Tests/test_orphan_treatment_suspension.py `
-  Tests/test_daily_treatment_statistics.py `
-  Tests/test_daily_state.py `
-  Tests/test_therapist_absence_queue.py `
-  Tests/test_cancellation_releases_replacement_capacity.py -q
+python -m pytest Tests/test_prepare_orphan_smoke_input.py -q
+
+python Python\tools\prepare_orphan_smoke_input.py `
+  --source ".\Excel\previews\DAILY_CHANGE_LEDGER_V85.xlsm" `
+  --output ".\Excel\previews\ORPHAN_SMOKE_INPUT_V86.xlsm" `
+  --date 2026-10-19 `
+  --overwrite
 ```
 
 ## Business rules that must not regress
