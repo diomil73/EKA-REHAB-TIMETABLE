@@ -10,45 +10,52 @@
 
 ### 1. Ορφανοί: operational queue + date-specific suspension
 
-Αυτό είναι το ενεργό milestone.
+Ενεργό milestone.
 
-Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει υποχρεωτικά σε ένα από:
+Κάθε unresolved/displaced patient για τη συγκεκριμένη ημερομηνία πρέπει να καταλήγει υποχρεωτικά σε:
 
-- `Τοποθετήθηκε` σε έγκυρο therapist/time,
+- `Τοποθετήθηκε` σε έγκυρο therapist/time, ή
 - `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα.
 
 Architecture locked:
 
-- suspension δεν γίνεται νέο `DailySessionStatus`,
-- χρησιμοποιεί το υπάρχον `CANCELLED` με νέο `SessionCancellationKind.TREATMENT_SUSPENDED`,
+- suspension = `DailySessionStatus.CANCELLED` + `SessionCancellationKind.TREATMENT_SUSPENDED`,
 - recurring/base δεν αλλάζει,
-- το original provider slot απελευθερώνεται,
-- το reason παραμένει auditable.
+- original slot απελευθερώνεται,
+- reason παραμένει auditable,
+- ημέρα finalized μόνο με `unresolved_sessions == 0`.
 
-Source implementation ήδη μπήκε:
+Domain foundation: **source green, 21 passed in 3.11s**.
 
-- `TREATMENT_SUSPENDED = "treatment_suspended"`,
-- νέο `rehab_core/orphan_resolution.py`,
-- `create_treatment_suspension()` με reason `Αναστολή θεραπείας`,
-- νέο `rehab_core/daily_statistics.py`,
-- νέα focused tests για suspension, queue removal και statistics.
+Operational wiring τώρα implemented και περιμένει consolidated gate:
 
-Status: **source green: 21 passed in 3.11s**. Operational Excel UI/action wiring και authoritative persistence είναι τώρα το αμέσως επόμενο βήμα.
+- sequential flow δεν επιτρέπει πλέον `leave unresolved`,
+- candidate number = placement,
+- `S` = `Αναστολή θεραπείας`,
+- `Q` = abort whole preview,
+- no-candidate orphan απαιτεί `S` ή `Q`,
+- finalization safety gate πριν γραφτεί workbook,
+- generated suspension γράφεται στο output `DAILY_INPUT` ως date-specific fact,
+- `daily_input_reader.py` ξαναδιαβάζει το status ως `TREATMENT_SUSPENDED`,
+- dropdown του `DAILY_INPUT` περιλαμβάνει `Αναστολή θεραπείας`,
+- persistence writer είναι idempotent για patient/time/status.
 
 ### 2. Daily statistics
 
-Το νέο statistics layer μετρά ξεχωριστά:
+Domain statistics source green για:
 
 - scheduled,
-- performed (`ACTIVE` + `REPLACED`),
+- performed,
 - replaced,
 - patient absent,
 - department postponed,
 - patient no-show,
 - treatment suspended,
-- unresolved (`THERAPIST_ABSENT`).
+- unresolved.
 
-Unresolved orphan δεν καταγράφεται ψευδώς ως cancellation. Η ημέρα γίνεται `finalized` μόνο όταν `unresolved_sessions == 0`.
+Νέο `DAILY_STATISTICS` workbook sheet implemented. Γράφεται από το ίδιο finalized `DailySessionState` και περιλαμβάνει επίσης `finalized = ΝΑΙ/ΟΧΙ`.
+
+Status: **implemented, consolidated source gate + native verification pending**.
 
 ### 3. Daily effective state: MASTER + THERAPIST_DAILY + ledger
 
@@ -63,7 +70,7 @@ Unresolved orphan δεν καταγράφεται ψευδώς ως cancellation
 
 ### 4. Legacy `ΑΝΑΝΕΩΣΗ`
 
-Το κουμπί είναι **deferred/manual cleanup**. Δεν είναι blocker και δεν ξανανοίγει τώρα.
+**Deferred/manual cleanup**. Δεν είναι blocker και δεν ξανανοίγει τώρα.
 
 ### 5. Reversible daily change ledger
 
@@ -126,14 +133,29 @@ Recompute idempotent και order-independent, χωρίς destructive recurring 
 
 ## Τρέχον verification gate
 
-1. Wire actual orphan actions: placement or suspension.
-2. Persist suspension as authoritative date-specific fact.
-3. Wire statistics into workbook/reporting.
-4. Native-check orphan workflow.
-5. Test selected/all restore with multiple changes.
-6. Replace snapshot restore with authoritative overlay removal + recompute.
-7. Resume outpatient recurring create/edit gate.
-8. Clean Python 3.14 ZipFile teardown warnings later.
+1. Run consolidated source gate for orphan action flow, suspension persistence, DAILY_INPUT dropdown and DAILY_STATISTICS.
+2. Native mixed orphan scenario: τουλάχιστον μία placement και μία suspension.
+3. Verify output reread: suspension fact recognized, unresolved=0, finalized=ΝΑΙ, source unchanged, VBA preserved.
+4. Test selected/all restore with multiple changes.
+5. Replace snapshot restore with authoritative overlay removal + recompute.
+6. Resume outpatient recurring create/edit gate.
+7. Clean Python 3.14 ZipFile teardown warnings later.
+
+Focused Windows gate:
+
+```powershell
+python -m pytest `
+  Tests/test_daily_input_cancellations.py `
+  Tests/test_daily_input_sheet.py `
+  Tests/test_apply_daily_input_replacements_resolution.py `
+  Tests/test_daily_operational_fact_writer.py `
+  Tests/test_daily_statistics_writer.py `
+  Tests/test_orphan_treatment_suspension.py `
+  Tests/test_daily_treatment_statistics.py `
+  Tests/test_daily_state.py `
+  Tests/test_therapist_absence_queue.py `
+  Tests/test_cancellation_releases_replacement_capacity.py -q
+```
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
