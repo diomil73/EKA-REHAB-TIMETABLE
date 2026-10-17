@@ -10,19 +10,9 @@
 
 ### 1. Authoritative restore + recompute
 
-Το restart-safe daily truth είναι native green στο V88 και το πρώτο πραγματικό authoritative restore είναι native green στο V89.
+Το restart-safe daily truth είναι native green από V88 έως V92.
 
-V89 confirmed:
-
-- exact replacement fact became `RESTORED`,
-- other 4 facts stayed `ACTIVE`,
-- reread replacements=4,
-- suspensions=2,
-- unresolved=1,
-- finalized=ΟΧΙ,
-- reconstructed statistics = stored DAILY_STATISTICS.
-
-Άρα το restore πλέον σημαίνει fact lifecycle + recompute, όχι cell copy-back.
+Το restore πλέον σημαίνει authoritative replacement-fact lifecycle + πλήρες recompute, όχι cell copy-back.
 
 ### 2. Replacement ID hardening
 
@@ -37,7 +27,7 @@ This prevents an old restore request from targeting a later change.
 
 ### 3. Selected/all authoritative restore
 
-Implemented backend:
+Implemented and native green:
 
 - `daily_replacement_fact_batch.py` validates the whole requested set before mutation,
 - missing/stale/already-restored member aborts the complete batch,
@@ -50,31 +40,48 @@ Tool:
 
 - `Python/tools/restore_daily_replacement_facts.py`
 
-Status: **source/native gate pending**.
+V91 selected restore and V92 restore-all both passed fresh reconstruction and statistics equivalence.
 
 ### 4. Ορφανοί + treatment suspension
 
-Native green through V89 reconstruction.
+Native green through the full V87-V92 lifecycle.
 
 Locked rule: κάθε orphan καταλήγει σε valid therapist/time placement ή `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα. Recurring/base δεν αλλάζει. Finalized day μόνο με unresolved=0.
 
 ### 5. Daily statistics
 
-`DAILY_STATISTICS` derives from the same DailySessionState. V88 and V89 both prove fresh reconstruction gives exact stored-statistics equivalence.
+`DAILY_STATISTICS` derives from the same DailySessionState. V88-V92 prove fresh reconstruction remains consistent with persisted statistics.
 
 ### 6. Daily effective state: MASTER + THERAPIST_DAILY
 
-Native green for active replacements. Authoritative restore resets MASTER to recurring truth before reapplying surviving overlays and rebuilds THERAPIST_DAILY from recomputed state.
+Native green for active replacement and authoritative restore flows. Restore resets recurring truth, reapplies surviving ACTIVE overlays, and rebuilds operational views.
 
 ### 7. Excel ledger migration
 
-Earlier prototype native green for per-row UI, source trace, readable times and styling.
+Current active implementation.
 
-Still open:
+Backend bridge:
 
-- connect per-row button to authoritative Python bridge,
-- connect selected/all buttons to atomic authoritative batch restore,
-- retire old snapshot cell-copy VBA only after native bridge gate.
+- `restore_daily_replacement_facts.py` now supports `--response` JSON for Excel/VBA,
+- backend bridge gate: **30 passed in 4.31s**.
+
+VBA bridge in `Python/rehab_excel/daily_change_ledger_vba.py` now does:
+
+- per-row: one exact immutable ReplacementId,
+- selected: one atomic request with repeated exact ids,
+- restore-all: one `--all-active`,
+- one backend call per action,
+- safe preview response + source SHA,
+- handoff to `authoritative_commit_worker_cli.py`,
+- workbook close, verified authoritative commit, automatic reopen on `THERAPIST_DAILY`.
+
+The old VBA `Cells(...).Copy Destination:=...` restore path has been removed from the ledger module. Snapshot cells remain audit evidence only.
+
+Pending:
+
+- source gate after VBA wiring,
+- Windows-native smoke for row / selected / all,
+- final retirement marker once native bridge is green.
 
 ### 8. Dynamic daily recomputation
 
@@ -106,22 +113,28 @@ Deferred/manual cleanup. Not a blocker.
 - suspension/statistics domain: **21 passed in 3.11s**
 - orphan operational: **43 passed, 3 warnings in 5.15s**
 - replacement fact focused gate: **28 passed, 3 warnings in 5.14s**
+- versioned-id + restore focused gate: **36 passed in 4.74s**
+- rerun persistence gate: **37 passed in 7.13s**
+- restore JSON bridge/backend gate: **30 passed in 4.31s**
 - V87 mixed orphan flow: **native green**
 - V88 full restart reconstruction: **native green**
 - V89 single authoritative restore + reconstruction: **native green**
+- V90 re-placement + versioned lifecycle: **native green**
+- V91 selected authoritative restore: **native green**
+- V92 restore-all authoritative restore: **native green**
 
 Python 3.14 ZipFile teardown warnings remain non-blocking technical debt.
 
 ## Τρέχον verification gate
 
 1. Pull latest branch.
-2. Run version-id + batch restore + authoritative restore focused tests.
-3. Re-resolve the reopened V89 orphan and require a new `:v2` replacement fact.
-4. Verify fresh reconstruction returns unresolved=0/finalized=ΝΑΙ and exact statistics equivalence.
-5. Test selected restore of two ACTIVE facts.
-6. Test restore-all on a separate preview and verify no partial corruption.
-7. Wire Excel ledger buttons to authoritative backend.
-8. Resume outpatient create/edit native gate.
+2. Run ledger bridge source tests plus authoritative restore backend tests.
+3. Build fresh native preview with the updated ledger VBA module.
+4. Test per-row restore from Excel.
+5. Test selected two-fact restore from Excel.
+6. Test restore-all from Excel on an independent trusted copy.
+7. Verify fact lifecycle, MASTER/THERAPIST_DAILY, ledger status, `DAILY_STATISTICS`, source unchanged, VBA preserved.
+8. Close ledger migration and resume outpatient create/edit native gate.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
@@ -132,6 +145,7 @@ Python 3.14 ZipFile teardown warnings remain non-blocking technical debt.
 - MASTER and THERAPIST_DAILY agree on effective state,
 - old restore cannot overwrite a newer change,
 - bulk restore is validate-all-before-mutate,
+- Excel restore controls mutate authoritative facts, not operational cells directly,
 - layout write zones remain narrow,
 - ΦΘ provider remains solver-owned,
 - outpatients cannot receive robotic treatment.
