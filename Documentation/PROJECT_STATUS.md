@@ -69,18 +69,31 @@ Files:
 - `Tests/test_daily_replacement_fact_batch.py`
 - `Tests/test_authoritative_bulk_daily_restore.py`
 
-Status: **implementation complete; focused Windows gate pending**.
+## Current validation state
+
+The first focused Windows gate after the latest bulk-restore pull returned **35 passed, 1 failed**.
+
+The failure was not in the backend restore logic. It was a stale regression call in `Tests/test_daily_fact_reconstruction_verifier.py`, which still invoked `_replacement_id(session)` although the implementation now requires `history_rows` to allocate stable versioned ids.
+
+The regression was corrected to use `_replacement_id(session, [])` for the base/no-history case.
+
+Fix commit:
+
+- `c43b677667c59d38b65b928d4126c36cf670f28c`
+
+Current status: **focused Windows source gate pending rerun; V90 must not be created until that gate is green**.
 
 ## Immediate roadmap
 
-1. Pull latest branch and run focused tests for version IDs, single restore and batch restore.
-2. Re-resolve the one reopened V89 orphan with `apply_daily_input_replacements.py`; require new fact id ending `:v2`.
-3. Verify resulting workbook reconstructs with unresolved=0, finalized=ΝΑΙ and exact statistics equivalence.
-4. Test selected authoritative restore of two ACTIVE facts into a new preview.
-5. Test `--all-active` restore on a separate preview.
-6. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
-7. Resume outpatient recurring create/edit native gate.
-8. Later clean Python 3.14 ZipFile warnings.
+1. Pull latest branch and rerun focused tests for version IDs, single restore and batch restore.
+2. Require a green source gate before any workbook mutation.
+3. Re-resolve the one reopened V89 orphan with `apply_daily_input_replacements.py`; choose a candidate and require new fact id ending `:v2`.
+4. Verify resulting V90 reconstructs with 5 replacements, 2 suspensions, unresolved=0, finalized=ΝΑΙ and exact statistics equivalence.
+5. Test selected authoritative restore of two ACTIVE facts into V91; expected 2 restored, 3 active, unresolved=2, finalized=ΟΧΙ.
+6. Test `--all-active` restore from V90 into V92; expected 5 restored, 0 active, unresolved=5, finalized=ΟΧΙ.
+7. Connect Excel ledger per-row/selected/all controls to authoritative backend; retire old cell-copy VBA only after native bridge gate.
+8. Resume outpatient recurring create/edit native gate.
+9. Later clean Python 3.14 ZipFile warnings.
 
 ## Locked daily rules
 
@@ -93,6 +106,10 @@ Status: **implementation complete; focused Windows gate pending**.
 7. only then expose capacity to new patients.
 
 Operational capacity is timeslot-based. Daily facts never destructively edit recurring schedules. Existing displaced patients precede new patients. MASTER and THERAPIST_DAILY must agree.
+
+## Documentation discipline
+
+Every meaningful evolution must be recorded in the repository documentation during the same work cycle, including implemented changes, regressions, native validation results, newly discovered necessities, planned additions, removals, replacements and deferred fixes. Chat history is not the sole source of truth.
 
 ## Deferred issue
 
