@@ -29,7 +29,7 @@
 - Restore performance work reduced backend latency from about 45.7s to 31.3s by batching MASTER projection COM writes; profiling then isolated the remaining dominant pre-Excel phases.
 - Restore recomputation now reuses the already-loaded patient registry and already-built MASTER projection instead of reparsing those identical inputs a second time.
 - Selected/all restore no longer starts a second hidden Excel process only to mark `DAILY_REPLACEMENT_FACTS` as RESTORED. The requested set is validated in memory, effective ACTIVE replacements are derived without mutating the stage, and authoritative fact statuses are persisted in the existing verified-output Excel session before its single save.
-- MASTER projection metadata now reads PATIENTS source rows, SETTINGS room order, and MASTER header position in one read-only workbook session instead of reopening the `.xlsm` three times.
+- MASTER projection metadata now reads PATIENTS source rows, SETTINGS room order, and MASTER header position directly from the read-only OOXML ZIP/XML package instead of loading the full macro-enabled workbook through openpyxl.
 - Restore latency remains an open performance/UX item until native total time reaches the acceptance target.
 
 ### Unchanged
