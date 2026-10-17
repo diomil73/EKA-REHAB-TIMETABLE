@@ -17,7 +17,8 @@ Last updated: 2026-10-17
 - restore JSON bridge/backend gate: `30 passed in 4.31s`
 - first ledger-VBA bridge gate attempt: `41 passed, 1 failed in 7.32s`
 - ledger authoritative bridge source gate after assertion fix: **`42 passed in 4.27s`**
-- daily restore bridge preview-builder + ledger contract gate: **`16 passed in 2.94s`**
+- initial daily restore bridge preview-builder + ledger contract gate: **`16 passed in 2.94s`**
+- fact-to-ledger synchronization + ledger contract rerun: **`18 passed in 4.40s`**
 - first native bridge smoke-copy build: structurally green, but exposed ledger/fact parity regression (`1` ACTIVE ledger row vs `5` authoritative ACTIVE facts)
 - V87 mixed orphan resolution: native green
 - V88 restart-safe daily-fact reconstruction: native green
@@ -127,7 +128,7 @@ Fresh reconstruction independently confirmed persisted replacements=0, treatment
 
 ## ACTIVE: Excel ledger authoritative bridge
 
-The backend JSON response contract is source-green with `30 passed in 4.31s`, the complete ledger bridge source gate is green with **`42 passed in 4.27s`**, and the initial dedicated smoke-copy builder gate is green with **`16 passed in 2.94s`**.
+The backend JSON response contract is source-green with `30 passed in 4.31s`, the complete ledger bridge source gate is green with **`42 passed in 4.27s`**, and the fact-to-ledger synchronization gate is now green with **`18 passed in 4.40s`**.
 
 The VBA ledger bridge is implemented in `Python/rehab_excel/daily_change_ledger_vba.py`:
 
@@ -168,17 +169,15 @@ The smoke-copy builder has therefore been changed so `DAILY_REPLACEMENT_FACTS`, 
 - counts ACTIVE rows from authoritative facts
 - only then installs the current VBA bridge and re-renders controls
 
-Expected result after rerun from V90: `Active ledger rows: 5` and six visible/history ledger facts in total (1 RESTORED + 5 ACTIVE).
+The dedicated rerun of `Tests/test_daily_restore_bridge_preview.py` plus `Tests/test_daily_change_ledger_vba.py` is green at **18 passed in 4.40s**. The next native gate is to rebuild all three smoke copies and require `Active ledger rows: 5` plus `Ledger synchronized from authoritative facts: True` before opening Excel.
 
 ## Exact resume point
 
-1. Pull the fact-to-ledger synchronization fix.
-2. Rerun `Tests/test_daily_restore_bridge_preview.py` plus `Tests/test_daily_change_ledger_vba.py`.
-3. Rebuild the three independent smoke copies from trusted `RERESOLVED_V90.xlsm`.
-4. Require every copy to report `Active ledger rows: 5` and `Ledger synchronized from authoritative facts: True` before opening Excel.
-5. Then smoke-test from Excel itself: per-row restore first, selected two-fact restore second, restore-all third on its independent copy.
-6. For every native path require correct replacement-fact lifecycle, fresh recomputation, ledger statuses, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
-7. Once native-green, mark the legacy cell-copy restore path retired and resume outpatient recurring create/edit native gate.
+1. Rebuild the three independent smoke copies from trusted `RERESOLVED_V90.xlsm`.
+2. Require every copy to report `Active ledger rows: 5` and `Ledger synchronized from authoritative facts: True` before opening Excel.
+3. Then smoke-test from Excel itself: per-row restore first, selected two-fact restore second, restore-all third on its independent copy.
+4. For every native path require correct replacement-fact lifecycle, fresh recomputation, ledger statuses, MASTER/THERAPIST_DAILY agreement, `DAILY_STATISTICS`, source integrity, and VBA preservation.
+5. Once native-green, mark the legacy cell-copy restore path retired and resume outpatient recurring create/edit native gate.
 
 ## Locked orphan rule
 
