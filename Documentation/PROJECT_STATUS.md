@@ -6,112 +6,96 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **orphan resolution + date-specific treatment suspension + correct daily statistics**, on top of the shared concrete-date effective state used by MASTER, THERAPIST_DAILY and the ledger.
+Active milestone: **authoritative daily operational facts + restart-safe recomputation**, following successful native orphan resolution.
 
-Latest confirmed checkpoints:
+Latest checkpoints:
 
 - full regression: **699 passed, 19 warnings**
 - replacement load + mixed-slot gate: **31 passed in 2.04s**
 - MASTER daily-overlay + ledger restore gate: **24 passed, 5 warnings in 4.39s**
 - orphan suspension + statistics domain gate: **21 passed in 3.11s**
 - consolidated orphan operational gate: **43 passed, 3 warnings in 5.15s**
+- V87 mixed orphan scenario: **native green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
-## Current native checkpoint
+## Native V87 result
 
-`Excel/previews/DAILY_CHANGE_LEDGER_V85.xlsm` remains the latest fully accepted native checkpoint.
+`Excel/previews/ORPHAN_RESOLUTION_V87.xlsm`
 
-Confirmed native green for the ΜΕΝΤΗΣ stress case:
+Confirmed terminal/native result:
 
-- active replacement appears consistently in THERAPIST_DAILY and MASTER,
-- source trace remains visible,
-- individual restore returns both views to original,
-- time axis displays `hh:mm` with no `####`,
-- moved non-robotic ΜΕΝΤΗΣ no longer inherits robotic-orange styling.
+- 5 accepted replacement placements,
+- 2 treatment suspensions,
+- 2 persisted suspension facts,
+- unresolved=0,
+- scheduled=80,
+- performed=78,
+- replaced=5,
+- suspended=2,
+- `DAILY_STATISTICS` written,
+- input unchanged=True,
+- VBA preserved=True.
 
-## Deferred cosmetic issue
+The V87 layout-safety blocker caused by stale outpatient cleanup outside the therapist grids was fixed without widening write zones.
 
-The obsolete `ΑΝΑΝΕΩΣΗ` Form Control remains visible. Decision: **defer/manual cleanup**. It is not a functional blocker.
+## Persistence status
 
-## Orphan workflow status
+Suspensions are now durable daily facts in output `DAILY_INPUT` and the reader recognizes them as `TREATMENT_SUSPENDED`.
 
-Every patient in `Ορφανοί` for the concrete date must resolve as either placement or `Αναστολή θεραπείας` for that date only.
+Replacement placements are **not yet durable authoritative facts**. Therefore full effective-state reconstruction after process/workbook restart is not complete yet.
 
-Operational implementation is source green:
+New verification tool:
 
-- mandatory placement/suspension flow,
-- no unresolved completion path,
-- finalization gate requires unresolved=0,
-- suspension persists into output DAILY_INPUT,
-- reread recognizes `TREATMENT_SUSPENDED`,
-- DAILY_INPUT dropdown includes `Αναστολή θεραπείας`,
-- DAILY_STATISTICS writes from the same finalized daily state,
-- consolidated verification: **43 passed, 3 warnings in 5.15s**.
+- `Python/tools/verify_orphan_resolution_persistence.py`
+- `Tests/test_verify_orphan_resolution_persistence.py`
 
-## Native V87 blocker and fix
-
-The first mixed-orphan V87 run stopped safely before workbook output because `outpatient_presentation` emitted a stale-fill cleanup patch for `THERAPIST_DAILY!A21`, outside the confirmed write zones `B2:J8` and `B12:J18`.
-
-This was a stale-colour discovery bug, not a missing layout zone. The matching green fill at A21 was unrelated sheet furniture.
-
-Fix implemented:
-
-- outpatient stale-fill discovery and cleanup now operate only inside the two confirmed THERAPIST_DAILY patient grids,
-- write zones remain unchanged and narrow,
-- regression explicitly checks that `A21` is ignored.
-
-Commits:
-
-- `5c81ce40256ddd36379d838c35b2a62debf0ef95`
-- `7e4031fd9f01b4b11233b6bc087078b4f94686aa`
-
-Status: **focused source gate pending, then rerun V87 from existing V86**.
-
-## Daily operational rules locked
-
-1. recurring/base schedule for the concrete date,
-2. cancellations/no-shows release same-day capacity,
-3. therapist absences,
-4. identify displaced/unscheduled existing patients,
-5. redistribute existing patients into net free capacity,
-6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
-7. only then expose remaining capacity to new patients.
-
-Operational capacity remains timeslot-based. Recurring/base schedules are never destructively edited by one-day facts. Recompute must remain idempotent and order-independent.
-
-## Ledger status
-
-Native green: active move rendering, MASTER sync, source trace, per-row restore, time-axis display, stale-orange cleanup.
-
-Still open: selected/all restore with multiple changes and replacing snapshot restore with authoritative overlay removal + full daily recomputation.
-
-## Outpatient architecture
-
-The branch already contains inpatient/outpatient types, separate authoritative `OUTPATIENT_SCHEDULE`, unified base reads, outpatient presentation, cancellation/no-show overlays and recurring schedule infrastructure.
-
-Outpatient recurring create/edit native verification remains open after the current orphan/daily-state milestone.
+This tool verifies saved suspension facts against stored DAILY_STATISTICS and explicitly does not claim replacement reread support.
 
 ## Immediate roadmap
 
-1. Run focused tests for outpatient presentation + orphan operational flow after A21 fix.
-2. Re-run `apply_daily_input_replacements.py` from `ORPHAN_SMOKE_INPUT_V86.xlsm` to `ORPHAN_RESOLUTION_V87.xlsm`.
-3. Include at least one placement and one suspension.
-4. Verify output DAILY_INPUT persistence, DAILY_STATISTICS unresolved=0/finalized=ΝΑΙ, source unchanged and VBA preserved.
-5. Re-read V87 to confirm suspension persistence.
-6. Test selected/all restore with multiple changes.
-7. Replace snapshot restore with authoritative overlay removal + full recompute.
-8. Resume outpatient recurring create/edit native gate.
-9. Clean Python 3.14 ZipFile teardown warnings later.
+1. Verify V87 reread: 2 suspensions, statistics suspended=2, unresolved=0, finalized=ΝΑΙ.
+2. Persist accepted replacement assignments as authoritative date-specific facts.
+3. Rebuild full daily effective state from durable facts and prove restart/recompute equivalence.
+4. Replace snapshot ledger restore with authoritative fact removal + recompute.
+5. Test selected/all restore with multiple simultaneous changes.
+6. Resume outpatient recurring create/edit native gate.
+7. Continue branch hardening and later clean Python 3.14 ZipFile warnings.
+
+## Locked daily rules
+
+1. recurring/base schedule for concrete date,
+2. cancellations/no-shows release capacity,
+3. therapist absences,
+4. identify displaced existing patients,
+5. redistribute into net free capacity,
+6. remaining orphans resolve by placement or treatment suspension,
+7. new patients only after existing displaced patients are resolved.
+
+Operational capacity is timeslot-based. Daily facts never destructively edit recurring schedules. Recompute must be idempotent and order-independent.
+
+## Existing native green areas
+
+- MASTER toolbar/header UX,
+- patient-centric scheduling,
+- MASTER + THERAPIST_DAILY daily move sync,
+- source trace,
+- individual ledger restore,
+- readable time axis,
+- non-robotic color semantics,
+- mixed orphan placement/suspension flow.
+
+## Deferred issue
+
+Legacy `ΑΝΑΝΕΩΣΗ` Form Control remains manual/deferred cosmetic cleanup.
 
 ## Safety constraints
 
-- Never write directly to the baseline `.xlsm` during development or smoke testing.
-- Preview workflows operate on copied `.xlsm` files only.
-- Preserve/verify VBA when rebuilding previews.
-- Keep layout write zones narrow; fix producer logic rather than expanding zones without evidence.
-- Keep current scheduling behavior backward-compatible unless an explicit business rule changes it.
-- Windows test command is always `python -m pytest`.
+- Never write directly to baseline `.xlsm` during development.
+- Preview workflows use copies only.
+- Preserve/verify VBA.
+- Keep layout write zones narrow.
+- Windows tests use `python -m pytest`.
 
 ## Recovery order
 
