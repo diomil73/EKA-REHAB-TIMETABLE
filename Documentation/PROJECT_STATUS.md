@@ -6,9 +6,9 @@ Last updated: 2026-10-17
 
 The branch remains `feature/outpatient-scheduling`.
 
-The active operational milestone is now **orphan resolution + date-specific treatment suspension + correct daily statistics**, built on top of the already working concrete-date effective state shared by MASTER, THERAPIST_DAILY and the ledger.
+The active operational milestone is **orphan resolution + date-specific treatment suspension + correct daily statistics**, built on top of the already working concrete-date effective state shared by MASTER, THERAPIST_DAILY and the ledger.
 
-Latest checkpoints:
+Latest confirmed checkpoints:
 
 - full regression: **699 passed, 19 warnings**
 - replacement load + mixed-slot gate: **31 passed in 2.04s**
@@ -30,25 +30,34 @@ Confirmed native green for the ΜΕΝΤΗΣ stress case:
 
 ## Deferred cosmetic issue
 
-The obsolete `ΑΝΑΝΕΩΣΗ` Form Control remains visible.
+The obsolete `ΑΝΑΝΕΩΣΗ` Form Control remains visible. Decision: **defer/manual cleanup**. It is not a functional blocker and should not consume more engineering time now.
 
-It has been identified exactly as `Button 1` with caption `ΑΝΑΝΕΩΣΗ` and macro `RefreshAll`. Multiple targeted cleanup attempts did not remove it reliably. Decision: **defer this issue and do not spend more engineering time on it now**. It is not a functional blocker; the user may remove it manually in Excel later.
-
-## Active orphan workflow
+## Orphan workflow: domain foundation implemented
 
 Every patient in `Ορφανοί` for the concrete date must resolve as either:
 
 - placed in a valid therapist/time slot, or
 - `Αναστολή θεραπείας` for that date only.
 
-Required behavior:
+Architecture decision:
 
-- no silent disappearance,
-- suspension is a daily overlay/status, never a recurring delete,
-- suspension is auditable,
-- suspension feeds daily statistics as treatment not performed with explicit reason,
-- existing displaced patients precede new-patient allocation,
-- recomputation remains idempotent and independent of input order.
+- `Αναστολή θεραπείας` uses `DailySessionStatus.CANCELLED` plus new `SessionCancellationKind.TREATMENT_SUSPENDED`,
+- no new parallel daily status is introduced,
+- recurring/base schedule stays untouched,
+- the provider slot is released,
+- the explicit reason remains auditable.
+
+Implemented source slice:
+
+- `SessionCancellationKind.TREATMENT_SUSPENDED`,
+- `rehab_core/orphan_resolution.py` with `create_treatment_suspension()`,
+- exact reason `Αναστολή θεραπείας`,
+- `rehab_core/daily_statistics.py`,
+- statistics separate performed/replaced/absent/postponed/no-show/suspended/unresolved outcomes,
+- unresolved `THERAPIST_ABSENT` sessions remain unresolved until placed or explicitly suspended,
+- focused regression files added for suspension and statistics.
+
+Status: **implemented, focused source gate pending**. Excel operational actions and authoritative persistence are not wired yet.
 
 ## Daily operational rules locked
 
@@ -60,7 +69,7 @@ Required behavior:
 6. resolve remaining orphans by placement or `Αναστολή θεραπείας`,
 7. only then expose remaining capacity to new patients.
 
-Operational capacity remains timeslot-based. Recurring/base schedules are never destructively edited by one-day facts.
+Operational capacity remains timeslot-based. Recurring/base schedules are never destructively edited by one-day facts. Recompute must remain idempotent and order-independent.
 
 ## Ledger status
 
@@ -86,16 +95,27 @@ Outpatient recurring create/edit native verification remains open after the curr
 
 ## Immediate roadmap
 
-1. Inspect the existing daily-state, cancellation and statistics architecture.
-2. Implement date-specific `Αναστολή θεραπείας` and orphan final outcomes.
-3. Integrate the suspension reason into daily statistics.
-4. Add focused tests for auditability, idempotence and non-destructive recurring behavior.
-5. Native-check the orphan workflow.
+1. Run the focused source gate for suspension/statistics plus existing daily-state/queue/capacity regressions.
+2. Wire the actual orphan operational actions: place or suspend.
+3. Persist suspension as an authoritative date-specific daily fact.
+4. Surface daily statistics in workbook/reporting.
+5. Native-check orphan placement and suspension.
 6. Test selected/all restore with multiple changes.
 7. Replace snapshot restore with authoritative overlay removal + full recompute.
 8. Resume outpatient recurring create/edit native gate.
 9. Continue branch/PR hardening.
 10. Clean Python 3.14 ZipFile teardown warnings later.
+
+Focused Windows gate:
+
+```powershell
+python -m pytest `
+  Tests/test_orphan_treatment_suspension.py `
+  Tests/test_daily_treatment_statistics.py `
+  Tests/test_daily_state.py `
+  Tests/test_therapist_absence_queue.py `
+  Tests/test_cancellation_releases_replacement_capacity.py -q
+```
 
 ## Safety constraints
 
