@@ -17,6 +17,12 @@ _IN_SESSION_BLOCK = r'''Private Function RunAuthoritativeRestore(ByVal replaceme
     Dim responseText As String
     Dim errorText As String
     Dim previewPath As String
+    Dim backendStarted As Double
+    Dim backendSeconds As Double
+    Dim rollbackSeconds As Double
+    Dim previewOpenSeconds As Double
+    Dim syncSeconds As Double
+    Dim saveSeconds As Double
 
     On Error GoTo RestoreError
 
@@ -51,7 +57,9 @@ _IN_SESSION_BLOCK = r'''Private Function RunAuthoritativeRestore(ByVal replaceme
 
     Application.StatusBar = "Επαναφορά αλλαγής και επανυπολογισμός..."
     Set shell = CreateObject("WScript.Shell")
+    backendStarted = Timer
     exitCode = CLng(shell.Run(commandLine, 0, True))
+    backendSeconds = ElapsedRestoreSeconds(backendStarted)
 
     If Dir$(responsePath) <> "" Then responseText = ReadUtf8Text(responsePath)
 
@@ -68,9 +76,16 @@ _IN_SESSION_BLOCK = r'''Private Function RunAuthoritativeRestore(ByVal replaceme
         GoTo FailedCleanup
     End If
 
-    ApplyAuthoritativeRestorePreview previewPath
+    ApplyAuthoritativeRestorePreview previewPath, rollbackSeconds, previewOpenSeconds, syncSeconds, saveSeconds
 
-    MsgBox "Η επαναφορά ολοκληρώθηκε επιτυχώς.", vbInformation, "Επαναφορά"
+    MsgBox "Η επαναφορά ολοκληρώθηκε επιτυχώς." & vbCrLf & vbCrLf & _
+           "Διαγνωστικοί χρόνοι:" & vbCrLf & _
+           "Backend: " & Format$(backendSeconds, "0.00") & " s" & vbCrLf & _
+           "Rollback copy: " & Format$(rollbackSeconds, "0.00") & " s" & vbCrLf & _
+           "Άνοιγμα preview: " & Format$(previewOpenSeconds, "0.00") & " s" & vbCrLf & _
+           "Συγχρονισμός φύλλων: " & Format$(syncSeconds, "0.00") & " s" & vbCrLf & _
+           "Τελικό save: " & Format$(saveSeconds, "0.00") & " s", _
+           vbInformation, "Επαναφορά"
 
     RunAuthoritativeRestore = True
 
@@ -88,7 +103,12 @@ RestoreError:
     Resume FailedCleanup
 End Function
 
-Private Sub ApplyAuthoritativeRestorePreview(ByVal previewPath As String)
+Private Sub ApplyAuthoritativeRestorePreview( _
+    ByVal previewPath As String, _
+    ByRef rollbackSeconds As Double, _
+    ByRef previewOpenSeconds As Double, _
+    ByRef syncSeconds As Double, _
+    ByRef saveSeconds As Double)
     Dim previewWorkbook As Workbook
     Dim rollbackWorkbook As Workbook
     Dim rollbackPath As String
@@ -97,6 +117,7 @@ Private Sub ApplyAuthoritativeRestorePreview(ByVal previewPath As String)
     Dim previousAlerts As Boolean
     Dim previousCalculation As XlCalculation
     Dim errorText As String
+    Dim phaseStarted As Double
 
     On Error GoTo ApplyError
 
@@ -108,21 +129,30 @@ Private Sub ApplyAuthoritativeRestorePreview(ByVal previewPath As String)
     rollbackPath = Environ$("TEMP") & "\eka_daily_restore_rollback_" & _
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
 
+    phaseStarted = Timer
     ThisWorkbook.SaveCopyAs rollbackPath
+    rollbackSeconds = ElapsedRestoreSeconds(phaseStarted)
 
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     Application.DisplayAlerts = False
     Application.Calculation = xlCalculationManual
 
+    phaseStarted = Timer
     Set previewWorkbook = Application.Workbooks.Open( _
         Filename:=previewPath, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False)
     HideWorkbookWindow previewWorkbook
+    previewOpenSeconds = ElapsedRestoreSeconds(phaseStarted)
 
     ValidateRestoreSheetSet previewWorkbook
     ValidateRestoreSheetSet ThisWorkbook
+    phaseStarted = Timer
     SyncRestoreSheetSet previewWorkbook, ThisWorkbook
+    syncSeconds = ElapsedRestoreSeconds(phaseStarted)
+
+    phaseStarted = Timer
     ThisWorkbook.Save
+    saveSeconds = ElapsedRestoreSeconds(phaseStarted)
 
     previewWorkbook.Close SaveChanges:=False
     Set previewWorkbook = Nothing
@@ -163,6 +193,13 @@ ApplyError:
     Application.EnableEvents = previousEvents
     Err.Raise vbObjectError + 2910, "ApplyAuthoritativeRestorePreview", errorText
 End Sub
+
+Private Function ElapsedRestoreSeconds(ByVal startedAt As Double) As Double
+    Dim elapsed As Double
+    elapsed = Timer - startedAt
+    If elapsed < 0 Then elapsed = elapsed + 86400#
+    ElapsedRestoreSeconds = elapsed
+End Function
 
 Private Sub HideWorkbookWindow(ByVal workbookValue As Workbook)
     On Error Resume Next
