@@ -151,7 +151,11 @@ NextLedgerRow:
     btn.TextFrame.Characters.Text = "Επαναφορά όλων"
     btn.OnAction = "RestoreAllDailyChanges"
 
-    wsDaily.Columns("A").ColumnWidth = 4
+    ' Column A contains the two therapist timetable time axes. Keep enough
+    ' width for hh:mm and re-assert the time format after every ledger refresh.
+    wsDaily.Columns("A").ColumnWidth = 8
+    wsDaily.Range("A2:A8,A12:A18").NumberFormat = "hh:mm"
+    wsDaily.Range("A2:A8,A12:A18").HorizontalAlignment = xlCenter
     wsDaily.Columns("B").ColumnWidth = 28
     wsDaily.Columns("C:D").ColumnWidth = 23
     wsDaily.Columns("E").ColumnWidth = 28
