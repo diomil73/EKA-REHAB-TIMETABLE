@@ -6,7 +6,7 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Excel ledger authoritative restore bridge, source gate pending after VBA wiring**.
+Active milestone: **Excel ledger authoritative restore bridge, source gate rerun pending after assertion fix**.
 
 ## Latest confirmed checkpoints
 
@@ -15,6 +15,7 @@ Active milestone: **Excel ledger authoritative restore bridge, source gate pendi
 - versioned-id + single/batch restore focused gate: **36 passed in 4.74s**
 - rerun gate after V90 persistence fix: **37 passed in 7.13s**
 - restore JSON bridge/backend gate: **30 passed in 4.31s**
+- first ledger-VBA bridge gate attempt: **41 passed, 1 failed in 7.32s**
 - V87 mixed orphan scenario: **native green**
 - V88 full restart reconstruction: **native green**
 - V89 single authoritative restore + reconstruction: **native green**
@@ -116,11 +117,16 @@ Relevant commits:
 - JSON bridge tests: `749c9f50625ae44ce247829a236b06a4e4244afd`
 - VBA bridge contract tests: `5c2269547752eedc923c741a1ed99a8786e06894`
 - VBA bridge implementation: `9f1b9449d4d4822c6e095ec2438405bc9e71f5c3`
+- selected-restore assertion compatibility fix: `3784c04a03f4ddebfa91cb73be19e8a7c1b926cc`
+
+### Latest source gate finding
+
+The first post-wiring gate returned **41 passed, 1 failed in 7.32s**. The sole failure was an assertion-text mismatch, not a production behavior failure. The test expected `RunAuthoritativeRestore replacementArgs, False`, while the implemented VBA uses the valid explicit syntax `Call RunAuthoritativeRestore(replacementArgs, False)`. The test was corrected to assert the actual call syntax. Production code was unchanged.
 
 ## Immediate roadmap
 
 1. Pull latest branch.
-2. Run the ledger bridge source gate after the VBA change.
+2. Rerun the same ledger bridge source gate after the assertion fix.
 3. If green, build a fresh native preview containing the new ledger module.
 4. Smoke-test per-row restore from Excel.
 5. Smoke-test selected two-fact restore from Excel.
@@ -132,7 +138,7 @@ Relevant commits:
 ## Locked daily rules
 
 1. recurring/base schedule
-2. cancellations/no-shows release capacity
+2. cancellations/no-shows release slots
 3. therapist absences
 4. identify displaced/orphan sessions
 5. apply surviving ACTIVE replacements
