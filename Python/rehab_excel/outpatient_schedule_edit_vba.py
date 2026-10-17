@@ -98,19 +98,29 @@ _INITIALIZE_REPLACEMENT = '''Private Sub UserForm_Initialize()\n    OutpatientEd
 _REQUEST_MARKER = '''        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & _\n        "}}"'''
 _REQUEST_REPLACEMENT = '''        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & "," & _\n        q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & _\n        "}}"'''
 
+_SUGGESTION_MARKER = '''        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _\n        q & "limit" & q & ":5" & _'''
+_SUGGESTION_REPLACEMENT = '''        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _\n        q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & "," & _\n        q & "limit" & q & ":5" & _'''
+
 
 def patch_outpatient_schedule_form_code(code: str) -> str:
     """Add edit-target state to the existing outpatient schedule form code."""
 
-    if "target_base_entry_id" in code and "OutpatientEditTargetBaseEntryId" in code:
-        return code
-    if _INITIALIZE_MARKER not in code:
-        raise RuntimeError("Outpatient schedule form initialize marker missing")
-    if _REQUEST_MARKER not in code:
-        raise RuntimeError("Outpatient schedule request JSON marker missing")
+    patched = code
+    if 'OutpatientEditTargetBaseEntryId = ""' not in patched:
+        if _INITIALIZE_MARKER not in patched:
+            raise RuntimeError("Outpatient schedule form initialize marker missing")
+        patched = patched.replace(_INITIALIZE_MARKER, _INITIALIZE_REPLACEMENT, 1)
 
-    patched = code.replace(_INITIALIZE_MARKER, _INITIALIZE_REPLACEMENT, 1)
-    patched = patched.replace(_REQUEST_MARKER, _REQUEST_REPLACEMENT, 1)
+    if patched.count('q & "target_base_entry_id" & q') < 1:
+        if _REQUEST_MARKER not in patched:
+            raise RuntimeError("Outpatient schedule request JSON marker missing")
+        patched = patched.replace(_REQUEST_MARKER, _REQUEST_REPLACEMENT, 1)
+
+    if patched.count('q & "target_base_entry_id" & q') < 2:
+        if _SUGGESTION_MARKER not in patched:
+            raise RuntimeError("Outpatient suggestion request JSON marker missing")
+        patched = patched.replace(_SUGGESTION_MARKER, _SUGGESTION_REPLACEMENT, 1)
+
     return patched
 
 
@@ -150,8 +160,8 @@ def install_outpatient_schedule_edit_support(vbproject) -> None:
 
     installed_form_code = _component_code(form_component)
     installed_edit_code = _component_code(module)
-    if "target_base_entry_id" not in installed_form_code:
-        raise RuntimeError("Outpatient edit target was not wired into request JSON")
+    if installed_form_code.count('q & "target_base_entry_id" & q') < 2:
+        raise RuntimeError("Outpatient edit target was not wired into save and suggestion JSON")
     if "OutpatientEditTargetBaseEntryId" not in installed_form_code:
         raise RuntimeError("Outpatient edit target state was not wired into form")
     if "Public Sub EditOutpatientSchedule()" not in installed_edit_code:
