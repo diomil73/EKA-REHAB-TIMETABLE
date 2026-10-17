@@ -1,6 +1,6 @@
 # Implementation Map
 
-Τελευταία ενημέρωση: 2026-10-14
+Τελευταία ενημέρωση: 2026-10-17
 
 ## Σκοπός
 
@@ -8,9 +8,9 @@
 
 ## Τι φτιάχνουμε τώρα
 
-### Επόμενο roadmap milestone
+### Outpatient recurring schedule: create/edit end to end
 
-Το patient-centric multi-treatment scheduling milestone έκλεισε πλήρως, μαζί με το cleanup του retired single-treatment κώδικα.
+Το patient-centric multi-treatment milestone και το retired single-treatment cleanup έχουν κλείσει πλήρως.
 
 Confirmed green:
 
@@ -24,6 +24,35 @@ Confirmed green:
 
 Η μείωση του test count είναι αναμενόμενη, επειδή αφαιρέθηκαν tests που κάλυπταν αποκλειστικά retired single-treatment code.
 
+### Cancellation slot release
+
+Το προηγούμενο roadmap candidate είναι ήδη source-green και δεν χρειάζεται νέα υλοποίηση:
+
+- cancelled occurrences αφαιρούνται από operational therapist/student workload,
+- availability checks αγνοούν cancelled occurrences,
+- replacement candidate capacity/availability λαμβάνει τα cancellations,
+- το `Tests/test_cancellation_releases_replacement_capacity.py` καλύπτει ακριβώς workload release και exact-slot reuse.
+
+Native cancellation smoke παραμένει μελλοντικό verification item, όχι source implementation gap.
+
+### Τρέχον outpatient milestone
+
+Στόχος: native create/edit flow για recurring outpatient schedule στο `OUTPATIENT_SCHEDULE`.
+
+Υπάρχει ήδη backend upsert με `OutpatientScheduleRequest.target_base_entry_id`, conflict validation, suggestions και source-hash/readback safety. Τώρα ελέγχουμε αν το Excel form διαθέτει user-facing edit/preload. Αν λείπει, θα προστεθεί πάνω στο υπάρχον backend αντί να δημιουργηθεί δεύτερος μηχανισμός.
+
+Acceptance:
+
+- create recurring outpatient entry,
+- edit το ίδιο entry με preload,
+- update της ίδιας authoritative row,
+- no outpatient writes to `PATIENT_PLANNER`,
+- robotic treatment unavailable,
+- conflict/suggestion safeguards preserved,
+- source workbook unchanged,
+- VBA preserved,
+- native Windows/Excel smoke green.
+
 ### Accepted MASTER UX
 
 - row 2: 4 horizontal MASTER action buttons,
@@ -33,23 +62,6 @@ Confirmed green:
 - no UserForm/sidebar/CommandBars.
 
 V81 native gate: **green**.
-
-### Retired scheduling cleanup
-
-Ολοκληρώθηκε και επαληθεύτηκε.
-
-Αφαιρέθηκαν:
-
-- `Python/rehab_excel/patient_scheduling_flow.py`,
-- `Python/rehab_excel/patient_scheduling_form_vba.py`,
-- retired bridge commands `plan`, `validate`, `plan-vba`, `validate-vba`, `recurring-vba`, `validate-recurring-vba`,
-- tests αποκλειστικά για το retired single-treatment flow/form.
-
-Διατηρήθηκαν:
-
-- `auto-propose` / `auto-propose-vba` για το joint patient-program auto scheduler,
-- το current `PatientProgramRuntime` / `frmPatientScheduling`,
-- cleanup/verification ώστε παλιά workbooks να μην κρατούν `PatientSchedulingRuntime`.
 
 ## Τι έχει ολοκληρωθεί
 
@@ -70,22 +82,28 @@ V81 native gate: **green**.
 - Optional manual names save/reload verified native green.
 - Retired single-treatment scheduling cleanup complete.
 - Post-cleanup full regression: **699 passed, 19 warnings**.
+- Cancellation/released-slot propagation source implementation + dedicated regression coverage.
 
 ## Τρέχον verification gate
 
-Το προηγούμενο milestone είναι κλειστό. Το επόμενο gate θα οριστεί από το επόμενο roadmap item, με βάση τα υπόλοιπα outpatient/operational gaps στο `Documentation/PROJECT_STATUS.md`.
+1. Inspect outpatient form/bridge create-vs-edit support.
+2. Add missing edit/preload UI only if needed.
+3. Run focused outpatient schedule tests.
+4. Build native smoke preview.
+5. Verify create + edit against `OUTPATIENT_SCHEDULE` in Excel.
 
 ## Business rules που δεν πρέπει να παλινδρομήσουν
 
 - ΦΘ provider required + solver-owned.
-- Ρομποτικό / Εργο / Λογο / Ψυχ optional free text, όχι solver constraint.
-- Ανακλινόμενο / Πισίνα / ΕΦΑ χωρίς provider/name.
+- Ρομποτικό / Εργο / Λογο / Ψυχ optional free text, όχι solver constraint για inpatient patient-program flow.
+- Outpatients cannot receive Ρομποτικό.
+- Ανακλινόμενο / Πισίνα / ΕΦΑ χωρίς provider/name στο inpatient flow.
 - Nonblank manual constraints δεν αντικαθίστανται σιωπηλά.
-- One final atomic save.
+- One final atomic save για το inpatient patient-program flow.
 - Standard duration 45', Ανακλινόμενο 30'.
 - Exact adjacency allowed.
-- `PATIENT_PLANNER` authoritative, MASTER derived.
-- Conflict override explicit, return-for-correction zero writes.
+- `PATIENT_PLANNER` authoritative για inpatient recurring schedule, `OUTPATIENT_SCHEDULE` authoritative για outpatient recurring schedule.
+- Conflict override explicit όπου υποστηρίζεται.
 
 ## Recovery rule
 
