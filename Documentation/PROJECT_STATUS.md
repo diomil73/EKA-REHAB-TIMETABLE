@@ -6,16 +6,17 @@ Last updated: 2026-10-17
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active. The two largest measured backend costs have now been redesigned and await Windows timing verification.**
+Active milestone: **Restore correctness is closed green for per-row, selected, and restore-all Excel paths. Performance/UX latency remains active. Backend is now down to about 23 seconds and the dominant remaining parser cost has been replaced with a lightweight OOXML path.**
 
 ## Latest confirmed checkpoints
 
 - full regression: **699 passed, 19 warnings**
 - focused gate after MASTER batch-write patch: **35 passed in 3.67s**
 - native diagnostic after MASTER batch write: **Backend 31.33s**, rollback 0.15s, preview open 0.88s, sheet sync 0.19s, final save 1.23s
-- direct backend profile after read-reuse work: **28.794s total**, **20.911s pre-Excel/verification**, **7.883s Excel output**
-- largest measured phases: **restore_fact_batch 8.863s**, **build_master_projection 5.833s**, **pre_excel_unattributed 2.667s**
-- Excel output detail: dispatch 1.528s, workbook open 1.268s, MASTER 1.612s, daily patches 0.540s, statistics 0.271s, ledger rows 0.022s, refresh 0.037s, save 1.666s, close 0.202s, quit 0.048s
+- latest direct backend profile: **22.924s total**, **12.978s pre-Excel/verification**, **9.946s Excel output**
+- latest largest pre-Excel phase: **build_master_projection 6.142s**
+- previous **restore_fact_batch 8.863s** phase is gone after lifecycle consolidation
+- latest Excel output: dispatch 2.133s, open 1.849s, MASTER 1.794s, daily patches 0.498s, statistics 0.277s, replacement facts 0.155s, ledger 0.174s, refresh 0.129s, save 2.189s, close 0.098s, quit 0.004s
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row / selected / restore-all in-session correctness: **native green**
 
@@ -39,9 +40,7 @@ Native correctness is green for per-row, selected, and restore-all controls.
 
 ## ACTIVE: restore performance / UX latency
 
-Profiling showed that Excel-side preview synchronization is no longer the bottleneck. The dominant backend costs were a second native Excel process used only to flip replacement fact statuses and repeated openpyxl loads inside MASTER projection.
-
-Implemented optimization chain now includes:
+The optimization chain now includes:
 
 1. selected/all ledger lifecycle batching,
 2. statistics + ledger finalization consolidation,
@@ -53,18 +52,18 @@ Implemented optimization chain now includes:
 8. range-batched MASTER projection write-back,
 9. detailed backend profiling,
 10. reuse of already-loaded PATIENTS and already-built MASTER projection,
-11. **new:** replacement fact lifecycle persistence is moved into the existing `_RestoreOutputBackend` Excel session. The staging workbook is no longer opened/saved in a second Excel process. Requested ids are validate-all-first in memory, effective replacements are derived by excluding those ids, and the verified output copy receives `RESTORED` statuses before its single save. Implementation `c7895e28e5843df30a889b55326189764c3dec0a`, regressions `140126a6a3f09ccaa9fe4b29f8a09547e8408119` and `9a6e7243c7a02d3191b5feedbf59de4d45addfb2`.
-12. **new:** MASTER projection metadata now reads PATIENTS row ids, SETTINGS room order, and MASTER header location in one openpyxl workbook session rather than three. Implementation `63e6920c700cd73644d93a9fe8ffd79c365105cc`, regression `44c8e6556849fc4a091179a43dae7962e52cf5b5`.
-13. Profiler updated for the new lifecycle and `replacement_fact_rows` output phase: `4d928b884e81264620b9c666016a77f23aa0e96e`.
+11. replacement fact lifecycle persistence moved into the existing output Excel session, eliminating the separate `8.863s` restore-fact Excel process,
+12. MASTER metadata consolidated first to one workbook load, then further optimized because the full `.xlsm` load itself remained expensive,
+13. **new:** `build_master_projection` now reads PATIENTS row ids, SETTINGS room order, and MASTER header directly through `WorkbookPackageProbe` from the OOXML ZIP/XML package. No full openpyxl load is used for these projection metadata reads. Implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`.
 
-Safety semantics are unchanged: the complete requested restore set is validated before any authoritative status mutation. Python still does not save the staging `.xlsm`; native Excel mutates only the output preview copy.
+Safety semantics are unchanged: the package probe is read-only, source bytes are not changed, validate-all-before-mutate remains intact, and native Excel still mutates only the output preview copy.
 
 ## Immediate roadmap
 
 1. Pull latest branch and run the focused tests including authoritative restore, profiler, MASTER projection/overlay, outpatient schedule source, and in-session bridge tests.
-2. Rerun `profile_daily_restore_backend.py` against trusted `RERESOLVED_V90.xlsm` using a fresh `BACKEND_PROFILE3.xlsm`.
-3. Confirm that the old `restore_fact_batch` cost has disappeared and MASTER projection time has dropped materially.
-4. Optimize the next largest measured phase immediately. Likely next target is the non-Excel portion of `apply_write_plan_total` / copy-verification overhead, followed by remaining workbook parser loads.
+2. Rerun `profile_daily_restore_backend.py` against trusted `RERESOLVED_V90.xlsm` using fresh `BACKEND_PROFILE4.xlsm`.
+3. Confirm that `build_master_projection` falls sharply from **6.142s**.
+4. Optimize the next largest measured phase immediately. Likely targets are `pre_excel_unattributed ~2.58s` and then Excel process startup/open/save overhead.
 5. Re-run fresh reconstruction after performance changes.
 6. Keep the acceptance target at roughly **<=15 seconds total**, ideally around 10 seconds.
 7. Once restore latency is acceptable, resume outpatient recurring create/edit native gate.
