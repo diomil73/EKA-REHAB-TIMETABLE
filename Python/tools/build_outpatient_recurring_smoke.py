@@ -4,6 +4,7 @@ import argparse
 from hashlib import sha256
 from pathlib import Path
 import sys
+import time
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = REPO_ROOT / "Python"
@@ -44,6 +45,33 @@ def _safe_unlink(path: Path) -> None:
         pass
 
 
+def _install_conflict_guard_with_lock_retry(
+    stage: Path,
+    output: Path,
+    *,
+    overwrite: bool,
+    attempts: int = 20,
+    delay_seconds: float = 0.25,
+) -> None:
+    """Retry only transient Windows file-lock failures after the edit COM session closes."""
+
+    last_error: OSError | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            create_outpatient_conflict_guard_preview(stage, output, overwrite=overwrite)
+            return
+        except OSError as exc:
+            if getattr(exc, "winerror", None) != 32:
+                raise
+            last_error = exc
+            _safe_unlink(output)
+            if attempt < attempts:
+                time.sleep(delay_seconds)
+
+    assert last_error is not None
+    raise last_error
+
+
 def build_outpatient_recurring_smoke(
     source_path: str | Path,
     output_path: str | Path,
@@ -76,7 +104,11 @@ def build_outpatient_recurring_smoke(
     try:
         create_outpatient_schedule_form_preview(source, stage, overwrite=True)
         install_outpatient_schedule_edit_support_in_workbook(stage)
-        create_outpatient_conflict_guard_preview(stage, output, overwrite=overwrite)
+        _install_conflict_guard_with_lock_retry(
+            stage,
+            output,
+            overwrite=overwrite,
+        )
     except (
         OutpatientScheduleFormVbaError,
         OutpatientConflictGuardPreviewError,
