@@ -21,6 +21,8 @@
 - Backend restore profiler with Excel-output and pre-Excel phase timings for targeted latency work.
 
 ### Changed
+- Locked the requirements for global multi-therapist-absence replacement planning: scarcity-aware assignment across all displaced patients, persistent pool/robotic operating hours, reclining-treatment adjacency preferences, workload-balance goals, and user-approved last-resort double-booking.
+- Clarified that patient-specific physical suitability, compatibility, and waiting tolerance should be captured selectively rather than creating mandatory high-volume data entry.
 - A provider busy at the requested time is no longer automatically removed from replacement suggestions when another common free timeslot exists.
 - Infectious workload is now a tie-breaker after total load and exact-time availability, rather than overriding the confirmed load-first priority.
 - Daily ledger restore no longer uses a visible `WScript.Shell.Exec` console or the detached workbook close/reopen commit worker on the primary UI path. Backend execution is hidden and blocking, then the verified operational sheet set is synchronized in-session and saved without closing the workbook.
