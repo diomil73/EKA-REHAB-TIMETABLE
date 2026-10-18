@@ -81,6 +81,33 @@ A daily cancelled occurrence must:
 
 This is a daily operational override, not a change to the patient's base programme.
 
+## Global replacement optimization
+
+### Decision
+When more than one therapist absence creates displaced sessions on the same day, the system must not solve replacements greedily one therapist or one patient at a time. All known therapist absences for the day must be entered first, then all displaced/orphan sessions must be evaluated as one combined assignment problem before authoritative replacements are committed.
+
+### Objective order
+The optimizer should prefer, in order:
+
+1. place as many displaced patients as possible and minimize unresolved orphans,
+2. preserve each patient's original treatment time whenever feasible,
+3. protect scarce placements so a flexible patient does not consume the only viable slot of a constrained patient,
+4. minimize unnecessary patient moves and schedule disruption,
+5. respect workload, provider capability, student limits, existing daily facts and all hard clinical/operational constraints,
+6. use softer preferences and clinical convenience rules only after hard feasibility is satisfied.
+
+### Scarcity principle
+Candidate slots/providers must be evaluated globally. A placement that is locally valid can still be globally harmful if it removes the only feasible option for another displaced patient. The engine therefore needs awareness of candidate scarcity, not just candidate score for the current patient.
+
+### Clinical knowledge boundary
+Some placement rules depend on patient-specific clinical or operational knowledge that may not yet exist as structured data, such as desirable adjacency to another therapy or use of special equipment. These rules must be modelled explicitly where known as hard or soft constraints/preferences. Where knowledge is not encoded, the system must preserve manual user control rather than pretend to optimize what it cannot know.
+
+### Manual override
+Manual changes, accepted over-capacity placements and accepted same-time double treatment remain allowed only with explicit warning and final user confirmation. Automatic optimization should produce the best feasible proposal, not remove human authority.
+
+### Architectural direction
+The intended backend is a global constraint/assignment optimizer over all displaced sessions for the concrete date, not a sequence of independent replacement calls. A practical implementation may use weighted bipartite matching, min-cost flow, or a constraint solver, provided the locked business priorities above are testable and deterministic.
+
 ## Registration UI
 
 - Central UserForm: `frmRegistrationMenu`
