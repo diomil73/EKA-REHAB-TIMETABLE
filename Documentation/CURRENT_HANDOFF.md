@@ -48,11 +48,14 @@ The recurring outpatient path is implemented but still needs a clean native crea
 - preview-only backend writes before authoritative promotion,
 - stable `target_base_entry_id` for edits so the same authoritative row is updated rather than duplicated.
 
-A one-step fresh smoke builder is now available:
+A one-step fresh smoke builder is available:
 
 - `Python/tools/build_outpatient_recurring_smoke.py`
-- implementation `7006383c242d8cb02ccf6a5e623da1372ef633d9`
-- regression coverage `a031f864aa218f3521d7f02cadd64c1363896776`
+- initial implementation `7006383c242d8cb02ccf6a5e623da1372ef633d9`
+- initial regression coverage `a031f864aa218f3521d7f02cadd64c1363896776`
+- native build exposed a transient Windows file lock on the short-lived stage immediately after the edit-support COM session closed: `[WinError 32] ... .outpatient-form-stage.xlsm`
+- fix `b6554bed0fd08471de043f3d98774a150e00c4b5`: retry only WinError 32 while handing the stage to the conflict-guard builder, up to 20 attempts × 0.25s; all other OSErrors still fail immediately
+- regression `5ed68bd2fe22db21e09ce6de22829c39238d8bb7`: locks the retry contract and keeps source-mutation protections explicit
 
 The builder never mutates the trusted source. It creates a short-lived stage, installs the schedule form + edit support, produces the final copy with the conflict guard, verifies source hash preservation, and removes the stage on success or failure.
 
@@ -61,13 +64,14 @@ The builder never mutates the trusted source. It creates a short-lived stage, in
 1. Pull latest branch.
 2. Run the focused outpatient source gate:
    `python -m pytest Tests/test_outpatient_schedule_form_vba.py Tests/test_outpatient_schedule_edit_vba.py Tests/test_outpatient_recurring_smoke_builder.py -q`
-3. If green, build one fresh combined smoke copy from trusted V90:
+3. If green, rerun the same fresh smoke build:
    `python Python/tools/build_outpatient_recurring_smoke.py --source .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\OUTPATIENT_RECURRING_SMOKE.xlsm --overwrite`
-4. Native create gate: open only the fresh smoke copy, run `ShowOutpatientScheduleForm`, create one valid outpatient recurring row, require backend preview verification and authoritative persistence, then confirm the new `OUTPATIENT_SCHEDULE` row reads back exactly.
-5. Native edit gate: on a fresh smoke copy, select/edit that row through `EditOutpatientSchedule`, change time/days/therapist, require the same `outpatient:<row>` id and no duplicate row.
-6. Native conflict gate: on a fresh smoke copy, attempt a known therapist/time recurring collision and require the conflict popup/guard rather than silent double-booking.
-7. Do not manually save smoke workbooks outside the tested flow. Always use a fresh copy for each scenario.
-8. Once create/edit/conflict are native green, move directly to the next scheduling/UI milestone. Do not return to restore performance tuning yet.
+4. Require the prior WinError 32 stage lock to be gone. If the build still fails with WinError 32 after retries, redesign the builder to install edit + conflict support in one Excel session rather than increasing the retry window.
+5. Native create gate: open only the fresh smoke copy, run `ShowOutpatientScheduleForm`, create one valid outpatient recurring row, require backend preview verification and authoritative persistence, then confirm the new `OUTPATIENT_SCHEDULE` row reads back exactly.
+6. Native edit gate: on a fresh smoke copy, select/edit that row through `EditOutpatientSchedule`, change time/days/therapist, require the same `outpatient:<row>` id and no duplicate row.
+7. Native conflict gate: on a fresh smoke copy, attempt a known therapist/time recurring collision and require the conflict popup/guard rather than silent double-booking.
+8. Do not manually save smoke workbooks outside the tested flow. Always use a fresh copy for each scenario.
+9. Once create/edit/conflict are native green, move directly to the next scheduling/UI milestone. Do not return to restore performance tuning yet.
 
 ## Locked orphan rule
 
