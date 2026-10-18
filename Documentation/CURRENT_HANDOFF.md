@@ -50,15 +50,16 @@ The recurring outpatient path is implemented but still needs a clean native crea
 
 The first combined smoke-builder design used multiple Excel sessions and a short-lived stage workbook. Native Windows testing exposed a persistent `[WinError 32]` lock on that stage even after bounded retries. This was removed by moving all VBA installation into one Excel session against the final smoke copy.
 
-The single-session builder then exposed two VBIDE-specific integration issues. First, remove/recreate of `frmOutpatientSchedule` raised `0x800A03EC`; the installer now reuses the existing form/module and only adds missing controls. Second, the native VBIDE returns form code with CRLF line endings, while the edit patch markers were LF-based, causing `Outpatient schedule form initialize marker missing`. `patch_outpatient_schedule_form_code` now normalizes CRLF/CR to LF before applying structural markers. Regression coverage includes CRLF input.
+The single-session builder then exposed a sequence of VBIDE-specific integration issues. Remove/recreate of `frmOutpatientSchedule` raised `0x800A03EC`, so the installer now reuses the existing form/module and only adds missing controls. The native VBIDE returns form code with CRLF line endings, so edit patching normalizes line endings first. A subsequent `Outpatient schedule request JSON marker missing` showed that exact request-body text matching was still too brittle because VBIDE can reformat indentation/continuation layout. Edit patching now operates structurally at procedure level: it inserts edit state into `UserForm_Initialize` by signature and replaces `BuildRequestJson` / `BuildSuggestionRequestJson` by procedure boundaries instead of relying on exact body markers.
 
-Current builder:
+Current builder/edit hardening:
 
 - `Python/tools/build_outpatient_recurring_smoke.py`
 - single-session redesign `1457eb5c8361e93786527fbbf282c92927ad2e64`
 - idempotent form-install fix `8963c1ff0f0d550c5c0881066feeccb709cb0779`
 - CRLF edit-patch fix `ddca162f15ed03f1df523592ec634beac98e19d6`
-- CRLF regression `0cad9686833cf2c78aa3e995a69665d673275066`
+- structural procedure-level edit patch `62c1a1431290c3c3398490b6e6fc25b897ff8929`
+- formatting-variance regression `9aa30e9212a28c72fd9c35930ec471a50f3c6b6a`
 - copies trusted source directly to the final smoke path,
 - opens the final smoke workbook exactly once in a hidden Excel instance,
 - installs/refreshes schedule form, edit support, conflict popup and in-session writer against the same `VBProject`,
