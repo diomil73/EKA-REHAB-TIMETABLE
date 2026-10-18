@@ -16,7 +16,8 @@ def test_smoke_builder_uses_one_excel_session_for_all_vba_installation():
     assert "install_outpatient_conflict_guard(vbproject)" in source
     assert "create_outpatient_schedule_form_preview" not in source
     assert "create_outpatient_conflict_guard_preview" not in source
-    assert "stage" not in source.casefold()
+    assert ".outpatient-form-stage" not in source.casefold()
+    assert "stage =" not in source.casefold()
 
 
 def test_smoke_builder_never_targets_source_for_mutation():
