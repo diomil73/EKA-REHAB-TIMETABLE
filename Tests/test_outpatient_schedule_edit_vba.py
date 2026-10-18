@@ -21,7 +21,7 @@ def test_edit_patch_sends_target_base_entry_id_through_existing_bridge():
     patched = patch_outpatient_schedule_form_code(FORM_CODE)
 
     assert 'OutpatientEditTargetBaseEntryId = ""' in patched
-    assert 'q & "target_base_entry_id" & q' in patched
+    assert patched.count('q & "target_base_entry_id" & q') >= 2
     assert "JsonEscape(OutpatientEditTargetBaseEntryId)" in patched
     assert "outpatient_schedule_bridge_cli.py" in patched
     assert "StartAuthoritativeCommit" in patched
@@ -33,6 +33,21 @@ def test_edit_patch_accepts_vbide_crlf_code():
     assert 'OutpatientEditTargetBaseEntryId = ""' in patched
     assert patched.count('q & "target_base_entry_id" & q') >= 2
     assert "\r" not in patched
+
+
+def test_edit_patch_does_not_depend_on_request_body_indentation():
+    vbide_code = FORM_CODE.replace(
+        '        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & _',
+        '    q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & _',
+    ).replace(
+        '        q & "limit" & q & ":5" & _',
+        '    q & "limit" & q & ":5" & _',
+    )
+
+    patched = patch_outpatient_schedule_form_code(vbide_code)
+
+    assert patched.count('q & "target_base_entry_id" & q') >= 2
+    assert "JsonEscape(OutpatientEditTargetBaseEntryId)" in patched
 
 
 def test_edit_patch_is_idempotent():
