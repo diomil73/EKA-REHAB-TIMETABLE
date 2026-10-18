@@ -111,7 +111,11 @@ The solver must consider the complete candidate set for all displaced patients o
 6. Keep provider workload as balanced as practical. A difference of about one treatment-hour may be unavoidable; a two-hour imbalance is considered significant and should be avoided when a feasible alternative exists.
 7. Minimize unnecessary changes to the patient's time and therapist, while considering the preceding constraints and preferences.
 
-The precise relative weights between same-time preservation, reclining adjacency, and workload balance must be validated with real scheduling examples before they are frozen as numeric scores. The business direction is already clear: protect unique options first, preserve the original time where feasible, treat reclining adjacency as important, and avoid large workload imbalance.
+An explicit example of the scarcity rule is locked: if patient A can use 09:00, 10:00, or 11:00 while patient B can use only 09:00, protect 09:00 for B and assign A elsewhere whenever a complete feasible assignment exists.
+
+The 13:00 timeslot is an additional **weak soft preference to avoid**, not a forbidden time and not a hard constraint. Among otherwise acceptable assignments, prefer solutions that do not use 13:00. This preference is lower priority than placing all patients, protecting unique feasible options, preserving the original time where appropriate, keeping physiotherapy/reclining treatments near each other, and avoiding significant workload imbalance. If 13:00 is needed to produce an otherwise valid complete assignment, use it rather than leave a patient unresolved or violate a higher-priority rule.
+
+The precise relative weights between same-time preservation, reclining adjacency, workload balance, and the weak 13:00 avoidance preference must be validated with real scheduling examples before they are frozen as numeric scores. The business direction is already clear: protect unique options first, preserve the original time where feasible, treat reclining adjacency as important, avoid large workload imbalance, and avoid 13:00 only when doing so does not compromise those higher priorities.
 
 ### Batch workflow
 - Enter all known therapist absences for the day before resolving displaced sessions.
