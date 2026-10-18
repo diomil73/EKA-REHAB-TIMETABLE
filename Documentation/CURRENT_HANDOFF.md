@@ -71,6 +71,25 @@ Current builder/edit hardening:
 - closes Excel, then verifies the source hash remained unchanged,
 - no intermediate `.outpatient-form-stage.xlsm` exists anymore.
 
+## OPEN: global multi-absence replacement optimization
+
+Before considering replacements complete, implement and validate a global assignment pass for all displaced patients after all known therapist absences for the date have been entered.
+
+Locked requirements:
+- solve all displaced patients together; do not make irreversible greedy assignments therapist-by-therapist,
+- maximize valid placements and minimize unresolved patients,
+- protect unique viable provider/time options from flexible patients,
+- prefer original times unless this harms another patient's unique option or important reclining-treatment adjacency,
+- keep ΦΘ and reclining treatment adjacent/nearby where possible and reduce patient waiting,
+- treat pool/robotic operating hours as persistent configured constraints; robotic appointments can move only within those hours and must respect known provider assignments,
+- respect other treatments occupying a patient's time and explicitly recorded patient absences,
+- aim for balanced provider workload; a one-hour difference can be unavoidable, but avoid two-hour imbalance where feasible,
+- do not demand exhaustive availability data entry for every patient,
+- represent special physical suitability, therapist/patient compatibility, and waiting tolerance selectively rather than as mandatory fields,
+- double-booking/over-capacity is last resort only, with a warning and explicit user approval for each choice of patient, shared treatment, and therapist.
+
+The relative numeric weights between same-time preservation, reclining adjacency, and load balancing need to be validated against real examples before final tuning. See `Documentation/DECISIONS.md` for the durable rule set and `Documentation/PROJECT_STATUS.md` for milestone status.
+
 ## Exact resume point
 
 1. Pull latest branch.
