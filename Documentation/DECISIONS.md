@@ -84,29 +84,51 @@ This is a daily operational override, not a change to the patient's base program
 ## Global replacement optimization
 
 ### Decision
-When more than one therapist absence creates displaced sessions on the same day, the system must not solve replacements greedily one therapist or one patient at a time. All known therapist absences for the day must be entered first, then all displaced/orphan sessions must be evaluated as one combined assignment problem before authoritative replacements are committed.
+When multiple therapist absences create displaced sessions on the same day, do not solve replacements greedily one therapist or one patient at a time. Record all known therapist absences first, collect all displaced sessions, and evaluate the full set of patients and candidate placements together before committing the proposed assignment.
 
-### Objective order
-The optimizer should prefer, in order:
+### Hard feasibility constraints
+A candidate placement is invalid when any of the following applies:
 
-1. place as many displaced patients as possible and minimize unresolved orphans,
-2. preserve each patient's original treatment time whenever feasible,
-3. protect scarce placements so a flexible patient does not consume the only viable slot of a constrained patient,
-4. minimize unnecessary patient moves and schedule disruption,
-5. respect workload, provider capability, student limits, existing daily facts and all hard clinical/operational constraints,
-6. use softer preferences and clinical convenience rules only after hard feasibility is satisfied.
+- the patient has another treatment occupying that time,
+- the patient has an explicitly recorded absence or unavailable hour,
+- the therapist is absent, blocked, excluded, not qualified for the treatment, or otherwise unavailable,
+- the placement exceeds an applicable provider/student capacity rule without an explicitly approved exception,
+- the treatment requires a service or equipment area that is not operating at that time,
+- an existing daily fact or other locked operational rule makes the placement invalid.
 
-### Scarcity principle
-Candidate slots/providers must be evaluated globally. A placement that is locally valid can still be globally harmful if it removes the only feasible option for another displaced patient. The engine therefore needs awareness of candidate scarcity, not just candidate score for the current patient.
+Pool and robotic services have their own operating hours. Those hours must be stored as persistent configuration and remain in force until deliberately changed; the solver must never assume that these services operate at every ordinary treatment time. Robotic appointments may move only within the configured robotic operating hours and must respect known therapist/provider assignments. More detailed monthly robotic restrictions can be added later without blocking the initial global solver.
 
-### Clinical knowledge boundary
-Some placement rules depend on patient-specific clinical or operational knowledge that may not yet exist as structured data, such as desirable adjacency to another therapy or use of special equipment. These rules must be modelled explicitly where known as hard or soft constraints/preferences. Where knowledge is not encoded, the system must preserve manual user control rather than pretend to optimize what it cannot know.
+Do not introduce mandatory, detailed patient-availability data entry for every patient. Initially derive constraints from the existing schedule, treatment conflicts, explicit patient absences, provider policies, and the persistent operating-hour configuration.
+
+### Global objective and preferences
+The solver must consider the complete candidate set for all displaced patients on the concrete date. Its intended priorities are:
+
+1. Never violate a hard feasibility constraint.
+2. Maximize the number of displaced patients placed and minimize unresolved orphans.
+3. Protect scarce placements globally. A flexible patient must not consume a provider/time slot that is the only feasible option for another patient when a better complete assignment exists.
+4. Prefer keeping each patient at the original time, unless doing so harms another patient's unique option or conflicts with the important adjacency of a reclining treatment.
+5. Preserve the relationship between physiotherapy (ΦΘ) and a reclining treatment where possible. The reclining treatment should preferably remain in an adjacent or nearby hour, and unnecessary waiting between a patient's treatments should be reduced.
+6. Keep provider workload as balanced as practical. A difference of about one treatment-hour may be unavoidable; a two-hour imbalance is considered significant and should be avoided when a feasible alternative exists.
+7. Minimize unnecessary changes to the patient's time and therapist, while considering the preceding constraints and preferences.
+
+The precise relative weights between same-time preservation, reclining adjacency, and workload balance must be validated with real scheduling examples before they are frozen as numeric scores. The business direction is already clear: protect unique options first, preserve the original time where feasible, treat reclining adjacency as important, and avoid large workload imbalance.
+
+### Batch workflow
+- Enter all known therapist absences for the day before resolving displaced sessions.
+- Generate candidate placements for every displaced patient.
+- Solve the combined assignment as one global problem; do not commit early local choices that can make the remaining set impossible.
+- Present the resulting proposal and any unresolved patients for review before finalizing the daily state.
+
+A weighted matching, min-cost flow, or constraint solver is acceptable if it is deterministic, testable, and follows the agreed priorities.
+
+### Double-booking / over-capacity exception
+Double-booking or an over-capacity placement is not a normal automatic solution. Consider it only when no acceptable regular assignment remains. In that case, the system must ask the user explicitly which remaining patient could share a treatment time with another patient and with which therapist, show the relevant warning, and require confirmation for each exception. Never silently create such an assignment or pre-approve it in the optimizer.
+
+### Selective clinical and operational knowledge
+Some important knowledge is case-specific and may include therapist/patient physical suitability, working relationship or compatibility, and how well an older or medically burdened patient tolerates waiting. Do not require a large set of new fields for every patient. Allow such exceptions to be recorded selectively when useful, or handled through explicit user review. The solver must not invent or infer these judgments when they have not been recorded.
 
 ### Manual override
-Manual changes, accepted over-capacity placements and accepted same-time double treatment remain allowed only with explicit warning and final user confirmation. Automatic optimization should produce the best feasible proposal, not remove human authority.
-
-### Architectural direction
-The intended backend is a global constraint/assignment optimizer over all displaced sessions for the concrete date, not a sequence of independent replacement calls. A practical implementation may use weighted bipartite matching, min-cost flow, or a constraint solver, provided the locked business priorities above are testable and deterministic.
+Manual changes remain available. Automatic optimization should produce the best feasible global proposal while preserving the user's authority over exceptional clinical and operational decisions.
 
 ## Registration UI
 
