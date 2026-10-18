@@ -16,6 +16,8 @@ Active milestone: **Restore correctness is closed green and restore performance 
 - `build_master_projection`: **0.089s**, down from **6.142s**
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row / selected / restore-all in-session correctness: **native green**
+- combined outpatient recurring smoke build: **native green**, trusted source unchanged
+- outpatient recurring CREATE flow: **native green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -35,32 +37,34 @@ The normal Excel restore workflow runs the authoritative Python backend hidden a
 
 Native correctness is green for per-row, selected, and restore-all controls.
 
+## OPEN: replacement quality under multiple therapist absences
+
+Replacement lifecycle correctness is green, but replacement **assignment quality** is not considered closed yet.
+
+A newly locked requirement is that several therapist absences on the same day must be entered and evaluated together. The system must not greedily fill replacements therapist-by-therapist or patient-by-patient, because a flexible patient can consume the only viable slot of a constrained patient and create avoidable orphans.
+
+The next replacement-planning milestone must therefore introduce a global assignment/constraint optimization pass over all displaced sessions for the concrete date. Priorities are: minimize unresolved orphans, preserve original times where possible, protect scarce slots, minimize unnecessary movement, then apply softer preferences. Patient-specific clinical/operational constraints that are known must be encoded explicitly; unknown knowledge remains under manual user control. Manual over-capacity or same-time exceptions continue to require warning and explicit confirmation.
+
+This requirement is now recorded in `Documentation/DECISIONS.md` and must be addressed before the replacements topic is considered complete.
+
 ## DEFERRED: restore performance / UX latency
 
 The trusted backend has fallen from about `45.70s` initially to `16.509s`. Current end-user restore duration in the low-to-mid 20-second range is accepted for this development stage. Further tuning is deferred until final polish unless a regression appears.
 
 ## ACTIVE: outpatient recurring create/edit
 
-The functional path already supports recurring outpatient creation, stable-row editing via `target_base_entry_id`, seven suggestion modes, therapist double-booking checks, and the conflict popup. The open item is native verification of the complete Excel flow.
+The functional path supports recurring outpatient creation, stable-row editing via `target_base_entry_id`, seven suggestion modes, therapist double-booking checks, and the conflict popup. Combined smoke installation is native green and the CREATE flow has been confirmed native green. Remaining native gates are edit-same-row and conflict behavior.
 
-To remove setup ambiguity, a combined smoke builder now produces one fresh `.xlsm` containing the create form, edit support, suggestions and conflict guard in one reproducible flow:
-
-- `Python/tools/build_outpatient_recurring_smoke.py`
-- implementation `7006383c242d8cb02ccf6a5e623da1372ef633d9`
-- regression coverage `a031f864aa218f3521d7f02cadd64c1363896776`
-
-The builder preserves the trusted source hash, uses a disposable staging copy, installs edit support only on that stage, produces the final conflict-enabled smoke copy, and removes the stage on both success and failure.
+User-facing success messages should be operationally useful: after successful actions they should guide the user to the relevant next step or verification view, rather than report implementation details such as whether the workbook stayed open.
 
 ## Immediate roadmap
 
-1. Run the focused outpatient source gate including the new combined smoke builder regression.
-2. Build a fresh `OUTPATIENT_RECURRING_SMOKE.xlsm` from trusted `RERESOLVED_V90.xlsm`.
-3. Native create verification: valid recurring outpatient row persists exactly.
-4. Native edit verification: same `outpatient:<row>` is updated with no duplicate row.
-5. Native conflict verification: known therapist/time overlap surfaces the conflict guard rather than silently saving.
-6. Use a fresh smoke workbook for each scenario and do not manually save outside the tested flow.
-7. When these are green, continue directly to the next scheduling/UI milestone.
-8. Revisit restore performance only near completion.
+1. Finish outpatient recurring edit verification: same `outpatient:<row>` must be updated with no duplicate row.
+2. Finish outpatient conflict verification: known therapist/time overlap must surface the conflict guard rather than silently saving.
+3. Keep smoke scenarios fresh and do not manually save outside the tested flow.
+4. Before closing replacements, design and implement global multi-absence replacement optimization with scarcity-aware assignment and explicit hard/soft constraints.
+5. Continue directly to the next scheduling/UI milestone after these gates.
+6. Revisit restore performance only near completion.
 
 ## Locked daily rules
 
