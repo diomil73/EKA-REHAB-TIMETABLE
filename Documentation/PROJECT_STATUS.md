@@ -58,6 +58,10 @@ Requirements captured from the operational workflow:
 
 The exact numeric trade-offs among same-time preservation, reclining adjacency, and workload balance still need validation against real cases before solver weights are frozen. The business priorities and safety boundaries are now recorded in `Documentation/DECISIONS.md`.
 
+A code audit confirms this is a planned change, not already implemented: `Python/rehab_core/replacements.py` currently ranks individual candidates by current workload before exact-time availability, and `Documentation/SEQUENTIAL_THERAPIST_REPLACEMENTS.md` describes a sequential accept-and-recalculate workflow. Those remain useful for interactive review but do not provide the required global guarantee. The new solver must evaluate the whole displaced set before any assignment is committed.
+
+The current provider-policy configuration already supports persistent provider profiles, blocked times, temporary load limits, replacement exclusions, and explicit leader replacement times. However, the inspected `SETTINGS` schema exposes standard and reclining time lists but no dedicated persistent operating-hours configuration for pool and robotic services. That configuration must be added before those service-hour constraints can be enforced reliably.
+
 This requirement must be addressed before the replacements topic is considered complete.
 
 ## DEFERRED: restore performance / UX latency
