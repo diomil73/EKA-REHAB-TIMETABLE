@@ -137,21 +137,42 @@ End Sub
 '''
 
 
+def _component_or_none(vbproject, name: str):
+    try:
+        return vbproject.VBComponents(name)
+    except Exception:
+        return None
+
+
+def _replace_component_code(component, code: str) -> None:
+    module = component.CodeModule
+    count = int(getattr(module, "CountOfLines", 0) or 0)
+    if count:
+        module.DeleteLines(1, count)
+    module.AddFromString(code)
+
+
+def _designer_control_or_none(designer, name: str):
+    try:
+        return designer.Controls(name)
+    except Exception:
+        return None
+
+
 def install_scheduling_conflict_popup(vbproject, *, position_control) -> None:
-    for name in (SCHEDULING_CONFLICT_FORM_NAME, SCHEDULING_CONFLICT_MODULE_NAME):
-        try:
-            existing = vbproject.VBComponents(name)
-        except Exception:
-            existing = None
-        if existing is not None:
-            vbproject.VBComponents.Remove(existing)
+    """Install or refresh conflict UI without remove/recreate races in one VBIDE session."""
 
-    module = vbproject.VBComponents.Add(1)
-    module.Name = SCHEDULING_CONFLICT_MODULE_NAME
-    module.CodeModule.AddFromString(SCHEDULING_CONFLICT_MODULE_CODE)
+    module = _component_or_none(vbproject, SCHEDULING_CONFLICT_MODULE_NAME)
+    if module is None:
+        module = vbproject.VBComponents.Add(1)
+        module.Name = SCHEDULING_CONFLICT_MODULE_NAME
+    _replace_component_code(module, SCHEDULING_CONFLICT_MODULE_CODE)
 
-    form = vbproject.VBComponents.Add(3)
-    form.Name = SCHEDULING_CONFLICT_FORM_NAME
+    form = _component_or_none(vbproject, SCHEDULING_CONFLICT_FORM_NAME)
+    if form is None:
+        form = vbproject.VBComponents.Add(3)
+        form.Name = SCHEDULING_CONFLICT_FORM_NAME
+
     designer = form.Designer
     designer.Caption = "ΠΡΟΣΟΧΗ - ΔΙΠΛΟΚΡΑΤΗΣΗ"
 
@@ -163,9 +184,11 @@ def install_scheduling_conflict_popup(vbproject, *, position_control) -> None:
         ("Forms.CommandButton.1", "cmdAccept", "Δεκτό", 238),
     )
     for prog_id, name, caption, top in controls:
-        control = designer.Controls.Add(prog_id, name, True)
+        control = _designer_control_or_none(designer, name)
+        if control is None:
+            control = designer.Controls.Add(prog_id, name, True)
         if caption:
             control.Caption = caption
         position_control(control, 24, top)
 
-    form.CodeModule.AddFromString(SCHEDULING_CONFLICT_FORM_CODE)
+    _replace_component_code(form, SCHEDULING_CONFLICT_FORM_CODE)
