@@ -6,17 +6,14 @@ Last updated: 2026-10-18
 
 Branch: `feature/outpatient-scheduling`.
 
-Active milestone: **Restore correctness remains closed green. Restore performance has improved enough for now and is deferred; focus returns to unfinished functional work, beginning with outpatient recurring create/edit native verification and the broader scheduling/UI roadmap.**
+Active milestone: **Restore correctness is closed green and restore performance is deferred. Active work is now outpatient recurring create/edit native verification, followed by the broader scheduling/UI roadmap.**
 
 ## Latest confirmed checkpoints
 
 - full regression: **699 passed, 19 warnings**
-- focused gate after MASTER batch-write patch: **35 passed in 3.67s**
 - package relationship normalization + OOXML projection gate: **59 passed in 6.85s**
-- latest direct backend profile: **16.509s total**, **7.976s pre-Excel/verification**, **8.533s Excel output**
+- latest direct restore backend profile: **16.509s total**, **7.976s pre-Excel/verification**, **8.533s Excel output**
 - `build_master_projection`: **0.089s**, down from **6.142s**
-- previous **restore_fact_batch 8.863s** phase remains eliminated
-- latest Excel output: dispatch 1.347s, workbook open 1.921s, MASTER 2.613s, daily patches 0.452s, statistics 0.316s, replacement facts 0.160s, ledger 0.024s, refresh 0.039s, save 1.390s, close 0.066s, quit 0.004s
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row / selected / restore-all in-session correctness: **native green**
 
@@ -40,35 +37,30 @@ Native correctness is green for per-row, selected, and restore-all controls.
 
 ## DEFERRED: restore performance / UX latency
 
-The optimization chain has reduced the trusted restore backend from about `45.70s` initially to `16.509s` in the latest direct profile. The MASTER projection parser, once a `6.142s` hotspot, is now `0.089s` through the read-only OOXML package path.
+The trusted backend has fallen from about `45.70s` initially to `16.509s`. Current end-user restore duration in the low-to-mid 20-second range is accepted for this development stage. Further tuning is deferred until final polish unless a regression appears.
 
-The current end-user restore duration in the low-to-mid 20-second range is acceptable for this stage of development. Further performance work is explicitly postponed until the broader functional roadmap is much closer to completion.
+## ACTIVE: outpatient recurring create/edit
 
-Completed performance work retained in the codebase:
+The functional path already supports recurring outpatient creation, stable-row editing via `target_base_entry_id`, seven suggestion modes, therapist double-booking checks, and the conflict popup. The open item is native verification of the complete Excel flow.
 
-1. selected/all ledger lifecycle batching,
-2. statistics + ledger finalization consolidation,
-3. redundant in-session save removal,
-4. single restore output Excel session,
-5. MASTER projection rebuilt inside that session,
-6. bounded meaningful-range sync instead of broad `UsedRange`,
-7. phase timing instrumentation,
-8. range-batched MASTER projection write-back,
-9. detailed backend profiling,
-10. reuse of already-loaded PATIENTS and already-built MASTER projection,
-11. replacement fact lifecycle persistence folded into the existing output Excel session,
-12. MASTER metadata migrated to direct OOXML package reads,
-13. OPC relationship target normalization for package-absolute and relative paths.
+To remove setup ambiguity, a combined smoke builder now produces one fresh `.xlsm` containing the create form, edit support, suggestions and conflict guard in one reproducible flow:
 
-Remaining latency sources such as `pre_excel_unattributed`, Excel process startup/open/save overhead, and further parser consolidation are deferred, not forgotten.
+- `Python/tools/build_outpatient_recurring_smoke.py`
+- implementation `7006383c242d8cb02ccf6a5e623da1372ef633d9`
+- regression coverage `a031f864aa218f3521d7f02cadd64c1363896776`
+
+The builder preserves the trusted source hash, uses a disposable staging copy, installs edit support only on that stage, produces the final conflict-enabled smoke copy, and removes the stage on both success and failure.
 
 ## Immediate roadmap
 
-1. Resume outpatient recurring create/edit native verification.
-2. Continue the broader scheduling and Excel UI/functionality roadmap instead of spending more cycles on restore micro-optimization.
-3. Keep the current profiler and latest timings as the baseline for end-stage performance tuning.
-4. Revisit restore performance near project completion or sooner only if a correctness/performance regression appears.
-5. Later clean Python 3.14 ZipFile warnings.
+1. Run the focused outpatient source gate including the new combined smoke builder regression.
+2. Build a fresh `OUTPATIENT_RECURRING_SMOKE.xlsm` from trusted `RERESOLVED_V90.xlsm`.
+3. Native create verification: valid recurring outpatient row persists exactly.
+4. Native edit verification: same `outpatient:<row>` is updated with no duplicate row.
+5. Native conflict verification: known therapist/time overlap surfaces the conflict guard rather than silently saving.
+6. Use a fresh smoke workbook for each scenario and do not manually save outside the tested flow.
+7. When these are green, continue directly to the next scheduling/UI milestone.
+8. Revisit restore performance only near completion.
 
 ## Locked daily rules
 
