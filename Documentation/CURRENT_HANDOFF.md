@@ -45,31 +45,34 @@ The recurring outpatient path is implemented but still needs a clean native crea
 - edit/preload through `EditOutpatientSchedule`,
 - seven suggestion modes,
 - therapist double-booking detection and popup handling,
-- preview-only backend writes before authoritative promotion,
+- preview-only backend validation before in-session persistence,
 - stable `target_base_entry_id` for edits so the same authoritative row is updated rather than duplicated.
 
-A one-step fresh smoke builder is available:
+The first combined smoke-builder design used multiple Excel sessions and a short-lived stage workbook. Native Windows testing exposed a persistent `[WinError 32]` lock on that stage even after bounded retries. This is now removed by design rather than masked with a larger timeout.
+
+Current builder:
 
 - `Python/tools/build_outpatient_recurring_smoke.py`
-- initial implementation `7006383c242d8cb02ccf6a5e623da1372ef633d9`
-- initial regression coverage `a031f864aa218f3521d7f02cadd64c1363896776`
-- native build exposed a transient Windows file lock on the short-lived stage immediately after the edit-support COM session closed: `[WinError 32] ... .outpatient-form-stage.xlsm`
-- fix `b6554bed0fd08471de043f3d98774a150e00c4b5`: retry only WinError 32 while handing the stage to the conflict-guard builder, up to 20 attempts × 0.25s; all other OSErrors still fail immediately
-- regression `5ed68bd2fe22db21e09ce6de22829c39238d8bb7`: locks the retry contract and keeps source-mutation protections explicit
-
-The builder never mutates the trusted source. It creates a short-lived stage, installs the schedule form + edit support, produces the final copy with the conflict guard, verifies source hash preservation, and removes the stage on success or failure.
+- single-session redesign `1457eb5c8361e93786527fbbf282c92927ad2e64`
+- regression update `8e10c04413ea094aa58f4e53cc44af494466ed18`
+- copies trusted source directly to the final smoke path,
+- opens the final smoke workbook exactly once in a hidden Excel instance,
+- installs schedule form, edit support, conflict popup and in-session writer against the same `VBProject`,
+- verifies required VBA components before a single save,
+- closes Excel, then verifies the source hash remained unchanged,
+- no intermediate `.outpatient-form-stage.xlsm` exists anymore.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run the focused outpatient source gate:
+2. Run the focused outpatient gate:
    `python -m pytest Tests/test_outpatient_schedule_form_vba.py Tests/test_outpatient_schedule_edit_vba.py Tests/test_outpatient_recurring_smoke_builder.py -q`
-3. If green, rerun the same fresh smoke build:
+3. If green, rebuild fresh:
    `python Python/tools/build_outpatient_recurring_smoke.py --source .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\OUTPATIENT_RECURRING_SMOKE.xlsm --overwrite`
-4. Require the prior WinError 32 stage lock to be gone. If the build still fails with WinError 32 after retries, redesign the builder to install edit + conflict support in one Excel session rather than increasing the retry window.
-5. Native create gate: open only the fresh smoke copy, run `ShowOutpatientScheduleForm`, create one valid outpatient recurring row, require backend preview verification and authoritative persistence, then confirm the new `OUTPATIENT_SCHEDULE` row reads back exactly.
-6. Native edit gate: on a fresh smoke copy, select/edit that row through `EditOutpatientSchedule`, change time/days/therapist, require the same `outpatient:<row>` id and no duplicate row.
-7. Native conflict gate: on a fresh smoke copy, attempt a known therapist/time recurring collision and require the conflict popup/guard rather than silent double-booking.
+4. Require `OUTPATIENT RECURRING SMOKE BUILD OK`. The former stage-file WinError 32 cannot occur in the new design because there is no stage handoff.
+5. Native create gate: open only the fresh smoke copy, run `ShowOutpatientScheduleForm`, create one valid outpatient recurring row, require backend validation and in-session authoritative persistence, then confirm the new `OUTPATIENT_SCHEDULE` row reads back exactly.
+6. Native edit gate: use a fresh smoke scenario, open the target row through `EditOutpatientSchedule`, change time/days/therapist, require the same `outpatient:<row>` id and no duplicate row.
+7. Native conflict gate: on a fresh smoke scenario, attempt a known therapist/time recurring collision and require the conflict popup/guard rather than silent double-booking.
 8. Do not manually save smoke workbooks outside the tested flow. Always use a fresh copy for each scenario.
 9. Once create/edit/conflict are native green, move directly to the next scheduling/UI milestone. Do not return to restore performance tuning yet.
 
