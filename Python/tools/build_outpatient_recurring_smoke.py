@@ -46,27 +46,50 @@ def _safe_unlink(path: Path) -> None:
         pass
 
 
-def _remove_component_if_present(vbproject, name: str) -> None:
+def _component_if_present(vbproject, name: str):
     try:
-        component = vbproject.VBComponents(name)
+        return vbproject.VBComponents(name)
     except Exception:
-        return
-    vbproject.VBComponents.Remove(component)
+        return None
+
+
+def _replace_component_code(component, code: str) -> None:
+    module = component.CodeModule
+    count = int(getattr(module, "CountOfLines", 0) or 0)
+    if count > 0:
+        module.DeleteLines(1, count)
+    module.AddFromString(code)
+
+
+def _ensure_form_control(designer, prog_id: str, name: str):
+    try:
+        return designer.Controls(name)
+    except Exception:
+        return designer.Controls.Add(prog_id, name, True)
 
 
 def _install_schedule_form(vbproject) -> None:
-    """Install the outpatient schedule module/form into an already-open workbook."""
+    """Install or refresh the outpatient form without remove/re-add COM churn.
 
-    for name in (FORM_NAME, MODULE_NAME):
-        _remove_component_if_present(vbproject, name)
+    Reusing an existing VBComponent is important in the combined one-session smoke
+    build. Excel/VBIDE can reject immediate remove-and-recreate operations for a
+    UserForm with the generic 0x800A03EC COM error even though the component was
+    just removed successfully.
+    """
 
-    module = vbproject.VBComponents.Add(1)
-    module.Name = MODULE_NAME
-    module.CodeModule.AddFromString(MODULE_CODE)
+    module = _component_if_present(vbproject, MODULE_NAME)
+    if module is None:
+        module = vbproject.VBComponents.Add(1)
+        module.Name = MODULE_NAME
+    _replace_component_code(module, MODULE_CODE)
 
-    form = vbproject.VBComponents.Add(3)
-    form.Name = FORM_NAME
-    form.Designer.Caption = "Πρόγραμμα εξωτερικού ασθενή"
+    form = _component_if_present(vbproject, FORM_NAME)
+    if form is None:
+        form = vbproject.VBComponents.Add(3)
+        form.Name = FORM_NAME
+
+    designer = form.Designer
+    designer.Caption = "Πρόγραμμα εξωτερικού ασθενή"
     for prog_id, name, caption, top in (
         ("Forms.Label.1", "lblTitle", "", 15),
         ("Forms.Label.1", "lblPatient", "", 48),
@@ -88,12 +111,13 @@ def _install_schedule_form(vbproject) -> None:
         ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 550),
         ("Forms.CommandButton.1", "cmdSave", "Έλεγχος και preview", 550),
     ):
-        control = form.Designer.Controls.Add(prog_id, name, True)
+        control = _ensure_form_control(designer, prog_id, name)
         if caption:
             control.Caption = caption
         control.Left = 24
         control.Top = top
-    form.CodeModule.AddFromString(FORM_CODE)
+
+    _replace_component_code(form, FORM_CODE)
 
 
 def _verify_components(vbproject) -> None:
