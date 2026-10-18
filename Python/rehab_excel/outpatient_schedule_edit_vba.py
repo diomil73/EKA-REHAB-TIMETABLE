@@ -92,38 +92,99 @@ EditError:
 End Sub
 '''
 
-_INITIALIZE_MARKER = '''Private Sub UserForm_Initialize()\n    Me.Caption = "Πρόγραμμα εξωτερικού ασθενή"'''
-_INITIALIZE_REPLACEMENT = '''Private Sub UserForm_Initialize()\n    OutpatientEditTargetBaseEntryId = ""\n    Me.Caption = "Πρόγραμμα εξωτερικού ασθενή"'''
+_REQUEST_PROCEDURE = r'''Private Function BuildRequestJson() As String
+    Dim q As String
+    q = Chr$(34)
+    BuildRequestJson = "{" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "preview_dir" & q & ":" & q & JsonEscape(ThisWorkbook.Path) & q & "," & _
+        q & "overwrite" & q & ":true," & _
+        q & "values" & q & ":{" & _
+        q & "patient_id" & q & ":" & q & JsonEscape(PatientIdFromSelection()) & q & "," & _
+        q & "treatment" & q & ":" & q & JsonEscape(cboTreatment.Value) & q & "," & _
+        q & "time" & q & ":" & q & JsonEscape(cboTime.Value) & q & "," & _
+        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _
+        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & "," & _
+        q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & _
+        "}}"
+End Function'''
 
-_REQUEST_MARKER = '''        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & _\n        "}}"'''
-_REQUEST_REPLACEMENT = '''        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & "," & _\n        q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & _\n        "}}"'''
+_SUGGESTION_PROCEDURE = r'''Private Function BuildSuggestionRequestJson() As String
+    Dim q As String
+    Dim modeNumber As Long
+    q = Chr$(34)
+    modeNumber = cboSuggestMode.ListIndex + 1
+    BuildSuggestionRequestJson = "{" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "values" & q & ":{" & _
+        q & "mode" & q & ":" & CStr(modeNumber) & "," & _
+        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & "," & _
+        q & "time" & q & ":" & q & JsonEscape(cboTime.Value) & q & "," & _
+        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _
+        q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & "," & _
+        q & "limit" & q & ":5" & _
+        "}}"
+End Function'''
 
-_SUGGESTION_MARKER = '''        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _\n        q & "limit" & q & ":5" & _'''
-_SUGGESTION_REPLACEMENT = '''        q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _\n        q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & "," & _\n        q & "limit" & q & ":5" & _'''
+
+def _normalize_vba(code: str) -> str:
+    return code.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _replace_vba_procedure(
+    code: str,
+    *,
+    start_signature: str,
+    end_statement: str,
+    replacement: str,
+) -> str:
+    normalized = _normalize_vba(code)
+    start = normalized.find(start_signature)
+    if start < 0:
+        raise RuntimeError(f"Outpatient VBA procedure missing: {start_signature}")
+    if normalized.find(start_signature, start + len(start_signature)) >= 0:
+        raise RuntimeError(f"Outpatient VBA procedure duplicated: {start_signature}")
+
+    end_marker = "\n" + end_statement
+    end = normalized.find(end_marker, start + len(start_signature))
+    if end < 0:
+        raise RuntimeError(f"Outpatient VBA procedure terminator missing: {start_signature}")
+    end += len(end_marker)
+    return normalized[:start] + _normalize_vba(replacement) + normalized[end:]
 
 
 def patch_outpatient_schedule_form_code(code: str) -> str:
-    """Add edit-target state to the existing outpatient schedule form code.
+    """Add edit-target state without depending on VBIDE line formatting."""
 
-    VBIDE commonly returns CRLF text even when the source template uses LF. Normalize
-    first so structural markers are stable in both pure-Python tests and native Excel.
-    """
+    patched = _normalize_vba(code)
 
-    patched = code.replace("\r\n", "\n").replace("\r", "\n")
     if 'OutpatientEditTargetBaseEntryId = ""' not in patched:
-        if _INITIALIZE_MARKER not in patched:
-            raise RuntimeError("Outpatient schedule form initialize marker missing")
-        patched = patched.replace(_INITIALIZE_MARKER, _INITIALIZE_REPLACEMENT, 1)
+        signature = "Private Sub UserForm_Initialize()"
+        start = patched.find(signature)
+        if start < 0:
+            raise RuntimeError("Outpatient schedule form initialize procedure missing")
+        insert_at = start + len(signature)
+        patched = (
+            patched[:insert_at]
+            + '\n    OutpatientEditTargetBaseEntryId = ""'
+            + patched[insert_at:]
+        )
 
-    if patched.count('q & "target_base_entry_id" & q') < 1:
-        if _REQUEST_MARKER not in patched:
-            raise RuntimeError("Outpatient schedule request JSON marker missing")
-        patched = patched.replace(_REQUEST_MARKER, _REQUEST_REPLACEMENT, 1)
+    if 'q & "target_base_entry_id" & q' not in patched:
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Function BuildRequestJson() As String",
+            end_statement="End Function",
+            replacement=_REQUEST_PROCEDURE,
+        )
 
     if patched.count('q & "target_base_entry_id" & q') < 2:
-        if _SUGGESTION_MARKER not in patched:
-            raise RuntimeError("Outpatient suggestion request JSON marker missing")
-        patched = patched.replace(_SUGGESTION_MARKER, _SUGGESTION_REPLACEMENT, 1)
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Function BuildSuggestionRequestJson() As String",
+            end_statement="End Function",
+            replacement=_SUGGESTION_PROCEDURE,
+        )
 
     return patched
 
@@ -151,7 +212,7 @@ def install_outpatient_schedule_edit_support(vbproject) -> None:
     current_form_code = _component_code(form_component)
     patched_form_code = patch_outpatient_schedule_form_code(current_form_code)
 
-    if patched_form_code != current_form_code:
+    if patched_form_code != _normalize_vba(current_form_code):
         form_module = form_component.CodeModule
         if form_module.CountOfLines:
             form_module.DeleteLines(1, form_module.CountOfLines)
@@ -162,7 +223,7 @@ def install_outpatient_schedule_edit_support(vbproject) -> None:
     module.Name = EDIT_MODULE_NAME
     module.CodeModule.AddFromString(EDIT_MODULE_CODE)
 
-    installed_form_code = _component_code(form_component)
+    installed_form_code = _normalize_vba(_component_code(form_component))
     installed_edit_code = _component_code(module)
     if installed_form_code.count('q & "target_base_entry_id" & q') < 2:
         raise RuntimeError("Outpatient edit target was not wired into save and suggestion JSON")
