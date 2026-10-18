@@ -3,7 +3,10 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
-from tools.build_outpatient_recurring_smoke import build_outpatient_recurring_smoke
+from tools.build_outpatient_recurring_smoke import (
+    _install_schedule_form,
+    build_outpatient_recurring_smoke,
+)
 
 
 def test_smoke_builder_uses_one_excel_session_for_all_vba_installation():
@@ -18,6 +21,16 @@ def test_smoke_builder_uses_one_excel_session_for_all_vba_installation():
     assert "create_outpatient_conflict_guard_preview" not in source
     assert ".outpatient-form-stage" not in source.casefold()
     assert "stage =" not in source.casefold()
+
+
+def test_schedule_form_installer_reuses_existing_components_instead_of_remove_readd():
+    source = inspect.getsource(_install_schedule_form)
+
+    assert "_component_if_present(vbproject, MODULE_NAME)" in source
+    assert "_component_if_present(vbproject, FORM_NAME)" in source
+    assert "_ensure_form_control(designer, prog_id, name)" in source
+    assert "VBComponents.Remove" not in source
+    assert "_replace_component_code(form, FORM_CODE)" in source
 
 
 def test_smoke_builder_never_targets_source_for_mutation():
