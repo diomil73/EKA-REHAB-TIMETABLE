@@ -33,7 +33,14 @@ def test_outpatient_save_is_in_session_and_never_closes_workbook():
     assert "StartAuthoritativeCommit(" not in patched
     assert "BuildAuthoritativeCommitJson(" not in patched
     assert "ResolveAuthoritativeCommitWorkerScript" not in patched
-    assert "χωρίς κλείσιμο ή επανεκκίνηση" in patched
+
+
+def test_outpatient_save_confirmation_points_to_next_operational_check():
+    patched = patch_outpatient_schedule_form_code(FORM_CODE)
+
+    assert "Επόμενο βήμα:" in patched
+    assert "Ημερήσιο Πρόγραμμα Θεραπευτών" in patched
+    assert "χωρίς κλείσιμο ή επανεκκίνηση" not in patched
 
 
 def test_outpatient_save_caches_patient_id_before_backend_round_trip():
