@@ -42,6 +42,22 @@ def test_smoke_builder_saves_only_after_all_installers_and_verification():
     assert form_pos < edit_pos < conflict_pos < verify_pos < save_pos
 
 
+def test_smoke_builder_reports_exact_native_install_phase_on_failure():
+    source = inspect.getsource(build_outpatient_recurring_smoke)
+
+    for label in (
+        "Excel startup",
+        "workbook open",
+        "schedule form install",
+        "edit support install",
+        "conflict guard install",
+        "component verification",
+        "workbook save",
+    ):
+        assert f'phase = "{label}"' in source
+    assert "failed during {failed_phase}" in source
+
+
 def test_smoke_builder_requires_distinct_xlsm_paths(tmp_path: Path):
     source = tmp_path / "source.xlsm"
     source.write_bytes(b"placeholder")
