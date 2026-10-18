@@ -46,8 +46,9 @@ All known therapist absences for a date must be entered before resolution. Every
 Requirements captured from the operational workflow:
 
 - maximize valid placements and minimize unresolved orphans before optimizing convenience,
-- protect unique candidate slots through global scarcity-aware assignment,
+- protect unique candidate slots through global scarcity-aware assignment (e.g. if A can use 09:00/10:00/11:00 and B can use only 09:00, protect 09:00 for B),
 - prefer the original time, unless that blocks another patient's unique option or conflicts with important adjacency to a reclining treatment,
+- treat 13:00 as a weak soft preference to avoid: minimize its use among otherwise acceptable assignments, but use it when needed rather than leave a patient unresolved or compromise higher-priority rules,
 - keep physiotherapy and reclining treatments adjacent or nearby where feasible, reducing unnecessary waiting,
 - respect explicit patient absences and times already occupied by the patient's other treatments,
 - treat pool and robotic operating hours as persistent configuration, not as services available at every time; robotic placements must remain within operating hours and respect known provider assignments,
