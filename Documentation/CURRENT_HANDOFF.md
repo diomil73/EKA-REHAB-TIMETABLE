@@ -90,6 +90,13 @@ Locked requirements:
 
 The relative numeric weights between same-time preservation, reclining adjacency, and load balancing need to be validated against real examples before final tuning. See `Documentation/DECISIONS.md` for the durable rule set and `Documentation/PROJECT_STATUS.md` for milestone status.
 
+Code audit findings:
+- `Python/rehab_core/replacements.py::find_replacement_candidates` currently ranks single-patient candidates by workload first and exact-time availability second. This conflicts with the new global scarcity-aware requirement if used as the final decision-maker.
+- `Documentation/SEQUENTIAL_THERAPIST_REPLACEMENTS.md` describes the current sequential workflow. Preserve its live workload recalculation where useful for interactive review, but add a batch/global planning phase before any accepted assignments are committed.
+- `Config/provider_policy.json` and the provider-policy layer already support persistent provider profiles and date-based overrides for exclusions, blocked times, load limits, and explicit leader availability.
+- The inspected `SETTINGS` schema does not currently define dedicated pool/robotic operating hours. Add a persistent service-hours configuration, likely keyed by service and weekday/time slot, and include it in candidate feasibility checks.
+- Do not change production workbook behavior directly. Add pure solver tests first, then preview/native verification and documentation updates.
+
 ## Exact resume point
 
 1. Pull latest branch.
