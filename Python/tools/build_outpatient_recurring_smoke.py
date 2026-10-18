@@ -3,26 +3,27 @@ from __future__ import annotations
 import argparse
 from hashlib import sha256
 from pathlib import Path
+import shutil
 import sys
-import time
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
-from rehab_excel.outpatient_conflict_guard_preview import (  # noqa: E402
-    OutpatientConflictGuardPreviewError,
-    create_outpatient_conflict_guard_preview,
+from rehab_excel.outpatient_conflict_guard_vba import (  # noqa: E402
+    install_outpatient_conflict_guard,
 )
 from rehab_excel.outpatient_schedule_edit_vba import (  # noqa: E402
     EDIT_MACRO_NAME,
-    install_outpatient_schedule_edit_support_in_workbook,
+    install_outpatient_schedule_edit_support,
 )
 from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
+    FORM_CODE,
+    FORM_NAME,
     MACRO_NAME,
-    OutpatientScheduleFormVbaError,
-    create_outpatient_schedule_form_preview,
+    MODULE_CODE,
+    MODULE_NAME,
 )
 
 
@@ -45,31 +46,74 @@ def _safe_unlink(path: Path) -> None:
         pass
 
 
-def _install_conflict_guard_with_lock_retry(
-    stage: Path,
-    output: Path,
-    *,
-    overwrite: bool,
-    attempts: int = 20,
-    delay_seconds: float = 0.25,
-) -> None:
-    """Retry only transient Windows file-lock failures after the edit COM session closes."""
+def _remove_component_if_present(vbproject, name: str) -> None:
+    try:
+        component = vbproject.VBComponents(name)
+    except Exception:
+        return
+    vbproject.VBComponents.Remove(component)
 
-    last_error: OSError | None = None
-    for attempt in range(1, attempts + 1):
-        try:
-            create_outpatient_conflict_guard_preview(stage, output, overwrite=overwrite)
-            return
-        except OSError as exc:
-            if getattr(exc, "winerror", None) != 32:
-                raise
-            last_error = exc
-            _safe_unlink(output)
-            if attempt < attempts:
-                time.sleep(delay_seconds)
 
-    assert last_error is not None
-    raise last_error
+def _install_schedule_form(vbproject) -> None:
+    """Install the outpatient schedule module/form into an already-open workbook."""
+
+    for name in (FORM_NAME, MODULE_NAME):
+        _remove_component_if_present(vbproject, name)
+
+    module = vbproject.VBComponents.Add(1)
+    module.Name = MODULE_NAME
+    module.CodeModule.AddFromString(MODULE_CODE)
+
+    form = vbproject.VBComponents.Add(3)
+    form.Name = FORM_NAME
+    form.Designer.Caption = "Πρόγραμμα εξωτερικού ασθενή"
+    for prog_id, name, caption, top in (
+        ("Forms.Label.1", "lblTitle", "", 15),
+        ("Forms.Label.1", "lblPatient", "", 48),
+        ("Forms.ComboBox.1", "cboPatient", "", 44),
+        ("Forms.Label.1", "lblTreatment", "", 92),
+        ("Forms.ComboBox.1", "cboTreatment", "", 88),
+        ("Forms.Label.1", "lblTime", "", 136),
+        ("Forms.ComboBox.1", "cboTime", "", 132),
+        ("Forms.Label.1", "lblDays", "", 180),
+        ("Forms.ComboBox.1", "cboDays", "", 176),
+        ("Forms.Label.1", "lblTherapist", "", 224),
+        ("Forms.ComboBox.1", "cboTherapist", "", 220),
+        ("Forms.Label.1", "lblSuggestMode", "", 268),
+        ("Forms.ComboBox.1", "cboSuggestMode", "", 288),
+        ("Forms.CommandButton.1", "cmdSuggest", "Βρες εναλλακτικές", 323),
+        ("Forms.ListBox.1", "lstSuggestions", "", 365),
+        ("Forms.CommandButton.1", "cmdUseSuggestion", "Χρήση επιλογής", 470),
+        ("Forms.Label.1", "lblInfo", "", 505),
+        ("Forms.CommandButton.1", "cmdCancel", "Ακύρωση", 550),
+        ("Forms.CommandButton.1", "cmdSave", "Έλεγχος και preview", 550),
+    ):
+        control = form.Designer.Controls.Add(prog_id, name, True)
+        if caption:
+            control.Caption = caption
+        control.Left = 24
+        control.Top = top
+    form.CodeModule.AddFromString(FORM_CODE)
+
+
+def _verify_components(vbproject) -> None:
+    names = {
+        vbproject.VBComponents(index).Name
+        for index in range(1, vbproject.VBComponents.Count + 1)
+    }
+    required = {
+        FORM_NAME,
+        MODULE_NAME,
+        "modOutpatientScheduleEdit",
+        "frmSchedulingConflict",
+        "modSchedulingConflict",
+        "modOutpatientInSession",
+    }
+    missing = sorted(required - names)
+    if missing:
+        raise OutpatientRecurringSmokeBuildError(
+            "Outpatient recurring smoke components missing: " + ", ".join(missing)
+        )
 
 
 def build_outpatient_recurring_smoke(
@@ -78,11 +122,11 @@ def build_outpatient_recurring_smoke(
     *,
     overwrite: bool = False,
 ) -> Path:
-    """Build one fresh smoke workbook with create, edit, suggestions and conflict UI.
+    """Build create/edit/suggestion/conflict support in one native Excel session.
 
-    The trusted source is never opened for mutation. A short-lived stage copy gets
-    the schedule form and edit support; the final copy is then produced while the
-    conflict guard is installed. The stage is removed on both success and failure.
+    The trusted source is copied byte-for-byte first and is never opened for
+    mutation. All VBA installation then happens while the final smoke copy is
+    open once, eliminating cross-process stage-file lock races.
     """
 
     source = Path(source_path).resolve()
@@ -95,30 +139,65 @@ def build_outpatient_recurring_smoke(
         raise OutpatientRecurringSmokeBuildError("Source and output must both be .xlsm")
     if output.exists() and not overwrite:
         raise OutpatientRecurringSmokeBuildError(f"Output already exists: {output}")
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-    stage = output.with_name(f".{output.stem}.outpatient-form-stage{output.suffix}")
-    _safe_unlink(stage)
-    source_before = _sha256(source)
+    if sys.platform != "win32":
+        raise OutpatientRecurringSmokeBuildError("Windows Excel is required")
 
     try:
-        create_outpatient_schedule_form_preview(source, stage, overwrite=True)
-        install_outpatient_schedule_edit_support_in_workbook(stage)
-        _install_conflict_guard_with_lock_retry(
-            stage,
-            output,
-            overwrite=overwrite,
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise OutpatientRecurringSmokeBuildError("pywin32 is required") from exc
+
+    source_before = _sha256(source)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        try:
+            output.unlink()
+        except OSError as exc:
+            raise OutpatientRecurringSmokeBuildError(
+                f"Existing smoke workbook is open or locked: {output}"
+            ) from exc
+    shutil.copy2(source, output)
+
+    excel = None
+    workbook = None
+    failure: Exception | None = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
+        excel.EnableEvents = False
+        workbook = excel.Workbooks.Open(
+            str(output), UpdateLinks=0, ReadOnly=False
         )
-    except (
-        OutpatientScheduleFormVbaError,
-        OutpatientConflictGuardPreviewError,
-        RuntimeError,
-        OSError,
-    ) as exc:
-        _safe_unlink(output)
-        raise OutpatientRecurringSmokeBuildError(str(exc)) from exc
+        vbproject = workbook.VBProject
+
+        _install_schedule_form(vbproject)
+        install_outpatient_schedule_edit_support(vbproject)
+        install_outpatient_conflict_guard(vbproject)
+        _verify_components(vbproject)
+        workbook.Save()
+    except Exception as exc:
+        failure = exc
     finally:
-        _safe_unlink(stage)
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
+
+    if failure is not None:
+        _safe_unlink(output)
+        if isinstance(failure, OutpatientRecurringSmokeBuildError):
+            raise failure
+        raise OutpatientRecurringSmokeBuildError(
+            f"Excel outpatient recurring smoke installation failed: {failure}"
+        ) from failure
 
     if _sha256(source) != source_before:
         _safe_unlink(output)
