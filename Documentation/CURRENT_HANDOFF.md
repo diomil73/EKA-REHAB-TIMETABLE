@@ -11,15 +11,10 @@ Last updated: 2026-10-18
 ## Latest confirmed checkpoints
 
 - full regression checkpoint: `699 passed, 19 warnings`
-- focused gate after MASTER batch-write patch: `35 passed in 3.67s`
-- diagnostic restore-all before MASTER batch write: Backend `45.70s`
-- diagnostic restore-all after MASTER batch write: Backend `31.33s`, rollback `0.15s`, preview open `0.88s`, sheet sync `0.19s`, final save `1.23s`
-- direct backend profile after fact-session consolidation: total `22.924s`, pre-Excel/verification `12.978s`, Excel output `9.946s`
-- `restore_fact_batch 8.863s` has been eliminated from the pipeline
-- OOXML MASTER projection path is regression-green: `59 passed in 6.85s`
-- latest direct backend profile after OOXML projection migration: total `16.509s`, pre-Excel/verification `7.976s`, Excel output `8.533s`
+- OOXML MASTER projection path focused gate: `59 passed in 6.85s`
+- latest direct restore backend profile: total `16.509s`, pre-Excel/verification `7.976s`, Excel output `8.533s`
 - latest `build_master_projection`: `0.089s` (down from `6.142s`)
-- latest Excel output detail: dispatch `1.347s`, open `1.921s`, MASTER `2.613s`, daily patches `0.452s`, statistics `0.316s`, replacement fact rows `0.160s`, ledger rows `0.024s`, refresh `0.039s`, save `1.390s`, close `0.066s`, quit `0.004s`
+- restore performance is accepted for now and deferred until end-stage polish
 - parity rebuild: row/selected/all smoke copies authoritative and VBA-preserving
 - per-row / selected / restore-all in-session correctness: native green
 - replacement lifecycle history V87-V92: native green
@@ -40,32 +35,39 @@ Native correctness is green for per-row, selected multi-row, and restore-all con
 
 ## DEFERRED: restore performance / UX latency
 
-Restore latency has improved materially and is no longer the active engineering priority. Backend profiling is now `16.509s` on the trusted V90 scenario, with the MASTER metadata parser reduced from `6.142s` to `0.089s`. End-user restore time around the low-to-mid 20-second range is accepted for the current development stage.
+Restore latency is no longer the active engineering priority. End-user restore time around the low-to-mid 20-second range is accepted for the current development stage. Preserve the profiler and current timings for end-stage optimization.
 
-Do not spend more time on restore micro-optimization now. Remaining latency work, including `pre_excel_unattributed`, Excel process startup/open/save overhead, and any further batching, is explicitly deferred until the broader feature set is substantially complete.
+## ACTIVE: outpatient recurring create/edit native verification
 
-Performance work already completed and retained:
+The recurring outpatient path is implemented but still needs a clean native create/edit gate. The UI already supports:
 
-- selected/all lifecycle batching,
-- statistics + ledger finalization consolidation,
-- redundant in-session save removal,
-- single restore output Excel session,
-- MASTER projection moved into that output session,
-- bounded meaningful-range sync,
-- range-batched MASTER projection write-back,
-- detailed backend profiler,
-- reuse of already-loaded data,
-- replacement fact status persistence folded into the existing output Excel session,
-- OOXML package-probe metadata path for MASTER projection,
-- OPC relationship target normalization for package-absolute and relative paths.
+- creation through `frmOutpatientSchedule`,
+- edit/preload through `EditOutpatientSchedule`,
+- seven suggestion modes,
+- therapist double-booking detection and popup handling,
+- preview-only backend writes before authoritative promotion,
+- stable `target_base_entry_id` for edits so the same authoritative row is updated rather than duplicated.
+
+A one-step fresh smoke builder is now available:
+
+- `Python/tools/build_outpatient_recurring_smoke.py`
+- implementation `7006383c242d8cb02ccf6a5e623da1372ef633d9`
+- regression coverage `a031f864aa218f3521d7f02cadd64c1363896776`
+
+The builder never mutates the trusted source. It creates a short-lived stage, installs the schedule form + edit support, produces the final copy with the conflict guard, verifies source hash preservation, and removes the stage on success or failure.
 
 ## Exact resume point
 
-1. Do not resume restore performance tuning unless a new correctness regression appears or the broader project reaches final polish.
-2. Resume the next unfinished functional milestone: outpatient recurring create/edit native verification and the wider scheduling/UI roadmap.
-3. Preserve the current restore profiler and timings as the baseline for end-stage optimization.
-4. Keep correctness gates locked: source/VBA preservation, immutable history, validate-all-before-mutate, exact statistics, and MASTER/THERAPIST_DAILY agreement.
-5. Windows tests always use `python -m pytest`.
+1. Pull latest branch.
+2. Run the focused outpatient source gate:
+   `python -m pytest Tests/test_outpatient_schedule_form_vba.py Tests/test_outpatient_schedule_edit_vba.py Tests/test_outpatient_recurring_smoke_builder.py -q`
+3. If green, build one fresh combined smoke copy from trusted V90:
+   `python Python/tools/build_outpatient_recurring_smoke.py --source .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\OUTPATIENT_RECURRING_SMOKE.xlsm --overwrite`
+4. Native create gate: open only the fresh smoke copy, run `ShowOutpatientScheduleForm`, create one valid outpatient recurring row, require backend preview verification and authoritative persistence, then confirm the new `OUTPATIENT_SCHEDULE` row reads back exactly.
+5. Native edit gate: on a fresh smoke copy, select/edit that row through `EditOutpatientSchedule`, change time/days/therapist, require the same `outpatient:<row>` id and no duplicate row.
+6. Native conflict gate: on a fresh smoke copy, attempt a known therapist/time recurring collision and require the conflict popup/guard rather than silent double-booking.
+7. Do not manually save smoke workbooks outside the tested flow. Always use a fresh copy for each scenario.
+8. Once create/edit/conflict are native green, move directly to the next scheduling/UI milestone. Do not return to restore performance tuning yet.
 
 ## Locked orphan rule
 
