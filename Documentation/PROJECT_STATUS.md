@@ -41,11 +41,24 @@ Native correctness is green for per-row, selected, and restore-all controls.
 
 Replacement lifecycle correctness is green, but replacement **assignment quality** is not considered closed yet.
 
-A newly locked requirement is that several therapist absences on the same day must be entered and evaluated together. The system must not greedily fill replacements therapist-by-therapist or patient-by-patient, because a flexible patient can consume the only viable slot of a constrained patient and create avoidable orphans.
+All known therapist absences for a date must be entered before resolution. Every patient displaced by those absences must be evaluated together in one global assignment pass. Greedy therapist-by-therapist or patient-by-patient placement is unacceptable because a flexible patient can consume the only viable slot of a constrained patient.
 
-The next replacement-planning milestone must therefore introduce a global assignment/constraint optimization pass over all displaced sessions for the concrete date. Priorities are: minimize unresolved orphans, preserve original times where possible, protect scarce slots, minimize unnecessary movement, then apply softer preferences. Patient-specific clinical/operational constraints that are known must be encoded explicitly; unknown knowledge remains under manual user control. Manual over-capacity or same-time exceptions continue to require warning and explicit confirmation.
+Requirements captured from the operational workflow:
 
-This requirement is now recorded in `Documentation/DECISIONS.md` and must be addressed before the replacements topic is considered complete.
+- maximize valid placements and minimize unresolved orphans before optimizing convenience,
+- protect unique candidate slots through global scarcity-aware assignment,
+- prefer the original time, unless that blocks another patient's unique option or conflicts with important adjacency to a reclining treatment,
+- keep physiotherapy and reclining treatments adjacent or nearby where feasible, reducing unnecessary waiting,
+- respect explicit patient absences and times already occupied by the patient's other treatments,
+- treat pool and robotic operating hours as persistent configuration, not as services available at every time; robotic placements must remain within operating hours and respect known provider assignments,
+- balance provider workload: about one treatment-hour difference may be unavoidable, but a two-hour imbalance should be avoided when a feasible alternative exists,
+- do not introduce mandatory per-patient availability data entry at this stage,
+- keep patient/therapist physical suitability, compatibility, and waiting tolerance as selective case-specific knowledge rather than requiring every record to contain extensive new fields,
+- permit double-booking or over-capacity only as a last-resort, explicitly warned, user-approved exception. The system must ask which remaining patient may share with whom and which therapist; it must never silently auto-approve this.
+
+The exact numeric trade-offs among same-time preservation, reclining adjacency, and workload balance still need validation against real cases before solver weights are frozen. The business priorities and safety boundaries are now recorded in `Documentation/DECISIONS.md`.
+
+This requirement must be addressed before the replacements topic is considered complete.
 
 ## DEFERRED: restore performance / UX latency
 
