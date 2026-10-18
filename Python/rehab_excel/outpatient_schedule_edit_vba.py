@@ -103,9 +103,13 @@ _SUGGESTION_REPLACEMENT = '''        q & "days" & q & ":" & q & JsonEscape(cboDa
 
 
 def patch_outpatient_schedule_form_code(code: str) -> str:
-    """Add edit-target state to the existing outpatient schedule form code."""
+    """Add edit-target state to the existing outpatient schedule form code.
 
-    patched = code
+    VBIDE commonly returns CRLF text even when the source template uses LF. Normalize
+    first so structural markers are stable in both pure-Python tests and native Excel.
+    """
+
+    patched = code.replace("\r\n", "\n").replace("\r", "\n")
     if 'OutpatientEditTargetBaseEntryId = ""' not in patched:
         if _INITIALIZE_MARKER not in patched:
             raise RuntimeError("Outpatient schedule form initialize marker missing")
