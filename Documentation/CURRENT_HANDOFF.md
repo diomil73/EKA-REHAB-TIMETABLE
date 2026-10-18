@@ -52,14 +52,18 @@ The first combined smoke-builder design used multiple Excel sessions and a short
 
 The single-session builder then exposed a sequence of VBIDE-specific integration issues. Remove/recreate of `frmOutpatientSchedule` raised `0x800A03EC`, so the installer now reuses the existing form/module and only adds missing controls. The native VBIDE returns form code with CRLF line endings, so edit patching normalizes line endings first. A subsequent `Outpatient schedule request JSON marker missing` showed that exact request-body text matching was still too brittle because VBIDE can reformat indentation/continuation layout. Edit patching now operates structurally at procedure level: it inserts edit state into `UserForm_Initialize` by signature and replaces `BuildRequestJson` / `BuildSuggestionRequestJson` by procedure boundaries instead of relying on exact body markers.
 
+The next native failure moved forward into `conflict guard install` with the same generic `0x800A03EC` class. `install_scheduling_conflict_popup` was still removing and recreating `frmSchedulingConflict` and its module in the same VBIDE session. That installer is now idempotent as well: it reuses existing form/module components, reuses existing controls, adds only missing controls, and replaces code in place. This removes the second UserForm remove/recreate race instead of masking it with retries.
+
 Current builder/edit hardening:
 
 - `Python/tools/build_outpatient_recurring_smoke.py`
 - single-session redesign `1457eb5c8361e93786527fbbf282c92927ad2e64`
-- idempotent form-install fix `8963c1ff0f0d550c5c0881066feeccb709cb0779`
+- idempotent schedule-form install `8963c1ff0f0d550c5c0881066feeccb709cb0779`
 - CRLF edit-patch fix `ddca162f15ed03f1df523592ec634beac98e19d6`
 - structural procedure-level edit patch `62c1a1431290c3c3398490b6e6fc25b897ff8929`
 - formatting-variance regression `9aa30e9212a28c72fd9c35930ec471a50f3c6b6a`
+- idempotent conflict-popup install `88c319694dde764b889f1fc9ebf2a3d662af0d64`
+- conflict-popup reuse regression `8b5a0017c984a1790931420f0dfeb445e16cf0c5`
 - copies trusted source directly to the final smoke path,
 - opens the final smoke workbook exactly once in a hidden Excel instance,
 - installs/refreshes schedule form, edit support, conflict popup and in-session writer against the same `VBProject`,
@@ -70,8 +74,8 @@ Current builder/edit hardening:
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run the focused outpatient gate:
-   `python -m pytest Tests/test_outpatient_schedule_form_vba.py Tests/test_outpatient_schedule_edit_vba.py Tests/test_outpatient_recurring_smoke_builder.py -q`
+2. Run the focused outpatient gate including the conflict-popup installer regression:
+   `python -m pytest Tests/test_outpatient_schedule_form_vba.py Tests/test_outpatient_schedule_edit_vba.py Tests/test_scheduling_conflict_popup_vba.py Tests/test_outpatient_recurring_smoke_builder.py -q`
 3. If green, rebuild fresh:
    `python Python/tools/build_outpatient_recurring_smoke.py --source .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\OUTPATIENT_RECURRING_SMOKE.xlsm --overwrite`
 4. Require `OUTPATIENT RECURRING SMOKE BUILD OK`. If another COM/VBA failure appears, use the embedded phase diagnostics and fix that exact installer.
