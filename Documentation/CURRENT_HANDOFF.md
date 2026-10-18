@@ -48,16 +48,19 @@ The recurring outpatient path is implemented but still needs a clean native crea
 - preview-only backend validation before in-session persistence,
 - stable `target_base_entry_id` for edits so the same authoritative row is updated rather than duplicated.
 
-The first combined smoke-builder design used multiple Excel sessions and a short-lived stage workbook. Native Windows testing exposed a persistent `[WinError 32]` lock on that stage even after bounded retries. This is now removed by design rather than masked with a larger timeout.
+The first combined smoke-builder design used multiple Excel sessions and a short-lived stage workbook. Native Windows testing exposed a persistent `[WinError 32]` lock on that stage even after bounded retries. This was removed by moving all VBA installation into one Excel session against the final smoke copy.
+
+The first native run of the single-session builder then exposed a generic Excel/VBIDE COM failure specifically during `schedule form install` (`0x800A03EC`). The form installer has now been hardened to be idempotent inside the same VBProject session: existing `frmOutpatientSchedule` / `modOutpatientSchedule` components are reused, existing controls are reused, only missing controls are added, and code modules are replaced in place. This avoids the fragile remove-then-immediately-recreate UserForm pattern.
 
 Current builder:
 
 - `Python/tools/build_outpatient_recurring_smoke.py`
 - single-session redesign `1457eb5c8361e93786527fbbf282c92927ad2e64`
-- regression update `8e10c04413ea094aa58f4e53cc44af494466ed18`
+- idempotent form-install fix `8963c1ff0f0d550c5c0881066feeccb709cb0779`
+- regression update `64ed419cabbc1c065b9931c67e8a8f7001397aba`
 - copies trusted source directly to the final smoke path,
 - opens the final smoke workbook exactly once in a hidden Excel instance,
-- installs schedule form, edit support, conflict popup and in-session writer against the same `VBProject`,
+- installs/refreshes schedule form, edit support, conflict popup and in-session writer against the same `VBProject`,
 - verifies required VBA components before a single save,
 - closes Excel, then verifies the source hash remained unchanged,
 - no intermediate `.outpatient-form-stage.xlsm` exists anymore.
@@ -69,7 +72,7 @@ Current builder:
    `python -m pytest Tests/test_outpatient_schedule_form_vba.py Tests/test_outpatient_schedule_edit_vba.py Tests/test_outpatient_recurring_smoke_builder.py -q`
 3. If green, rebuild fresh:
    `python Python/tools/build_outpatient_recurring_smoke.py --source .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\OUTPATIENT_RECURRING_SMOKE.xlsm --overwrite`
-4. Require `OUTPATIENT RECURRING SMOKE BUILD OK`. The former stage-file WinError 32 cannot occur in the new design because there is no stage handoff.
+4. Require `OUTPATIENT RECURRING SMOKE BUILD OK`. If another COM failure appears, use the phase diagnostics already embedded in the builder and fix that exact installer rather than reverting to multi-session/stage handoffs.
 5. Native create gate: open only the fresh smoke copy, run `ShowOutpatientScheduleForm`, create one valid outpatient recurring row, require backend validation and in-session authoritative persistence, then confirm the new `OUTPATIENT_SCHEDULE` row reads back exactly.
 6. Native edit gate: use a fresh smoke scenario, open the target row through `EditOutpatientSchedule`, change time/days/therapist, require the same `outpatient:<row>` id and no duplicate row.
 7. Native conflict gate: on a fresh smoke scenario, attempt a known therapist/time recurring collision and require the conflict popup/guard rather than silent double-booking.
