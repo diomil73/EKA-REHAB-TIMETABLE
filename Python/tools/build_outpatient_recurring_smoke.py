@@ -160,25 +160,37 @@ def build_outpatient_recurring_smoke(
 
     excel = None
     workbook = None
-    failure: Exception | None = None
+    failure: tuple[str, Exception] | None = None
+    phase = "Excel startup"
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.ScreenUpdating = False
         excel.EnableEvents = False
+
+        phase = "workbook open"
         workbook = excel.Workbooks.Open(
             str(output), UpdateLinks=0, ReadOnly=False
         )
         vbproject = workbook.VBProject
 
+        phase = "schedule form install"
         _install_schedule_form(vbproject)
+
+        phase = "edit support install"
         install_outpatient_schedule_edit_support(vbproject)
+
+        phase = "conflict guard install"
         install_outpatient_conflict_guard(vbproject)
+
+        phase = "component verification"
         _verify_components(vbproject)
+
+        phase = "workbook save"
         workbook.Save()
     except Exception as exc:
-        failure = exc
+        failure = (phase, exc)
     finally:
         if workbook is not None:
             try:
@@ -193,11 +205,14 @@ def build_outpatient_recurring_smoke(
 
     if failure is not None:
         _safe_unlink(output)
-        if isinstance(failure, OutpatientRecurringSmokeBuildError):
-            raise failure
+        failed_phase, exc = failure
+        if isinstance(exc, OutpatientRecurringSmokeBuildError):
+            raise OutpatientRecurringSmokeBuildError(
+                f"{failed_phase}: {exc}"
+            ) from exc
         raise OutpatientRecurringSmokeBuildError(
-            f"Excel outpatient recurring smoke installation failed: {failure}"
-        ) from failure
+            f"Excel outpatient recurring smoke installation failed during {failed_phase}: {exc}"
+        ) from exc
 
     if _sha256(source) != source_before:
         _safe_unlink(output)
