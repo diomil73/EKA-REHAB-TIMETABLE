@@ -27,6 +27,14 @@ def test_edit_patch_sends_target_base_entry_id_through_existing_bridge():
     assert "StartAuthoritativeCommit" in patched
 
 
+def test_edit_patch_accepts_vbide_crlf_code():
+    patched = patch_outpatient_schedule_form_code(FORM_CODE.replace("\n", "\r\n"))
+
+    assert 'OutpatientEditTargetBaseEntryId = ""' in patched
+    assert patched.count('q & "target_base_entry_id" & q') >= 2
+    assert "\r" not in patched
+
+
 def test_edit_patch_is_idempotent():
     once = patch_outpatient_schedule_form_code(FORM_CODE)
     twice = patch_outpatient_schedule_form_code(once)
