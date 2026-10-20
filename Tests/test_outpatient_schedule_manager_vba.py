@@ -3,7 +3,9 @@ from rehab_excel.outpatient_schedule_manager_vba import (
     FORM_CODE,
     MACRO_NAME,
     MODULE_CODE,
+    patch_registration_menu_for_outpatient_manager,
 )
+from rehab_excel.registration_menu_vba import USERFORM_CODE
 
 
 def test_manager_is_the_business_facing_edit_entry_point():
@@ -18,6 +20,11 @@ def test_manager_lists_business_fields_and_hides_internal_row_key():
     assert 'ThisWorkbook.Worksheets("OUTPATIENT_SCHEDULE")' in FORM_CODE
     assert '.ColumnCount = 6' in FORM_CODE
     assert '.ColumnWidths = "0 pt;150 pt;95 pt;55 pt;85 pt;110 pt"' in FORM_CODE
+    assert 'lblPatient.Caption = "Ασθενής"' in FORM_CODE
+    assert 'lblTreatment.Caption = "Θεραπεία"' in FORM_CODE
+    assert 'lblTime.Caption = "Ώρα"' in FORM_CODE
+    assert 'lblDays.Caption = "Ημέρες"' in FORM_CODE
+    assert 'lblTherapist.Caption = "Θεραπευτής"' in FORM_CODE
     assert "patientName" in FORM_CODE
     assert "treatment" in FORM_CODE
     assert "timeText" in FORM_CODE
@@ -40,3 +47,12 @@ def test_manager_supports_create_edit_close_and_double_click():
     assert "Private Sub cmdEdit_Click()" in FORM_CODE
     assert "Private Sub lstSchedules_DblClick" in FORM_CODE
     assert "Private Sub cmdClose_Click()" in FORM_CODE
+
+
+def test_registration_menu_routes_outpatient_button_to_manager():
+    patched = patch_registration_menu_for_outpatient_manager(USERFORM_CODE)
+
+    assert 'StyleMenuButton cmdOutpatientSchedule, "Προγράμματα εξωτερικών ασθενών", 203' in patched
+    assert "ShowOutpatientScheduleManager" in patched
+    assert "frmOutpatientSchedule.Show" not in patched
+    assert "Πρόγραμμα εξωτερικού ασθενή δεν είναι εγκατεστημένη" not in patched
