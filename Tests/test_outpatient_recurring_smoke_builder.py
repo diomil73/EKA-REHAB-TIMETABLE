@@ -16,6 +16,7 @@ def test_smoke_builder_uses_one_excel_session_for_all_vba_installation():
     assert source.count("Workbooks.Open(") == 1
     assert "_install_schedule_form(vbproject)" in source
     assert "install_outpatient_schedule_edit_support(vbproject)" in source
+    assert "install_outpatient_schedule_manager(vbproject)" in source
     assert "install_outpatient_conflict_guard(vbproject)" in source
     assert "create_outpatient_schedule_form_preview" not in source
     assert "create_outpatient_conflict_guard_preview" not in source
@@ -48,11 +49,12 @@ def test_smoke_builder_saves_only_after_all_installers_and_verification():
 
     form_pos = source.index("_install_schedule_form(vbproject)")
     edit_pos = source.index("install_outpatient_schedule_edit_support(vbproject)")
+    manager_pos = source.index("install_outpatient_schedule_manager(vbproject)")
     conflict_pos = source.index("install_outpatient_conflict_guard(vbproject)")
     verify_pos = source.index("_verify_components(vbproject)")
     save_pos = source.index("workbook.Save()")
 
-    assert form_pos < edit_pos < conflict_pos < verify_pos < save_pos
+    assert form_pos < edit_pos < manager_pos < conflict_pos < verify_pos < save_pos
 
 
 def test_smoke_builder_reports_exact_native_install_phase_on_failure():
@@ -63,6 +65,7 @@ def test_smoke_builder_reports_exact_native_install_phase_on_failure():
         "workbook open",
         "schedule form install",
         "edit support install",
+        "schedule manager install",
         "conflict guard install",
         "component verification",
         "workbook save",
