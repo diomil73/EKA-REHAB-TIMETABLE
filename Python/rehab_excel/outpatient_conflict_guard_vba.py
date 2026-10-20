@@ -21,9 +21,9 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
     Dim selectedPatientId As String
 
     If Not ValidateForm() Then Exit Sub
-    selectedPatientId = PatientIdFromSelection()
+    selectedPatientId = PatientIdForCurrentOperation()
     If Len(Trim$(selectedPatientId)) = 0 Then
-        MsgBox "Δεν ήταν δυνατή η ανάκτηση του PatientID από την επιλογή ασθενή.", vbCritical
+        MsgBox "Δεν ήταν δυνατή η ανάκτηση του PatientID από την επιλεγμένη εγγραφή.", vbCritical
         Exit Sub
     End If
 
@@ -90,8 +90,7 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
     Kill responsePath
     On Error GoTo 0
 
-    MsgBox "Το πρόγραμμα αποθηκεύτηκε επιτυχώς." & vbCrLf & _
-           "Base entry: " & baseEntry & vbCrLf & vbCrLf & _
+    MsgBox "Το πρόγραμμα αποθηκεύτηκε επιτυχώς." & vbCrLf & vbCrLf & _
            "Επόμενο βήμα: ελέγξτε το Ημερήσιο Πρόγραμμα Θεραπευτών για την ημερομηνία που σας ενδιαφέρει.", _
            vbInformation, "Πρόγραμμα εξωτερικού ασθενή"
 
@@ -130,7 +129,7 @@ NEW_REQUEST_BLOCK = r'''Private Function BuildRequestJson(ByVal allowDoubleBooki
         q & "preview_dir" & q & ":" & q & JsonEscape(ThisWorkbook.Path) & q & "," & _
         q & "overwrite" & q & ":true," & _
         q & "values" & q & ":{" & _
-        q & "patient_id" & q & ":" & q & JsonEscape(PatientIdFromSelection()) & q & "," & _
+        q & "patient_id" & q & ":" & q & JsonEscape(PatientIdForCurrentOperation()) & q & "," & _
         q & "treatment" & q & ":" & q & JsonEscape(cboTreatment.Value) & q & "," & _
         q & "time" & q & ":" & q & JsonEscape(cboTime.Value) & q & "," & _
         q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _
@@ -138,6 +137,43 @@ NEW_REQUEST_BLOCK = r'''Private Function BuildRequestJson(ByVal allowDoubleBooki
         q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & "," & _
         q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & _
         "}}"
+End Function'''
+
+PATIENT_ID_FOR_OPERATION_BLOCK = r'''Private Function PatientIdForCurrentOperation() As String
+    Dim prefix As String
+    Dim rowText As String
+    Dim rowIndex As Long
+    Dim ws As Worksheet
+
+    If Len(Trim$(OutpatientEditTargetBaseEntryId)) = 0 Then
+        PatientIdForCurrentOperation = PatientIdFromSelection()
+        Exit Function
+    End If
+
+    prefix = "outpatient:"
+    If StrComp(Left$(OutpatientEditTargetBaseEntryId, Len(prefix)), prefix, vbTextCompare) <> 0 Then
+        Err.Raise vbObjectError + 2751, "PatientIdForCurrentOperation", _
+                  "Η επιλεγμένη εγγραφή επεξεργασίας δεν είναι έγκυρη."
+    End If
+
+    rowText = Mid$(OutpatientEditTargetBaseEntryId, Len(prefix) + 1)
+    If Len(rowText) = 0 Or Not IsNumeric(rowText) Then
+        Err.Raise vbObjectError + 2752, "PatientIdForCurrentOperation", _
+                  "Η επιλεγμένη εγγραφή επεξεργασίας δεν είναι έγκυρη."
+    End If
+
+    rowIndex = CLng(rowText)
+    Set ws = ThisWorkbook.Worksheets("OUTPATIENT_SCHEDULE")
+    If rowIndex < 2 Or rowIndex > ws.Cells(ws.Rows.Count, 1).End(xlUp).Row Then
+        Err.Raise vbObjectError + 2753, "PatientIdForCurrentOperation", _
+                  "Η επιλεγμένη εγγραφή δεν είναι πλέον διαθέσιμη."
+    End If
+
+    PatientIdForCurrentOperation = Trim$(CStr(ws.Cells(rowIndex, 1).Value))
+    If Len(PatientIdForCurrentOperation) = 0 Then
+        Err.Raise vbObjectError + 2754, "PatientIdForCurrentOperation", _
+                  "Η επιλεγμένη εγγραφή δεν έχει έγκυρο ασθενή."
+    End If
 End Function'''
 
 SELECT_PATIENT_BLOCK = r'''Public Sub SelectPatientById(ByVal patientId As String)
@@ -294,7 +330,7 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
             + patched[insert_at:]
         )
 
-    if "SaveOutpatientScheduleInWorkbook" not in patched or "OutpatientEditTargetBaseEntryId)" not in patched:
+    if "SaveOutpatientScheduleInWorkbook" not in patched or "PatientIdForCurrentOperation()" not in patched:
         patched = _replace_vba_procedure(
             patched,
             start_signature="Private Sub cmdSave_Click()",
@@ -310,7 +346,7 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
             replacement=NEW_REQUEST_BLOCK,
         )
     elif "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" in patched:
-        if 'q & "target_base_entry_id" & q' not in patched:
+        if 'JsonEscape(PatientIdForCurrentOperation())' not in patched:
             patched = _replace_vba_procedure(
                 patched,
                 start_signature="Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String",
@@ -324,6 +360,9 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
         'cmdSave.Caption = "Έλεγχος και preview"',
         'cmdSave.Caption = "Αποθήκευση προγράμματος"',
     )
+
+    if "Private Function PatientIdForCurrentOperation() As String" not in patched:
+        patched = patched.rstrip() + "\n\n" + PATIENT_ID_FOR_OPERATION_BLOCK + "\n"
 
     if "Public Sub SelectPatientById(ByVal patientId As String)" not in patched:
         patched = patched.rstrip() + "\n\n" + SELECT_PATIENT_BLOCK + "\n"
