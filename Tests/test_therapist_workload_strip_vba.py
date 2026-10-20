@@ -16,11 +16,21 @@ def test_workload_strip_has_application_facing_refresh_action():
     assert '"Φόρτος θεραπευτών"' in MODULE_CODE
 
 
-def test_workload_strip_counts_occupied_timeslots_not_patient_lines():
-    assert "For rowIndex = firstRows(blockIndex) To lastRows(blockIndex)" in MODULE_CODE
-    assert 'If Len(Trim$(CStr(daily.Cells(rowIndex, col).Value))) > 0 Then occupied = occupied + 1' in MODULE_CODE
+def test_workload_strip_counts_unique_occupied_timeslots_not_patient_lines():
+    assert 'Set providers = CreateObject("Scripting.Dictionary")' in MODULE_CODE
+    assert 'Set providerTimes = CreateObject("Scripting.Dictionary")' in MODULE_CODE
+    assert "providerTimes(timeValue) = True" in MODULE_CODE
+    assert "occupied = providerTimes.Count" in MODULE_CODE
     assert "Split(" not in MODULE_CODE
     assert "DEFAULT_CAPACITY As Long = 6" in MODULE_CODE
+
+
+def test_workload_strip_merges_same_therapist_across_layout_blocks():
+    assert "providerKey = NormalizeProviderName(providerName)" in MODULE_CODE
+    assert "If Not providers.Exists(providerKey) Then" in MODULE_CODE
+    assert "providerOrder.Add providerKey" in MODULE_CODE
+    assert "Set providerTimes = providers(providerKey)" in MODULE_CODE
+    assert "NormalizeProviderName" in MODULE_CODE
 
 
 def test_workload_strip_uses_current_therapist_daily_layout_blocks():
@@ -28,6 +38,7 @@ def test_workload_strip_uses_current_therapist_daily_layout_blocks():
     assert "firstRows = Array(2, 12)" in MODULE_CODE
     assert "lastRows = Array(8, 18)" in MODULE_CODE
     assert "For col = 2 To 10" in MODULE_CODE
+    assert "TimeKey(daily.Cells(rowIndex, 1).Value)" in MODULE_CODE
 
 
 def test_workload_strip_color_thresholds_are_green_orange_red():
