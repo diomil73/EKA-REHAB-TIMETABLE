@@ -12,7 +12,7 @@ Branch: `feature/outpatient-scheduling`.
 
 Active milestone: **outpatient recurring management UX native verification**.
 
-CREATE is native green. Same-row edit persistence is implemented. The developer-only row-number selector has now been replaced in code by an application-style schedule manager; focused Python tests and native Excel verification are still pending.
+CREATE is native green. The application-style manager is now visible and usable in native Excel. Native edit testing exposed a blocking correctness issue: an edited outpatient can appear twice in `THERAPIST_DAILY`, so the edit gate is not green yet and therapist workload derived from that view must not be trusted until the duplication path is fixed and verified.
 
 Restore correctness is closed green. Restore performance is deferred.
 
@@ -26,6 +26,8 @@ Restore correctness is closed green. Restore performance is deferred.
 - per-row / selected / restore-all in-session restore correctness: **native green**
 - previous combined outpatient recurring smoke build: **native green**, trusted source unchanged
 - outpatient recurring CREATE: **native green**
+- outpatient manager: **native visible and usable**
+- outpatient EDIT: **blocked by duplicate daily projection**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -51,9 +53,8 @@ Current technical path supports:
 - seven suggestion modes,
 - conflict backend and popup,
 - stable `target_base_entry_id`,
-- same-row edit instead of duplicate append,
+- same-row edit semantics in authoritative storage,
 - same-patient target validation,
-- current-date daily-view cleanup/re-render when edited,
 - application-style `frmOutpatientScheduleManager` listing patient, treatment, time, days and therapist,
 - hidden internal row mapping inside the manager rather than user-entered row numbers,
 - `EditOutpatientSchedule` routed through the manager,
@@ -61,12 +62,18 @@ Current technical path supports:
 - create/edit/close and double-click edit from the manager,
 - combined smoke installation of form, edit support, manager and conflict guard in one Excel session.
 
-Current gate:
+### Blocking native correctness issue
 
-- focused Python source tests must run locally on Windows,
-- then a fresh smoke build must prove manager VBA installs cleanly,
-- then native edit must confirm business-facing selection, same authoritative entry and no duplicate,
-- then native conflict behavior must be verified on a separate fresh scenario.
+Native edit verification revealed that the outpatient patient may remain in the old `THERAPIST_DAILY` placement and also be rendered in the new placement, producing a duplicate visible patient.
+
+This is a correctness issue, not cosmetic. Until it is fixed:
+
+- outpatient edit is **not native green**,
+- `THERAPIST_DAILY` may not be used as proof of correct outpatient placement after edit,
+- therapist workload/capacity derived from that duplicated daily projection must be treated as unverified,
+- no further conflict or workload native acceptance should be recorded on top of the affected smoke.
+
+The fix should prefer deterministic reconstruction of the affected daily placement from authoritative daily truth instead of fragile text-line removal followed by append.
 
 Normal users must not see raw sheet/grid/tab navigation, worksheet row numbers or `outpatient:<row>` IDs.
 
@@ -98,13 +105,15 @@ Current end-user restore duration in the low-to-mid 20-second range is accepted 
 
 ## Immediate roadmap
 
-1. Run the focused outpatient manager/edit/conflict source gate.
-2. Build a fresh combined outpatient smoke copy.
-3. Native-test `Διαχείριση Μητρώων` -> `Προγράμματα εξωτερικών ασθενών` -> edit one existing schedule -> save -> reopen manager, with no row/internal ID exposed and no duplicate entry.
-4. Native-test therapist/time conflict on a separate fresh scenario.
-5. Continue broader scheduling/UI work.
-6. Before closing replacements, implement global multi-absence optimization and persistent special-service operating hours.
-7. Revisit restore performance near completion.
+1. Reproduce the outpatient edit duplicate deterministically in tests.
+2. Replace fragile old-slot text removal/append behavior with deterministic affected-slot reconstruction from authoritative daily truth.
+3. Add regression coverage proving one outpatient base entry produces exactly one visible daily placement after edit.
+4. Add a workload/capacity regression proving the outpatient contributes exactly once to the therapist's operational load after edit.
+5. Build a fresh combined outpatient smoke and native-test edit again: old placement gone, new placement present once, no duplicate, correct styling.
+6. Only after that gate is green, native-test therapist/time conflict on a separate fresh scenario.
+7. Continue broader scheduling/UI work.
+8. Before closing replacements, implement global multi-absence optimization and persistent special-service operating hours.
+9. Revisit restore performance near completion.
 
 ## Locked daily rules
 
