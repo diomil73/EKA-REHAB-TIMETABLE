@@ -107,6 +107,28 @@ A daily cancelled occurrence must:
 
 This is a daily operational override, not a change to the patient's base programme.
 
+## Historical statistics and finalized-day corrections
+
+### Finalization
+Historical daily workload becomes final only through an explicit application action `Κλείσιμο ημέρας`. The action must be blocked while unresolved/orphan sessions remain or while any concrete-date session lacks a final operational outcome.
+
+### Persistence model
+Historical storage is hybrid:
+
+- finalized daily snapshots support fast weekly/monthly reporting,
+- append-only events preserve the audit trail and correction history.
+
+The primary workload metric is the actual final operational workload. Planned workload may be retained only as secondary comparison context.
+
+### Correction rule
+A finalized day must not be silently reopened and destructively rewritten.
+
+Use a dedicated user action such as `Διόρθωση κλεισμένης ημέρας`.
+
+A correction must create an auditable amendment event, pass the normal validation/finalization gate again, create a new finalized snapshot version, preserve the previous version as superseded, and link the new version to the previous one. Reporting uses the latest current-final snapshot; audit views may display the full version chain.
+
+Failed corrections must not partially replace the current-final historical state.
+
 ## Global replacement optimization
 
 ### Decision
