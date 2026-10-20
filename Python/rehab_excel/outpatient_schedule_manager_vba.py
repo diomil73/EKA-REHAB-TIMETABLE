@@ -4,6 +4,7 @@ from __future__ import annotations
 FORM_NAME = "frmOutpatientScheduleManager"
 MODULE_NAME = "modOutpatientScheduleManager"
 MACRO_NAME = "ShowOutpatientScheduleManager"
+REGISTRATION_MENU_NAME = "frmRegistrationMenu"
 
 
 MODULE_CODE = r'''Option Explicit
@@ -30,9 +31,15 @@ Private Sub UserForm_Initialize()
     lblInfo.Width = 465
     lblInfo.Height = 30
 
+    lblPatient.Caption = "Ασθενής"
+    lblTreatment.Caption = "Θεραπεία"
+    lblTime.Caption = "Ώρα"
+    lblDays.Caption = "Ημέρες"
+    lblTherapist.Caption = "Θεραπευτής"
+
     With lstSchedules
         .Width = 465
-        .Height = 250
+        .Height = 232
         .ColumnCount = 6
         .ColumnWidths = "0 pt;150 pt;95 pt;55 pt;85 pt;110 pt"
         .IntegralHeight = False
@@ -136,11 +143,30 @@ End Sub
 '''
 
 
+REGISTRATION_MENU_OUTPATIENT_CLICK = r'''Private Sub cmdOutpatientSchedule_Click()
+    On Error GoTo MissingManager
+    Unload Me
+    ShowOutpatientScheduleManager
+    Exit Sub
+MissingManager:
+    MsgBox "Η διαχείριση προγραμμάτων εξωτερικών ασθενών δεν είναι διαθέσιμη σε αυτό το αρχείο.", _
+           vbExclamation, "Προγράμματα εξωτερικών ασθενών"
+End Sub'''
+
+
 def _component_if_present(vbproject, name: str):
     try:
         return vbproject.VBComponents(name)
     except Exception:
         return None
+
+
+def _component_code(component) -> str:
+    module = component.CodeModule
+    count = int(getattr(module, "CountOfLines", 0) or 0)
+    if count <= 0:
+        return ""
+    return str(module.Lines(1, count))
 
 
 def _replace_component_code(component, code: str) -> None:
@@ -156,6 +182,42 @@ def _ensure_form_control(designer, prog_id: str, name: str):
         return designer.Controls(name)
     except Exception:
         return designer.Controls.Add(prog_id, name, True)
+
+
+def _replace_vba_procedure(
+    code: str,
+    *,
+    start_signature: str,
+    end_statement: str,
+    replacement: str,
+) -> str:
+    normalized = code.replace("\r\n", "\n").replace("\r", "\n")
+    start = normalized.find(start_signature)
+    if start < 0:
+        raise RuntimeError(f"VBA procedure missing: {start_signature}")
+    if normalized.find(start_signature, start + len(start_signature)) >= 0:
+        raise RuntimeError(f"VBA procedure duplicated: {start_signature}")
+    end_marker = "\n" + end_statement
+    end = normalized.find(end_marker, start + len(start_signature))
+    if end < 0:
+        raise RuntimeError(f"VBA procedure terminator missing: {start_signature}")
+    end += len(end_marker)
+    return normalized[:start] + replacement + normalized[end:]
+
+
+def patch_registration_menu_for_outpatient_manager(code: str) -> str:
+    patched = code.replace(
+        'StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή",',
+        'StyleMenuButton cmdOutpatientSchedule, "Προγράμματα εξωτερικών ασθενών",',
+    )
+    if "Private Sub cmdOutpatientSchedule_Click()" in patched:
+        patched = _replace_vba_procedure(
+            patched,
+            start_signature="Private Sub cmdOutpatientSchedule_Click()",
+            end_statement="End Sub",
+            replacement=REGISTRATION_MENU_OUTPATIENT_CLICK,
+        )
+    return patched
 
 
 def install_outpatient_schedule_manager(vbproject) -> None:
@@ -178,7 +240,12 @@ def install_outpatient_schedule_manager(vbproject) -> None:
     controls = (
         ("Forms.Label.1", "lblTitle", 18, 12),
         ("Forms.Label.1", "lblInfo", 18, 40),
-        ("Forms.ListBox.1", "lstSchedules", 18, 78),
+        ("Forms.Label.1", "lblPatient", 24, 78),
+        ("Forms.Label.1", "lblTreatment", 174, 78),
+        ("Forms.Label.1", "lblTime", 269, 78),
+        ("Forms.Label.1", "lblDays", 324, 78),
+        ("Forms.Label.1", "lblTherapist", 409, 78),
+        ("Forms.ListBox.1", "lstSchedules", 18, 96),
         ("Forms.CommandButton.1", "cmdNew", 18, 342),
         ("Forms.CommandButton.1", "cmdEdit", 168, 342),
         ("Forms.CommandButton.1", "cmdClose", 348, 342),
@@ -189,6 +256,13 @@ def install_outpatient_schedule_manager(vbproject) -> None:
         control.Top = top
 
     _replace_component_code(form, FORM_CODE)
+
+    registration_menu = _component_if_present(vbproject, REGISTRATION_MENU_NAME)
+    if registration_menu is not None:
+        registration_code = _component_code(registration_menu)
+        patched_registration = patch_registration_menu_for_outpatient_manager(registration_code)
+        if patched_registration != registration_code.replace("\r\n", "\n").replace("\r", "\n"):
+            _replace_component_code(registration_menu, patched_registration)
 
     installed_module = module.CodeModule.Lines(1, module.CodeModule.CountOfLines)
     installed_form = form.CodeModule.Lines(1, form.CodeModule.CountOfLines)
