@@ -329,7 +329,7 @@ def create_outpatient_schedule_preview(
     # THERAPIST_DAILY. A user who explicitly accepts the double booking has
     # already confirmed the real scheduling conflict, so this presentation-only
     # guard must not veto that manual override.
-    if not allow_double_booking:
+    if not allow_therapist_double_booking:
         try:
             validate_outpatient_slot_compatibility(
                 outpatient_patient_id=request.patient_id.strip(),
