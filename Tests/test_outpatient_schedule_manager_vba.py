@@ -56,3 +56,22 @@ def test_registration_menu_routes_outpatient_button_to_manager():
     assert "ShowOutpatientScheduleManager" in patched
     assert "frmOutpatientSchedule.Show" not in patched
     assert "Πρόγραμμα εξωτερικού ασθενή δεν είναι εγκατεστημένη" not in patched
+
+
+def test_legacy_registration_menu_without_outpatient_entry_gets_one():
+    legacy = USERFORM_CODE.replace(
+        '    StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή", 203\n',
+        "",
+    )
+    start = legacy.index("Private Sub cmdOutpatientSchedule_Click()")
+    end = legacy.index("\nEnd Sub", start) + len("\nEnd Sub")
+    legacy = legacy[:start] + legacy[end:]
+    legacy = legacy.replace(".Top = 260", ".Top = 215")
+
+    patched = patch_registration_menu_for_outpatient_manager(legacy)
+
+    assert patched.count("StyleMenuButton cmdOutpatientSchedule") == 1
+    assert '"Προγράμματα εξωτερικών ασθενών", 203' in patched
+    assert patched.count("Private Sub cmdOutpatientSchedule_Click()") == 1
+    assert "ShowOutpatientScheduleManager" in patched
+    assert ".Top = 260" in patched
