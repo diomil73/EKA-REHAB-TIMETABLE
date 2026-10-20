@@ -10,9 +10,9 @@ Branch: `feature/outpatient-scheduling`.
 
 ## Current stage
 
-Active milestone: **outpatient recurring management UX**.
+Active milestone: **outpatient recurring management UX native verification**.
 
-CREATE is native green. Same-row edit persistence is implemented, but the developer-only row-number selector must be replaced with application-style schedule management before final edit/conflict native verification.
+CREATE is native green. Same-row edit persistence is implemented. The developer-only row-number selector has now been replaced in code by an application-style schedule manager; focused Python tests and native Excel verification are still pending.
 
 Restore correctness is closed green. Restore performance is deferred.
 
@@ -24,7 +24,7 @@ Restore correctness is closed green. Restore performance is deferred.
 - `build_master_projection`: **0.089s**
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row / selected / restore-all in-session restore correctness: **native green**
-- combined outpatient recurring smoke build: **native green**, trusted source unchanged
+- previous combined outpatient recurring smoke build: **native green**, trusted source unchanged
 - outpatient recurring CREATE: **native green**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
@@ -45,7 +45,7 @@ Primary restore UX keeps the workbook open, runs Python hidden/blocking, protect
 
 ## Active: outpatient recurring management UI
 
-Current technical path already supports:
+Current technical path supports:
 
 - recurring outpatient creation,
 - seven suggestion modes,
@@ -53,17 +53,22 @@ Current technical path already supports:
 - stable `target_base_entry_id`,
 - same-row edit instead of duplicate append,
 - same-patient target validation,
-- current-date daily-view cleanup/re-render when edited.
+- current-date daily-view cleanup/re-render when edited,
+- application-style `frmOutpatientScheduleManager` listing patient, treatment, time, days and therapist,
+- hidden internal row mapping inside the manager rather than user-entered row numbers,
+- `EditOutpatientSchedule` routed through the manager,
+- the existing `Διαχείριση Μητρώων` outpatient action routed to `Προγράμματα εξωτερικών ασθενών`,
+- create/edit/close and double-click edit from the manager,
+- combined smoke installation of form, edit support, manager and conflict guard in one Excel session.
 
-Open UX gate:
+Current gate:
 
-- the existing `EditOutpatientSchedule` row-number InputBox is developer scaffolding only,
-- normal users do not see raw sheets/grid/tabs,
-- `OUTPATIENT_SCHEDULE` remains hidden/protected storage,
-- build a business-facing management/selection UI with patient, treatment, time, days and therapist,
-- selection must carry the internal target invisibly.
+- focused Python source tests must run locally on Windows,
+- then a fresh smoke build must prove manager VBA installs cleanly,
+- then native edit must confirm business-facing selection, same authoritative entry and no duplicate,
+- then native conflict behavior must be verified on a separate fresh scenario.
 
-Do not ask the user to continue edit testing through worksheet row numbers.
+Normal users must not see raw sheet/grid/tab navigation, worksheet row numbers or `outpatient:<row>` IDs.
 
 ## Open: replacement quality under multiple therapist absences
 
@@ -93,9 +98,9 @@ Current end-user restore duration in the low-to-mid 20-second range is accepted 
 
 ## Immediate roadmap
 
-1. Build outpatient schedule management/selection UI.
-2. Add pure mapping/selection tests that keep internal row IDs hidden from users.
-3. Build a fresh smoke copy and native-test create -> reopen -> edit same authoritative entry with no duplicate.
+1. Run the focused outpatient manager/edit/conflict source gate.
+2. Build a fresh combined outpatient smoke copy.
+3. Native-test `Διαχείριση Μητρώων` -> `Προγράμματα εξωτερικών ασθενών` -> edit one existing schedule -> save -> reopen manager, with no row/internal ID exposed and no duplicate entry.
 4. Native-test therapist/time conflict on a separate fresh scenario.
 5. Continue broader scheduling/UI work.
 6. Before closing replacements, implement global multi-absence optimization and persistent special-service operating hours.
