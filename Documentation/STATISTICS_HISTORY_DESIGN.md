@@ -71,13 +71,37 @@ On successful close, persist the finalized daily historical snapshot. At minimum
 
 A later correction to historical data must be auditable. Do not silently rewrite historical truth without retaining the fact that a correction occurred. The exact reopen/amendment workflow remains to be designed.
 
+## Persistence model
+
+The historical architecture is **hybrid**.
+
+Use both:
+
+1. **Finalized daily snapshots** for fast operational reporting, weekly/monthly aggregation and stable historical totals.
+2. **Append-only historical events** for auditability, corrections and reconstruction of how the final result was reached.
+
+The snapshot is the reporting surface, not the only historical truth. Events must not be destructively overwritten when a later correction is needed.
+
+The minimum event stream should be able to represent meaningful day-changing actions such as:
+
+- therapist/patient absence,
+- cancellation or no-show,
+- replacement assignment,
+- treatment suspension,
+- explicit approved double-booking/over-capacity exception,
+- permanent therapist-assignment change when it affects historical interpretation,
+- day finalization,
+- post-finalization amendment/correction.
+
+Weekly and monthly dashboards should normally read finalized snapshots. Drill-down/audit views may follow the corresponding event history.
+
 ## Open design questions
 
 Still to lock before implementation:
 
 1. exact finalized-day snapshot schema and storage location,
-2. whether history is append-only events, daily snapshots, or a hybrid of both,
-3. correction/amendment workflow after a day is finalized,
+2. exact append-only event schema and identifiers,
+3. correction/reopen/amendment workflow after a day is finalized,
 4. retention horizon and archive policy,
 5. weekly/monthly comparison windows,
 6. patient-level historical statistics and privacy boundaries,
