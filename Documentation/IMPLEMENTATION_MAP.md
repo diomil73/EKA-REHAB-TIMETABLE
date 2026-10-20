@@ -47,24 +47,28 @@ Backend / Excel bridge ownership:
 - `Python/rehab_excel/outpatient_schedule_bridge.py`
 - `Python/rehab_excel/outpatient_schedule_registration.py`
 - `Python/rehab_excel/outpatient_schedule_form_vba.py`
-- `Python/rehab_excel/outpatient_schedule_edit_vba.py`
+- `Python/rehab_excel/outpatient_schedule_edit_vba.py`: internal edit preload / stable target handling; public edit entry now routes through the manager.
+- `Python/rehab_excel/outpatient_schedule_manager_vba.py`: business-facing list/selection UI, hidden row-to-target mapping and registration-menu routing.
 - `Python/rehab_excel/outpatient_conflict_guard_vba.py`
 - `Python/rehab_excel/outpatient_in_session_vba.py`
 - `Python/rehab_excel/scheduling_conflict_popup_vba.py`
-- `Python/tools/build_outpatient_recurring_smoke.py`
+- `Python/tools/build_outpatient_recurring_smoke.py`: one-session combined installer including manager.
 
 Current status:
 
 - CREATE native green,
 - stable same-row edit semantics implemented,
-- row-number InputBox edit selector is developer scaffolding and must be replaced by application-style schedule management UI before final native edit verification,
-- conflict native gate follows after that.
+- application-style manager implemented in code and awaiting focused/native verification,
+- old row-number InputBox flow is retired from the public edit entry,
+- conflict native gate follows manager/edit verification.
 
 `OUTPATIENT_SCHEDULE` is hidden/protected authoritative storage, not a normal user workspace.
 
 ### Registration / application shell
 
 - registration and top-level menu/form code lives under `Python/rehab_excel/` VBA generator/installer modules.
+- `frmRegistrationMenu` remains reachable from the MASTER `Διαχείριση Μητρώων` action.
+- its outpatient action is now patched by `outpatient_schedule_manager_vba.py` to open the business-facing schedule manager rather than the raw create form.
 - the product UX must remain application-like: MASTER/top buttons/forms, not native Excel grid navigation.
 - detailed UI/product design history remains in `UI_APPLICATION_ROADMAP.md`; current cross-project UX rules are summarized in `Documentation/ONBOARDING.md` and locked in `Documentation/DECISIONS.md`.
 
@@ -74,7 +78,7 @@ Current status:
 - replacement lifecycle V87-V92: native green,
 - per-row / selected / restore-all authoritative restore: native green,
 - daily statistics reconstruction parity: native green,
-- outpatient combined smoke install: native green,
+- previous outpatient combined smoke install: native green,
 - outpatient CREATE: native green.
 
 ## Deferred performance work
@@ -85,7 +89,7 @@ Profiler remains at `Python/tools/profile_daily_restore_backend.py`.
 
 ## Open implementation milestones
 
-1. application-style outpatient schedule management/selection UI,
+1. focused/native verification of the application-style outpatient manager,
 2. outpatient native same-entry edit gate,
 3. outpatient native conflict gate,
 4. broader scheduling/UI roadmap,
