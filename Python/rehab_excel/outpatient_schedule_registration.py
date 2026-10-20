@@ -74,6 +74,22 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _canonical_patient_id(value: object) -> str:
+    """Normalize Excel/COM numeric IDs to the same text form as source readers.
+
+    Excel COM exposes an integer-looking cell such as 2 as ``2.0`` while the
+    read-only source adapter intentionally normalizes the same value to ``"2"``.
+    Edit validation must compare identity semantically rather than reject the
+    copied preview because of that representation-only difference.
+    """
+
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
 def _excel_time_serial(value: time) -> float:
     """Convert ``datetime.time`` to Excel's fraction-of-a-day representation."""
 
@@ -222,12 +238,13 @@ class Win32ComOutpatientScheduleBackend:
 
             if request.target_base_entry_id:
                 row = _target_row_from_entry_id(request.target_base_entry_id)
-                current_id = str(ws.Cells(row, 1).Value or "").strip()
+                current_id = _canonical_patient_id(ws.Cells(row, 1).Value)
+                request_id = _canonical_patient_id(request.patient_id)
                 if not current_id:
                     raise OutpatientScheduleWriteError(
                         f"Cannot update {request.target_base_entry_id!r}: row is empty"
                     )
-                if current_id.casefold() != request.patient_id.strip().casefold():
+                if current_id.casefold() != request_id.casefold():
                     raise OutpatientScheduleWriteError(
                         f"Cannot update {request.target_base_entry_id!r}: PatientID mismatch"
                     )
@@ -312,7 +329,7 @@ def create_outpatient_schedule_preview(
     # THERAPIST_DAILY. A user who explicitly accepts the double booking has
     # already confirmed the real scheduling conflict, so this presentation-only
     # guard must not veto that manual override.
-    if not allow_therapist_double_booking:
+    if not allow_double_booking:
         try:
             validate_outpatient_slot_compatibility(
                 outpatient_patient_id=request.patient_id.strip(),
