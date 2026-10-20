@@ -1,152 +1,122 @@
 # Implementation Map
 
-Τελευταία ενημέρωση: 2026-10-17
+Τελευταία ενημέρωση: 2026-10-20
 
 ## Σκοπός
 
-Ζωντανός χάρτης υλοποίησης. Για ακριβές resume point πρώτο αρχείο είναι το `Documentation/CURRENT_HANDOFF.md`.
+Αυτό είναι ο ζωντανός χάρτης ownership της υλοποίησης. Για συνολική κατανόηση του project ξεκινάμε από `Documentation/ONBOARDING.md`. Για το ακριβές resume point χρησιμοποιούμε `Documentation/CURRENT_HANDOFF.md`.
 
-## Τι φτιάχνουμε τώρα
+## Κύρια ownership περιοχών
 
-### 1. Authoritative restore + recompute
+### Scheduling / business logic
 
-Το restart-safe daily truth είναι native green από V88 έως V92.
+- `Python/rehab_core/availability.py`: patient/provider availability.
+- `Python/rehab_core/conflicts.py`: scheduling conflicts.
+- `Python/rehab_core/replacements.py`: current single-session replacement candidates and validation.
+- `Python/rehab_core/replacement_options.py`: feasible replacement times and recommendation ordering.
+- `Python/rehab_core/replacement_policy.py`: provider policy + patient schedule filtering.
+- `Python/rehab_core/provider_policy.py`: provider profiles, blocks, max-load and leadership overrides.
+- `Python/rehab_core/daily_state.py`: effective daily session state.
+- `Python/rehab_core/orphan_resolution.py`: orphan-resolution semantics.
+- `Python/rehab_core/daily_statistics.py`: statistics from effective daily state.
 
-Το restore σημαίνει authoritative replacement-fact lifecycle + πλήρες recompute, όχι cell copy-back.
+The global multi-absence replacement optimizer is still open work. The existing single-patient ranking path must not be treated as the final global optimizer.
 
-### 2. Replacement ID hardening
+### Authoritative replacement facts / restore
 
-Implemented:
+- `Python/rehab_excel/daily_replacement_facts.py`: fact persistence model.
+- `Python/rehab_excel/daily_replacement_fact_batch.py`: validate-all-before-mutate batch semantics.
+- `Python/tools/restore_daily_replacement_fact.py`: single fact restore tooling.
+- `Python/tools/restore_daily_replacement_facts.py`: selected/all authoritative restore backend.
+- `Python/rehab_excel/daily_change_ledger_vba.py`: ledger VBA base.
+- `Python/rehab_excel/daily_restore_in_session_vba.py`: in-session restore bridge.
+- `Python/tools/build_daily_restore_bridge_preview.py`: native smoke/preview builder.
 
-- first placement keeps legacy id `daily-input:<session_id>:<date>`,
-- re-placement after restore gets `:v2`,
-- later cycles get `:v3`, etc.,
-- full replacement history including RESTORED rows drives version allocation.
+Authoritative truth remains `DAILY_REPLACEMENT_FACTS`; `DAILY_CHANGE_LEDGER` is only a projection/audit view.
 
-### 3. Selected/all authoritative restore
+### Daily views and MASTER
 
-Implemented and native green for correctness. Current ownership after the performance redesign:
+- daily render / write planning lives under `Python/rehab_excel/`.
+- MASTER projection metadata uses OOXML/package reads rather than loading/saving the production workbook with openpyxl.
+- `THERAPIST_DAILY`, `MASTER_SCHEDULE` and `DAILY_STATISTICS` must derive from the same effective daily truth.
 
-- `daily_replacement_fact_batch.py` owns validate-all-before-mutate semantics through `validate_batch_restore_request`,
-- `Python/tools/restore_daily_replacement_facts.py` reads the authoritative fact set once, validates the requested ids, and derives the post-restore ACTIVE replacement set in memory,
-- the staging workbook is no longer opened/saved by a dedicated Excel process just to flip fact status,
-- `_RestoreOutputBackend` owns persistence of selected fact rows to `RESTORED` in `DAILY_REPLACEMENT_FACTS`, together with MASTER, daily patches, statistics, ledger lifecycle, refresh, and the single output save,
-- missing/stale/already-restored member still aborts the whole batch before authoritative mutation,
-- selected restore accepts multiple exact ids,
-- restore-all selects all currently ACTIVE facts.
+### Outpatient recurring scheduling
 
-Performance ownership change: implementation `c7895e28e5843df30a889b55326189764c3dec0a`.
+Backend / Excel bridge ownership:
 
-### 4. Ορφανοί + treatment suspension
+- `Python/rehab_excel/outpatient_schedule_bridge.py`
+- `Python/rehab_excel/outpatient_schedule_registration.py`
+- `Python/rehab_excel/outpatient_schedule_form_vba.py`
+- `Python/rehab_excel/outpatient_schedule_edit_vba.py`
+- `Python/rehab_excel/outpatient_conflict_guard_vba.py`
+- `Python/rehab_excel/outpatient_in_session_vba.py`
+- `Python/rehab_excel/scheduling_conflict_popup_vba.py`
+- `Python/tools/build_outpatient_recurring_smoke.py`
 
-Native green through the full V87-V92 lifecycle.
+Current status:
 
-Locked rule: κάθε orphan καταλήγει σε valid therapist/time placement ή `Αναστολή θεραπείας` για τη συγκεκριμένη ημέρα. Recurring/base δεν αλλάζει. Finalized day μόνο με unresolved=0.
+- CREATE native green,
+- stable same-row edit semantics implemented,
+- row-number InputBox edit selector is developer scaffolding and must be replaced by application-style schedule management UI before final native edit verification,
+- conflict native gate follows after that.
 
-### 5. Daily statistics
+`OUTPATIENT_SCHEDULE` is hidden/protected authoritative storage, not a normal user workspace.
 
-`DAILY_STATISTICS` derives from the same DailySessionState. V88-V92 prove fresh reconstruction remains consistent with persisted statistics.
+### Registration / application shell
 
-### 6. Daily effective state: MASTER + THERAPIST_DAILY
+- registration and top-level menu/form code lives under `Python/rehab_excel/` VBA generator/installer modules.
+- the product UX must remain application-like: MASTER/top buttons/forms, not native Excel grid navigation.
+- detailed UI/product design history remains in `UI_APPLICATION_ROADMAP.md`; current cross-project UX rules are summarized in `Documentation/ONBOARDING.md` and locked in `Documentation/DECISIONS.md`.
 
-Native green for active replacement and authoritative restore flows. Restore resets recurring truth, reapplies surviving ACTIVE overlays, and rebuilds operational views.
+## Closed correctness milestones
 
-`build_master_projection` no longer loads the full `.xlsm` through openpyxl merely to discover PATIENTS source-row ids, SETTINGS room order, and MASTER header location. Those stored metadata values are now read directly by `WorkbookPackageProbe` from the OOXML ZIP/XML package. Projection semantics and formula-row mapping are unchanged. Implementation `82abf70349d52aaef627f7a83f5f2387d0b6f74a`, regression `5cf0fdfee7ad0c7d458b9b0e85c5e364c5a6271d`.
+- restart-safe authoritative reconstruction: native green,
+- replacement lifecycle V87-V92: native green,
+- per-row / selected / restore-all authoritative restore: native green,
+- daily statistics reconstruction parity: native green,
+- outpatient combined smoke install: native green,
+- outpatient CREATE: native green.
 
-### 7. Excel ledger migration
+## Deferred performance work
 
-Correctness is closed green. Current bridge:
+Latest direct backend profile: `16.509s`. End-user restore latency in the low-to-mid 20-second range is accepted for now. Do not resume optimization unless there is a regression or final-polish phase.
 
-- base ledger VBA: `Python/rehab_excel/daily_change_ledger_vba.py`,
-- in-session transformer: `Python/rehab_excel/daily_restore_in_session_vba.py`,
-- smoke builder: `Python/tools/build_daily_restore_bridge_preview.py`,
-- backend CLI: `Python/tools/restore_daily_replacement_facts.py`,
-- Python runs hidden and blocking through `WScript.Shell.Run(..., 0, True)`,
-- verified preview is applied to the already-open workbook,
-- rollback copy protects the in-session apply,
-- authoritative sheet set: `DAILY_REPLACEMENT_FACTS`, `DAILY_CHANGE_LEDGER`, `THERAPIST_DAILY`, `MASTER_SCHEDULE`, `DAILY_STATISTICS`,
-- no primary-path `Shell.Exec`, `ThisWorkbook.Close`, or detached reopen worker.
+Profiler remains at `Python/tools/profile_daily_restore_backend.py`.
 
-The old VBA direct snapshot cell-copy restore path remains retired. Snapshot cells are audit evidence only.
+## Open implementation milestones
 
-### 8. Restore performance / profiling
+1. application-style outpatient schedule management/selection UI,
+2. outpatient native same-entry edit gate,
+3. outpatient native conflict gate,
+4. broader scheduling/UI roadmap,
+5. global multi-absence replacement optimizer,
+6. persistent pool/robotic operating-hours configuration,
+7. final restore-performance polish later.
 
-Current active engineering item.
-
-Measured evolution:
-
-- Backend before MASTER batching: `45.70s`,
-- after MASTER range-batched COM write: `31.33s`,
-- after replacement-fact session consolidation: `22.924s total`, `12.978s pre-Excel`, `9.946s Excel output`,
-- old `restore_fact_batch 8.863s` phase is eliminated,
-- current dominant pre-Excel phase before the OOXML metadata patch: `build_master_projection 6.142s`.
-
-The profiler at `Python/tools/profile_daily_restore_backend.py` measures pre-Excel and Excel output sub-phases. Next verification is `BACKEND_PROFILE4.xlsm`; expected result is a sharp drop in `build_master_projection` after the OOXML package path.
-
-### 9. Dynamic daily recomputation
-
-Locked order:
-
-1. recurring/base schedule,
-2. cancellations/no-shows release slots,
-3. therapist absences,
-4. identify displaced/orphan sessions,
-5. apply ACTIVE persisted replacements,
-6. remaining orphans resolve by placement or suspension,
-7. new patients only after existing displaced patients are resolved.
-
-Recompute remains idempotent and order-independent.
-
-### 10. Outpatient recurring create/edit
-
-Implemented but native verification remains open until restore latency reaches acceptance.
-
-### 11. Legacy `ΑΝΑΝΕΩΣΗ`
-
-Deferred/manual cleanup. Not a blocker.
-
-## Ολοκληρωμένα checkpoints
-
-- full regression: **699 passed, 19 warnings**
-- replacement lifecycle V87-V92: **native green**
-- authoritative ledger restore per-row / selected / restore-all: **native green**
-- focused source gates through MASTER batch-write: **green**
-
-Python 3.14 ZipFile teardown warnings remain non-blocking technical debt.
-
-## Τρέχον verification gate
-
-1. Pull latest branch.
-2. Run the focused restore/profiler/MASTER/bridge tests listed in `CURRENT_HANDOFF.md`.
-3. If green, run a fresh `BACKEND_PROFILE4.xlsm` from trusted `RERESOLVED_V90.xlsm`.
-4. Confirm `build_master_projection` drops sharply from `6.142s`.
-5. Attack the next largest measured phase immediately, currently expected to be the ~`2.58s` unattributed pre-Excel gap and/or Excel startup/open/save overhead.
-6. Preserve source hash/VBA, validate-all-before-mutate, and exact reconstruction.
-7. Keep acceptance target roughly `<=15s` total, ideally around 10s.
-
-## Business rules που δεν πρέπει να παλινδρομήσουν
+## Business rules that must not regress
 
 - daily facts are overlays, never destructive recurring edits,
-- operational capacity is timeslot-based,
+- capacity is timeslot-based,
 - existing displaced patients precede new patients,
-- orphan never silently disappears,
-- MASTER and THERAPIST_DAILY agree on effective state,
-- old restore cannot overwrite a newer change,
-- bulk restore is validate-all-before-mutate,
-- Python does not save the staging/production `.xlsm` with openpyxl,
-- authoritative fact lifecycle is persisted only to the verified output through native Excel,
-- Excel restore controls mutate authoritative facts, not snapshot cells directly,
-- primary ledger restore UX must not close/reopen the workbook or expose a console window,
-- layout write zones remain narrow,
-- ΦΘ provider remains solver-owned,
-- outpatients cannot receive robotic treatment.
+- every orphan resolves explicitly,
+- MASTER and THERAPIST_DAILY agree,
+- old restore cannot overwrite newer fact history,
+- bulk restore validates the whole requested set before mutation,
+- baseline is immutable,
+- no production/staging `.xlsm` save with openpyxl,
+- outpatients count operationally but do not belong in inpatient planner UI,
+- outpatients never receive robotic treatment,
+- technical sheet names, worksheet rows and internal IDs are not normal end-user concepts.
 
-## Recovery rule
+## Navigation
 
-1. `Documentation/CURRENT_HANDOFF.md`
-2. `Documentation/IMPLEMENTATION_MAP.md`
-3. `Documentation/PROJECT_STATUS.md`
-4. `Documentation/DECISIONS.md`
-5. active tests
+Start: `Documentation/ONBOARDING.md`
+
+Then use:
+
+- exact resume: `Documentation/CURRENT_HANDOFF.md`
+- durable rules: `Documentation/DECISIONS.md`
+- milestone/risk state: `Documentation/PROJECT_STATUS.md`
+- history: `CHANGELOG.md`
 
 Windows: πάντα `python -m pytest`, ποτέ bare `pytest`.
