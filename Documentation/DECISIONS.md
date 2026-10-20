@@ -55,7 +55,11 @@ Architecture decision:
 - after merging, inpatient and outpatient sessions use the same operational scheduling engine
 - `THERAPIST DAILY` remains the only normal operational view where outpatient names are shown
 
-The outpatient source may later be hidden/protected in Excel, but it remains data storage, not a second scheduling engine.
+`OUTPATIENT_SCHEDULE` is an authoritative storage sheet, not an end-user workspace. The normal application must keep it hidden/protected and must not require the user to navigate to it, know Excel row numbers, or edit its cells directly.
+
+Normal create/edit access for outpatient recurring schedules must come from the application's top-level UI. The intended UX is a management view/form that lists outpatient schedule entries in business terms such as patient, treatment, time, days and therapist, with actions such as create and edit. Internal identifiers such as `outpatient:<row>` may remain implementation keys but must not be required input from the user.
+
+Direct access to `OUTPATIENT_SCHEDULE` may remain available only for controlled development/support diagnostics, not as part of the ordinary clinical workflow.
 
 ### Strict visual / clinical rule
 An outpatient is **light blue only** in `THERAPIST DAILY`.
