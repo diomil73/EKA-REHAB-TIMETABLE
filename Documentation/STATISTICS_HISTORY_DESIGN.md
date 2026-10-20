@@ -176,16 +176,23 @@ Each historical event should contain at least:
 
 Event rows are append-only. Corrections create new events; they do not edit the original event into a different historical claim.
 
+## Retention and archive policy
+
+Historical snapshots and append-only events are retained indefinitely by default for the life of the system.
+
+The application must not automatically delete, truncate or age out historical records. If archive or data-reduction functionality is introduced later, it must be an explicit controlled administrative action with validation and auditability. Ordinary reporting should continue to work across all retained finalized history.
+
+This policy applies to both current-final snapshots and superseded historical versions needed for amendment/audit chains.
+
 ## Open design questions
 
 Still to lock before implementation:
 
 1. physical storage location for snapshots/events,
-2. retention horizon and archive policy,
-3. weekly/monthly comparison windows,
-4. patient-level historical statistics and privacy boundaries,
-5. dashboard layout and drill-down UX,
-6. which statistics are operationally useful enough to keep permanently versus derive on demand.
+2. weekly/monthly comparison windows,
+3. patient-level historical statistics and privacy boundaries,
+4. dashboard layout and drill-down UX,
+5. which statistics are operationally useful enough to keep permanently versus derive on demand.
 
 ## Relationship to current scheduling truth
 
