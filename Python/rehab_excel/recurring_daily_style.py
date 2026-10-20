@@ -43,8 +43,10 @@ def _roles_for_lines(
 
     The workbook text is preserved verbatim. A line is matched by patient name
     plus day pattern when available, which disambiguates same-patient split
-    schedules such as ΦΘ on Τρ-Πε and Ρομποτικό on Δε-Τε-Πα. Outpatients keep
-    a dark-green font role while robotic assignments keep orange precedence.
+    schedules such as ΦΘ on Τρ-Πε and Ρομποτικό on Δε-Τε-Πα. Outpatients use
+    neutral black text; their outpatient identity is communicated by the
+    dedicated cell presentation layer. Robotic assignments keep orange
+    precedence.
     """
 
     runs: list[TextRunPatch] = []
@@ -82,9 +84,10 @@ def _roles_for_lines(
         robotic = bool(entry.robotic) or _key(entry.treatment) == _key("Ρομποτικό")
         if robotic:
             font_role = "robotic_orange"
-        elif patient is not None and patient.is_outpatient:
-            font_role = "outpatient_dark_green"
         else:
+            # Both ordinary and outpatient recurring lines start from neutral
+            # black. Outpatient semantics are carried by the dedicated fill,
+            # avoiding stale inherited green/orange font styling after edits.
             font_role = "default"
         runs.append(
             TextRunPatch(
@@ -148,10 +151,7 @@ def build_recurring_therapist_daily_style_plan(
                 continue
             text = str(value)
             runs = _roles_for_lines(text, slot_entries, patient_map)
-            if not any(
-                run.font_role in {"robotic_orange", "outpatient_dark_green"}
-                for run in runs
-            ):
+            if not runs:
                 continue
             patches.append(
                 CellPatch(
