@@ -118,6 +118,17 @@ For a selected patient, the application must be able to derive/display at least 
 
 Stable `PatientID` remains the internal key. The UI shows normal patient identity/business labels. Patient history must be based on finalized snapshots/events, not on the patient's current recurring schedule.
 
+## Dashboard/report decision
+
+Reporting must provide both:
+
+- filtered tables for exact values and operational review,
+- charts/trends for pattern recognition, comparison and change over time.
+
+Tables are the primary numeric surface; charts are complementary. The same filters and finalized historical truth must drive both so chart values always reconcile with the underlying table rows.
+
+Normal users access reports through application UI, not raw technical worksheets.
+
 ## Smallest durable logical schema now drafted
 
 `Documentation/STATISTICS_HISTORY_DESIGN.md` defines the minimum logical fields for:
@@ -128,14 +139,16 @@ Stable `PatientID` remains the internal key. The UI shows normal patient identit
 
 The weekly therapist workload view will derive from finalized therapist/day rows, with actual final occupied timeslots as the primary metric and final active sessions as a separate workload metric.
 
-## Statistics/history design topics still to lock
+## Statistics/history design checkpoint status
 
-Next decisions:
+The core architecture questions are now complete enough to stop abstract questioning and collect the user's concrete requirements.
 
-1. weekly/monthly comparison windows,
-2. dashboard/report layout and drill-down UX,
-3. which additional metrics are valuable enough to persist versus derive on demand,
-4. exact patient-level metric set based on the user's own requested statistics/history.
+Remaining details should be derived from those requirements:
+
+- exact weekly/monthly comparison presets,
+- additional metrics worth persisting versus deriving,
+- exact patient-level statistics/reports,
+- dashboard views and drill-downs that map to real operational use.
 
 ## Exact resume point
 
@@ -146,10 +159,11 @@ Next decisions:
 5. Treat same-workbook hidden/protected technical storage as locked.
 6. Treat indefinite retention by default as locked.
 7. Treat patient-level historical analysis as required.
-8. Finish the last dashboard/comparison design question, then collect the user's additional requested metrics before implementation.
-9. Use those requirements to finalize the first concrete slice: day finalization + therapist/day history + weekly workload view.
-10. Do not manually save smoke workbooks outside a tested flow.
-11. Do not return to restore performance tuning yet.
+8. Treat both tables and charts/trends as required for reporting.
+9. Collect the user's own requested history/statistics now, before implementation.
+10. Use those requirements to finalize the first concrete slice: day finalization + therapist/day history + weekly workload view.
+11. Do not manually save smoke workbooks outside a tested flow.
+12. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
