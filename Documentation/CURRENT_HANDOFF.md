@@ -23,7 +23,7 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - combined outpatient recurring smoke build: native green, trusted source unchanged
 - outpatient recurring CREATE: native green
 - outpatient schedule manager: native visible and usable
-- outpatient edit: not green; native test exposed duplicate `THERAPIST_DAILY` placement after edit
+- outpatient edit: not green yet; duplicate-fix code is implemented but awaits focused + native verification
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
@@ -40,34 +40,60 @@ Current implementation:
 - The existing top-level `Διαχείριση Μητρώων` menu's outpatient button opens `Προγράμματα εξωτερικών ασθενών`.
 - Same-row authoritative edit semantics remain protected by `target_base_entry_id` and same-patient validation.
 
-### Blocking native bug
+### Duplicate daily projection bug and implemented hardening
 
-A native edit that changes an outpatient placement can leave the patient visible in the old `THERAPIST_DAILY` slot and also add the patient to the new slot. The result is a duplicated patient in the daily therapist view.
+Native edit showed the same outpatient twice in `THERAPIST_DAILY`. The identified mechanism is that normal daily rendering may decorate the patient line, for example `Όνομα [Καθ/να]`, while the old edit cleanup removed only a line exactly equal to `Όνομα`. The old rendered line therefore survived and the in-session edit appended a second plain line.
 
-Treat this as a correctness blocker:
+Implemented in `Python/rehab_excel/outpatient_daily_edit_vba.py`:
 
-- edit is not native green,
-- do not trust the affected `THERAPIST_DAILY` view as proof of placement correctness,
-- do not trust therapist workload/capacity numbers derived from a duplicated daily projection,
-- do not continue the conflict native gate on the affected smoke.
+- patch the installed `modOutpatientInSession` after the normal conflict/in-session installer,
+- on edit, clean the old affected daily cell before refresh,
+- if therapist/time changes, clean the destination cell too,
+- recognize both plain patient lines and known decorated patient-line forms such as `Όνομα [..]`, `Όνομα (..)` and replacement-arrow suffixes,
+- render only once after cleanup,
+- keep this hardening isolated from authoritative storage semantics.
 
-Likely weakness: the current in-session edit path tries to remove the old outpatient line by matching visible text, then appends the new placement. This is too fragile. The preferred direction is deterministic reconstruction of the affected daily slot(s) from authoritative daily truth so one base entry produces exactly one effective daily placement.
+The combined outpatient smoke builder now installs this hardening after the conflict guard and before verification/save.
+
+This remains a transitional in-session hardening layer. Long-term rendering direction is deterministic reconstruction from authoritative daily truth rather than text-oriented cell surgery.
+
+### Workload verification
+
+A new Python regression materializes one outpatient recurring entry on an applicable date and verifies `calculate_therapist_workload` returns exactly:
+
+- `active_sessions == 1`
+- `active_timeslots == 1`
+
+So the scheduling model has an explicit one-outpatient/one-load contract. Native Excel must now prove its projection matches that model.
 
 Do not return to the old row-number InputBox flow.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Add a regression that reproduces the duplicate outpatient after edit.
-3. Refactor the affected-slot refresh so it is reconstructed deterministically from authoritative daily truth rather than relying on text-line deletion followed by append.
-4. Add a regression proving exactly one outpatient placement remains after edit: old slot absent, new slot present once.
-5. Add a workload/capacity regression proving the outpatient counts exactly once for the therapist after edit.
-6. Run the focused outpatient edit/source/in-session tests.
-7. Build a fresh `OUTPATIENT_RECURRING_SMOKE.xlsm` from trusted `RERESOLVED_V90.xlsm`.
-8. Native-test through `Διαχείριση Μητρώων` -> `Προγράμματα εξωτερικών ασθενών`: edit one field, save, reopen, confirm one record and one daily placement only.
-9. Only after edit + workload are native green, use a separate fresh smoke for therapist/time conflict verification.
-10. Do not manually save smoke workbooks outside the tested flow.
-11. Do not return to restore performance tuning yet.
+2. Run the focused duplicate-fix gate:
+
+```powershell
+python -m pytest `
+  Tests/test_outpatient_daily_edit_vba.py `
+  Tests/test_outpatient_schedule_source.py `
+  Tests/test_outpatient_schedule_registration.py `
+  Tests/test_outpatient_conflict_guard_vba.py `
+  Tests/test_outpatient_schedule_edit_vba.py `
+  Tests/test_outpatient_schedule_manager_vba.py `
+  Tests/test_outpatient_recurring_smoke_builder.py -q
+```
+
+3. If green, build a fresh `OUTPATIENT_RECURRING_SMOKE.xlsm` from trusted `RERESOLVED_V90.xlsm`.
+4. Native-test through `Διαχείριση Μητρώων` -> `Προγράμματα εξωτερικών ασθενών`: edit only the time of the existing outpatient.
+5. Confirm the old daily placement is gone and the destination contains the outpatient exactly once.
+6. Reopen the manager and confirm the schedule entry itself is still single and shows the new time.
+7. Confirm therapist load semantics remain one outpatient session / one occupied timeslot. Do not infer correctness merely from duplicate-looking text.
+8. If this is green, clean remaining outpatient daily styling issues.
+9. Then use a separate fresh smoke for therapist/time conflict verification.
+10. Continue to the next unambiguous milestone without waiting for an extra user prompt.
+11. Do not manually save smoke workbooks outside the tested flow.
+12. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
