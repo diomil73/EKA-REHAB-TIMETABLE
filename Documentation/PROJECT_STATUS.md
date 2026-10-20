@@ -12,7 +12,7 @@ Branch: `feature/outpatient-scheduling`.
 
 Active milestone: **outpatient recurring management UX native verification**.
 
-CREATE is native green. The application-style manager is now visible and usable in native Excel. Native edit testing exposed a blocking correctness issue: an edited outpatient can appear twice in `THERAPIST_DAILY`, so the edit gate is not green yet and therapist workload derived from that view must not be trusted until the duplication path is fixed and verified.
+CREATE is native green. The application-style manager is visible and usable in native Excel. Native edit testing exposed a blocking correctness issue: an edited outpatient can appear twice in `THERAPIST_DAILY`. A targeted daily-edit hardening patch and workload regression coverage are now implemented in code, but the edit gate remains not green until focused tests and a fresh native smoke confirm one visible placement and one workload contribution.
 
 Restore correctness is closed green. Restore performance is deferred.
 
@@ -27,7 +27,7 @@ Restore correctness is closed green. Restore performance is deferred.
 - previous combined outpatient recurring smoke build: **native green**, trusted source unchanged
 - outpatient recurring CREATE: **native green**
 - outpatient manager: **native visible and usable**
-- outpatient EDIT: **blocked by duplicate daily projection**
+- outpatient EDIT: **blocked pending duplicate-fix verification**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -60,20 +60,25 @@ Current technical path supports:
 - `EditOutpatientSchedule` routed through the manager,
 - the existing `Διαχείριση Μητρώων` outpatient action routed to `Προγράμματα εξωτερικών ασθενών`,
 - create/edit/close and double-click edit from the manager,
-- combined smoke installation of form, edit support, manager and conflict guard in one Excel session.
+- combined smoke installation of form, edit support, manager and conflict guard in one Excel session,
+- new `outpatient_daily_edit_vba.py` hardening that removes both plain and decorated outpatient render lines such as `Όνομα [Καθ/να]` from affected old/destination daily cells before rendering once,
+- workload regression coverage proving one outpatient recurring entry materializes to one session and one occupied therapist timeslot.
 
 ### Blocking native correctness issue
 
 Native edit verification revealed that the outpatient patient may remain in the old `THERAPIST_DAILY` placement and also be rendered in the new placement, producing a duplicate visible patient.
 
-This is a correctness issue, not cosmetic. Until it is fixed:
+The identified mechanism is representation drift in the daily cell: legacy cleanup expected a line exactly equal to the patient name, while the normal daily renderer may display a suffix such as `[Καθ/να]`. The edit path then failed to remove the decorated old line and appended a new plain line.
+
+The code now hardens this path by cleaning recognized patient render lines in both the old slot and, when different, the destination slot before the single refresh. This is still a transitional in-session hardening layer; authoritative full-day reconstruction remains the preferred long-term rendering architecture.
+
+Until native verification passes:
 
 - outpatient edit is **not native green**,
 - `THERAPIST_DAILY` may not be used as proof of correct outpatient placement after edit,
-- therapist workload/capacity derived from that duplicated daily projection must be treated as unverified,
-- no further conflict or workload native acceptance should be recorded on top of the affected smoke.
+- no further conflict native acceptance should be recorded on top of an affected smoke.
 
-The fix should prefer deterministic reconstruction of the affected daily placement from authoritative daily truth instead of fragile text-line removal followed by append.
+The Python scheduling/workload model itself is explicitly covered so that one outpatient recurring entry contributes exactly one active session and one occupied timeslot to its therapist on an applicable date. Native verification must now prove the Excel projection matches that truth.
 
 Normal users must not see raw sheet/grid/tab navigation, worksheet row numbers or `outpatient:<row>` IDs.
 
@@ -105,13 +110,13 @@ Current end-user restore duration in the low-to-mid 20-second range is accepted 
 
 ## Immediate roadmap
 
-1. Reproduce the outpatient edit duplicate deterministically in tests.
-2. Replace fragile old-slot text removal/append behavior with deterministic affected-slot reconstruction from authoritative daily truth.
-3. Add regression coverage proving one outpatient base entry produces exactly one visible daily placement after edit.
-4. Add a workload/capacity regression proving the outpatient contributes exactly once to the therapist's operational load after edit.
-5. Build a fresh combined outpatient smoke and native-test edit again: old placement gone, new placement present once, no duplicate, correct styling.
-6. Only after that gate is green, native-test therapist/time conflict on a separate fresh scenario.
-7. Continue broader scheduling/UI work.
+1. Run the focused duplicate-fix source gate, including `test_outpatient_daily_edit_vba.py`, outpatient source/workload integration, conflict/edit/manager tests and the combined smoke-builder tests.
+2. If green, build a fresh combined outpatient smoke from trusted `RERESOLVED_V90.xlsm`.
+3. Native-test the same edit scenario: old placement removed, destination placement present exactly once, no duplicate.
+4. Confirm the therapist's operational load corresponds to one outpatient session/one occupied timeslot, not two.
+5. Clean up remaining outpatient `THERAPIST_DAILY` styling only after correctness is green.
+6. On a separate fresh smoke, native-test therapist/time conflict behavior.
+7. Continue broader scheduling/UI work without waiting for another prompt when the next step is unambiguous.
 8. Before closing replacements, implement global multi-absence optimization and persistent special-service operating hours.
 9. Revisit restore performance near completion.
 
