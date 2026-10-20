@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-10-18
+Last updated: 2026-10-20
 
 ## Branch / working line
 
@@ -18,6 +18,8 @@ Last updated: 2026-10-18
 - parity rebuild: row/selected/all smoke copies authoritative and VBA-preserving
 - per-row / selected / restore-all in-session correctness: native green
 - replacement lifecycle history V87-V92: native green
+- combined outpatient recurring smoke build: native green, trusted source unchanged
+- outpatient recurring CREATE: native green
 
 ## CLOSED: authoritative daily truth and replacement lifecycle
 
@@ -37,39 +39,30 @@ Native correctness is green for per-row, selected multi-row, and restore-all con
 
 Restore latency is no longer the active engineering priority. End-user restore time around the low-to-mid 20-second range is accepted for the current development stage. Preserve the profiler and current timings for end-stage optimization.
 
-## ACTIVE: outpatient recurring create/edit native verification
+## ACTIVE: outpatient recurring create/edit/conflict UX
 
-The recurring outpatient path is implemented but still needs a clean native create/edit gate. The UI already supports:
+Create is native green. Same-row edit persistence has been hardened in code, but the existing `EditOutpatientSchedule` InputBox that asks for an `OUTPATIENT_SCHEDULE` worksheet row is now explicitly classified as developer/test scaffolding and is **not acceptable as final UI**.
 
-- creation through `frmOutpatientSchedule`,
-- edit/preload through `EditOutpatientSchedule`,
-- seven suggestion modes,
-- therapist double-booking detection and popup handling,
-- preview-only backend validation before in-session persistence,
-- stable `target_base_entry_id` for edits so the same authoritative row is updated rather than duplicated.
+The workbook is intentionally presented as application-like software: normal users do not see worksheet tabs, the raw Excel grid, or native Excel navigation. Therefore normal workflows must not require the user to know hidden sheet names, row numbers, internal IDs or storage mechanics.
 
-The first combined smoke-builder design used multiple Excel sessions and a short-lived stage workbook. Native Windows testing exposed a persistent `[WinError 32]` lock on that stage even after bounded retries. This was removed by moving all VBA installation into one Excel session against the final smoke copy.
+Locked UI direction:
+- `OUTPATIENT_SCHEDULE` remains hidden/protected authoritative storage.
+- No normal menu button should merely navigate the user to that raw storage sheet.
+- Add a top-level application workflow such as `Προγράμματα εξωτερικών ασθενών` / `Διαχείριση εξωτερικών`.
+- Present entries in business terms: patient, treatment, time, days, therapist.
+- Provide create/edit actions from that UI; the system resolves the internal `outpatient:<row>` target itself.
+- Keep `outpatient:<row>`, worksheet row numbers, internal English strings and backend mechanics out of ordinary messages/forms.
+- Success messages should give useful next-step guidance or tell the user where to review the operational result, not report implementation facts.
+- Developer smoke/debug tools may expose internals temporarily, but must never become the production workflow.
 
-The single-session builder then exposed a sequence of VBIDE-specific integration issues. Remove/recreate of `frmOutpatientSchedule` raised `0x800A03EC`, so the installer now reuses the existing form/module and only adds missing controls. The native VBIDE returns form code with CRLF line endings, so edit patching normalizes line endings first. A subsequent `Outpatient schedule request JSON marker missing` showed that exact request-body text matching was still too brittle because VBIDE can reformat indentation/continuation layout. Edit patching now operates structurally at procedure level: it inserts edit state into `UserForm_Initialize` by signature and replaces `BuildRequestJson` / `BuildSuggestionRequestJson` by procedure boundaries instead of relying on exact body markers.
+Current technical edit path already supports:
+- stable `target_base_entry_id`,
+- backend conflict validation that ignores the target row when editing,
+- in-session same-row update rather than append,
+- same-patient safety validation,
+- removal of the old daily-view occurrence before re-rendering the edited one when relevant.
 
-The next native failure moved forward into `conflict guard install` with the same generic `0x800A03EC` class. `install_scheduling_conflict_popup` was still removing and recreating `frmSchedulingConflict` and its module in the same VBIDE session. That installer is now idempotent as well: it reuses existing form/module components, reuses existing controls, adds only missing controls, and replaces code in place. This removes the second UserForm remove/recreate race instead of masking it with retries.
-
-Current builder/edit hardening:
-
-- `Python/tools/build_outpatient_recurring_smoke.py`
-- single-session redesign `1457eb5c8361e93786527fbbf282c92927ad2e64`
-- idempotent schedule-form install `8963c1ff0f0d550c5c0881066feeccb709cb0779`
-- CRLF edit-patch fix `ddca162f15ed03f1df523592ec634beac98e19d6`
-- structural procedure-level edit patch `62c1a1431290c3c3398490b6e6fc25b897ff8929`
-- formatting-variance regression `9aa30e9212a28c72fd9c35930ec471a50f3c6b6a`
-- idempotent conflict-popup install `88c319694dde764b889f1fc9ebf2a3d662af0d64`
-- conflict-popup reuse regression `8b5a0017c984a1790931420f0dfeb445e16cf0c5`
-- copies trusted source directly to the final smoke path,
-- opens the final smoke workbook exactly once in a hidden Excel instance,
-- installs/refreshes schedule form, edit support, conflict popup and in-session writer against the same `VBProject`,
-- verifies required VBA components before a single save,
-- closes Excel, then verifies the source hash remained unchanged,
-- no intermediate `.outpatient-form-stage.xlsm` exists anymore.
+Do not ask the user to continue the native edit gate through row-number entry. First replace or wrap that developer-only selector with an application-style schedule selection flow.
 
 ## OPEN: global multi-absence replacement optimization
 
@@ -86,30 +79,29 @@ Locked requirements:
 - aim for balanced provider workload; a one-hour difference can be unavoidable, but avoid two-hour imbalance where feasible,
 - do not demand exhaustive availability data entry for every patient,
 - represent special physical suitability, therapist/patient compatibility, and waiting tolerance selectively rather than as mandatory fields,
-- double-booking/over-capacity is last resort only, with a warning and explicit user approval for each choice of patient, shared treatment, and therapist.
-
-The relative numeric weights between same-time preservation, reclining adjacency, and load balancing need to be validated against real examples before final tuning. See `Documentation/DECISIONS.md` for the durable rule set and `Documentation/PROJECT_STATUS.md` for milestone status.
+- double-booking/over-capacity is last resort only, with a warning and explicit user approval for each choice of patient, shared treatment, and therapist,
+- protect unique scarcity explicitly: if A can use 09:00/10:00/11:00 and B can use only 09:00, 09:00 belongs to B when a complete feasible assignment exists,
+- avoid 13:00 only as a weak soft preference; use it when needed rather than leave a patient unresolved or violate a higher-priority rule.
 
 Code audit findings:
 - `Python/rehab_core/replacements.py::find_replacement_candidates` currently ranks single-patient candidates by workload first and exact-time availability second. This conflicts with the new global scarcity-aware requirement if used as the final decision-maker.
 - `Documentation/SEQUENTIAL_THERAPIST_REPLACEMENTS.md` describes the current sequential workflow. Preserve its live workload recalculation where useful for interactive review, but add a batch/global planning phase before any accepted assignments are committed.
 - `Config/provider_policy.json` and the provider-policy layer already support persistent provider profiles and date-based overrides for exclusions, blocked times, load limits, and explicit leader availability.
-- The inspected `SETTINGS` schema does not currently define dedicated pool/robotic operating hours. Add a persistent service-hours configuration, likely keyed by service and weekday/time slot, and include it in candidate feasibility checks.
+- The inspected `SETTINGS` schema does not currently define dedicated pool/robotic operating hours. Add a persistent service-hours configuration and include it in candidate feasibility checks.
 - Do not change production workbook behavior directly. Add pure solver tests first, then preview/native verification and documentation updates.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run the focused outpatient gate including the conflict-popup installer regression:
-   `python -m pytest Tests/test_outpatient_schedule_form_vba.py Tests/test_outpatient_schedule_edit_vba.py Tests/test_scheduling_conflict_popup_vba.py Tests/test_outpatient_recurring_smoke_builder.py -q`
-3. If green, rebuild fresh:
-   `python Python/tools/build_outpatient_recurring_smoke.py --source .\Excel\previews\RERESOLVED_V90.xlsm --output .\Excel\previews\OUTPATIENT_RECURRING_SMOKE.xlsm --overwrite`
-4. Require `OUTPATIENT RECURRING SMOKE BUILD OK`. If another COM/VBA failure appears, use the embedded phase diagnostics and fix that exact installer.
-5. Native create gate: open only the fresh smoke copy, run `ShowOutpatientScheduleForm`, create one valid outpatient recurring row, require backend validation and in-session authoritative persistence, then confirm the new `OUTPATIENT_SCHEDULE` row reads back exactly.
-6. Native edit gate: use a fresh smoke scenario, open the target row through `EditOutpatientSchedule`, change time/days/therapist, require the same `outpatient:<row>` id and no duplicate row.
-7. Native conflict gate: on a fresh smoke scenario, attempt a known therapist/time recurring collision and require the conflict popup/guard rather than silent double-booking.
-8. Do not manually save smoke workbooks outside the tested flow. Always use a fresh copy for each scenario.
-9. Once create/edit/conflict are native green, move directly to the next scheduling/UI milestone. Do not return to restore performance tuning yet.
+2. Do **not** continue outpatient edit testing via worksheet row-number InputBox.
+3. Implement an application-style outpatient schedule management/selection UI that lists business-facing entries and internally carries the stable edit target.
+4. Add pure tests confirming the UI selection maps to the intended `target_base_entry_id` without exposing worksheet rows to the user.
+5. Build a fresh smoke copy and native-test: create outpatient schedule, reopen it from the management UI, edit one field, save, confirm same authoritative entry and no duplicate.
+6. Native conflict gate: on a fresh scenario, attempt a known therapist/time collision and require the conflict popup/guard rather than silent double-booking.
+7. Do not manually save smoke workbooks outside the tested flow. Always use a fresh copy for each independent scenario.
+8. Once create/edit/conflict are native green through the application-style UI, continue to the next scheduling/UI milestone.
+9. Before closing replacements, implement the global multi-absence optimizer described above.
+10. Do not return to restore performance tuning yet.
 
 ## Locked orphan rule
 
