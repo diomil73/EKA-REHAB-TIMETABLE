@@ -40,6 +40,7 @@ Authoritative truth remains `DAILY_REPLACEMENT_FACTS`; `DAILY_CHANGE_LEDGER` is 
 - daily render / write planning lives under `Python/rehab_excel/`.
 - MASTER projection metadata uses OOXML/package reads rather than loading/saving the production workbook with openpyxl.
 - `THERAPIST_DAILY`, `MASTER_SCHEDULE` and `DAILY_STATISTICS` must derive from the same effective daily truth.
+- `Python/rehab_excel/therapist_workload_strip_vba.py`: MASTER workload visibility; renders `Όνομα n/6` badges from occupied `THERAPIST_DAILY` timeslot cells with green/yellow-red capacity thresholds.
 
 ### Outpatient recurring scheduling
 
@@ -55,17 +56,17 @@ Backend / Excel bridge ownership:
 - `Python/rehab_excel/outpatient_in_session_vba.py`: in-session authoritative row write plus current daily projection refresh.
 - `Python/rehab_excel/outpatient_daily_edit_vba.py`: transitional edit hardening that removes stale plain/decorated outpatient render lines from affected old/destination daily cells before rendering once.
 - `Python/rehab_excel/scheduling_conflict_popup_vba.py`
-- `Python/tools/build_outpatient_recurring_smoke.py`: one-session combined installer including manager and daily-edit hardening.
+- `Python/tools/build_outpatient_recurring_smoke.py`: one-session combined installer including manager, daily-edit hardening and therapist workload strip.
 
 Current status:
 
 - CREATE native green,
 - stable same-row edit semantics implemented,
 - application-style manager native-visible and usable,
-- native edit exposed duplicate `THERAPIST_DAILY` projection,
-- duplicate-fix hardening and workload regression coverage implemented but not yet native green,
+- duplicate edit projection bug hardened; latest fresh native smoke appears correct,
+- workload-strip UI implemented in code and awaiting focused/native verification,
 - old row-number InputBox flow is retired from the public edit entry,
-- conflict native gate follows successful duplicate/edit verification.
+- conflict native gate follows successful workload visibility verification.
 
 `OUTPATIENT_SCHEDULE` is hidden/protected authoritative storage, not a normal user workspace.
 
@@ -73,7 +74,8 @@ Relevant regression ownership:
 
 - `Tests/test_outpatient_daily_edit_vba.py`: stale/decorated-line cleanup patch and idempotence.
 - `Tests/test_outpatient_schedule_source.py`: outpatient source semantics plus one-entry/one-session/one-timeslot workload contract.
-- `Tests/test_outpatient_recurring_smoke_builder.py`: installer ordering and native build phase coverage.
+- `Tests/test_therapist_workload_strip_vba.py`: workload-strip action, timeslot counting and color-threshold contract.
+- `Tests/test_outpatient_recurring_smoke_builder.py`: installer ordering and native build phase coverage including workload strip installation.
 
 ### Registration / application shell
 
@@ -100,8 +102,8 @@ Profiler remains at `Python/tools/profile_daily_restore_backend.py`.
 
 ## Open implementation milestones
 
-1. focused duplicate-fix/workload source gate,
-2. fresh native outpatient same-entry edit gate with exactly one daily placement,
+1. focused therapist-workload-strip source gate,
+2. fresh native workload-strip visibility and color-threshold gate,
 3. outpatient native conflict gate on a separate fresh smoke,
 4. remaining outpatient daily styling cleanup,
 5. broader scheduling/UI roadmap,
@@ -122,6 +124,7 @@ Profiler remains at `Python/tools/profile_daily_restore_backend.py`.
 - no production/staging `.xlsm` save with openpyxl,
 - outpatients count operationally but do not belong in inpatient planner UI,
 - one outpatient recurring entry must materialize to one operational session and contribute once to therapist active-session/timeslot workload,
+- therapist workload display uses occupied timeslots, not patient-line count,
 - outpatients never receive robotic treatment,
 - technical sheet names, worksheet rows and internal IDs are not normal end-user concepts.
 
