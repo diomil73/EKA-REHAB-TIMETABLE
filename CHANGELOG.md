@@ -22,6 +22,7 @@
 - Backend restore profiler with Excel-output and pre-Excel phase timings for targeted latency work.
 
 ### Changed
+- Outpatient smoke installation now upgrades legacy registration menus that did not yet contain an outpatient action: it creates the visible `Προγράμματα εξωτερικών ασθενών` button, moves the close action out of the way, and routes the new button to the schedule manager.
 - `EditOutpatientSchedule` now opens the business-facing outpatient schedule manager instead of asking the user for an `OUTPATIENT_SCHEDULE` worksheet row. The existing registration menu outpatient action is routed to the same manager.
 - Outpatient recurring edit carries `target_base_entry_id` through conflict validation and the final in-session write. The writer validates the target row and PatientID, updates the same `outpatient:<row>` instead of appending a duplicate, and refreshes the current-date therapist-daily placement when therapist/time/day changes.
 - Locked the requirements for global multi-therapist-absence replacement planning: scarcity-aware assignment across all displaced patients, persistent pool/robotic operating hours, reclining-treatment adjacency preferences, workload-balance goals, and user-approved last-resort double-booking.
@@ -63,7 +64,7 @@
 - Added a dry-run safety gate that permits only sheets marked as future write targets.
 - Protected authoritative input sheets and legacy operational sheets from Python write-back.
 - Added workbook SHA-256 verification proving that dry runs do not alter the `.xlsm`.
-- Added CLI tooling and regression tests.
+- Added CLI tooling and regression tests for the write-back safety layer.
 - Real workbook writes remain disabled.
 
 
@@ -103,4 +104,3 @@
 - Replacements now keep the original patient in muted italics without strikethrough and append `→ provider HH:MM`.
 - Absence/cancellation-style states retain strikethrough semantics.
 - Added multi-replacement same-cell regression coverage and corrected `DailySessionState.original_should_be_struck_through`.
-
