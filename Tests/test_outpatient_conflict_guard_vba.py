@@ -2,6 +2,8 @@ from rehab_excel.outpatient_conflict_guard_vba import (
     patch_outpatient_schedule_form_code,
     patch_patient_registration_form_code,
 )
+from rehab_excel.outpatient_in_session_vba import MODULE_CODE as IN_SESSION_MODULE_CODE
+from rehab_excel.outpatient_schedule_edit_vba import patch_outpatient_schedule_form_code as patch_edit_form
 from rehab_excel.outpatient_schedule_form_vba import FORM_CODE
 from rehab_excel.patient_registration_bridge_vba import FORM_BRIDGE_CODE
 
@@ -49,6 +51,25 @@ def test_outpatient_save_caches_patient_id_before_backend_round_trip():
     assert "Dim selectedPatientId As String" in patched
     assert "selectedPatientId = PatientIdFromSelection()" in patched
     assert "SaveOutpatientScheduleInWorkbook( _\n        selectedPatientId" in patched
+
+
+def test_conflict_guard_preserves_edit_target_in_validation_and_final_write():
+    edit_patched = patch_edit_form(FORM_CODE)
+    patched = patch_outpatient_schedule_form_code(edit_patched)
+
+    assert 'q & "target_base_entry_id" & q' in patched
+    assert "JsonEscape(OutpatientEditTargetBaseEntryId)" in patched
+    assert "cboTherapist.Value, _\n        OutpatientEditTargetBaseEntryId)" in patched
+    assert "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" in patched
+
+
+def test_in_session_writer_updates_target_row_instead_of_forcing_append():
+    assert 'Optional ByVal targetBaseEntryId As String = ""' in IN_SESSION_MODULE_CODE
+    assert "If Len(targetBaseEntryId) > 0 Then" in IN_SESSION_MODULE_CODE
+    assert "targetRow = OutpatientRowFromBaseEntryId(targetBaseEntryId)" in IN_SESSION_MODULE_CODE
+    assert 'StrComp(Trim$(CStr(ws.Cells(targetRow, 1).Value)), patientId, vbTextCompare)' in IN_SESSION_MODULE_CODE
+    assert "RemoveFromTherapistDailyForCurrentDate" in IN_SESSION_MODULE_CODE
+    assert 'SaveOutpatientScheduleInWorkbook = "outpatient:" & CStr(targetRow)' in IN_SESSION_MODULE_CODE
 
 
 def test_outpatient_form_uses_save_caption_and_supports_patient_preselection():
