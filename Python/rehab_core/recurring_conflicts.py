@@ -21,6 +21,29 @@ class RecurringTherapistConflict:
     existing_base_entry_id: str
 
 
+def _provider_key(value: str | None) -> str:
+    text = (value or "").strip().casefold()
+    replacements = {
+        "ά": "α",
+        "έ": "ε",
+        "ή": "η",
+        "ί": "ι",
+        "ϊ": "ι",
+        "ΐ": "ι",
+        "ό": "ο",
+        "ύ": "υ",
+        "ϋ": "υ",
+        "ΰ": "υ",
+        "ώ": "ω",
+        "ς": "σ",
+        ".": "",
+        " ": "",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
+
 def find_recurring_therapist_conflicts(
     *,
     patient_id: str,
@@ -31,10 +54,17 @@ def find_recurring_therapist_conflicts(
     patients: Iterable[Patient] = (),
     ignore_base_entry_id: str | None = None,
 ) -> tuple[RecurringTherapistConflict, ...]:
-    """Find recurring double bookings for one therapist/time/day-pattern request."""
+    """Find recurring double bookings for one therapist/time/day-pattern request.
+
+    Workbook therapist labels are normalized with the same accent/spacing rules
+    used by the native THERAPIST_DAILY mapping. This prevents a visible slot from
+    being treated as a different provider merely because one source contains an
+    accent, period or spacing variation.
+    """
 
     provider = (therapist_id or "").strip()
-    if not provider:
+    provider_key = _provider_key(provider)
+    if not provider_key:
         return ()
 
     patient_key = patient_id.strip()
@@ -50,7 +80,7 @@ def find_recurring_therapist_conflicts(
             continue
         if not entry.therapist_id:
             continue
-        if entry.therapist_id.strip().casefold() != provider.casefold():
+        if _provider_key(entry.therapist_id) != provider_key:
             continue
         if entry.start_time != start_time:
             continue
