@@ -34,7 +34,7 @@ Restore performance is accepted for now and deferred until end-stage polish.
 
 The outpatient edit/conflict/workload path is operationally green enough to move forward. The THERAPIST_DAILY presentation cleanup source gate is also green.
 
-The next work is not another ad hoc statistic. Before implementing persistence, explicitly design the historical fact model so later schedule edits cannot rewrite yesterday's history.
+The active work is now the historical fact model. Historical statistics must not be reconstructed later from today's mutable schedule projection.
 
 The user explicitly wants weekly workload history per therapist plus broader statistics/history.
 
@@ -55,36 +55,47 @@ For history, preserve both concepts separately:
 
 A legitimate shared slot can therefore be 1 occupied timeslot but 2 active sessions.
 
-## Statistics/history design topics to lock now
+Primary historical emphasis is the actual final operational workload. Planned workload may also be retained as secondary comparison context.
 
-At minimum decide:
+## Day-finalization decision
 
-- daily historical row/fact grain,
-- weekly therapist workload history,
-- occupied-timeslot vs active-session metrics,
-- planned vs actually performed workload,
-- cancellations/no-shows/patient absences,
-- replacements and replacement-provider load,
-- treatment suspensions,
-- therapist absence days/hours,
-- permanent therapist-assignment changes,
-- finalized-day snapshot semantics,
-- whether corrections after finalization are append-only revisions rather than destructive edits,
-- retention horizon and comparison windows,
-- user-facing dashboard/report layout,
-- privacy boundary for patient-level historical reporting.
+Historical daily facts become final only through an explicit application action: **`Κλείσιμο ημέρας`**.
 
-Historical metrics must come from persisted historical facts/events, never from today's mutable THERAPIST_DAILY or MASTER projection.
+Do not auto-finalize based on clock time or workbook close.
+
+Before the action succeeds:
+
+- unresolved/orphan sessions must be zero,
+- every concrete-date session must have a final outcome,
+- replacements/cancellations/no-shows/suspensions must already be reflected,
+- final workload/statistics must come from the effective daily state.
+
+Successful close persists the finalized daily snapshot used by weekly history.
+
+Corrections after finalization must remain auditable; no silent destructive rewrite of historical truth.
+
+## Statistics/history design topics still to lock
+
+Next decisions:
+
+1. daily snapshots only vs hybrid snapshot + append-only event history,
+2. exact finalized-day snapshot schema and storage location,
+3. correction/reopen/amendment workflow,
+4. retention/archive horizon,
+5. weekly/monthly comparison windows,
+6. patient-level historical statistics and privacy boundaries,
+7. dashboard/report layout.
 
 ## Exact resume point
 
 1. Treat the `27 passed in 3.09s` presentation gate as green.
-2. Hold the statistics/history design discussion now.
-3. Lock the smallest durable historical schema before implementing Excel UI for reports.
-4. Implement weekly therapist workload history as the first concrete slice once the contract is agreed.
-5. Then continue broader scheduling/UI work and later the global multi-absence optimizer.
-6. Do not manually save smoke workbooks outside a tested flow.
-7. Do not return to restore performance tuning yet.
+2. Treat explicit `Κλείσιμο ημέρας` finalization as locked.
+3. Decide the persistence model next. Preferred direction is hybrid: compact finalized daily snapshots for reporting plus append-only events for audit/corrections.
+4. Lock the smallest durable historical schema before implementing Excel UI for reports.
+5. Implement weekly therapist workload history as the first concrete slice once the contract is agreed.
+6. Then continue broader scheduling/UI work and later the global multi-absence optimizer.
+7. Do not manually save smoke workbooks outside a tested flow.
+8. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
