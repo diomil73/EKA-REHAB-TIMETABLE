@@ -74,12 +74,23 @@ Successful close persists the finalized daily snapshot used by weekly history.
 
 Corrections after finalization must remain auditable; no silent destructive rewrite of historical truth.
 
+## Persistence model decision
+
+History is **hybrid**:
+
+- finalized daily snapshots are the fast reporting source for weekly/monthly history,
+- append-only historical events preserve the audit trail and support later corrections/reconstruction.
+
+The snapshot is not allowed to replace or erase event history. Later corrections must append an amendment/correction event and produce a revised historical state without pretending the original finalized record never existed.
+
+At minimum the event model must be able to represent absences, cancellations/no-shows, replacements, suspensions, approved over-capacity/double-booking exceptions, relevant permanent therapist-assignment changes, day finalization and post-finalization amendments.
+
 ## Statistics/history design topics still to lock
 
 Next decisions:
 
-1. daily snapshots only vs hybrid snapshot + append-only event history,
-2. exact finalized-day snapshot schema and storage location,
+1. exact finalized-day snapshot schema and storage location,
+2. exact append-only event schema/identifiers,
 3. correction/reopen/amendment workflow,
 4. retention/archive horizon,
 5. weekly/monthly comparison windows,
@@ -90,8 +101,8 @@ Next decisions:
 
 1. Treat the `27 passed in 3.09s` presentation gate as green.
 2. Treat explicit `Κλείσιμο ημέρας` finalization as locked.
-3. Decide the persistence model next. Preferred direction is hybrid: compact finalized daily snapshots for reporting plus append-only events for audit/corrections.
-4. Lock the smallest durable historical schema before implementing Excel UI for reports.
+3. Treat the hybrid persistence model as locked: finalized daily snapshots + append-only events.
+4. Decide the smallest durable snapshot/event schema next.
 5. Implement weekly therapist workload history as the first concrete slice once the contract is agreed.
 6. Then continue broader scheduling/UI work and later the global multi-absence optimizer.
 7. Do not manually save smoke workbooks outside a tested flow.
