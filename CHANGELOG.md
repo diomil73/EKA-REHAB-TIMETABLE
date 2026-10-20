@@ -10,6 +10,7 @@
 ## Unreleased
 
 ### Added
+- Application-style outpatient schedule manager listing patient, treatment, time, days and therapist while keeping worksheet row/internal target mapping hidden from the user.
 - Replacement ranking based first on operational daily workload, then exact-time match, then another common free timeslot.
 - Alternative-timeslot visibility for replacement candidates.
 - Student replacement providers with active-placement and capability checks.
@@ -21,7 +22,8 @@
 - Backend restore profiler with Excel-output and pre-Excel phase timings for targeted latency work.
 
 ### Changed
-- Outpatient recurring edit now carries `target_base_entry_id` through conflict validation and the final in-session write. The writer validates the target row and PatientID, updates the same `outpatient:<row>` instead of appending a duplicate, and refreshes the current-date therapist-daily placement when therapist/time/day changes.
+- `EditOutpatientSchedule` now opens the business-facing outpatient schedule manager instead of asking the user for an `OUTPATIENT_SCHEDULE` worksheet row. The existing registration menu outpatient action is routed to the same manager.
+- Outpatient recurring edit carries `target_base_entry_id` through conflict validation and the final in-session write. The writer validates the target row and PatientID, updates the same `outpatient:<row>` instead of appending a duplicate, and refreshes the current-date therapist-daily placement when therapist/time/day changes.
 - Locked the requirements for global multi-therapist-absence replacement planning: scarcity-aware assignment across all displaced patients, persistent pool/robotic operating hours, reclining-treatment adjacency preferences, workload-balance goals, and user-approved last-resort double-booking.
 - Clarified that patient-specific physical suitability, compatibility, and waiting tolerance should be captured selectively rather than creating mandatory high-volume data entry.
 - Audited the existing replacement path: candidate ranking remains workload-first and the workflow remains sequential; global scarcity-aware planning and persistent pool/robotic operating-hour constraints are documented as required follow-up work, not claimed as implemented.
@@ -61,7 +63,7 @@
 - Added a dry-run safety gate that permits only sheets marked as future write targets.
 - Protected authoritative input sheets and legacy operational sheets from Python write-back.
 - Added workbook SHA-256 verification proving that dry runs do not alter the `.xlsm`.
-- Added CLI tooling and regression tests for the write-back safety layer.
+- Added CLI tooling and regression tests.
 - Real workbook writes remain disabled.
 
 
