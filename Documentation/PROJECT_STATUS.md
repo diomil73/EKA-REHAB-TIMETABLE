@@ -10,9 +10,11 @@ Branch: `feature/outpatient-scheduling`.
 
 ## Current stage
 
-Active milestone: **therapist workload visibility + remaining outpatient native gates**.
+Active milestone: **outpatient daily presentation cleanup, then statistics/history design checkpoint**.
 
-CREATE is native green. The application-style manager is visible and usable in native Excel. The duplicate outpatient edit bug was reproduced, hardened, covered by focused regression, and a fresh native smoke now appears correct: the edited outpatient no longer visibly duplicates. The next operational gap is that therapist workload is not visible to the user, so a dedicated MASTER workload strip is now implemented in code and awaits focused/native verification.
+CREATE is native green. The application-style manager is visible and usable in native Excel. The duplicate outpatient edit bug was reproduced and hardened. The therapist/time collision path and workload refresh were reworked and the latest fresh native smoke was reported by the user as behaving correctly. Workload visibility is now present on MASTER and the outpatient edit/conflict/workload milestone is treated as operationally green, subject to broader regression later.
+
+The next implementation pass is presentation consistency in `THERAPIST_DAILY`, especially preventing stale special font styling from surviving outpatient edits. Immediately after that cleanup, before deep global multi-absence optimizer work, the project must hold a dedicated statistics/history design session to lock the historical facts, weekly therapist workload history, retention and dashboard semantics.
 
 Restore correctness is closed green. Restore performance is deferred.
 
@@ -28,7 +30,8 @@ Restore correctness is closed green. Restore performance is deferred.
 - outpatient recurring CREATE: **native green**
 - outpatient manager: **native visible and usable**
 - duplicate-fix focused gate: **45 passed, 4 warnings in 4.98s**
-- outpatient EDIT after duplicate hardening: **fresh native smoke appears correct; formal workload visibility check follows**
+- collision/workload focused gate: **33 passed, 5 warnings in 4.60s**
+- latest native outpatient collision + valid reassignment + workload scenario: **user reported it appears correct**
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -46,7 +49,7 @@ Replacement facts preserve immutable lifecycle history. Restore correctness, rec
 
 Primary restore UX keeps the workbook open, runs Python hidden/blocking, protects rollback, imports verified state in-session and avoids visible console / close-reopen behavior.
 
-## Active: outpatient recurring management + therapist workload UI
+## Outpatient recurring management + therapist workload UI
 
 Current technical path supports:
 
@@ -62,23 +65,43 @@ Current technical path supports:
 - the existing `Διαχείριση Μητρώων` outpatient action routed to `Προγράμματα εξωτερικών ασθενών`,
 - create/edit/close and double-click edit from the manager,
 - combined smoke installation of form, edit support, manager and conflict guard in one Excel session,
-- `outpatient_daily_edit_vba.py` hardening that removes both plain and decorated outpatient render lines such as `Όνομα [Καθ/να]` from affected old/destination daily cells before rendering once,
+- `outpatient_daily_edit_vba.py` hardening that removes both plain and decorated outpatient render lines from affected old/destination daily cells before rendering once,
 - workload regression coverage proving one outpatient recurring entry materializes to one session and one occupied therapist timeslot,
-- new `therapist_workload_strip_vba.py` with a MASTER `Φόρτος θεραπευτών` action and horizontal workload badges.
+- `therapist_workload_strip_vba.py` with a MASTER `Φόρτος θεραπευτών` action and horizontal workload badges,
+- provider-name normalization in recurring conflict checks so punctuation/accents do not create false free slots,
+- automatic workload-strip refresh after outpatient changes.
 
 ### Therapist workload strip contract
 
-The workload strip shows one badge per therapist in the form `Όνομα n/6`, where `n` is the number of occupied timeslot cells in the current `THERAPIST_DAILY` projection. It intentionally counts occupied timeslots, not patient lines, so a legitimate shared slot consumes one capacity unit.
+The workload strip shows one badge per therapist in the form `Όνομα n/6`, where `n` is the number of occupied timeslots in the current operational day. It intentionally counts occupied timeslots, not patient lines, so a legitimate shared slot consumes one capacity unit.
 
-Color thresholds are now locked for the normal 6-slot therapist capacity:
+Color thresholds for the normal 6-slot therapist capacity:
 
 - **0-4 / 6: green**,
 - **5 / 6: yellow/orange**,
 - **6 / 6 or above: red**.
 
-The action lives on the MASTER as an application-style control, not as raw worksheet navigation. The combined outpatient smoke builder installs this workload strip so it can be verified in the same fresh native scenario.
-
 Normal users must not see raw sheet/grid/tab navigation, worksheet row numbers or `outpatient:<row>` IDs.
+
+## Active cleanup: THERAPIST_DAILY presentation consistency
+
+Outpatient text must not inherit stale special font styling after edits. The recurring daily style layer is being normalized so outpatient identity is communicated by its dedicated cell presentation and the patient text remains neutral black; robotic orange remains reserved for robotic treatment lines.
+
+This is a presentation consistency gate only. It must not change scheduling truth, row identity or workload counts.
+
+## Planned statistics/history design checkpoint
+
+After the presentation cleanup and before deep global optimizer work, hold a dedicated design session for historical/statistical storage. At minimum it must decide:
+
+- weekly workload history per therapist,
+- daily occupied-timeslot and active-session facts,
+- cancellations/no-shows/replacements/suspensions,
+- historical changes of therapist assignment,
+- finalized-day snapshot semantics,
+- retention and comparison periods,
+- dashboards and user-facing reports.
+
+Historical metrics must derive from persisted historical facts/events, not from today's mutable projection.
 
 ## Open: replacement quality under multiple therapist absences
 
@@ -108,15 +131,13 @@ Current end-user restore duration in the low-to-mid 20-second range is accepted 
 
 ## Immediate roadmap
 
-1. Run the focused workload-strip + smoke-builder source gate.
-2. Build a fresh combined outpatient smoke from trusted `RERESOLVED_V90.xlsm`.
-3. On MASTER, verify the visible `Φόρτος θεραπευτών` action and the horizontal workload badges.
-4. Verify a therapist with the outpatient edit still counts the outpatient exactly once by occupied timeslot, and that the badge refresh reflects the current `THERAPIST_DAILY` state.
-5. Verify color thresholds: green through 4/6, yellow/orange at 5/6, red at 6/6.
-6. Only after workload UI is native green, use a separate fresh smoke for therapist/time conflict verification.
-7. Continue broader scheduling/UI work without waiting for another prompt when the next step is unambiguous.
-8. Before closing replacements, implement global multi-absence optimization and persistent special-service operating hours.
-9. Revisit restore performance near completion.
+1. Run the focused recurring-daily-style regression for neutral outpatient text and existing robotic orange semantics.
+2. Verify the presentation cleanup does not regress outpatient projection/workload source tests.
+3. Build one fresh native smoke only if source tests expose a presentation path needing Excel confirmation.
+4. Hold the statistics/history design session, including weekly therapist workload history, before deep optimizer implementation.
+5. Continue broader scheduling/UI work.
+6. Implement global multi-absence optimization and persistent special-service operating hours before replacements are considered complete.
+7. Revisit restore performance near completion.
 
 ## Locked daily rules
 
