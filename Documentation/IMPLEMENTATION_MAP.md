@@ -19,6 +19,7 @@
 - `Python/rehab_core/daily_state.py`: effective daily session state.
 - `Python/rehab_core/orphan_resolution.py`: orphan-resolution semantics.
 - `Python/rehab_core/daily_statistics.py`: statistics from effective daily state.
+- `Python/rehab_core/workload.py`: authoritative therapist/student load from materialized operational sessions; outpatient sessions follow the same counting path.
 
 The global multi-absence replacement optimizer is still open work. The existing single-patient ranking path must not be treated as the final global optimizer.
 
@@ -46,29 +47,39 @@ Backend / Excel bridge ownership:
 
 - `Python/rehab_excel/outpatient_schedule_bridge.py`
 - `Python/rehab_excel/outpatient_schedule_registration.py`
+- `Python/rehab_excel/outpatient_schedule_source.py`: authoritative outpatient recurring reader and unified recurring schedule merge.
 - `Python/rehab_excel/outpatient_schedule_form_vba.py`
-- `Python/rehab_excel/outpatient_schedule_edit_vba.py`: internal edit preload / stable target handling; public edit entry now routes through the manager.
+- `Python/rehab_excel/outpatient_schedule_edit_vba.py`: internal edit preload / stable target handling; public edit entry routes through the manager.
 - `Python/rehab_excel/outpatient_schedule_manager_vba.py`: business-facing list/selection UI, hidden row-to-target mapping and registration-menu routing.
 - `Python/rehab_excel/outpatient_conflict_guard_vba.py`
-- `Python/rehab_excel/outpatient_in_session_vba.py`
+- `Python/rehab_excel/outpatient_in_session_vba.py`: in-session authoritative row write plus current daily projection refresh.
+- `Python/rehab_excel/outpatient_daily_edit_vba.py`: transitional edit hardening that removes stale plain/decorated outpatient render lines from affected old/destination daily cells before rendering once.
 - `Python/rehab_excel/scheduling_conflict_popup_vba.py`
-- `Python/tools/build_outpatient_recurring_smoke.py`: one-session combined installer including manager.
+- `Python/tools/build_outpatient_recurring_smoke.py`: one-session combined installer including manager and daily-edit hardening.
 
 Current status:
 
 - CREATE native green,
 - stable same-row edit semantics implemented,
-- application-style manager implemented in code and awaiting focused/native verification,
+- application-style manager native-visible and usable,
+- native edit exposed duplicate `THERAPIST_DAILY` projection,
+- duplicate-fix hardening and workload regression coverage implemented but not yet native green,
 - old row-number InputBox flow is retired from the public edit entry,
-- conflict native gate follows manager/edit verification.
+- conflict native gate follows successful duplicate/edit verification.
 
 `OUTPATIENT_SCHEDULE` is hidden/protected authoritative storage, not a normal user workspace.
+
+Relevant regression ownership:
+
+- `Tests/test_outpatient_daily_edit_vba.py`: stale/decorated-line cleanup patch and idempotence.
+- `Tests/test_outpatient_schedule_source.py`: outpatient source semantics plus one-entry/one-session/one-timeslot workload contract.
+- `Tests/test_outpatient_recurring_smoke_builder.py`: installer ordering and native build phase coverage.
 
 ### Registration / application shell
 
 - registration and top-level menu/form code lives under `Python/rehab_excel/` VBA generator/installer modules.
 - `frmRegistrationMenu` remains reachable from the MASTER `Διαχείριση Μητρώων` action.
-- its outpatient action is now patched by `outpatient_schedule_manager_vba.py` to open the business-facing schedule manager rather than the raw create form.
+- its outpatient action is patched by `outpatient_schedule_manager_vba.py` to open the business-facing schedule manager rather than the raw create form.
 - the product UX must remain application-like: MASTER/top buttons/forms, not native Excel grid navigation.
 - detailed UI/product design history remains in `UI_APPLICATION_ROADMAP.md`; current cross-project UX rules are summarized in `Documentation/ONBOARDING.md` and locked in `Documentation/DECISIONS.md`.
 
@@ -89,13 +100,14 @@ Profiler remains at `Python/tools/profile_daily_restore_backend.py`.
 
 ## Open implementation milestones
 
-1. focused/native verification of the application-style outpatient manager,
-2. outpatient native same-entry edit gate,
-3. outpatient native conflict gate,
-4. broader scheduling/UI roadmap,
-5. global multi-absence replacement optimizer,
-6. persistent pool/robotic operating-hours configuration,
-7. final restore-performance polish later.
+1. focused duplicate-fix/workload source gate,
+2. fresh native outpatient same-entry edit gate with exactly one daily placement,
+3. outpatient native conflict gate on a separate fresh smoke,
+4. remaining outpatient daily styling cleanup,
+5. broader scheduling/UI roadmap,
+6. global multi-absence replacement optimizer,
+7. persistent pool/robotic operating-hours configuration,
+8. final restore-performance polish later.
 
 ## Business rules that must not regress
 
@@ -109,6 +121,7 @@ Profiler remains at `Python/tools/profile_daily_restore_backend.py`.
 - baseline is immutable,
 - no production/staging `.xlsm` save with openpyxl,
 - outpatients count operationally but do not belong in inpatient planner UI,
+- one outpatient recurring entry must materialize to one operational session and contribute once to therapist active-session/timeslot workload,
 - outpatients never receive robotic treatment,
 - technical sheet names, worksheet rows and internal IDs are not normal end-user concepts.
 
