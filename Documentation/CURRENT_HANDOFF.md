@@ -26,24 +26,19 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - duplicate-fix focused gate: `45 passed, 4 warnings in 4.98s`
 - collision/workload focused gate: `33 passed, 5 warnings in 4.60s`
 - latest fresh native outpatient collision + valid reassignment + workload scenario: user reported it appears correct
+- THERAPIST_DAILY presentation cleanup focused gate: `27 passed in 3.09s`
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
-## Current milestone: THERAPIST_DAILY presentation cleanup
+## Current milestone: statistics/history design checkpoint
 
-The outpatient edit/conflict/workload path is operationally green enough to move forward. The immediate cleanup is visual consistency in `THERAPIST_DAILY` without changing scheduling truth.
+The outpatient edit/conflict/workload path is operationally green enough to move forward. The THERAPIST_DAILY presentation cleanup source gate is also green.
 
-`Python/rehab_excel/recurring_daily_style.py` is now being normalized so:
+The next work is not another ad hoc statistic. Before implementing persistence, explicitly design the historical fact model so later schedule edits cannot rewrite yesterday's history.
 
-- ordinary recurring text is black,
-- outpatient recurring text is also neutral black,
-- outpatient identity comes from the dedicated outpatient cell presentation layer rather than a special font color,
-- robotic treatment lines retain orange precedence,
-- stale inherited special font color after an outpatient edit is not allowed.
+The user explicitly wants weekly workload history per therapist plus broader statistics/history.
 
-This cleanup follows the same rule as the in-session outpatient renderer, which already writes non-robotic outpatient text in black.
-
-## Therapist workload contract
+## Therapist workload contract already locked
 
 MASTER exposes `Φόρτος θεραπευτών` with one badge per therapist in the form `Όνομα n/6`.
 
@@ -53,40 +48,43 @@ MASTER exposes `Φόρτος θεραπευτών` with one badge per therapist 
 - 5/6 yellow/orange,
 - 6/6 or above red.
 
-The strip refreshes after outpatient changes and provider names are normalized for collision checks so accents/punctuation do not create false free slots.
+For history, preserve both concepts separately:
 
-## Statistics/history checkpoint
+- occupied timeslots, for capacity utilization,
+- active sessions, for actual patient/session workload.
 
-The user wants weekly workload history per therapist plus broader statistics/history. Do not design or persist this ad hoc while scheduling semantics are still moving.
+A legitimate shared slot can therefore be 1 occupied timeslot but 2 active sessions.
 
-The correct design checkpoint is immediately after the current presentation cleanup and before deep global multi-absence optimizer implementation. At that point explicitly discuss and lock:
+## Statistics/history design topics to lock now
 
+At minimum decide:
+
+- daily historical row/fact grain,
 - weekly therapist workload history,
-- daily occupied-timeslot and active-session facts,
-- cancellations/no-shows/replacements/suspensions,
-- therapist-assignment change history,
-- finalized-day snapshots,
-- retention/comparison windows,
-- user-facing dashboards/reports.
+- occupied-timeslot vs active-session metrics,
+- planned vs actually performed workload,
+- cancellations/no-shows/patient absences,
+- replacements and replacement-provider load,
+- treatment suspensions,
+- therapist absence days/hours,
+- permanent therapist-assignment changes,
+- finalized-day snapshot semantics,
+- whether corrections after finalization are append-only revisions rather than destructive edits,
+- retention horizon and comparison windows,
+- user-facing dashboard/report layout,
+- privacy boundary for patient-level historical reporting.
 
-Historical metrics must come from persisted historical facts/events, not from today's mutable projection.
+Historical metrics must come from persisted historical facts/events, never from today's mutable THERAPIST_DAILY or MASTER projection.
 
 ## Exact resume point
 
-1. Pull latest branch.
-2. Run the focused presentation gate:
-
-```powershell
-python -m pytest `
-  Tests/test_recurring_daily_style.py `
-  Tests/test_outpatient_presentation.py `
-  Tests/test_outpatient_daily_edit_vba.py `
-  Tests/test_therapist_workload_strip_vba.py -q
-```
-
-3. If green, continue to the statistics/history design checkpoint without waiting for another prompt.
-4. Do not manually save smoke workbooks outside a tested flow.
-5. Do not return to restore performance tuning yet.
+1. Treat the `27 passed in 3.09s` presentation gate as green.
+2. Hold the statistics/history design discussion now.
+3. Lock the smallest durable historical schema before implementing Excel UI for reports.
+4. Implement weekly therapist workload history as the first concrete slice once the contract is agreed.
+5. Then continue broader scheduling/UI work and later the global multi-absence optimizer.
+6. Do not manually save smoke workbooks outside a tested flow.
+7. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
