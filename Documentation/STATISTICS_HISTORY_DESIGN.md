@@ -190,21 +190,125 @@ Event rows are append-only. Corrections create new events; they do not edit the 
 
 Patient-level historical analysis is a required product capability, not merely an aggregate reporting option.
 
-For a selected patient, the application must be able to derive and display historical measures such as:
+### Patient presence in the system
 
-- scheduled versus actually performed sessions,
-- patient absences and no-shows,
-- cancellations/postponements and treatment suspensions,
-- replacement events and the effective therapist/time used,
-- permanent therapist-assignment changes,
-- date/period trends and totals,
-- relevant planned-versus-actual comparisons where useful.
+For every patient retain the date on which the patient first entered the operational table/system. From that date the application derives and displays the elapsed stay as calendar **years, months and days**.
 
-Patient-level reports should use the stable `PatientID` internally while displaying normal patient identity/business labels in the UI. They must read finalized snapshots and append-only events, not infer historical truth from the patient's current recurring schedule.
+The entry date is a historical fact and must not be replaced by a later schedule edit. If a future discharge/re-entry workflow introduces separate care episodes, episode semantics must be designed explicitly rather than silently changing the meaning of the original entry date.
+
+### Treatment-day and lost-treatment history
+
+For each patient the application must derive/display:
+
+- treatment/service days,
+- scheduled treatment sessions,
+- performed treatment sessions,
+- total lost/missed treatment sessions,
+- the reason for every lost/missed session,
+- totals and trends by period.
+
+Weekends and official holidays are excluded from expected-working-day calculations. Official holidays therefore need a reliable calendar/configuration source; the system must not infer them from missing sessions.
+
+A lost treatment remains session-level historical truth. Reasons must remain structured enough to distinguish at least patient absence/no-show, department cancellation/postponement, therapist-related disruption where applicable, treatment suspension and any other agreed operational reason.
+
+### Treatment portfolio and timeline
+
+For each patient retain/derive the number of **different treatment types** received and display the treatments on a running chronological timeline. The timeline should make treatment starts, stops and meaningful changes visible over the patient's stay rather than showing only today's programme.
+
+### 15-day progress/evaluation history
+
+The `MASTER` physiotherapy-time cell is a clickable application action that opens the patient's progress/evaluation view.
+
+The progress view is completed manually approximately every **15 days** and is historical/append-only. It uses explicit milestones. Each milestone row contains:
+
+- the examined question/goal,
+- `Από` date,
+- `Έως` date,
+- a manual outcome for evolution during that period.
+
+Locked outcome semantics from the current requirement:
+
+- 🟢 positive/progress,
+- ⚪/grey neutral or no meaningful progress,
+- 🔴 negative deterioration.
+
+The exact icon artwork may be refined in the final UI, but green/grey/red meaning is fixed. The prior roadmap idea of a yellow neutral state is superseded by the user's current grey-neutral requirement.
+
+The patient progress history must support a chronological trend/sparkline style view and must never be detached from the patient by later therapist/time/cell changes. Internally it is keyed by stable `PatientID` and, where useful, period/session/date identifiers.
+
+The older UI roadmap also records a useful aggregate view of current inpatients with room, patient name, current 15-day goal, latest evaluation, historical evaluation sequence and a small trend visual. It also proposes a high-level department/hospital trajectory indicator, but that aggregate must not be implemented as a naive average; its clinical meaning needs an explicit rule before use.
+
+### Intranet patient-folder link
+
+The visible patient name in `MASTER` is a clickable application action that opens the patient's electronic folder on the hospital intranet/shared network location.
+
+The older recorded architecture is retained:
+
+- resolve the folder from stable `PatientID` / `FolderKey`, not from the visible patient name or cell address,
+- prefer an identity-based UNC/shared-network path over a mapped drive letter,
+- keep internal network-root configuration outside GitHub when it contains infrastructure details,
+- respect Windows/intranet permissions; the workbook must not bypass them,
+- moving/renaming timetable cells must not break the folder link.
+
+### Additional patient views already recorded in earlier roadmap notes
+
+Retain these earlier ideas as planned report/list capabilities:
+
+- patients with an overdue 15-day evaluation,
+- lost treatments by selected period,
+- search/open actions leading to progress history, intranet folder and operational patient information,
+- scheduled vs performed, absences/no-shows, cancellations/postponements, suspensions, replacements with effective therapist/time and permanent therapist-assignment changes.
+
+Patient-level reports use stable `PatientID` internally while displaying normal patient identity/business labels in the UI. Historical truth comes from finalized snapshots/events, not the patient's current recurring schedule.
 
 Patient-identifiable analysis remains inside the controlled application/workbook environment by default. Technical history sheets stay hidden/protected, and no automatic repository export of patient-level data is permitted.
 
-The exact set of patient metrics and report layout will be expanded from the user's operational requirements before the first patient-history UI is implemented.
+## Therapist-level analysis
+
+Therapist-level analysis is also a required product capability.
+
+### Workload history
+
+Retain/display daily, weekly, monthly and longer-term workload history from finalized therapist/day facts. The personal therapist card should make persistent overload, high-load periods, lower-load periods and long-term trend visible.
+
+### Calendar-year attendance and absence history
+
+For each therapist, retain/display presence/attendance within the selected calendar year and a dated absence history for the same year.
+
+Every therapist absence must carry a structured reason. The current required reason catalogue is:
+
+- `Κανονική άδεια`,
+- `Ρεπό`,
+- `Αναρρωτική`,
+- `Αιμοδοσίας`,
+- `Του νόμου`,
+- `Εκπαιδευτική`,
+- `Τέκνων`,
+- `Ειδική`,
+- `Από τη σημαία`.
+
+These labels are business-facing requirements. Internal reason codes may be stable technical values, but the UI must show the agreed Greek wording.
+
+The attendance report should reconcile presence days/hours, absence days/hours and reason breakdown rather than maintaining a manually typed annual total.
+
+### Additional therapist statistics recovered from earlier project notes
+
+Earlier roadmap/future-feature files already recorded the following candidate statistics and they remain useful unless explicitly removed later:
+
+- total treatments,
+- daily/weekly/monthly workload,
+- replacements accepted,
+- infectious-patient workload,
+- robotic workload,
+- available/unused timeslots,
+- cancellations and patient absences affecting utilization,
+- sessions lost because of therapist absence,
+- sessions successfully covered through replacement,
+- absence dates/counts/reasons and related operational replacement history,
+- current active-patient/load view,
+- quick list of therapists with high workload.
+
+Therapist statistics should be derived from assignments, finalized daily facts and operational event history wherever possible, not maintained as parallel manual totals.
 
 ## Dashboard and report UX
 
@@ -231,11 +335,15 @@ This policy applies to both current-final snapshots and superseded historical ve
 
 ## Open design questions
 
-The core architecture is now locked. Remaining details should be driven by the user's concrete reporting requirements rather than more abstract pre-design questions:
+The core architecture is now locked. Remaining details should be driven by concrete operational requirements and implementation discovery:
 
 1. exact weekly/monthly comparison presets and date ranges,
-2. which additional statistics are valuable enough to persist versus derive on demand,
-3. the exact patient-level metric set and operational reports requested by the user.
+2. authoritative official-holiday calendar/configuration,
+3. detailed therapist presence semantics for partial-day attendance/absence when that case is introduced,
+4. final milestone-row fields and interaction details for the 15-day progress form,
+5. exact intranet `FolderKey`/path-resolution configuration,
+6. additional patient/therapist statistics the user remembers later,
+7. which derived metrics deserve snapshot columns for performance versus calculation on demand.
 
 ## Relationship to current scheduling truth
 
