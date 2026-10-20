@@ -11,6 +11,8 @@
 
 ### Added
 - Application-style outpatient schedule manager listing patient, treatment, time, days and therapist while keeping worksheet row/internal target mapping hidden from the user.
+- Outpatient daily-edit hardening that removes stale plain/decorated patient render lines from affected old/destination `THERAPIST_DAILY` cells before rendering the edited placement once.
+- Regression coverage proving one outpatient recurring entry materializes to one operational session and contributes one occupied therapist timeslot.
 - Replacement ranking based first on operational daily workload, then exact-time match, then another common free timeslot.
 - Alternative-timeslot visibility for replacement candidates.
 - Student replacement providers with active-placement and capability checks.
@@ -25,6 +27,7 @@
 - Outpatient smoke installation now upgrades legacy registration menus that did not yet contain an outpatient action: it creates the visible `Προγράμματα εξωτερικών ασθενών` button, moves the close action out of the way, and routes the new button to the schedule manager.
 - `EditOutpatientSchedule` now opens the business-facing outpatient schedule manager instead of asking the user for an `OUTPATIENT_SCHEDULE` worksheet row. The existing registration menu outpatient action is routed to the same manager.
 - Outpatient recurring edit carries `target_base_entry_id` through conflict validation and the final in-session write. The writer validates the target row and PatientID, updates the same `outpatient:<row>` instead of appending a duplicate, and refreshes the current-date therapist-daily placement when therapist/time/day changes.
+- Native outpatient edit debugging identified a daily-projection representation mismatch: normal daily rendering may decorate the patient name (for example with `[Καθ/να]`) while the old in-session edit cleanup matched only the plain name. The fresh smoke builder now installs a post-conflict hardening patch so stale decorated lines are removed before the edited placement is rendered once.
 - Locked the requirements for global multi-therapist-absence replacement planning: scarcity-aware assignment across all displaced patients, persistent pool/robotic operating hours, reclining-treatment adjacency preferences, workload-balance goals, and user-approved last-resort double-booking.
 - Clarified that patient-specific physical suitability, compatibility, and waiting tolerance should be captured selectively rather than creating mandatory high-volume data entry.
 - Audited the existing replacement path: candidate ranking remains workload-first and the workflow remains sequential; global scarcity-aware planning and persistent pool/robotic operating-hour constraints are documented as required follow-up work, not claimed as implemented.
