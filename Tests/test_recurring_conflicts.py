@@ -27,6 +27,23 @@ def test_same_therapist_time_and_overlapping_days_is_conflict():
     assert conflict.start_time == time(9, 15)
 
 
+def test_provider_name_accent_spacing_and_period_variants_still_conflict():
+    entries = [
+        BaseScheduleEntry("E1", "P1", "ΦΘ", time(10, 0), "Δε-Τε", "Ν. Πέτσιος"),
+    ]
+
+    conflicts = find_recurring_therapist_conflicts(
+        patient_id="P2",
+        therapist_id="Ν Πετσιος",
+        start_time=time(10, 0),
+        day_pattern="Τε-Πα",
+        existing_entries=entries,
+    )
+
+    assert len(conflicts) == 1
+    assert conflicts[0].existing_base_entry_id == "E1"
+
+
 def test_non_overlapping_days_are_not_conflict():
     entries = [
         BaseScheduleEntry("E1", "P1", "ΦΘ", time(9, 15), "Δ-Τε", "Χρήστου"),
