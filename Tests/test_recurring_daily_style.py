@@ -37,7 +37,7 @@ def test_same_patient_split_schedule_styles_only_robotic_line_orange():
     assert runs[1].start == len("ΜΟΤΣΙΟΣ [Τρ-Πε]") + 2
 
 
-def test_mixed_recurring_cell_keeps_outpatient_line_dark_green():
+def test_mixed_recurring_cell_keeps_outpatient_line_neutral_black():
     motsios = Patient("1", "ΜΟΤΣΙΟΣ")
     outpatient = Patient(
         "99",
@@ -84,5 +84,5 @@ def test_mixed_recurring_cell_keeps_outpatient_line_dark_green():
     assert [run.font_role for run in runs] == [
         "default",
         "robotic_orange",
-        "outpatient_dark_green",
+        "default",
     ]
