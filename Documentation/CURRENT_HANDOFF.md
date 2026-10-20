@@ -72,8 +72,6 @@ Before the action succeeds:
 
 Successful close persists the finalized daily snapshot used by weekly history.
 
-Corrections after finalization must remain auditable; no silent destructive rewrite of historical truth.
-
 ## Persistence model decision
 
 History is **hybrid**:
@@ -81,32 +79,61 @@ History is **hybrid**:
 - finalized daily snapshots are the fast reporting source for weekly/monthly history,
 - append-only historical events preserve the audit trail and support later corrections/reconstruction.
 
-The snapshot is not allowed to replace or erase event history. Later corrections must append an amendment/correction event and produce a revised historical state without pretending the original finalized record never existed.
+The snapshot is not allowed to replace or erase event history.
 
 At minimum the event model must be able to represent absences, cancellations/no-shows, replacements, suspensions, approved over-capacity/double-booking exceptions, relevant permanent therapist-assignment changes, day finalization and post-finalization amendments.
+
+## Finalized-day amendment decision
+
+Closed days are corrected through an explicit application action such as **`Διόρθωση κλεισμένης ημέρας`**, not through destructive reopen-and-rewrite.
+
+A valid correction:
+
+- appends an amendment event,
+- applies corrected facts through the validated daily business rules,
+- must pass the finalization gate again,
+- creates a new finalized snapshot version,
+- preserves the previous version as `SUPERSEDED`,
+- links the new snapshot to the previous one,
+- keeps reports on the latest `CURRENT_FINAL` version,
+- keeps the full version chain available for audit.
+
+A failed correction must not partially replace the current-final historical state.
+
+## Smallest durable logical schema now drafted
+
+`Documentation/STATISTICS_HISTORY_DESIGN.md` now defines the minimum logical fields for:
+
+- finalized day snapshot headers,
+- therapist/day workload rows,
+- append-only event rows.
+
+The weekly therapist workload view will derive from finalized therapist/day rows, with actual final occupied timeslots as the primary metric and final active sessions as a separate workload metric.
+
+Physical Excel storage location and end-user dashboard layout are deliberately not locked yet.
 
 ## Statistics/history design topics still to lock
 
 Next decisions:
 
-1. exact finalized-day snapshot schema and storage location,
-2. exact append-only event schema/identifiers,
-3. correction/reopen/amendment workflow,
-4. retention/archive horizon,
-5. weekly/monthly comparison windows,
-6. patient-level historical statistics and privacy boundaries,
-7. dashboard/report layout.
+1. physical storage location for snapshots/events,
+2. retention/archive horizon,
+3. weekly/monthly comparison windows,
+4. patient-level historical statistics and privacy boundaries,
+5. dashboard/report layout,
+6. which additional metrics are valuable enough to persist versus derive on demand.
 
 ## Exact resume point
 
 1. Treat the `27 passed in 3.09s` presentation gate as green.
 2. Treat explicit `Κλείσιμο ημέρας` finalization as locked.
 3. Treat the hybrid persistence model as locked: finalized daily snapshots + append-only events.
-4. Decide the smallest durable snapshot/event schema next.
-5. Implement weekly therapist workload history as the first concrete slice once the contract is agreed.
-6. Then continue broader scheduling/UI work and later the global multi-absence optimizer.
-7. Do not manually save smoke workbooks outside a tested flow.
-8. Do not return to restore performance tuning yet.
+4. Treat auditable versioned correction through `Διόρθωση κλεισμένης ημέρας` as locked.
+5. Use the drafted smallest durable logical schema as the basis for implementation planning.
+6. Decide physical storage location next, then implement the first concrete slice: finalized therapist/day history + weekly workload view.
+7. Then continue broader scheduling/UI work and later the global multi-absence optimizer.
+8. Do not manually save smoke workbooks outside a tested flow.
+9. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
