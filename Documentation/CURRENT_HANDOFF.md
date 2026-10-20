@@ -110,13 +110,51 @@ A failed correction must not partially replace the current-final historical stat
 
 Historical snapshots and append-only events are retained indefinitely by default for the life of the system. There is no automatic aging/deletion policy. Any future archive operation must be explicit, controlled and auditable.
 
-## Patient-level analysis decision
+## Concrete patient-history requirements now locked
 
-Patient-level historical analysis is required.
+For each patient, preserve/derive:
 
-For a selected patient, the application must be able to derive/display at least scheduled vs performed sessions, absences/no-shows, cancellations/postponements, treatment suspensions, replacements with effective therapist/time, therapist-assignment changes and period trends/totals.
+- date first entered the operational table/system,
+- elapsed stay shown as years, months and days,
+- treatment/service days,
+- scheduled and performed sessions,
+- total lost/missed treatments with structured reason,
+- expected-working-day logic excluding weekends and official holidays,
+- count of different treatment types,
+- chronological treatment timeline showing starts/stops/meaningful changes,
+- full patient-level trends/totals over selectable periods.
 
-Stable `PatientID` remains the internal key. The UI shows normal patient identity/business labels. Patient history must be based on finalized snapshots/events, not on the patient's current recurring schedule.
+`MASTER` patient links:
+
+- patient **name** opens the intranet/shared-folder patient record using stable identity-based folder resolution,
+- patient **physiotherapy time** opens the 15-day progress/evaluation view.
+
+The 15-day progress view is manual, append-only and milestone-based. Each milestone row carries the examined question/goal, `Από`, `Έως` and one outcome: green positive/progress, grey neutral/no meaningful progress, red negative/deterioration. The previous yellow-neutral roadmap idea is superseded by the current grey-neutral requirement.
+
+Older roadmap notes also retain the planned current-inpatient progress overview, trend/sparkline, overdue-15-day-evaluation list and optional department-level aggregate trajectory, provided the aggregate later gets a clinically meaningful rule rather than a naive average.
+
+## Concrete therapist-history requirements now locked
+
+For each therapist, preserve/derive:
+
+- workload history,
+- calendar-year attendance/presence,
+- calendar-year dated absences,
+- structured absence reason.
+
+Required user-facing absence reasons:
+
+- `Κανονική άδεια`,
+- `Ρεπό`,
+- `Αναρρωτική`,
+- `Αιμοδοσίας`,
+- `Του νόμου`,
+- `Εκπαιδευτική`,
+- `Τέκνων`,
+- `Ειδική`,
+- `Από τη σημαία`.
+
+Earlier project notes also already proposed therapist statistics for total treatments, daily/weekly/monthly workload, replacements accepted, infectious-patient workload, robotic workload, available/unused timeslots, cancellations/patient absences affecting utilization, sessions lost due to therapist absence and sessions covered by replacement. Keep these in the planned metric set unless explicitly removed later.
 
 ## Dashboard/report decision
 
@@ -135,20 +173,24 @@ Normal users access reports through application UI, not raw technical worksheets
 
 - finalized day snapshot headers,
 - therapist/day workload rows,
-- append-only event rows.
+- append-only event rows,
+- patient-level history/timeline requirements,
+- therapist attendance/absence history requirements.
 
 The weekly therapist workload view will derive from finalized therapist/day rows, with actual final occupied timeslots as the primary metric and final active sessions as a separate workload metric.
 
-## Statistics/history design checkpoint status
+## Statistics/history checkpoint status
 
-The core architecture questions are now complete enough to stop abstract questioning and collect the user's concrete requirements.
+The core architecture questions are complete. Concrete patient/therapist reporting requirements are now recorded.
 
-Remaining details should be derived from those requirements:
+Remaining implementation-design details:
 
-- exact weekly/monthly comparison presets,
-- additional metrics worth persisting versus deriving,
-- exact patient-level statistics/reports,
-- dashboard views and drill-downs that map to real operational use.
+- official-holiday calendar/configuration source,
+- partial-day therapist attendance/absence semantics if needed,
+- exact 15-day milestone form layout/fields,
+- intranet `FolderKey`/path-resolution configuration,
+- any additional user-requested metrics remembered later,
+- which derived metrics deserve snapshot columns for performance versus calculation on demand.
 
 ## Exact resume point
 
@@ -160,8 +202,8 @@ Remaining details should be derived from those requirements:
 6. Treat indefinite retention by default as locked.
 7. Treat patient-level historical analysis as required.
 8. Treat both tables and charts/trends as required for reporting.
-9. Collect the user's own requested history/statistics now, before implementation.
-10. Use those requirements to finalize the first concrete slice: day finalization + therapist/day history + weekly workload view.
+9. Treat the concrete patient/therapist metric set above as required and merge any later remembered requirements into `STATISTICS_HISTORY_DESIGN.md`.
+10. Design the first implementation slice around day finalization + therapist/day history + weekly workload view, while reserving schema hooks for patient timeline/progress and therapist attendance.
 11. Do not manually save smoke workbooks outside a tested flow.
 12. Do not return to restore performance tuning yet.
 
