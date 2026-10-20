@@ -56,9 +56,20 @@ Normal capacity semantics remain:
 
 ## Finalization semantics
 
-Historical daily workload should be treated as final only when the operational day is finalized, meaning no displaced session remains unresolved. The precise persistence trigger and any correction/amendment workflow remain to be designed.
+Historical daily workload becomes final only through an explicit application action: **`Κλείσιμο ημέρας`**.
 
-A later correction to historical data must be auditable. Do not silently rewrite historical truth without retaining the fact that a correction occurred.
+The application must not silently finalize a day just because the clock passed a certain hour or the workbook was closed. The user deliberately closes the operational day when the day's exceptions have been resolved.
+
+Before `Κλείσιμο ημέρας` can succeed, the daily state must pass the finalization gate:
+
+- no displaced/orphan session remains unresolved,
+- every concrete-date session has a final operational outcome,
+- replacements, cancellations/no-shows and suspensions are already reflected in the effective daily truth,
+- workload/statistics are computed from that final effective state.
+
+On successful close, persist the finalized daily historical snapshot. At minimum this must include the therapist/day workload facts needed for weekly history and the final daily outcome counts.
+
+A later correction to historical data must be auditable. Do not silently rewrite historical truth without retaining the fact that a correction occurred. The exact reopen/amendment workflow remains to be designed.
 
 ## Open design questions
 
