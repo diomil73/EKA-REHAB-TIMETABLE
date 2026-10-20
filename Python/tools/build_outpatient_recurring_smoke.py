@@ -14,6 +14,9 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_excel.outpatient_conflict_guard_vba import (  # noqa: E402
     install_outpatient_conflict_guard,
 )
+from rehab_excel.outpatient_daily_edit_vba import (  # noqa: E402
+    install_outpatient_daily_edit_hardening,
+)
 from rehab_excel.outpatient_schedule_edit_vba import (  # noqa: E402
     EDIT_MACRO_NAME,
     install_outpatient_schedule_edit_support,
@@ -218,6 +221,9 @@ def build_outpatient_recurring_smoke(
 
         phase = "conflict guard install"
         install_outpatient_conflict_guard(vbproject)
+
+        phase = "daily edit hardening install"
+        install_outpatient_daily_edit_hardening(vbproject)
 
         phase = "component verification"
         _verify_components(vbproject)
