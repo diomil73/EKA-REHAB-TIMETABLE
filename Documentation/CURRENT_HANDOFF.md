@@ -36,7 +36,7 @@ The outpatient edit/conflict/workload path is operationally green enough to move
 
 The active work is now the historical fact model. Historical statistics must not be reconstructed later from today's mutable schedule projection.
 
-The user explicitly wants weekly workload history per therapist plus broader statistics/history.
+The user explicitly wants weekly workload history per therapist plus broader statistics/history and patient-level analysis.
 
 ## Therapist workload contract already locked
 
@@ -83,6 +83,12 @@ The snapshot is not allowed to replace or erase event history.
 
 At minimum the event model must be able to represent absences, cancellations/no-shows, replacements, suspensions, approved over-capacity/double-booking exceptions, relevant permanent therapist-assignment changes, day finalization and post-finalization amendments.
 
+## Physical storage decision
+
+Historical snapshots, therapist/day workload rows and append-only events stay inside the same `.xlsm` in hidden/protected technical tables.
+
+Normal operation must not depend on external history files. Users access history through application forms/reports, not raw technical sheets. Patient-level history must not be automatically exported to the repository or uncontrolled external artifacts.
+
 ## Finalized-day amendment decision
 
 Closed days are corrected through an explicit application action such as **`Διόρθωση κλεισμένης ημέρας`**, not through destructive reopen-and-rewrite.
@@ -100,9 +106,21 @@ A valid correction:
 
 A failed correction must not partially replace the current-final historical state.
 
+## Retention decision
+
+Historical snapshots and append-only events are retained indefinitely by default for the life of the system. There is no automatic aging/deletion policy. Any future archive operation must be explicit, controlled and auditable.
+
+## Patient-level analysis decision
+
+Patient-level historical analysis is required.
+
+For a selected patient, the application must be able to derive/display at least scheduled vs performed sessions, absences/no-shows, cancellations/postponements, treatment suspensions, replacements with effective therapist/time, therapist-assignment changes and period trends/totals.
+
+Stable `PatientID` remains the internal key. The UI shows normal patient identity/business labels. Patient history must be based on finalized snapshots/events, not on the patient's current recurring schedule.
+
 ## Smallest durable logical schema now drafted
 
-`Documentation/STATISTICS_HISTORY_DESIGN.md` now defines the minimum logical fields for:
+`Documentation/STATISTICS_HISTORY_DESIGN.md` defines the minimum logical fields for:
 
 - finalized day snapshot headers,
 - therapist/day workload rows,
@@ -110,18 +128,14 @@ A failed correction must not partially replace the current-final historical stat
 
 The weekly therapist workload view will derive from finalized therapist/day rows, with actual final occupied timeslots as the primary metric and final active sessions as a separate workload metric.
 
-Physical Excel storage location and end-user dashboard layout are deliberately not locked yet.
-
 ## Statistics/history design topics still to lock
 
 Next decisions:
 
-1. physical storage location for snapshots/events,
-2. retention/archive horizon,
-3. weekly/monthly comparison windows,
-4. patient-level historical statistics and privacy boundaries,
-5. dashboard/report layout,
-6. which additional metrics are valuable enough to persist versus derive on demand.
+1. weekly/monthly comparison windows,
+2. dashboard/report layout and drill-down UX,
+3. which additional metrics are valuable enough to persist versus derive on demand,
+4. exact patient-level metric set based on the user's own requested statistics/history.
 
 ## Exact resume point
 
@@ -129,11 +143,13 @@ Next decisions:
 2. Treat explicit `Κλείσιμο ημέρας` finalization as locked.
 3. Treat the hybrid persistence model as locked: finalized daily snapshots + append-only events.
 4. Treat auditable versioned correction through `Διόρθωση κλεισμένης ημέρας` as locked.
-5. Use the drafted smallest durable logical schema as the basis for implementation planning.
-6. Decide physical storage location next, then implement the first concrete slice: finalized therapist/day history + weekly workload view.
-7. Then continue broader scheduling/UI work and later the global multi-absence optimizer.
-8. Do not manually save smoke workbooks outside a tested flow.
-9. Do not return to restore performance tuning yet.
+5. Treat same-workbook hidden/protected technical storage as locked.
+6. Treat indefinite retention by default as locked.
+7. Treat patient-level historical analysis as required.
+8. Finish the last dashboard/comparison design question, then collect the user's additional requested metrics before implementation.
+9. Use those requirements to finalize the first concrete slice: day finalization + therapist/day history + weekly workload view.
+10. Do not manually save smoke workbooks outside a tested flow.
+11. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
