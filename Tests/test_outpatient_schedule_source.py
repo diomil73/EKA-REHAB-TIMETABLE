@@ -1,9 +1,11 @@
-from datetime import time
+from datetime import date, time
 
 import pytest
 from openpyxl import Workbook
 
+from rehab_core.base_schedule import materialize_sessions_for_date
 from rehab_core.models import Patient, PatientType
+from rehab_core.workload import calculate_therapist_workload
 from rehab_excel.outpatient_schedule_source import (
     OutpatientScheduleSourceError,
     read_outpatient_schedule,
@@ -55,6 +57,28 @@ def test_reads_one_row_per_outpatient_recurring_treatment(tmp_path):
     assert entry.day_pattern == "Δε-Τε-Πα"
     assert entry.therapist_id == "T1"
     assert entry.robotic is False
+
+
+def test_outpatient_recurring_entry_counts_once_in_therapist_workload(tmp_path):
+    path = _workbook(
+        tmp_path,
+        rows=[("O1", "ΕΞΩΤΕΡΙΚΟΣ", "ΦΘ", "09:15", "Δε-Τε-Πα", "T1")],
+    )
+    patient = outpatient()
+    target_date = date(2026, 10, 19)  # Monday
+
+    entries = read_outpatient_schedule(path, patients=[patient])
+    sessions = materialize_sessions_for_date(entries, target_date)
+    workload = calculate_therapist_workload(
+        "T1",
+        target_date,
+        sessions,
+        patients=[patient],
+    )
+
+    assert len(sessions) == 1
+    assert workload.active_sessions == 1
+    assert workload.active_timeslots == 1
 
 
 def test_unified_schedule_reuses_supplied_patient_registry(monkeypatch):
