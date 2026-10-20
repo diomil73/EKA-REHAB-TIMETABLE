@@ -42,21 +42,28 @@ def test_outpatient_save_confirmation_points_to_next_operational_check():
 
     assert "Επόμενο βήμα:" in patched
     assert "Ημερήσιο Πρόγραμμα Θεραπευτών" in patched
+    assert "Base entry:" not in patched
     assert "χωρίς κλείσιμο ή επανεκκίνηση" not in patched
 
 
-def test_outpatient_save_caches_patient_id_before_backend_round_trip():
+def test_outpatient_save_uses_authoritative_patient_id_for_edit():
     patched = patch_outpatient_schedule_form_code(FORM_CODE)
 
     assert "Dim selectedPatientId As String" in patched
-    assert "selectedPatientId = PatientIdFromSelection()" in patched
+    assert "selectedPatientId = PatientIdForCurrentOperation()" in patched
     assert "SaveOutpatientScheduleInWorkbook( _\n        selectedPatientId" in patched
+    assert "Private Function PatientIdForCurrentOperation() As String" in patched
+    assert 'If Len(Trim$(OutpatientEditTargetBaseEntryId)) = 0 Then' in patched
+    assert "PatientIdForCurrentOperation = PatientIdFromSelection()" in patched
+    assert 'Set ws = ThisWorkbook.Worksheets("OUTPATIENT_SCHEDULE")' in patched
+    assert "PatientIdForCurrentOperation = Trim$(CStr(ws.Cells(rowIndex, 1).Value))" in patched
 
 
-def test_conflict_guard_preserves_edit_target_in_validation_and_final_write():
+def test_conflict_request_uses_same_authoritative_patient_identity_as_final_write():
     edit_patched = patch_edit_form(FORM_CODE)
     patched = patch_outpatient_schedule_form_code(edit_patched)
 
+    assert 'q & "patient_id" & q & ":" & q & JsonEscape(PatientIdForCurrentOperation())' in patched
     assert 'q & "target_base_entry_id" & q' in patched
     assert "JsonEscape(OutpatientEditTargetBaseEntryId)" in patched
     assert "cboTherapist.Value, _\n        OutpatientEditTargetBaseEntryId)" in patched
