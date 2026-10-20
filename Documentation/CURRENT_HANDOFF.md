@@ -23,77 +23,52 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - combined outpatient recurring smoke build: native green, trusted source unchanged
 - outpatient recurring CREATE: native green
 - outpatient schedule manager: native visible and usable
-- outpatient edit: not green yet; duplicate-fix code is implemented but awaits focused + native verification
+- duplicate-fix focused gate: `45 passed, 4 warnings in 4.98s`
+- outpatient edit after duplicate hardening: fresh native smoke appears correct
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
-## Active milestone: outpatient recurring edit correctness
+## Active milestone: therapist workload visibility
 
-The application-style outpatient schedule manager is implemented and native-visible.
+The duplicate outpatient edit path has been hardened and the latest fresh smoke appears correct. The remaining immediate operational gap is workload visibility.
 
-Current implementation:
+Implemented in `Python/rehab_excel/therapist_workload_strip_vba.py`:
 
-- `Python/rehab_excel/outpatient_schedule_manager_vba.py` owns `frmOutpatientScheduleManager` and `ShowOutpatientScheduleManager`.
-- The manager shows patient, treatment, time, days and therapist.
-- The worksheet row key exists only in a hidden ListBox column and is never shown or typed by the user.
-- `EditOutpatientSchedule` routes to the manager instead of asking for a worksheet row.
-- The existing top-level `Διαχείριση Μητρώων` menu's outpatient button opens `Προγράμματα εξωτερικών ασθενών`.
-- Same-row authoritative edit semantics remain protected by `target_base_entry_id` and same-patient validation.
+- MASTER action `Φόρτος θεραπευτών`,
+- horizontal workload badges in the form `Όνομα n/6`,
+- `n` counts occupied THERAPIST_DAILY timeslot cells, not patient lines,
+- normal capacity threshold: green 0-4/6, yellow/orange 5/6, red 6/6 or above,
+- refresh macro `ShowTherapistWorkload`,
+- application-style shapes only; no raw worksheet-row concepts exposed.
 
-### Duplicate daily projection bug and implemented hardening
+The combined outpatient smoke builder now installs and verifies `modTherapistWorkloadStrip` after outpatient edit hardening.
 
-Native edit showed the same outpatient twice in `THERAPIST_DAILY`. The identified mechanism is that normal daily rendering may decorate the patient line, for example `Όνομα [Καθ/να]`, while the old edit cleanup removed only a line exactly equal to `Όνομα`. The old rendered line therefore survived and the in-session edit appended a second plain line.
+### Why timeslots, not patient count
 
-Implemented in `Python/rehab_excel/outpatient_daily_edit_vba.py`:
-
-- patch the installed `modOutpatientInSession` after the normal conflict/in-session installer,
-- on edit, clean the old affected daily cell before refresh,
-- if therapist/time changes, clean the destination cell too,
-- recognize both plain patient lines and known decorated patient-line forms such as `Όνομα [..]`, `Όνομα (..)` and replacement-arrow suffixes,
-- render only once after cleanup,
-- keep this hardening isolated from authoritative storage semantics.
-
-The combined outpatient smoke builder now installs this hardening after the conflict guard and before verification/save.
-
-This remains a transitional in-session hardening layer. Long-term rendering direction is deterministic reconstruction from authoritative daily truth rather than text-oriented cell surgery.
-
-### Workload verification
-
-A new Python regression materializes one outpatient recurring entry on an applicable date and verifies `calculate_therapist_workload` returns exactly:
-
-- `active_sessions == 1`
-- `active_timeslots == 1`
-
-So the scheduling model has an explicit one-outpatient/one-load contract. Native Excel must now prove its projection matches that model.
-
-Do not return to the old row-number InputBox flow.
+Operational capacity is timeslot-based. A legitimate two-patient shared slot is two sessions but one occupied timeslot, so the workload badge must show one consumed capacity unit for that clock slot.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run the focused duplicate-fix gate:
+2. Run the focused workload-strip gate:
 
 ```powershell
 python -m pytest `
+  Tests/test_therapist_workload_strip_vba.py `
+  Tests/test_outpatient_recurring_smoke_builder.py `
   Tests/test_outpatient_daily_edit_vba.py `
-  Tests/test_outpatient_schedule_source.py `
-  Tests/test_outpatient_schedule_registration.py `
-  Tests/test_outpatient_conflict_guard_vba.py `
-  Tests/test_outpatient_schedule_edit_vba.py `
-  Tests/test_outpatient_schedule_manager_vba.py `
-  Tests/test_outpatient_recurring_smoke_builder.py -q
+  Tests/test_outpatient_schedule_source.py -q
 ```
 
 3. If green, build a fresh `OUTPATIENT_RECURRING_SMOKE.xlsm` from trusted `RERESOLVED_V90.xlsm`.
-4. Native-test through `Διαχείριση Μητρώων` -> `Προγράμματα εξωτερικών ασθενών`: edit only the time of the existing outpatient.
-5. Confirm the old daily placement is gone and the destination contains the outpatient exactly once.
-6. Reopen the manager and confirm the schedule entry itself is still single and shows the new time.
-7. Confirm therapist load semantics remain one outpatient session / one occupied timeslot. Do not infer correctness merely from duplicate-looking text.
-8. If this is green, clean remaining outpatient daily styling issues.
-9. Then use a separate fresh smoke for therapist/time conflict verification.
-10. Continue to the next unambiguous milestone without waiting for an extra user prompt.
-11. Do not manually save smoke workbooks outside the tested flow.
-12. Do not return to restore performance tuning yet.
+4. On MASTER confirm a visible `Φόρτος θεραπευτών` control exists.
+5. Click it and confirm one badge per therapist appears as `Όνομα n/6`.
+6. Confirm a therapist at 0-4 occupied timeslots is green, 5 is yellow/orange, 6 is red.
+7. Confirm the therapist containing the outpatient edit counts that outpatient exactly once by occupied timeslot.
+8. Only after this is native green, use a separate fresh smoke for therapist/time conflict verification.
+9. Continue to the next unambiguous milestone without waiting for another user prompt.
+10. Do not manually save smoke workbooks outside the tested flow.
+11. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
