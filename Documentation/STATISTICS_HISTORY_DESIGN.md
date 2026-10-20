@@ -206,6 +206,21 @@ Patient-identifiable analysis remains inside the controlled application/workbook
 
 The exact set of patient metrics and report layout will be expanded from the user's operational requirements before the first patient-history UI is implemented.
 
+## Dashboard and report UX
+
+The reporting UI must support **both filtered tables and charts/trends**.
+
+The default interaction pattern is:
+
+- a clear table/report surface first, with filters for period, therapist, patient and relevant status/category,
+- charts and trend visuals as a complementary layer for pattern recognition, comparison and change over time,
+- drill-down from aggregate/graph views to the underlying finalized historical records where appropriate,
+- no requirement for users to navigate raw Excel data sheets.
+
+Tables remain the primary source for exact operational values. Charts are used to expose trends, workload balance, planned-versus-actual gaps, absence/no-show patterns, replacement load and patient-level trajectories without hiding the underlying numbers.
+
+Weekly and monthly reporting should use the same historical truth and filtering model so that a value seen in a chart can be reconciled with the corresponding table rows.
+
 ## Retention and archive policy
 
 Historical snapshots and append-only events are retained indefinitely by default for the life of the system.
@@ -216,12 +231,11 @@ This policy applies to both current-final snapshots and superseded historical ve
 
 ## Open design questions
 
-Still to lock before implementation:
+The core architecture is now locked. Remaining details should be driven by the user's concrete reporting requirements rather than more abstract pre-design questions:
 
-1. weekly/monthly comparison windows,
-2. dashboard layout and drill-down UX,
-3. which statistics are operationally useful enough to keep permanently versus derive on demand,
-4. exact patient-level metric set based on the user's additional requirements.
+1. exact weekly/monthly comparison presets and date ranges,
+2. which additional statistics are valuable enough to persist versus derive on demand,
+3. the exact patient-level metric set and operational reports requested by the user.
 
 ## Relationship to current scheduling truth
 
