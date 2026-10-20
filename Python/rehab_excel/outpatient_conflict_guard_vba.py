@@ -81,7 +81,8 @@ NEW_SAVE_BLOCK = r'''Private Sub cmdSave_Click()
         cboTreatment.Value, _
         cboTime.Value, _
         cboDays.Value, _
-        cboTherapist.Value)
+        cboTherapist.Value, _
+        OutpatientEditTargetBaseEntryId)
 
     On Error Resume Next
     If Len(previewPath) > 0 Then Kill previewPath
@@ -134,7 +135,8 @@ NEW_REQUEST_BLOCK = r'''Private Function BuildRequestJson(ByVal allowDoubleBooki
         q & "time" & q & ":" & q & JsonEscape(cboTime.Value) & q & "," & _
         q & "days" & q & ":" & q & JsonEscape(cboDays.Value) & q & "," & _
         q & "allow_double_booking" & q & ":" & LCase$(CStr(allowDoubleBooking)) & "," & _
-        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & _
+        q & "therapist" & q & ":" & q & JsonEscape(cboTherapist.Value) & q & "," & _
+        q & "target_base_entry_id" & q & ":" & q & JsonEscape(OutpatientEditTargetBaseEntryId) & q & _
         "}}"
 End Function'''
 
@@ -278,9 +280,21 @@ def _remove_vba_procedure_if_present(
 
 
 def patch_outpatient_schedule_form_code(code: str) -> str:
-    patched = code
+    patched = code.replace("\r\n", "\n").replace("\r", "\n")
 
-    if "SaveOutpatientScheduleInWorkbook" not in patched or "selectedPatientId = PatientIdFromSelection()" not in patched:
+    if "OutpatientEditTargetBaseEntryId" not in patched:
+        signature = "Private Sub UserForm_Initialize()"
+        start = patched.find(signature)
+        if start < 0:
+            raise ValueError("Could not locate outpatient form initialize procedure")
+        insert_at = start + len(signature)
+        patched = (
+            patched[:insert_at]
+            + '\n    OutpatientEditTargetBaseEntryId = ""'
+            + patched[insert_at:]
+        )
+
+    if "SaveOutpatientScheduleInWorkbook" not in patched or "OutpatientEditTargetBaseEntryId)" not in patched:
         patched = _replace_vba_procedure(
             patched,
             start_signature="Private Sub cmdSave_Click()",
@@ -295,7 +309,15 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
             end_statement="End Function",
             replacement=NEW_REQUEST_BLOCK,
         )
-    elif "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" not in patched:
+    elif "Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String" in patched:
+        if 'q & "target_base_entry_id" & q' not in patched:
+            patched = _replace_vba_procedure(
+                patched,
+                start_signature="Private Function BuildRequestJson(ByVal allowDoubleBooking As Boolean) As String",
+                end_statement="End Function",
+                replacement=NEW_REQUEST_BLOCK,
+            )
+    else:
         raise ValueError("Could not locate outpatient request builder")
 
     patched = patched.replace(
@@ -306,7 +328,6 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
     if "Public Sub SelectPatientById(ByVal patientId As String)" not in patched:
         patched = patched.rstrip() + "\n\n" + SELECT_PATIENT_BLOCK + "\n"
 
-    # The old preview/commit/reopen lifecycle is intentionally removed, not merely unused.
     for signature in (
         "Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean",
         "Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String",
