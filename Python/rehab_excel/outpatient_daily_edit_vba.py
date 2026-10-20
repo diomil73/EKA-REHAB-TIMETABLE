@@ -11,6 +11,15 @@ _EDIT_REMOVE_REPLACEMENT = r'''        RemoveOutpatientRenderFromAffectedDailyCe
             patientName, oldTherapistName, oldTimeText, oldDayPattern, _
             therapistName, timeText, dayPattern'''
 
+_REFRESH_CALL = (
+    "    RefreshTherapistDailyForCurrentDate patientName, therapistName, timeText, dayPattern, treatment"
+)
+
+_REFRESH_REPLACEMENT = r'''    RefreshTherapistDailyForCurrentDate patientName, therapistName, timeText, dayPattern, treatment
+    On Error Resume Next
+    RenderTherapistWorkloadStrip
+    On Error GoTo SaveError'''
+
 _HELPERS = r'''
 Private Sub RemoveOutpatientRenderFromAffectedDailyCells( _
     ByVal patientName As String, _
@@ -117,27 +126,36 @@ End Function
 
 
 def patch_outpatient_in_session_module_code(code: str) -> str:
-    """Make outpatient edit cleanup idempotent for current THERAPIST_DAILY rendering.
+    """Harden outpatient edit cleanup and refresh the visible workload strip.
 
     The legacy in-session writer removed only a line exactly equal to the patient
     display name. The daily renderer may include a suffix such as ``[Καθ/να]``;
     an edit then left the old rendered line behind and appended a second plain
     patient line. This patch cleans both the old slot and the destination slot
     using the accepted rendered-line shapes before the writer renders once.
+
+    After the daily projection is updated, the workload strip is recalculated so
+    the MASTER does not keep stale therapist-load badges after an edit. The call
+    is optional at runtime so workbooks without the strip module still save.
     """
 
     normalized = code.replace("\r\n", "\n").replace("\r", "\n")
-    if "Private Sub RemoveOutpatientRenderFromAffectedDailyCells(" in normalized:
-        return normalized
-    if normalized.count(_EDIT_REMOVE_CALL) != 1:
-        raise RuntimeError("Expected exactly one outpatient edit daily-removal call")
 
-    patched = normalized.replace(_EDIT_REMOVE_CALL, _EDIT_REMOVE_REPLACEMENT, 1)
-    marker = "\nPrivate Function TryReadDailyInputDate"
-    if marker not in patched:
-        raise RuntimeError("Could not locate outpatient in-session helper insertion point")
-    patched = patched.replace(marker, _HELPERS + marker, 1)
-    return patched
+    if "Private Sub RemoveOutpatientRenderFromAffectedDailyCells(" not in normalized:
+        if normalized.count(_EDIT_REMOVE_CALL) != 1:
+            raise RuntimeError("Expected exactly one outpatient edit daily-removal call")
+        normalized = normalized.replace(_EDIT_REMOVE_CALL, _EDIT_REMOVE_REPLACEMENT, 1)
+        marker = "\nPrivate Function TryReadDailyInputDate"
+        if marker not in normalized:
+            raise RuntimeError("Could not locate outpatient in-session helper insertion point")
+        normalized = normalized.replace(marker, _HELPERS + marker, 1)
+
+    if "RenderTherapistWorkloadStrip" not in normalized:
+        if normalized.count(_REFRESH_CALL) != 1:
+            raise RuntimeError("Expected exactly one outpatient daily refresh call")
+        normalized = normalized.replace(_REFRESH_CALL, _REFRESH_REPLACEMENT, 1)
+
+    return normalized
 
 
 def _component_code(component) -> str:
@@ -168,3 +186,5 @@ def install_outpatient_daily_edit_hardening(vbproject) -> None:
         raise RuntimeError("Outpatient daily edit hardening was not installed")
     if "IsOutpatientPatientRenderLine" not in installed:
         raise RuntimeError("Outpatient rendered-line cleanup was not installed")
+    if "RenderTherapistWorkloadStrip" not in installed:
+        raise RuntimeError("Outpatient workload refresh hook was not installed")
