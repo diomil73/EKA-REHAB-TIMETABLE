@@ -206,10 +206,32 @@ def _replace_vba_procedure(
 
 
 def patch_registration_menu_for_outpatient_manager(code: str) -> str:
-    patched = code.replace(
+    patched = code.replace("\r\n", "\n").replace("\r", "\n")
+    patched = patched.replace(
         'StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή",',
         'StyleMenuButton cmdOutpatientSchedule, "Προγράμματα εξωτερικών ασθενών",',
     )
+
+    if "StyleMenuButton cmdOutpatientSchedule" not in patched:
+        anchor = 'StyleMenuButton cmdStudent, "Νέος φοιτητής", 158'
+        if anchor in patched:
+            patched = patched.replace(
+                anchor,
+                anchor
+                + '\n    StyleMenuButton cmdOutpatientSchedule, "Προγράμματα εξωτερικών ασθενών", 203',
+                1,
+            )
+
+    # Older menu builds placed Close where the outpatient action now belongs.
+    # Move it down when that exact legacy layout is present.
+    close_start = patched.find("With cmdClose")
+    if close_start >= 0:
+        close_end = patched.find("End With", close_start)
+        if close_end >= 0:
+            close_block = patched[close_start:close_end]
+            new_close_block = close_block.replace(".Top = 215", ".Top = 260")
+            patched = patched[:close_start] + new_close_block + patched[close_end:]
+
     if "Private Sub cmdOutpatientSchedule_Click()" in patched:
         patched = _replace_vba_procedure(
             patched,
@@ -217,7 +239,42 @@ def patch_registration_menu_for_outpatient_manager(code: str) -> str:
             end_statement="End Sub",
             replacement=REGISTRATION_MENU_OUTPATIENT_CLICK,
         )
+    else:
+        patched = patched.rstrip() + "\n\n" + REGISTRATION_MENU_OUTPATIENT_CLICK + "\n"
+
     return patched
+
+
+def _ensure_registration_menu_entry(registration_menu) -> None:
+    designer = registration_menu.Designer
+    button = _ensure_form_control(
+        designer,
+        "Forms.CommandButton.1",
+        "cmdOutpatientSchedule",
+    )
+    button.Caption = "Προγράμματα εξωτερικών ασθενών"
+    button.Left = 45
+    button.Top = 203
+    button.Width = 230
+    button.Height = 34
+    try:
+        button.Font.Name = "Calibri"
+        button.Font.Size = 11
+        button.Font.Bold = True
+        button.TakeFocusOnClick = False
+    except Exception:
+        pass
+
+    try:
+        close_button = designer.Controls("cmdClose")
+        close_button.Top = 260
+    except Exception:
+        pass
+
+    registration_code = _component_code(registration_menu)
+    patched_registration = patch_registration_menu_for_outpatient_manager(registration_code)
+    if patched_registration != registration_code.replace("\r\n", "\n").replace("\r", "\n"):
+        _replace_component_code(registration_menu, patched_registration)
 
 
 def install_outpatient_schedule_manager(vbproject) -> None:
@@ -258,15 +315,18 @@ def install_outpatient_schedule_manager(vbproject) -> None:
     _replace_component_code(form, FORM_CODE)
 
     registration_menu = _component_if_present(vbproject, REGISTRATION_MENU_NAME)
-    if registration_menu is not None:
-        registration_code = _component_code(registration_menu)
-        patched_registration = patch_registration_menu_for_outpatient_manager(registration_code)
-        if patched_registration != registration_code.replace("\r\n", "\n").replace("\r", "\n"):
-            _replace_component_code(registration_menu, patched_registration)
+    if registration_menu is None:
+        raise RuntimeError(
+            "Registration menu is missing; outpatient management would have no application entry point"
+        )
+    _ensure_registration_menu_entry(registration_menu)
 
     installed_module = module.CodeModule.Lines(1, module.CodeModule.CountOfLines)
     installed_form = form.CodeModule.Lines(1, form.CodeModule.CountOfLines)
+    installed_registration = _component_code(registration_menu)
     if "Public Sub ShowOutpatientScheduleManager()" not in installed_module:
         raise RuntimeError("Outpatient schedule manager macro was not installed")
     if "EditOutpatientScheduleByRow targetRow" not in installed_form:
         raise RuntimeError("Outpatient schedule manager edit action was not installed")
+    if "ShowOutpatientScheduleManager" not in installed_registration:
+        raise RuntimeError("Registration menu does not route to outpatient schedule manager")
