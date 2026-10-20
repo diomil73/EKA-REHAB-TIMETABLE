@@ -25,6 +25,12 @@ from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
     MODULE_CODE,
     MODULE_NAME,
 )
+from rehab_excel.outpatient_schedule_manager_vba import (  # noqa: E402
+    FORM_NAME as MANAGER_FORM_NAME,
+    MACRO_NAME as MANAGER_MACRO_NAME,
+    MODULE_NAME as MANAGER_MODULE_NAME,
+    install_outpatient_schedule_manager,
+)
 
 
 class OutpatientRecurringSmokeBuildError(RuntimeError):
@@ -129,6 +135,8 @@ def _verify_components(vbproject) -> None:
         FORM_NAME,
         MODULE_NAME,
         "modOutpatientScheduleEdit",
+        MANAGER_FORM_NAME,
+        MANAGER_MODULE_NAME,
         "frmSchedulingConflict",
         "modSchedulingConflict",
         "modOutpatientInSession",
@@ -146,7 +154,7 @@ def build_outpatient_recurring_smoke(
     *,
     overwrite: bool = False,
 ) -> Path:
-    """Build create/edit/suggestion/conflict support in one native Excel session.
+    """Build create/edit/manager/suggestion/conflict support in one Excel session.
 
     The trusted source is copied byte-for-byte first and is never opened for
     mutation. All VBA installation then happens while the final smoke copy is
@@ -205,6 +213,9 @@ def build_outpatient_recurring_smoke(
         phase = "edit support install"
         install_outpatient_schedule_edit_support(vbproject)
 
+        phase = "schedule manager install"
+        install_outpatient_schedule_manager(vbproject)
+
         phase = "conflict guard install"
         install_outpatient_conflict_guard(vbproject)
 
@@ -252,7 +263,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Build one fresh XLSM smoke copy with outpatient recurring create/edit, "
-            "suggestions and conflict popup support."
+            "management UI, suggestions and conflict popup support."
         )
     )
     parser.add_argument("--source", type=Path, required=True)
@@ -274,7 +285,8 @@ def main() -> int:
     print(f"Source: {args.source.resolve()}")
     print(f"Smoke: {output}")
     print(f"Create macro: {MACRO_NAME}")
-    print(f"Edit macro: {EDIT_MACRO_NAME}")
+    print(f"Manage/edit macro: {MANAGER_MACRO_NAME}")
+    print(f"Legacy edit alias: {EDIT_MACRO_NAME}")
     print("Source unchanged: True")
     return 0
 
