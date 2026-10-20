@@ -19,17 +19,36 @@ FORM_CODE = r'''Option Explicit
 
 Private Sub UserForm_Initialize()
     Me.Caption = "Προγράμματα εξωτερικών ασθενών"
+    Me.Width = 525
+    Me.Height = 430
+
     lblTitle.Caption = "Προγράμματα εξωτερικών ασθενών"
+    lblTitle.Width = 465
+    lblTitle.Height = 24
+
     lblInfo.Caption = "Επιλέξτε μία εγγραφή για επεξεργασία ή δημιουργήστε νέο πρόγραμμα."
-    cmdNew.Caption = "Νέο πρόγραμμα"
-    cmdEdit.Caption = "Επεξεργασία"
-    cmdClose.Caption = "Κλείσιμο"
+    lblInfo.Width = 465
+    lblInfo.Height = 30
 
     With lstSchedules
+        .Width = 465
+        .Height = 250
         .ColumnCount = 6
         .ColumnWidths = "0 pt;150 pt;95 pt;55 pt;85 pt;110 pt"
         .IntegralHeight = False
     End With
+
+    cmdNew.Caption = "Νέο πρόγραμμα"
+    cmdNew.Width = 135
+    cmdNew.Height = 30
+
+    cmdEdit.Caption = "Επεξεργασία"
+    cmdEdit.Width = 135
+    cmdEdit.Height = 30
+
+    cmdClose.Caption = "Κλείσιμο"
+    cmdClose.Width = 135
+    cmdClose.Height = 30
 
     RefreshScheduleList
 End Sub
@@ -157,19 +176,17 @@ def install_outpatient_schedule_manager(vbproject) -> None:
     designer.Caption = "Προγράμματα εξωτερικών ασθενών"
 
     controls = (
-        ("Forms.Label.1", "lblTitle", 18, 12, 465, 24),
-        ("Forms.Label.1", "lblInfo", 18, 40, 465, 30),
-        ("Forms.ListBox.1", "lstSchedules", 18, 78, 465, 250),
-        ("Forms.CommandButton.1", "cmdNew", 18, 342, 135, 30),
-        ("Forms.CommandButton.1", "cmdEdit", 168, 342, 135, 30),
-        ("Forms.CommandButton.1", "cmdClose", 348, 342, 135, 30),
+        ("Forms.Label.1", "lblTitle", 18, 12),
+        ("Forms.Label.1", "lblInfo", 18, 40),
+        ("Forms.ListBox.1", "lstSchedules", 18, 78),
+        ("Forms.CommandButton.1", "cmdNew", 18, 342),
+        ("Forms.CommandButton.1", "cmdEdit", 168, 342),
+        ("Forms.CommandButton.1", "cmdClose", 348, 342),
     )
-    for prog_id, name, left, top, width, height in controls:
+    for prog_id, name, left, top in controls:
         control = _ensure_form_control(designer, prog_id, name)
         control.Left = left
         control.Top = top
-        control.Width = width
-        control.Height = height
 
     _replace_component_code(form, FORM_CODE)
 
