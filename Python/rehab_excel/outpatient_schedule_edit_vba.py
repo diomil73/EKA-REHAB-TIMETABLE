@@ -13,10 +13,12 @@ EDIT_MODULE_CODE = r'''Option Explicit
 Public OutpatientEditTargetBaseEntryId As String
 
 Public Sub EditOutpatientSchedule()
+    ShowOutpatientScheduleManager
+End Sub
+
+Public Sub EditOutpatientScheduleByRow(ByVal rowIndex As Long)
     Dim ws As Worksheet
-    Dim defaultRow As Long
-    Dim rowText As String
-    Dim rowIndex As Long
+    Dim lastRow As Long
     Dim patientId As String
     Dim patientName As String
     Dim treatment As String
@@ -27,25 +29,10 @@ Public Sub EditOutpatientSchedule()
     On Error GoTo EditError
 
     Set ws = ThisWorkbook.Worksheets("OUTPATIENT_SCHEDULE")
-    defaultRow = 2
-    If ActiveSheet.Name = "OUTPATIENT_SCHEDULE" Then
-        If ActiveCell.Row >= 2 Then defaultRow = ActiveCell.Row
-    End If
-
-    rowText = InputBox( _
-        "Δώστε τη γραμμή του OUTPATIENT_SCHEDULE που θέλετε να επεξεργαστείτε.", _
-        "Επεξεργασία προγράμματος εξωτερικού ασθενή", _
-        CStr(defaultRow) _
-    )
-    If Len(Trim$(rowText)) = 0 Then Exit Sub
-    If Not IsNumeric(rowText) Then
-        MsgBox "Η γραμμή πρέπει να είναι αριθμός.", vbExclamation
-        Exit Sub
-    End If
-
-    rowIndex = CLng(rowText)
-    If rowIndex < 2 Or rowIndex > ws.Cells(ws.Rows.Count, 1).End(xlUp).Row Then
-        MsgBox "Δεν υπάρχει εγγραφή σε αυτή τη γραμμή.", vbExclamation
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    If rowIndex < 2 Or rowIndex > lastRow Then
+        MsgBox "Η επιλεγμένη εγγραφή δεν είναι πλέον διαθέσιμη.", vbExclamation, _
+               "Επεξεργασία προγράμματος εξωτερικού ασθενή"
         Exit Sub
     End If
 
@@ -56,7 +43,8 @@ Public Sub EditOutpatientSchedule()
     therapistId = Trim$(CStr(ws.Cells(rowIndex, 6).Value))
 
     If Len(patientId) = 0 Or Len(patientName) = 0 Or Len(treatment) = 0 Or Len(dayPattern) = 0 Then
-        MsgBox "Η επιλεγμένη γραμμή δεν είναι έγκυρη εγγραφή εξωτερικού προγράμματος.", vbExclamation
+        MsgBox "Η επιλεγμένη εγγραφή δεν είναι έγκυρο πρόγραμμα εξωτερικού ασθενή.", _
+               vbExclamation, "Επεξεργασία προγράμματος εξωτερικού ασθενή"
         Exit Sub
     End If
 
@@ -66,7 +54,8 @@ Public Sub EditOutpatientSchedule()
         timeText = Trim$(CStr(ws.Cells(rowIndex, 4).Text))
     End If
     If Len(timeText) = 0 Then
-        MsgBox "Η επιλεγμένη εγγραφή δεν έχει έγκυρη ώρα.", vbExclamation
+        MsgBox "Η επιλεγμένη εγγραφή δεν έχει έγκυρη ώρα.", vbExclamation, _
+               "Επεξεργασία προγράμματος εξωτερικού ασθενή"
         Exit Sub
     End If
 
@@ -81,14 +70,15 @@ Public Sub EditOutpatientSchedule()
         .cboTherapist.Value = therapistId
         .Caption = "Επεξεργασία προγράμματος εξωτερικού ασθενή"
         .lblTitle.Caption = "Επεξεργασία επαναλαμβανόμενου προγράμματος"
-        .lblInfo.Caption = "Επεξεργάζεστε την εγγραφή " & OutpatientEditTargetBaseEntryId & ". Οι αλλαγές θα ενημερώσουν την ίδια γραμμή μετά τον έλεγχο."
-        .cmdSave.Caption = "Έλεγχος αλλαγών και preview"
+        .lblInfo.Caption = "Επεξεργαστείτε τα στοιχεία και αποθηκεύστε τις αλλαγές."
+        .cmdSave.Caption = "Αποθήκευση αλλαγών"
         .Show
     End With
     Exit Sub
 
 EditError:
-    MsgBox "Δεν ήταν δυνατό να ανοίξει η εγγραφή για επεξεργασία: " & Err.Description, vbCritical
+    MsgBox "Δεν ήταν δυνατό να ανοίξει η εγγραφή για επεξεργασία: " & Err.Description, _
+           vbCritical, "Επεξεργασία προγράμματος εξωτερικού ασθενή"
 End Sub
 '''
 
@@ -189,12 +179,11 @@ def patch_outpatient_schedule_form_code(code: str) -> str:
     return patched
 
 
-def _remove_component_if_present(vbproject, component_name: str) -> None:
+def _component_if_present(vbproject, component_name: str):
     try:
-        component = vbproject.VBComponents(component_name)
+        return vbproject.VBComponents(component_name)
     except Exception:
-        return
-    vbproject.VBComponents.Remove(component)
+        return None
 
 
 def _component_code(component) -> str:
@@ -205,23 +194,29 @@ def _component_code(component) -> str:
     return str(module.Lines(1, count))
 
 
+def _replace_component_code(component, code: str) -> None:
+    module = component.CodeModule
+    count = int(getattr(module, "CountOfLines", 0) or 0)
+    if count > 0:
+        module.DeleteLines(1, count)
+    module.AddFromString(code)
+
+
 def install_outpatient_schedule_edit_support(vbproject) -> None:
-    """Install edit/preload support while reusing the existing form and writer."""
+    """Install edit/preload support while reusing existing VBComponents."""
 
     form_component = vbproject.VBComponents(FORM_NAME)
     current_form_code = _component_code(form_component)
     patched_form_code = patch_outpatient_schedule_form_code(current_form_code)
 
     if patched_form_code != _normalize_vba(current_form_code):
-        form_module = form_component.CodeModule
-        if form_module.CountOfLines:
-            form_module.DeleteLines(1, form_module.CountOfLines)
-        form_module.AddFromString(patched_form_code)
+        _replace_component_code(form_component, patched_form_code)
 
-    _remove_component_if_present(vbproject, EDIT_MODULE_NAME)
-    module = vbproject.VBComponents.Add(1)
-    module.Name = EDIT_MODULE_NAME
-    module.CodeModule.AddFromString(EDIT_MODULE_CODE)
+    module = _component_if_present(vbproject, EDIT_MODULE_NAME)
+    if module is None:
+        module = vbproject.VBComponents.Add(1)
+        module.Name = EDIT_MODULE_NAME
+    _replace_component_code(module, EDIT_MODULE_CODE)
 
     installed_form_code = _normalize_vba(_component_code(form_component))
     installed_edit_code = _component_code(module)
@@ -229,8 +224,10 @@ def install_outpatient_schedule_edit_support(vbproject) -> None:
         raise RuntimeError("Outpatient edit target was not wired into save and suggestion JSON")
     if "OutpatientEditTargetBaseEntryId" not in installed_form_code:
         raise RuntimeError("Outpatient edit target state was not wired into form")
-    if "Public Sub EditOutpatientSchedule()" not in installed_edit_code:
-        raise RuntimeError("Outpatient edit macro was not installed")
+    if "Public Sub EditOutpatientScheduleByRow(ByVal rowIndex As Long)" not in installed_edit_code:
+        raise RuntimeError("Outpatient edit-by-row action was not installed")
+    if "ShowOutpatientScheduleManager" not in installed_edit_code:
+        raise RuntimeError("Outpatient edit macro was not routed through the manager UI")
 
 
 def install_outpatient_schedule_edit_support_in_workbook(workbook_path: str | Path) -> None:
