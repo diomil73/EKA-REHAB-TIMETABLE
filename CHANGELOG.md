@@ -21,6 +21,7 @@
 - Backend restore profiler with Excel-output and pre-Excel phase timings for targeted latency work.
 
 ### Changed
+- Outpatient recurring edit now carries `target_base_entry_id` through conflict validation and the final in-session write. The writer validates the target row and PatientID, updates the same `outpatient:<row>` instead of appending a duplicate, and refreshes the current-date therapist-daily placement when therapist/time/day changes.
 - Locked the requirements for global multi-therapist-absence replacement planning: scarcity-aware assignment across all displaced patients, persistent pool/robotic operating hours, reclining-treatment adjacency preferences, workload-balance goals, and user-approved last-resort double-booking.
 - Clarified that patient-specific physical suitability, compatibility, and waiting tolerance should be captured selectively rather than creating mandatory high-volume data entry.
 - Audited the existing replacement path: candidate ranking remains workload-first and the workflow remains sequential; global scarcity-aware planning and persistent pool/robotic operating-hour constraints are documented as required follow-up work, not claimed as implemented.
