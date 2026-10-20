@@ -34,6 +34,10 @@ from rehab_excel.outpatient_schedule_manager_vba import (  # noqa: E402
     MODULE_NAME as MANAGER_MODULE_NAME,
     install_outpatient_schedule_manager,
 )
+from rehab_excel.therapist_workload_strip_vba import (  # noqa: E402
+    MODULE_NAME as WORKLOAD_MODULE_NAME,
+    install_therapist_workload_strip,
+)
 
 
 class OutpatientRecurringSmokeBuildError(RuntimeError):
@@ -143,6 +147,7 @@ def _verify_components(vbproject) -> None:
         "frmSchedulingConflict",
         "modSchedulingConflict",
         "modOutpatientInSession",
+        WORKLOAD_MODULE_NAME,
     }
     missing = sorted(required - names)
     if missing:
@@ -157,7 +162,7 @@ def build_outpatient_recurring_smoke(
     *,
     overwrite: bool = False,
 ) -> Path:
-    """Build create/edit/manager/suggestion/conflict support in one Excel session.
+    """Build outpatient create/edit/conflict plus workload-strip UI in one Excel session.
 
     The trusted source is copied byte-for-byte first and is never opened for
     mutation. All VBA installation then happens while the final smoke copy is
@@ -225,6 +230,9 @@ def build_outpatient_recurring_smoke(
         phase = "daily edit hardening install"
         install_outpatient_daily_edit_hardening(vbproject)
 
+        phase = "therapist workload strip install"
+        install_therapist_workload_strip(vbproject, workbook)
+
         phase = "component verification"
         _verify_components(vbproject)
 
@@ -269,7 +277,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Build one fresh XLSM smoke copy with outpatient recurring create/edit, "
-            "management UI, suggestions and conflict popup support."
+            "management UI, suggestions, conflict popup and therapist workload strip."
         )
     )
     parser.add_argument("--source", type=Path, required=True)
@@ -293,6 +301,7 @@ def main() -> int:
     print(f"Create macro: {MACRO_NAME}")
     print(f"Manage/edit macro: {MANAGER_MACRO_NAME}")
     print(f"Legacy edit alias: {EDIT_MACRO_NAME}")
+    print("Workload strip macro: ShowTherapistWorkload")
     print("Source unchanged: True")
     return 0
 
