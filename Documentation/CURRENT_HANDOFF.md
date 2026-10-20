@@ -24,51 +24,69 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - outpatient recurring CREATE: native green
 - outpatient schedule manager: native visible and usable
 - duplicate-fix focused gate: `45 passed, 4 warnings in 4.98s`
-- outpatient edit after duplicate hardening: fresh native smoke appears correct
+- collision/workload focused gate: `33 passed, 5 warnings in 4.60s`
+- latest fresh native outpatient collision + valid reassignment + workload scenario: user reported it appears correct
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
-## Active milestone: therapist workload visibility
+## Current milestone: THERAPIST_DAILY presentation cleanup
 
-The duplicate outpatient edit path has been hardened and the latest fresh smoke appears correct. The remaining immediate operational gap is workload visibility.
+The outpatient edit/conflict/workload path is operationally green enough to move forward. The immediate cleanup is visual consistency in `THERAPIST_DAILY` without changing scheduling truth.
 
-Implemented in `Python/rehab_excel/therapist_workload_strip_vba.py`:
+`Python/rehab_excel/recurring_daily_style.py` is now being normalized so:
 
-- MASTER action `Φόρτος θεραπευτών`,
-- horizontal workload badges in the form `Όνομα n/6`,
-- `n` counts occupied THERAPIST_DAILY timeslot cells, not patient lines,
-- normal capacity threshold: green 0-4/6, yellow/orange 5/6, red 6/6 or above,
-- refresh macro `ShowTherapistWorkload`,
-- application-style shapes only; no raw worksheet-row concepts exposed.
+- ordinary recurring text is black,
+- outpatient recurring text is also neutral black,
+- outpatient identity comes from the dedicated outpatient cell presentation layer rather than a special font color,
+- robotic treatment lines retain orange precedence,
+- stale inherited special font color after an outpatient edit is not allowed.
 
-The combined outpatient smoke builder now installs and verifies `modTherapistWorkloadStrip` after outpatient edit hardening.
+This cleanup follows the same rule as the in-session outpatient renderer, which already writes non-robotic outpatient text in black.
 
-### Why timeslots, not patient count
+## Therapist workload contract
 
-Operational capacity is timeslot-based. A legitimate two-patient shared slot is two sessions but one occupied timeslot, so the workload badge must show one consumed capacity unit for that clock slot.
+MASTER exposes `Φόρτος θεραπευτών` with one badge per therapist in the form `Όνομα n/6`.
+
+`n` is occupied timeslots, not patient-line count. Color thresholds:
+
+- 0-4/6 green,
+- 5/6 yellow/orange,
+- 6/6 or above red.
+
+The strip refreshes after outpatient changes and provider names are normalized for collision checks so accents/punctuation do not create false free slots.
+
+## Statistics/history checkpoint
+
+The user wants weekly workload history per therapist plus broader statistics/history. Do not design or persist this ad hoc while scheduling semantics are still moving.
+
+The correct design checkpoint is immediately after the current presentation cleanup and before deep global multi-absence optimizer implementation. At that point explicitly discuss and lock:
+
+- weekly therapist workload history,
+- daily occupied-timeslot and active-session facts,
+- cancellations/no-shows/replacements/suspensions,
+- therapist-assignment change history,
+- finalized-day snapshots,
+- retention/comparison windows,
+- user-facing dashboards/reports.
+
+Historical metrics must come from persisted historical facts/events, not from today's mutable projection.
 
 ## Exact resume point
 
 1. Pull latest branch.
-2. Run the focused workload-strip gate:
+2. Run the focused presentation gate:
 
 ```powershell
 python -m pytest `
-  Tests/test_therapist_workload_strip_vba.py `
-  Tests/test_outpatient_recurring_smoke_builder.py `
+  Tests/test_recurring_daily_style.py `
+  Tests/test_outpatient_presentation.py `
   Tests/test_outpatient_daily_edit_vba.py `
-  Tests/test_outpatient_schedule_source.py -q
+  Tests/test_therapist_workload_strip_vba.py -q
 ```
 
-3. If green, build a fresh `OUTPATIENT_RECURRING_SMOKE.xlsm` from trusted `RERESOLVED_V90.xlsm`.
-4. On MASTER confirm a visible `Φόρτος θεραπευτών` control exists.
-5. Click it and confirm one badge per therapist appears as `Όνομα n/6`.
-6. Confirm a therapist at 0-4 occupied timeslots is green, 5 is yellow/orange, 6 is red.
-7. Confirm the therapist containing the outpatient edit counts that outpatient exactly once by occupied timeslot.
-8. Only after this is native green, use a separate fresh smoke for therapist/time conflict verification.
-9. Continue to the next unambiguous milestone without waiting for another user prompt.
-10. Do not manually save smoke workbooks outside the tested flow.
-11. Do not return to restore performance tuning yet.
+3. If green, continue to the statistics/history design checkpoint without waiting for another prompt.
+4. Do not manually save smoke workbooks outside a tested flow.
+5. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
