@@ -115,9 +115,19 @@ The minimum event stream should be able to represent meaningful day-changing act
 
 Weekly and monthly dashboards should normally read finalized snapshots. Drill-down/audit views may follow the corresponding event history.
 
+## Physical storage decision
+
+Historical snapshots, therapist/day workload rows and append-only events stay inside the same macro-enabled workbook as hidden/protected technical tables.
+
+Do not make normal operation depend on external history files. This keeps the workbook and its historical truth together and reduces the risk of orphaned or mismatched history files.
+
+Normal users must never need to navigate to these technical tables. Access is through application buttons/forms/reports only. Any future export is a deliberate reporting/administrative action, not the authoritative store.
+
+The existing privacy rule remains: do not automatically export patient-level history into repository files or other uncontrolled external artifacts.
+
 ## Smallest durable logical schema
 
-The first implementation should keep the logical schema narrow and stable. Physical Excel sheet/table names remain an implementation detail until the persistence location is selected.
+The first implementation should keep the logical schema narrow and stable. Physical Excel sheet/table names remain an implementation detail.
 
 ### Finalized day snapshot header
 
@@ -176,6 +186,26 @@ Each historical event should contain at least:
 
 Event rows are append-only. Corrections create new events; they do not edit the original event into a different historical claim.
 
+## Patient-level analysis
+
+Patient-level historical analysis is a required product capability, not merely an aggregate reporting option.
+
+For a selected patient, the application must be able to derive and display historical measures such as:
+
+- scheduled versus actually performed sessions,
+- patient absences and no-shows,
+- cancellations/postponements and treatment suspensions,
+- replacement events and the effective therapist/time used,
+- permanent therapist-assignment changes,
+- date/period trends and totals,
+- relevant planned-versus-actual comparisons where useful.
+
+Patient-level reports should use the stable `PatientID` internally while displaying normal patient identity/business labels in the UI. They must read finalized snapshots and append-only events, not infer historical truth from the patient's current recurring schedule.
+
+Patient-identifiable analysis remains inside the controlled application/workbook environment by default. Technical history sheets stay hidden/protected, and no automatic repository export of patient-level data is permitted.
+
+The exact set of patient metrics and report layout will be expanded from the user's operational requirements before the first patient-history UI is implemented.
+
 ## Retention and archive policy
 
 Historical snapshots and append-only events are retained indefinitely by default for the life of the system.
@@ -188,11 +218,10 @@ This policy applies to both current-final snapshots and superseded historical ve
 
 Still to lock before implementation:
 
-1. physical storage location for snapshots/events,
-2. weekly/monthly comparison windows,
-3. patient-level historical statistics and privacy boundaries,
-4. dashboard layout and drill-down UX,
-5. which statistics are operationally useful enough to keep permanently versus derive on demand.
+1. weekly/monthly comparison windows,
+2. dashboard layout and drill-down UX,
+3. which statistics are operationally useful enough to keep permanently versus derive on demand,
+4. exact patient-level metric set based on the user's additional requirements.
 
 ## Relationship to current scheduling truth
 
