@@ -16,6 +16,7 @@ from rehab_core.models import Patient, PatientType  # noqa: E402
 from rehab_excel.outpatient_schedule_registration import (  # noqa: E402
     OutpatientScheduleRequest,
     OutpatientScheduleWriteError,
+    _canonical_patient_id,
     create_outpatient_schedule_preview,
     validate_outpatient_schedule_request,
 )
@@ -56,6 +57,13 @@ def test_request_rejects_robotic_treatment():
 
     with pytest.raises(OutpatientScheduleWriteError, match="cannot have robotic"):
         validate_outpatient_schedule_request(request, patients=[outpatient()])
+
+
+def test_numeric_excel_patient_id_matches_text_identity():
+    assert _canonical_patient_id(2.0) == "2"
+    assert _canonical_patient_id(2) == "2"
+    assert _canonical_patient_id("2") == "2"
+    assert _canonical_patient_id("P-OUT") == "P-OUT"
 
 
 def _baseline(
