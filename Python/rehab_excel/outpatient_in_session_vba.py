@@ -10,7 +10,8 @@ Public Function SaveOutpatientScheduleInWorkbook( _
     ByVal treatment As String, _
     ByVal timeText As String, _
     ByVal dayPattern As String, _
-    ByVal therapistName As String _
+    ByVal therapistName As String, _
+    Optional ByVal targetBaseEntryId As String = "" _
 ) As String
     Dim ws As Worksheet
     Dim patients As Worksheet
@@ -21,6 +22,11 @@ Public Function SaveOutpatientScheduleInWorkbook( _
     Dim previousEvents As Boolean
     Dim previousScreenUpdating As Boolean
     Dim previousCalculation As XlCalculation
+    Dim isEdit As Boolean
+    Dim oldTreatment As String
+    Dim oldTimeText As String
+    Dim oldDayPattern As String
+    Dim oldTherapistName As String
 
     On Error GoTo SaveError
 
@@ -29,6 +35,7 @@ Public Function SaveOutpatientScheduleInWorkbook( _
     timeText = Trim$(timeText)
     dayPattern = Trim$(dayPattern)
     therapistName = Trim$(therapistName)
+    targetBaseEntryId = Trim$(targetBaseEntryId)
 
     If Len(patientId) = 0 Then Err.Raise vbObjectError + 2710, , "Το PatientID είναι υποχρεωτικό."
     If Len(treatment) = 0 Then Err.Raise vbObjectError + 2711, , "Η θεραπεία είναι υποχρεωτική."
@@ -59,8 +66,31 @@ Public Function SaveOutpatientScheduleInWorkbook( _
     End If
 
     Set ws = EnsureOutpatientScheduleSheet()
-    targetRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row + 1
-    If targetRow < 2 Then targetRow = 2
+    If Len(targetBaseEntryId) > 0 Then
+        targetRow = OutpatientRowFromBaseEntryId(targetBaseEntryId)
+        If targetRow < 2 Or targetRow > ws.Cells(ws.Rows.Count, 1).End(xlUp).Row Then
+            Err.Raise vbObjectError + 2718, , "Η εγγραφή προς επεξεργασία δεν υπάρχει πλέον."
+        End If
+        If StrComp(Trim$(CStr(ws.Cells(targetRow, 1).Value)), patientId, vbTextCompare) <> 0 Then
+            Err.Raise vbObjectError + 2719, , "Η εγγραφή προς επεξεργασία ανήκει σε διαφορετικό ασθενή."
+        End If
+        isEdit = True
+        oldTreatment = Trim$(CStr(ws.Cells(targetRow, 3).Value))
+        If IsDate(ws.Cells(targetRow, 4).Value) Then
+            oldTimeText = Format$(ws.Cells(targetRow, 4).Value, "hh:mm")
+        Else
+            oldTimeText = Trim$(CStr(ws.Cells(targetRow, 4).Text))
+        End If
+        oldDayPattern = Trim$(CStr(ws.Cells(targetRow, 5).Value))
+        oldTherapistName = Trim$(CStr(ws.Cells(targetRow, 6).Value))
+    Else
+        targetRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row + 1
+        If targetRow < 2 Then targetRow = 2
+    End If
+
+    If isEdit Then
+        RemoveFromTherapistDailyForCurrentDate patientName, oldTherapistName, oldTimeText, oldDayPattern
+    End If
 
     ws.Cells(targetRow, 1).Value = patientId
     ws.Cells(targetRow, 2).Value = patientName
@@ -93,6 +123,71 @@ SaveError:
     On Error GoTo 0
     Err.Raise vbObjectError + 2720, "SaveOutpatientScheduleInWorkbook", errorText
 End Function
+
+Private Function OutpatientRowFromBaseEntryId(ByVal baseEntryId As String) As Long
+    Dim prefix As String
+    Dim rowText As String
+
+    prefix = "outpatient:"
+    baseEntryId = Trim$(baseEntryId)
+    If StrComp(Left$(baseEntryId, Len(prefix)), prefix, vbTextCompare) <> 0 Then
+        Err.Raise vbObjectError + 2722, , "Μη έγκυρο αναγνωριστικό εγγραφής εξωτερικού προγράμματος."
+    End If
+
+    rowText = Mid$(baseEntryId, Len(prefix) + 1)
+    If Len(rowText) = 0 Or Not IsNumeric(rowText) Then
+        Err.Raise vbObjectError + 2723, , "Μη έγκυρος αριθμός γραμμής εξωτερικού προγράμματος."
+    End If
+    OutpatientRowFromBaseEntryId = CLng(rowText)
+End Function
+
+Private Sub RemoveFromTherapistDailyForCurrentDate( _
+    ByVal patientName As String, _
+    ByVal therapistName As String, _
+    ByVal timeText As String, _
+    ByVal dayPattern As String _
+)
+    Dim dailyInput As Worksheet
+    Dim dailySheet As Worksheet
+    Dim targetDate As Date
+    Dim targetCell As Range
+    Dim normalizedTime As Date
+    Dim originalText As String
+    Dim lines() As String
+    Dim kept As String
+    Dim index As Long
+
+    If Len(Trim$(therapistName)) = 0 Or Len(Trim$(timeText)) = 0 Then Exit Sub
+
+    On Error GoTo RemoveError
+    Set dailyInput = ThisWorkbook.Worksheets("DAILY_INPUT")
+    If Not TryReadDailyInputDate(dailyInput.Range("B2").Value, targetDate) Then Exit Sub
+    If Not DayPatternIncludesDate(dayPattern, targetDate) Then Exit Sub
+
+    normalizedTime = TimeValue(Replace(timeText, ".", ":"))
+    Set dailySheet = ThisWorkbook.Worksheets("THERAPIST_DAILY")
+    Set targetCell = FindTherapistDailyCell(dailySheet, therapistName, normalizedTime)
+    If targetCell Is Nothing Then Exit Sub
+
+    originalText = CStr(targetCell.Value)
+    If Len(originalText) = 0 Then Exit Sub
+    lines = Split(Replace(originalText, vbCrLf, vbLf), vbLf)
+    kept = ""
+    For index = LBound(lines) To UBound(lines)
+        If StrComp(Trim$(CStr(lines(index))), patientName, vbTextCompare) <> 0 Then
+            If Len(kept) > 0 Then kept = kept & vbLf
+            kept = kept & CStr(lines(index))
+        End If
+    Next index
+
+    targetCell.Value = kept
+    targetCell.WrapText = True
+    If Len(Trim$(kept)) = 0 Then targetCell.Interior.Pattern = xlNone
+    Exit Sub
+
+RemoveError:
+    Err.Raise Err.Number, "RemoveFromTherapistDailyForCurrentDate", Err.Description
+End Sub
 
 Private Sub RefreshTherapistDailyForCurrentDate( _
     ByVal patientName As String, _
@@ -373,12 +468,16 @@ End Function
 
 def install_outpatient_in_session_writer(vbproject) -> None:
     try:
-        existing = vbproject.VBComponents(MODULE_NAME)
+        module = vbproject.VBComponents(MODULE_NAME)
     except Exception:
-        existing = None
-    if existing is not None:
-        vbproject.VBComponents.Remove(existing)
+        module = None
 
-    module = vbproject.VBComponents.Add(1)
-    module.Name = MODULE_NAME
-    module.CodeModule.AddFromString(MODULE_CODE)
+    if module is None:
+        module = vbproject.VBComponents.Add(1)
+        module.Name = MODULE_NAME
+
+    code_module = module.CodeModule
+    count = int(getattr(code_module, "CountOfLines", 0) or 0)
+    if count > 0:
+        code_module.DeleteLines(1, count)
+    code_module.AddFromString(MODULE_CODE)
