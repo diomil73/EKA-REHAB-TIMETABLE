@@ -61,6 +61,28 @@ Normal create/edit access for outpatient recurring schedules must come from the 
 
 Direct access to `OUTPATIENT_SCHEDULE` may remain available only for controlled development/support diagnostics, not as part of the ordinary clinical workflow.
 
+### Application-style UX do's and don'ts
+
+The workbook is the execution/storage container, but the user-facing product should behave like dedicated software rather than a collection of Excel sheets.
+
+Do:
+- expose normal work through the top application menu, buttons, forms and guided workflows,
+- show business concepts such as patient, treatment, therapist, date, time and status,
+- let the system carry internal row numbers, sheet names, IDs and storage details invisibly,
+- provide next-step guidance after successful actions when that helps the workflow,
+- keep technical/data sheets hidden or protected unless an explicit support/development action requires them,
+- make create, edit, replacement, conflict resolution and review actions reachable without showing the Excel grid or native sheet navigation.
+
+Don't:
+- require the user to know or type worksheet row numbers,
+- require the user to know internal sheet names such as `OUTPATIENT_SCHEDULE`,
+- expose `outpatient:<row>`, internal English command strings, backend lifecycle details or implementation mechanics as normal user-facing information,
+- send the user to hidden data sheets merely to select or edit a record,
+- design a workflow that assumes the Excel ribbon, worksheet tabs or raw grid are visible,
+- use success messages to report technical implementation facts when an operational instruction or next action is more useful.
+
+Developer-only smoke/debug interfaces may temporarily expose internal details, but they must be clearly treated as test scaffolding and must not become the final user workflow.
+
 ### Strict visual / clinical rule
 An outpatient is **light blue only** in `THERAPIST DAILY`.
 
