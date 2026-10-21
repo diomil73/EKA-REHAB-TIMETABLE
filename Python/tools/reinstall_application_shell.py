@@ -12,6 +12,7 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from rehab_excel.application_shell_vba import install_application_shell  # noqa: E402
+from rehab_excel.master_toolbar_vba import install_master_toolbar  # noqa: E402
 
 
 class ApplicationShellRepairError(RuntimeError):
@@ -32,10 +33,11 @@ def reinstall_application_shell(
     *,
     overwrite: bool = False,
 ) -> Path:
-    """Create a fresh XLSM copy and reinstall the application-shell VBA contract.
+    """Create a fresh XLSM copy and reinstall the full app UI contract.
 
-    The source remains immutable. The output receives ``modApplicationShell`` and
-    the workbook event hooks used to hide Excel chrome on open/activate.
+    The source remains immutable. The output receives the accepted MASTER toolbar,
+    operational navigation buttons, ``modApplicationShell``, and workbook event
+    hooks used to hide Excel chrome on open/activate.
     """
 
     source = Path(source_path).resolve()
@@ -79,6 +81,7 @@ def reinstall_application_shell(
         excel.ScreenUpdating = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(output), UpdateLinks=0, ReadOnly=False)
+        install_master_toolbar(workbook.VBProject, workbook)
         install_application_shell(workbook.VBProject, workbook=workbook)
         workbook.Save()
     except Exception as exc:
@@ -93,7 +96,7 @@ def reinstall_application_shell(
                 output.unlink()
         except OSError:
             pass
-        raise ApplicationShellRepairError(f"Could not reinstall application shell: {exc}") from exc
+        raise ApplicationShellRepairError(f"Could not reinstall full application UI: {exc}") from exc
     finally:
         if workbook is not None:
             try:
@@ -117,7 +120,7 @@ def reinstall_application_shell(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Create a fresh workbook copy with the application-shell VBA/events reinstalled."
+        description="Create a fresh workbook copy with the full app UI contract reinstalled."
     )
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
@@ -134,11 +137,13 @@ def main() -> int:
         print(f"SAFETY STOP: {exc}")
         return 2
 
-    print("APPLICATION SHELL REPAIR OK")
+    print("APPLICATION UI REPAIR OK")
     print(f"Input: {args.input.resolve()}")
     print(f"Output: {output}")
     print("Source unchanged: True")
     print("VBA preserved: True")
+    print("MASTER toolbar reinstalled: True")
+    print("Operational navigation reinstalled: True")
     print("Application shell reinstalled: True")
     return 0
 
