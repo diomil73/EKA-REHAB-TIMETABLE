@@ -11,9 +11,11 @@ def test_shell_repair_keeps_source_immutable_and_uses_fresh_output_copy():
     assert "if source == output" in source
     assert "shutil.copy2(source, output)" in source
     assert 'Workbooks.Open(str(output), UpdateLinks=0, ReadOnly=False)' in source
-    assert "install_master_toolbar(workbook.VBProject, workbook)" in source
-    assert "install_application_shell(workbook.VBProject, workbook=workbook)" in source
-    assert source.index("install_master_toolbar") < source.index("install_application_shell")
+    master_call = "install_master_toolbar(workbook.VBProject, workbook)"
+    shell_call = "install_application_shell(workbook.VBProject, workbook=workbook)"
+    assert master_call in source
+    assert shell_call in source
+    assert source.index(master_call) < source.index(shell_call)
     assert source.count("workbook.Save()") == 1
 
 
