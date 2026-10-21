@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import time
 from typing import Iterable, Mapping
 
+from .models import ReplacementProviderKind
+
 
 @dataclass(frozen=True)
 class GlobalReplacementCandidate:
@@ -21,6 +23,7 @@ class GlobalReplacementCandidate:
     provider_active_timeslots: int = 0
     is_original_time: bool = False
     adjacency_penalty: int = 0
+    provider_kind: ReplacementProviderKind = ReplacementProviderKind.THERAPIST
 
     def __post_init__(self) -> None:
         if not self.request_id:
