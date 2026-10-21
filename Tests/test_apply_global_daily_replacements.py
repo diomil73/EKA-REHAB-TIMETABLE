@@ -40,6 +40,19 @@ def test_tool_refuses_incomplete_global_plan_before_preview_write():
     assert "Global replacement plan is incomplete; no preview will be written" in source
 
 
+def test_tool_requires_complete_app_contract_before_and_after_write():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    input_check = source.index("input_contract = assert_application_contract(input_book)")
+    write_preview = source.index("report = apply_write_plan_to_copy")
+    output_check = source.index("output_contract = assert_application_contract(output)")
+
+    assert input_check < write_preview < output_check
+    assert "ApplicationContractError" in source
+    assert "Application contract input: OK" in source
+    assert "Application contract output: OK" in source
+
+
 def test_replacement_id_factory_allocates_stable_next_version():
     module = _load_tool_module()
     session = Session(
