@@ -8,7 +8,7 @@ from rehab_core.models import (
     Session,
     Therapist,
 )
-from rehab_core.service_hours import SpecialServiceHoursBook
+from rehab_core.service_hours import ROBOTIC_SERVICE_ID, ServiceOperatingHours, SpecialServiceHoursBook
 
 
 TODAY = date(2026, 10, 21)
@@ -55,8 +55,14 @@ def test_builds_authoritative_replacement_assignments_from_global_plan():
 
 def test_service_hours_filter_before_global_assignment():
     target = _session("ROB", "P-R", "ABSENT", 9, robotic=True)
-    hours = SpecialServiceHoursBook()
-    hours.set_weekday_times("robotic", TODAY.weekday(), (time(10, 0),))
+    hours = SpecialServiceHoursBook(
+        services={
+            ROBOTIC_SERVICE_ID: ServiceOperatingHours(
+                ROBOTIC_SERVICE_ID,
+                {TODAY.weekday(): (time(10, 0),)},
+            )
+        }
+    )
 
     result = build_global_replacement_assignments(
         (target,),
@@ -74,8 +80,14 @@ def test_service_hours_filter_before_global_assignment():
 
 def test_closed_special_service_leaves_request_unresolved_without_fake_assignment():
     target = _session("ROB", "P-R", "ABSENT", 9, robotic=True)
-    hours = SpecialServiceHoursBook()
-    hours.set_weekday_times("robotic", TODAY.weekday(), ())
+    hours = SpecialServiceHoursBook(
+        services={
+            ROBOTIC_SERVICE_ID: ServiceOperatingHours(
+                ROBOTIC_SERVICE_ID,
+                {TODAY.weekday(): ()},
+            )
+        }
+    )
 
     result = build_global_replacement_assignments(
         (target,),
