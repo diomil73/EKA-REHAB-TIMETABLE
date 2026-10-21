@@ -11,6 +11,7 @@ from .global_replacement_integration import (
 )
 from .global_replacement_planner import plan_global_replacements
 from .models import (
+    BaseScheduleEntry,
     DailyAbsence,
     DailySessionCancellation,
     Patient,
@@ -20,7 +21,9 @@ from .models import (
     StudentAssignment,
     Therapist,
 )
+from .provider_policy import ProviderPolicyBook
 from .replacement_options import ReplacementProviderOption, find_replacement_options
+from .replacement_policy import find_policy_replacement_options
 from .service_hours import SpecialServiceHoursBook
 from .service_replacement_options import filter_replacement_options_for_service_hours
 
@@ -63,6 +66,8 @@ def build_global_replacement_assignments(
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
     adjacency_penalty: AdjacencyPenalty | None = None,
+    policy_book: ProviderPolicyBook | None = None,
+    base_entries: Iterable[BaseScheduleEntry] = (),
     service_hours: SpecialServiceHoursBook | None = None,
     service_id_by_session: Mapping[str, str] | None = None,
     replacement_id_factory: ReplacementIdFactory,
@@ -74,6 +79,11 @@ def build_global_replacement_assignments(
     ``ReplacementAssignment`` objects that can pass through the existing daily
     replacement lifecycle/ledger after the caller has reviewed and committed the
     plan. All target sessions must belong to one service date.
+
+    When ``policy_book`` is supplied, candidate generation uses the same provider
+    policy and patient cross-specialty guards as the authoritative daily workflow.
+    This prevents the global optimizer from widening eligibility beyond the normal
+    replacement contract merely because it is solving multiple absences together.
     """
 
     targets = tuple(target_sessions)
@@ -93,25 +103,43 @@ def build_global_replacement_assignments(
     timeslots_tuple = tuple(timeslots)
     students_tuple = tuple(students)
     student_assignments_tuple = tuple(student_assignments)
+    base_entries_tuple = tuple(base_entries)
     service_ids = dict(service_id_by_session or {})
 
     requests = []
     capacity_by_provider: dict[str, int] = {}
 
     for target in targets:
-        options = find_replacement_options(
-            target_session=target,
-            therapists=therapists_tuple,
-            sessions=sessions_tuple,
-            absences=absences_tuple,
-            patients=patients_tuple,
-            replacements=replacements_tuple,
-            cancellations=cancellations_tuple,
-            requested_time=target.start_time,
-            timeslots=timeslots_tuple,
-            students=students_tuple,
-            student_assignments=student_assignments_tuple,
-        )
+        if policy_book is None:
+            options = find_replacement_options(
+                target_session=target,
+                therapists=therapists_tuple,
+                sessions=sessions_tuple,
+                absences=absences_tuple,
+                patients=patients_tuple,
+                replacements=replacements_tuple,
+                cancellations=cancellations_tuple,
+                requested_time=target.start_time,
+                timeslots=timeslots_tuple,
+                students=students_tuple,
+                student_assignments=student_assignments_tuple,
+            )
+        else:
+            options = find_policy_replacement_options(
+                target_session=target,
+                therapists=therapists_tuple,
+                sessions=sessions_tuple,
+                policy_book=policy_book,
+                absences=absences_tuple,
+                patients=patients_tuple,
+                replacements=replacements_tuple,
+                cancellations=cancellations_tuple,
+                requested_time=target.start_time,
+                timeslots=timeslots_tuple,
+                students=students_tuple,
+                student_assignments=student_assignments_tuple,
+                base_entries=base_entries_tuple,
+            )
 
         if service_hours is not None:
             options = filter_replacement_options_for_service_hours(
