@@ -6,6 +6,7 @@ from rehab_core.global_replacement_end_to_end import GlobalReplacementAssignment
 from rehab_core.models import ReplacementAssignment, Session
 from rehab_excel.global_replacement_lifecycle_bridge import (
     GlobalReplacementLifecycleError,
+    persist_global_replacement_result,
     prepare_global_replacement_fact_batch,
 )
 
@@ -60,6 +61,7 @@ def test_prepares_global_assignments_for_existing_authoritative_fact_schema():
     assert batch.unresolved_request_ids == ()
     assert [row.replacement_id for row in batch.fact_rows] == ["R-A", "R-B"]
     assert [row.target_session_id for row in batch.fact_rows] == ["A", "B"]
+    assert [item.replacement_id for item in batch.assignments_to_persist] == ["R-A", "R-B"]
     assert all(row.status == "ACTIVE" for row in batch.fact_rows)
 
 
@@ -108,4 +110,86 @@ def test_allows_idempotent_existing_active_replacement():
     )
 
     assert batch.fact_rows == ()
+    assert batch.assignments_to_persist == ()
     assert batch.already_active_replacement_ids == ("R-A",)
+
+
+def test_persistence_refuses_unresolved_plan_before_writer_is_called():
+    a = _session("A", "P-A", "ABSENT-1", 9)
+    b = _session("B", "P-B", "ABSENT-2", 10)
+    result = GlobalReplacementAssignmentResult(
+        assignments=(_replacement("R-A", a, "T1", 9),),
+        unresolved_request_ids=("B",),
+    )
+    calls = []
+
+    def writer(*args, **kwargs):
+        calls.append((args, kwargs))
+        return 1
+
+    with pytest.raises(GlobalReplacementLifecycleError, match="not finalized"):
+        persist_global_replacement_result(
+            "preview.xlsm",
+            result,
+            sessions=(a, b),
+            persistence_service=writer,
+        )
+
+    assert calls == []
+
+
+def test_persistence_writes_only_new_assignments_and_reports_idempotent_active_facts():
+    a = _session("A", "P-A", "ABSENT-1", 9)
+    b = _session("B", "P-B", "ABSENT-2", 10)
+    active = _replacement("R-A", a, "T1", 9)
+    new = _replacement("R-B", b, "T2", 10)
+    result = GlobalReplacementAssignmentResult(
+        assignments=(active, new),
+        unresolved_request_ids=(),
+    )
+    calls = []
+
+    def writer(path, replacements, *, sessions):
+        calls.append((path, tuple(replacements), tuple(sessions)))
+        return len(tuple(replacements))
+
+    report = persist_global_replacement_result(
+        "preview.xlsm",
+        result,
+        sessions=(a, b),
+        existing_active_replacements=(active,),
+        persistence_service=writer,
+    )
+
+    assert len(calls) == 1
+    assert calls[0][0] == "preview.xlsm"
+    assert [item.replacement_id for item in calls[0][1]] == ["R-B"]
+    assert report.requested_assignment_count == 2
+    assert report.persisted_fact_count == 1
+    assert report.persisted_replacement_ids == ("R-B",)
+    assert report.already_active_replacement_ids == ("R-A",)
+    assert report.unresolved_request_ids == ()
+
+
+def test_preview_workflow_may_explicitly_persist_partial_plan_when_requested():
+    a = _session("A", "P-A", "ABSENT-1", 9)
+    b = _session("B", "P-B", "ABSENT-2", 10)
+    result = GlobalReplacementAssignmentResult(
+        assignments=(_replacement("R-A", a, "T1", 9),),
+        unresolved_request_ids=("B",),
+    )
+
+    def writer(path, replacements, *, sessions):
+        return len(tuple(replacements))
+
+    report = persist_global_replacement_result(
+        "preview.xlsm",
+        result,
+        sessions=(a, b),
+        require_fully_resolved=False,
+        persistence_service=writer,
+    )
+
+    assert report.persisted_fact_count == 1
+    assert report.persisted_replacement_ids == ("R-A",)
+    assert report.unresolved_request_ids == ("B",)
