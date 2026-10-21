@@ -18,7 +18,7 @@ Public Sub EnterApplicationShell()
     If Not ActivatePostCommitTarget() Then
         If WorksheetExists("MASTER_SCHEDULE") Then
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
-            ApplyMasterView
+            TryApplyMasterView
             PinMasterToolbarAndHeaders
             ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1").Select
         End If
@@ -31,9 +31,15 @@ Public Sub KeepApplicationShell()
     On Error Resume Next
     ApplyApplicationChrome
     If ActiveSheet.Name = "MASTER_SCHEDULE" Then
-        ApplyMasterView
+        TryApplyMasterView
         PinMasterToolbarAndHeaders
     End If
+    On Error GoTo 0
+End Sub
+
+Private Sub TryApplyMasterView()
+    On Error Resume Next
+    Application.Run "'" & ThisWorkbook.Name & "'!ApplyMasterView"
     On Error GoTo 0
 End Sub
 
