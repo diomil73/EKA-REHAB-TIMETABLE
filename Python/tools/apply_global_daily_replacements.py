@@ -5,7 +5,6 @@ import sys
 import unicodedata
 from datetime import date, datetime
 from pathlib import Path
-from zipfile import ZipFile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = REPO_ROOT / "Python"
@@ -26,6 +25,10 @@ from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
 from rehab_core.therapist_absence_queue import (  # noqa: E402
     build_therapist_absence_replacement_queue,
 )
+from rehab_excel.application_contract import (  # noqa: E402
+    ApplicationContractError,
+    assert_application_contract,
+)
 from rehab_excel.daily_change_ledger_vba import (  # noqa: E402
     DailyChangeLedgerPreviewError,
     install_daily_change_ledger_preview,
@@ -37,7 +40,6 @@ from rehab_excel.daily_preview_composer import (  # noqa: E402
 )
 from rehab_excel.daily_replacement_facts import (  # noqa: E402
     DailyReplacementFactError,
-    append_daily_replacement_facts,
     read_daily_replacement_fact_rows,
     read_daily_replacement_facts,
 )
@@ -106,11 +108,6 @@ def _read_daily_input_date(path: Path) -> date:
     raise DailyInputReadError(f"Invalid DAILY_INPUT date: {raw!r}")
 
 
-def _has_vba(path: Path) -> bool:
-    with ZipFile(path) as archive:
-        return "xl/vbaProject.bin" in archive.namelist()
-
-
 def _replacement_id_factory(history_rows, session_by_id):
     used = {str(row.replacement_id).strip() for row in history_rows}
 
@@ -158,6 +155,8 @@ def main() -> int:
 
     output_created = False
     try:
+        input_contract = assert_application_contract(input_book)
+
         target_date = _read_daily_input_date(input_book)
         patients = read_patient_registry(input_book)
         settings = read_settings(input_book)
@@ -289,8 +288,10 @@ def main() -> int:
             bindings=preview.bindings,
         )
         install_daily_change_ledger_preview(output, input_book, ledger_records)
+        output_contract = assert_application_contract(output)
 
     except (
+        ApplicationContractError,
         DailyInputReadError,
         DailyReplacementFactError,
         DailyStatisticsWriteError,
@@ -314,7 +315,6 @@ def main() -> int:
         print(f"SAFETY STOP: {exc}")
         return 2
 
-    vba_preserved = _has_vba(input_book) == _has_vba(output) and _has_vba(output)
     print("GLOBAL DAILY REPLACEMENT PREVIEW OK")
     print(f"Date: {target_date.isoformat()}")
     print(f"Displaced sessions solved together: {len(target_sessions)}")
@@ -323,14 +323,17 @@ def main() -> int:
     print(f"Unresolved sessions: {len(result.unresolved_request_ids)}")
     print(f"Preview: {report.output_path}")
     print(f"Input unchanged: {report.source_unchanged}")
-    print(f"VBA preserved: {vba_preserved}")
+    print("Application contract input: OK")
+    print("Application contract output: OK")
+    print(f"Required app components: {len(input_contract.required_components)}")
+    print(f"Output VBA component count: {len(output_contract.component_names)}")
     for assignment in result.assignments:
         print(
             f"  {assignment.patient_id}: {assignment.original_therapist_id} -> "
             f"{assignment.replacement_therapist_id} "
             f"{assignment.replacement_time.strftime('%H:%M')}"
         )
-    return 0 if report.source_unchanged and vba_preserved else 3
+    return 0 if report.source_unchanged else 3
 
 
 if __name__ == "__main__":
