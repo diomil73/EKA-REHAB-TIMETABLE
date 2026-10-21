@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from pathlib import Path
+from typing import Callable, Iterable
 
 from rehab_core.global_replacement_end_to_end import GlobalReplacementAssignmentResult
 from rehab_core.models import ReplacementAssignment, Session
 
 from .daily_replacement_facts import (
     DailyReplacementFactRow,
+    append_daily_replacement_facts,
     build_daily_replacement_fact_rows,
 )
 
@@ -20,7 +22,20 @@ class GlobalReplacementLifecycleError(RuntimeError):
 class GlobalReplacementFactBatch:
     fact_rows: tuple[DailyReplacementFactRow, ...]
     unresolved_request_ids: tuple[str, ...]
+    assignments_to_persist: tuple[ReplacementAssignment, ...] = ()
     already_active_replacement_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class GlobalReplacementPersistenceReport:
+    requested_assignment_count: int
+    persisted_fact_count: int
+    persisted_replacement_ids: tuple[str, ...]
+    already_active_replacement_ids: tuple[str, ...]
+    unresolved_request_ids: tuple[str, ...]
+
+
+PersistenceService = Callable[..., int]
 
 
 def _semantic_assignment_key(value: ReplacementAssignment) -> tuple[object, ...]:
@@ -107,5 +122,64 @@ def prepare_global_replacement_fact_batch(
     return GlobalReplacementFactBatch(
         fact_rows=fact_rows,
         unresolved_request_ids=tuple(result.unresolved_request_ids),
+        assignments_to_persist=tuple(new_assignments),
         already_active_replacement_ids=tuple(sorted(already_active_ids)),
+    )
+
+
+def persist_global_replacement_result(
+    workbook_path: str | Path,
+    result: GlobalReplacementAssignmentResult,
+    *,
+    sessions: Iterable[Session],
+    existing_active_replacements: Iterable[ReplacementAssignment] = (),
+    require_fully_resolved: bool = True,
+    persistence_service: PersistenceService = append_daily_replacement_facts,
+) -> GlobalReplacementPersistenceReport:
+    """Persist one validated global plan through the existing authoritative fact store.
+
+    This is the controlled transaction boundary between the global planner and
+    ``DAILY_REPLACEMENT_FACTS``. By default, any unresolved request blocks the
+    write completely. Callers may opt out only for non-final preview workflows.
+
+    Existing semantically identical ACTIVE facts are idempotent and are not sent
+    back to the writer. Conflicts are rejected by the mutation-free preparation
+    step before ``persistence_service`` is called.
+    """
+
+    session_tuple = tuple(sessions)
+    batch = prepare_global_replacement_fact_batch(
+        result,
+        sessions=session_tuple,
+        existing_active_replacements=existing_active_replacements,
+    )
+
+    if require_fully_resolved and batch.unresolved_request_ids:
+        unresolved = ", ".join(batch.unresolved_request_ids)
+        raise GlobalReplacementLifecycleError(
+            "Global replacement plan is not finalized; unresolved request(s): " + unresolved
+        )
+
+    if batch.assignments_to_persist:
+        try:
+            written = persistence_service(
+                workbook_path,
+                batch.assignments_to_persist,
+                sessions=session_tuple,
+            )
+        except GlobalReplacementLifecycleError:
+            raise
+        except Exception as exc:
+            raise GlobalReplacementLifecycleError(str(exc)) from exc
+    else:
+        written = 0
+
+    return GlobalReplacementPersistenceReport(
+        requested_assignment_count=len(result.assignments),
+        persisted_fact_count=written,
+        persisted_replacement_ids=tuple(
+            assignment.replacement_id for assignment in batch.assignments_to_persist
+        ),
+        already_active_replacement_ids=batch.already_active_replacement_ids,
+        unresolved_request_ids=batch.unresolved_request_ids,
     )
