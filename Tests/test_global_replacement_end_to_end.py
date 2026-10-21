@@ -8,6 +8,7 @@ from rehab_core.models import (
     Session,
     Therapist,
 )
+from rehab_core.provider_policy import ProviderPolicyBook, ProviderProfile
 from rehab_core.service_hours import ROBOTIC_SERVICE_ID, ServiceOperatingHours, SpecialServiceHoursBook
 
 
@@ -51,6 +52,30 @@ def test_builds_authoritative_replacement_assignments_from_global_plan():
     assert by_target["B"].replacement_id == "R-B"
     assert {item.replacement_therapist_id for item in result.assignments} == {"T1", "T2"}
     assert all(item.replacement_provider_kind == ReplacementProviderKind.THERAPIST for item in result.assignments)
+
+
+def test_provider_policy_filters_global_candidates_before_solving():
+    target = _session("A", "P-A", "ABSENT", 9)
+    policy = ProviderPolicyBook(
+        profiles={
+            "T1": ProviderProfile("T1", "Excluded", replacement_eligible=False),
+            "T2": ProviderProfile("T2", "Allowed", replacement_eligible=True),
+        }
+    )
+
+    result = build_global_replacement_assignments(
+        (target,),
+        therapists=(Therapist("T1", "Excluded"), Therapist("T2", "Allowed")),
+        sessions=(target,),
+        absences=(DailyAbsence(AbsenceKind.THERAPIST, "ABSENT", TODAY),),
+        timeslots=(time(9, 0),),
+        policy_book=policy,
+        replacement_id_factory=lambda session_id: f"R-{session_id}",
+    )
+
+    assert result.unresolved_request_ids == ()
+    assert len(result.assignments) == 1
+    assert result.assignments[0].replacement_therapist_id == "T2"
 
 
 def test_service_hours_filter_before_global_assignment():
