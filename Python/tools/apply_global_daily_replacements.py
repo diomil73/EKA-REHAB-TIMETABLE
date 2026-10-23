@@ -77,6 +77,7 @@ from rehab_excel.patient_registry_source import (  # noqa: E402
     read_patient_registry,
 )
 from rehab_excel.reader import read_settings  # noqa: E402
+from rehab_excel.student_registry import StudentRegistryError, read_students  # noqa: E402
 
 
 def _norm(value: str) -> str:
@@ -161,6 +162,7 @@ def main() -> int:
 
         target_date = _read_daily_input_date(input_book)
         patients = read_patient_registry(input_book)
+        students = tuple(read_students(input_book))
         settings = read_settings(input_book)
         base_entries = read_unified_base_schedule(input_book)
         sessions = materialize_sessions_for_date(base_entries, target_date)
@@ -211,6 +213,7 @@ def main() -> int:
             therapists=therapists,
             patients=patients,
             timeslots=settings.standard_timeslots,
+            students=students,
             policy_book=policy_book,
             base_entries=base_entries,
         )
@@ -231,6 +234,7 @@ def main() -> int:
             replacements=existing_replacements,
             cancellations=daily.cancellations,
             timeslots=settings.standard_timeslots,
+            students=students,
             adjacency_penalty=adjacency_penalty,
             policy_book=policy_book,
             base_entries=base_entries,
@@ -267,6 +271,7 @@ def main() -> int:
             states=states,
             sessions=sessions,
             patients=patients,
+            students=students,
             rebuild_multi_member_groups=True,
         )
         write_plan = compose_outpatient_daily_plan(
@@ -308,6 +313,7 @@ def main() -> int:
         DailyStatisticsWriteError,
         PatientCentricPreviewError,
         PatientRegistrySourceError,
+        StudentRegistryError,
         OutpatientScheduleSourceError,
         OutpatientPresentationError,
         DailyPreviewCompositionError,
