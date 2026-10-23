@@ -102,3 +102,11 @@ def test_tool_loads_provider_policy_and_service_hours_before_global_solve():
     assert 'load_service_hours(REPO_ROOT / "Config" / "service_hours.json")' in source
     assert "policy_book=policy_book" in source
     assert "service_hours=service_hours" in source
+
+
+def test_tool_wires_reclining_adjacency_into_global_solve():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    assert "build_reclining_adjacency_penalty" in source
+    assert "adjacency_penalty = build_reclining_adjacency_penalty(base_entries)" in source
+    assert "adjacency_penalty=adjacency_penalty" in source
