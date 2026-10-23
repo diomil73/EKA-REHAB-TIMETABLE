@@ -107,7 +107,7 @@ def _write_smoke_rows(
     *,
     original_therapist: str,
     busy_therapist: str,
-    all_therapists: tuple[str, ...],
+    active_day_therapists: tuple[str, ...],
     patient_name: str,
     original_time,
     timeslots,
@@ -131,12 +131,18 @@ def _write_smoke_rows(
         therapist_header = _find_header_row(ws, "Θεραπευτής")
         patient_header = _find_header_row(ws, "Ασθενής")
 
-        # Keep only the deliberately busy therapist active. Everyone else is absent.
+        # Keep only the deliberately busy therapist active. Every other therapist
+        # must be a provider that actually has at least one materialized session
+        # on the target date, because DAILY_INPUT validates names against that set.
         absent_ids = tuple(
             therapist_id
-            for therapist_id in all_therapists
+            for therapist_id in active_day_therapists
             if therapist_id != busy_therapist
         )
+        if original_therapist not in absent_ids:
+            raise DoubleBookingSmokeError(
+                "Original therapist is not present in target-date materialized sessions"
+            )
         patient_header = _ensure_therapist_row_capacity(
             ws,
             therapist_header=therapist_header,
@@ -208,6 +214,7 @@ def main() -> int:
         settings = read_settings(source)
         base_entries = read_unified_base_schedule(source)
         sessions = materialize_sessions_for_date(base_entries, args.date)
+        active_day_therapists = tuple(sorted({session.therapist_id for session in sessions}))
         target, busy = choose_double_booking_smoke_case(
             sessions,
             therapist_names=tuple(settings.therapist_names),
@@ -230,7 +237,7 @@ def main() -> int:
             preview,
             original_therapist=target.therapist_id,
             busy_therapist=busy.therapist_id,
-            all_therapists=tuple(settings.therapist_names),
+            active_day_therapists=active_day_therapists,
             patient_name=patient_name,
             original_time=target.start_time,
             timeslots=tuple(settings.standard_timeslots),
