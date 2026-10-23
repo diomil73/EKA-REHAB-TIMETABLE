@@ -60,6 +60,28 @@ def policy_adjusted_therapists(
     return tuple(adjusted)
 
 
+def _register_student_profiles(
+    students: Iterable[Student],
+    *,
+    policy_book: ProviderPolicyBook,
+) -> tuple[Student, ...]:
+    student_list = tuple(students)
+    for student in student_list:
+        existing = policy_book.profiles.get(student.student_id)
+        if existing is None:
+            policy_book.profiles[student.student_id] = ProviderProfile(
+                provider_id=student.student_id,
+                display_name=student.display_name,
+                provider_type=ProviderType.STUDENT,
+                default_max_slots=student.max_daily_timeslots,
+            )
+        elif existing.provider_type != ProviderType.STUDENT:
+            raise ValueError(
+                f"Student provider {student.student_id!r} has non-student policy profile"
+            )
+    return student_list
+
+
 def _filter_option_times(
     option: ReplacementProviderOption,
     *,
@@ -116,6 +138,7 @@ def find_policy_replacement_options(
         policy_book=policy_book,
         target_date=target_session.session_date,
     )
+    student_list = _register_student_profiles(students, policy_book=policy_book)
     options = find_replacement_options(
         target_session=target_session,
         therapists=adjusted,
@@ -126,7 +149,7 @@ def find_policy_replacement_options(
         cancellations=cancellations,
         requested_time=requested_time,
         timeslots=timeslots,
-        students=students,
+        students=student_list,
         student_assignments=student_assignments,
     )
 
