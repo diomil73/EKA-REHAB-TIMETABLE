@@ -22,6 +22,7 @@ def test_double_booking_vba_uses_combined_ui_prep_and_confirmed_apply_tools():
     assert 'ResolveProjectTool("build_double_booking_review_payload.py")' not in source
     assert 'ResolveProjectTool("export_double_booking_review_rows.py")' not in source
     assert '" --confirm --overwrite"' in source
+    assert '" --response " & QuoteArg(responsePath)' in source
     assert "ThisWorkbook.FullName" in source
 
 
@@ -31,12 +32,19 @@ def test_double_booking_python_processes_are_hidden_and_show_status_progress():
     assert "shell.Run(commandLine, 0, True)" in source
     assert ".Exec(commandLine)" not in source
     assert 'Application.StatusBar = "Έλεγχος εκκρεμών συνεδριών και προετοιμασία επιλογών..."' in source
-    assert 'Application.StatusBar = "Εφαρμογή επιβεβαιωμένης διπλοκράτησης..."' in source
+    assert 'Application.StatusBar = "Εφαρμογή και επαλήθευση διπλοκράτησης..."' in source
     assert "Application.StatusBar = False" in source
 
 
-def test_ui_slice_is_preview_only_not_authoritative_commit():
+def test_double_booking_ui_commits_verified_preview_and_reopens_authoritative_workbook():
     source = SOURCE.read_text(encoding="utf-8")
     assert "DOUBLE_BOOKING_CONFIRMED_UI_PREVIEW.xlsm" in source
-    assert "authoritative_commit_worker_cli.py" not in source
-    assert "StartAuthoritativeCommit" not in source
+    assert 'ResolveProjectTool("authoritative_commit_worker_cli.py")' in source
+    assert "StartAuthoritativeCommit(previewPath, sourceHash)" in source
+    assert 'JsonStringValue(responseText, "source_sha256_before")' in source
+    assert 'JsonStringValue(responseText, "output_path")' in source
+    assert 'q & "remove_preview_after_success" & q & ":true,"' in source
+    assert 'q & "reopen" & q & ":true,"' in source
+    assert 'q & "post_reopen_target" & q & ":" & q & "REPLACEMENTS" & q' in source
+    assert "CreateObject(\"WScript.Shell\").Run commandLine, 0, False" in source
+    assert "ThisWorkbook.Close SaveChanges:=False" in source
