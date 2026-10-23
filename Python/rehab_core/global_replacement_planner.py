@@ -137,6 +137,29 @@ def _score(
     )
 
 
+def _optimistic_min_workload_spread(
+    provider_baselines: Mapping[str, int],
+    provider_counts: Mapping[str, int],
+    remaining_assignments: int,
+) -> int:
+    """Lower-bound final workload spread by allowing ideal free redistribution.
+
+    This intentionally ignores provider eligibility and slot conflicts, so it can
+    only be more optimistic than reality and is therefore safe for pruning.
+    """
+
+    if not provider_baselines:
+        return 0
+    loads = [
+        provider_baselines[provider_id] + provider_counts.get(provider_id, 0)
+        for provider_id in sorted(provider_baselines)
+    ]
+    for _ in range(remaining_assignments):
+        lowest_index = min(range(len(loads)), key=loads.__getitem__)
+        loads[lowest_index] += 1
+    return max(loads) - min(loads)
+
+
 def plan_global_replacements(
     requests: Iterable[GlobalReplacementRequest],
     *,
@@ -152,10 +175,8 @@ def plan_global_replacements(
     - provider remaining daily capacity is respected across the whole plan,
     - unresolved is allowed only when no better complete/partial assignment exists.
 
-    The search is deterministic branch-and-bound by exhaustive enumeration. Daily
-    displaced-session sets are expected to be small; keeping this core dependency-
-    free makes the business priorities transparent and directly testable. A more
-    specialized solver can replace the search later without changing this contract.
+    Search remains deterministic and exact, but uses safe optimistic bounds to
+    avoid enumerating branches that cannot beat the best plan already found.
     """
 
     request_tuple = tuple(requests)
@@ -174,6 +195,20 @@ def plan_global_replacements(
         )
     )
 
+    suffix_min_adjacency = [0] * (len(ordered_requests) + 1)
+    suffix_original_possible = [0] * (len(ordered_requests) + 1)
+    for index in range(len(ordered_requests) - 1, -1, -1):
+        candidates = ordered_requests[index].candidates
+        min_adjacency = min(
+            (candidate.adjacency_penalty for candidate in candidates),
+            default=0,
+        )
+        suffix_min_adjacency[index] = suffix_min_adjacency[index + 1] + min_adjacency
+        suffix_original_possible[index] = (
+            suffix_original_possible[index + 1]
+            + int(any(candidate.is_original_time for candidate in candidates))
+        )
+
     best_assignments: tuple[GlobalReplacementCandidate, ...] = ()
     best_score: _Score | None = None
 
@@ -183,12 +218,34 @@ def plan_global_replacements(
         occupied_provider_slots: frozenset[tuple[str, time]],
         occupied_patient_slots: frozenset[tuple[str, time]],
         provider_counts: Mapping[str, int],
+        adjacency_so_far: int,
+        original_count_so_far: int,
     ) -> None:
         nonlocal best_assignments, best_score
 
         remaining = len(ordered_requests) - index
-        if best_score is not None and len(selected) + remaining < best_score.placed:
+        placed_upper_bound = len(selected) + remaining
+        if best_score is not None and placed_upper_bound < best_score.placed:
             return
+
+        if best_score is not None and placed_upper_bound == best_score.placed:
+            optimistic_adjacency = adjacency_so_far + suffix_min_adjacency[index]
+            if optimistic_adjacency > best_score.adjacency_penalty:
+                return
+            if optimistic_adjacency == best_score.adjacency_penalty:
+                optimistic_original = (
+                    original_count_so_far + suffix_original_possible[index]
+                )
+                if optimistic_original < best_score.original_time_count:
+                    return
+                if optimistic_original == best_score.original_time_count:
+                    optimistic_spread = _optimistic_min_workload_spread(
+                        baselines,
+                        provider_counts,
+                        remaining,
+                    )
+                    if optimistic_spread > best_score.workload_spread:
+                        return
 
         if index == len(ordered_requests):
             score = _score(selected, baselines)
@@ -234,19 +291,24 @@ def plan_global_replacements(
                 occupied_provider_slots | {provider_slot},
                 occupied_patient_slots | {patient_slot},
                 next_counts,
+                adjacency_so_far + candidate.adjacency_penalty,
+                original_count_so_far + int(candidate.is_original_time),
             )
 
-        # Unresolved branch is always available, but loses to any plan that can
-        # place more sessions because placed-count is the first scoring priority.
-        visit(
-            index + 1,
-            selected,
-            occupied_provider_slots,
-            occupied_patient_slots,
-            provider_counts,
-        )
+        # Once a complete plan has been found, this unresolved branch can never
+        # tie its placed count and therefore cannot improve the result.
+        if best_score is None or best_score.placed < len(ordered_requests):
+            visit(
+                index + 1,
+                selected,
+                occupied_provider_slots,
+                occupied_patient_slots,
+                provider_counts,
+                adjacency_so_far,
+                original_count_so_far,
+            )
 
-    visit(0, (), frozenset(), frozenset(), {})
+    visit(0, (), frozenset(), frozenset(), {}, 0, 0)
 
     assignments = tuple(sorted(best_assignments, key=lambda item: item.request_id))
     resolved = {assignment.request_id for assignment in assignments}
