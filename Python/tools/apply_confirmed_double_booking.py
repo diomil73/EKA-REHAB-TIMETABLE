@@ -20,7 +20,7 @@ from rehab_core.double_booking_exception import (  # noqa: E402
     propose_double_booking_exception,
 )
 from rehab_core.global_replacement_end_to_end import build_global_replacement_assignments  # noqa: E402
-from rehab_core.models import Therapist  # noqa: E402
+from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
 from rehab_core.therapist_absence_queue import build_therapist_absence_replacement_queue  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
@@ -60,6 +60,21 @@ def _write_response(path: Path | None, payload: dict[str, object]) -> None:
     )
 
 
+def _assignment_payload(assignment) -> dict[str, object]:
+    return {
+        "replacement_id": assignment.replacement_id,
+        "target_session_id": assignment.target_session_id,
+        "patient_id": assignment.patient_id,
+        "original_therapist_id": assignment.original_therapist_id,
+        "replacement_therapist_id": assignment.replacement_therapist_id,
+        "replacement_date": assignment.replacement_date.isoformat(),
+        "replacement_time": assignment.replacement_time.strftime("%H:%M"),
+        "reason": assignment.reason or "",
+        "provider_kind": assignment.replacement_provider_kind.value,
+        "status": "ACTIVE",
+    }
+
+
 def _load_review_choice(
     review_path: Path,
     *,
@@ -90,7 +105,8 @@ def _load_review_choice(
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Apply one explicitly confirmed double-booking exception to a fresh preview copy."
+            "Validate one explicitly confirmed double-booking exception and optionally "
+            "persist it to a fresh preview copy."
         )
     )
     parser.add_argument("--input", required=True, type=Path)
@@ -98,37 +114,32 @@ def main() -> int:
     parser.add_argument("--target-session-id", required=True)
     parser.add_argument("--therapist-id", required=True)
     parser.add_argument("--time", required=True, type=_parse_time)
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--response", type=Path)
+    parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--confirm", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
-    response_path = args.response.resolve() if args.response is not None else None
-
     if not args.confirm:
-        message = "explicit --confirm is required for double booking"
-        _write_response(response_path, {"ok": False, "error": message})
-        print(f"SAFETY STOP: {message}")
+        print("SAFETY STOP: explicit --confirm is required for double booking")
+        return 2
+    if not args.validate_only and args.output is None:
+        print("SAFETY STOP: --output is required unless --validate-only is used")
         return 2
 
     input_book = args.input.resolve()
     review_path = args.review.resolve()
-    output = args.output.resolve()
+    output = args.output.resolve() if args.output is not None else None
+    response = args.response.resolve() if args.response is not None else None
     if not input_book.exists():
-        message = f"input workbook not found: {input_book}"
-        _write_response(response_path, {"ok": False, "error": message})
-        print(f"SAFETY STOP: {message}")
+        print(f"SAFETY STOP: input workbook not found: {input_book}")
         return 2
     if not review_path.exists():
-        message = f"review payload not found: {review_path}"
-        _write_response(response_path, {"ok": False, "error": message})
-        print(f"SAFETY STOP: {message}")
+        print(f"SAFETY STOP: review payload not found: {review_path}")
         return 2
-    if output.exists() and not args.overwrite:
-        message = f"output already exists: {output}"
-        _write_response(response_path, {"ok": False, "error": message})
-        print(f"SAFETY STOP: {message}")
+    if output is not None and output.exists() and not args.overwrite:
+        print(f"SAFETY STOP: output already exists: {output}")
         return 2
 
     source_hash = file_sha256(input_book)
@@ -233,76 +244,71 @@ def main() -> int:
             confirmed=True,
         )
 
-        output.parent.mkdir(parents=True, exist_ok=True)
-        if output.exists():
-            output.unlink()
-        shutil.copy2(input_book, output)
-        output_created = True
-        append_daily_replacement_facts(output, (assignment,), sessions=sessions)
-        output_contract = assert_application_contract(output)
+        if not args.validate_only:
+            assert output is not None
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if output.exists():
+                output.unlink()
+            shutil.copy2(input_book, output)
+            output_created = True
+            append_daily_replacement_facts(output, (assignment,), sessions=sessions)
+            output_contract = assert_application_contract(output)
 
-        reread = read_daily_replacement_facts(
-            output,
-            sessions=sessions,
-            target_date=target_date,
-        )
-        matched = [
-            item
-            for item in reread
-            if item.replacement_id == assignment.replacement_id
-        ]
-        if len(matched) != 1:
-            raise ValueError("Confirmed double-booking fact did not read back exactly once")
+            reread = read_daily_replacement_facts(
+                output,
+                sessions=sessions,
+                target_date=target_date,
+            )
+            matched = [
+                item
+                for item in reread
+                if item.replacement_id == assignment.replacement_id
+            ]
+            if len(matched) != 1:
+                raise ValueError("Confirmed double-booking fact did not read back exactly once")
+        else:
+            output_contract = input_contract
     except Exception as exc:
-        if output_created and output.exists():
+        if output_created and output is not None and output.exists():
             try:
                 output.unlink()
             except OSError:
                 pass
-        _write_response(response_path, {"ok": False, "error": str(exc)})
+        _write_response(response, {"ok": False, "error": str(exc)})
         print(f"SAFETY STOP: {exc}")
         return 2
 
     source_unchanged = file_sha256(input_book) == source_hash
-    if not source_unchanged:
-        try:
-            output.unlink(missing_ok=True)
-        except OSError:
-            pass
-        message = "source workbook changed during confirmed double-booking preview creation"
-        _write_response(response_path, {"ok": False, "error": message})
-        print(f"SAFETY STOP: {message}")
-        return 3
+    response_payload: dict[str, object] = {
+        "ok": True,
+        "validated_only": args.validate_only,
+        "source_path": str(input_book),
+        "source_sha256_before": source_hash,
+        "source_unchanged": source_unchanged,
+        "assignment": _assignment_payload(assignment),
+    }
+    if output is not None:
+        response_payload["output_path"] = str(output)
+    _write_response(response, response_payload)
 
-    _write_response(
-        response_path,
-        {
-            "ok": True,
-            "source_path": str(input_book),
-            "source_sha256_before": source_hash,
-            "output_path": str(output),
-            "target_session_id": assignment.target_session_id,
-            "patient_id": assignment.patient_id,
-            "therapist_id": assignment.replacement_therapist_id,
-            "replacement_time": assignment.replacement_time.strftime("%H:%M"),
-            "reason": assignment.reason,
-        },
-    )
-
-    print("CONFIRMED DOUBLE BOOKING PREVIEW OK")
+    if args.validate_only:
+        print("CONFIRMED DOUBLE BOOKING VALIDATION OK")
+    else:
+        print("CONFIRMED DOUBLE BOOKING PREVIEW OK")
     print(f"Date: {target_date.isoformat()}")
     print(f"Target session: {assignment.target_session_id}")
     print(f"Patient: {assignment.patient_id}")
     print(f"Therapist: {assignment.replacement_therapist_id}")
     print(f"Time: {assignment.replacement_time.strftime('%H:%M')}")
     print(f"Reason: {assignment.reason}")
-    print(f"Preview: {output}")
+    if output is not None:
+        print(f"Preview: {output}")
     print(f"Input unchanged: {source_unchanged}")
     print("Application contract input: OK")
-    print("Application contract output: OK")
-    print(f"Required app components: {len(input_contract.required_components)}")
-    print(f"Output VBA component count: {len(output_contract.component_names)}")
-    return 0
+    if not args.validate_only:
+        print("Application contract output: OK")
+        print(f"Output VBA component count: {len(output_contract.component_names)}")
+    return 0 if source_unchanged else 3
 
 
 if __name__ == "__main__":
