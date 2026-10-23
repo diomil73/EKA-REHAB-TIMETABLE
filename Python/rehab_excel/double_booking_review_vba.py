@@ -50,8 +50,9 @@ Public Sub ShowDoubleBookingReview()
 End Sub
 
 Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVal therapistId As String, ByVal replacementTime As String) As Boolean
-    Dim applyScript As String, outputPath As String, commandLine As String
-    Dim exitCode As Long
+    Dim applyScript As String, outputPath As String, responsePath As String
+    Dim commandLine As String, exitCode As Long, responseText As String
+    Dim sourceHash As String, previewPath As String
 
     applyScript = ResolveProjectTool("apply_confirmed_double_booking.py")
     If Len(applyScript) = 0 Then
@@ -60,6 +61,9 @@ Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVa
     End If
 
     outputPath = ThisWorkbook.Path & "\\DOUBLE_BOOKING_CONFIRMED_UI_PREVIEW.xlsm"
+    responsePath = Environ$("TEMP") & "\\eka_double_booking_apply_" & _
+                   Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+
     commandLine = QuoteArg("python") & " " & QuoteArg(applyScript) & _
                   " --input " & QuoteArg(ThisWorkbook.FullName) & _
                   " --review " & QuoteArg(mReviewPath) & _
@@ -67,20 +71,92 @@ Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVa
                   " --therapist-id " & QuoteArg(therapistId) & _
                   " --time " & QuoteArg(replacementTime) & _
                   " --output " & QuoteArg(outputPath) & _
+                  " --response " & QuoteArg(responsePath) & _
                   " --confirm --overwrite"
 
-    Application.StatusBar = "Εφαρμογή επιβεβαιωμένης διπλοκράτησης..."
+    Application.StatusBar = "Εφαρμογή και επαλήθευση διπλοκράτησης..."
     exitCode = RunHidden(commandLine)
     Application.StatusBar = False
 
-    If exitCode <> 0 Or Dir$(outputPath) = "" Then
-        MsgBox "Η διπλοκράτηση δεν εφαρμόστηκε.", vbExclamation, "Διπλοκράτηση"
+    If Dir$(responsePath) <> "" Then responseText = ReadUtf8Text(responsePath)
+    If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
+        MsgBox "Η διπλοκράτηση δεν εφαρμόστηκε." & vbCrLf & vbCrLf & _
+               JsonStringValue(responseText, "error"), vbExclamation, "Διπλοκράτηση"
+        GoTo CleanUp
+    End If
+
+    previewPath = JsonStringValue(responseText, "output_path")
+    sourceHash = JsonStringValue(responseText, "source_sha256_before")
+    If Len(previewPath) = 0 Or Len(sourceHash) = 0 Then
+        MsgBox "Το backend δεν επέστρεψε τα στοιχεία ασφαλούς αποθήκευσης.", vbCritical, "Διπλοκράτηση"
+        GoTo CleanUp
+    End If
+
+    If Not StartAuthoritativeCommit(previewPath, sourceHash) Then GoTo CleanUp
+
+    MsgBox "Η διπλοκράτηση επαληθεύτηκε και θα αποθηκευτεί με ασφάλεια." & vbCrLf & vbCrLf & _
+           "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα.", _
+           vbInformation, "Διπλοκράτηση"
+
+    ApplySelectedDoubleBooking = True
+    Unload frmDoubleBookingReview
+    On Error Resume Next
+    If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
+    On Error GoTo 0
+    ThisWorkbook.Close SaveChanges:=False
+    Exit Function
+
+CleanUp:
+    On Error Resume Next
+    If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
+    On Error GoTo 0
+End Function
+
+Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
+    Dim workerScript As String
+    Dim requestPath As String, responsePath As String
+    Dim commandLine As String
+
+    workerScript = ResolveProjectTool("authoritative_commit_worker_cli.py")
+    If Len(workerScript) = 0 Then
+        MsgBox "Δεν βρέθηκε το authoritative save worker του συστήματος.", vbCritical, "Διπλοκράτηση"
         Exit Function
     End If
 
-    MsgBox "Η επιβεβαιωμένη διπλοκράτηση δημιουργήθηκε σε ασφαλές preview:" & vbCrLf & vbCrLf & outputPath, _
-           vbInformation, "Διπλοκράτηση"
-    ApplySelectedDoubleBooking = True
+    requestPath = Environ$("TEMP") & "\\eka_double_booking_commit_request_" & _
+                  Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+    responsePath = Environ$("TEMP") & "\\eka_double_booking_commit_response_" & _
+                   Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+
+    WriteUtf8Text requestPath, BuildAuthoritativeCommitJson(previewPath, sourceSha256)
+    commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
+                  " --request " & QuoteArg(requestPath) & _
+                  " --response " & QuoteArg(responsePath)
+
+    On Error GoTo WorkerError
+    CreateObject("WScript.Shell").Run commandLine, 0, False
+    StartAuthoritativeCommit = True
+    Exit Function
+
+WorkerError:
+    MsgBox "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς αποθήκευσης: " & Err.Description, _
+           vbCritical, "Διπλοκράτηση"
+End Function
+
+Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String
+    Dim q As String
+    q = Chr$(34)
+    BuildAuthoritativeCommitJson = _
+        "{" & _
+        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
+        q & "preview_path" & q & ":" & q & JsonEscape(previewPath) & q & "," & _
+        q & "expected_source_sha256" & q & ":" & q & JsonEscape(sourceSha256) & q & "," & _
+        q & "remove_preview_after_success" & q & ":true," & _
+        q & "reopen" & q & ":true," & _
+        q & "timeout_seconds" & q & ":30," & _
+        q & "poll_seconds" & q & ":0.5," & _
+        q & "post_reopen_target" & q & ":" & q & "REPLACEMENTS" & q & _
+        "}"
 End Function
 
 Private Function RunHidden(ByVal commandLine As String) As Long
@@ -100,6 +176,67 @@ Private Function ResolveProjectTool(ByVal fileName As String) As String
     If Dir$(candidate) <> "" Then
         ResolveProjectTool = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
     End If
+End Function
+
+Private Function JsonEscape(ByVal value As String) As String
+    Dim text As String
+    text = Replace(value, "\", "\\")
+    text = Replace(text, Chr$(34), "\" & Chr$(34))
+    text = Replace(text, vbCrLf, "\n")
+    text = Replace(text, vbCr, "\n")
+    text = Replace(text, vbLf, "\n")
+    JsonEscape = text
+End Function
+
+Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) As String
+    Dim marker As String, startPos As Long, index As Long
+    Dim ch As String, escaped As Boolean, value As String
+    marker = Chr$(34) & key & Chr$(34) & ":"
+    startPos = InStr(1, jsonText, marker, vbTextCompare)
+    If startPos = 0 Then Exit Function
+    startPos = InStr(startPos + Len(marker), jsonText, Chr$(34))
+    If startPos = 0 Then Exit Function
+    For index = startPos + 1 To Len(jsonText)
+        ch = Mid$(jsonText, index, 1)
+        If escaped Then
+            Select Case ch
+                Case "n": value = value & vbLf
+                Case "r": value = value & vbCr
+                Case "t": value = value & vbTab
+                Case Else: value = value & ch
+            End Select
+            escaped = False
+        ElseIf ch = "\" Then
+            escaped = True
+        ElseIf ch = Chr$(34) Then
+            Exit For
+        Else
+            value = value & ch
+        End If
+    Next index
+    JsonStringValue = value
+End Function
+
+Private Sub WriteUtf8Text(ByVal filePath As String, ByVal text As String)
+    Dim stream As Object
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.WriteText text
+    stream.SaveToFile filePath, 2
+    stream.Close
+End Sub
+
+Private Function ReadUtf8Text(ByVal filePath As String) As String
+    Dim stream As Object
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.LoadFromFile filePath
+    ReadUtf8Text = stream.ReadText
+    stream.Close
 End Function
 
 Private Function QuoteArg(ByVal value As String) As String
@@ -197,12 +334,10 @@ Private Sub cmdConfirm_Click()
         Exit Sub
     End If
 
-    If modDoubleBookingReview.ApplySelectedDoubleBooking( _
+    Call modDoubleBookingReview.ApplySelectedDoubleBooking( _
         lstOptions.List(idx, 0), _
         lstOptions.List(idx, 3), _
-        lstOptions.List(idx, 5)) Then
-        Unload Me
-    End If
+        lstOptions.List(idx, 5))
 End Sub
 
 Private Sub cmdCancel_Click()
