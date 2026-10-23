@@ -70,6 +70,38 @@ def _find_header_row(ws, label: str) -> int:
     raise DoubleBookingSmokeError(f"Could not locate DAILY_INPUT header: {label}")
 
 
+def _ensure_therapist_row_capacity(
+    ws,
+    *,
+    therapist_header: int,
+    patient_header: int,
+    required_rows: int,
+) -> int:
+    """Expand only the disposable smoke copy when the template has too few rows."""
+
+    available_rows = patient_header - therapist_header - 2
+    shortage = max(0, required_rows - available_rows)
+    if shortage == 0:
+        return patient_header
+
+    insert_start = patient_header - 1
+    insert_end = insert_start + shortage - 1
+    ws.Rows(f"{insert_start}:{insert_end}").Insert()
+
+    template_row = therapist_header + 1
+    try:
+        ws.Rows(template_row).Copy()
+        ws.Rows(f"{insert_start}:{insert_end}").PasteSpecial(Paste=-4122)
+    except Exception:
+        pass
+    try:
+        ws.Application.CutCopyMode = False
+    except Exception:
+        pass
+
+    return patient_header + shortage
+
+
 def _write_smoke_rows(
     workbook_path: Path,
     *,
@@ -105,9 +137,12 @@ def _write_smoke_rows(
             for therapist_id in all_therapists
             if therapist_id != busy_therapist
         )
-        max_therapist_rows = patient_header - therapist_header - 2
-        if len(absent_ids) > max_therapist_rows:
-            raise DoubleBookingSmokeError("DAILY_INPUT has insufficient therapist rows for smoke")
+        patient_header = _ensure_therapist_row_capacity(
+            ws,
+            therapist_header=therapist_header,
+            patient_header=patient_header,
+            required_rows=len(absent_ids),
+        )
         for offset, therapist_id in enumerate(absent_ids, start=1):
             row = therapist_header + offset
             ws.Cells(row, 1).Value = therapist_id
