@@ -12,9 +12,14 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
+from rehab_excel.double_booking_daily_projection_vba import (  # noqa: E402
+    DOUBLE_BOOKING_PROJECTION_MODULE_NAME,
+    install_double_booking_daily_projection,
+)
 from rehab_excel.double_booking_review_vba import (  # noqa: E402
     DOUBLE_BOOKING_FORM_NAME,
     DOUBLE_BOOKING_MODULE_NAME,
+    FORM_CODE,
     install_double_booking_review,
 )
 
@@ -31,7 +36,41 @@ def _component_present(vbproject, name: str) -> bool:
         return False
 
 
-def install_ui(workbook_path: Path) -> tuple[int, bool, bool]:
+def _projection_aware_form_code() -> str:
+    original = '''    If modDoubleBookingReview.ApplySelectedDoubleBooking( _
+        lstOptions.List(idx, 0), _
+        lstOptions.List(idx, 3), _
+        lstOptions.List(idx, 5)) Then
+        Unload Me
+    End If'''
+    replacement = '''    If modDoubleBookingReview.ApplySelectedDoubleBooking( _
+        lstOptions.List(idx, 0), _
+        lstOptions.List(idx, 3), _
+        lstOptions.List(idx, 5)) Then
+        If modDoubleBookingDailyProjection.ProjectDoubleBookingToTherapistDaily( _
+            lstOptions.List(idx, 1), _
+            lstOptions.List(idx, 4), _
+            lstOptions.List(idx, 5), _
+            lstOptions.List(idx, 0)) Then
+            Unload Me
+        End If
+    End If'''
+    if original not in FORM_CODE:
+        raise DoubleBookingUiInstallError(
+            "Double-booking form confirmation block no longer matches installer contract"
+        )
+    return FORM_CODE.replace(original, replacement, 1)
+
+
+def _replace_form_code(vbproject) -> None:
+    form = vbproject.VBComponents(DOUBLE_BOOKING_FORM_NAME)
+    code_module = form.CodeModule
+    if int(code_module.CountOfLines) > 0:
+        code_module.DeleteLines(1, int(code_module.CountOfLines))
+    code_module.AddFromString(_projection_aware_form_code())
+
+
+def install_ui(workbook_path: Path) -> tuple[int, bool, bool, bool]:
     if sys.platform != "win32":
         raise DoubleBookingUiInstallError("Windows + Microsoft Excel are required")
     try:
@@ -56,12 +95,15 @@ def install_ui(workbook_path: Path) -> tuple[int, bool, bool]:
             ) from exc
 
         install_double_booking_review(vbproject)
+        install_double_booking_daily_projection(vbproject)
+        _replace_form_code(vbproject)
         workbook.Save()
         count = int(vbproject.VBComponents.Count)
         return (
             count,
             _component_present(vbproject, DOUBLE_BOOKING_MODULE_NAME),
             _component_present(vbproject, DOUBLE_BOOKING_FORM_NAME),
+            _component_present(vbproject, DOUBLE_BOOKING_PROJECTION_MODULE_NAME),
         )
     finally:
         if workbook is not None:
@@ -104,9 +146,11 @@ def main() -> int:
             output.unlink()
         shutil.copy2(source, output)
         output_created = True
-        component_count, module_present, form_present = install_ui(output)
-        if not module_present or not form_present:
-            raise DoubleBookingUiInstallError("Double-booking VBA components were not confirmed after installation")
+        component_count, module_present, form_present, projection_present = install_ui(output)
+        if not module_present or not form_present or not projection_present:
+            raise DoubleBookingUiInstallError(
+                "Double-booking VBA components were not confirmed after installation"
+            )
         output_contract = assert_application_contract(output)
         source_unchanged = file_sha256(source) == source_hash
         if not source_unchanged:
@@ -129,6 +173,7 @@ def main() -> int:
     print(f"Output VBA component count: {component_count}")
     print(f"Installed module: {DOUBLE_BOOKING_MODULE_NAME}")
     print(f"Installed form: {DOUBLE_BOOKING_FORM_NAME}")
+    print(f"Installed projection module: {DOUBLE_BOOKING_PROJECTION_MODULE_NAME}")
     print("Macro: ShowDoubleBookingReview")
     return 0
 
