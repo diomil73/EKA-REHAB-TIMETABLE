@@ -20,7 +20,7 @@ from rehab_core.double_booking_exception import (  # noqa: E402
     propose_double_booking_exception,
 )
 from rehab_core.global_replacement_end_to_end import build_global_replacement_assignments  # noqa: E402
-from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
+from rehab_core.models import Therapist  # noqa: E402
 from rehab_core.therapist_absence_queue import build_therapist_absence_replacement_queue  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
@@ -48,6 +48,16 @@ def _parse_time(value: str) -> time:
         return datetime.strptime(value.strip(), "%H:%M").time()
     except ValueError as exc:
         raise argparse.ArgumentTypeError("Time must be HH:MM") from exc
+
+
+def _write_response(path: Path | None, payload: dict[str, object]) -> None:
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _load_review_choice(
@@ -89,25 +99,36 @@ def main() -> int:
     parser.add_argument("--therapist-id", required=True)
     parser.add_argument("--time", required=True, type=_parse_time)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--response", type=Path)
     parser.add_argument("--confirm", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
+    response_path = args.response.resolve() if args.response is not None else None
+
     if not args.confirm:
-        print("SAFETY STOP: explicit --confirm is required for double booking")
+        message = "explicit --confirm is required for double booking"
+        _write_response(response_path, {"ok": False, "error": message})
+        print(f"SAFETY STOP: {message}")
         return 2
 
     input_book = args.input.resolve()
     review_path = args.review.resolve()
     output = args.output.resolve()
     if not input_book.exists():
-        print(f"SAFETY STOP: input workbook not found: {input_book}")
+        message = f"input workbook not found: {input_book}"
+        _write_response(response_path, {"ok": False, "error": message})
+        print(f"SAFETY STOP: {message}")
         return 2
     if not review_path.exists():
-        print(f"SAFETY STOP: review payload not found: {review_path}")
+        message = f"review payload not found: {review_path}"
+        _write_response(response_path, {"ok": False, "error": message})
+        print(f"SAFETY STOP: {message}")
         return 2
     if output.exists() and not args.overwrite:
-        print(f"SAFETY STOP: output already exists: {output}")
+        message = f"output already exists: {output}"
+        _write_response(response_path, {"ok": False, "error": message})
+        print(f"SAFETY STOP: {message}")
         return 2
 
     source_hash = file_sha256(input_book)
@@ -238,10 +259,36 @@ def main() -> int:
                 output.unlink()
             except OSError:
                 pass
+        _write_response(response_path, {"ok": False, "error": str(exc)})
         print(f"SAFETY STOP: {exc}")
         return 2
 
     source_unchanged = file_sha256(input_book) == source_hash
+    if not source_unchanged:
+        try:
+            output.unlink(missing_ok=True)
+        except OSError:
+            pass
+        message = "source workbook changed during confirmed double-booking preview creation"
+        _write_response(response_path, {"ok": False, "error": message})
+        print(f"SAFETY STOP: {message}")
+        return 3
+
+    _write_response(
+        response_path,
+        {
+            "ok": True,
+            "source_path": str(input_book),
+            "source_sha256_before": source_hash,
+            "output_path": str(output),
+            "target_session_id": assignment.target_session_id,
+            "patient_id": assignment.patient_id,
+            "therapist_id": assignment.replacement_therapist_id,
+            "replacement_time": assignment.replacement_time.strftime("%H:%M"),
+            "reason": assignment.reason,
+        },
+    )
+
     print("CONFIRMED DOUBLE BOOKING PREVIEW OK")
     print(f"Date: {target_date.isoformat()}")
     print(f"Target session: {assignment.target_session_id}")
@@ -253,8 +300,9 @@ def main() -> int:
     print(f"Input unchanged: {source_unchanged}")
     print("Application contract input: OK")
     print("Application contract output: OK")
+    print(f"Required app components: {len(input_contract.required_components)}")
     print(f"Output VBA component count: {len(output_contract.component_names)}")
-    return 0 if source_unchanged else 3
+    return 0
 
 
 if __name__ == "__main__":
