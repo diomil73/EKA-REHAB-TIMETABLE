@@ -28,6 +28,17 @@ def test_bulk_restore_validates_set_before_single_recompute_without_stage_excel_
     assert source.count("build_daily_session_states(") == 1
 
 
+def test_bulk_restore_requires_application_contract_before_and_after_write():
+    source = inspect.getsource(restore_replacements_and_recompute)
+
+    input_contract_pos = source.index("assert_application_contract(source)")
+    apply_pos = source.index("apply_write_plan_to_copy(")
+    output_contract_pos = source.index("assert_application_contract(output)")
+
+    assert input_contract_pos < apply_pos < output_contract_pos
+    assert source.count("assert_application_contract(") == 2
+
+
 def test_bulk_restore_pipeline_uses_single_output_backend_for_master_plan_stats_facts_and_ledger():
     source = inspect.getsource(restore_replacements_and_recompute)
 
