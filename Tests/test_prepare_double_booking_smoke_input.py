@@ -60,3 +60,12 @@ def test_smoke_preparer_keeps_only_busy_exception_therapist_active():
     assert "if therapist_id != busy_therapist" in source
     assert "if slot == original_time:" in source
     assert "Normal replacement intentionally blocked" in source
+
+
+def test_smoke_preparer_expands_disposable_therapist_section_when_needed():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    assert "def _ensure_therapist_row_capacity(" in source
+    assert 'ws.Rows(f"{insert_start}:{insert_end}").Insert()' in source
+    assert "patient_header = _ensure_therapist_row_capacity(" in source
+    assert "insufficient therapist rows for smoke" not in source
