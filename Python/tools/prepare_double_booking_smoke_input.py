@@ -21,6 +21,7 @@ from rehab_excel.daily_input_sheet import (  # noqa: E402
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
 from rehab_excel.reader import read_settings  # noqa: E402
+from tools.apply_global_daily_replacements import _is_legacy_student_name  # noqa: E402
 
 
 class DoubleBookingSmokeError(RuntimeError):
@@ -78,14 +79,14 @@ def blocked_therapists_for_smoke(
     sessions,
     *,
     target,
-    active_day_therapists: tuple[str, ...],
+    therapist_names: tuple[str, ...],
 ) -> tuple[str, ...]:
-    """Block only providers who are free in the target slot plus the original.
+    """Block every normal provider who is free in the target slot.
 
     Busy providers remain active so they can appear as explicit double-booking
-    choices. Free providers receive a one-slot absence, which does not displace
-    any of their own sessions. The original therapist also receives only a
-    one-slot absence, isolating the smoke to the target session.
+    choices. Free providers from the full official registry receive a one-slot
+    absence, including therapists with no materialized session that day. The
+    original therapist is also blocked only in that one slot.
     """
 
     occupied = {
@@ -93,11 +94,12 @@ def blocked_therapists_for_smoke(
         for session in sessions
         if session.start_time == target.start_time
     }
-    free_at_target = {
+    normal_registry = {
         therapist_id
-        for therapist_id in active_day_therapists
-        if therapist_id not in occupied
+        for therapist_id in therapist_names
+        if not _is_legacy_student_name(therapist_id)
     }
+    free_at_target = normal_registry - occupied
     return tuple(sorted(free_at_target | {target.therapist_id}))
 
 
@@ -244,17 +246,15 @@ def main() -> int:
         settings = read_settings(source)
         base_entries = read_unified_base_schedule(source)
         sessions = materialize_sessions_for_date(base_entries, args.date)
-        active_day_therapists = tuple(
-            sorted({session.therapist_id for session in sessions})
-        )
+        therapist_names = tuple(settings.therapist_names)
         target, busy = choose_double_booking_smoke_case(
             sessions,
-            therapist_names=tuple(settings.therapist_names),
+            therapist_names=therapist_names,
         )
         blocked_therapists = blocked_therapists_for_smoke(
             sessions,
             target=target,
-            active_day_therapists=active_day_therapists,
+            therapist_names=therapist_names,
         )
         patients = read_patient_registry(source)
         patient_by_id = {patient.patient_id: patient.display_name for patient in patients}
