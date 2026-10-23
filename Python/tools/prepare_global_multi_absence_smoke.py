@@ -12,7 +12,10 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
-from rehab_excel.application_contract import inspect_application_contract  # noqa: E402
+from rehab_excel.application_contract import (  # noqa: E402
+    ApplicationContractError,
+    assert_application_contract,
+)
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_excel.daily_input_patients import audit_daily_input_patients  # noqa: E402
 from rehab_excel.daily_input_sheet import (  # noqa: E402
@@ -151,12 +154,7 @@ def main() -> int:
 
     source_hash = file_sha256(source)
     try:
-        source_contract = inspect_application_contract(source)
-        if not source_contract.ok:
-            raise MultiAbsenceSmokeError(
-                "Source is not a complete application workbook: "
-                + ", ".join(source_contract.missing_components)
-            )
+        source_contract = assert_application_contract(source)
 
         patient_audit = audit_daily_input_patients(source)
         if not patient_audit.ok:
@@ -185,13 +183,13 @@ def main() -> int:
         )
         _write_absence_rows(preview, tuple(item[0] for item in selected))
 
-        output_contract = inspect_application_contract(output)
-        if not output_contract.ok:
-            raise MultiAbsenceSmokeError(
-                "Output lost application components: "
-                + ", ".join(output_contract.missing_components)
-            )
-    except (ValueError, DailyInputSheetError, MultiAbsenceSmokeError) as exc:
+        output_contract = assert_application_contract(output)
+    except (
+        ValueError,
+        DailyInputSheetError,
+        MultiAbsenceSmokeError,
+        ApplicationContractError,
+    ) as exc:
         try:
             output.unlink(missing_ok=True)
         except OSError:
@@ -213,7 +211,8 @@ def main() -> int:
     print(f"Total displaced sessions: {total}")
     print(f"Preview: {output}")
     print(f"Source unchanged: {source_unchanged}")
-    print("Application contract output: OK")
+    print(f"Application contract source: OK ({len(source_contract.component_names)} components)")
+    print(f"Application contract output: OK ({len(output_contract.component_names)} components)")
     return 0 if source_unchanged else 3
 
 
