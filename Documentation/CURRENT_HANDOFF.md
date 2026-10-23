@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-10-20
+Last updated: 2026-10-24
 
 ## Read order
 
@@ -27,16 +27,26 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - collision/workload focused gate: `33 passed, 5 warnings in 4.60s`
 - latest fresh native outpatient collision + valid reassignment + workload scenario: user reported it appears correct
 - THERAPIST_DAILY presentation cleanup focused gate: `27 passed in 3.09s`
+- double-booking review/install/apply focused gate: `13 passed in 1.63s`
+- double-booking UI smoke V5: native green; confirmed double-booking persists in-place without close/reopen and projects immediately into `THERAPIST_DAILY`
+- global replacement / reclining / service-policy focused gate: `38 passed in 5.30s`
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
-## Current milestone: statistics/history design checkpoint
+## Current milestone: student replacement production wiring
 
-The outpatient edit/conflict/workload path is operationally green enough to move forward. The THERAPIST_DAILY presentation cleanup source gate is also green.
+The double-booking exception workflow is operationally closed end-to-end.
 
-The active work is now the historical fact model. Historical statistics must not be reconstructed later from today's mutable schedule projection.
+The global replacement path already has reclining adjacency and special pool/robotic service hours wired into production. The policy layer also preserves student identity as `STUDENT` rather than treating students as therapists.
 
-The user explicitly wants weekly workload history per therapist plus broader statistics/history and patient-level analysis.
+The remaining student production gap was that `Python/tools/apply_global_daily_replacements.py` did not load the authoritative `STUDENTS` registry and did not pass students through the queue, global solver and `THERAPIST_DAILY` patient-centric projection.
+
+That wiring has now been implemented:
+
+- commit `c8e571d` loads authoritative students with `read_students(input_book)`, passes them into the therapist-absence queue, global replacement solver and patient-centric projection, and safety-stops on `StudentRegistryError`;
+- commit `836e610` adds a regression guard that requires the production tool to keep this full student path wired.
+
+This implementation is **pending the local focused pytest gate**. The execution sandbox used by ChatGPT could not clone GitHub because outbound network access is unavailable, so no test result is claimed here until the local Windows gate is run.
 
 ## Therapist workload contract already locked
 
@@ -181,7 +191,7 @@ The weekly therapist workload view will derive from finalized therapist/day rows
 
 ## Statistics/history checkpoint status
 
-The core architecture questions are complete. Concrete patient/therapist reporting requirements are now recorded.
+The core architecture questions are complete. Concrete patient/therapist reporting requirements are recorded and remain locked while the current replacement/student vertical is finished.
 
 Remaining implementation-design details:
 
@@ -194,22 +204,20 @@ Remaining implementation-design details:
 
 ## Exact resume point
 
-1. Treat the `27 passed in 3.09s` presentation gate as green.
-2. Treat explicit `Κλείσιμο ημέρας` finalization as locked.
-3. Treat the hybrid persistence model as locked: finalized daily snapshots + append-only events.
-4. Treat auditable versioned correction through `Διόρθωση κλεισμένης ημέρας` as locked.
-5. Treat same-workbook hidden/protected technical storage as locked.
-6. Treat indefinite retention by default as locked.
-7. Treat patient-level historical analysis as required.
-8. Treat both tables and charts/trends as required for reporting.
-9. Treat the concrete patient/therapist metric set above as required and merge any later remembered requirements into `STATISTICS_HISTORY_DESIGN.md`.
-10. Design the first implementation slice around day finalization + therapist/day history + weekly workload view, while reserving schema hooks for patient timeline/progress and therapist attendance.
-11. Do not manually save smoke workbooks outside a tested flow.
-12. Do not return to restore performance tuning yet.
+1. Pull `feature/outpatient-scheduling`; current student-wiring commits are `c8e571d` and `836e610` (plus roadmap commit `62be211`).
+2. Run the focused replacement gate:
+   `python -m pytest Tests/test_reclining_adjacency.py Tests/test_global_replacement_planner.py Tests/test_global_replacement_integration.py Tests/test_global_replacement_end_to_end.py Tests/test_service_replacement_options.py Tests/test_replacement_policy.py Tests/test_apply_global_daily_replacements.py -q`
+3. Previous baseline for this exact gate before student production wiring was `38 passed in 5.30s`.
+4. If the gate is green, treat authoritative student candidate loading + solver wiring + THERAPIST_DAILY student projection as closed unless a native smoke reveals a display/layout defect.
+5. Do not reopen the already-closed double-booking no-close/no-reopen workflow unless a regression appears.
+6. After the student gate is green, reassess the remaining replacement-quality checklist before opening the next implementation vertical.
+7. Keep the statistics/history decisions below locked for the later day-finalization/history slice.
+8. Do not manually save smoke workbooks outside a tested flow.
+9. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
-The replacement lifecycle is correct, but global assignment quality remains open.
+The replacement lifecycle is correct. The global assignment path now includes reclining adjacency, special pool/robotic service hours and student provider identity/wiring, but the broader replacement-quality checklist remains the controlling contract until explicitly closed.
 
 All known therapist absences for a date must be entered first. Then all displaced sessions are solved together, not greedily.
 
@@ -222,7 +230,8 @@ Locked highlights:
 - keep ΦΘ and reclining treatment close where feasible,
 - keep workload balanced and avoid a two-timeslot imbalance where feasible,
 - 13:00 is only a weak soft preference to avoid,
-- pool/robotic operating hours must become persistent configuration,
+- pool/robotic operating hours must remain persistent configuration,
+- students remain distinct `STUDENT` providers and must be sourced from the authoritative `STUDENTS` registry,
 - double-booking/over-capacity is last resort only and requires explicit user approval.
 
 ## Locked daily truth
@@ -253,3 +262,5 @@ Every orphan on the concrete date resolves to a valid therapist/time placement o
 ## Documentation rule
 
 `Documentation/ONBOARDING.md` is now the single front door. Update the specialist source of truth for each meaningful change and update ONBOARDING too when the project-wide mental model changes.
+
+Design/product ideas requested by the user must be recorded in `Documentation/FUTURE_FEATURES.md` or the appropriate specialist roadmap/decision document when they are agreed, so they remain available when their implementation phase arrives.
