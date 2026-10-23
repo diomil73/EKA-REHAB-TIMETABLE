@@ -10,14 +10,22 @@ TOOL_PATH = REPO_ROOT / "Python" / "tools" / "prepare_double_booking_smoke_input
 
 
 def _load_tool_module():
-    spec = importlib.util.spec_from_file_location("prepare_double_booking_smoke_input", TOOL_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "prepare_double_booking_smoke_input", TOOL_PATH
+    )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def _session(session_id: str, patient_id: str, therapist_id: str, hh: int, minute: int = 0):
+def _session(
+    session_id: str,
+    patient_id: str,
+    therapist_id: str,
+    hh: int,
+    minute: int = 0,
+):
     return Session(
         session_id=session_id,
         patient_id=patient_id,
@@ -43,6 +51,42 @@ def test_choose_double_booking_smoke_case_requires_two_different_therapists_same
     assert target.therapist_id != busy.therapist_id
 
 
+def test_choose_double_booking_smoke_case_skips_provider_with_two_sessions_same_slot():
+    module = _load_tool_module()
+    target, _busy = module.choose_double_booking_smoke_case(
+        (
+            _session("A1", "P1", "T1", 10),
+            _session("A2", "P2", "T1", 10),
+            _session("B", "P3", "T2", 10),
+            _session("C", "P4", "T3", 11),
+            _session("D", "P5", "T4", 11),
+        ),
+        therapist_names=("T1", "T2", "T3", "T4"),
+    )
+
+    assert target.therapist_id != "T1"
+
+
+def test_blocked_therapists_only_blocks_free_providers_plus_original():
+    module = _load_tool_module()
+    target = _session("A", "P1", "T1", 10)
+    sessions = (
+        target,
+        _session("B", "P2", "T2", 10),
+        _session("C", "P3", "T3", 11),
+        _session("D", "P4", "T4", 12),
+    )
+
+    blocked = module.blocked_therapists_for_smoke(
+        sessions,
+        target=target,
+        active_day_therapists=("T1", "T2", "T3", "T4"),
+    )
+
+    assert blocked == ("T1", "T3", "T4")
+    assert "T2" not in blocked
+
+
 def test_smoke_preparer_uses_fresh_daily_input_copy_and_application_contract():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
@@ -50,16 +94,17 @@ def test_smoke_preparer_uses_fresh_daily_input_copy_and_application_contract():
     assert "assert_application_contract(source)" in source
     assert "assert_application_contract(output)" in source
     assert "file_sha256(source)" in source
-    assert 'ws.Cells(row, 2).Value = "ΝΑΙ"' in source
     assert 'ws.Cells(row, 4).Value = "ΜΗ ΔΙΑΘΕΣΙΜΟΣ"' in source
 
 
-def test_smoke_preparer_keeps_only_busy_exception_therapist_active():
+def test_smoke_preparer_uses_one_slot_absences_not_whole_day_absences():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
-    assert "if therapist_id != busy_therapist" in source
-    assert "if slot == original_time:" in source
-    assert "Normal replacement intentionally blocked" in source
+    assert 'ws.Cells(row, 2).Value = "ΟΧΙ"' in source
+    assert 'ws.Cells(row, 3).Value = original_time.strftime("%H:%M")' in source
+    assert 'ws.Cells(row, 4).Value = original_time.strftime("%H:%M")' in source
+    assert "Block normal replacement only in target slot" in source
+    assert 'ws.Cells(row, 2).Value = "ΝΑΙ"' not in source
 
 
 def test_smoke_preparer_expands_disposable_therapist_section_when_needed():
@@ -71,10 +116,11 @@ def test_smoke_preparer_expands_disposable_therapist_section_when_needed():
     assert "insufficient therapist rows for smoke" not in source
 
 
-def test_smoke_preparer_uses_only_target_date_materialized_providers_for_absences():
+def test_smoke_preparer_uses_only_target_date_materialized_providers():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
-    assert "active_day_therapists = tuple(sorted({session.therapist_id for session in sessions}))" in source
+    assert "active_day_therapists = tuple(" in source
+    assert "sorted({session.therapist_id for session in sessions})" in source
     assert "active_day_therapists=active_day_therapists" in source
-    assert "for therapist_id in active_day_therapists" in source
+    assert "blocked_therapists_for_smoke(" in source
     assert "all_therapists=tuple(settings.therapist_names)" not in source
