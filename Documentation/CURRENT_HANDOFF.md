@@ -30,10 +30,11 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - double-booking review/install/apply focused gate: `13 passed in 1.63s`
 - double-booking UI smoke V5: native green; confirmed double-booking persists in-place without close/reopen and projects immediately into `THERAPIST_DAILY`
 - global replacement / reclining / service-policy focused gate: `38 passed in 5.30s`
+- student production wiring focused gate: `39 passed in 2.35s`
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
-## Current milestone: student replacement production wiring
+## Current milestone: student replacement production wiring closed
 
 The double-booking exception workflow is operationally closed end-to-end.
 
@@ -41,12 +42,13 @@ The global replacement path already has reclining adjacency and special pool/rob
 
 The remaining student production gap was that `Python/tools/apply_global_daily_replacements.py` did not load the authoritative `STUDENTS` registry and did not pass students through the queue, global solver and `THERAPIST_DAILY` patient-centric projection.
 
-That wiring has now been implemented:
+That wiring is now implemented and verified:
 
 - commit `c8e571d` loads authoritative students with `read_students(input_book)`, passes them into the therapist-absence queue, global replacement solver and patient-centric projection, and safety-stops on `StudentRegistryError`;
-- commit `836e610` adds a regression guard that requires the production tool to keep this full student path wired.
+- commit `836e610` adds a regression guard that requires the production tool to keep this full student path wired;
+- local Windows focused gate after the wiring: `39 passed in 2.35s`.
 
-This implementation is **pending the local focused pytest gate**. The execution sandbox used by ChatGPT could not clone GitHub because outbound network access is unavailable, so no test result is claimed here until the local Windows gate is run.
+Treat authoritative student candidate loading + solver wiring + `THERAPIST_DAILY` student projection as closed unless a later native smoke reveals a display/layout defect.
 
 ## Therapist workload contract already locked
 
@@ -191,7 +193,7 @@ The weekly therapist workload view will derive from finalized therapist/day rows
 
 ## Statistics/history checkpoint status
 
-The core architecture questions are complete. Concrete patient/therapist reporting requirements are recorded and remain locked while the current replacement/student vertical is finished.
+The core architecture questions are complete. Concrete patient/therapist reporting requirements are recorded and remain locked while the replacement-quality vertical is finished.
 
 Remaining implementation-design details:
 
@@ -204,16 +206,13 @@ Remaining implementation-design details:
 
 ## Exact resume point
 
-1. Pull `feature/outpatient-scheduling`; current student-wiring commits are `c8e571d` and `836e610` (plus roadmap commit `62be211`).
-2. Run the focused replacement gate:
-   `python -m pytest Tests/test_reclining_adjacency.py Tests/test_global_replacement_planner.py Tests/test_global_replacement_integration.py Tests/test_global_replacement_end_to_end.py Tests/test_service_replacement_options.py Tests/test_replacement_policy.py Tests/test_apply_global_daily_replacements.py -q`
-3. Previous baseline for this exact gate before student production wiring was `38 passed in 5.30s`.
-4. If the gate is green, treat authoritative student candidate loading + solver wiring + THERAPIST_DAILY student projection as closed unless a native smoke reveals a display/layout defect.
-5. Do not reopen the already-closed double-booking no-close/no-reopen workflow unless a regression appears.
-6. After the student gate is green, reassess the remaining replacement-quality checklist before opening the next implementation vertical.
-7. Keep the statistics/history decisions below locked for the later day-finalization/history slice.
-8. Do not manually save smoke workbooks outside a tested flow.
-9. Do not return to restore performance tuning yet.
+1. Student production wiring is green: `39 passed in 2.35s`.
+2. Treat authoritative student candidate loading + solver wiring + `THERAPIST_DAILY` student projection as closed unless a later native smoke reveals a display/layout defect.
+3. Do not reopen the already-closed double-booking no-close/no-reopen workflow unless a regression appears.
+4. Reassess the remaining replacement-quality checklist before opening the next implementation vertical.
+5. Keep the statistics/history decisions below locked for the later day-finalization/history slice.
+6. Do not manually save smoke workbooks outside a tested flow.
+7. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
