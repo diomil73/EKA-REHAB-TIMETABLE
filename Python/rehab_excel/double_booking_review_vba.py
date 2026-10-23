@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 
 DOUBLE_BOOKING_FORM_NAME = "frmDoubleBookingReview"
 DOUBLE_BOOKING_MODULE_NAME = "modDoubleBookingReview"
@@ -23,6 +20,15 @@ Public Sub ShowDoubleBookingReview()
         MsgBox "Δεν βρέθηκε το εργαλείο ελέγχου διπλοκράτησης.", vbCritical, "Διπλοκράτηση"
         Exit Sub
     End If
+
+    If ThisWorkbook.ReadOnly Then
+        MsgBox "Το αρχείο είναι μόνο για ανάγνωση.", vbExclamation, "Διπλοκράτηση"
+        Exit Sub
+    End If
+
+    On Error GoTo SaveError
+    If Not ThisWorkbook.Saved Then ThisWorkbook.Save
+    On Error GoTo 0
 
     mReviewPath = Environ$("TEMP") & "\\eka_double_booking_review.json"
     mRowsPath = Environ$("TEMP") & "\\eka_double_booking_rows.tsv"
@@ -47,12 +53,17 @@ Public Sub ShowDoubleBookingReview()
 
     frmDoubleBookingReview.LoadRows mRowsPath
     frmDoubleBookingReview.Show vbModal
+    Exit Sub
+
+SaveError:
+    Application.StatusBar = False
+    MsgBox "Δεν ήταν δυνατή η ασφαλής αποθήκευση της τρέχουσας κατάστασης: " & Err.Description, _
+           vbCritical, "Διπλοκράτηση"
 End Sub
 
 Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVal therapistId As String, ByVal replacementTime As String) As Boolean
-    Dim applyScript As String, outputPath As String, responsePath As String
+    Dim applyScript As String, responsePath As String
     Dim commandLine As String, exitCode As Long, responseText As String
-    Dim sourceHash As String, previewPath As String
 
     applyScript = ResolveProjectTool("apply_confirmed_double_booking.py")
     If Len(applyScript) = 0 Then
@@ -60,7 +71,6 @@ Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVa
         Exit Function
     End If
 
-    outputPath = ThisWorkbook.Path & "\\DOUBLE_BOOKING_CONFIRMED_UI_PREVIEW.xlsm"
     responsePath = Environ$("TEMP") & "\\eka_double_booking_apply_" & _
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
 
@@ -70,11 +80,10 @@ Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVa
                   " --target-session-id " & QuoteArg(targetSessionId) & _
                   " --therapist-id " & QuoteArg(therapistId) & _
                   " --time " & QuoteArg(replacementTime) & _
-                  " --output " & QuoteArg(outputPath) & _
                   " --response " & QuoteArg(responsePath) & _
-                  " --confirm --overwrite"
+                  " --validate-only --confirm"
 
-    Application.StatusBar = "Εφαρμογή και επαλήθευση διπλοκράτησης..."
+    Application.StatusBar = "Επαλήθευση επιβεβαιωμένης διπλοκράτησης..."
     exitCode = RunHidden(commandLine)
     Application.StatusBar = False
 
@@ -85,26 +94,11 @@ Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVa
         GoTo CleanUp
     End If
 
-    previewPath = JsonStringValue(responseText, "output_path")
-    sourceHash = JsonStringValue(responseText, "source_sha256_before")
-    If Len(previewPath) = 0 Or Len(sourceHash) = 0 Then
-        MsgBox "Το backend δεν επέστρεψε τα στοιχεία ασφαλούς αποθήκευσης.", vbCritical, "Διπλοκράτηση"
-        GoTo CleanUp
-    End If
+    If Not PersistValidatedAssignment(responseText) Then GoTo CleanUp
 
-    If Not StartAuthoritativeCommit(previewPath, sourceHash) Then GoTo CleanUp
-
-    MsgBox "Η διπλοκράτηση επαληθεύτηκε και θα αποθηκευτεί με ασφάλεια." & vbCrLf & vbCrLf & _
-           "Το αρχείο θα κλείσει προσωρινά και θα ανοίξει ξανά αυτόματα.", _
+    MsgBox "Η διπλοκράτηση επιβεβαιώθηκε και αποθηκεύτηκε επιτυχώς.", _
            vbInformation, "Διπλοκράτηση"
-
     ApplySelectedDoubleBooking = True
-    Unload frmDoubleBookingReview
-    On Error Resume Next
-    If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
-    On Error GoTo 0
-    ThisWorkbook.Close SaveChanges:=False
-    Exit Function
 
 CleanUp:
     On Error Resume Next
@@ -112,51 +106,132 @@ CleanUp:
     On Error GoTo 0
 End Function
 
-Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
-    Dim workerScript As String
-    Dim requestPath As String, responsePath As String
-    Dim commandLine As String
+Private Function PersistValidatedAssignment(ByVal responseText As String) As Boolean
+    Const FACT_SHEET As String = "DAILY_REPLACEMENT_FACTS"
+    Dim ws As Worksheet
+    Dim replacementId As String, targetId As String, patientId As String
+    Dim originalTherapist As String, replacementTherapist As String
+    Dim replacementDate As String, replacementTime As String
+    Dim reason As String, providerKind As String, statusText As String
+    Dim lastRow As Long, row As Long, writeRow As Long
 
-    workerScript = ResolveProjectTool("authoritative_commit_worker_cli.py")
-    If Len(workerScript) = 0 Then
-        MsgBox "Δεν βρέθηκε το authoritative save worker του συστήματος.", vbCritical, "Διπλοκράτηση"
+    replacementId = JsonStringValue(responseText, "replacement_id")
+    targetId = JsonStringValue(responseText, "target_session_id")
+    patientId = JsonStringValue(responseText, "patient_id")
+    originalTherapist = JsonStringValue(responseText, "original_therapist_id")
+    replacementTherapist = JsonStringValue(responseText, "replacement_therapist_id")
+    replacementDate = JsonStringValue(responseText, "replacement_date")
+    replacementTime = JsonStringValue(responseText, "replacement_time")
+    reason = JsonStringValue(responseText, "reason")
+    providerKind = JsonStringValue(responseText, "provider_kind")
+    statusText = JsonStringValue(responseText, "status")
+
+    If Len(replacementId) = 0 Or Len(targetId) = 0 Or Len(patientId) = 0 Or _
+       Len(originalTherapist) = 0 Or Len(replacementTherapist) = 0 Or _
+       Len(replacementDate) = 0 Or Len(replacementTime) = 0 Or _
+       Len(providerKind) = 0 Or UCase$(statusText) <> "ACTIVE" Then
+        MsgBox "Το backend δεν επέστρεψε πλήρη επαληθευμένα στοιχεία διπλοκράτησης.", _
+               vbCritical, "Διπλοκράτηση"
         Exit Function
     End If
 
-    requestPath = Environ$("TEMP") & "\\eka_double_booking_commit_request_" & _
-                  Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
-    responsePath = Environ$("TEMP") & "\\eka_double_booking_commit_response_" & _
-                   Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
+    On Error Resume Next
+    Set ws = ThisWorkbook.Worksheets(FACT_SHEET)
+    On Error GoTo PersistError
 
-    WriteUtf8Text requestPath, BuildAuthoritativeCommitJson(previewPath, sourceSha256)
-    commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
-                  " --request " & QuoteArg(requestPath) & _
-                  " --response " & QuoteArg(responsePath)
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Worksheets.Add(After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+        ws.Name = FACT_SHEET
+        WriteFactHeaders ws
+    ElseIf Not FactHeadersAreValid(ws) Then
+        MsgBox "Η δομή του ιστορικού αντικαταστάσεων δεν είναι έγκυρη. Δεν έγινε καμία αλλαγή.", _
+               vbCritical, "Διπλοκράτηση"
+        Exit Function
+    End If
 
-    On Error GoTo WorkerError
-    CreateObject("WScript.Shell").Run commandLine, 0, False
-    StartAuthoritativeCommit = True
+    ws.Visible = xlSheetVeryHidden
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    If lastRow < 1 Then lastRow = 1
+
+    For row = 2 To lastRow
+        If Trim$(CStr(ws.Cells(row, 1).Value)) = replacementId Then
+            MsgBox "Υπάρχει ήδη καταχώριση με το ίδιο ReplacementId. Δεν έγινε καμία αλλαγή.", _
+                   vbCritical, "Διπλοκράτηση"
+            Exit Function
+        End If
+        If Trim$(CStr(ws.Cells(row, 2).Value)) = targetId And _
+           NormalizedDateText(ws.Cells(row, 6).Value) = replacementDate And _
+           UCase$(Trim$(CStr(ws.Cells(row, 10).Value))) = "ACTIVE" Then
+            MsgBox "Η συνεδρία έχει ήδη ενεργή αντικατάσταση. Δεν έγινε καμία αλλαγή.", _
+                   vbCritical, "Διπλοκράτηση"
+            Exit Function
+        End If
+    Next row
+
+    writeRow = IIf(lastRow < 2, 2, lastRow + 1)
+    ws.Cells(writeRow, 1).Value = replacementId
+    ws.Cells(writeRow, 2).Value = targetId
+    ws.Cells(writeRow, 3).Value = patientId
+    ws.Cells(writeRow, 4).Value = originalTherapist
+    ws.Cells(writeRow, 5).Value = replacementTherapist
+    ws.Cells(writeRow, 6).NumberFormat = "@"
+    ws.Cells(writeRow, 6).Value = replacementDate
+    ws.Cells(writeRow, 7).NumberFormat = "@"
+    ws.Cells(writeRow, 7).Value = replacementTime
+    ws.Cells(writeRow, 8).Value = reason
+    ws.Cells(writeRow, 9).Value = providerKind
+    ws.Cells(writeRow, 10).Value = "ACTIVE"
+
+    If Trim$(CStr(ws.Cells(writeRow, 1).Value)) <> replacementId Or _
+       Trim$(CStr(ws.Cells(writeRow, 2).Value)) <> targetId Or _
+       Trim$(CStr(ws.Cells(writeRow, 5).Value)) <> replacementTherapist Or _
+       Trim$(CStr(ws.Cells(writeRow, 7).Value)) <> replacementTime Or _
+       UCase$(Trim$(CStr(ws.Cells(writeRow, 10).Value))) <> "ACTIVE" Then
+        ws.Rows(writeRow).ClearContents
+        MsgBox "Η εγγραφή της διπλοκράτησης δεν επαληθεύτηκε. Δεν έγινε αποθήκευση.", _
+               vbCritical, "Διπλοκράτηση"
+        Exit Function
+    End If
+
+    ThisWorkbook.Save
+    PersistValidatedAssignment = True
     Exit Function
 
-WorkerError:
-    MsgBox "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς αποθήκευσης: " & Err.Description, _
+PersistError:
+    MsgBox "Δεν ήταν δυνατή η αποθήκευση της διπλοκράτησης: " & Err.Description, _
            vbCritical, "Διπλοκράτηση"
 End Function
 
-Private Function BuildAuthoritativeCommitJson(ByVal previewPath As String, ByVal sourceSha256 As String) As String
-    Dim q As String
-    q = Chr$(34)
-    BuildAuthoritativeCommitJson = _
-        "{" & _
-        q & "source_path" & q & ":" & q & JsonEscape(ThisWorkbook.FullName) & q & "," & _
-        q & "preview_path" & q & ":" & q & JsonEscape(previewPath) & q & "," & _
-        q & "expected_source_sha256" & q & ":" & q & JsonEscape(sourceSha256) & q & "," & _
-        q & "remove_preview_after_success" & q & ":true," & _
-        q & "reopen" & q & ":true," & _
-        q & "timeout_seconds" & q & ":30," & _
-        q & "poll_seconds" & q & ":0.5," & _
-        q & "post_reopen_target" & q & ":" & q & "REPLACEMENTS" & q & _
-        "}"
+Private Sub WriteFactHeaders(ByVal ws As Worksheet)
+    ws.Cells(1, 1).Value = "ReplacementId"
+    ws.Cells(1, 2).Value = "TargetSessionId"
+    ws.Cells(1, 3).Value = "PatientId"
+    ws.Cells(1, 4).Value = "OriginalTherapistId"
+    ws.Cells(1, 5).Value = "ReplacementTherapistId"
+    ws.Cells(1, 6).Value = "ReplacementDate"
+    ws.Cells(1, 7).Value = "ReplacementTime"
+    ws.Cells(1, 8).Value = "Reason"
+    ws.Cells(1, 9).Value = "ProviderKind"
+    ws.Cells(1, 10).Value = "Status"
+End Sub
+
+Private Function FactHeadersAreValid(ByVal ws As Worksheet) As Boolean
+    Dim headers As Variant, i As Long
+    headers = Array("ReplacementId", "TargetSessionId", "PatientId", "OriginalTherapistId", _
+                    "ReplacementTherapistId", "ReplacementDate", "ReplacementTime", _
+                    "Reason", "ProviderKind", "Status")
+    For i = 0 To UBound(headers)
+        If Trim$(CStr(ws.Cells(1, i + 1).Value)) <> CStr(headers(i)) Then Exit Function
+    Next i
+    FactHeadersAreValid = True
+End Function
+
+Private Function NormalizedDateText(ByVal value As Variant) As String
+    If IsDate(value) Then
+        NormalizedDateText = Format$(CDate(value), "yyyy-mm-dd")
+    Else
+        NormalizedDateText = Trim$(CStr(value))
+    End If
 End Function
 
 Private Function RunHidden(ByVal commandLine As String) As Long
@@ -176,16 +251,6 @@ Private Function ResolveProjectTool(ByVal fileName As String) As String
     If Dir$(candidate) <> "" Then
         ResolveProjectTool = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
     End If
-End Function
-
-Private Function JsonEscape(ByVal value As String) As String
-    Dim text As String
-    text = Replace(value, "\", "\\")
-    text = Replace(text, Chr$(34), "\" & Chr$(34))
-    text = Replace(text, vbCrLf, "\n")
-    text = Replace(text, vbCr, "\n")
-    text = Replace(text, vbLf, "\n")
-    JsonEscape = text
 End Function
 
 Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) As String
@@ -216,17 +281,6 @@ Private Function JsonStringValue(ByVal jsonText As String, ByVal key As String) 
     Next index
     JsonStringValue = value
 End Function
-
-Private Sub WriteUtf8Text(ByVal filePath As String, ByVal text As String)
-    Dim stream As Object
-    Set stream = CreateObject("ADODB.Stream")
-    stream.Type = 2
-    stream.Charset = "utf-8"
-    stream.Open
-    stream.WriteText text
-    stream.SaveToFile filePath, 2
-    stream.Close
-End Sub
 
 Private Function ReadUtf8Text(ByVal filePath As String) As String
     Dim stream As Object
@@ -334,10 +388,12 @@ Private Sub cmdConfirm_Click()
         Exit Sub
     End If
 
-    Call modDoubleBookingReview.ApplySelectedDoubleBooking( _
+    If modDoubleBookingReview.ApplySelectedDoubleBooking( _
         lstOptions.List(idx, 0), _
         lstOptions.List(idx, 3), _
-        lstOptions.List(idx, 5))
+        lstOptions.List(idx, 5)) Then
+        Unload Me
+    End If
 End Sub
 
 Private Sub cmdCancel_Click()
