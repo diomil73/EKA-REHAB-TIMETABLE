@@ -118,3 +118,12 @@ def test_tool_wires_explicit_pool_service_ids_into_global_solve():
     assert "build_service_id_by_session" in source
     assert "service_id_by_session = build_service_id_by_session(base_entries, target_date)" in source
     assert "service_id_by_session=service_id_by_session" in source
+
+
+def test_tool_wires_authoritative_students_through_solve_and_projection():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    assert "from rehab_excel.student_registry import StudentRegistryError, read_students" in source
+    assert "students = tuple(read_students(input_book))" in source
+    assert source.count("students=students") >= 3
+    assert "StudentRegistryError" in source
