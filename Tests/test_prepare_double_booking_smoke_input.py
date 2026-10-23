@@ -67,20 +67,19 @@ def test_choose_double_booking_smoke_case_skips_provider_with_two_sessions_same_
     assert target.therapist_id != "T1"
 
 
-def test_blocked_therapists_only_blocks_free_providers_plus_original():
+def test_blocked_therapists_blocks_free_registry_providers_plus_original():
     module = _load_tool_module()
     target = _session("A", "P1", "T1", 10)
     sessions = (
         target,
         _session("B", "P2", "T2", 10),
         _session("C", "P3", "T3", 11),
-        _session("D", "P4", "T4", 12),
     )
 
     blocked = module.blocked_therapists_for_smoke(
         sessions,
         target=target,
-        active_day_therapists=("T1", "T2", "T3", "T4"),
+        therapist_names=("T1", "T2", "T3", "T4"),
     )
 
     assert blocked == ("T1", "T3", "T4")
@@ -116,11 +115,11 @@ def test_smoke_preparer_expands_disposable_therapist_section_when_needed():
     assert "insufficient therapist rows for smoke" not in source
 
 
-def test_smoke_preparer_uses_only_target_date_materialized_providers():
+def test_smoke_preparer_uses_full_registry_not_only_materialized_providers():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
-    assert "active_day_therapists = tuple(" in source
-    assert "sorted({session.therapist_id for session in sessions})" in source
-    assert "active_day_therapists=active_day_therapists" in source
-    assert "blocked_therapists_for_smoke(" in source
-    assert "all_therapists=tuple(settings.therapist_names)" not in source
+    assert "therapist_names = tuple(settings.therapist_names)" in source
+    assert "therapist_names=therapist_names" in source
+    assert "normal_registry = {" in source
+    assert "if not _is_legacy_student_name(therapist_id)" in source
+    assert "active_day_therapists" not in source
