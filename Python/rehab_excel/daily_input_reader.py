@@ -119,13 +119,25 @@ def _unique_patient(patients: Iterable[Patient], display_name: str) -> Patient:
     return matches[0]
 
 
-def _provider_id(sessions: Iterable[Session], display_name: str) -> str:
+def _provider_id(
+    sessions: Iterable[Session],
+    display_name: str,
+    therapist_names: Iterable[str] = (),
+) -> str:
     wanted = _norm(display_name)
-    providers = sorted({session.therapist_id for session in sessions})
-    matches = [provider for provider in providers if _norm(provider) == wanted]
+    providers = {
+        str(session.therapist_id).strip()
+        for session in sessions
+        if str(session.therapist_id).strip()
+    }
+    providers.update(
+        str(name).strip() for name in therapist_names if str(name).strip()
+    )
+    matches = sorted(provider for provider in providers if _norm(provider) == wanted)
     if len(matches) != 1:
         raise DailyInputReadError(
-            f"Expected one therapist named {display_name!r} on this date; found {len(matches)}"
+            f"Expected one therapist named {display_name!r} in the official registry/date; "
+            f"found {len(matches)}"
         )
     return matches[0]
 
@@ -168,12 +180,18 @@ def read_daily_input(
     *,
     patients: Iterable[Patient],
     sessions: Iterable[Session],
+    therapist_names: Iterable[str] = (),
 ) -> DailyInputReadResult:
     """Read DAILY_INPUT into absence and session-cancellation overlays.
 
     The workbook is never saved by this function. A selected name activates a
     row. Whole-day rows ignore time fields. A therapist row with only a start
     time (or equal start/end) means exactly that timeslot.
+
+    Therapist identity may be validated against the official therapist registry
+    as well as materialized sessions. This matters when a therapist is absent on
+    a day where they otherwise have no scheduled session but could still be a
+    replacement candidate.
 
     Patient statuses ``ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ``, ``ΔΕΝ ΠΡΟΣΗΛΘΕ`` and
     ``Αναστολή θεραπείας`` are explicit session-specific cancellations. They
@@ -184,6 +202,7 @@ def read_daily_input(
     workbook_path = Path(workbook_path)
     patient_list = list(patients)
     session_list = list(sessions)
+    therapist_name_list = tuple(therapist_names)
     wb = load_workbook(workbook_path, read_only=False, data_only=False, keep_vba=True)
     try:
         if SHEET_NAME not in wb.sheetnames:
@@ -217,7 +236,11 @@ def read_daily_input(
             if comment:
                 reason = f"{reason} | {comment}" if reason else comment
 
-            provider_id = _provider_id(session_list, therapist_name)
+            provider_id = _provider_id(
+                session_list,
+                therapist_name,
+                therapist_name_list,
+            )
             if all_day:
                 start = end = None
             else:
