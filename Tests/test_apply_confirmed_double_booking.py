@@ -28,7 +28,7 @@ def test_apply_bridge_revalidates_normal_unresolved_before_exception():
     assert normal_plan < unresolved_guard < proposal < confirmation
 
 
-def test_apply_bridge_writes_only_fresh_preview_fact_via_excel_com_path():
+def test_apply_bridge_keeps_fresh_preview_mode_for_native_regression():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
     copy_step = source.index("shutil.copy2(input_book, output)")
@@ -49,13 +49,15 @@ def test_apply_bridge_uses_registry_aware_daily_input_validation():
     assert "confirm_double_booking_exception(" in source
 
 
-def test_apply_bridge_can_return_authoritative_commit_metadata():
+def test_apply_bridge_validate_only_returns_complete_verified_assignment_without_output():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
-    assert 'parser.add_argument("--response", type=Path)' in source
-    assert "def _write_response(" in source
-    assert '"source_sha256_before": source_hash' in source
-    assert '"output_path": str(output)' in source
-    assert '"ok": True' in source
-    assert '"ok": False' in source
-    assert "output.unlink(missing_ok=True)" in source
+    assert 'parser.add_argument("--validate-only", action="store_true")' in source
+    assert 'if not args.validate_only and args.output is None:' in source
+    assert '"validated_only": args.validate_only' in source
+    assert '"assignment": _assignment_payload(assignment)' in source
+    assert '"replacement_id": assignment.replacement_id' in source
+    assert '"replacement_therapist_id": assignment.replacement_therapist_id' in source
+    assert '"status": "ACTIVE"' in source
+    assert 'if not args.validate_only:' in source
+    assert "CONFIRMED DOUBLE BOOKING VALIDATION OK" in source
