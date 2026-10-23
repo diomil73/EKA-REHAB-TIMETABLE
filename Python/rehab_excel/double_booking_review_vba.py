@@ -16,8 +16,7 @@ Private mRowsPath As String
 
 Public Sub ShowDoubleBookingReview()
     Dim reviewScript As String, exportScript As String
-    Dim commandLine As String, shell As Object, exec As Object
-    Dim stdoutText As String, stderrText As String
+    Dim commandLine As String, exitCode As Long
 
     reviewScript = ResolveProjectTool("build_double_booking_review_payload.py")
     exportScript = ResolveProjectTool("export_double_booking_review_rows.py")
@@ -29,35 +28,32 @@ Public Sub ShowDoubleBookingReview()
     mReviewPath = Environ$("TEMP") & "\\eka_double_booking_review.json"
     mRowsPath = Environ$("TEMP") & "\\eka_double_booking_rows.tsv"
 
+    On Error Resume Next
+    If Dir$(mReviewPath) <> "" Then Kill mReviewPath
+    If Dir$(mRowsPath) <> "" Then Kill mRowsPath
+    On Error GoTo 0
+
+    Application.StatusBar = "Έλεγχος εκκρεμών συνεδριών..."
     commandLine = QuoteArg("python") & " " & QuoteArg(reviewScript) & _
                   " --input " & QuoteArg(ThisWorkbook.FullName) & _
                   " --output " & QuoteArg(mReviewPath) & " --overwrite"
-    Set shell = CreateObject("WScript.Shell")
-    Set exec = shell.Exec(commandLine)
-    Do While exec.Status = 0
-        DoEvents
-    Loop
-    stdoutText = exec.StdOut.ReadAll
-    stderrText = exec.StdErr.ReadAll
-    If exec.ExitCode <> 0 Then
-        MsgBox "Δεν υπάρχουν εκκρεμείς συνεδρίες για ελεγχόμενη διπλοκράτηση ή ο έλεγχος απέτυχε." & _
-               vbCrLf & vbCrLf & IIf(Len(Trim$(stderrText)) > 0, stderrText, stdoutText), _
+    exitCode = RunHidden(commandLine)
+    If exitCode <> 0 Or Dir$(mReviewPath) = "" Then
+        Application.StatusBar = False
+        MsgBox "Δεν υπάρχουν εκκρεμείς συνεδρίες για ελεγχόμενη διπλοκράτηση ή ο έλεγχος απέτυχε.", _
                vbInformation, "Διπλοκράτηση"
         Exit Sub
     End If
 
+    Application.StatusBar = "Προετοιμασία επιλογών διπλοκράτησης..."
     commandLine = QuoteArg("python") & " " & QuoteArg(exportScript) & _
                   " --review " & QuoteArg(mReviewPath) & _
                   " --output " & QuoteArg(mRowsPath) & " --overwrite"
-    Set exec = shell.Exec(commandLine)
-    Do While exec.Status = 0
-        DoEvents
-    Loop
-    stdoutText = exec.StdOut.ReadAll
-    stderrText = exec.StdErr.ReadAll
-    If exec.ExitCode <> 0 Then
-        MsgBox "Δεν ήταν δυνατή η προετοιμασία των επιλογών διπλοκράτησης." & vbCrLf & vbCrLf & _
-               IIf(Len(Trim$(stderrText)) > 0, stderrText, stdoutText), vbExclamation, "Διπλοκράτηση"
+    exitCode = RunHidden(commandLine)
+    Application.StatusBar = False
+    If exitCode <> 0 Or Dir$(mRowsPath) = "" Then
+        MsgBox "Δεν ήταν δυνατή η προετοιμασία των επιλογών διπλοκράτησης.", _
+               vbExclamation, "Διπλοκράτηση"
         Exit Sub
     End If
 
@@ -67,7 +63,7 @@ End Sub
 
 Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVal therapistId As String, ByVal replacementTime As String) As Boolean
     Dim applyScript As String, outputPath As String, commandLine As String
-    Dim shell As Object, exec As Object, stdoutText As String, stderrText As String
+    Dim exitCode As Long
 
     applyScript = ResolveProjectTool("apply_confirmed_double_booking.py")
     If Len(applyScript) = 0 Then
@@ -85,23 +81,24 @@ Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVa
                   " --output " & QuoteArg(outputPath) & _
                   " --confirm --overwrite"
 
-    Set shell = CreateObject("WScript.Shell")
-    Set exec = shell.Exec(commandLine)
-    Do While exec.Status = 0
-        DoEvents
-    Loop
-    stdoutText = exec.StdOut.ReadAll
-    stderrText = exec.StdErr.ReadAll
+    Application.StatusBar = "Εφαρμογή επιβεβαιωμένης διπλοκράτησης..."
+    exitCode = RunHidden(commandLine)
+    Application.StatusBar = False
 
-    If exec.ExitCode <> 0 Then
-        MsgBox "Η διπλοκράτηση δεν εφαρμόστηκε." & vbCrLf & vbCrLf & _
-               IIf(Len(Trim$(stderrText)) > 0, stderrText, stdoutText), vbExclamation, "Διπλοκράτηση"
+    If exitCode <> 0 Or Dir$(outputPath) = "" Then
+        MsgBox "Η διπλοκράτηση δεν εφαρμόστηκε.", vbExclamation, "Διπλοκράτηση"
         Exit Function
     End If
 
     MsgBox "Η επιβεβαιωμένη διπλοκράτηση δημιουργήθηκε σε ασφαλές preview:" & vbCrLf & vbCrLf & outputPath, _
            vbInformation, "Διπλοκράτηση"
     ApplySelectedDoubleBooking = True
+End Function
+
+Private Function RunHidden(ByVal commandLine As String) As Long
+    Dim shell As Object
+    Set shell = CreateObject("WScript.Shell")
+    RunHidden = shell.Run(commandLine, 0, True)
 End Function
 
 Private Function ResolveProjectTool(ByVal fileName As String) As String
