@@ -47,3 +47,15 @@ def test_apply_bridge_uses_registry_aware_daily_input_validation():
     assert "therapist_names=settings.therapist_names" in source
     assert 'reason="CONFIRMED DOUBLE BOOKING EXCEPTION"' not in source
     assert "confirm_double_booking_exception(" in source
+
+
+def test_apply_bridge_can_return_authoritative_commit_metadata():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    assert 'parser.add_argument("--response", type=Path)' in source
+    assert "def _write_response(" in source
+    assert '"source_sha256_before": source_hash' in source
+    assert '"output_path": str(output)' in source
+    assert '"ok": True' in source
+    assert '"ok": False' in source
+    assert "output.unlink(missing_ok=True)" in source
