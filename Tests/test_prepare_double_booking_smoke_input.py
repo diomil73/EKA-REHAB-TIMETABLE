@@ -69,3 +69,12 @@ def test_smoke_preparer_expands_disposable_therapist_section_when_needed():
     assert 'ws.Rows(f"{insert_start}:{insert_end}").Insert()' in source
     assert "patient_header = _ensure_therapist_row_capacity(" in source
     assert "insufficient therapist rows for smoke" not in source
+
+
+def test_smoke_preparer_uses_only_target_date_materialized_providers_for_absences():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    assert "active_day_therapists = tuple(sorted({session.therapist_id for session in sessions}))" in source
+    assert "active_day_therapists=active_day_therapists" in source
+    assert "for therapist_id in active_day_therapists" in source
+    assert "all_therapists=tuple(settings.therapist_names)" not in source
