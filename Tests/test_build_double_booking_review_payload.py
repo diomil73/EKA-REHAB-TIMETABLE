@@ -32,3 +32,9 @@ def test_review_payload_schema_contains_ui_fields():
     assert '"therapist_name": option.therapist_name' in source
     assert '"replacement_time": option.replacement_time.strftime("%H:%M")' in source
     assert '"warning": option.warning' in source
+
+
+def test_review_payload_reads_therapist_absences_against_official_registry():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    assert "therapist_names=settings.therapist_names" in source
