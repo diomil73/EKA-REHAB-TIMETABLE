@@ -16,6 +16,10 @@ from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_core.daily_statistics import calculate_daily_treatment_statistics  # noqa: E402
 from rehab_core.models import ReplacementAssignment  # noqa: E402
+from rehab_excel.application_contract import (  # noqa: E402
+    ApplicationContractError,
+    assert_application_contract,
+)
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
 from rehab_excel.daily_preview_composer import (  # noqa: E402
     DailyPreviewCompositionError,
@@ -442,6 +446,7 @@ def restore_replacements_and_recompute(
     if output.exists() and not overwrite:
         raise AuthoritativeDailyRestoreError(f"Output already exists: {output}")
 
+    assert_application_contract(source)
     source_before = _sha256(source)
     stage = output.with_name(f".{output.stem}.bulk-restore-stage{output.suffix}")
     if stage.exists():
@@ -527,6 +532,7 @@ def restore_replacements_and_recompute(
             raise AuthoritativeDailyRestoreError(
                 "Bulk restore preview failed source/VBA preservation checks"
             )
+        assert_application_contract(output)
         return (
             len(restored_ids),
             len(replacements),
@@ -571,6 +577,7 @@ def main() -> int:
             overwrite=args.overwrite,
         )
     except (
+        ApplicationContractError,
         AuthoritativeDailyRestoreError,
         DailyInputReadError,
         DailyReplacementFactError,
@@ -610,6 +617,8 @@ def main() -> int:
             "finalized_after_recompute": finalized,
             "source_unchanged": True,
             "vba_preserved": True,
+            "application_contract_input": True,
+            "application_contract_output": True,
         },
     )
 
@@ -622,6 +631,8 @@ def main() -> int:
     print(f"Finalized after recompute: {'ΝΑΙ' if finalized else 'ΟΧΙ'}")
     print("Source unchanged: True")
     print("VBA preserved: True")
+    print("Application contract input: OK")
+    print("Application contract output: OK")
     return 0
 
 
