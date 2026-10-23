@@ -110,3 +110,11 @@ def test_tool_wires_reclining_adjacency_into_global_solve():
     assert "build_reclining_adjacency_penalty" in source
     assert "adjacency_penalty = build_reclining_adjacency_penalty(base_entries)" in source
     assert "adjacency_penalty=adjacency_penalty" in source
+
+
+def test_tool_wires_explicit_pool_service_ids_into_global_solve():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    assert "build_service_id_by_session" in source
+    assert "service_id_by_session = build_service_id_by_session(base_entries, target_date)" in source
+    assert "service_id_by_session=service_id_by_session" in source
