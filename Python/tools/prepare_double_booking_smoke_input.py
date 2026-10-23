@@ -35,7 +35,7 @@ def _parse_date(value: str) -> date:
 
 
 def choose_double_booking_smoke_case(sessions, *, therapist_names: tuple[str, ...]):
-    """Pick one real target and one real therapist already occupied at the same time."""
+    """Pick one target whose therapist owns exactly one session in a shared slot."""
     allowed = set(therapist_names)
     by_time: dict[object, list] = {}
     for session in sessions:
@@ -47,9 +47,21 @@ def choose_double_booking_smoke_case(sessions, *, therapist_names: tuple[str, ..
         providers = sorted({item.therapist_id for item in slot_sessions})
         if len(providers) < 2:
             continue
-        for target in sorted(slot_sessions, key=lambda x: (x.therapist_id, x.patient_id, x.session_id)):
+        for target in sorted(
+            slot_sessions,
+            key=lambda x: (x.therapist_id, x.patient_id, x.session_id),
+        ):
+            same_provider = [
+                item for item in slot_sessions if item.therapist_id == target.therapist_id
+            ]
+            if len(same_provider) != 1:
+                continue
             busy = next(
-                (item for item in slot_sessions if item.therapist_id != target.therapist_id),
+                (
+                    item
+                    for item in slot_sessions
+                    if item.therapist_id != target.therapist_id
+                ),
                 None,
             )
             if busy is not None:
@@ -57,9 +69,36 @@ def choose_double_booking_smoke_case(sessions, *, therapist_names: tuple[str, ..
 
     if not candidates:
         raise DoubleBookingSmokeError(
-            "Could not find a date/time with two different therapists already scheduled"
+            "Could not find a shared slot with one isolated target session"
         )
     return candidates[0]
+
+
+def blocked_therapists_for_smoke(
+    sessions,
+    *,
+    target,
+    active_day_therapists: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Block only providers who are free in the target slot plus the original.
+
+    Busy providers remain active so they can appear as explicit double-booking
+    choices. Free providers receive a one-slot absence, which does not displace
+    any of their own sessions. The original therapist also receives only a
+    one-slot absence, isolating the smoke to the target session.
+    """
+
+    occupied = {
+        session.therapist_id
+        for session in sessions
+        if session.start_time == target.start_time
+    }
+    free_at_target = {
+        therapist_id
+        for therapist_id in active_day_therapists
+        if therapist_id not in occupied
+    }
+    return tuple(sorted(free_at_target | {target.therapist_id}))
 
 
 def _find_header_row(ws, label: str) -> int:
@@ -105,9 +144,7 @@ def _ensure_therapist_row_capacity(
 def _write_smoke_rows(
     workbook_path: Path,
     *,
-    original_therapist: str,
-    busy_therapist: str,
-    active_day_therapists: tuple[str, ...],
+    blocked_therapists: tuple[str, ...],
     patient_name: str,
     original_time,
     timeslots,
@@ -126,36 +163,27 @@ def _write_smoke_rows(
         excel.DisplayAlerts = False
         excel.ScreenUpdating = False
         excel.EnableEvents = False
-        workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
+        workbook = excel.Workbooks.Open(
+            str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
+        )
         ws = workbook.Worksheets("DAILY_INPUT")
         therapist_header = _find_header_row(ws, "Θεραπευτής")
         patient_header = _find_header_row(ws, "Ασθενής")
 
-        # Keep only the deliberately busy therapist active. Every other therapist
-        # must be a provider that actually has at least one materialized session
-        # on the target date, because DAILY_INPUT validates names against that set.
-        absent_ids = tuple(
-            therapist_id
-            for therapist_id in active_day_therapists
-            if therapist_id != busy_therapist
-        )
-        if original_therapist not in absent_ids:
-            raise DoubleBookingSmokeError(
-                "Original therapist is not present in target-date materialized sessions"
-            )
         patient_header = _ensure_therapist_row_capacity(
             ws,
             therapist_header=therapist_header,
             patient_header=patient_header,
-            required_rows=len(absent_ids),
+            required_rows=len(blocked_therapists),
         )
-        for offset, therapist_id in enumerate(absent_ids, start=1):
+        for offset, therapist_id in enumerate(blocked_therapists, start=1):
             row = therapist_header + offset
             ws.Cells(row, 1).Value = therapist_id
-            ws.Cells(row, 2).Value = "ΝΑΙ"
-            ws.Range(ws.Cells(row, 3), ws.Cells(row, 4)).ClearContents()
+            ws.Cells(row, 2).Value = "ΟΧΙ"
+            ws.Cells(row, 3).Value = original_time.strftime("%H:%M")
+            ws.Cells(row, 4).Value = original_time.strftime("%H:%M")
             ws.Cells(row, 5).Value = "Double-booking smoke"
-            ws.Cells(row, 6).Value = "Normal replacement intentionally blocked"
+            ws.Cells(row, 6).Value = "Block normal replacement only in target slot"
 
         # Keep the target patient available only at the original time.
         row = patient_header + 1
@@ -184,7 +212,9 @@ def _write_smoke_rows(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build a full-app unresolved double-booking smoke input.")
+    parser = argparse.ArgumentParser(
+        description="Build a full-app unresolved double-booking smoke input."
+    )
     parser.add_argument("--date", type=_parse_date, required=True)
     parser.add_argument(
         "--source",
@@ -214,10 +244,17 @@ def main() -> int:
         settings = read_settings(source)
         base_entries = read_unified_base_schedule(source)
         sessions = materialize_sessions_for_date(base_entries, args.date)
-        active_day_therapists = tuple(sorted({session.therapist_id for session in sessions}))
+        active_day_therapists = tuple(
+            sorted({session.therapist_id for session in sessions})
+        )
         target, busy = choose_double_booking_smoke_case(
             sessions,
             therapist_names=tuple(settings.therapist_names),
+        )
+        blocked_therapists = blocked_therapists_for_smoke(
+            sessions,
+            target=target,
+            active_day_therapists=active_day_therapists,
         )
         patients = read_patient_registry(source)
         patient_by_id = {patient.patient_id: patient.display_name for patient in patients}
@@ -232,12 +269,12 @@ def main() -> int:
             patient_statuses=settings.patient_statuses,
             timeslots=settings.standard_timeslots,
         )
-        preview, _ = create_daily_input_preview(source, output, spec, overwrite=args.overwrite)
+        preview, _ = create_daily_input_preview(
+            source, output, spec, overwrite=args.overwrite
+        )
         _write_smoke_rows(
             preview,
-            original_therapist=target.therapist_id,
-            busy_therapist=busy.therapist_id,
-            active_day_therapists=active_day_therapists,
+            blocked_therapists=blocked_therapists,
             patient_name=patient_name,
             original_time=target.start_time,
             timeslots=tuple(settings.standard_timeslots),
@@ -258,11 +295,21 @@ def main() -> int:
     print(f"Original therapist: {target.therapist_id}")
     print(f"Original time: {target.start_time.strftime('%H:%M')}")
     print(f"Busy exception therapist: {busy.therapist_id}")
-    print(f"Busy therapist existing patient: {patient_by_id.get(busy.patient_id, busy.patient_id)}")
+    print(
+        f"Busy therapist existing patient: "
+        f"{patient_by_id.get(busy.patient_id, busy.patient_id)}"
+    )
+    print(f"One-slot therapist blocks: {len(blocked_therapists)}")
     print(f"Preview: {output}")
     print(f"Source unchanged: {source_unchanged}")
-    print(f"Application contract source: OK ({len(source_contract.component_names)} components)")
-    print(f"Application contract output: OK ({len(output_contract.component_names)} components)")
+    print(
+        f"Application contract source: OK "
+        f"({len(source_contract.component_names)} components)"
+    )
+    print(
+        f"Application contract output: OK "
+        f"({len(output_contract.component_names)} components)"
+    )
     return 0 if source_unchanged else 3
 
 
