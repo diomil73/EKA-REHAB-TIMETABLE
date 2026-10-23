@@ -1,7 +1,12 @@
 from datetime import time
+from pathlib import Path
 
 from rehab_core.models import BaseScheduleEntry, Patient
 from rehab_excel.patient_centric_preview import render_base_slot
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SOURCE_PATH = REPO_ROOT / "Python" / "rehab_excel" / "patient_centric_preview.py"
 
 
 def entry(entry_id, patient_id, days, treatment="ΦΘ", robotic=False):
@@ -43,3 +48,11 @@ def test_same_patient_split_shows_name_once_and_keeps_assignment_details():
     )
     assert render.text == "ΜΟΤΣΙΟΣ\nΔε-Τε-Πα ΡΟΜΠ | Τρ-Πε ΦΘ"
     assert render.text.count("ΜΟΤΣΙΟΣ") == 1
+
+
+def test_final_write_plan_keeps_student_provider_kind_for_destination_cell():
+    source = SOURCE_PATH.read_text(encoding="utf-8")
+
+    assert "provider_kind_by_key" in source
+    assert "provider_kind_by_key[destination_key] = provider_kind" in source
+    assert "provider_kind=provider_kind_by_key.get(" in source
