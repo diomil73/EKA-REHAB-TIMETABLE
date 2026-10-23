@@ -162,7 +162,12 @@ def main() -> int:
         settings = read_settings(input_book)
         base_entries = read_unified_base_schedule(input_book)
         sessions = materialize_sessions_for_date(base_entries, target_date)
-        daily = read_daily_input(input_book, patients=patients, sessions=sessions)
+        daily = read_daily_input(
+            input_book,
+            patients=patients,
+            sessions=sessions,
+            therapist_names=settings.therapist_names,
+        )
         policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
         service_hours = load_service_hours(REPO_ROOT / "Config" / "service_hours.json")
 
