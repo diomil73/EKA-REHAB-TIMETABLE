@@ -24,6 +24,17 @@ def test_double_booking_vba_uses_review_export_and_confirmed_apply_tools():
     assert "ThisWorkbook.FullName" in source
 
 
+def test_double_booking_python_processes_are_hidden_and_show_status_progress():
+    source = SOURCE.read_text(encoding="utf-8")
+    assert "Private Function RunHidden(ByVal commandLine As String) As Long" in source
+    assert "shell.Run(commandLine, 0, True)" in source
+    assert ".Exec(commandLine)" not in source
+    assert 'Application.StatusBar = "Έλεγχος εκκρεμών συνεδριών..."' in source
+    assert 'Application.StatusBar = "Προετοιμασία επιλογών διπλοκράτησης..."' in source
+    assert 'Application.StatusBar = "Εφαρμογή επιβεβαιωμένης διπλοκράτησης..."' in source
+    assert "Application.StatusBar = False" in source
+
+
 def test_ui_slice_is_preview_only_not_authoritative_commit():
     source = SOURCE.read_text(encoding="utf-8")
     assert "DOUBLE_BOOKING_CONFIRMED_UI_PREVIEW.xlsm" in source
