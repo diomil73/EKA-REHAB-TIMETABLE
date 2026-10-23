@@ -15,11 +15,12 @@ def test_double_booking_form_hides_technical_ids_and_requires_warning_confirmati
     assert "vbYesNo + vbExclamation + vbDefaultButton2" in source
 
 
-def test_double_booking_vba_uses_review_export_and_confirmed_apply_tools():
+def test_double_booking_vba_uses_combined_ui_prep_and_confirmed_apply_tools():
     source = SOURCE.read_text(encoding="utf-8")
-    assert 'ResolveProjectTool("build_double_booking_review_payload.py")' in source
-    assert 'ResolveProjectTool("export_double_booking_review_rows.py")' in source
+    assert 'ResolveProjectTool("prepare_double_booking_review_ui.py")' in source
     assert 'ResolveProjectTool("apply_confirmed_double_booking.py")' in source
+    assert 'ResolveProjectTool("build_double_booking_review_payload.py")' not in source
+    assert 'ResolveProjectTool("export_double_booking_review_rows.py")' not in source
     assert '" --confirm --overwrite"' in source
     assert "ThisWorkbook.FullName" in source
 
@@ -29,8 +30,7 @@ def test_double_booking_python_processes_are_hidden_and_show_status_progress():
     assert "Private Function RunHidden(ByVal commandLine As String) As Long" in source
     assert "shell.Run(commandLine, 0, True)" in source
     assert ".Exec(commandLine)" not in source
-    assert 'Application.StatusBar = "Έλεγχος εκκρεμών συνεδριών..."' in source
-    assert 'Application.StatusBar = "Προετοιμασία επιλογών διπλοκράτησης..."' in source
+    assert 'Application.StatusBar = "Έλεγχος εκκρεμών συνεδριών και προετοιμασία επιλογών..."' in source
     assert 'Application.StatusBar = "Εφαρμογή επιβεβαιωμένης διπλοκράτησης..."' in source
     assert "Application.StatusBar = False" in source
 
