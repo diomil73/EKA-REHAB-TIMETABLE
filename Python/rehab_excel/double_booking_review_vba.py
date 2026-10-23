@@ -15,13 +15,12 @@ Private mReviewPath As String
 Private mRowsPath As String
 
 Public Sub ShowDoubleBookingReview()
-    Dim reviewScript As String, exportScript As String
+    Dim prepareScript As String
     Dim commandLine As String, exitCode As Long
 
-    reviewScript = ResolveProjectTool("build_double_booking_review_payload.py")
-    exportScript = ResolveProjectTool("export_double_booking_review_rows.py")
-    If Len(reviewScript) = 0 Or Len(exportScript) = 0 Then
-        MsgBox "Δεν βρέθηκαν τα εργαλεία ελέγχου διπλοκράτησης.", vbCritical, "Διπλοκράτηση"
+    prepareScript = ResolveProjectTool("prepare_double_booking_review_ui.py")
+    If Len(prepareScript) = 0 Then
+        MsgBox "Δεν βρέθηκε το εργαλείο ελέγχου διπλοκράτησης.", vbCritical, "Διπλοκράτηση"
         Exit Sub
     End If
 
@@ -33,27 +32,16 @@ Public Sub ShowDoubleBookingReview()
     If Dir$(mRowsPath) <> "" Then Kill mRowsPath
     On Error GoTo 0
 
-    Application.StatusBar = "Έλεγχος εκκρεμών συνεδριών..."
-    commandLine = QuoteArg("python") & " " & QuoteArg(reviewScript) & _
+    Application.StatusBar = "Έλεγχος εκκρεμών συνεδριών και προετοιμασία επιλογών..."
+    commandLine = QuoteArg("python") & " " & QuoteArg(prepareScript) & _
                   " --input " & QuoteArg(ThisWorkbook.FullName) & _
-                  " --output " & QuoteArg(mReviewPath) & " --overwrite"
-    exitCode = RunHidden(commandLine)
-    If exitCode <> 0 Or Dir$(mReviewPath) = "" Then
-        Application.StatusBar = False
-        MsgBox "Δεν υπάρχουν εκκρεμείς συνεδρίες για ελεγχόμενη διπλοκράτηση ή ο έλεγχος απέτυχε.", _
-               vbInformation, "Διπλοκράτηση"
-        Exit Sub
-    End If
-
-    Application.StatusBar = "Προετοιμασία επιλογών διπλοκράτησης..."
-    commandLine = QuoteArg("python") & " " & QuoteArg(exportScript) & _
                   " --review " & QuoteArg(mReviewPath) & _
-                  " --output " & QuoteArg(mRowsPath) & " --overwrite"
+                  " --rows " & QuoteArg(mRowsPath) & " --overwrite"
     exitCode = RunHidden(commandLine)
     Application.StatusBar = False
-    If exitCode <> 0 Or Dir$(mRowsPath) = "" Then
-        MsgBox "Δεν ήταν δυνατή η προετοιμασία των επιλογών διπλοκράτησης.", _
-               vbExclamation, "Διπλοκράτηση"
+    If exitCode <> 0 Or Dir$(mReviewPath) = "" Or Dir$(mRowsPath) = "" Then
+        MsgBox "Δεν υπάρχουν εκκρεμείς συνεδρίες για ελεγχόμενη διπλοκράτηση ή ο έλεγχος απέτυχε.", _
+               vbInformation, "Διπλοκράτηση"
         Exit Sub
     End If
 
