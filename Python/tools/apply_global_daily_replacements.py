@@ -22,6 +22,7 @@ from rehab_core.global_replacement_end_to_end import (  # noqa: E402
     build_global_replacement_assignments,
 )
 from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
+from rehab_core.reclining_adjacency import build_reclining_adjacency_penalty  # noqa: E402
 from rehab_core.therapist_absence_queue import (  # noqa: E402
     build_therapist_absence_replacement_queue,
 )
@@ -170,6 +171,7 @@ def main() -> int:
         )
         policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
         service_hours = load_service_hours(REPO_ROOT / "Config" / "service_hours.json")
+        adjacency_penalty = build_reclining_adjacency_penalty(base_entries)
 
         existing_replacements = tuple(
             read_daily_replacement_facts(
@@ -227,6 +229,7 @@ def main() -> int:
             replacements=existing_replacements,
             cancellations=daily.cancellations,
             timeslots=settings.standard_timeslots,
+            adjacency_penalty=adjacency_penalty,
             policy_book=policy_book,
             base_entries=base_entries,
             service_hours=service_hours,
