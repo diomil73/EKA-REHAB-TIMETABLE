@@ -53,8 +53,8 @@ def test_preparer_requires_true_multi_absence_and_full_app_contract():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
     assert 'if therapist_count < 2:' in source
-    assert 'inspect_application_contract(source)' in source
-    assert 'inspect_application_contract(output)' in source
+    assert 'assert_application_contract(source)' in source
+    assert 'assert_application_contract(output)' in source
     assert '_write_absence_rows(preview, tuple(item[0] for item in selected))' in source
     assert 'ws.Cells(row, 2).Value = "ΝΑΙ"' in source
     assert 'Application contract output: OK' in source
