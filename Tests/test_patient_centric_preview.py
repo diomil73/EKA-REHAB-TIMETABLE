@@ -50,11 +50,10 @@ def test_same_patient_split_shows_name_once_and_keeps_assignment_details():
     assert render.text.count("ΜΟΤΣΙΟΣ") == 1
 
 
-def test_student_projection_uses_authoritative_student_id_contract():
+def test_student_projection_uses_authoritative_student_slot_contract():
     source = PREVIEW_SOURCE.read_text(encoding="utf-8")
 
     assert "student.student_number" not in source
-    assert 'f"φοιτ {student.student_id}"' in source
-    assert 'f"φοιτητής {student.student_id}"' in source
+    assert "resolve_student_daily_cell" in source
     assert "therapist_id in student_map" in source
     assert "ReplacementProviderKind.STUDENT" in source
