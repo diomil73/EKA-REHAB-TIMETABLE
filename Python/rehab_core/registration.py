@@ -5,7 +5,7 @@ from datetime import date
 from typing import Iterable
 import unicodedata
 
-from .models import Patient, Student, Therapist
+from .models import Patient, PatientType, Student, Therapist
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,9 @@ class NewPatientRequest:
     room: str | None = None
     infectious: bool = False
     status: str | None = None
+    patient_type: PatientType = PatientType.INPATIENT
+    hospital_mrn: str | None = None
+    responsible_doctor: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,7 +46,6 @@ class NewTherapistRequest:
 class NewStudentRequest:
     student_id: str
     display_name: str
-    student_number: int
     placement_start: date
     placement_end: date
     supervisor_therapist_id: str | None = None
@@ -52,13 +54,6 @@ class NewStudentRequest:
 
 
 def _key(value: object) -> str:
-    """Return a comparison key that is whitespace/case/accent insensitive.
-
-    Greek registries commonly mix accented and unaccented uppercase/lowercase
-    spellings (for example ``Πέτσιος`` and ``ΠΕΤΣΙΟΣ``). Those must resolve to
-    the same logical provider when checking duplicates.
-    """
-
     text = unicodedata.normalize("NFD", str(value).strip().casefold())
     return "".join(char for char in text if not unicodedata.combining(char))
 
@@ -83,6 +78,12 @@ def validate_new_patient(
 
     if not _nonblank(request.display_name):
         issues.append(RegistrationIssue("patient_name_required", "display_name", "Patient name is required"))
+
+    if request.patient_type == PatientType.OUTPATIENT:
+        if request.infectious:
+            issues.append(RegistrationIssue("outpatient_infectious_not_allowed", "infectious", "Outpatient patient cannot be infectious"))
+        if request.room is not None and str(request.room).strip():
+            issues.append(RegistrationIssue("outpatient_room_not_allowed", "room", "Outpatient patient must not have an inpatient room"))
 
     if request.status is not None and allowed_statuses is not None:
         allowed = {_key(value) for value in allowed_statuses}
@@ -133,11 +134,6 @@ def validate_new_student(
 
     if not _nonblank(request.display_name):
         issues.append(RegistrationIssue("student_name_required", "display_name", "Student name is required"))
-
-    if request.student_number < 1:
-        issues.append(RegistrationIssue("invalid_student_number", "student_number", "Student number must be positive"))
-    elif request.student_number in {item.student_number for item in students}:
-        issues.append(RegistrationIssue("duplicate_student_number", "student_number", "Student number already exists"))
 
     if request.placement_end < request.placement_start:
         issues.append(RegistrationIssue("invalid_placement_dates", "placement_end", "Placement end cannot be before placement start"))

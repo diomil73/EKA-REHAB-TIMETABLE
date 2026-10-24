@@ -5,7 +5,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "Python"))
 
-from rehab_core.models import Session, Therapist
+from rehab_core.models import Session, Student, Therapist
 from rehab_core.provider_policy import (
     LeadershipAssignment,
     LeadershipRole,
@@ -13,6 +13,7 @@ from rehab_core.provider_policy import (
     ProviderOverride,
     ProviderPolicyBook,
     ProviderProfile,
+    ProviderType,
 )
 from rehab_core.replacement_policy import find_policy_replacement_options
 
@@ -122,4 +123,54 @@ def test_manager_with_no_open_times_is_hidden():
         policy_book=book,
         timeslots=[SLOT_0915, SLOT_1045],
     )
+    assert options == []
+
+
+def test_student_candidate_gets_student_policy_profile_and_default_capacity():
+    student = Student(
+        student_id="S1",
+        display_name="Student One",
+        placement_start=TODAY,
+        placement_end=TODAY,
+        max_daily_timeslots=5,
+    )
+    book = ProviderPolicyBook()
+
+    options = find_policy_replacement_options(
+        target(),
+        therapists=[],
+        sessions=[],
+        policy_book=book,
+        timeslots=[SLOT_0915],
+        students=[student],
+    )
+
+    assert [option.provider_id for option in options] == ["S1"]
+    assert options[0].provider_kind.value == "student"
+    assert options[0].capacity_limit == 5
+    assert book.profiles["S1"].provider_type == ProviderType.STUDENT
+    assert book.profiles["S1"].normal_max_slots == 5
+
+
+def test_student_policy_override_can_exclude_student_replacements():
+    student = Student(
+        student_id="S1",
+        display_name="Student One",
+        placement_start=TODAY,
+        placement_end=TODAY,
+    )
+    book = ProviderPolicyBook()
+    book.overrides.append(
+        ProviderOverride("S1", OverrideKind.EXCLUDE_REPLACEMENTS, TODAY, TODAY)
+    )
+
+    options = find_policy_replacement_options(
+        target(),
+        therapists=[],
+        sessions=[],
+        policy_book=book,
+        timeslots=[SLOT_0915],
+        students=[student],
+    )
+
     assert options == []

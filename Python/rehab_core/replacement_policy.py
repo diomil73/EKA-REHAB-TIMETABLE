@@ -7,6 +7,7 @@ from typing import Iterable
 from .models import (
     BaseScheduleEntry,
     DailyAbsence,
+    DailySessionCancellation,
     Patient,
     ReplacementAssignment,
     Session,
@@ -29,8 +30,6 @@ def policy_adjusted_therapists(
     policy_book: ProviderPolicyBook,
     target_date: date,
 ) -> tuple[Therapist, ...]:
-    """Return therapist models adjusted for the effective policy on one date."""
-
     adjusted: list[Therapist] = []
     for therapist in therapists:
         if therapist.therapist_id not in policy_book.profiles:
@@ -59,6 +58,28 @@ def policy_adjusted_therapists(
         )
 
     return tuple(adjusted)
+
+
+def _register_student_profiles(
+    students: Iterable[Student],
+    *,
+    policy_book: ProviderPolicyBook,
+) -> tuple[Student, ...]:
+    student_list = tuple(students)
+    for student in student_list:
+        existing = policy_book.profiles.get(student.student_id)
+        if existing is None:
+            policy_book.profiles[student.student_id] = ProviderProfile(
+                provider_id=student.student_id,
+                display_name=student.display_name,
+                provider_type=ProviderType.STUDENT,
+                default_max_slots=student.max_daily_timeslots,
+            )
+        elif existing.provider_type != ProviderType.STUDENT:
+            raise ValueError(
+                f"Student provider {student.student_id!r} has non-student policy profile"
+            )
+    return student_list
 
 
 def _filter_option_times(
@@ -105,24 +126,19 @@ def find_policy_replacement_options(
     absences: Iterable[DailyAbsence] = (),
     patients: Iterable[Patient] = (),
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
     requested_time: time | None = None,
     timeslots: Iterable[time] = (),
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
     base_entries: Iterable[BaseScheduleEntry] = (),
 ) -> list[ReplacementProviderOption]:
-    """Run replacement ranking with provider and patient-schedule policy applied.
-
-    Ranking remains unchanged: daily load first, exact requested time second,
-    then the existing tie-breakers. Provider policy and the patient's other
-    specialties act only as eligibility/timeslot gates around that ranking.
-    """
-
     adjusted = policy_adjusted_therapists(
         therapists,
         policy_book=policy_book,
         target_date=target_session.session_date,
     )
+    student_list = _register_student_profiles(students, policy_book=policy_book)
     options = find_replacement_options(
         target_session=target_session,
         therapists=adjusted,
@@ -130,9 +146,10 @@ def find_policy_replacement_options(
         absences=absences,
         patients=patients,
         replacements=replacements,
+        cancellations=cancellations,
         requested_time=requested_time,
         timeslots=timeslots,
-        students=students,
+        students=student_list,
         student_assignments=student_assignments,
     )
 
@@ -160,8 +177,6 @@ def validate_policy_replacement_time(
     replacement_time: time,
     policy_book: ProviderPolicyBook,
 ) -> None:
-    """Safety gate for a selected replacement before creating the overlay."""
-
     state = policy_book.effective_state(provider_id, target_date)
     if not state.active:
         raise ValueError("Replacement provider is inactive by provider policy")
