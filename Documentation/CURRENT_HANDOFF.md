@@ -31,6 +31,8 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - double-booking UI smoke V5: native green; confirmed double-booking persists in-place without close/reopen and projects immediately into `THERAPIST_DAILY`
 - global replacement / reclining / service-policy focused gate: `38 passed in 5.30s`
 - student production wiring focused gate: `39 passed in 2.35s`
+- student replacement layout/projection focused gate after numbered-slot fix: `19 passed in 2.35s`
+- native student replacement smoke: VERIFIED on `2026-10-26`; student `0000-STUDENT-SMOKE`; 2 ACTIVE student replacement facts; `THERAPIST_DAILY` projection OK; application contract OK with 55 components
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
@@ -42,13 +44,18 @@ The global replacement path already has reclining adjacency and special pool/rob
 
 The remaining student production gap was that `Python/tools/apply_global_daily_replacements.py` did not load the authoritative `STUDENTS` registry and did not pass students through the queue, global solver and `THERAPIST_DAILY` patient-centric projection.
 
-That wiring is now implemented and verified:
+That wiring is now implemented and operationally verified:
 
 - commit `c8e571d` loads authoritative students with `read_students(input_book)`, passes them into the therapist-absence queue, global replacement solver and patient-centric projection, and safety-stops on `StudentRegistryError`;
 - commit `836e610` adds a regression guard that requires the production tool to keep this full student path wired;
-- local Windows focused gate after the wiring: `39 passed in 2.35s`.
+- smoke tooling commits `c724db4`, `882c080`, `d056f1c` added deterministic preparation and verification;
+- fixture-selection bugs were fixed in `2093b68`, `61b43ca` and `1a1be88` while preserving the application contract rather than weakening it;
+- projection schema drift (`student_number` versus authoritative `student_id`) and provider-kind loss were fixed in `ed389a4` and `4f0c246`;
+- numbered `THERAPIST_DAILY` student-slot mapping (`φοιτ N`) was added in `53ce01e`, wired in `a8ed3d7`, guarded in `dfe9683`, and the stale source-contract test was updated in `d654dc9`;
+- focused gate after the final layout change: `19 passed in 2.35s`;
+- native smoke result on `2026-10-26`: `STUDENT REPLACEMENT SMOKE VERIFIED`, student `0000-STUDENT-SMOKE`, 2 ACTIVE student replacement facts (`10:45`, `08:30`), `THERAPIST_DAILY projection: OK`, application contract `OK (55 components)`.
 
-Treat authoritative student candidate loading + solver wiring + `THERAPIST_DAILY` student projection as closed unless a later native smoke reveals a display/layout defect.
+The student replacement vertical is now operationally closed end-to-end. Reopen it only for a genuine later regression or a deliberate expansion such as multiple concurrent student slots beyond the current physical `φοιτ N` layout capacity.
 
 ## Therapist workload contract already locked
 
@@ -206,13 +213,14 @@ Remaining implementation-design details:
 
 ## Exact resume point
 
-1. Student production wiring is green: `39 passed in 2.35s`.
-2. Treat authoritative student candidate loading + solver wiring + `THERAPIST_DAILY` student projection as closed unless a later native smoke reveals a display/layout defect.
-3. Do not reopen the already-closed double-booking no-close/no-reopen workflow unless a regression appears.
-4. Reassess the remaining replacement-quality checklist before opening the next implementation vertical.
-5. Keep the statistics/history decisions below locked for the later day-finalization/history slice.
-6. Do not manually save smoke workbooks outside a tested flow.
-7. Do not return to restore performance tuning yet.
+1. Student replacement vertical is operationally closed end-to-end after native smoke on `2026-10-26`.
+2. Latest focused gate for the final student layout/projection changes: `19 passed in 2.35s`.
+3. Native smoke persisted 2 ACTIVE student replacement facts for `0000-STUDENT-SMOKE`; `THERAPIST_DAILY` projection and application contract both verified OK.
+4. Do not reopen the already-closed double-booking no-close/no-reopen workflow unless a regression appears.
+5. Reassess the remaining replacement-quality checklist before opening the next implementation vertical.
+6. Keep the statistics/history decisions below locked for the later day-finalization/history slice.
+7. Do not manually save smoke workbooks outside a tested flow.
+8. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
