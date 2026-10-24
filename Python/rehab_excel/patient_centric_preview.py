@@ -13,6 +13,7 @@ from rehab_core.models import BaseScheduleEntry, Patient, ReplacementProviderKin
 from rehab_core.students import student_display_state
 
 from .layout_contract import LayoutSafetyError, resolve_therapist_daily_cell
+from .student_daily_layout import resolve_student_daily_cell
 from .writeback import CellPatch, TextRunPatch, WritePlan, build_write_plan
 
 
@@ -279,20 +280,19 @@ def _provider_cell(
     students: Mapping[str, Student],
     target_date: date,
 ) -> str:
-    candidates: list[str] = []
     if provider_kind == ReplacementProviderKind.STUDENT:
-        student = students.get(provider_id)
-        if student is not None:
-            state = student_display_state(student, target_date)
-            candidates.extend(
-                (
-                    state.label,
-                    f"φοιτ {student.student_id}",
-                    f"φοιτητής {student.student_id}",
-                )
+        try:
+            return resolve_student_daily_cell(
+                workbook_path,
+                provider_id,
+                slot_time,
+                students=students,
+                target_date=target_date,
             )
-    candidates.extend((provider_labels.get(provider_id, provider_id), provider_id))
+        except LayoutSafetyError as exc:
+            raise PatientCentricPreviewError(str(exc)) from exc
 
+    candidates = (provider_labels.get(provider_id, provider_id), provider_id)
     last_error: Exception | None = None
     seen: set[str] = set()
     for candidate in candidates:
