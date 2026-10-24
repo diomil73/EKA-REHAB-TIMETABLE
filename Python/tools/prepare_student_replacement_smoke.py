@@ -6,6 +6,8 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+from openpyxl import load_workbook
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
@@ -55,6 +57,23 @@ def _parse_date(value: str) -> date:
         raise argparse.ArgumentTypeError("Date must be YYYY-MM-DD") from exc
 
 
+def _daily_input_therapist_names(path: Path) -> tuple[str, ...]:
+    wb = load_workbook(path, read_only=True, data_only=False, keep_vba=True)
+    try:
+        if "DAILY_INPUT" not in wb.sheetnames:
+            return ()
+        ws = wb["DAILY_INPUT"]
+        names: list[str] = []
+        max_row = max(7, ws.max_row)
+        for row in range(7, max_row + 1):
+            value = str(ws.cell(row=row, column=1).value or "").strip()
+            if value:
+                names.append(value)
+        return tuple(dict.fromkeys(names))
+    finally:
+        wb.close()
+
+
 def choose_student_smoke_target(
     sessions,
     *,
@@ -64,8 +83,8 @@ def choose_student_smoke_target(
     """Choose one real therapist absence small enough for one student to absorb.
 
     Prefer a provider whose affected sessions are all non-robotic, then the
-    smallest displaced load. The synthetic smoke student is robotic-capable too,
-    but preferring the simpler case keeps the native projection easier to inspect.
+    smallest displaced load. ``allowed_therapists`` must already be restricted
+    to providers that can actually be marked absent in the DAILY_INPUT sheet.
     """
     if max_displaced < 1:
         raise ValueError("max_displaced must be positive")
@@ -94,7 +113,7 @@ def choose_student_smoke_target(
 
     if not candidates:
         raise ValueError(
-            f"No therapist has between 1 and {max_displaced} session(s) on the smoke date"
+            f"No DAILY_INPUT therapist has between 1 and {max_displaced} session(s) on the smoke date"
         )
 
     _robotic_flag, _count, therapist_id, affected = min(
@@ -215,11 +234,20 @@ def main() -> int:
             raise StudentReplacementSmokeError("Patient identity audit failed")
 
         settings = read_settings(source)
+        daily_input_names = _daily_input_therapist_names(source)
+        allowed_smoke_therapists = tuple(
+            name for name in settings.therapist_names if name in set(daily_input_names)
+        )
+        if not allowed_smoke_therapists:
+            raise StudentReplacementSmokeError(
+                "DAILY_INPUT contains no therapist names that match SETTINGS"
+            )
+
         base_entries = read_unified_base_schedule(source)
         sessions = materialize_sessions_for_date(base_entries, args.date)
         absent_therapist_id, affected = choose_student_smoke_target(
             sessions,
-            allowed_therapists=tuple(settings.therapist_names),
+            allowed_therapists=allowed_smoke_therapists,
             max_displaced=args.max_displaced,
         )
         patients = read_patient_registry(source)
