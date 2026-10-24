@@ -299,6 +299,7 @@ def main() -> int:
             result,
             sessions=sessions,
             existing_active_replacements=existing_replacements,
+            require_fully_resolved=False,
         )
         persisted_suspensions = persist_daily_input_suspensions(
             output,
@@ -334,6 +335,7 @@ def main() -> int:
             sessions=sessions,
             patients=patients,
             bindings=preview.bindings,
+            final_cancellations=all_cancellations,
         )
         install_daily_change_ledger_preview(output, input_book, ledger_records)
         output_contract = assert_application_contract(output)
