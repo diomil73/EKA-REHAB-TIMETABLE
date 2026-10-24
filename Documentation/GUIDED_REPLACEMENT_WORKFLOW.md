@@ -16,9 +16,26 @@ Replacement handling is one daily workflow, not separate therapist/student progr
 
 The base/recurring schedule remains immutable. Daily replacements and suspensions are overlays/facts.
 
+## Implemented production sequencing gate
+
+`Python/tools/apply_global_daily_replacements.py` now enforces the required ordering in the production path.
+
+After the normal global solve it builds double-booking review items for solver-unresolved sessions before creating any suspension facts.
+
+If at least one unresolved session has a valid review option, the production apply safety-stops before `build_unresolved_suspensions(...)` unless the operator decision is explicit.
+
+Current explicit rejection contract:
+
+- normal run: reviewable unresolved session -> safety stop, no preview/suspension output;
+- acceptance: use the existing confirmed-double-booking review/apply path, which revalidates and persists the ACTIVE exception; rerunning the global flow then reads that persisted fact and the session is no longer unresolved;
+- rejection: rerun the production apply only after the operator explicitly rejected the offered exception, using `--reject-double-booking`; only then may the remaining unresolved sessions become `Αναστολή θεραπείας`;
+- unresolved sessions with no legal double-booking option may proceed directly to suspension because no user-confirmable exception exists.
+
+This is fail-closed. Opening or closing the review UI is never treated as approval or rejection.
+
 ## Already implemented and verified
 
-The following pieces are already operationally available:
+The following pieces are operationally available:
 
 - global scarcity-aware assignment rather than sequential greedy choice;
 - protection of scarce viable slots;
@@ -30,28 +47,27 @@ The following pieces are already operationally available:
 - authoritative STUDENTS registry integration and distinct `STUDENT` provider kind;
 - explicit user-confirmed double-booking review/apply subsystem;
 - explicit unresolved-to-`TREATMENT_SUSPENDED` fallback;
-- native suspension persistence/read-back and final daily statistics with unresolved = 0.
+- native suspension persistence/read-back and final daily statistics with unresolved = 0;
+- production sequencing guard that evaluates double-booking review before suspension fallback.
 
-## Remaining integration gap before replacement-quality closure
+Regression coverage in `Tests/test_apply_global_daily_replacements.py` now guards the source ordering:
 
-The double-booking subsystem and the suspension subsystem are individually green, but the main production sequencing does not yet join them into one last-resort decision flow.
+`build_double_booking_review_items -> explicit decision gate -> build_unresolved_suspensions`
 
-At present the main global replacement tool can turn solver leftovers directly into `Αναστολή θεραπείας`, while the double-booking review is exposed through its own review/apply UI path. Therefore the production flow can finalize a suspension before offering an otherwise valid user-confirmable last-resort exception.
+## Remaining native closure work
 
-The final integration slice must enforce this order:
+The backend sequencing gap is closed. The remaining closure evidence is native end-to-end verification of the joined user flow.
 
-`normal global solve -> unresolved review -> explicit double-booking decision -> remaining unresolved suspension -> final recompute`
+Required native smoke:
 
-Required safety semantics:
+1. prepare a date where the normal global solver leaves at least one unresolved session with a valid double-booking option;
+2. run the normal production apply and verify it safety-stops before creating suspension output;
+3. confirm one offered exception through the existing review UI and verify ACTIVE fact + immediate `THERAPIST_DAILY` projection without close/reopen regression;
+4. rerun the global flow and verify the accepted session is no longer unresolved;
+5. in an independent scenario, explicitly reject an offered exception, rerun with the explicit rejection path, and verify `Αναστολή θεραπείας` persistence;
+6. verify final daily state, ledger/statistics and `THERAPIST_DAILY` agree with unresolved = 0.
 
-- never create a double-booking automatically;
-- never infer approval from opening/closing the review form;
-- only solver-unresolved sessions are eligible for the exception review;
-- confirmed exceptions must be revalidated immediately before persistence;
-- the review UI must provide an explicit route to decline the exception and continue to `Αναστολή θεραπείας`;
-- if an unresolved session has no valid double-booking option, it may proceed directly to suspension;
-- finalization still requires unresolved = 0;
-- one authoritative replacement engine remains in production; the review is an exception stage, not a second solver.
+No separate replacement engine should be introduced for this smoke or for final UI polish.
 
 ## Student presentation note
 
@@ -59,7 +75,7 @@ Active registered students are shown by real name in operational views, with dis
 
 ## Closure criterion
 
-The replacement-quality milestone can be declared complete when a native end-to-end smoke proves both branches of the final decision gate:
+The replacement-quality milestone can be declared complete when the native end-to-end smoke proves both branches of the final decision gate:
 
 - an unresolved session with a valid exception option is shown for explicit review and can be confirmed without close/reopen regression;
 - a declined or unavailable exception is finalized as `Αναστολή θεραπείας`;
