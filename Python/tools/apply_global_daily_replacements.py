@@ -18,6 +18,7 @@ from rehab_config.service_hours_store import load_service_hours  # noqa: E402
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_core.daily_statistics import calculate_daily_treatment_statistics  # noqa: E402
+from rehab_core.double_booking_review import build_double_booking_review_items  # noqa: E402
 from rehab_core.global_replacement_end_to_end import (  # noqa: E402
     build_global_replacement_assignments,
 )
@@ -153,6 +154,15 @@ def main() -> int:
         default=REPO_ROOT / "Excel" / "previews" / "GLOBAL_DAILY_REPLACEMENTS_PREVIEW.xlsm",
     )
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--reject-double-booking",
+        action="store_true",
+        help=(
+            "Explicitly record the operator decision to reject all currently offered "
+            "double-booking exceptions and allow those unresolved sessions to become "
+            "treatment suspensions."
+        ),
+    )
     args = parser.parse_args()
 
     input_book = args.input.resolve()
@@ -248,6 +258,28 @@ def main() -> int:
             replacement_id_factory=_replacement_id_factory(history_rows, session_by_id),
             reason="DAILY_INPUT global therapist absence plan",
         )
+
+        review_items = build_double_booking_review_items(
+            result,
+            sessions=sessions,
+            therapists=therapists,
+            patients=patients,
+            absences=daily.absences,
+            replacements=existing_replacements,
+            cancellations=daily.cancellations,
+            timeslots=settings.standard_timeslots,
+            policy_book=policy_book,
+            base_entries=base_entries,
+        )
+        reviewable_items = tuple(item for item in review_items if item.has_options)
+        if reviewable_items and not args.reject_double_booking:
+            session_ids = ", ".join(item.target_session_id for item in reviewable_items)
+            raise DailyInputReadError(
+                "Double-booking review is required before treatment suspension for: "
+                f"{session_ids}. Confirm one offered exception in the review UI or rerun "
+                "only after the operator explicitly rejects the offered exceptions using "
+                "--reject-double-booking."
+            )
 
         generated_suspensions = build_unresolved_suspensions(
             result.unresolved_request_ids,
@@ -371,6 +403,8 @@ def main() -> int:
     print(f"Date: {target_date.isoformat()}")
     print(f"Displaced sessions solved together: {len(target_sessions)}")
     print(f"New replacement assignments: {len(result.assignments)}")
+    print(f"Double-booking review candidates: {len(reviewable_items)}")
+    print(f"Double-booking rejection confirmed: {bool(args.reject_double_booking)}")
     print(f"Treatment suspensions: {len(generated_suspensions)}")
     print(f"Existing active replacements retained: {len(existing_replacements)}")
     print("Unresolved sessions: 0")
