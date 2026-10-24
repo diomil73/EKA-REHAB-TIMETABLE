@@ -4,149 +4,133 @@ Last updated: 2026-10-24
 
 ## Entry point
 
-New developers and new contexts start from `Documentation/ONBOARDING.md`. This file tracks milestone state, risks and immediate roadmap only.
+Start from `Documentation/ONBOARDING.md`. Use `Documentation/CURRENT_HANDOFF.md` for the exact resume point.
 
 Branch: `feature/outpatient-scheduling`.
 
 ## Current stage
 
-Active milestone: **replacement-quality closure pass**.
+**Replacement-quality milestone: CLOSED.**
 
-Restore correctness is closed green. Restore performance is deferred.
+The joined production path is now native-verified end-to-end:
 
-Outpatient recurring CREATE/edit/manager, therapist workload refresh, THERAPIST_DAILY presentation cleanup, confirmed double-booking, global replacement solving, student-provider wiring and explicit suspension fallback are all operationally verified on their focused/native paths.
+`global solve -> double-booking review -> explicit ACCEPT or REJECT -> remaining suspension -> final recompute`
 
-The current task is no longer to add obvious missing replacement primitives. It is to reassess the locked replacement-quality checklist against the now-implemented system and identify any remaining genuine gap before declaring the replacement milestone closed.
+The next implementation milestone is the smallest persistent statistics/history slice built on the already locked day-finalization design.
+
+Restore correctness remains closed green. Restore performance remains deferred to final polish.
 
 ## Latest confirmed checkpoints
 
 - full regression checkpoint: **699 passed, 19 warnings**
-- package relationship normalization + OOXML projection gate: **59 passed in 6.85s**
+- OOXML MASTER projection gate: **59 passed in 6.85s**
 - latest direct restore backend profile: **16.509s total**
-- `build_master_projection`: **0.089s**
-- V87-V92 authoritative restore/reconstruction lifecycle: **native green**
-- per-row / selected / restore-all in-session restore correctness: **native green**
-- combined outpatient recurring smoke build: **native green**, trusted source unchanged
-- outpatient recurring CREATE: **native green**
-- outpatient manager: **native visible and usable**
-- duplicate-fix focused gate: **45 passed, 4 warnings in 4.98s**
-- collision/workload focused gate: **33 passed, 5 warnings in 4.60s**
-- THERAPIST_DAILY presentation cleanup gate: **27 passed in 3.09s**
+- replacement lifecycle V87-V92: **native green**
+- per-row / selected / restore-all authoritative restore: **native green**
+- outpatient recurring CREATE/edit/manager: **native green / usable**
+- THERAPIST_DAILY cleanup gate: **27 passed in 3.09s**
 - double-booking focused gate: **13 passed in 1.63s**, native V5 green
 - global replacement / reclining / service-policy gate: **38 passed in 5.30s**
 - student production wiring gate: **39 passed in 2.35s**
 - student layout/projection gate: **19 passed in 2.35s**
-- native student replacement smoke: **VERIFIED**, 2 ACTIVE student replacement facts, THERAPIST_DAILY OK
-- unresolved-to-suspension focused gate: **24 passed in 3.74s**
-- native suspension-resolution smoke: **VERIFIED** on `2026-10-26`; 5 displaced sessions, 3 replacement assignments, 2 persisted treatment suspensions, unresolved 0, input unchanged, application contract OK (54 components)
+- native student replacement smoke: **VERIFIED**
+- unresolved-to-suspension gate: **24 passed in 3.74s**
+- native suspension-resolution smoke: **VERIFIED**, 5 displaced, 3 replacements, 2 suspensions, unresolved 0
+- joined double-booking sequencing gate: **21 passed in 3.95s**
+- native joined review gate: **VERIFIED** on `2026-10-26`
+- native explicit REJECT branch: **VERIFIED**, 1 persisted suspension, unresolved 0, app contract OK (54 components)
+- native explicit ACCEPT branch: **VERIFIED**, ACTIVE fact for `planner:92:ΦΘ@2026-10-26`, `Βασιλειάδης -> Μηλιδάκης 08:30`
 
-Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
+Python 3.14 `ZipFile.__del__` warnings remain non-blocking technical debt.
+
+## Closed: replacement-quality milestone
+
+The production replacement path now satisfies the locked contract:
+
+- all displaced sessions are solved together, not greedily;
+- scarcity and unique-slot protection are respected;
+- original time is preferred only below higher-priority feasibility/scarcity constraints;
+- ΦΘ/reclining adjacency is optimized where feasible;
+- workload spread is considered;
+- 13:00 is only a weak soft penalty;
+- pool/robotic service windows are persistent configuration;
+- therapists and students share one solver while preserving distinct provider kind/capability/capacity rules;
+- double-booking is last resort only and requires explicit user approval;
+- valid review options block automatic suspension until the operator decides;
+- explicit rejection allows suspension fallback;
+- every remaining orphan becomes explicit `TREATMENT_SUSPENDED` before finalization;
+- finalized effective daily state requires unresolved = 0.
+
+Native deterministic case used patient `ΚΑΠΑΘΑΝΑΣΗ`, original therapist `Βασιλειάδης`, slot `08:30`, with busy therapist `Μηλιδάκης` already treating `ΜΟΤΣΙΟΣ`.
+
+The normal path safety-stopped for review. ACCEPT persisted the approved double booking as an ACTIVE replacement fact. REJECT persisted `Αναστολή θεραπείας` and finalized with unresolved 0.
+
+A suspension-only final outcome may legitimately have no replacement ledger records. The production path now skips the replacement-ledger installer in that case instead of creating a fake record.
 
 ## Closed: restart-safe authoritative daily state
 
-Operational truth is reconstructable from:
+Operational truth remains:
 
 `recurring/base + DAILY_INPUT + ACTIVE DAILY_REPLACEMENT_FACTS -> DailySessionState -> statistics/views`
 
-Replacement facts preserve immutable lifecycle history. Restore correctness, reconstruction and daily statistics parity are native green.
+The base schedule is never destructively rewritten by daily absences, replacements or suspensions.
 
 ## Closed: Excel ledger authoritative restore correctness
 
-`DAILY_REPLACEMENT_FACTS` is authoritative. `DAILY_CHANGE_LEDGER` is only a projection/audit view.
+`DAILY_REPLACEMENT_FACTS` is authoritative. `DAILY_CHANGE_LEDGER` is a projection/audit surface only.
 
-Primary restore UX keeps the workbook open, runs Python hidden/blocking, protects rollback, imports verified state in-session and avoids visible console / close-reopen behavior.
-
-## Closed: unresolved orphan finalization
-
-Global replacement solver leftovers no longer block the day solely because they cannot be placed.
-
-The finalization path is now:
-
-1. solve all displaced sessions globally,
-2. persist valid replacement assignments,
-3. convert remaining unplaceable sessions to explicit `TREATMENT_SUSPENDED` daily cancellations,
-4. recompute effective daily state,
-5. require unresolved sessions = 0,
-6. persist suspension facts into `DAILY_INPUT` and verify read-back,
-7. allow daily ledger completion only when every solver leftover is covered by an explicit suspension fact.
-
-Native smoke verified this with 3 replacements + 2 suspensions and zero unresolved sessions.
-
-## Outpatient recurring management + therapist workload UI
-
-Current technical path supports recurring outpatient creation/edit, application-style management, conflict popup/guard, stable same-row identity, daily projection cleanup, workload badges and automatic refresh after outpatient changes.
-
-### Therapist workload strip contract
-
-The workload strip shows one badge per therapist in the form `Όνομα n/6`, where `n` is the number of occupied timeslots in the current operational day. It intentionally counts occupied timeslots, not patient lines, so a legitimate shared slot consumes one capacity unit.
-
-Color thresholds for the normal 6-slot therapist capacity:
-
-- **0-4 / 6: green**,
-- **5 / 6: yellow/orange**,
-- **6 / 6 or above: red**.
-
-Normal users must not see raw sheet/grid/tab navigation, worksheet row numbers or `outpatient:<row>` IDs.
+Primary restore UX keeps the workbook open and preserves the locked no-close/no-reopen behavior for confirmed double-booking persistence.
 
 ## Student provider presentation/lifecycle contract
 
-Active students display by their real names in THERAPIST_DAILY and workload surfaces with student-specific visual treatment. Numbered `φοιτ N` headers are physical placeholders only. When placement ends, the real name disappears from active operational views and the physical slot returns to its neutral placeholder. Historical identity remains the real StudentID/name.
-
-## Replacement-quality checklist under reassessment
-
-Implemented/verified areas already include:
-
-- global scarcity-aware solving across all displaced sessions,
-- unique-slot protection / placement maximization,
-- original-time preference below higher-priority constraints,
-- reclining adjacency preference,
-- workload-balance preference,
-- 13:00 weak avoidance,
-- persistent pool/robotic service-hours policy,
-- authoritative student-provider path,
-- explicit suspension fallback for unplaceable sessions,
-- explicit user approval for confirmed double-booking.
-
-Remaining work should be chosen only after comparing this implementation against the complete locked contract. Do not reopen already-green verticals without a concrete regression or missing rule.
+Active students display by real name in operational views with student-specific presentation. `φοιτ N` labels are physical placeholders only. Historical identity remains the real StudentID/name.
 
 ## Statistics/history design checkpoint
 
-The architecture is locked for explicit `Κλείσιμο ημέρας`, hybrid finalized snapshots + append-only events, indefinite retention, versioned amendments, therapist occupied-timeslot vs active-session history, patient timeline/history, and user-facing reports.
+The architecture is already locked for:
 
-Implementation remains deferred until the replacement-quality milestone is explicitly closed.
+- explicit `Κλείσιμο ημέρας`;
+- finalized daily snapshots + append-only events;
+- indefinite retention;
+- versioned amendments with SUPERSEDED/CURRENT_FINAL chain;
+- therapist occupied-timeslot and active-session history as separate measures;
+- patient history/timeline;
+- therapist attendance/absence history;
+- filtered tables plus charts driven by the same finalized truth.
 
 ## Immediate roadmap
 
-1. Reassess every remaining replacement-quality requirement against current code/tests/native smokes.
-2. Implement only the smallest genuinely missing replacement rule, if any.
-3. Run the relevant focused regression/native smoke and update documentation.
-4. When the replacement checklist is fully satisfied, explicitly close the replacement milestone.
-5. Resume the smallest persistent statistics/history implementation slice after replacement closure.
-6. Keep restore performance deferred until final polish unless a regression appears.
+1. Start the smallest persistent statistics/history implementation slice.
+2. Preserve the replacement decision chain as a closed dependency, reopening only on regression.
+3. Keep restore performance deferred until final polish.
+4. Keep application-style UI rules intact: normal users use forms/buttons, not raw technical sheets/IDs.
 
 ## Locked daily rules
 
-1. recurring/base schedule,
-2. cancellations/no-shows release slots,
-3. therapist absences,
-4. identify displaced/orphan sessions,
-5. apply surviving ACTIVE replacements,
-6. unresolved orphans resolve through valid placement or treatment suspension,
-7. only then expose capacity to new patients.
+1. recurring/base schedule;
+2. cancellations/no-shows release capacity;
+3. therapist absences;
+4. identify displaced/orphan sessions;
+5. apply surviving ACTIVE replacements;
+6. global solve remaining displaced sessions;
+7. review any legal last-resort double-booking option;
+8. explicit ACCEPT or REJECT;
+9. remaining unresolved -> `Αναστολή θεραπείας`;
+10. final recompute requires unresolved = 0;
+11. only then expose capacity to new patients.
 
 Capacity is timeslot-based. Existing displaced patients precede new patients. MASTER and THERAPIST_DAILY must agree.
 
 ## Safety constraints
 
-- baseline `.xlsm` is immutable,
-- preview/smoke workflows use fresh copies,
-- preserve VBA and source hash,
-- keep write zones narrow,
-- bulk restore validates the entire requested set before mutation,
-- no production/staging `.xlsm` save with openpyxl,
-- no manual Save in independent smoke scenarios,
+- baseline `.xlsm` is immutable;
+- preview/smoke workflows use fresh copies;
+- preserve VBA and source hash;
+- keep write zones narrow;
+- no production/staging `.xlsm` save with openpyxl;
+- no manual Save in independent smoke scenarios;
 - Windows tests use `python -m pytest`.
 
 ## Documentation discipline
 
-`Documentation/ONBOARDING.md` is the single front door. Specialist files keep their own source-of-truth roles. Meaningful changes must update the relevant specialist document in the same cycle, and ONBOARDING when the project-wide mental model changes.
+Meaningful changes must update the relevant specialist document in the same cycle. Agreed future design/product ideas belong in `Documentation/FUTURE_FEATURES.md` or the appropriate roadmap/decision document.
