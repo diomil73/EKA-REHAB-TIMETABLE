@@ -33,29 +33,49 @@ For any new developer, new ChatGPT context, or long-gap return, read `Documentat
 - student production wiring focused gate: `39 passed in 2.35s`
 - student replacement layout/projection focused gate after numbered-slot fix: `19 passed in 2.35s`
 - native student replacement smoke: VERIFIED on `2026-10-26`; student `0000-STUDENT-SMOKE`; 2 ACTIVE student replacement facts; `THERAPIST_DAILY` projection OK; application contract OK with 55 components
+- unresolved-to-suspension focused gate: `24 passed in 3.74s`
+- native suspension-resolution smoke: VERIFIED on `2026-10-26`; 5 displaced sessions solved together, 3 replacement assignments, 2 persisted `Αναστολή θεραπείας`, unresolved sessions 0, input unchanged, application contract OK with 54 components
 
 Restore performance is accepted for now and deferred until end-stage polish.
 
-## Current milestone: student replacement production wiring closed
+## Current milestone: replacement-quality closure pass
 
-The double-booking exception workflow is operationally closed end-to-end.
+The student replacement vertical is operationally closed end-to-end.
 
-The global replacement path already has reclining adjacency and special pool/robotic service hours wired into production. The policy layer also preserves student identity as `STUDENT` rather than treating students as therapists.
+The unresolved-orphan suspension branch is also now operationally closed end-to-end:
 
-The remaining student production gap was that `Python/tools/apply_global_daily_replacements.py` did not load the authoritative `STUDENTS` registry and did not pass students through the queue, global solver and `THERAPIST_DAILY` patient-centric projection.
+- global solver leftovers are converted to explicit `SessionCancellationKind.TREATMENT_SUSPENDED` facts;
+- the final daily state is recomputed with those suspensions and must report zero unresolved sessions;
+- suspension facts are persisted into `DAILY_INPUT` using native Excel and read back for verification;
+- replacement fact persistence permits partial solver assignment only for this caller, because finalization comes from the combined replacement + suspension outcome;
+- the daily ledger remains strict and accepts solver leftovers only when the same session IDs are explicitly finalized as `TREATMENT_SUSPENDED`;
+- native smoke on `2026-10-26` verified 3 replacements + 2 suspensions, persisted suspension read-back, `Treatment suspended sessions: 2`, `Unresolved sessions: 0`, input unchanged and application contract OK.
 
-That wiring is now implemented and operationally verified:
+Key commits for this suspension slice:
 
-- commit `c8e571d` loads authoritative students with `read_students(input_book)`, passes them into the therapist-absence queue, global replacement solver and patient-centric projection, and safety-stops on `StudentRegistryError`;
-- commit `836e610` adds a regression guard that requires the production tool to keep this full student path wired;
-- smoke tooling commits `c724db4`, `882c080`, `d056f1c` added deterministic preparation and verification;
-- fixture-selection bugs were fixed in `2093b68`, `61b43ca` and `1a1be88` while preserving the application contract rather than weakening it;
-- projection schema drift (`student_number` versus authoritative `student_id`) and provider-kind loss were fixed in `ed389a4` and `4f0c246`;
-- numbered `THERAPIST_DAILY` student-slot mapping (`φοιτ N`) was added in `53ce01e`, wired in `a8ed3d7`, guarded in `dfe9683`, and the stale source-contract test was updated in `d654dc9`;
-- focused gate after the final layout change: `19 passed in 2.35s`;
-- native smoke result on `2026-10-26`: `STUDENT REPLACEMENT SMOKE VERIFIED`, student `0000-STUDENT-SMOKE`, 2 ACTIVE student replacement facts (`10:45`, `08:30`), `THERAPIST_DAILY projection: OK`, application contract `OK (55 components)`.
+- `c25d27e` durable suspension helper / native DAILY_INPUT persistence;
+- `2c0696f` core regression coverage;
+- `97f85a8` production global replacement integration;
+- `7c2afd7` production wiring guard;
+- `f1e35d6`, `dbb045a`, `9ca4da0` native smoke preparer/verifier/guards;
+- `73c32e5` persistence contract guard;
+- `52ac209` ledger completion through explicit suspensions;
+- `05531e4` ledger suspension regression tests;
+- `4af4bd5` final production caller wiring.
 
-The student replacement vertical is now operationally closed end-to-end. Reopen it only for a genuine later regression or a deliberate expansion such as multiple concurrent student slots beyond the current physical `φοιτ N` layout capacity.
+The remaining replacement-quality checklist should now be reassessed rather than assuming another implementation gap exists.
+
+## Student presentation/lifecycle contract
+
+Active registered students display by their real names in operational views, not as permanent `φοιτ N` labels.
+
+- `THERAPIST_DAILY`: real student name while placement is active, with a distinct student visual treatment/color.
+- workload surfaces: student identity remains visibly distinct from therapist identity.
+- internal provider kind remains `STUDENT`.
+- `φοιτ 1`, `φοιτ 2`, etc. are physical placeholders/slots only.
+- when placement ends, the active real name disappears from the operational slot and the slot returns to its neutral numbered placeholder.
+- history retains real StudentID/name and does not retroactively become `φοιτ N`.
+- if active registered students exceed available numbered physical slots, safety stop rather than silent misprojection.
 
 ## Therapist workload contract already locked
 
@@ -214,17 +234,17 @@ Remaining implementation-design details:
 ## Exact resume point
 
 1. Student replacement vertical is operationally closed end-to-end after native smoke on `2026-10-26`.
-2. Latest focused gate for the final student layout/projection changes: `19 passed in 2.35s`.
-3. Native smoke persisted 2 ACTIVE student replacement facts for `0000-STUDENT-SMOKE`; `THERAPIST_DAILY` projection and application contract both verified OK.
+2. Unresolved-orphan → explicit `Αναστολή θεραπείας` vertical is operationally closed end-to-end after native smoke on `2026-10-26`.
+3. Suspension smoke result: 5 displaced sessions, 3 replacements, 2 persisted treatment suspensions, unresolved 0, input unchanged, application contract OK.
 4. Do not reopen the already-closed double-booking no-close/no-reopen workflow unless a regression appears.
-5. Reassess the remaining replacement-quality checklist before opening the next implementation vertical.
+5. Reassess the remaining replacement-quality checklist before opening another implementation vertical.
 6. Keep the statistics/history decisions below locked for the later day-finalization/history slice.
 7. Do not manually save smoke workbooks outside a tested flow.
 8. Do not return to restore performance tuning yet.
 
 ## Open replacement-quality milestone
 
-The replacement lifecycle is correct. The global assignment path now includes reclining adjacency, special pool/robotic service hours and student provider identity/wiring, but the broader replacement-quality checklist remains the controlling contract until explicitly closed.
+The global replacement path now includes global scarcity-aware solving, reclining adjacency, persistent special pool/robotic service hours, student provider identity/wiring, and explicit suspension fallback for unplaceable sessions.
 
 All known therapist absences for a date must be entered first. Then all displaced sessions are solved together, not greedily.
 
@@ -239,7 +259,8 @@ Locked highlights:
 - 13:00 is only a weak soft preference to avoid,
 - pool/robotic operating hours must remain persistent configuration,
 - students remain distinct `STUDENT` providers and must be sourced from the authoritative `STUDENTS` registry,
-- double-booking/over-capacity is last resort only and requires explicit user approval.
+- double-booking/over-capacity is last resort only and requires explicit user approval,
+- every remaining orphan must become an explicit treatment suspension before finalization.
 
 ## Locked daily truth
 
