@@ -21,7 +21,7 @@ from rehab_core.daily_statistics import calculate_daily_treatment_statistics  # 
 from rehab_core.global_replacement_end_to_end import (  # noqa: E402
     build_global_replacement_assignments,
 )
-from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
+from rehab_core.models import AbsenceKind, SessionCancellationKind, Therapist  # noqa: E402
 from rehab_core.reclining_adjacency import build_reclining_adjacency_penalty  # noqa: E402
 from rehab_core.service_replacement_options import build_service_id_by_session  # noqa: E402
 from rehab_core.therapist_absence_queue import (  # noqa: E402
@@ -48,6 +48,11 @@ from rehab_excel.daily_replacement_facts import (  # noqa: E402
 from rehab_excel.daily_statistics_writer import (  # noqa: E402
     DailyStatisticsWriteError,
     write_daily_statistics,
+)
+from rehab_excel.daily_suspension_resolution import (  # noqa: E402
+    DailySuspensionResolutionError,
+    build_unresolved_suspensions,
+    persist_daily_input_suspensions,
 )
 from rehab_excel.global_replacement_ledger import (  # noqa: E402
     GlobalReplacementLedgerError,
@@ -243,19 +248,19 @@ def main() -> int:
             replacement_id_factory=_replacement_id_factory(history_rows, session_by_id),
             reason="DAILY_INPUT global therapist absence plan",
         )
-        if result.unresolved_request_ids:
-            unresolved = ", ".join(result.unresolved_request_ids)
-            raise DailyInputReadError(
-                "Global replacement plan is incomplete; no preview will be written. "
-                f"Unresolved sessions: {unresolved}"
-            )
 
+        generated_suspensions = build_unresolved_suspensions(
+            result.unresolved_request_ids,
+            sessions=sessions,
+            target_date=target_date,
+        )
         all_replacements = existing_replacements + result.assignments
+        all_cancellations = daily.cancellations + generated_suspensions
         states = build_daily_session_states(
             sessions,
             absences=daily.absences,
             replacements=all_replacements,
-            cancellations=daily.cancellations,
+            cancellations=all_cancellations,
             target_date=target_date,
         )
         statistics = calculate_daily_treatment_statistics(states)
@@ -295,6 +300,33 @@ def main() -> int:
             sessions=sessions,
             existing_active_replacements=existing_replacements,
         )
+        persisted_suspensions = persist_daily_input_suspensions(
+            output,
+            generated_suspensions,
+            sessions=sessions,
+            patients=patients,
+        )
+        if persisted_suspensions:
+            persisted_daily = read_daily_input(
+                output,
+                patients=patients,
+                sessions=sessions,
+                therapist_names=settings.therapist_names,
+            )
+            expected_suspensions = {
+                item.target_session_id for item in generated_suspensions
+            }
+            actual_suspensions = {
+                item.target_session_id
+                for item in persisted_daily.cancellations
+                if item.kind == SessionCancellationKind.TREATMENT_SUSPENDED
+            }
+            if not expected_suspensions.issubset(actual_suspensions):
+                missing = ", ".join(sorted(expected_suspensions - actual_suspensions))
+                raise DailySuspensionResolutionError(
+                    f"Persisted DAILY_INPUT suspension read-back is incomplete: {missing}"
+                )
+
         write_daily_statistics(output, target_date, statistics)
 
         ledger_records = build_global_replacement_ledger_records(
@@ -311,6 +343,7 @@ def main() -> int:
         DailyInputReadError,
         DailyReplacementFactError,
         DailyStatisticsWriteError,
+        DailySuspensionResolutionError,
         PatientCentricPreviewError,
         PatientRegistrySourceError,
         StudentRegistryError,
@@ -336,8 +369,9 @@ def main() -> int:
     print(f"Date: {target_date.isoformat()}")
     print(f"Displaced sessions solved together: {len(target_sessions)}")
     print(f"New replacement assignments: {len(result.assignments)}")
+    print(f"Treatment suspensions: {len(generated_suspensions)}")
     print(f"Existing active replacements retained: {len(existing_replacements)}")
-    print(f"Unresolved sessions: {len(result.unresolved_request_ids)}")
+    print("Unresolved sessions: 0")
     print(f"Preview: {report.output_path}")
     print(f"Input unchanged: {report.source_unchanged}")
     print("Application contract input: OK")
@@ -349,6 +383,12 @@ def main() -> int:
             f"  {assignment.patient_id}: {assignment.original_therapist_id} -> "
             f"{assignment.replacement_therapist_id} "
             f"{assignment.replacement_time.strftime('%H:%M')}"
+        )
+    for suspension in generated_suspensions:
+        session = session_by_id[suspension.target_session_id]
+        print(
+            f"  {session.patient_id}: {session.therapist_id} -> "
+            f"Αναστολή θεραπείας {session.start_time.strftime('%H:%M')}"
         )
     return 0 if report.source_unchanged else 3
 
