@@ -369,7 +369,8 @@ def main() -> int:
             bindings=preview.bindings,
             final_cancellations=all_cancellations,
         )
-        install_daily_change_ledger_preview(output, input_book, ledger_records)
+        if ledger_records:
+            install_daily_change_ledger_preview(output, input_book, ledger_records)
         output_contract = assert_application_contract(output)
 
     except (
