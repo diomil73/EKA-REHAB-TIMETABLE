@@ -143,8 +143,6 @@ def render_base_slot(
             )
             continue
 
-        # Same patient, same therapist/time, multiple recurring assignments.
-        # Show the name once and summarize the independent assignments below.
         lines.append(VisualLine(patient.display_name, patient_id=patient_id))
         details = " | ".join(
             f"{entry.day_pattern} {_treatment_label(entry.treatment)}"
@@ -171,7 +169,7 @@ def _line_runs(lines: Iterable[VisualLine]) -> tuple[TextRunPatch, ...]:
             )
         cursor += len(line.text)
         if index >= 0:
-            cursor += 1  # newline between visual lines; harmless after final line
+            cursor += 1
     return tuple(runs)
 
 
@@ -289,8 +287,8 @@ def _provider_cell(
             candidates.extend(
                 (
                     state.label,
-                    f"φοιτ {student.student_number}",
-                    f"φοιτητής {student.student_number}",
+                    f"φοιτ {student.student_id}",
+                    f"φοιτητής {student.student_id}",
                 )
             )
     candidates.extend((provider_labels.get(provider_id, provider_id), provider_id))
@@ -325,13 +323,7 @@ def build_patient_centric_preview_plan(
     students: Iterable[Student] = (),
     rebuild_multi_member_groups: bool = True,
 ) -> PatientCentricPreviewPlan:
-    """Build a patient-centric THERAPIST_DAILY preview.
-
-    This is deliberately a preview-layer experiment. It rebuilds only affected
-    cells plus, optionally, existing multi-assignment cells so paired patients
-    and same-patient split schedules can be inspected without rewriting the
-    whole daily sheet.
-    """
+    """Build a patient-centric THERAPIST_DAILY preview."""
 
     workbook_path = Path(workbook_path)
     entry_list = list(base_entries)
@@ -396,12 +388,6 @@ def build_patient_centric_preview_plan(
                 target_date=target_date,
             )
             date_label = _temporary_date_label(target_date)
-            # THERAPIST_DAILY is already a dated operational view.  Repeating the
-            # date on the source replacement note makes narrow cells wrap into
-            # three or four visual lines when several replacements are present.
-            # Keep the source overlay compact; retain the date on the destination
-            # assignment where it is needed to distinguish a temporary insertion
-            # from the recurring base programme.
             source_render = _append_line(
                 source_render,
                 VisualLine(
@@ -413,10 +399,6 @@ def build_patient_centric_preview_plan(
 
             destination_key = (state.effective_therapist_id, state.effective_time)
             destination_entries = grouped.get(destination_key, ())
-            # A temporary insertion makes a previously single-patient cell a
-            # multi-line operational cell. Rebuild the BASE lines with explicit
-            # day patterns before adding the replacement so we never lose the
-            # existing patient's recurring-day information.
             destination_render = render_base_slot(
                 destination_key[0],
                 destination_key[1],
@@ -504,11 +486,16 @@ def build_patient_centric_preview_plan(
     for (therapist_id, slot_time), render in sorted(
         renders.items(), key=lambda item: (item[0][1], item[0][0].casefold())
     ):
+        provider_kind = (
+            ReplacementProviderKind.STUDENT
+            if therapist_id in student_map
+            else ReplacementProviderKind.THERAPIST
+        )
         cell = _provider_cell(
             workbook_path,
             therapist_id,
             slot_time,
-            provider_kind=ReplacementProviderKind.THERAPIST,
+            provider_kind=provider_kind,
             provider_labels=labels,
             students=student_map,
             target_date=target_date,
