@@ -63,6 +63,17 @@ def test_tool_requires_double_booking_review_before_suspension_when_options_exis
     assert "--reject-double-booking" in source
 
 
+def test_tool_skips_replacement_ledger_installer_when_finalization_is_suspension_only():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    build_ledger = source.index("ledger_records = build_global_replacement_ledger_records(")
+    empty_guard = source.index("if ledger_records:", build_ledger)
+    install_ledger = source.index("install_daily_change_ledger_preview(", empty_guard)
+
+    assert build_ledger < empty_guard < install_ledger
+    assert "if ledger_records:\n            install_daily_change_ledger_preview" in source
+
+
 def test_tool_requires_complete_app_contract_before_and_after_write():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
