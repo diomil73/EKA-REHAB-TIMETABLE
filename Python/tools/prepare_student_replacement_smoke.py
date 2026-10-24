@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -57,18 +57,18 @@ def _parse_date(value: str) -> date:
         raise argparse.ArgumentTypeError("Date must be YYYY-MM-DD") from exc
 
 
-def _daily_input_therapist_names(path: Path) -> tuple[str, ...]:
+def _read_daily_input_therapists(path: Path) -> tuple[str, ...]:
     wb = load_workbook(path, read_only=True, data_only=False, keep_vba=True)
     try:
         if "DAILY_INPUT" not in wb.sheetnames:
             return ()
         ws = wb["DAILY_INPUT"]
-        names: list[str] = []
-        max_row = max(7, ws.max_row)
-        for row in range(7, max_row + 1):
-            value = str(ws.cell(row=row, column=1).value or "").strip()
-            if value:
-                names.append(value)
+        names = []
+        for row in range(7, ws.max_row + 1):
+            value = ws.cell(row=row, column=1).value
+            text = str(value or "").strip()
+            if text:
+                names.append(text)
         return tuple(dict.fromkeys(names))
     finally:
         wb.close()
@@ -80,12 +80,7 @@ def choose_student_smoke_target(
     allowed_therapists: tuple[str, ...],
     max_displaced: int = 5,
 ):
-    """Choose one real therapist absence small enough for one student to absorb.
-
-    Prefer a provider whose affected sessions are all non-robotic, then the
-    smallest displaced load. ``allowed_therapists`` must already be restricted
-    to providers that can actually be marked absent in the DAILY_INPUT sheet.
-    """
+    """Choose one real therapist absence small enough for one student to absorb."""
     if max_displaced < 1:
         raise ValueError("max_displaced must be positive")
 
@@ -120,6 +115,35 @@ def choose_student_smoke_target(
         candidates, key=lambda item: (item[0], item[1], item[2])
     )
     return therapist_id, affected
+
+
+def choose_viable_smoke_date(
+    base_entries,
+    *,
+    requested_date: date,
+    allowed_therapists: tuple[str, ...],
+    max_displaced: int,
+    search_days: int = 21,
+):
+    """Use requested date when viable, otherwise choose the nearest later weekday."""
+    for offset in range(search_days + 1):
+        candidate_date = requested_date + timedelta(days=offset)
+        if candidate_date.weekday() >= 5:
+            continue
+        sessions = materialize_sessions_for_date(base_entries, candidate_date)
+        try:
+            therapist_id, affected = choose_student_smoke_target(
+                sessions,
+                allowed_therapists=allowed_therapists,
+                max_displaced=max_displaced,
+            )
+        except ValueError:
+            continue
+        return candidate_date, sessions, therapist_id, affected
+    raise ValueError(
+        f"No viable student-replacement smoke date found within {search_days} days "
+        f"from {requested_date.isoformat()}"
+    )
 
 
 def _write_smoke_rows(
@@ -216,6 +240,7 @@ def main() -> int:
         default=REPO_ROOT / "Excel" / "previews" / "STUDENT_REPLACEMENT_INPUT.xlsm",
     )
     parser.add_argument("--max-displaced", type=int, default=5)
+    parser.add_argument("--search-days", type=int, default=21)
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
@@ -234,27 +259,28 @@ def main() -> int:
             raise StudentReplacementSmokeError("Patient identity audit failed")
 
         settings = read_settings(source)
-        daily_input_names = _daily_input_therapist_names(source)
-        allowed_smoke_therapists = tuple(
-            name for name in settings.therapist_names if name in set(daily_input_names)
+        daily_input_therapists = _read_daily_input_therapists(source)
+        allowed_therapists = tuple(
+            name for name in settings.therapist_names if name in set(daily_input_therapists)
         )
-        if not allowed_smoke_therapists:
+        if not allowed_therapists:
             raise StudentReplacementSmokeError(
-                "DAILY_INPUT contains no therapist names that match SETTINGS"
+                "No SETTINGS therapist is present in DAILY_INPUT"
             )
 
         base_entries = read_unified_base_schedule(source)
-        sessions = materialize_sessions_for_date(base_entries, args.date)
-        absent_therapist_id, affected = choose_student_smoke_target(
-            sessions,
-            allowed_therapists=allowed_smoke_therapists,
+        target_date, sessions, absent_therapist_id, affected = choose_viable_smoke_date(
+            base_entries,
+            requested_date=args.date,
+            allowed_therapists=allowed_therapists,
             max_displaced=args.max_displaced,
+            search_days=args.search_days,
         )
         patients = read_patient_registry(source)
         patient_by_id = {patient.patient_id: patient.display_name for patient in patients}
 
         spec = build_daily_input_spec(
-            target_date=args.date,
+            target_date=target_date,
             therapist_names=settings.therapist_names,
             patient_names=patient_audit.dropdown_names,
             patient_statuses=settings.patient_statuses,
@@ -271,7 +297,7 @@ def main() -> int:
 
         _write_smoke_rows(
             preview,
-            target_date=args.date,
+            target_date=target_date,
             absent_therapist_id=absent_therapist_id,
         )
 
@@ -282,7 +308,7 @@ def main() -> int:
         )
         if smoke_student is None:
             raise StudentReplacementSmokeError("Synthetic smoke student did not read back")
-        if not smoke_student.is_active(args.date):
+        if not smoke_student.is_active(target_date):
             raise StudentReplacementSmokeError("Synthetic smoke student is not active")
         if not smoke_student.replacement_capable:
             raise StudentReplacementSmokeError("Synthetic smoke student is not replacement-capable")
@@ -320,7 +346,8 @@ def main() -> int:
 
     source_unchanged = file_sha256(source) == source_hash
     print("STUDENT REPLACEMENT SMOKE INPUT OK")
-    print(f"Date: {args.date.isoformat()}")
+    print(f"Requested date: {args.date.isoformat()}")
+    print(f"Smoke date: {target_date.isoformat()}")
     print(f"Smoke student: {SMOKE_STUDENT_ID} | {SMOKE_STUDENT_NAME}")
     print(f"Absent therapist: {absent_therapist_id}")
     print(f"Displaced sessions: {len(affected)}")
