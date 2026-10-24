@@ -1,6 +1,6 @@
 # Statistics & History Design
 
-Last updated: 2026-10-20
+Last updated: 2026-10-24
 
 ## Purpose
 
@@ -17,11 +17,19 @@ For each therapist/day, persist at least:
 - final occupied timeslots,
 - final active/performed sessions,
 - replacements received,
-- cancellations/no-shows that released capacity,
+- cancellations/no-shows that changed the final operational workload,
 - treatment suspensions affecting the final day,
 - explicit approved double-booking/over-capacity exceptions when they occur.
 
 Occupied timeslots and active sessions are separate measures. A legitimate shared slot may contain two sessions but consume one occupied timeslot.
+
+### Reporting scope decision: unused/idle capacity
+
+Do **not** include `available/unused timeslots`, `unused capacity`, `idle time`, or equivalent "unexploited available time" metrics in the primary therapist reporting scope.
+
+The reporting system should focus on actual work performed and final operational outcomes, not on interpreting unoccupied capacity as a staff-performance measure.
+
+This metric is deliberately set aside unless the user explicitly reopens it in a future design decision.
 
 ## Secondary planned-vs-actual context
 
@@ -291,22 +299,23 @@ These labels are business-facing requirements. Internal reason codes may be stab
 
 The attendance report should reconcile presence days/hours, absence days/hours and reason breakdown rather than maintaining a manually typed annual total.
 
-### Additional therapist statistics recovered from earlier project notes
+### Additional therapist statistics retained in scope
 
-Earlier roadmap/future-feature files already recorded the following candidate statistics and they remain useful unless explicitly removed later:
+The therapist statistical set remains focused on actual work and operational outcomes:
 
 - total treatments,
 - daily/weekly/monthly workload,
 - replacements accepted,
 - infectious-patient workload,
 - robotic workload,
-- available/unused timeslots,
-- cancellations and patient absences affecting utilization,
+- cancellations and patient absences affecting the final operational result,
 - sessions lost because of therapist absence,
 - sessions successfully covered through replacement,
 - absence dates/counts/reasons and related operational replacement history,
 - current active-patient/load view,
 - quick list of therapists with high workload.
+
+`Available/unused timeslots` and equivalent idle-capacity metrics are intentionally excluded from the current reporting scope unless explicitly reopened later.
 
 Therapist statistics should be derived from assignments, finalized daily facts and operational event history wherever possible, not maintained as parallel manual totals.
 
