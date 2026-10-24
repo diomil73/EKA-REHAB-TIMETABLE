@@ -37,11 +37,13 @@ def test_tool_resolves_global_solver_leftovers_as_persisted_treatment_suspension
     build_suspensions = source.index("generated_suspensions = build_unresolved_suspensions(")
     build_states = source.index("states = build_daily_session_states(")
     write_preview = source.index("report = apply_write_plan_to_copy")
+    persist_replacements = source.index("persist_global_replacement_result(")
     persist_suspensions = source.index("persisted_suspensions = persist_daily_input_suspensions(")
     read_back = source.index("persisted_daily = read_daily_input(", persist_suspensions)
 
-    assert build_suspensions < build_states < write_preview < persist_suspensions < read_back
+    assert build_suspensions < build_states < write_preview < persist_replacements < persist_suspensions < read_back
     assert "all_cancellations = daily.cancellations + generated_suspensions" in source
+    assert "require_fully_resolved=False" in source[persist_replacements:persist_suspensions]
     assert "SessionCancellationKind.TREATMENT_SUSPENDED" in source
     assert 'print("Unresolved sessions: 0")' in source
     assert "Global replacement plan is incomplete; no preview will be written" not in source
