@@ -49,6 +49,20 @@ def test_tool_resolves_global_solver_leftovers_as_persisted_treatment_suspension
     assert "Global replacement plan is incomplete; no preview will be written" not in source
 
 
+def test_tool_requires_double_booking_review_before_suspension_when_options_exist():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    build_review = source.index("review_items = build_double_booking_review_items(")
+    review_gate = source.index("if reviewable_items and not args.reject_double_booking:")
+    build_suspensions = source.index("generated_suspensions = build_unresolved_suspensions(")
+
+    assert build_review < review_gate < build_suspensions
+    assert 'parser.add_argument(\n        "--reject-double-booking"' in source
+    assert "Double-booking review is required before treatment suspension" in source
+    assert "Confirm one offered exception in the review UI" in source
+    assert "--reject-double-booking" in source
+
+
 def test_tool_requires_complete_app_contract_before_and_after_write():
     source = TOOL_PATH.read_text(encoding="utf-8")
 
