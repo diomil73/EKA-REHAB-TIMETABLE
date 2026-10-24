@@ -4,7 +4,13 @@ import pytest
 
 from rehab_core.daily_state import DailySessionStatus
 from rehab_core.global_replacement_end_to_end import GlobalReplacementAssignmentResult
-from rehab_core.models import Patient, ReplacementAssignment, Session
+from rehab_core.models import (
+    DailySessionCancellation,
+    Patient,
+    ReplacementAssignment,
+    Session,
+    SessionCancellationKind,
+)
 from rehab_excel.global_replacement_ledger import (
     GlobalReplacementLedgerError,
     build_global_replacement_ledger_records,
@@ -52,6 +58,16 @@ def _binding(effective_cell: str | None = "E8") -> PreviewBinding:
     )
 
 
+def _suspension(session_id: str) -> DailySessionCancellation:
+    return DailySessionCancellation(
+        cancellation_id=f"suspend:{session_id}",
+        target_session_id=session_id,
+        cancellation_date=TODAY,
+        kind=SessionCancellationKind.TREATMENT_SUSPENDED,
+        reason="Αναστολή θεραπείας",
+    )
+
+
 def test_builds_reversible_ledger_record_from_global_assignment_and_preview_binding():
     result = GlobalReplacementAssignmentResult(assignments=(_assignment(),), unresolved_request_ids=())
 
@@ -84,6 +100,21 @@ def test_rejects_unresolved_global_plan_before_ledger_creation():
             patients=(_patient(),),
             bindings=(_binding(),),
         )
+
+
+def test_accepts_solver_leftover_when_same_session_is_explicitly_suspended():
+    result = GlobalReplacementAssignmentResult(assignments=(_assignment(),), unresolved_request_ids=("S2",))
+
+    records = build_global_replacement_ledger_records(
+        result,
+        sessions=(_session(),),
+        patients=(_patient(),),
+        bindings=(_binding(),),
+        final_cancellations=(_suspension("S2"),),
+    )
+
+    assert len(records) == 1
+    assert records[0].change_id == "R1"
 
 
 def test_rejects_missing_effective_destination_cell():
