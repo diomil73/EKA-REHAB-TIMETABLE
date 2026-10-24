@@ -31,13 +31,20 @@ def test_tool_uses_global_solver_and_not_sequential_choice_loop():
     assert "SEQUENTIAL THERAPIST ABSENCE RESOLUTION" not in source
 
 
-def test_tool_refuses_incomplete_global_plan_before_preview_write():
+def test_tool_resolves_global_solver_leftovers_as_persisted_treatment_suspensions():
     source = TOOL_PATH.read_text(encoding="utf-8")
-    unresolved_guard = source.index("if result.unresolved_request_ids:")
-    write_preview = source.index("report = apply_write_plan_to_copy")
 
-    assert unresolved_guard < write_preview
-    assert "Global replacement plan is incomplete; no preview will be written" in source
+    build_suspensions = source.index("generated_suspensions = build_unresolved_suspensions(")
+    build_states = source.index("states = build_daily_session_states(")
+    write_preview = source.index("report = apply_write_plan_to_copy")
+    persist_suspensions = source.index("persisted_suspensions = persist_daily_input_suspensions(")
+    read_back = source.index("persisted_daily = read_daily_input(", persist_suspensions)
+
+    assert build_suspensions < build_states < write_preview < persist_suspensions < read_back
+    assert "all_cancellations = daily.cancellations + generated_suspensions" in source
+    assert "SessionCancellationKind.TREATMENT_SUSPENDED" in source
+    assert 'print("Unresolved sessions: 0")' in source
+    assert "Global replacement plan is incomplete; no preview will be written" not in source
 
 
 def test_tool_requires_complete_app_contract_before_and_after_write():
