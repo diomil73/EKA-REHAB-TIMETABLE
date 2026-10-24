@@ -3,10 +3,8 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
-
-from openpyxl import load_workbook
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = REPO_ROOT / "Python"
@@ -57,23 +55,6 @@ def _parse_date(value: str) -> date:
         raise argparse.ArgumentTypeError("Date must be YYYY-MM-DD") from exc
 
 
-def _read_daily_input_therapists(path: Path) -> tuple[str, ...]:
-    wb = load_workbook(path, read_only=True, data_only=False, keep_vba=True)
-    try:
-        if "DAILY_INPUT" not in wb.sheetnames:
-            return ()
-        ws = wb["DAILY_INPUT"]
-        names = []
-        for row in range(7, ws.max_row + 1):
-            value = ws.cell(row=row, column=1).value
-            text = str(value or "").strip()
-            if text:
-                names.append(text)
-        return tuple(dict.fromkeys(names))
-    finally:
-        wb.close()
-
-
 def choose_student_smoke_target(
     sessions,
     *,
@@ -108,42 +89,13 @@ def choose_student_smoke_target(
 
     if not candidates:
         raise ValueError(
-            f"No DAILY_INPUT therapist has between 1 and {max_displaced} session(s) on the smoke date"
+            f"No therapist has between 1 and {max_displaced} session(s) on the smoke date"
         )
 
     _robotic_flag, _count, therapist_id, affected = min(
         candidates, key=lambda item: (item[0], item[1], item[2])
     )
     return therapist_id, affected
-
-
-def choose_viable_smoke_date(
-    base_entries,
-    *,
-    requested_date: date,
-    allowed_therapists: tuple[str, ...],
-    max_displaced: int,
-    search_days: int = 21,
-):
-    """Use requested date when viable, otherwise choose the nearest later weekday."""
-    for offset in range(search_days + 1):
-        candidate_date = requested_date + timedelta(days=offset)
-        if candidate_date.weekday() >= 5:
-            continue
-        sessions = materialize_sessions_for_date(base_entries, candidate_date)
-        try:
-            therapist_id, affected = choose_student_smoke_target(
-                sessions,
-                allowed_therapists=allowed_therapists,
-                max_displaced=max_displaced,
-            )
-        except ValueError:
-            continue
-        return candidate_date, sessions, therapist_id, affected
-    raise ValueError(
-        f"No viable student-replacement smoke date found within {search_days} days "
-        f"from {requested_date.isoformat()}"
-    )
 
 
 def _write_smoke_rows(
@@ -183,18 +135,8 @@ def _write_smoke_rows(
         students_ws.Cells(next_row, 7).Value = "ΝΑΙ"
 
         daily_ws = workbook.Worksheets("DAILY_INPUT")
-        last_daily_row = max(7, daily_ws.UsedRange.Rows.Count)
-        absence_row = None
-        for row in range(7, last_daily_row + 1):
-            value = str(daily_ws.Cells(row, 1).Value2 or "").strip()
-            if value == absent_therapist_id:
-                absence_row = row
-                break
-        if absence_row is None:
-            raise StudentReplacementSmokeError(
-                f"Therapist {absent_therapist_id!r} not found in DAILY_INPUT"
-            )
-
+        absence_row = 7
+        daily_ws.Cells(absence_row, 1).Value = absent_therapist_id
         daily_ws.Cells(absence_row, 2).Value = "ΝΑΙ"
         daily_ws.Range(
             daily_ws.Cells(absence_row, 3), daily_ws.Cells(absence_row, 4)
@@ -240,7 +182,6 @@ def main() -> int:
         default=REPO_ROOT / "Excel" / "previews" / "STUDENT_REPLACEMENT_INPUT.xlsm",
     )
     parser.add_argument("--max-displaced", type=int, default=5)
-    parser.add_argument("--search-days", type=int, default=21)
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
@@ -259,28 +200,18 @@ def main() -> int:
             raise StudentReplacementSmokeError("Patient identity audit failed")
 
         settings = read_settings(source)
-        daily_input_therapists = _read_daily_input_therapists(source)
-        allowed_therapists = tuple(
-            name for name in settings.therapist_names if name in set(daily_input_therapists)
-        )
-        if not allowed_therapists:
-            raise StudentReplacementSmokeError(
-                "No SETTINGS therapist is present in DAILY_INPUT"
-            )
-
         base_entries = read_unified_base_schedule(source)
-        target_date, sessions, absent_therapist_id, affected = choose_viable_smoke_date(
-            base_entries,
-            requested_date=args.date,
-            allowed_therapists=allowed_therapists,
+        sessions = materialize_sessions_for_date(base_entries, args.date)
+        absent_therapist_id, affected = choose_student_smoke_target(
+            sessions,
+            allowed_therapists=tuple(settings.therapist_names),
             max_displaced=args.max_displaced,
-            search_days=args.search_days,
         )
         patients = read_patient_registry(source)
         patient_by_id = {patient.patient_id: patient.display_name for patient in patients}
 
         spec = build_daily_input_spec(
-            target_date=target_date,
+            target_date=args.date,
             therapist_names=settings.therapist_names,
             patient_names=patient_audit.dropdown_names,
             patient_statuses=settings.patient_statuses,
@@ -297,7 +228,7 @@ def main() -> int:
 
         _write_smoke_rows(
             preview,
-            target_date=target_date,
+            target_date=args.date,
             absent_therapist_id=absent_therapist_id,
         )
 
@@ -308,7 +239,7 @@ def main() -> int:
         )
         if smoke_student is None:
             raise StudentReplacementSmokeError("Synthetic smoke student did not read back")
-        if not smoke_student.is_active(target_date):
+        if not smoke_student.is_active(args.date):
             raise StudentReplacementSmokeError("Synthetic smoke student is not active")
         if not smoke_student.replacement_capable:
             raise StudentReplacementSmokeError("Synthetic smoke student is not replacement-capable")
@@ -346,8 +277,7 @@ def main() -> int:
 
     source_unchanged = file_sha256(source) == source_hash
     print("STUDENT REPLACEMENT SMOKE INPUT OK")
-    print(f"Requested date: {args.date.isoformat()}")
-    print(f"Smoke date: {target_date.isoformat()}")
+    print(f"Date: {args.date.isoformat()}")
     print(f"Smoke student: {SMOKE_STUDENT_ID} | {SMOKE_STUDENT_NAME}")
     print(f"Absent therapist: {absent_therapist_id}")
     print(f"Displaced sessions: {len(affected)}")
