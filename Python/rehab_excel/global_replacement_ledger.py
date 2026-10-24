@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from rehab_core.global_replacement_end_to_end import GlobalReplacementAssignmentResult
-from rehab_core.models import Patient, Session
+from rehab_core.models import DailySessionCancellation, Patient, Session, SessionCancellationKind
 
 from .daily_change_ledger_vba import DailyChangeLedgerRecord
 from .patient_centric_preview import PreviewBinding
@@ -19,17 +19,30 @@ def build_global_replacement_ledger_records(
     sessions: Iterable[Session],
     patients: Iterable[Patient],
     bindings: Iterable[PreviewBinding],
+    final_cancellations: Iterable[DailySessionCancellation] = (),
 ) -> tuple[DailyChangeLedgerRecord, ...]:
     """Bind a finalized global plan to exact THERAPIST_DAILY source/destination cells.
 
-    This function is mutation-free. It requires one preview binding per assignment
-    and refuses unresolved global plans, because a partially resolved day must never
-    be presented as a final reversible ledger transaction.
+    Replacement assignments become reversible ledger records. Solver leftovers are
+    accepted only when the same target sessions are explicitly finalized as
+    ``TREATMENT_SUSPENDED`` cancellations. Any genuinely unresolved request still
+    blocks ledger creation.
     """
 
-    if result.unresolved_request_ids:
+    suspended_session_ids = {
+        item.target_session_id
+        for item in final_cancellations
+        if item.kind == SessionCancellationKind.TREATMENT_SUSPENDED
+    }
+    unresolved_without_final_outcome = tuple(
+        request_id
+        for request_id in result.unresolved_request_ids
+        if request_id not in suspended_session_ids
+    )
+    if unresolved_without_final_outcome:
         raise GlobalReplacementLedgerError(
-            "Cannot build a final daily ledger while global replacements remain unresolved"
+            "Cannot build a final daily ledger while global replacements remain unresolved: "
+            + ", ".join(unresolved_without_final_outcome)
         )
 
     session_by_id = {session.session_id: session for session in sessions}
