@@ -10,6 +10,8 @@
 ## Unreleased
 
 ### Added
+- Native suspension-resolution flow for global replacement leftovers: unresolved displaced sessions now become explicit `Αναστολή θεραπείας` daily cancellations instead of blocking the entire daily plan.
+- Native smoke preparation and verification for suspension resolution, including persisted DAILY_INPUT read-back, zero unresolved sessions after recompute, and treatment-suspension statistics verification.
 - Application-style outpatient schedule manager listing patient, treatment, time, days and therapist while keeping worksheet row/internal target mapping hidden from the user.
 - Outpatient daily-edit hardening that removes stale plain/decorated patient render lines from affected old/destination `THERAPIST_DAILY` cells before rendering the edited placement once.
 - Regression coverage proving one outpatient recurring entry materializes to one operational session and contributes one occupied therapist timeslot.
@@ -24,6 +26,8 @@
 - Backend restore profiler with Excel-output and pre-Excel phase timings for targeted latency work.
 
 ### Changed
+- Global replacement finalization now treats a day as complete when every solver leftover has been converted to an explicit `TREATMENT_SUSPENDED` cancellation. Replacement-fact persistence and the reversible daily ledger remain strict for genuinely unresolved sessions.
+- The global replacement ledger accepts solver leftovers only when the same session IDs are explicitly present in final cancellations as `TREATMENT_SUSPENDED`; otherwise it still safety-stops.
 - Outpatient smoke installation now upgrades legacy registration menus that did not yet contain an outpatient action: it creates the visible `Προγράμματα εξωτερικών ασθενών` button, moves the close action out of the way, and routes the new button to the schedule manager.
 - `EditOutpatientSchedule` now opens the business-facing outpatient schedule manager instead of asking the user for an `OUTPATIENT_SCHEDULE` worksheet row. The existing registration menu outpatient action is routed to the same manager.
 - Outpatient recurring edit carries `target_base_entry_id` through conflict validation and the final in-session write. The writer validates the target row and PatientID, updates the same `outpatient:<row>` instead of appending a duplicate, and refreshes the current-date therapist-daily placement when therapist/time/day changes.
