@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-10-20
+Last updated: 2026-10-24
 
 ## Entry point
 
@@ -10,15 +10,13 @@ Branch: `feature/outpatient-scheduling`.
 
 ## Current stage
 
-Active milestone: **statistics/history design checkpoint**.
-
-CREATE is native green. The application-style manager is visible and usable in native Excel. The duplicate outpatient edit bug was reproduced and hardened. The therapist/time collision path and workload refresh were reworked and the latest fresh native smoke was reported by the user as behaving correctly. Workload visibility is present on MASTER and the outpatient edit/conflict/workload milestone is treated as operationally green, subject to broader regression later.
-
-The THERAPIST_DAILY presentation cleanup source gate is now green: **27 passed in 3.09s**. Neutral outpatient text and robotic-orange precedence are covered without changing scheduling truth or workload semantics.
-
-The project now enters the dedicated statistics/history design checkpoint before deep global multi-absence optimizer work. This checkpoint must lock historical facts, weekly therapist workload history, retention and dashboard semantics before implementation begins.
+Active milestone: **replacement-quality closure pass**.
 
 Restore correctness is closed green. Restore performance is deferred.
+
+Outpatient recurring CREATE/edit/manager, therapist workload refresh, THERAPIST_DAILY presentation cleanup, confirmed double-booking, global replacement solving, student-provider wiring and explicit suspension fallback are all operationally verified on their focused/native paths.
+
+The current task is no longer to add obvious missing replacement primitives. It is to reassess the locked replacement-quality checklist against the now-implemented system and identify any remaining genuine gap before declaring the replacement milestone closed.
 
 ## Latest confirmed checkpoints
 
@@ -28,13 +26,19 @@ Restore correctness is closed green. Restore performance is deferred.
 - `build_master_projection`: **0.089s**
 - V87-V92 authoritative restore/reconstruction lifecycle: **native green**
 - per-row / selected / restore-all in-session restore correctness: **native green**
-- previous combined outpatient recurring smoke build: **native green**, trusted source unchanged
+- combined outpatient recurring smoke build: **native green**, trusted source unchanged
 - outpatient recurring CREATE: **native green**
 - outpatient manager: **native visible and usable**
 - duplicate-fix focused gate: **45 passed, 4 warnings in 4.98s**
 - collision/workload focused gate: **33 passed, 5 warnings in 4.60s**
-- latest native outpatient collision + valid reassignment + workload scenario: **user reported it appears correct**
 - THERAPIST_DAILY presentation cleanup gate: **27 passed in 3.09s**
+- double-booking focused gate: **13 passed in 1.63s**, native V5 green
+- global replacement / reclining / service-policy gate: **38 passed in 5.30s**
+- student production wiring gate: **39 passed in 2.35s**
+- student layout/projection gate: **19 passed in 2.35s**
+- native student replacement smoke: **VERIFIED**, 2 ACTIVE student replacement facts, THERAPIST_DAILY OK
+- unresolved-to-suspension focused gate: **24 passed in 3.74s**
+- native suspension-resolution smoke: **VERIFIED** on `2026-10-26`; 5 displaced sessions, 3 replacement assignments, 2 persisted treatment suspensions, unresolved 0, input unchanged, application contract OK (54 components)
 
 Python 3.14 `ZipFile.__del__` teardown warnings remain non-blocking technical debt.
 
@@ -52,6 +56,22 @@ Replacement facts preserve immutable lifecycle history. Restore correctness, rec
 
 Primary restore UX keeps the workbook open, runs Python hidden/blocking, protects rollback, imports verified state in-session and avoids visible console / close-reopen behavior.
 
+## Closed: unresolved orphan finalization
+
+Global replacement solver leftovers no longer block the day solely because they cannot be placed.
+
+The finalization path is now:
+
+1. solve all displaced sessions globally,
+2. persist valid replacement assignments,
+3. convert remaining unplaceable sessions to explicit `TREATMENT_SUSPENDED` daily cancellations,
+4. recompute effective daily state,
+5. require unresolved sessions = 0,
+6. persist suspension facts into `DAILY_INPUT` and verify read-back,
+7. allow daily ledger completion only when every solver leftover is covered by an explicit suspension fact.
+
+Native smoke verified this with 3 replacements + 2 suspensions and zero unresolved sessions.
+
 ## Outpatient recurring management + therapist workload UI
 
 Current technical path supports recurring outpatient creation/edit, application-style management, conflict popup/guard, stable same-row identity, daily projection cleanup, workload badges and automatic refresh after outpatient changes.
@@ -68,62 +88,41 @@ Color thresholds for the normal 6-slot therapist capacity:
 
 Normal users must not see raw sheet/grid/tab navigation, worksheet row numbers or `outpatient:<row>` IDs.
 
-## Closed source gate: THERAPIST_DAILY presentation consistency
+## Student provider presentation/lifecycle contract
 
-Outpatient text no longer relies on a special font color for identity. The presentation layer keeps outpatient text neutral black while robotic treatment retains orange precedence. The focused gate is green at **27 passed in 3.09s**.
+Active students display by their real names in THERAPIST_DAILY and workload surfaces with student-specific visual treatment. Numbered `φοιτ N` headers are physical placeholders only. When placement ends, the real name disappears from active operational views and the physical slot returns to its neutral placeholder. Historical identity remains the real StudentID/name.
 
-This cleanup is presentation-only and does not alter recurring storage, daily truth, row identity or workload counts.
+## Replacement-quality checklist under reassessment
 
-## Active: statistics/history design checkpoint
+Implemented/verified areas already include:
 
-Before implementing long-term reporting, explicitly decide what historical facts are persisted and what is only a derived view. At minimum the design must cover:
+- global scarcity-aware solving across all displaced sessions,
+- unique-slot protection / placement maximization,
+- original-time preference below higher-priority constraints,
+- reclining adjacency preference,
+- workload-balance preference,
+- 13:00 weak avoidance,
+- persistent pool/robotic service-hours policy,
+- authoritative student-provider path,
+- explicit suspension fallback for unplaceable sessions,
+- explicit user approval for confirmed double-booking.
 
-- weekly workload history per therapist,
-- daily occupied-timeslot and active-session facts,
-- cancellations/no-shows/replacements/suspensions,
-- historical changes of therapist assignment,
-- finalized-day snapshot semantics,
-- retention and comparison periods,
-- dashboards and user-facing reports.
+Remaining work should be chosen only after comparing this implementation against the complete locked contract. Do not reopen already-green verticals without a concrete regression or missing rule.
 
-Historical metrics must derive from persisted historical facts/events, not from today's mutable projection.
+## Statistics/history design checkpoint
 
-## Open: replacement quality under multiple therapist absences
+The architecture is locked for explicit `Κλείσιμο ημέρας`, hybrid finalized snapshots + append-only events, indefinite retention, versioned amendments, therapist occupied-timeslot vs active-session history, patient timeline/history, and user-facing reports.
 
-Replacement lifecycle correctness is green, but global assignment quality remains open.
-
-Required global behavior:
-
-- enter all known therapist absences first,
-- solve all displaced patients together,
-- maximize placements / minimize unresolved orphans,
-- protect unique viable slots from flexible patients,
-- prefer original time when higher-priority constraints permit,
-- preserve ΦΘ/reclining proximity where feasible,
-- avoid significant provider-load imbalance,
-- respect patient absences and other treatments,
-- add persistent pool/robotic operating-hour configuration,
-- treat 13:00 as a weak soft preference to avoid,
-- permit double-booking/over-capacity only through explicit last-resort user approval.
-
-Canonical scarcity example: A can use 09:00/10:00/11:00, B only 09:00, so protect 09:00 for B when a complete feasible solution exists.
-
-This must be addressed before replacements are considered complete.
-
-## Deferred: restore performance
-
-Current end-user restore duration in the low-to-mid 20-second range is accepted for this stage. Do not resume performance work unless there is a regression or final-polish phase.
+Implementation remains deferred until the replacement-quality milestone is explicitly closed.
 
 ## Immediate roadmap
 
-1. Hold the statistics/history design session now and lock the historical fact model before coding it.
-2. Define weekly therapist workload history, including both occupied timeslots and active-session counts.
-3. Define finalized-day snapshot/event semantics so later schedule edits do not rewrite history.
-4. Define the first user-facing statistics/dashboard views and comparison periods.
-5. Implement the smallest persistent historical slice with tests before adding broader reports.
-6. Resume broader scheduling/UI work after the history contract is stable.
-7. Implement global multi-absence optimization and persistent special-service operating hours before replacements are considered complete.
-8. Revisit restore performance near completion.
+1. Reassess every remaining replacement-quality requirement against current code/tests/native smokes.
+2. Implement only the smallest genuinely missing replacement rule, if any.
+3. Run the relevant focused regression/native smoke and update documentation.
+4. When the replacement checklist is fully satisfied, explicitly close the replacement milestone.
+5. Resume the smallest persistent statistics/history implementation slice after replacement closure.
+6. Keep restore performance deferred until final polish unless a regression appears.
 
 ## Locked daily rules
 
