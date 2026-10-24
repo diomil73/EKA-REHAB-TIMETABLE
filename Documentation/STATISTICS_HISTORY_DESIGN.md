@@ -319,6 +319,31 @@ The therapist statistical set remains focused on actual work and operational out
 
 Therapist statistics should be derived from assignments, finalized daily facts and operational event history wherever possible, not maintained as parallel manual totals.
 
+## Department-level analysis
+
+Every core operational metric available for an individual therapist must also be available as a **department-wide aggregate** for the same selected period, using the same finalized snapshots and event history.
+
+The department total is not a separately maintained dataset. It is derived from the same therapist/day and session-level finalized facts so individual and departmental numbers always reconcile.
+
+Department reporting should support at least:
+
+- total treatments/sessions performed,
+- total occupied therapist timeslots as an operational workload measure,
+- total replacements accepted/performed across the department,
+- infectious-patient workload,
+- robotic-treatment workload,
+- patient absences/no-shows and department cancellations/postponements,
+- sessions affected by therapist absence,
+- sessions successfully covered through replacement,
+- treatment suspensions,
+- approved double-booking/over-capacity exceptions,
+- therapist attendance/absence totals and structured reason breakdown where appropriate,
+- daily, weekly, monthly and longer-period trends.
+
+The reporting UI must allow a user to move between **individual therapist** and **whole department** views without changing the underlying metric definitions. A department figure should be drillable back to the therapists/days/events that compose it.
+
+Unused/idle-capacity metrics remain excluded at department level as well, unless explicitly reopened later.
+
 ## Dashboard and report UX
 
 The reporting UI must support **both filtered tables and charts/trends**.
