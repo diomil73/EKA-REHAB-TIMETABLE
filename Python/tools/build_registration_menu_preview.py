@@ -14,6 +14,19 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from rehab_excel.application_shell_vba import APP_SHELL_MODULE_NAME  # noqa: E402
 from rehab_excel.close_day_action_vba import CLOSE_DAY_MODULE_NAME  # noqa: E402
+from rehab_excel.daily_change_ledger_vba import (  # noqa: E402
+    MODULE_NAME as DAILY_CHANGE_LEDGER_MODULE_NAME,
+    VBA_CODE as DAILY_CHANGE_LEDGER_BASE_CODE,
+)
+from rehab_excel.daily_input_change_ledger_vba import (  # noqa: E402
+    MODULE_NAME as DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME,
+    install_daily_input_change_ledger,
+)
+from rehab_excel.daily_input_change_navigation_vba import (  # noqa: E402
+    MODULE_NAME as DAILY_INPUT_CHANGE_NAV_MODULE_NAME,
+    install_daily_input_change_navigation,
+)
+from rehab_excel.daily_restore_in_session_vba import build_in_session_ledger_vba  # noqa: E402
 from rehab_excel.double_booking_review_vba import (  # noqa: E402
     DOUBLE_BOOKING_FORM_NAME,
     DOUBLE_BOOKING_MODULE_NAME,
@@ -133,6 +146,9 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
             ("old double-booking module", DOUBLE_BOOKING_MODULE_NAME),
             ("old double-booking form", DOUBLE_BOOKING_FORM_NAME),
             ("old workload module", WORKLOAD_MODULE_NAME),
+            ("old daily change ledger module", DAILY_CHANGE_LEDGER_MODULE_NAME),
+            ("old DAILY_INPUT change ledger module", DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME),
+            ("old DAILY_INPUT change navigation module", DAILY_INPUT_CHANGE_NAV_MODULE_NAME),
             ("old close-day action module", CLOSE_DAY_MODULE_NAME),
             ("old outpatient schedule module", OUTPATIENT_MODULE_NAME),
             ("old outpatient schedule form", OUTPATIENT_FORM_NAME),
@@ -161,11 +177,7 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
 
 
 def _install_operational_modules(workbook_path: Path) -> None:
-    """Install operational modules omitted by the registration-menu installer.
-
-    This is a developer/build step only. It does not define a production user
-    workflow and may open/close the disposable preview workbook.
-    """
+    """Reinstall the complete operational shell on a disposable preview."""
 
     if sys.platform != "win32":
         raise RegistrationMenuVbaError("Operational module installation requires Windows + Excel")
@@ -193,11 +205,26 @@ def _install_operational_modules(workbook_path: Path) -> None:
         stage = "installing therapist workload strip"
         install_therapist_workload_strip(vbproject, workbook)
 
+        stage = "installing in-session daily change ledger"
+        _remove_component_if_present(vbproject, DAILY_CHANGE_LEDGER_MODULE_NAME)
+        ledger_module = vbproject.VBComponents.Add(1)
+        ledger_module.Name = DAILY_CHANGE_LEDGER_MODULE_NAME
+        ledger_module.CodeModule.AddFromString(
+            build_in_session_ledger_vba(DAILY_CHANGE_LEDGER_BASE_CODE)
+        )
+        stage = "installing reversible DAILY_INPUT ledger"
+        install_daily_input_change_ledger(vbproject)
+        stage = "routing workload navigation through daily change sync"
+        install_daily_input_change_navigation(vbproject, workbook)
+
         required = (
             GLOBAL_REPLACEMENT_MODULE_NAME,
             DOUBLE_BOOKING_MODULE_NAME,
             DOUBLE_BOOKING_FORM_NAME,
             WORKLOAD_MODULE_NAME,
+            DAILY_CHANGE_LEDGER_MODULE_NAME,
+            DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME,
+            DAILY_INPUT_CHANGE_NAV_MODULE_NAME,
         )
         missing = [name for name in required if not _component_present(vbproject, name)]
         if missing:
@@ -269,7 +296,7 @@ def main() -> int:
     print(f"VBA project present: {report.vba_present}")
     print(f"Menu module present: {report.module_present}")
     print(f"Menu form present: {report.form_present}")
-    print("Operational replacement/review/workload modules: present")
+    print("Operational replacement/review/workload/ledger modules: present")
     print(f"Open Excel and run macro: {report.macro_name}")
     return 0
 
