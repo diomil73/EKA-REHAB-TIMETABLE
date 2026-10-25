@@ -19,6 +19,7 @@ from rehab_excel.application_contract import assert_application_contract  # noqa
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
 from rehab_excel.daily_preview_composer import compose_outpatient_daily_plan  # noqa: E402
+from rehab_excel.daily_replacement_facts import read_daily_replacement_facts  # noqa: E402
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
 from rehab_excel.patient_centric_preview import build_patient_centric_preview_plan  # noqa: E402
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
@@ -134,10 +135,15 @@ def prepare_daily_input_payload(
     if daily.target_date != target_date:
         raise DailyInputReadError("DAILY_INPUT date changed during read")
 
+    replacements = read_daily_replacement_facts(
+        source,
+        sessions=sessions,
+        target_date=target_date,
+    )
     states = build_daily_session_states(
         sessions,
         absences=daily.absences,
-        replacements=(),
+        replacements=replacements,
         cancellations=daily.cancellations,
         target_date=target_date,
     )
@@ -187,6 +193,7 @@ def prepare_daily_input_payload(
         "patient_rows_read": daily.patient_rows_used,
         "operational_absences": len(daily.absences),
         "session_cancellations": len(daily.cancellations),
+        "active_replacements": len(replacements),
         "changed_sessions": len(preview.bindings),
         "replacement_sessions_needed": replacement_sessions_needed,
         "patch_count": len(plan.patches),
@@ -218,6 +225,7 @@ def main() -> int:
     print("DAILY INPUT IN-PLACE PAYLOAD VERIFIED")
     print(f"Date: {result['date']}")
     print(f"Patches: {result['patch_count']}")
+    print(f"Active replacements: {result['active_replacements']}")
     print(f"Replacement sessions needed: {result['replacement_sessions_needed']}")
     print("Input unchanged: True")
     return 0
