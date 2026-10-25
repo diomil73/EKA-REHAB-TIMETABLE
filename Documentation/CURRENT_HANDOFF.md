@@ -47,6 +47,14 @@ Forbidden in normal production actions:
 
 Temporary copies are allowed only for development/smoke/install/migration or rollback/recovery while the live workbook remains open and authoritative.
 
+### Diagnostic-first native rule
+
+Every production/user-facing action that can fail during native Excel execution must have a hidden developer diagnostic trace **before the first native smoke test**.
+
+Do not repeat blind native smokes after a generic operator failure. Read the diagnostic trace first, fix the exact phase/cell/error, then rebuild a fresh disposable workbook.
+
+Normal users continue to see only operational guidance. Diagnostic files live under `%TEMP%` and are developer/admin troubleshooting aids only.
+
 ## `Κλείσιμο ημέρας` production state
 
 Historical model/backend and in-place UI are native-verified.
@@ -62,7 +70,8 @@ Implemented and verified:
 - every inserted row is reread before Save;
 - failure rolls back inserted rows/new sheets;
 - success protects/hides technical sheets, saves once and remains on `MASTER_SCHEDULE`;
-- second click is idempotent and reports `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`.
+- second click is idempotent and reports `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`;
+- VBA source now normalizes Python raw-string backslashes before module installation so runtime paths/escape parsing use one separator.
 
 ## `DAILY_INPUT` production state
 
@@ -83,19 +92,28 @@ Implemented:
 
 ### Native DAILY_INPUT smoke status
 
-First in-place native attempt reached the live-write layer and failed closed. The user saw only the operator message that the daily state was not applied and changes were reverted. The rollback itself therefore behaved correctly.
+The first true diagnostic-enabled failure was captured exactly:
 
-A second attempt produced the same message, but investigation showed that the mixed-font/native fix had not actually landed on `feature/outpatient-scheduling`; the preview was rebuilt from the old VBA module. That second result is **not** evidence that the fix failed.
+```text
+phase=create rollback
+patch_index=12
+sheet=THERAPIST_DAILY
+cell=E8
+error_number=1004
+error=... TEMP\\eka_daily_input_rollback_...xlsm ... not found
+```
 
-Current branch fix:
+Root cause: Python raw-string source had doubled backslashes inside VBA string literals. VBA does not use backslash escaping, so runtime paths contained `\\` and `SaveCopyAs` failed before any patch write.
 
-- commit `6c20d1a676fae62f802ec249fe8944815b2170a6` puts the corrected VBA module on `feature/outpatient-scheduling`;
-- mixed/Null `Font.Size` is handled safely;
-- whole-cell minimum-font read-back is skipped when rich-text runs make the property intrinsically mixed;
-- individual rich-text runs remain verified;
-- failure writes `%TEMP%\eka_daily_input_last_error.log` with phase, patch index, sheet, cell and VBA error;
-- diagnostic details are never shown to the normal operator;
-- regression guard added in `Tests/test_daily_input_action_vba.py`.
+Fixes now on branch:
+
+- `DAILY_INPUT_MODULE_CODE` normalizes doubled raw-string backslashes to single VBA runtime backslashes before installation;
+- the same normalization also fixes the one-character payload escape decoder;
+- mixed/Null `Font.Size` remains handled safely;
+- rich-text runs remain verified individually;
+- `%TEMP%\eka_daily_input_last_error.log` captures phase, patch index, sheet, cell and VBA error on failure;
+- `CLOSE_DAY_MODULE_CODE` receives the same separator normalization proactively;
+- shared regression now rejects doubled runtime VBA backslashes in migrated production actions.
 
 ## Shared production regression
 
@@ -104,7 +122,8 @@ Current branch fix:
 - `ThisWorkbook.Close`;
 - `Application.OnTime` handoff;
 - authoritative commit worker;
-- reopen targets/reopen flags.
+- reopen targets/reopen flags;
+- doubled runtime VBA backslashes caused by Python raw-string escaping.
 
 `Tests/test_prepare_daily_input_in_place.py` guards that active replacement facts are loaded into the effective DAILY_INPUT state before presentation/routing is computed.
 
@@ -169,11 +188,11 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 Immediate order:
 
-1. pull `feature/outpatient-scheduling` including commits `6c20d1a` and `f346720`;
-2. run focused DAILY_INPUT in-place tests;
-3. build a fresh disposable workbook from `DOUBLE_BOOKING_REJECTED.xlsm`;
-4. native test DAILY_INPUT again;
-5. if it fails, read `%TEMP%\eka_daily_input_last_error.log` and fix the exact phase/cell rather than guessing;
+1. pull latest backslash normalization + regression guard;
+2. run focused DAILY_INPUT/close-day production-action tests;
+3. build fresh `DAILY_INPUT_IN_PLACE_V4.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
+4. native test DAILY_INPUT once;
+5. if it fails, read `%TEMP%\eka_daily_input_last_error.log` immediately before any second smoke;
 6. once DAILY_INPUT is native green, continue patient/day finalized outcome history;
 7. later implement explicit finalized-day amendment/version chain.
 
