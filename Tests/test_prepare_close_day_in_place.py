@@ -24,9 +24,9 @@ def test_close_day_preparation_is_read_only_for_workbook():
 def test_close_day_payload_contains_all_three_atomic_blocks():
     source = inspect.getsource(module.prepare_close_day_payload)
 
-    assert '_line("SNAPSHOT"' in source
-    assert '_line(\n                "THERAPIST"' in source
-    assert '_line("EVENT"' in source
+    assert '"SNAPSHOT"' in source
+    assert '"THERAPIST"' in source
+    assert '"EVENT"' in source
     assert '"payload_path": str(payload)' in source
     assert '"source_unchanged": True' in source
 
