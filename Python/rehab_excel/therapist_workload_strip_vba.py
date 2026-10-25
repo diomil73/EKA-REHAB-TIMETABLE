@@ -93,7 +93,7 @@ Public Sub RenderTherapistWorkloadStrip()
                     End If
 
                     For rowIndex = firstRows(blockIndex) To lastRows(blockIndex)
-                        If Len(Trim$(CStr(daily.Cells(rowIndex, col).Value))) > 0 Then
+                        If CellHasActiveWork(daily.Cells(rowIndex, col)) Then
                             timeValue = TimeKey(daily.Cells(rowIndex, 1).Value)
                             If Len(timeValue) = 0 Then timeValue = TimeKey(daily.Cells(rowIndex, 1).Text)
                             If Len(timeValue) > 0 Then providerTimes(timeValue) = True
@@ -141,6 +141,53 @@ RenderError:
     MsgBox "Δεν ήταν δυνατή η εμφάνιση του φόρτου θεραπευτών: " & Err.Description, _
            vbExclamation, "Φόρτος θεραπευτών"
 End Sub
+
+Private Function CellHasActiveWork(ByVal cell As Range) As Boolean
+    Dim text As String
+    Dim lineStart As Long
+    Dim lineEnd As Long
+    Dim firstChar As Long
+    Dim ch As String
+    Dim strikeValue As Variant
+    Dim italicValue As Variant
+
+    text = CStr(cell.Value)
+    If Len(Trim$(text)) = 0 Then Exit Function
+
+    lineStart = 1
+    Do While lineStart <= Len(text)
+        lineEnd = InStr(lineStart, text, vbLf)
+        If lineEnd = 0 Then lineEnd = Len(text) + 1
+
+        firstChar = lineStart
+        Do While firstChar < lineEnd
+            ch = Mid$(text, firstChar, 1)
+            If ch <> " " And ch <> vbTab And ch <> vbCr Then Exit Do
+            firstChar = firstChar + 1
+        Loop
+
+        If firstChar < lineEnd Then
+            ch = Mid$(text, firstChar, 1)
+            If ch <> "→" Then
+                strikeValue = cell.Characters(firstChar, 1).Font.Strikethrough
+                italicValue = cell.Characters(firstChar, 1).Font.Italic
+                If Not IsNull(strikeValue) And Not IsNull(italicValue) Then
+                    If strikeValue = False And italicValue = False Then
+                        CellHasActiveWork = True
+                        Exit Function
+                    End If
+                ElseIf IsNull(strikeValue) Or IsNull(italicValue) Then
+                    If strikeValue <> True And italicValue <> True Then
+                        CellHasActiveWork = True
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+
+        lineStart = lineEnd + 1
+    Loop
+End Function
 
 Private Function NormalizeProviderName(ByVal valueText As String) As String
     Dim text As String
@@ -214,9 +261,10 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
 
     The strip aggregates each therapist by normalized name and counts unique
     occupied clock times across the current THERAPIST_DAILY layout blocks.
-    Multiple patients sharing one therapist/time cell therefore still consume
-    one operational timeslot, and a therapist represented in more than one
-    layout block receives one combined badge rather than duplicate badges.
+    A displayed line counts only when it is operationally active: struck-through
+    cancelled/absent lines and italic replacement-source lines do not consume an
+    occupied slot. Multiple active patients sharing one therapist/time cell still
+    consume one operational timeslot.
     """
 
     _remove_component_if_present(vbproject, MODULE_NAME)
