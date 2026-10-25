@@ -20,6 +20,10 @@ from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
 from rehab_excel.daily_preview_composer import compose_outpatient_daily_plan  # noqa: E402
 from rehab_excel.daily_replacement_facts import read_daily_replacement_facts  # noqa: E402
+from rehab_excel.master_daily_overlay import (  # noqa: E402
+    build_master_daily_overlay_plan,
+    compose_master_daily_overlay,
+)
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
 from rehab_excel.patient_centric_preview import build_patient_centric_preview_plan  # noqa: E402
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
@@ -183,6 +187,13 @@ def prepare_daily_input_payload(
         states=states,
         patients=patients,
     )
+    master_overlay = build_master_daily_overlay_plan(
+        source,
+        base_entries=base_entries,
+        states=states,
+        patients=patients,
+    )
+    plan = compose_master_daily_overlay(plan, master_overlay)
     validate_write_plan(plan)
 
     payload.parent.mkdir(parents=True, exist_ok=True)
@@ -198,6 +209,7 @@ def prepare_daily_input_payload(
             pass
         raise DailyInputInPlacePreparationError("Workbook changed during DAILY_INPUT validation")
 
+    touched_sheets = sorted({patch.sheet for patch in plan.patches})
     return {
         "ok": True,
         "payload_path": str(payload),
@@ -211,6 +223,9 @@ def prepare_daily_input_payload(
         "changed_sessions": len(preview.bindings),
         "replacement_sessions_needed": replacement_sessions_needed,
         "patch_count": len(plan.patches),
+        "touched_sheets": touched_sheets,
+        "master_projection_included": "MASTER_SCHEDULE" in touched_sheets,
+        "therapist_projection_included": "THERAPIST_DAILY" in touched_sheets,
         "application_contract_components": len(contract.component_names),
         "source_unchanged": True,
     }
@@ -239,6 +254,7 @@ def main() -> int:
     print("DAILY INPUT IN-PLACE PAYLOAD VERIFIED")
     print(f"Date: {result['date']}")
     print(f"Patches: {result['patch_count']}")
+    print(f"Touched sheets: {', '.join(result['touched_sheets'])}")
     print(f"Active replacements: {result['active_replacements']}")
     print(f"Replacement sessions needed: {result['replacement_sessions_needed']}")
     print("Input unchanged: True")
