@@ -31,51 +31,45 @@ No production action may depend on replacing the open `.xlsm` file from a previe
 - requiring the user to close/reopen Excel to complete an action;
 - console windows or technical process messages.
 
-## What may still use preview/copy workflows
+## What may still use copy workflows
 
-Preview/copy/replace mechanics remain valid only for controlled non-production purposes such as:
+Copies remain valid for controlled non-production work and for rollback/recovery only:
 
 - development previews;
 - native smoke tests;
-- installers/upgraders that intentionally rebuild a disposable or staging workbook;
+- installers/upgraders;
 - migration tooling;
 - backup/recovery tooling;
-- diagnostics where the operator is explicitly acting as administrator/developer.
+- diagnostics for administrators/developers.
 
-These paths must never leak into routine application actions.
+A temporary `SaveCopyAs` recovery file is acceptable inside a production action only as rollback protection while the live workbook remains open and authoritative. It must never replace the live workbook during the normal success path.
 
-## Proven reference pattern
+## Proven production patterns
 
-The confirmed double-booking workflow is the current reference:
+### Confirmed double-booking
 
 `Python validate-only -> verified response payload -> VBA writes into already-open workbook -> read-back -> Save -> continue`
 
-This is the preferred model for future production actions.
-
-## Known production paths requiring migration
-
 ### `Κλείσιμο ημέρας`
 
-Current preview/authoritative-commit/deferred-close implementation is now considered transitional and must be replaced before the close-day UI is production-complete.
-
-Target:
-
-`validate final day -> produce snapshot/history/event payload -> in-place write all three technical stores -> semantic read-back -> Save -> remain on MASTER`
+`Python/tools/prepare_close_day_in_place.py` computes a verified snapshot + therapist-history + event payload without mutating the workbook. `modCloseDayAction` preflights all three technical stores, writes all records in place, rereads them, rolls back on failure, saves once, and remains on MASTER.
 
 ### `DAILY_INPUT`
 
-`Python/rehab_excel/daily_input_action_vba.py` still uses preview -> authoritative commit -> close/reopen. This is now explicit migration debt.
-
-Target:
-
-`validate DAILY_INPUT -> compute resulting daily facts/projection -> in-place write verified changes -> read-back -> Save -> remain open / route to next operational screen`
+`Python/tools/prepare_daily_input_in_place.py` builds the validated daily `WritePlan` without mutating the workbook. `modDailyInputAction` applies the serialized patches in place, verifies values/presentation, uses a temporary `SaveCopyAs` recovery copy for rollback only, saves the same open workbook, and routes to replacements only when needed.
 
 ## Atomicity expectation
 
-Where one user action writes multiple technical records, the production implementation must avoid leaving a partially committed logical action. Use staged validation first, then deterministic write ordering, read-back, and compensating rollback of newly appended rows when any subsequent write fails.
+Where one user action writes multiple technical records or multiple cells, production must avoid leaving a partially committed logical action. Use staged validation first, deterministic write ordering, read-back, and compensating rollback.
 
 For day finalization specifically, snapshot + therapist/day history + `DAY_FINALIZED` event are one logical transaction and must either all be committed consistently or the action must fail without presenting the day as closed.
 
-## Regression requirement
+For DAILY_INPUT, the original workbook state is recoverable from the temporary rollback copy if any patch/read-back fails before the final successful save.
 
-Once the known production paths are migrated, add a repository regression guard that rejects close/reopen/file-replacement mechanics inside user-facing production VBA action modules. Developer/smoke/install/recovery tooling is excluded from that guard.
+## Regression guard
+
+`Tests/test_production_actions_stay_in_session.py` rejects close/reopen/reopen-worker mechanics in the currently migrated production action modules.
+
+Focused module tests additionally forbid the retired mechanics and assert hidden Python execution plus operator-facing messages without implementation details.
+
+As more production action modules are added or migrated, add them to the shared guard.
