@@ -1,5 +1,6 @@
 import inspect
 
+from rehab_excel.writeback import CellPatch, TextRunPatch
 from tools import prepare_daily_input_in_place as module
 
 
@@ -38,8 +39,27 @@ def test_daily_input_payload_serializes_patch_semantics():
     assert "patch.fill_role" in source
     assert "patch.border_role" in source
     assert "patch.wrap_text" in source
-    assert "patch.min_font_size" in source
+    assert "_payload_min_font_size(patch)" in source
     assert "_text_runs_token(patch)" in source
+
+
+def test_rich_text_payload_skips_whole_cell_min_font_size():
+    patch = CellPatch(
+        sheet="THERAPIST_DAILY",
+        cell="B2",
+        value="A\nB",
+        min_font_size=10,
+        text_runs=(TextRunPatch(start=1, length=1, font_role="muted"),),
+    )
+    plain = CellPatch(
+        sheet="THERAPIST_DAILY",
+        cell="B3",
+        value="A",
+        min_font_size=10,
+    )
+
+    assert module._payload_min_font_size(patch) is None
+    assert module._payload_min_font_size(plain) == 10
 
 
 def test_daily_input_payload_escape_contract():
