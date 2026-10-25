@@ -72,9 +72,10 @@ def _workbook(tmp_path: Path, *snapshots: FinalizedDaySnapshot) -> Path:
     ws.append(HEADERS)
     for snapshot in snapshots:
         _append_row(ws, snapshot)
+    visible = wb.create_sheet("VISIBLE")
+    wb.active = wb.sheetnames.index(visible.title)
     ws.sheet_state = "veryHidden"
     ws.protection.sheet = True
-    wb.create_sheet("VISIBLE")
     wb.save(path)
     wb.close()
     return path
