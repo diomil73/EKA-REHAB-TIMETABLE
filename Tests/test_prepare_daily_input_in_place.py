@@ -13,6 +13,8 @@ def test_daily_input_preparation_only_builds_validated_plan():
     assert "build_daily_session_states" in source
     assert "build_patient_centric_preview_plan" in source
     assert "compose_outpatient_daily_plan" in source
+    assert "build_master_daily_overlay_plan" in source
+    assert "compose_master_daily_overlay" in source
     assert "validate_write_plan(plan)" in source
     assert "file_sha256(source)" in source
 
@@ -27,6 +29,15 @@ def test_daily_input_effective_state_preserves_active_replacements():
     assert "replacements = read_daily_replacement_facts(" in source
     assert "replacements=replacements" in source
     assert '"active_replacements": len(replacements)' in source
+
+
+def test_daily_input_plan_includes_operational_master_projection():
+    source = inspect.getsource(module.prepare_daily_input_payload)
+
+    assert "master_overlay = build_master_daily_overlay_plan(" in source
+    assert "plan = compose_master_daily_overlay(plan, master_overlay)" in source
+    assert '"master_projection_included": "MASTER_SCHEDULE" in touched_sheets' in source
+    assert '"therapist_projection_included": "THERAPIST_DAILY" in touched_sheets' in source
 
 
 def test_daily_input_payload_serializes_patch_semantics():
