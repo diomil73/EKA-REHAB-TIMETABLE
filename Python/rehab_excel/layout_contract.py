@@ -68,13 +68,10 @@ THERAPIST_DAILY_TIMES = (
 )
 
 THERAPIST_DAILY_BLOCKS = (
-    # header_row, first_time_row, last_time_row
     (1, 2, 8),
     (11, 12, 18),
 )
 
-# Confirmed current cell-level write zones. A sheet being a future output sheet
-# is not sufficient: a cell must also fall inside one of these mapped zones.
 WRITE_ZONES: tuple[CellRange, ...] = (
     CellRange(
         "THERAPIST_DAILY",
@@ -93,6 +90,12 @@ WRITE_ZONES: tuple[CellRange, ...] = (
         "D2",
         "J5000",
         "Derived therapy display cells only; identity/status columns protected",
+    ),
+    CellRange(
+        "MASTER_SCHEDULE",
+        "M2",
+        "M5000",
+        "Derived daily patient status overlay only; psychology/afternoon columns remain protected",
     ),
     CellRange(
         "CONFLICT_LOG",
@@ -127,7 +130,6 @@ THERAPIST_ATTENDANCE_HEADERS: Mapping[str, str] = {
     "E1": "Μολυσματικοί",
     "F1": "Σύγκρουση",
 }
-
 
 _CELL_RE = re.compile(r"^([A-Z]+)([1-9]\d*)$")
 
@@ -194,8 +196,6 @@ def _clean_text(value: object) -> str:
 
 def _name_key(value: object) -> str:
     text = " ".join(_clean_text(value).casefold().split())
-    # Excel names are not consistently accented/cased across legacy sheets.
-    # Remove combining marks so ΜΗΛΙΔΑΚΗΣ and Μηλιδάκης resolve identically.
     decomposed = unicodedata.normalize("NFD", text)
     return "".join(char for char in decomposed if not unicodedata.combining(char))
 
@@ -231,7 +231,7 @@ def resolve_therapist_daily_cell_from_cells(
     matches: list[str] = []
     for header_row, first_time_row, last_time_row in THERAPIST_DAILY_BLOCKS:
         provider_col: int | None = None
-        for col in range(2, 11):  # B:J
+        for col in range(2, 11):
             if _name_key(cells.get(cell_address(header_row, col))) == target_name:
                 provider_col = col
                 break
