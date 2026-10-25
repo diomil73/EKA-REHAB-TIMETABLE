@@ -4,29 +4,25 @@ Last updated: 2026-10-25
 
 ## Read order
 
-Start with `Documentation/ONBOARDING.md`, then read `Documentation/IN_PLACE_MUTATION_ARCHITECTURE.md`. This file is the exact resume point.
+Start with `Documentation/ONBOARDING.md`, then `Documentation/IN_PLACE_MUTATION_ARCHITECTURE.md`, then `Documentation/DAILY_INPUT_APPLY_WORKFLOW.md`. This file is the exact resume point.
 
 ## Branch / trusted state
 
 - Branch: `feature/outpatient-scheduling`
-- Baseline `Rehab_Center_System_v27_1.xlsm` remains immutable.
+- Baseline `Rehab_Center_System_v27_1.xlsm` is immutable.
 - Replacement-quality business logic is CLOSED end-to-end.
 - Statistics/history milestone is active.
 
 ## Latest confirmed checkpoints
 
 - full regression checkpoint: `699 passed, 19 warnings`
-- OOXML MASTER gate: `59 passed in 6.85s`
-- native student replacement smoke: VERIFIED
-- native explicit REJECT branch: VERIFIED, 1 persisted `Αναστολή θεραπείας`, unresolved 0
-- native explicit ACCEPT branch: VERIFIED
-- native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, 79 final sessions, 1 treatment suspension, unresolved 0
-- native snapshot + therapist/day history smoke: VERIFIED, 16 therapist/day rows
-- native close-day backend smoke: VERIFIED, snapshot + 16 therapist/day rows + one `DAY_FINALIZED` event
-- native in-place close-day UI: VERIFIED; workbook stays open on MASTER
-- native close-day second-click duplicate protection: VERIFIED
-- focused combined in-place regression before V4: `57 passed in 2.65s`
-- focused DAILY_INPUT/global replacement integration gate before V5: `77 passed in 5.33s`
+- native in-place close-day: VERIFIED; workbook stays open on MASTER
+- native close-day duplicate second click: VERIFIED
+- focused combined in-place gate: `57 passed in 2.65s`
+- focused DAILY_INPUT/global replacement gate: `77 passed in 5.33s`
+- MASTER/status-zone gate after K/L/M correction: `47 passed, 2 warnings in 3.36s`
+
+The 2 warnings are `ZipFile.__del__` cleanup warnings, not business-logic failures. They should be cleaned later but do not change the gate result.
 
 ## Locked production interaction architecture
 
@@ -36,158 +32,165 @@ Required model:
 
 `validate -> compute authoritative result -> in-place native write -> semantic read-back -> Save -> continue in application`
 
-Forbidden in normal production actions:
+Production actions may use temporary rollback copies while the live workbook remains open. Console windows, reopen workers and live-file replacement are forbidden.
 
-- `ThisWorkbook.Close` as part of action completion;
-- automatic reopen;
-- preview-copy replacement of the live workbook;
-- file-lock waiting;
-- asking the user to close/reopen Excel;
-- console/Command Prompt windows;
-- backend/worker/preview/hash/file-lock language in operator messages.
-
-Temporary copies are allowed only for development/install/migration/recovery and rollback protection while the live workbook remains open.
-
-### Diagnostic-first native rule
-
-Every native production action must have a hidden developer diagnostic trace before its first smoke test. After a generic operator failure, read the diagnostic before another smoke. Do not repeat blind native tests.
-
-## `Κλείσιμο ημέρας`
-
-Native green in-place:
-
-- read-only Python preparation;
-- snapshot + therapist history + `DAY_FINALIZED` event persisted in the open workbook;
-- read-back and rollback;
-- no close/reopen;
-- duplicate second click reports `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`
+Diagnostic-first native testing is mandatory. Do not repeat blind smokes.
 
 ## DAILY_INPUT native history
 
 ### V4
 
-- patient absence applied in-place successfully;
-- therapist absence incorrectly routed to raw/blank `REPLACEMENTS` sheet;
-- this raw-sheet route is retired permanently.
+- patient absence applied in-place;
+- therapist absence incorrectly routed to raw/blank `REPLACEMENTS`;
+- raw-sheet routing is permanently retired.
 
-### V5 finding: MASTER + workload were not operationally correct
+### V5
 
-Native V5 used a real patient cancellation (`ΓΙΑΝΝΙΑ`, reason `Διακομιστήριο`). The DAILY_INPUT action completed, but:
+A real ΓΙΑΝΝΙΑ cancellation exposed incomplete MASTER/workload integration. MASTER non-active states and workload counting were extended. The later focused test correctly stopped an attempted stale K-column status write because current MASTER layout is K=`ΨΥΧΟΛΟΓΟΙ`, L=`ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ`, M=`Κατάσταση`. Safety now permits only D:J therapy overlays plus M daily-status overlays; K/L remain protected.
 
-- `MASTER_SCHEDULE` still presented the patient/session as active;
-- therapist `ΠΑΠΑΜΑΝΟΥ` still showed `6/6`, although the cancelled session should release one occupied timeslot.
+### V6 native findings
 
-Root causes found:
+The user entered ΓΙΑΝΝΙΑ as all-day absent/transferred (`Διακομιστήριο`). V6 showed several operational UX/data gaps:
 
-1. `master_daily_overlay.py` only emitted MASTER patches for `REPLACED` states. `PATIENT_ABSENT`, `CANCELLED` and `THERAPIST_ABSENT` were ignored entirely.
-2. `modTherapistWorkloadStrip` counted every non-empty THERAPIST_DAILY cell as occupied. Cancelled/absent sessions remain visibly struck through, so the cell is intentionally non-empty and was therefore counted incorrectly.
-3. The preview pre-clean knew about global replacement / double-booking / workload components, but `create_registration_menu_preview()` did not reinstall those operational components. A fixture could therefore mask missing installer coverage.
+1. MASTER incorrectly replaced a treatment cell with `ΑΠΩΝ` text. Correct behavior is to preserve recurring treatment text and apply a **red strike-through** only to sessions that actually occur on the selected date.
+2. The final `Κατάσταση` column is the correct place for the dated patient reason/status.
+3. `Όλη ημέρα` must cover every materialized session for that patient on the selected date. Core `DailyAbsence` logic already does this; the remaining work is presentation/persistence.
+4. The initial observation that ΠΑΠΑΜΑΝΟΥ remained `6/6` is **not** treated as a confirmed defect because the user immediately noted the therapist mapping may have been mistaken. Verify actual session→therapist mapping before judging workload.
+5. MASTER `Φόρτος θεραπευτών` did not navigate to `THERAPIST_DAILY`.
+6. workload badges could be dragged with the mouse.
+7. `THERAPIST_DAILY` lacked `Επιστροφή στο MASTER` navigation.
+8. ΓΙΑΝΝΙΑ's DAILY_INPUT interruption was not recorded in the reversible daily-change ledger, so no `Επαναφορά` button existed.
 
-Fixes now on branch:
+## V6 remediation now on branch, awaiting focused tests
 
-- MASTER overlay handles `PATIENT_ABSENT`, `CANCELLED`, `THERAPIST_ABSENT`, and `REPLACED`;
-- affected treatment cells explicitly show the dated operational outcome (`ΑΠΩΝ`, `ΑΚΥΡΩΘΗΚΕ`, or `ΑΝΑΜΟΝΗ ΑΝΑΠΛΗΡΩΣΗΣ`) instead of leaving the recurring treatment visually active;
-- when all dated sessions for an inpatient are non-active, the MASTER patient status column is also overlaid;
-- workload badges now count a slot only when the cell contains at least one operationally active line;
-- struck-through cancellation/absence lines do not count;
-- italic replacement-source lines and `→` routing annotation lines do not count;
-- a shared slot with one cancelled and one active patient remains exactly one occupied timeslot;
-- the preview builder now explicitly installs and verifies `modGlobalReplacementAction`, `modDoubleBookingReview`, `frmDoubleBookingReview`, and `modTherapistWorkloadStrip` after the shell/menu build.
+### MASTER presentation
 
-Relevant commits:
+`Python/rehab_excel/master_daily_overlay.py`
 
-- `5288de5987edba9dd5b944c1b47005d0374d4519` MASTER non-active daily overlay
-- `d727825c3af67f71ae385590797b18a12b2eb513` operational workload counting
-- `40bde2fb328fc624313d38bb254bcbb091c79cfd` operational module installation in preview build
-- `fdcffdac4fb7c931eab2ebb7b450fda2ee3f82eb` MASTER cancellation/absence regression tests
-- `0f0aade7b52709904c89df1e0d5bf460edf8f56d` workload inactive-line regression tests
-- `17fd74052b942fa377ea41a88c79c2fdb603d97c` preview operational-module build contract
+- non-active patient/cancellation/therapist states now use PRESENTATION-only treatment patches;
+- recurring treatment text remains untouched;
+- native writer applies red font + strike-through for `master_daily_non_active_overlay`;
+- patient daily reason/status is written in the confirmed status column M when all dated sessions are non-active;
+- replacement overlays still show dated effective provider/time.
 
-### Focused regression after V5 fix exposed stale MASTER status-zone assumptions
+### Native read-back
 
-The next focused gate failed with `2 failed, 43 passed, 4 warnings` because the updated MASTER overlay correctly attempted to write the patient daily status, but the test fixture still modeled the old layout where `Κατάσταση` was in column K. The current application layout is:
+`Python/rehab_excel/daily_input_action_vba.py`
 
-- K = `ΨΥΧΟΛΟΓΟΙ`
-- L = `ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ`
-- M = `Κατάσταση`
+- source-tag presentation applies/verifies MASTER red strike and red patient-status display;
+- failure still rolls back in place.
 
-The writeback safety contract correctly rejected the stale `K7` target. The fix is deliberately narrow:
+### Workload/navigation
 
-- MASTER therapy display zone remains `D2:J5000`;
-- a second confirmed write zone allows only `M2:M5000` for derived daily patient status overlays;
-- K and L remain protected;
-- MASTER overlay tests now use the current K/L/M headers and expect status patches in M;
-- `Tests/test_master_status_write_zone.py` explicitly asserts M is allowed while K/L are rejected.
+`Python/rehab_excel/therapist_workload_strip_vba.py`
 
-Relevant commits:
+- `Φόρτος θεραπευτών` now opens `THERAPIST_DAILY`;
+- fixed `Επιστροφή στο MASTER` control added;
+- workload shapes are locked;
+- MASTER protects drawing objects with `UserInterfaceOnly=True` so operators cannot drag badges while macros can redraw them;
+- occupied-slot counting continues to ignore struck, italic replacement-source and `→` annotation lines.
 
-- `0a8c0d02bd2adc4f723f9cff14cfd89ab2be4ee5` confirmed MASTER M status write zone
-- `27aebc56556042e527955f34be2086ae05367523` current-layout MASTER overlay tests
-- `b34d5437a5271a7a8a9e70d7de1d0ffd22bf4529` K/L protection regression guard
+`Python/rehab_excel/daily_input_change_navigation_vba.py` routes the workload button through daily-change ledger synchronization before operator restore work.
 
-## DAILY_INPUT integration architecture
+### Reversible DAILY_INPUT identity
 
-### Operational projection gate
+`Python/rehab_excel/daily_input_reader.py`
 
-`Python/tools/prepare_daily_input_in_place.py` composes both:
+Each active DAILY_INPUT row now yields a `DailyInputSourceChange` with:
 
-- patient/therapist daily presentation;
-- `MASTER_SCHEDULE` daily overlay.
+- stable change id;
+- exact source row;
+- change type;
+- subject/display name;
+- reason;
+- all-day/timeslot semantics.
 
-Both are serialized into the same PATCH payload and therefore pass the same in-place write/read-back gate.
+Reader supports `ignore_rows=(...)` plus `allow_empty=True` for restore recomputation.
 
-### Workload gate
+### Full restore projections
 
-`modDailyInputAction` calls `RenderTherapistWorkloadStrip` after successful patch application and verifies the MASTER refresh shape before reporting success.
+New:
 
-Workload remains occupied-timeslot based: `Όνομα n/6`, not patient-line count.
+- `Python/rehab_excel/full_daily_projection.py`
+- `Python/rehab_excel/full_master_daily_projection.py`
+- `Python/tools/prepare_daily_input_restore_in_place.py`
 
-### Guided/global replacement continuation
+Restore preparation is read-only. It simulates removal of exactly one DAILY_INPUT source row, rebuilds the complete THERAPIST_DAILY grid from recurring/base truth, clears stale cells, preserves active replacements/surviving daily facts, resets MASTER daily presentation and reapplies surviving overlays.
 
-`Python/tools/prepare_global_replacements_in_place.py` reuses the authoritative global solver and includes current DAILY_INPUT facts, ACTIVE replacement facts, provider policy, service hours, patient cross-specialty availability, students, reclining adjacency and explicit double-booking review detection.
+### DAILY_INPUT ledger + restore transaction
 
-`Python/rehab_excel/global_replacement_action_vba.py` persists ordinary replacement facts, generated suspensions and final operational projection patches in-place with rollback and `%TEMP%\eka_replacement_last_error.log` diagnostics.
+New:
 
-If an explicit double-booking decision is required, it invokes the guided `ShowDoubleBookingReview` form. It never activates a raw worksheet.
+- `Python/rehab_excel/daily_input_change_ledger_vba.py`
 
-## Shared production regression
+It uses the existing `DAILY_CHANGE_LEDGER` visible panel. DAILY_INPUT entries carry dedicated metadata in the ledger, are rewired to `RestoreDailyInputChangeRow`, and their bulk-selection checkbox is removed so they cannot accidentally enter replacement restore.
 
-`Tests/test_production_actions_stay_in_session.py` guards close-day, DAILY_INPUT and global replacements against close/reopen workers, visible execution, reopen targets and doubled runtime VBA backslashes.
+Individual restore:
 
-Focused integration tests now also include:
+`source-row identity -> read-only restore payload -> SaveCopyAs rollback -> reset MASTER daily presentation -> clear exact DAILY_INPUT row -> apply/read-back full projection -> mark RESTORED -> refresh workload/ledger -> Save`
+
+No close/reopen. Diagnostic:
+
+`%TEMP%\eka_daily_input_restore_last_error.log`
+
+### Deterministic preview installation
+
+Both `registration_menu_vba.py` and `build_registration_menu_preview.py` now install/verify in final order:
+
+- shell + MASTER toolbar;
+- DAILY_INPUT action;
+- global replacement action;
+- guided double-booking review;
+- workload/navigation;
+- effective in-session `modDailyChangeLedger`;
+- reversible DAILY_INPUT ledger extension;
+- workload→ledger navigation bridge;
+- close-day and registration forms.
+
+This prevents a second operational-install pass from overwriting the new workload button routing.
+
+## New regression coverage
+
+Added/updated:
 
 - `Tests/test_master_daily_overlay.py`
-- `Tests/test_master_status_write_zone.py`
-- `Tests/test_therapist_workload_strip_vba.py`
+- `Tests/test_daily_input_source_changes.py`
+- `Tests/test_daily_input_change_restore_contract.py`
+- `Tests/test_therapist_navigation_and_locked_workload.py`
 - `Tests/test_build_registration_menu_operational_modules.py`
+- `Tests/test_production_actions_stay_in_session.py`
+
+The production guard now includes DAILY_INPUT restore and rejects close/reopen/visible-console regressions.
 
 ## Exact resume point
 
-Do not return to close/reopen mechanics and do not route to raw `REPLACEMENTS`.
+Do not native-smoke V6 again.
 
 Immediate order:
 
-1. rerun focused MASTER/workload/DAILY_INPUT/global replacement/build tests after the M-status-zone correction;
-2. if green, build fresh `DAILY_INPUT_IN_PLACE_V6.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
-3. native cancel one patient session and verify explicitly:
-   - MASTER affected treatment/status no longer appears active;
-   - THERAPIST_DAILY shows the cancellation/absence presentation;
-   - affected therapist occupied badge drops when the slot becomes free;
-4. then test therapist absence and verify global/guided replacement continuation with no raw worksheet;
-5. on any native failure, read `%TEMP%\eka_daily_input_last_error.log` or `%TEMP%\eka_replacement_last_error.log` before retrying;
-6. once both branches are native green, continue patient/day finalized outcome history;
-7. later implement finalized-day amendment/version chain.
+1. run the focused V7 pre-native test set covering MASTER presentation, all-day source changes, full restore plans, ledger/navigation, workload, installer and production guards;
+2. debug any Python/source-contract failure before another Excel smoke;
+3. when green, build fresh `DAILY_INPUT_IN_PLACE_V7.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
+4. native all-day ΓΙΑΝΝΙΑ transfer test:
+   - recurring MASTER treatments for the selected date remain visible but red-struck;
+   - M status shows the dated reason;
+   - THERAPIST_DAILY affected lines are struck;
+   - actual original therapist occupied slots release correctly;
+   - `Φόρτος θεραπευτών` opens therapist schedule;
+   - `Επιστροφή στο MASTER` exists;
+   - workload badges cannot be dragged;
+   - DAILY_CHANGE_LEDGER panel shows ΓΙΑΝΝΙΑ with individual `Επαναφορά`;
+5. click ΓΙΑΝΝΙΑ restore and verify same workbook returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload and marks ledger RESTORED;
+6. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before any retry;
+7. after patient branch is native green, test therapist absence/global replacement continuation;
+8. then continue patient/day finalized outcome history.
 
 ## Safety reminders
 
 - baseline immutable;
 - daily facts are overlays, never destructive recurring edits;
-- native Excel/VBA/COM-compatible mutation for real `.xlsm` production writes;
-- no production/staging `.xlsm` save with openpyxl;
+- production `.xlsm` mutation is native Excel/VBA/COM-compatible;
+- no production/staging save with openpyxl;
 - semantic read-back after production writes;
 - Windows tests use `python -m pytest`;
-- later corrections append/version history instead of rewriting old finals.
-
-## Documentation rule
-
-Every agreed design/product/future-feature idea must be recorded in repository documentation in the same work cycle.
+- documentation updates are part of implementation.
