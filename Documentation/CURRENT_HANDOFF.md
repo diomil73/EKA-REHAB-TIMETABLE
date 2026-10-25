@@ -136,14 +136,24 @@ No close/reopen. Diagnostic:
 
 ### Deterministic preview installation
 
-Both `registration_menu_vba.py` and `build_registration_menu_preview.py` install/verify the operational shell. The second preview-build pass must not remove/recreate `frmDoubleBookingReview` when the first pass has already installed the guided review. Excel/VBE can retain a removed UserForm Designer/name inside the same session and raise COM error 1004 on immediate recreation.
+Both `registration_menu_vba.py` and `build_registration_menu_preview.py` install/verify the operational shell.
 
-After the first V7 build attempt stopped during `installing guided double-booking review`, `build_registration_menu_preview.py` was changed to `_ensure_double_booking_review(vbproject)`: if both `modDoubleBookingReview` and `frmDoubleBookingReview` already exist, the second pass verifies and keeps them; only a missing/partial install triggers recreation. This was a build-time blocker only. No V7 workbook behavior was tested before this fix.
+First V7 build blocker:
+- second preview pass tried to remove/recreate `frmDoubleBookingReview` even though the first pass had already installed it;
+- Excel/VBE retained the UserForm Designer/name and raised COM error 1004;
+- second pass is now idempotent: existing module+form are kept and only missing/partial installs are recreated.
+
+Second V7 build blocker:
+- build progressed to `installing therapist workload strip` and failed on `master.Rows(3).RowHeight = 28` with Excel error `Δεν είναι δυνατός ο ορισμός της ιδιότητας RowHeight από την κλάση Range.`;
+- RowHeight is cosmetic only and is now best-effort in both Python installer and runtime VBA;
+- this failure also occurred before any V7 workbook behavior/native DAILY_INPUT test.
 
 Relevant fix commits:
 
-- `3052b371354f740c0e41ad1f85131b5e89b7fc04` idempotent guided-review install in second preview pass
-- `088f833e831fe937b898928d0b88a82e0801d539` regression guard for second-pass UserForm idempotency
+- `3052b371354f740c0e41ad1f85131b5e89b7fc04` idempotent guided-review install
+- `088f833e831fe937b898928d0b88a82e0801d539` guided-review installer regression guard
+- `d9a9572dcb5a373812cec8e599bd9dc4371ee2d0` make RowHeight styling non-fatal in installer/runtime
+- `62fa398f33c409accbc714f62f9e47b01cc05e84` RowHeight non-fatal regression guard
 
 ## New regression coverage
 
@@ -162,24 +172,24 @@ V7 pre-native focused gate is GREEN: `63 passed, 6 warnings in 5.92s`.
 
 ## Exact resume point
 
-Do not native-smoke V6 again. Discard any partially built V7 file from the failed guided-review installation attempt.
+Do not native-smoke V6 again. Discard any partially built V7 file from failed installer attempts.
 
 Immediate order:
 
-1. pull the idempotent installer fix;
-2. run the focused builder/registration tests;
+1. pull latest branch;
+2. run focused builder/workload-navigation tests;
 3. rebuild fresh `DAILY_INPUT_IN_PLACE_V7.xlsm` with `--overwrite` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
 4. only if build succeeds, native all-day ΓΙΑΝΝΙΑ transfer test:
    - recurring MASTER treatments for the selected date remain visible but red-struck;
-   - M status shows the dated reason `Διακομιστήριο`;
+   - M status shows `Διακομιστήριο`;
    - THERAPIST_DAILY affected lines are struck;
    - actual original therapist occupied slots release correctly;
    - `Φόρτος θεραπευτών` opens therapist schedule;
    - `Επιστροφή στο MASTER` exists;
    - workload badges cannot be dragged;
    - DAILY_CHANGE_LEDGER panel shows ΓΙΑΝΝΙΑ with individual `Επαναφορά`;
-5. click ΓΙΑΝΝΙΑ restore and verify the same workbook stays open, returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears the exact DAILY_INPUT fact and marks the ledger row RESTORED;
-6. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before any retry;
+5. click ΓΙΑΝΝΙΑ restore and verify same workbook stays open, returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears the exact DAILY_INPUT fact and marks ledger row RESTORED;
+6. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before retrying;
 7. after patient branch is native green, test therapist absence/global replacement continuation;
 8. then continue patient/day finalized outcome history;
 9. later clean Python 3.14/openpyxl ZipFile destructor warnings without weakening workbook-safety tests.
