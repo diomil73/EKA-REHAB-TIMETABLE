@@ -23,6 +23,8 @@ Start with `Documentation/ONBOARDING.md`, then read `Documentation/IN_PLACE_MUTA
 - native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, 79 final sessions, 1 treatment suspension, unresolved 0
 - native snapshot + therapist/day history smoke: VERIFIED, 16 therapist/day rows
 - native close-day backend smoke: VERIFIED, snapshot + 16 therapist/day rows + one `DAY_FINALIZED` event, application contract `54 -> 57`
+- native in-place close-day UI: VERIFIED. First click finalized successfully while workbook stayed open on MASTER; no close/reopen path was required.
+- native second-click duplicate protection: VERIFIED. No duplicate history was written. Initial generic failure wording was corrected in code to the operator message `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`
 
 ## Locked production interaction architecture
 
@@ -46,9 +48,9 @@ Temporary copies are allowed only for development/smoke/install/migration or rol
 
 ## `Κλείσιμο ημέρας` production state
 
-Historical model/backend remains native-verified.
+Historical model/backend and in-place UI are native-verified.
 
-Implemented now, awaiting focused tests/native smoke:
+Implemented and verified:
 
 - `Python/tools/prepare_close_day_in_place.py` performs read-only validation/calculation;
 - emits one payload containing `SNAPSHOT`, all `THERAPIST` rows and one `EVENT` row;
@@ -58,7 +60,8 @@ Implemented now, awaiting focused tests/native smoke:
 - VBA writes snapshot + therapist history + event into the already-open workbook;
 - every inserted row is reread before Save;
 - failure rolls back inserted rows/new sheets;
-- success protects/hides technical sheets, saves once and remains on `MASTER_SCHEDULE`.
+- success protects/hides technical sheets, saves once and remains on `MASTER_SCHEDULE`;
+- second click is idempotent and now reports `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.` instead of generic failure guidance.
 
 ## `DAILY_INPUT` production state
 
@@ -78,7 +81,7 @@ Implemented now, awaiting focused tests/native smoke:
 
 ## Shared production regression
 
-`Tests/test_production_actions_stay_in_session.py` currently guards close-day and DAILY_INPUT against reintroduction of:
+`Tests/test_production_actions_stay_in_session.py` guards close-day and DAILY_INPUT against reintroduction of:
 
 - `ThisWorkbook.Close`;
 - `Application.OnTime` handoff;
@@ -140,17 +143,15 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 ## Exact resume point
 
-**Do not return to close/reopen mechanics.**
+**Do not return to close/reopen mechanics. Close-day in-place is now native green.**
 
 Immediate order:
 
-1. run the combined focused in-place regression gate for close-day + DAILY_INPUT + application shell/MASTER;
-2. build one fresh disposable application-shell workbook from `DOUBLE_BOOKING_REJECTED.xlsm`;
-3. native test `Κλείσιμο ημέρας`: success, workbook remains open on MASTER, no console/reopen/error;
-4. immediately repeat close-day and verify already-closed protection;
-5. on a separate fresh disposable workbook with DAILY_INPUT changes, native test `DAILY_INPUT`: apply in place, remain open, correct routing/presentation, no console/reopen;
-6. if both native gates are green, continue patient/day finalized outcome history;
-7. later implement explicit finalized-day amendment/version chain.
+1. pull latest duplicate-message fix and run the combined focused in-place regression gate;
+2. native test in-place `DAILY_INPUT` on a fresh disposable workbook with real DAILY_INPUT changes;
+3. verify apply stays open, routes correctly, preserves presentation, shows no console/reopen and can roll back cleanly on failure;
+4. once DAILY_INPUT is native green, continue patient/day finalized outcome history;
+5. later implement explicit finalized-day amendment/version chain.
 
 ## Safety reminders
 
