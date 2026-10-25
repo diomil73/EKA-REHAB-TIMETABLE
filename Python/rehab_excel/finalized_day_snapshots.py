@@ -371,7 +371,10 @@ def append_finalized_day_snapshot(
         next_row = max(last_row + 1, 2)
         values = _values_for_com(snapshot)
         for col, value in enumerate(values, start=1):
-            ws.Cells(next_row, col).NumberFormat = "@" if col in {1, 2, 4, 5, 6} else "General"
+            # Do not set NumberFormat through COM here. Some Excel locale/build
+            # combinations reject Range.NumberFormat even for otherwise writable
+            # cells. Value2 already preserves our strings/numbers sufficiently,
+            # and the semantic read-back below is the authoritative safety gate.
             ws.Cells(next_row, col).Value2 = value
 
         readback = tuple(
