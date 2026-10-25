@@ -21,8 +21,16 @@ def test_workload_strip_counts_unique_occupied_timeslots_not_patient_lines():
     assert 'Set providerTimes = CreateObject("Scripting.Dictionary")' in MODULE_CODE
     assert "providerTimes(timeValue) = True" in MODULE_CODE
     assert "occupied = providerTimes.Count" in MODULE_CODE
-    assert "Split(" not in MODULE_CODE
     assert "DEFAULT_CAPACITY As Long = 6" in MODULE_CODE
+
+
+def test_workload_strip_counts_only_operationally_active_lines():
+    assert "Private Function CellHasActiveWork(ByVal cell As Range) As Boolean" in MODULE_CODE
+    assert "If CellHasActiveWork(daily.Cells(rowIndex, col)) Then" in MODULE_CODE
+    assert ".Font.Strikethrough" in MODULE_CODE
+    assert ".Font.Italic" in MODULE_CODE
+    assert 'If ch <> "→" Then' in MODULE_CODE
+    assert "Len(Trim$(CStr(daily.Cells(rowIndex, col).Value))) > 0" not in MODULE_CODE
 
 
 def test_workload_strip_merges_same_therapist_across_layout_blocks():
