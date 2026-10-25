@@ -59,6 +59,7 @@ def test_master_toolbar_contract_has_consolidated_actions_and_exit():
         "Διαχείριση Μητρώων",
         "Απουσίες / Ακυρώσεις",
         "Ημερήσιο πρόγραμμα",
+        "Κλείσιμο ημέρας",
         "Save & Exit",
     ]
 
@@ -69,6 +70,8 @@ def test_master_toolbar_actions_route_to_existing_features():
     assert "Public Sub ToolbarAbsences()" in MASTER_TOOLBAR_MODULE_CODE
     assert 'Worksheets("DAILY_INPUT").Activate' in MASTER_TOOLBAR_MODULE_CODE
     assert 'Worksheets("THERAPIST_DAILY").Activate' in MASTER_TOOLBAR_MODULE_CODE
+    assert "Public Sub ToolbarCloseDay()" in MASTER_TOOLBAR_MODULE_CODE
+    assert "CloseOperationalDay" in MASTER_TOOLBAR_MODULE_CODE
     assert "ToolbarNewPatient" not in MASTER_TOOLBAR_MODULE_CODE
     assert "ToolbarNewProvider" not in MASTER_TOOLBAR_MODULE_CODE
     assert "ToolbarPatientAbsence" not in MASTER_TOOLBAR_MODULE_CODE
@@ -108,6 +111,13 @@ def test_master_toolbar_includes_exit_action():
     assert "ThisWorkbook.Save" in MASTER_TOOLBAR_MODULE_CODE
     assert "Application.EnableEvents = False" in MASTER_TOOLBAR_MODULE_CODE
     assert "ThisWorkbook.Close SaveChanges:=False" in MASTER_TOOLBAR_MODULE_CODE
+
+
+def test_master_toolbar_includes_close_day_action():
+    captions = [item[1] for item in BUTTONS]
+    assert "Κλείσιμο ημέρας" in captions
+    assert "Public Sub ToolbarCloseDay()" in MASTER_TOOLBAR_MODULE_CODE
+    assert "CloseOperationalDay" in MASTER_TOOLBAR_MODULE_CODE
 
 
 def test_master_toolbar_includes_return_to_master_action():
