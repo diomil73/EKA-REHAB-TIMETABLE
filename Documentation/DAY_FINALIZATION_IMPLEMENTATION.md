@@ -96,6 +96,24 @@ Fix:
 - retain the existing strict identity check, with no name-specific exception or hardcoded workaround;
 - add a regression guard proving the finalization preview keeps this official-registry wiring.
 
+### Native safety-stop finding: COM NumberFormat assignment
+
+The next native snapshot attempt stopped safely while persisting the technical history row:
+
+`Δεν είναι δυνατός ο ορισμός της ιδιότητας NumberFormat από την κλάση Range.`
+
+The cause was an unnecessary formatting assignment before each COM value write. The writer attempted to force `Range.NumberFormat` to text or General even though persistence correctness is already protected by typed `Value2` writes followed by semantic COM read-back before `Save`.
+
+Fix:
+
+- remove all `Range.NumberFormat` assignments from finalized snapshot persistence;
+- continue writing the schema values through `Value2`;
+- retain exact semantic read-back validation before save;
+- retain hidden/protected technical-sheet handling;
+- add a regression guard that prevents reintroducing `NumberFormat` dependency into this writer.
+
+This is intentionally a narrow compatibility fix. It does not weaken persistence validation and does not alter the finalized-history schema.
+
 The first native smoke should use a known finalized workbook with `unresolved=0`, preferably the already-verified double-booking REJECT/suspension fixture, so no approved double-booking count needs to be inferred yet.
 
 ## Regression coverage
@@ -115,7 +133,8 @@ The first native smoke should use a known finalized workbook with `unresolved=0`
 - current-only/date filtering;
 - rejection of two `CURRENT_FINAL` snapshots for one date;
 - rejection of nonzero unresolved history;
-- schema-drift rejection.
+- schema-drift rejection;
+- finalized snapshot native writer does not depend on COM `NumberFormat` assignment and retains `Value2` plus semantic read-back safety.
 
 `Tests/test_build_finalized_day_snapshot_preview.py` guards production-smoke ordering, application-contract reporting fields and use of the official therapist registry when parsing DAILY_INPUT.
 
