@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-10-24
+Last updated: 2026-10-25
 
 ## Read order
 
@@ -12,6 +12,7 @@ Start with `Documentation/ONBOARDING.md`. This file is the exact resume point.
 - Baseline `Rehab_Center_System_v27_1.xlsm` remains immutable.
 - Replacement-quality milestone is CLOSED end-to-end.
 - Restore correctness is closed; restore performance remains deferred.
+- Statistics/history milestone is active.
 
 ## Latest confirmed checkpoints
 
@@ -25,10 +26,9 @@ Start with `Documentation/ONBOARDING.md`. This file is the exact resume point.
 - unresolved/suspension gate: `24 passed in 3.74s`
 - joined replacement decision gate: `21 passed in 3.95s`
 - native student replacement smoke: VERIFIED
-- native suspension smoke: VERIFIED, 5 displaced / 3 replacements / 2 suspensions / unresolved 0
-- native joined double-booking review gate: VERIFIED
 - native explicit REJECT branch: VERIFIED, 1 persisted `Αναστολή θεραπείας`, unresolved 0, application contract OK (54 components)
 - native explicit ACCEPT branch: VERIFIED, ACTIVE fact `daily-global:planner:92:ΦΘ@2026-10-26:2026-10-26`, `Βασιλειάδης -> Μηλιδάκης 08:30`
+- native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, `CURRENT_FINAL`, 79 final sessions, 1 treatment suspension, unresolved 0, source unchanged, application contract `54 -> 55` components
 
 ## Closed replacement decision chain
 
@@ -36,47 +36,7 @@ Production order is locked as:
 
 `recurring/base -> cancellations/no-shows -> therapist absences -> surviving ACTIVE replacements -> global solve -> double-booking review -> explicit ACCEPT/REJECT -> remaining suspension -> final recompute`
 
-Rules:
-
-- all known therapist absences are entered before solving;
-- all displaced sessions are solved together;
-- scarcity/unique-slot protection outranks original-time preference;
-- reclining adjacency and workload balance are optimized where feasible;
-- 13:00 is only a weak soft penalty;
-- pool/robotic operating hours are persistent configuration;
-- therapists and students share the same solver with distinct provider kind/capability/capacity semantics;
-- double-booking is last resort only and never automatic;
-- if a legal double-booking option exists, production must stop for explicit review before creating suspension;
-- ACCEPT persists the confirmed exception as an ACTIVE replacement fact;
-- REJECT allows the orphan to become explicit `TREATMENT_SUSPENDED`;
-- if no legal exception exists, suspension may occur directly;
-- final operational state requires `unresolved_sessions == 0`.
-
-Native deterministic review case on `2026-10-26`:
-
-- patient `ΚΑΠΑΘΑΝΑΣΗ`;
-- original therapist `Βασιλειάδης`;
-- original time `08:30`;
-- busy exception therapist `Μηλιδάκης`;
-- existing patient in same slot `ΜΟΤΣΙΟΣ`.
-
-Normal apply safety-stopped before suspension. ACCEPT and REJECT were both independently verified.
-
-## Suspension-only ledger edge case
-
-A final result may contain suspension facts but zero replacement-ledger records. That is valid.
-
-The production path now skips `install_daily_change_ledger_preview(...)` when `ledger_records` is empty. It must never create a fake replacement record merely to satisfy the UI ledger installer. Suspension truth remains in `DAILY_INPUT` and daily statistics.
-
-Relevant commits:
-
-- `8f52c50a` production double-booking review gate
-- `0695a823` sequencing regression guard
-- `4659854c` workflow documentation
-- `7675b4c` suspension-only ledger fix
-- `c4cc54d` regression guard for empty replacement ledger
-- `03bc9aa` joined workflow milestone closure documentation
-- `ae211f1` project-status milestone closure
+Double-booking remains explicit-only. Final operational state requires `unresolved_sessions == 0`.
 
 ## Student presentation/lifecycle contract
 
@@ -94,62 +54,67 @@ MASTER badges use `Όνομα n/6`, where `n` is occupied timeslots, not patient
 - 5 yellow/orange
 - 6+ red
 
-History must preserve occupied timeslots and active sessions as separate metrics.
+History preserves occupied timeslots and active sessions as separate metrics. A legal shared slot with two patients is one occupied timeslot and two active sessions.
 
-## Day-finalization/history decisions already locked
+## Day-finalization/history implementation state
 
 Finalization is explicit via `Κλείσιμο ημέρας`, never automatic.
 
-Before close succeeds:
+Implemented and native-verified:
 
-- unresolved sessions = 0;
-- every concrete-date session has a final outcome;
-- replacements/cancellations/no-shows/suspensions are reflected;
-- final workload/statistics come from effective daily state.
+- immutable `FinalizedDaySnapshot`;
+- strict unresolved=0 finalization gate;
+- `FINALIZED_DAY_SNAPSHOTS` hidden/protected native COM store;
+- schema validation and one `CURRENT_FINAL` per date;
+- exact semantic read-back before Save;
+- official therapist-registry wiring for DAILY_INPUT;
+- no dependency on COM `Range.NumberFormat`;
+- source workbook hash verification;
+- VBA application-contract verification.
 
-History model is hybrid:
+Implemented, awaiting focused/native gate:
 
-- finalized daily snapshots for reporting;
-- append-only events for audit/reconstruction;
-- indefinite retention;
-- post-finalization correction creates a new CURRENT_FINAL version and preserves the previous one as SUPERSEDED.
+- `TherapistDayHistoryRow` core model;
+- planned occupied timeslots and planned sessions;
+- final occupied timeslots and final active sessions;
+- replacements received;
+- released load from patient absence/no-show/postponement;
+- treatment-suspension load effect;
+- approved shared/over-capacity event count field;
+- student replacement exclusion from therapist workload;
+- `THERAPIST_DAY_HISTORY` hidden/protected native COM store keyed by `(SnapshotId, TherapistId)`;
+- finalized-day preview wiring that persists and rereads therapist/day rows.
 
-Physical storage remains hidden/protected technical tables inside the same `.xlsm`.
+Current capacity history uses the locked operational 6-timeslot therapist baseline until a per-therapist capacity registry is introduced.
 
 ## Patient-history requirements already locked
 
 Preserve/derive:
 
 - first operational entry date;
+- end/archive date;
 - stay duration;
 - treatment/service days;
 - scheduled/performed/missed sessions and structured reasons;
 - expected working days excluding weekends/holidays;
 - treatment counts and timeline;
-- trends/totals by period;
-- manual append-only 15-day evaluation milestones with `Από`, `Έως`, and green/grey/red outcome.
+- totals/trends by period;
+- manual append-only 15-day evaluation milestones with `Από`, `Έως`, and green/grey/red outcome;
+- aggregate patient reporting for all patients and by originating clinic.
 
-Patient name will later resolve the intranet/shared-folder record. Physiotherapy time opens the 15-day progress view.
-
-## Therapist-history requirements already locked
-
-Preserve/derive workload history, attendance/presence, dated absences and structured reasons, including the agreed Greek absence-reason list in the specialist history docs.
+Patient lifecycle dates are manually correctable for migration of existing patients. MASTER should later show a compact start-date label such as `Έν. 12/09/26` near the responsible doctor where layout permits.
 
 ## Exact resume point
 
 **Do not open another replacement vertical.** The replacement-quality milestone is closed unless a concrete regression appears.
 
-Next milestone:
+Immediate next gate:
 
-1. begin the smallest persistent statistics/history implementation slice;
-2. use `Documentation/STATISTICS_HISTORY_DESIGN.md` as the design source;
-3. retain explicit `Κλείσιμο ημέρας` as the only finalization action;
-4. keep snapshots + append-only events in the same `.xlsm` hidden/protected storage;
-5. build rule/test/Python implementation before Excel integration;
-6. update docs in the same cycle;
-7. keep restore-performance tuning deferred.
-
-Likely first implementation target should be the smallest durable finalized-day snapshot/event schema and persistence gate, not charts or broad reporting UI.
+1. run focused therapist/day history tests;
+2. rerun the finalized-day native preview on `DOUBLE_BOOKING_REJECTED.xlsm`;
+3. require therapist/day row persistence and exact reread;
+4. if green, connect explicit `Κλείσιμο ημέρας` application action and add append-only finalization event storage;
+5. then begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
 
 ## Safety reminders
 
@@ -161,7 +126,7 @@ Likely first implementation target should be the smallest durable finalized-day 
 - verify source hashes;
 - Windows tests use `python -m pytest`;
 - no manual Save outside a tested scenario;
-- confirmed double-booking persistence keeps the locked no-close/no-reopen behavior.
+- later corrections append/version history instead of rewriting old finals.
 
 ## Documentation rule
 
