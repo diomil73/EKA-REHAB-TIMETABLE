@@ -8,6 +8,7 @@ def test_daily_input_preparation_only_builds_validated_plan():
 
     assert "assert_application_contract(source)" in source
     assert "read_daily_input" in source
+    assert "read_daily_replacement_facts" in source
     assert "build_daily_session_states" in source
     assert "build_patient_centric_preview_plan" in source
     assert "compose_outpatient_daily_plan" in source
@@ -17,6 +18,14 @@ def test_daily_input_preparation_only_builds_validated_plan():
     assert "apply_write_plan_to_copy" not in source
     assert "shutil.copy" not in source
     assert "Workbooks.Open" not in source
+
+
+def test_daily_input_effective_state_preserves_active_replacements():
+    source = inspect.getsource(module.prepare_daily_input_payload)
+
+    assert "replacements = read_daily_replacement_facts(" in source
+    assert "replacements=replacements" in source
+    assert '"active_replacements": len(replacements)' in source
 
 
 def test_daily_input_payload_serializes_patch_semantics():
