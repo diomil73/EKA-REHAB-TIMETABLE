@@ -11,6 +11,8 @@ from zipfile import ZipFile
 from .application_shell_vba import APP_SHELL_MODULE_NAME, install_application_shell
 from .close_day_action_vba import CLOSE_DAY_MODULE_NAME, install_close_day_action
 from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
+from .double_booking_review_vba import DOUBLE_BOOKING_FORM_NAME, DOUBLE_BOOKING_MODULE_NAME
+from .global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_NAME
 from .master_toolbar_vba import (
     MASTER_TOOLBAR_MODULE_NAME,
     MasterToolbarError,
@@ -18,6 +20,10 @@ from .master_toolbar_vba import (
 )
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
 from .therapist_registration_form_vba import THERAPIST_FORM_NAME, install_therapist_form
+from .therapist_workload_strip_vba import (
+    MODULE_NAME as WORKLOAD_MODULE_NAME,
+    install_therapist_workload_strip,
+)
 from .student_registration_form_vba import STUDENT_FORM_NAME, install_student_form
 
 
@@ -230,24 +236,19 @@ class Win32ComRegistrationMenuInstaller:
                     "then retry on the preview copy."
                 ) from exc
 
-            stage = "removing old menu module"
-            self._remove_component_if_present(vbproject, MENU_MODULE_NAME)
-            stage = "removing old menu form"
-            self._remove_component_if_present(vbproject, MENU_FORM_NAME)
-            stage = "removing old app shell module"
-            self._remove_component_if_present(vbproject, APP_SHELL_MODULE_NAME)
-            stage = "removing old MASTER toolbar module"
-            self._remove_component_if_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
-            stage = "removing old DAILY_INPUT action module"
-            self._remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
-            stage = "removing old close-day action module"
-            self._remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)
-            stage = "removing old patient form"
-            self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
-            stage = "removing old therapist form"
-            self._remove_component_if_present(vbproject, THERAPIST_FORM_NAME)
-            stage = "removing old student form"
-            self._remove_component_if_present(vbproject, STUDENT_FORM_NAME)
+            for label, name in (
+                ("menu module", MENU_MODULE_NAME),
+                ("menu form", MENU_FORM_NAME),
+                ("app shell module", APP_SHELL_MODULE_NAME),
+                ("MASTER toolbar module", MASTER_TOOLBAR_MODULE_NAME),
+                ("DAILY_INPUT action module", DAILY_INPUT_MODULE_NAME),
+                ("close-day action module", CLOSE_DAY_MODULE_NAME),
+                ("patient form", PATIENT_FORM_NAME),
+                ("therapist form", THERAPIST_FORM_NAME),
+                ("student form", STUDENT_FORM_NAME),
+            ):
+                stage = f"removing old {label}"
+                self._remove_component_if_present(vbproject, name)
 
             stage = "creating menu module"
             module = vbproject.VBComponents.Add(1)
@@ -256,40 +257,31 @@ class Win32ComRegistrationMenuInstaller:
 
             stage = "adding blank menu UserForm"
             form = vbproject.VBComponents.Add(3)
-            stage = "naming menu UserForm"
             form.Name = MENU_FORM_NAME
-            stage = "accessing menu designer"
             designer = form.Designer
-            stage = "setting menu caption"
             designer.Caption = "Κεντρικό Μενού"
 
-            stage = "adding menu title"
             self._add_label(designer, "lblTitle", "Επιλέξτε ενέργεια", 18)
-            stage = "adding patient menu button"
             self._add_command_button(designer, "cmdPatient", "Νέος ασθενής", 55)
-            stage = "adding therapist menu button"
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
-            stage = "adding student menu button"
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
-            stage = "adding outpatient schedule menu button"
             self._add_command_button(
                 designer,
                 "cmdOutpatientSchedule",
                 "Πρόγραμμα εξωτερικού ασθενή",
                 166,
             )
-            stage = "adding close menu button"
             self._add_command_button(designer, "cmdClose", "Κλείσιμο", 215)
-
-            stage = "writing menu form code"
             form.CodeModule.AddFromString(USERFORM_CODE)
 
             stage = "installing application shell"
             install_application_shell(vbproject, workbook=workbook)
             stage = "installing MASTER toolbar"
             install_master_toolbar(vbproject, workbook)
-            stage = "installing DAILY_INPUT action"
+            stage = "installing DAILY_INPUT action and guided replacement workflow"
             install_daily_input_action(vbproject)
+            stage = "installing therapist workload/navigation strip"
+            install_therapist_workload_strip(vbproject, workbook)
             stage = "installing close-day action"
             install_close_day_action(vbproject)
             stage = "installing patient form"
@@ -302,44 +294,27 @@ class Win32ComRegistrationMenuInstaller:
             stage = "saving workbook"
             workbook.Save()
 
-            stage = "verifying menu components"
+            stage = "verifying menu and operational components"
             module_present = self._component_present(vbproject, MENU_MODULE_NAME)
             form_present = self._component_present(vbproject, MENU_FORM_NAME)
-            patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
-            therapist_form_present = self._component_present(vbproject, THERAPIST_FORM_NAME)
-            student_form_present = self._component_present(vbproject, STUDENT_FORM_NAME)
-            app_shell_present = self._component_present(vbproject, APP_SHELL_MODULE_NAME)
-            master_toolbar_present = self._component_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
-            daily_input_action_present = self._component_present(vbproject, DAILY_INPUT_MODULE_NAME)
-            close_day_action_present = self._component_present(vbproject, CLOSE_DAY_MODULE_NAME)
-            if not app_shell_present:
-                raise RegistrationMenuVbaError(
-                    "Application shell module was not confirmed in the preview VBA project"
-                )
-            if not master_toolbar_present:
-                raise RegistrationMenuVbaError(
-                    "MASTER toolbar module was not confirmed in the preview VBA project"
-                )
-            if not patient_form_present:
-                raise RegistrationMenuVbaError(
-                    "Patient registration form was not confirmed in the preview VBA project"
-                )
-            if not therapist_form_present:
-                raise RegistrationMenuVbaError(
-                    "Therapist registration form was not confirmed in the preview VBA project"
-                )
-            if not student_form_present:
-                raise RegistrationMenuVbaError(
-                    "Student registration form was not confirmed in the preview VBA project"
-                )
-            if not daily_input_action_present:
-                raise RegistrationMenuVbaError(
-                    "DAILY_INPUT action module was not confirmed in the preview VBA project"
-                )
-            if not close_day_action_present:
-                raise RegistrationMenuVbaError(
-                    "Close-day action module was not confirmed in the preview VBA project"
-                )
+            required = {
+                APP_SHELL_MODULE_NAME: "Application shell",
+                MASTER_TOOLBAR_MODULE_NAME: "MASTER toolbar",
+                DAILY_INPUT_MODULE_NAME: "DAILY_INPUT action",
+                GLOBAL_REPLACEMENT_MODULE_NAME: "Global replacement action",
+                DOUBLE_BOOKING_MODULE_NAME: "Guided double-booking module",
+                DOUBLE_BOOKING_FORM_NAME: "Guided double-booking form",
+                WORKLOAD_MODULE_NAME: "Therapist workload/navigation",
+                CLOSE_DAY_MODULE_NAME: "Close-day action",
+                PATIENT_FORM_NAME: "Patient registration form",
+                THERAPIST_FORM_NAME: "Therapist registration form",
+                STUDENT_FORM_NAME: "Student registration form",
+            }
+            for name, label in required.items():
+                if not self._component_present(vbproject, name):
+                    raise RegistrationMenuVbaError(
+                        f"{label} was not confirmed in the preview VBA project"
+                    )
             return module_present, form_present
         except RegistrationMenuVbaError:
             raise
