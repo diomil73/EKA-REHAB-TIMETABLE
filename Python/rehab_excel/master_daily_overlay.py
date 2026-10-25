@@ -225,7 +225,6 @@ def build_master_daily_overlay_plan(
                     cell=cell,
                     intent=WriteIntent.PRESENTATION,
                     strike_through=True,
-                    font_role="cancelled_red",
                     source_tag="master_daily_non_active_overlay",
                 )
             )
@@ -259,7 +258,6 @@ def build_master_daily_overlay_plan(
                     value=_patient_status_value(inactive),
                     wrap_text=True,
                     min_font_size=10,
-                    font_role="cancelled_red",
                     source_tag="master_daily_patient_status_overlay",
                 )
             )
