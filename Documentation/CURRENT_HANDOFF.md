@@ -30,6 +30,7 @@ Start with `Documentation/ONBOARDING.md`. This file is the exact resume point.
 - native explicit ACCEPT branch: VERIFIED, ACTIVE fact `daily-global:planner:92:ΦΘ@2026-10-26:2026-10-26`, `Βασιλειάδης -> Μηλιδάκης 08:30`
 - native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, `CURRENT_FINAL`, 79 final sessions, 1 treatment suspension, unresolved 0, source unchanged, application contract `54 -> 55` components
 - native snapshot + therapist/day history smoke: VERIFIED on `2026-10-26`, 16 therapist/day rows, unresolved 0, source unchanged, application contract `54 -> 56` components
+- native close-day backend smoke: VERIFIED on `2026-10-26`, snapshot `finalized:2026-10-26:v1`, event `day-finalized:2026-10-26:v1`, 79 final sessions, 16 therapist/day rows, unresolved 0, source unchanged, application contract `54 -> 57` components
 
 ## Closed replacement decision chain
 
@@ -73,19 +74,20 @@ Implemented and native-verified:
 - therapist/day historical workload derivation;
 - `THERAPIST_DAY_HISTORY` hidden/protected COM store;
 - 16 therapist/day rows persisted and reread on the verified 2026-10-26 fixture;
-- application-contract verification after history persistence.
-
-Implemented, awaiting focused/native gate:
-
 - immutable append-only `DayHistoryEvent` model;
 - `DAY_FINALIZED` event type linked to `related_snapshot_id`;
 - `DAY_HISTORY_EVENTS` hidden/protected COM store;
 - duplicate EventId rejection and semantic COM read-back;
-- `Python/tools/close_day.py` verified-preview action contract;
-- `modCloseDayAction` VBA module with explicit confirmation;
-- authoritative commit worker handoff and reopen target `MASTER_SCHEDULE`.
+- `Python/tools/close_day.py` verified-preview backend;
+- native close-day backend smoke with application contract `54 -> 57`.
 
-The close-day VBA module is not yet installed into the MASTER toolbar. Installation is deliberately held until the new backend/event focused gate and native `close_day.py` smoke are green.
+Implemented, awaiting focused/native UI gate:
+
+- `modCloseDayAction` with explicit Yes/No confirmation;
+- verified preview -> authoritative commit worker -> reopen `MASTER_SCHEDULE` flow;
+- `Κλείσιμο ημέρας` MASTER toolbar button routing to `CloseOperationalDay`;
+- registration/application-shell installer now installs and verifies `modCloseDayAction`;
+- application-shell pre-clean removes old `modCloseDayAction` for idempotent reinstall.
 
 Current capacity history uses the locked operational 6-timeslot therapist baseline until a per-therapist capacity registry is introduced.
 
@@ -112,11 +114,11 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 Immediate next gate:
 
-1. run focused day-event/store/close-action tests;
-2. run `Python/tools/close_day.py` against `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm` into a fresh preview;
-3. require snapshot + 16 therapist/day rows + exactly one `DAY_FINALIZED` event + unresolved 0 + source unchanged;
-4. if green, install `modCloseDayAction` and a `Κλείσιμο ημέρας` button into the application preview/MASTER toolbar and native-smoke the actual Excel action;
-5. then begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
+1. run focused MASTER/close-action/installer tests;
+2. build a fresh application-shell preview from `CLOSE_DAY_V1.xlsm` using `build_registration_menu_preview.py`;
+3. require `modCloseDayAction` to be present and the MASTER toolbar to expose `Κλείσιμο ημέρας`;
+4. native-click the button on the disposable preview and verify explicit confirmation, close-day backend, authoritative commit, automatic reopen to MASTER and no source corruption;
+5. after the UI gate is green, begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
 
 ## Safety reminders
 
