@@ -57,7 +57,23 @@ The following must be current after application:
 - therapist workload badges are rebuilt from `THERAPIST_DAILY` and continue to count **occupied timeslots**, not patient lines;
 - already-active replacements remain part of the effective state and are not silently lost on re-apply.
 
-The V4 native smoke exposed this gap: patient absence applied in place, but MASTER/workload verification had not been part of the gate, and therapist absence incorrectly routed to a blank raw `REPLACEMENTS` sheet. The production path was changed accordingly before the next native smoke.
+MASTER presentation rules are now explicit:
+
+- `REPLACED` shows the effective time/provider;
+- `PATIENT_ABSENT` shows `ΑΠΩΝ` plus the reason when available;
+- `CANCELLED` shows `ΑΚΥΡΩΘΗΚΕ` plus the reason when available;
+- unresolved `THERAPIST_ABSENT` shows `ΑΝΑΜΟΝΗ ΑΝΑΠΛΗΡΩΣΗΣ` until the replacement continuation resolves it;
+- when all dated sessions for an inpatient are non-active, the MASTER patient status is overlaid as non-active as well.
+
+Workload counting rules are also explicit:
+
+- a non-empty cell is not automatically occupied;
+- struck-through absence/cancellation lines do not consume a slot;
+- italic replacement-source lines do not consume the original therapist slot;
+- `→` routing annotation lines do not consume a slot;
+- a shared slot with at least one active patient still counts as exactly one occupied timeslot.
+
+The V4 native smoke exposed the raw replacement-sheet routing gap. The V5 smoke exposed a second integration gap: a real cancellation (`ΓΙΑΝΝΙΑ`, reason `Διακομιστήριο`) left MASTER visually active and kept `ΠΑΠΑΜΑΝΟΥ` at `6/6`. Root cause was an overlay that handled only replacements plus a workload counter that treated every non-empty cell as occupied. Both are now regression-guarded.
 
 ## Diagnostic-first native testing
 
@@ -75,6 +91,8 @@ The V3/V4 debugging sequence confirmed why this rule matters: a `SaveCopyAs` fai
 ## Development/smoke previews
 
 Developer preview tools may still create disposable copies. Those are test/install/migration tools only and do not define normal operator behavior.
+
+A fresh application preview must explicitly reinstall and verify the operational modules used by DAILY_INPUT continuation, including global replacement action, guided double-booking review, and therapist workload strip. Pre-cleaning a component without reinstalling it is a build failure, not an acceptable fixture dependency.
 
 ## Business rules
 
