@@ -15,7 +15,8 @@ A service day becomes historical truth only through an explicit close action. Fi
 - unresolved sessions must be zero;
 - counts are derived from the final effective daily state, never reconstructed from a later recurring schedule;
 - the finalized snapshot object is immutable;
-- physical workbook persistence will live in hidden/protected technical tables inside the same `.xlsm`.
+- audit timestamps are timezone-aware;
+- physical workbook persistence lives in hidden/protected technical tables inside the same `.xlsm`.
 
 ## Implemented core slice
 
@@ -37,7 +38,48 @@ The builder validates the requested service date and refuses to create a snapsho
 - approved double-booking/over-capacity exceptions;
 - optional planned-session comparison context.
 
-The first implementation deliberately stops before Excel persistence. This keeps the business invariant testable independently from workbook mutation.
+## Implemented workbook persistence slice
+
+`Python/rehab_excel/finalized_day_snapshots.py` now owns the first durable snapshot-header store.
+
+Technical sheet:
+
+- `FINALIZED_DAY_SNAPSHOTS`;
+- `xlSheetVeryHidden`;
+- protected after write;
+- authoritative header validation on every read/write;
+- native Excel/COM mutation only;
+- read-only openpyxl is used only for inspection/verification.
+
+Persistence rules:
+
+- only `CURRENT_FINAL` snapshots may be appended by ordinary day close;
+- a persisted finalized snapshot must have `unresolved_sessions == 0`;
+- duplicate `SnapshotId` with different content is rejected;
+- an exact duplicate is idempotent;
+- a service date may have only one `CURRENT_FINAL` snapshot;
+- a second current-final for the same date is rejected and must go through the future explicit amendment workflow;
+- COM values are read back and compared before `Save`.
+
+The store already understands `SUPERSEDED` rows for read/report purposes, but ordinary append cannot create or mutate the amendment chain. That remains a deliberate separate workflow.
+
+## Native preview smoke wiring
+
+`Python/tools/build_finalized_day_snapshot_preview.py` reconstructs one concrete day from authoritative operational inputs:
+
+`recurring/outpatient base + DAILY_INPUT + ACTIVE DAILY_REPLACEMENT_FACTS -> DailySessionState`
+
+Then it:
+
+1. builds the immutable snapshot through the core finalization gate;
+2. copies the input `.xlsm` to a fresh preview output;
+3. appends the snapshot using native Excel/COM;
+4. reads the persisted snapshot back and requires exact equality;
+5. rechecks the application VBA contract;
+6. verifies the source workbook hash is unchanged;
+7. deletes the output on persistence/verification failure.
+
+The first native smoke should use a known finalized workbook with `unresolved=0`, preferably the already-verified double-booking REJECT/suspension fixture, so no approved double-booking count needs to be inferred yet.
 
 ## Regression coverage
 
@@ -47,18 +89,29 @@ The first implementation deliberately stops before Excel persistence. This keeps
 2. successful snapshot from mixed active/replaced/absent/no-show/suspended outcomes;
 3. immutable snapshot semantics;
 4. rejection of states from another service date;
-5. validation of snapshot header inputs before persistence.
+5. validation of snapshot header inputs before persistence;
+6. timezone-aware finalization timestamps.
 
-## Next slice after focused gate
+`Tests/test_finalized_day_snapshots.py` covers:
 
-After the focused core gate is green, continue directly with the persistence layer:
+- snapshot-header read round-trip;
+- current-only/date filtering;
+- rejection of two `CURRENT_FINAL` snapshots for one date;
+- rejection of nonzero unresolved history;
+- schema-drift rejection.
 
-1. define/install hidden protected finalized-snapshot storage in the `.xlsm`;
-2. write/read back one `CURRENT_FINAL` snapshot using native Excel/COM;
-3. make the write atomic/fail-closed;
-4. persist therapist/day workload rows separately from the snapshot header;
-5. add the explicit application action `Κλείσιμο ημέρας` only after backend persistence is verified;
-6. implement amendment/version-chain behavior (`SUPERSEDED` -> new `CURRENT_FINAL`) as a later slice, not by destructive overwrite.
+`Tests/test_build_finalized_day_snapshot_preview.py` guards production-smoke ordering and application-contract reporting fields.
+
+## Next slice after focused/native gate
+
+After the focused gate and native snapshot preview are green:
+
+1. persist therapist/day workload rows separately from the snapshot header;
+2. verify occupied-timeslot versus active-session semantics on a real finalized day;
+3. connect the backend to the explicit application action `Κλείσιμο ημέρας`;
+4. add a final close confirmation/summary UI without exposing technical sheets;
+5. implement append-only historical events;
+6. implement the explicit amendment/version-chain operation (`SUPERSEDED` -> new `CURRENT_FINAL`) without destructive overwrite.
 
 ## Safety
 
@@ -66,4 +119,5 @@ After the focused core gate is green, continue directly with the persistence lay
 - do not save production/staging `.xlsm` with openpyxl;
 - native smoke uses a fresh preview copy;
 - finalization failure must produce no partial historical record;
-- later corrections append/version history rather than editing old history in place.
+- later corrections append/version history rather than editing old history in place;
+- no ordinary close path may silently replace an existing `CURRENT_FINAL` snapshot.
