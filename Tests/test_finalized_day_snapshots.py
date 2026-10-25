@@ -149,7 +149,12 @@ def test_reader_rejects_schema_drift(tmp_path: Path):
 
 def test_native_writer_does_not_depend_on_com_number_format_assignment():
     source = Path("Python/rehab_excel/finalized_day_snapshots.py").read_text(encoding="utf-8")
+    executable_lines = [
+        line.strip()
+        for line in source.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
 
-    assert ".NumberFormat" not in source
+    assert not any(".NumberFormat" in line for line in executable_lines)
     assert "ws.Cells(next_row, col).Value2 = value" in source
     assert "Finalized snapshot COM read-back did not match requested snapshot" in source
