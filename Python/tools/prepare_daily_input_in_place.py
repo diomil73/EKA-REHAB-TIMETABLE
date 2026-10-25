@@ -17,11 +17,7 @@ from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
-from rehab_excel.daily_input_reader import (  # noqa: E402
-    DailyInputReadError,
-    DailyInputSourceChange,
-    read_daily_input,
-)
+from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
 from rehab_excel.daily_preview_composer import compose_outpatient_daily_plan  # noqa: E402
 from rehab_excel.daily_replacement_facts import read_daily_replacement_facts  # noqa: E402
 from rehab_excel.master_daily_overlay import (  # noqa: E402
@@ -122,21 +118,6 @@ def _patch_line(patch: CellPatch) -> str:
     return "\t".join(["PATCH", *(_escape(value) for value in fields)])
 
 
-def _change_line(change: DailyInputSourceChange, target_date: date) -> str:
-    fields = (
-        change.change_id,
-        target_date.isoformat(),
-        change.source_row,
-        change.change_type,
-        change.subject_id,
-        change.display_name,
-        change.reason,
-        "1" if change.all_day else "0",
-        change.start_time.strftime("%H:%M") if change.start_time else "",
-    )
-    return "\t".join(["CHANGE", *(_escape(value) for value in fields)])
-
-
 def prepare_daily_input_payload(
     workbook_path: str | Path,
     payload_path: str | Path,
@@ -207,10 +188,11 @@ def prepare_daily_input_payload(
     plan = compose_master_daily_overlay(plan, master_overlay)
     validate_write_plan(plan)
 
-    lines = [_patch_line(patch) for patch in plan.patches]
-    lines.extend(_change_line(change, target_date) for change in daily.source_changes)
     payload.parent.mkdir(parents=True, exist_ok=True)
-    payload.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+    payload.write_text(
+        "\n".join(_patch_line(patch) for patch in plan.patches) + "\n",
+        encoding="utf-8-sig",
+    )
 
     if file_sha256(source) != source_hash:
         try:
