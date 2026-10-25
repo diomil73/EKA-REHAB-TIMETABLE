@@ -103,6 +103,28 @@ Relevant commits:
 - `0f0aade7b52709904c89df1e0d5bf460edf8f56d` workload inactive-line regression tests
 - `17fd74052b942fa377ea41a88c79c2fdb603d97c` preview operational-module build contract
 
+### Focused regression after V5 fix exposed stale MASTER status-zone assumptions
+
+The next focused gate failed with `2 failed, 43 passed, 4 warnings` because the updated MASTER overlay correctly attempted to write the patient daily status, but the test fixture still modeled the old layout where `Κατάσταση` was in column K. The current application layout is:
+
+- K = `ΨΥΧΟΛΟΓΟΙ`
+- L = `ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ`
+- M = `Κατάσταση`
+
+The writeback safety contract correctly rejected the stale `K7` target. The fix is deliberately narrow:
+
+- MASTER therapy display zone remains `D2:J5000`;
+- a second confirmed write zone allows only `M2:M5000` for derived daily patient status overlays;
+- K and L remain protected;
+- MASTER overlay tests now use the current K/L/M headers and expect status patches in M;
+- `Tests/test_master_status_write_zone.py` explicitly asserts M is allowed while K/L are rejected.
+
+Relevant commits:
+
+- `0a8c0d02bd2adc4f723f9cff14cfd89ab2be4ee5` confirmed MASTER M status write zone
+- `27aebc56556042e527955f34be2086ae05367523` current-layout MASTER overlay tests
+- `b34d5437a5271a7a8a9e70d7de1d0ffd22bf4529` K/L protection regression guard
+
 ## DAILY_INPUT integration architecture
 
 ### Operational projection gate
@@ -135,6 +157,7 @@ If an explicit double-booking decision is required, it invokes the guided `ShowD
 Focused integration tests now also include:
 
 - `Tests/test_master_daily_overlay.py`
+- `Tests/test_master_status_write_zone.py`
 - `Tests/test_therapist_workload_strip_vba.py`
 - `Tests/test_build_registration_menu_operational_modules.py`
 
@@ -144,7 +167,7 @@ Do not return to close/reopen mechanics and do not route to raw `REPLACEMENTS`.
 
 Immediate order:
 
-1. run focused MASTER/workload/DAILY_INPUT/global replacement/build tests;
+1. rerun focused MASTER/workload/DAILY_INPUT/global replacement/build tests after the M-status-zone correction;
 2. if green, build fresh `DAILY_INPUT_IN_PLACE_V6.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
 3. native cancel one patient session and verify explicitly:
    - MASTER affected treatment/status no longer appears active;
