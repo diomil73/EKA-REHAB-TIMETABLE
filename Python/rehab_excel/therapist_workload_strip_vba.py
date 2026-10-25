@@ -95,11 +95,11 @@ Public Sub RenderTherapistWorkloadStrip()
 
     On Error Resume Next
     master.Unprotect
+    master.Rows(3).RowHeight = 28
     On Error GoTo RenderError
 
     DeleteWorkloadShapes master
 
-    master.Rows(3).RowHeight = 28
     buttonWidth = 112
     badgeWidth = 92
     gap = 5
@@ -339,10 +339,16 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
 
     master = workbook.Worksheets("MASTER_SCHEDULE")
     daily = workbook.Worksheets("THERAPIST_DAILY")
-    master.Rows(3).RowHeight = 28
 
     try:
         master.Unprotect()
+    except Exception:
+        pass
+
+    # Row height is cosmetic only. Some native workbook layouts/merged cells
+    # reject RowHeight writes through COM, so it must never block installation.
+    try:
+        master.Rows(3).RowHeight = 28
     except Exception:
         pass
 
