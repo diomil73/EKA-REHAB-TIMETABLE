@@ -29,6 +29,7 @@ Start with `Documentation/ONBOARDING.md`. This file is the exact resume point.
 - native explicit REJECT branch: VERIFIED, 1 persisted `Αναστολή θεραπείας`, unresolved 0, application contract OK (54 components)
 - native explicit ACCEPT branch: VERIFIED, ACTIVE fact `daily-global:planner:92:ΦΘ@2026-10-26:2026-10-26`, `Βασιλειάδης -> Μηλιδάκης 08:30`
 - native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, `CURRENT_FINAL`, 79 final sessions, 1 treatment suspension, unresolved 0, source unchanged, application contract `54 -> 55` components
+- native snapshot + therapist/day history smoke: VERIFIED on `2026-10-26`, 16 therapist/day rows, unresolved 0, source unchanged, application contract `54 -> 56` components
 
 ## Closed replacement decision chain
 
@@ -65,25 +66,26 @@ Implemented and native-verified:
 - immutable `FinalizedDaySnapshot`;
 - strict unresolved=0 finalization gate;
 - `FINALIZED_DAY_SNAPSHOTS` hidden/protected native COM store;
-- schema validation and one `CURRENT_FINAL` per date;
+- one `CURRENT_FINAL` per date;
 - exact semantic read-back before Save;
 - official therapist-registry wiring for DAILY_INPUT;
-- no dependency on COM `Range.NumberFormat`;
 - source workbook hash verification;
-- VBA application-contract verification.
+- therapist/day historical workload derivation;
+- `THERAPIST_DAY_HISTORY` hidden/protected COM store;
+- 16 therapist/day rows persisted and reread on the verified 2026-10-26 fixture;
+- application-contract verification after history persistence.
 
 Implemented, awaiting focused/native gate:
 
-- `TherapistDayHistoryRow` core model;
-- planned occupied timeslots and planned sessions;
-- final occupied timeslots and final active sessions;
-- replacements received;
-- released load from patient absence/no-show/postponement;
-- treatment-suspension load effect;
-- approved shared/over-capacity event count field;
-- student replacement exclusion from therapist workload;
-- `THERAPIST_DAY_HISTORY` hidden/protected native COM store keyed by `(SnapshotId, TherapistId)`;
-- finalized-day preview wiring that persists and rereads therapist/day rows.
+- immutable append-only `DayHistoryEvent` model;
+- `DAY_FINALIZED` event type linked to `related_snapshot_id`;
+- `DAY_HISTORY_EVENTS` hidden/protected COM store;
+- duplicate EventId rejection and semantic COM read-back;
+- `Python/tools/close_day.py` verified-preview action contract;
+- `modCloseDayAction` VBA module with explicit confirmation;
+- authoritative commit worker handoff and reopen target `MASTER_SCHEDULE`.
+
+The close-day VBA module is not yet installed into the MASTER toolbar. Installation is deliberately held until the new backend/event focused gate and native `close_day.py` smoke are green.
 
 Current capacity history uses the locked operational 6-timeslot therapist baseline until a per-therapist capacity registry is introduced.
 
@@ -110,10 +112,10 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 Immediate next gate:
 
-1. run focused therapist/day history tests;
-2. rerun the finalized-day native preview on `DOUBLE_BOOKING_REJECTED.xlsm`;
-3. require therapist/day row persistence and exact reread;
-4. if green, connect explicit `Κλείσιμο ημέρας` application action and add append-only finalization event storage;
+1. run focused day-event/store/close-action tests;
+2. run `Python/tools/close_day.py` against `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm` into a fresh preview;
+3. require snapshot + 16 therapist/day rows + exactly one `DAY_FINALIZED` event + unresolved 0 + source unchanged;
+4. if green, install `modCloseDayAction` and a `Κλείσιμο ημέρας` button into the application preview/MASTER toolbar and native-smoke the actual Excel action;
 5. then begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
 
 ## Safety reminders
