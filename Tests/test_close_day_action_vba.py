@@ -54,6 +54,15 @@ def test_close_day_action_is_fail_closed_with_operator_facing_guidance():
     assert "ανοίξει ξανά" not in messages
 
 
+def test_close_day_second_click_reports_already_closed_as_normal_state():
+    source = CLOSE_DAY_MODULE_CODE
+
+    duplicate_check = 'InStr(1, responseText, "already finalized", vbTextCompare) > 0'
+    assert duplicate_check in source
+    assert "Η επιλεγμένη ημέρα είναι ήδη κλεισμένη." in source
+    assert source.index(duplicate_check) < source.index("If exitCode <> 0")
+
+
 def test_close_day_in_place_write_has_preflight_readback_and_rollback():
     source = CLOSE_DAY_MODULE_CODE
 
