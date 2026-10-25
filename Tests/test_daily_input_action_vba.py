@@ -1,7 +1,10 @@
+import inspect
+
 from rehab_excel.daily_input_action_vba import (
     DAILY_INPUT_MACRO_NAME,
     DAILY_INPUT_MODULE_CODE,
     DAILY_INPUT_MODULE_NAME,
+    install_daily_input_action,
 )
 
 
@@ -28,7 +31,7 @@ def test_daily_input_action_uses_in_place_write_plan():
     assert '" --input "' in source
     assert '" --payload "' in source
     assert '" --response "' in source
-    assert "ApplyValidatedDailyInputPayload" in source
+    assert "Public Function ApplyValidatedDailyInputPayload" in source
     assert "ApplyPatch" in source
     assert "VerifyPatch" in source
     assert "RestorePatchesFromRollback" in source
@@ -52,7 +55,7 @@ def test_daily_input_action_reports_operator_facing_results_only():
 
     assert "Η ημερήσια κατάσταση δεν εφαρμόστηκε" in source
     assert "Η ημερήσια κατάσταση εφαρμόστηκε επιτυχώς." in source
-    assert "Υπάρχουν συνεδρίες που χρειάζονται αναπλήρωση" in source
+    assert "Η ημερήσια κατάσταση και οι αναπληρώσεις εφαρμόστηκαν επιτυχώς." in source
     assert "backend" not in messages
     assert "worker" not in messages
     assert "preview" not in messages
@@ -61,13 +64,34 @@ def test_daily_input_action_reports_operator_facing_results_only():
     assert "ανοίξει ξανά" not in messages
 
 
-def test_daily_input_action_routes_to_replacements_only_when_needed():
+def test_daily_input_action_routes_to_global_replacement_workflow_only_when_needed():
     source = DAILY_INPUT_MODULE_CODE
 
     assert 'replacementsNeeded = JsonLongValue(responseText, "replacement_sessions_needed")' in source
     assert "If replacementsNeeded > 0 Then" in source
-    assert "ActivateReplacementScreen" in source
-    assert 'ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate' in source
+    assert "ResolveDailyReplacementsInPlace()" in source
+    assert "ActivateReplacementScreen" not in source
+    assert 'Worksheets("REPLACEMENTS").Activate' not in source
+    assert "GoToMaster" in source
+
+
+def test_daily_input_success_refreshes_operational_views_and_workload():
+    source = DAILY_INPUT_MODULE_CODE
+
+    assert "RefreshOperationalViews" in source
+    assert "RenderTherapistWorkloadStrip" in source
+    assert 'master.Shapes("ekaWorkload_Refresh")' in source
+    assert "ApplyMasterView" in source
+    assert 'Worksheets("THERAPIST_DAILY")' in source
+
+
+def test_daily_input_installer_adds_guided_replacement_and_workload_modules():
+    source = inspect.getsource(install_daily_input_action)
+
+    assert "install_global_replacement_action(vbproject)" in source
+    assert "install_double_booking_review(vbproject)" in source
+    assert "WORKLOAD_MODULE_NAME" in source
+    assert "WORKLOAD_MODULE_CODE" in source
 
 
 def test_daily_input_patch_application_preserves_presentation_contract():
