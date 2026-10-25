@@ -10,7 +10,11 @@ from zipfile import ZipFile
 
 from .application_shell_vba import APP_SHELL_MODULE_NAME, install_application_shell
 from .close_day_action_vba import CLOSE_DAY_MODULE_NAME, install_close_day_action
+from .daily_change_ledger_vba import MODULE_NAME as DAILY_CHANGE_LEDGER_MODULE_NAME, VBA_CODE as DAILY_CHANGE_LEDGER_BASE_CODE
 from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
+from .daily_input_change_ledger_vba import MODULE_NAME as DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME, install_daily_input_change_ledger
+from .daily_input_change_navigation_vba import MODULE_NAME as DAILY_INPUT_CHANGE_NAV_MODULE_NAME, install_daily_input_change_navigation
+from .daily_restore_in_session_vba import build_in_session_ledger_vba
 from .double_booking_review_vba import DOUBLE_BOOKING_FORM_NAME, DOUBLE_BOOKING_MODULE_NAME
 from .global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_NAME
 from .master_toolbar_vba import (
@@ -242,6 +246,9 @@ class Win32ComRegistrationMenuInstaller:
                 ("app shell module", APP_SHELL_MODULE_NAME),
                 ("MASTER toolbar module", MASTER_TOOLBAR_MODULE_NAME),
                 ("DAILY_INPUT action module", DAILY_INPUT_MODULE_NAME),
+                ("daily change ledger module", DAILY_CHANGE_LEDGER_MODULE_NAME),
+                ("DAILY_INPUT change ledger module", DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME),
+                ("DAILY_INPUT change navigation module", DAILY_INPUT_CHANGE_NAV_MODULE_NAME),
                 ("close-day action module", CLOSE_DAY_MODULE_NAME),
                 ("patient form", PATIENT_FORM_NAME),
                 ("therapist form", THERAPIST_FORM_NAME),
@@ -265,12 +272,7 @@ class Win32ComRegistrationMenuInstaller:
             self._add_command_button(designer, "cmdPatient", "Νέος ασθενής", 55)
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
-            self._add_command_button(
-                designer,
-                "cmdOutpatientSchedule",
-                "Πρόγραμμα εξωτερικού ασθενή",
-                166,
-            )
+            self._add_command_button(designer, "cmdOutpatientSchedule", "Πρόγραμμα εξωτερικού ασθενή", 166)
             self._add_command_button(designer, "cmdClose", "Κλείσιμο", 215)
             form.CodeModule.AddFromString(USERFORM_CODE)
 
@@ -282,6 +284,18 @@ class Win32ComRegistrationMenuInstaller:
             install_daily_input_action(vbproject)
             stage = "installing therapist workload/navigation strip"
             install_therapist_workload_strip(vbproject, workbook)
+
+            stage = "installing in-session daily replacement ledger"
+            ledger_module = vbproject.VBComponents.Add(1)
+            ledger_module.Name = DAILY_CHANGE_LEDGER_MODULE_NAME
+            ledger_module.CodeModule.AddFromString(
+                build_in_session_ledger_vba(DAILY_CHANGE_LEDGER_BASE_CODE)
+            )
+            stage = "installing reversible DAILY_INPUT ledger"
+            install_daily_input_change_ledger(vbproject)
+            stage = "routing therapist navigation through ledger sync"
+            install_daily_input_change_navigation(vbproject, workbook)
+
             stage = "installing close-day action"
             install_close_day_action(vbproject)
             stage = "installing patient form"
@@ -305,6 +319,9 @@ class Win32ComRegistrationMenuInstaller:
                 DOUBLE_BOOKING_MODULE_NAME: "Guided double-booking module",
                 DOUBLE_BOOKING_FORM_NAME: "Guided double-booking form",
                 WORKLOAD_MODULE_NAME: "Therapist workload/navigation",
+                DAILY_CHANGE_LEDGER_MODULE_NAME: "In-session daily change ledger",
+                DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME: "Reversible DAILY_INPUT ledger",
+                DAILY_INPUT_CHANGE_NAV_MODULE_NAME: "DAILY_INPUT change navigation",
                 CLOSE_DAY_MODULE_NAME: "Close-day action",
                 PATIENT_FORM_NAME: "Patient registration form",
                 THERAPIST_FORM_NAME: "Therapist registration form",
