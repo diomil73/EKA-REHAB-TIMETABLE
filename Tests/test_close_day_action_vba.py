@@ -62,7 +62,15 @@ def test_close_day_handoff_exits_original_macro_before_closing_workbook():
     finish_pos = source.index("Public Sub FinishCloseDayHandoff()")
     close_pos = source.index("ThisWorkbook.Close SaveChanges:=False")
     assert schedule_pos < finish_pos < close_pos
-    assert "Application.EnableEvents = False" in source
+
+
+def test_close_day_handoff_keeps_events_enabled_for_reopen_shell():
+    source = CLOSE_DAY_MODULE_CODE
+    finish = source.split("Public Sub FinishCloseDayHandoff()", 1)[1].split("End Sub", 1)[0]
+
+    assert "Application.EnableEvents = True" in finish
+    assert "Application.EnableEvents = False" not in finish
+    assert "ThisWorkbook.Close SaveChanges:=False" in finish
 
 
 def test_registration_menu_installer_installs_and_verifies_close_day_action():
