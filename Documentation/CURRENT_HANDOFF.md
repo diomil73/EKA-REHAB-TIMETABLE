@@ -81,13 +81,23 @@ Implemented and native-verified:
 - `Python/tools/close_day.py` verified-preview backend;
 - native close-day backend smoke with application contract `54 -> 57`.
 
-Implemented, awaiting focused/native UI gate:
+Implemented, awaiting corrected native UI gate:
 
 - `modCloseDayAction` with explicit Yes/No confirmation;
 - verified preview -> authoritative commit worker -> reopen `MASTER_SCHEDULE` flow;
 - `Κλείσιμο ημέρας` MASTER toolbar button routing to `CloseOperationalDay`;
-- registration/application-shell installer now installs and verifies `modCloseDayAction`;
-- application-shell pre-clean removes old `modCloseDayAction` for idempotent reinstall.
+- registration/application-shell installer installs and verifies `modCloseDayAction`;
+- application-shell pre-clean removes old `modCloseDayAction` for idempotent reinstall;
+- deferred workbook close via `Application.OnTime`, so the original close-day macro returns before `ThisWorkbook.Close` executes;
+- deferred close uses `SaveChanges:=False` because the workbook is explicitly saved before verified-preview generation, avoiding a second save/close recursion during worker handoff.
+
+Native UI failure that led to the deferred-close fix:
+
+- backend/preview completed and the success message was shown;
+- the original implementation then called `ThisWorkbook.Close SaveChanges:=True` inside the same macro stack;
+- Excel raised runtime error 1004: `Close method of Workbook class failed`;
+- authoritative worker was already waiting for the workbook file lock to release;
+- fix: schedule `FinishCloseDayHandoff` one second later via `Application.OnTime`, return from `CloseOperationalDay`, then close with events disabled outside the original macro stack.
 
 Current capacity history uses the locked operational 6-timeslot therapist baseline until a per-therapist capacity registry is introduced.
 
@@ -114,11 +124,10 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 Immediate next gate:
 
-1. run focused MASTER/close-action/installer tests;
-2. build a fresh application-shell preview from `CLOSE_DAY_V1.xlsm` using `build_registration_menu_preview.py`;
-3. require `modCloseDayAction` to be present and the MASTER toolbar to expose `Κλείσιμο ημέρας`;
-4. native-click the button on the disposable preview and verify explicit confirmation, close-day backend, authoritative commit, automatic reopen to MASTER and no source corruption;
-5. after the UI gate is green, begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
+1. run focused close-action/MASTER/installer tests including the deferred-close regression;
+2. build a fresh application-shell preview from `DOUBLE_BOOKING_REJECTED.xlsm` using `build_registration_menu_preview.py`;
+3. native-click `Κλείσιμο ημέρας` and verify explicit confirmation, backend close, success message, deferred close without error 1004, authoritative commit, automatic reopen to MASTER and no source corruption;
+4. after the UI gate is green, begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
 
 ## Safety reminders
 
