@@ -80,3 +80,25 @@ def test_daily_input_patch_application_preserves_presentation_contract():
     assert "robotic_orange" in source
     assert "ApplyTextRuns" in source
     assert "VerifyTextRuns" in source
+
+
+def test_daily_input_mixed_font_cells_are_handled_without_cdbl_null_failure():
+    source = DAILY_INPUT_MODULE_CODE
+
+    assert "fontSizeValue = cell.Font.Size" in source
+    assert "If IsNull(fontSizeValue) Then" in source
+    assert "Len(textRuns) = 0" in source
+    assert "If CDbl(cell.Font.Size) < CDbl(minFontToken)" not in source
+
+
+def test_daily_input_native_failure_writes_hidden_temp_diagnostic_only():
+    source = DAILY_INPUT_MODULE_CODE
+    messages = _messages(source)
+
+    assert "WriteDailyInputDiagnostic" in source
+    assert "eka_daily_input_last_error.log" in source
+    assert 'Print #handle, "phase=" & phase' in source
+    assert 'Print #handle, "patch_index=" & CStr(patchIndex)' in source
+    assert 'Print #handle, "sheet=" & sheetName' in source
+    assert 'Print #handle, "cell=" & cellAddress' in source
+    assert "eka_daily_input_last_error.log" not in messages
