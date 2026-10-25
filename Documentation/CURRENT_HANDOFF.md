@@ -136,19 +136,14 @@ No close/reopen. Diagnostic:
 
 ### Deterministic preview installation
 
-Both `registration_menu_vba.py` and `build_registration_menu_preview.py` now install/verify in final order:
+Both `registration_menu_vba.py` and `build_registration_menu_preview.py` install/verify the operational shell. The second preview-build pass must not remove/recreate `frmDoubleBookingReview` when the first pass has already installed the guided review. Excel/VBE can retain a removed UserForm Designer/name inside the same session and raise COM error 1004 on immediate recreation.
 
-- shell + MASTER toolbar;
-- DAILY_INPUT action;
-- global replacement action;
-- guided double-booking review;
-- workload/navigation;
-- effective in-session `modDailyChangeLedger`;
-- reversible DAILY_INPUT ledger extension;
-- workload→ledger navigation bridge;
-- close-day and registration forms.
+After the first V7 build attempt stopped during `installing guided double-booking review`, `build_registration_menu_preview.py` was changed to `_ensure_double_booking_review(vbproject)`: if both `modDoubleBookingReview` and `frmDoubleBookingReview` already exist, the second pass verifies and keeps them; only a missing/partial install triggers recreation. This was a build-time blocker only. No V7 workbook behavior was tested before this fix.
 
-This prevents a second operational-install pass from overwriting the new workload button routing.
+Relevant fix commits:
+
+- `3052b371354f740c0e41ad1f85131b5e89b7fc04` idempotent guided-review install in second preview pass
+- `088f833e831fe937b898928d0b88a82e0801d539` regression guard for second-pass UserForm idempotency
 
 ## New regression coverage
 
@@ -161,18 +156,20 @@ Added/updated:
 - `Tests/test_build_registration_menu_operational_modules.py`
 - `Tests/test_production_actions_stay_in_session.py`
 
-The production guard now includes DAILY_INPUT restore and rejects close/reopen/visible-console regressions.
+The production guard includes DAILY_INPUT restore and rejects close/reopen/visible-console regressions.
 
 V7 pre-native focused gate is GREEN: `63 passed, 6 warnings in 5.92s`.
 
 ## Exact resume point
 
-Do not native-smoke V6 again.
+Do not native-smoke V6 again. Discard any partially built V7 file from the failed guided-review installation attempt.
 
 Immediate order:
 
-1. build fresh `DAILY_INPUT_IN_PLACE_V7.xlsm` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
-2. native all-day ΓΙΑΝΝΙΑ transfer test:
+1. pull the idempotent installer fix;
+2. run the focused builder/registration tests;
+3. rebuild fresh `DAILY_INPUT_IN_PLACE_V7.xlsm` with `--overwrite` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
+4. only if build succeeds, native all-day ΓΙΑΝΝΙΑ transfer test:
    - recurring MASTER treatments for the selected date remain visible but red-struck;
    - M status shows the dated reason `Διακομιστήριο`;
    - THERAPIST_DAILY affected lines are struck;
@@ -181,11 +178,11 @@ Immediate order:
    - `Επιστροφή στο MASTER` exists;
    - workload badges cannot be dragged;
    - DAILY_CHANGE_LEDGER panel shows ΓΙΑΝΝΙΑ with individual `Επαναφορά`;
-3. click ΓΙΑΝΝΙΑ restore and verify the same workbook stays open, returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears the exact DAILY_INPUT fact and marks the ledger row RESTORED;
-4. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before any retry;
-5. after patient branch is native green, test therapist absence/global replacement continuation;
-6. then continue patient/day finalized outcome history;
-7. later clean Python 3.14/openpyxl ZipFile destructor warnings without weakening workbook-safety tests.
+5. click ΓΙΑΝΝΙΑ restore and verify the same workbook stays open, returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears the exact DAILY_INPUT fact and marks the ledger row RESTORED;
+6. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before any retry;
+7. after patient branch is native green, test therapist absence/global replacement continuation;
+8. then continue patient/day finalized outcome history;
+9. later clean Python 3.14/openpyxl ZipFile destructor warnings without weakening workbook-safety tests.
 
 ## Safety reminders
 
