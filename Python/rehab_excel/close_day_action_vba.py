@@ -15,29 +15,27 @@ Public Sub CloseOperationalDay()
     Dim responsePath As String
     Dim commandLine As String
     Dim shell As Object
-    Dim exec As Object
-    Dim stdoutText As String
-    Dim stderrText As String
     Dim responseText As String
     Dim answer As VbMsgBoxResult
+    Dim exitCode As Long
 
     On Error GoTo ActionError
 
     If ThisWorkbook.ReadOnly Then
-        MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Η ημέρα δεν μπορεί να κλείσει.", vbExclamation, "Κλείσιμο ημέρας"
+        MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Ανοίξτε το κανονικά και δοκιμάστε ξανά.", vbExclamation, "Κλείσιμο ημέρας"
         Exit Sub
     End If
 
     answer = MsgBox( _
         "Να κλείσει οριστικά η επιλεγμένη ημέρα;" & vbCrLf & vbCrLf & _
-        "Το κλείσιμο θα αποθηκεύσει το τελικό ιστορικό και τα στατιστικά της ημέρας.", _
+        "Μετά το κλείσιμο η ημέρα θα περάσει στο ιστορικό.", _
         vbQuestion + vbYesNo + vbDefaultButton2, _
         "Κλείσιμο ημέρας")
     If answer <> vbYes Then Exit Sub
 
     scriptPath = ResolveCloseDayScript()
     If Len(scriptPath) = 0 Then
-        MsgBox "Δεν βρέθηκε το εργαλείο Κλεισίματος ημέρας.", vbCritical, "Κλείσιμο ημέρας"
+        MsgBox "Η λειτουργία Κλεισίματος ημέρας δεν είναι διαθέσιμη. Επικοινωνήστε με τον διαχειριστή.", vbCritical, "Κλείσιμο ημέρας"
         Exit Sub
     End If
 
@@ -55,25 +53,15 @@ Public Sub CloseOperationalDay()
                   " --overwrite"
 
     Set shell = CreateObject("WScript.Shell")
-    Set exec = shell.Exec(commandLine)
+    exitCode = shell.Run(commandLine, 0, True)
 
-    Do While exec.Status = 0
-        DoEvents
-    Loop
-
-    stdoutText = exec.StdOut.ReadAll
-    stderrText = exec.StdErr.ReadAll
     If Dir$(responsePath) <> "" Then responseText = ReadUtf8Text(responsePath)
 
-    If exec.ExitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
-        If Len(JsonStringValue(responseText, "error")) > 0 Then
-            MsgBox "Η ημέρα δεν έκλεισε:" & vbCrLf & vbCrLf & JsonStringValue(responseText, "error"), _
-                   vbExclamation, "Κλείσιμο ημέρας"
-        ElseIf Len(Trim$(stderrText)) > 0 Then
-            MsgBox "Η ημέρα δεν έκλεισε:" & vbCrLf & vbCrLf & stderrText, vbExclamation, "Κλείσιμο ημέρας"
-        Else
-            MsgBox "Η ημέρα δεν έκλεισε:" & vbCrLf & vbCrLf & stdoutText, vbExclamation, "Κλείσιμο ημέρας"
-        End If
+    If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Then
+        MsgBox "Η ημέρα δεν έκλεισε." & vbCrLf & vbCrLf & _
+               "Ελέγξτε ότι δεν υπάρχουν εκκρεμείς συνεδρίες και δοκιμάστε ξανά." & vbCrLf & _
+               "Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
+               vbExclamation, "Κλείσιμο ημέρας"
         GoTo CleanUp
     End If
 
@@ -83,9 +71,7 @@ Public Sub CloseOperationalDay()
         GoTo CleanUp
     End If
 
-    MsgBox "Η ημέρα επαληθεύτηκε και κλείστηκε επιτυχώς." & vbCrLf & vbCrLf & _
-           "Η εφαρμογή θα ανοίξει ξανά αυτόματα στο MASTER μετά την ασφαλή αποθήκευση.", _
-           vbInformation, "Κλείσιμο ημέρας"
+    MsgBox "Η ημέρα έκλεισε επιτυχώς.", vbInformation, "Κλείσιμο ημέρας"
 
     On Error Resume Next
     If Len(responsePath) > 0 Then Kill responsePath
@@ -101,7 +87,8 @@ CleanUp:
     Exit Sub
 
 ActionError:
-    MsgBox "Δεν ήταν δυνατό το Κλείσιμο ημέρας: " & Err.Description, vbCritical, "Κλείσιμο ημέρας"
+    MsgBox "Η ημέρα δεν έκλεισε. Δοκιμάστε ξανά. Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
+           vbCritical, "Κλείσιμο ημέρας"
 End Sub
 
 Private Sub ScheduleDeferredCloseDayHandoff()
@@ -117,8 +104,8 @@ Private Sub ScheduleDeferredCloseDayHandoff()
 
 ScheduleError:
     mCloseDayHandoffPending = False
-    MsgBox "Δεν ήταν δυνατό να προγραμματιστεί το ασφαλές κλείσιμο του αρχείου: " & Err.Description, _
-           vbCritical, "Κλείσιμο ημέρας"
+    MsgBox "Η ημέρα έκλεισε, αλλά το αρχείο δεν μπόρεσε να ολοκληρώσει την επανεκκίνηση. Κλείστε το Excel και ανοίξτε ξανά το αρχείο.", _
+           vbExclamation, "Κλείσιμο ημέρας"
 End Sub
 
 Public Sub FinishCloseDayHandoff()
@@ -136,8 +123,8 @@ CloseError:
     On Error Resume Next
     Application.EnableEvents = True
     On Error GoTo 0
-    MsgBox "Δεν ήταν δυνατό το ασφαλές κλείσιμο του αρχείου μετά την επαλήθευση: " & Err.Description, _
-           vbCritical, "Κλείσιμο ημέρας"
+    MsgBox "Η ημέρα έκλεισε, αλλά το αρχείο δεν μπόρεσε να κλείσει αυτόματα. Κλείστε το Excel και ανοίξτε ξανά το αρχείο.", _
+           vbExclamation, "Κλείσιμο ημέρας"
 End Sub
 
 Private Function StartCloseDayCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
@@ -150,11 +137,11 @@ Private Function StartCloseDayCommit(ByVal previewPath As String, ByVal sourceSh
 
     workerScript = ResolveAuthoritativeCommitWorkerScript()
     If Len(workerScript) = 0 Then
-        MsgBox "Δεν βρέθηκε το authoritative save worker του συστήματος.", vbCritical, "Κλείσιμο ημέρας"
+        MsgBox "Δεν ήταν δυνατό να ολοκληρωθεί το Κλείσιμο ημέρας. Επικοινωνήστε με τον διαχειριστή.", vbCritical, "Κλείσιμο ημέρας"
         Exit Function
     End If
     If Len(Trim$(previewPath)) = 0 Or Len(Trim$(sourceSha256)) = 0 Then
-        MsgBox "Το backend δεν επέστρεψε τα στοιχεία ασφαλούς αποθήκευσης.", vbCritical, "Κλείσιμο ημέρας"
+        MsgBox "Δεν ήταν δυνατό να ολοκληρωθεί το Κλείσιμο ημέρας. Δοκιμάστε ξανά.", vbCritical, "Κλείσιμο ημέρας"
         Exit Function
     End If
 
@@ -184,7 +171,7 @@ Private Function StartCloseDayCommit(ByVal previewPath As String, ByVal sourceSh
     Exit Function
 
 WorkerError:
-    MsgBox "Δεν ήταν δυνατή η εκκίνηση της ασφαλούς αποθήκευσης: " & Err.Description, _
+    MsgBox "Δεν ήταν δυνατό να ολοκληρωθεί το Κλείσιμο ημέρας. Επικοινωνήστε με τον διαχειριστή.", _
            vbCritical, "Κλείσιμο ημέρας"
 End Function
 
