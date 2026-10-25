@@ -89,15 +89,15 @@ Implemented, awaiting corrected native UI gate:
 - registration/application-shell installer installs and verifies `modCloseDayAction`;
 - application-shell pre-clean removes old `modCloseDayAction` for idempotent reinstall;
 - deferred workbook close via `Application.OnTime`, so the original close-day macro returns before `ThisWorkbook.Close` executes;
-- deferred close uses `SaveChanges:=False` because the workbook is explicitly saved before verified-preview generation, avoiding a second save/close recursion during worker handoff.
+- deferred close uses `SaveChanges:=False` because the workbook is explicitly saved before verified-preview generation, avoiding a second save/close recursion during worker handoff;
+- close-day backend and commit commands run hidden, with no console window for the operator;
+- user-visible messages contain only operator guidance/results, not internal implementation details;
+- deferred close now explicitly leaves `Application.EnableEvents = True` before closing so the reopened workbook can execute `Workbook_Open` and re-enter the application shell.
 
-Native UI failure that led to the deferred-close fix:
+Native UI findings:
 
-- backend/preview completed and the success message was shown;
-- the original implementation then called `ThisWorkbook.Close SaveChanges:=True` inside the same macro stack;
-- Excel raised runtime error 1004: `Close method of Workbook class failed`;
-- authoritative worker was already waiting for the workbook file lock to release;
-- fix: schedule `FinishCloseDayHandoff` one second later via `Application.OnTime`, return from `CloseOperationalDay`, then close with events disabled outside the original macro stack.
+1. First close-day UI attempt completed backend/preview but `ThisWorkbook.Close SaveChanges:=True` inside the same macro stack raised runtime error 1004. Fix: deferred close via `Application.OnTime`.
+2. Next attempt closed and reopened successfully, but reopened with normal Excel chrome. Root cause: `FinishCloseDayHandoff` disabled Excel events immediately before closing; because the workbook closed, the restoring line never ran, leaving the Excel application with events disabled. Consequently `Workbook_Open` did not run on reopen. Fix: do not disable events in the deferred close; explicitly keep events enabled before `ThisWorkbook.Close SaveChanges:=False`.
 
 Current capacity history uses the locked operational 6-timeslot therapist baseline until a per-therapist capacity registry is introduced.
 
@@ -124,9 +124,9 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 Immediate next gate:
 
-1. run focused close-action/MASTER/installer tests including the deferred-close regression;
+1. run focused close-action/MASTER/installer tests including the event-enabled reopen regression;
 2. build a fresh application-shell preview from `DOUBLE_BOOKING_REJECTED.xlsm` using `build_registration_menu_preview.py`;
-3. native-click `Κλείσιμο ημέρας` and verify explicit confirmation, backend close, success message, deferred close without error 1004, authoritative commit, automatic reopen to MASTER and no source corruption;
+3. native-click `Κλείσιμο ημέρας` and verify: no console window, success message, deferred close without error 1004, authoritative commit, automatic reopen to MASTER, application shell reapplied, and no source corruption;
 4. after the UI gate is green, begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
 
 ## Safety reminders
