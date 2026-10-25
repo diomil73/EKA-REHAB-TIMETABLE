@@ -10,7 +10,7 @@ Start with `Documentation/ONBOARDING.md`, then read `Documentation/IN_PLACE_MUTA
 
 - Branch: `feature/outpatient-scheduling`
 - Baseline `Rehab_Center_System_v27_1.xlsm` remains immutable.
-- Replacement-quality milestone is CLOSED end-to-end.
+- Replacement-quality business logic is CLOSED end-to-end.
 - Statistics/history milestone is active.
 
 ## Latest confirmed checkpoints
@@ -22,179 +22,157 @@ Start with `Documentation/ONBOARDING.md`, then read `Documentation/IN_PLACE_MUTA
 - native explicit ACCEPT branch: VERIFIED
 - native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, 79 final sessions, 1 treatment suspension, unresolved 0
 - native snapshot + therapist/day history smoke: VERIFIED, 16 therapist/day rows
-- native close-day backend smoke: VERIFIED, snapshot + 16 therapist/day rows + one `DAY_FINALIZED` event, application contract `54 -> 57`
-- native in-place close-day UI: VERIFIED. First click finalized successfully while workbook stayed open on MASTER; no close/reopen path was required.
-- native second-click duplicate protection: VERIFIED. No duplicate history was written. Initial generic failure wording was corrected in code to the operator message `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`
-- focused combined in-place regression after migration: `57 passed in 2.65s`.
+- native close-day backend smoke: VERIFIED, snapshot + 16 therapist/day rows + one `DAY_FINALIZED` event
+- native in-place close-day UI: VERIFIED; workbook stays open on MASTER
+- native close-day second-click duplicate protection: VERIFIED
+- focused combined in-place regression before V4: `57 passed in 2.65s`
 
 ## Locked production interaction architecture
 
-**No normal production/user-facing workflow may close and reopen the workbook to complete an action.**
+No normal user-facing workflow may close/reopen the workbook to complete an action.
 
 Required model:
 
-`validate -> compute authoritative result -> in-place native write into already-open workbook -> semantic read-back -> Save -> continue in application`
+`validate -> compute authoritative result -> in-place native write -> semantic read-back -> Save -> continue in application`
 
 Forbidden in normal production actions:
 
 - `ThisWorkbook.Close` as part of action completion;
-- automatic workbook reopen;
-- preview-copy replacement of the authoritative open workbook;
-- file-lock waiting in operator flow;
-- requiring the user to close/reopen Excel;
+- automatic reopen;
+- preview-copy replacement of the live workbook;
+- file-lock waiting;
+- asking the user to close/reopen Excel;
 - console/Command Prompt windows;
-- user-visible backend/worker/preview/hash/file-lock details.
+- backend/worker/preview/hash/file-lock language in operator messages.
 
-Temporary copies are allowed only for development/smoke/install/migration or rollback/recovery while the live workbook remains open and authoritative.
+Temporary copies are allowed only for development/install/migration/recovery and rollback protection while the live workbook remains open.
 
 ### Diagnostic-first native rule
 
-Every production/user-facing action that can fail during native Excel execution must have a hidden developer diagnostic trace **before the first native smoke test**.
+Every native production action must have a hidden developer diagnostic trace before its first smoke test. After a generic operator failure, read the diagnostic before another smoke. Do not repeat blind native tests.
 
-Do not repeat blind native smokes after a generic operator failure. Read the diagnostic trace first, fix the exact phase/cell/error, then rebuild a fresh disposable workbook.
+## `Κλείσιμο ημέρας`
 
-Normal users continue to see only operational guidance. Diagnostic files live under `%TEMP%` and are developer/admin troubleshooting aids only.
+Native green in-place:
 
-## `Κλείσιμο ημέρας` production state
+- read-only Python preparation;
+- snapshot + therapist history + `DAY_FINALIZED` event persisted in the open workbook;
+- read-back and rollback;
+- no close/reopen;
+- duplicate second click reports `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`
 
-Historical model/backend and in-place UI are native-verified.
+## `DAILY_INPUT` V4 native findings
 
-Implemented and verified:
+### Patient absence
 
-- `Python/tools/prepare_close_day_in_place.py` performs read-only validation/calculation;
-- emits one payload containing `SNAPSHOT`, all `THERAPIST` rows and one `EVENT` row;
-- rejects already-finalized dates and duplicate historical keys before any workbook write;
-- `modCloseDayAction` contains no workbook close/reopen/reopen-worker logic;
-- VBA preflights all three schemas/duplicates;
-- VBA writes snapshot + therapist history + event into the already-open workbook;
-- every inserted row is reread before Save;
-- failure rolls back inserted rows/new sheets;
-- success protects/hides technical sheets, saves once and remains on `MASTER_SCHEDULE`;
-- second click is idempotent and reports `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`;
-- VBA source now normalizes Python raw-string backslashes before module installation so runtime paths/escape parsing use one separator.
+Native V4 patient-absence apply succeeded in place. The workbook stayed open and no console/reopen path appeared.
 
-## `DAILY_INPUT` production state
+The user correctly identified that success was incomplete because the smoke had not verified:
 
-The old preview -> authoritative commit -> close/reopen production path is retired.
+- `MASTER_SCHEDULE` projection;
+- `THERAPIST_DAILY` projection;
+- therapist workload badges.
 
-Implemented:
+### Therapist absence
 
-- `Python/tools/prepare_daily_input_in_place.py` rebuilds the dated effective state and validated `WritePlan` without mutating the workbook;
-- official therapist registry names are supplied to `read_daily_input`;
-- existing ACTIVE `DAILY_REPLACEMENT_FACTS` are included in `build_daily_session_states`;
-- `replacement_sessions_needed` is calculated after active replacements are applied;
-- payload contains only validated cell patch semantics;
-- `modDailyInputAction` contains no `ThisWorkbook.Close`, `Application.OnTime`, authoritative commit worker or reopen target;
-- VBA applies patches directly to the live workbook;
-- each patch is read back before final save;
-- a temporary `SaveCopyAs` file is rollback-only;
-- success keeps the workbook open and routes to replacements only when replacement work remains, otherwise MASTER.
+Native V4 therapist-absence apply parsed and applied, then reported that patients needed redistribution, but routed to a blank/raw `REPLACEMENTS` worksheet. This is invalid production UX.
 
-### Native DAILY_INPUT smoke status
+The raw-sheet route is now retired. Normal users must never be sent to `REPLACEMENTS` for replacement work.
 
-The first true diagnostic-enabled failure was captured exactly:
+## DAILY_INPUT integration now implemented, awaiting focused tests + V5 native smoke
 
-```text
-phase=create rollback
-patch_index=12
-sheet=THERAPIST_DAILY
-cell=E8
-error_number=1004
-error=... TEMP\\eka_daily_input_rollback_...xlsm ... not found
-```
+### Operational projection gate
 
-Root cause: Python raw-string source had doubled backslashes inside VBA string literals. VBA does not use backslash escaping, so runtime paths contained `\\` and `SaveCopyAs` failed before any patch write.
+`Python/tools/prepare_daily_input_in_place.py` now composes both:
 
-Fixes now on branch:
+- patient/therapist daily presentation;
+- `MASTER_SCHEDULE` daily overlay.
 
-- `DAILY_INPUT_MODULE_CODE` normalizes doubled raw-string backslashes to single VBA runtime backslashes before installation;
-- the same normalization also fixes the one-character payload escape decoder;
-- mixed/Null `Font.Size` remains handled safely;
-- rich-text runs remain verified individually;
-- `%TEMP%\eka_daily_input_last_error.log` captures phase, patch index, sheet, cell and VBA error on failure;
-- `CLOSE_DAY_MODULE_CODE` receives the same separator normalization proactively;
-- shared regression now rejects doubled runtime VBA backslashes in migrated production actions.
+Both are serialized into the same PATCH payload and therefore pass the same in-place write/read-back gate.
+
+Relevant commits:
+
+- `91fe181a126735a1c1acba4ff0860dc99dcec972` MASTER overlay in DAILY_INPUT plan
+- `c36bad91792365299d473fe236307ab8150d07da` regression guard for operational projections
+
+### Workload gate
+
+`modDailyInputAction` now calls `RenderTherapistWorkloadStrip` after successful patch application and verifies the MASTER refresh shape before reporting success. The installer ensures `modTherapistWorkloadStrip` is present.
+
+Workload remains occupied-timeslot based: `Όνομα n/6`, not patient-line count.
+
+### Guided/global replacement continuation
+
+New read-only preparation:
+
+- `Python/tools/prepare_global_replacements_in_place.py`
+
+It reuses the authoritative global solver and includes:
+
+- current DAILY_INPUT facts;
+- ACTIVE replacement facts;
+- provider policy;
+- service hours;
+- patient cross-specialty availability;
+- students;
+- reclining adjacency;
+- explicit double-booking review detection.
+
+New in-place action:
+
+- `Python/rehab_excel/global_replacement_action_vba.py`
+
+It can persist:
+
+- ordinary `DAILY_REPLACEMENT_FACTS`;
+- generated treatment suspensions when no reviewable exception exists;
+- final operational projection PATCH rows;
+- rollback recovery and `%TEMP%\eka_replacement_last_error.log` diagnostics.
+
+If an explicit double-booking decision is required, it invokes the existing guided `ShowDoubleBookingReview` form. It does not activate a raw worksheet.
+
+Relevant commits:
+
+- `09fdf9f87f5626118766188676b30dde77672010` read-only global in-place preparation
+- `0abf8dd9fea0e072ba7e3ec79a3d74cd7b71dbec` preparation tests
+- `2ae31fb3a31a25587f001bd1b73c15c72d0693c0` global in-place VBA action
+- `06065e3aede0b824ece1602ff051aea8627ee890` DAILY_INPUT guided routing + workload refresh
+- `065809161a81bb79644f0be7039b5a11981d3060` DAILY_INPUT integration tests
+- `f399f937c425e6cb5b416930fc531e6a95d741de` global action tests
+- `d724d704874c7bf35fe7fa09bbe3cfcb967c9476` shared production guard includes global action
+- `7358de226be94a6dd34f9eb9efb1c78f817cccd9` preview pre-clean includes guided replacement/workload components
+- `070ffc5b3b70c8d3328ca0bd2ccbf661a61fa192` DAILY_INPUT workflow documentation
 
 ## Shared production regression
 
-`Tests/test_production_actions_stay_in_session.py` guards close-day and DAILY_INPUT against reintroduction of:
+`Tests/test_production_actions_stay_in_session.py` now guards:
 
-- `ThisWorkbook.Close`;
-- `Application.OnTime` handoff;
-- authoritative commit worker;
-- reopen targets/reopen flags;
-- doubled runtime VBA backslashes caused by Python raw-string escaping.
+- close-day;
+- DAILY_INPUT;
+- global replacements.
 
-`Tests/test_prepare_daily_input_in_place.py` guards that active replacement facts are loaded into the effective DAILY_INPUT state before presentation/routing is computed.
+It rejects close/reopen workers, visible execution, reopen targets and doubled runtime VBA backslashes.
 
-`Tests/test_daily_input_action_vba.py` guards mixed-font handling and hidden diagnostics.
+Additional focused tests:
 
-Both actions must run Python hidden and keep operator messages free of implementation details.
-
-## Day-finalization/history state
-
-Implemented and native-verified:
-
-- immutable `FinalizedDaySnapshot`;
-- strict unresolved=0 gate;
-- `FINALIZED_DAY_SNAPSHOTS` schema;
-- therapist/day historical workload derivation;
-- occupied timeslots kept distinct from active sessions;
-- `THERAPIST_DAY_HISTORY` schema;
-- immutable append-only `DayHistoryEvent`;
-- `DAY_FINALIZED` linked to snapshot;
-- `DAY_HISTORY_EVENTS` schema;
-- duplicate protection and semantic read-back rules;
-- backend close-day reconstruction from final effective state.
-
-The old close/reopen UI experiments and their 1004/reopen-shell fixes are regression history only.
-
-## Therapist workload contract
-
-MASTER badges use `Όνομα n/6`, where `n` is occupied timeslots, not patient lines:
-
-- 0-4 green
-- 5 yellow/orange
-- 6+ red
-
-A legal shared slot with two patients is **1 occupied timeslot + 2 active sessions**. Student replacement work is not silently counted as therapist workload.
-
-## Closed replacement decision chain
-
-`recurring/base -> cancellations/no-shows -> therapist absences -> surviving ACTIVE replacements -> global solve -> double-booking review -> explicit ACCEPT/REJECT -> remaining suspension -> final recompute`
-
-Double-booking remains explicit-only. Final operational state requires `unresolved_sessions == 0`.
-
-## Patient-history requirements already locked
-
-Preserve/derive:
-
-- first operational entry date;
-- end/archive date;
-- stay duration;
-- treatment/service days;
-- scheduled/performed/missed sessions with structured reasons;
-- expected working days excluding weekends/holidays;
-- treatment counts and timeline;
-- totals/trends by period;
-- manual append-only 15-day evaluation milestones;
-- aggregate patient reporting for all patients and by originating clinic.
-
-Patient lifecycle dates are manually correctable for migration of existing patients. MASTER later shows compact start date such as `Έν. 12/09/26` near the responsible doctor where layout permits.
+- `Tests/test_prepare_daily_input_in_place.py`
+- `Tests/test_daily_input_action_vba.py`
+- `Tests/test_prepare_global_replacements_in_place.py`
+- `Tests/test_global_replacement_action_vba.py`
 
 ## Exact resume point
 
-**Do not return to close/reopen mechanics. Close-day in-place is native green.**
+Do not return to close/reopen mechanics and do not route to raw `REPLACEMENTS`.
 
 Immediate order:
 
-1. pull latest backslash normalization + regression guard;
-2. run focused DAILY_INPUT/close-day production-action tests;
-3. build fresh `DAILY_INPUT_IN_PLACE_V4.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
-4. native test DAILY_INPUT once;
-5. if it fails, read `%TEMP%\eka_daily_input_last_error.log` immediately before any second smoke;
-6. once DAILY_INPUT is native green, continue patient/day finalized outcome history;
-7. later implement explicit finalized-day amendment/version chain.
+1. run focused Python/VBA source-contract tests for DAILY_INPUT + global replacement + shell/toolbar;
+2. if green, build fresh `DAILY_INPUT_IN_PLACE_V5.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
+3. native patient-absence smoke and explicitly inspect MASTER, THERAPIST_DAILY and workload badge changes;
+4. native therapist-absence smoke and verify global/guided replacement continuation, with no raw worksheet;
+5. if native failure occurs, read `%TEMP%\eka_daily_input_last_error.log` or `%TEMP%\eka_replacement_last_error.log` before any retry;
+6. once both branches are native green, continue patient/day finalized outcome history;
+7. later implement finalized-day amendment/version chain.
 
 ## Safety reminders
 
