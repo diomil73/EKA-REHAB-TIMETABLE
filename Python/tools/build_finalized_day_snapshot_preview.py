@@ -43,6 +43,7 @@ from rehab_excel.patient_registry_source import (  # noqa: E402
     PatientRegistrySourceError,
     read_patient_registry,
 )
+from rehab_excel.reader import read_settings  # noqa: E402
 
 
 class FinalizedDayPreviewError(RuntimeError):
@@ -109,9 +110,15 @@ def build_finalized_day_snapshot_preview(
 
     service_date = _daily_input_date(source)
     patients = read_patient_registry(source)
+    settings = read_settings(source)
     base_entries = read_unified_base_schedule(source)
     sessions = materialize_sessions_for_date(base_entries, service_date)
-    daily = read_daily_input(source, patients=patients, sessions=sessions)
+    daily = read_daily_input(
+        source,
+        patients=patients,
+        sessions=sessions,
+        therapist_names=settings.therapist_names,
+    )
     replacements = read_daily_replacement_facts(
         source,
         sessions=sessions,
