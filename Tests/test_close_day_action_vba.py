@@ -26,13 +26,26 @@ def test_close_day_action_has_explicit_confirmation_and_authoritative_commit():
     assert "ThisWorkbook.Close SaveChanges:=True" not in source
 
 
-def test_close_day_action_is_fail_closed_on_backend_error():
+def test_close_day_backend_runs_hidden_without_console_window():
     source = CLOSE_DAY_MODULE_CODE
 
-    assert 'If exec.ExitCode <> 0' in source
-    assert 'JsonStringValue(responseText, "error")' in source
-    assert 'Η ημέρα δεν έκλεισε' in source
-    assert 'StartCloseDayCommit' in source
+    assert ".Exec(" not in source
+    assert "exitCode = shell.Run(commandLine, 0, True)" in source
+    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in source
+
+
+def test_close_day_action_is_fail_closed_with_operator_facing_guidance():
+    source = CLOSE_DAY_MODULE_CODE
+
+    assert "If exitCode <> 0" in source
+    assert "Η ημέρα δεν έκλεισε." in source
+    assert "Ελέγξτε ότι δεν υπάρχουν εκκρεμείς συνεδρίες" in source
+    assert "επικοινωνήστε με τον διαχειριστή" in source
+    assert "backend" not in source.casefold()
+    assert "worker" not in source.casefold().replace("resolveauthoritativecommitworkerscript", "").replace("workerscript", "")
+    assert "Η ημέρα έκλεισε επιτυχώς." in source
+    assert "Η εφαρμογή θα ανοίξει ξανά αυτόματα" not in source
+    assert "StartCloseDayCommit" in source
 
 
 def test_close_day_handoff_exits_original_macro_before_closing_workbook():
