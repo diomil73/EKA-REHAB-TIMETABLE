@@ -5,56 +5,78 @@ from rehab_excel.daily_input_action_vba import (
 )
 
 
+def _messages(source: str) -> str:
+    return "\n".join(line for line in source.splitlines() if "MsgBox" in line).casefold()
+
+
 def test_daily_input_action_component_names_are_stable():
     assert DAILY_INPUT_MODULE_NAME == "modDailyInputAction"
     assert DAILY_INPUT_MACRO_NAME == "ApplyDailyInputPreview"
 
 
-def test_daily_input_action_saves_workbook_before_running_backend():
+def test_daily_input_action_saves_before_hidden_validation():
     save_pos = DAILY_INPUT_MODULE_CODE.index("ThisWorkbook.Save")
-    run_pos = DAILY_INPUT_MODULE_CODE.index('Set exec = shell.Exec(commandLine)')
+    run_pos = DAILY_INPUT_MODULE_CODE.index('CreateObject("WScript.Shell").Run(commandLine, 0, True)')
     assert save_pos < run_pos
+    assert ".Exec(" not in DAILY_INPUT_MODULE_CODE
 
 
-def test_daily_input_action_calls_existing_apply_tool_with_response_contract():
-    assert "apply_daily_input.py" in DAILY_INPUT_MODULE_CODE
-    assert '" --input "' in DAILY_INPUT_MODULE_CODE
-    assert '" --output "' in DAILY_INPUT_MODULE_CODE
-    assert '" --response "' in DAILY_INPUT_MODULE_CODE
-    assert '" --overwrite"' in DAILY_INPUT_MODULE_CODE
-    assert "DAILY_INPUT_APPLIED_PREVIEW.xlsm" in DAILY_INPUT_MODULE_CODE
+def test_daily_input_action_uses_in_place_write_plan():
+    source = DAILY_INPUT_MODULE_CODE
+
+    assert "prepare_daily_input_in_place.py" in source
+    assert '" --input "' in source
+    assert '" --payload "' in source
+    assert '" --response "' in source
+    assert "ApplyValidatedDailyInputPayload" in source
+    assert "ApplyPatch" in source
+    assert "VerifyPatch" in source
+    assert "RestorePatchesFromRollback" in source
+    assert "ThisWorkbook.SaveCopyAs rollbackPath" in source
 
 
-def test_daily_input_action_reports_backend_failure_and_verified_save_message():
-    assert "exec.ExitCode <> 0" in DAILY_INPUT_MODULE_CODE
-    assert "Η εφαρμογή του DAILY_INPUT δεν ολοκληρώθηκε" in DAILY_INPUT_MODULE_CODE
-    assert "Η ημερήσια κατάσταση επαληθεύτηκε και είναι έτοιμη για αποθήκευση." in DAILY_INPUT_MODULE_CODE
+def test_daily_input_action_has_no_close_reopen_commit_handoff():
+    source = DAILY_INPUT_MODULE_CODE
+
+    assert "ThisWorkbook.Close" not in source
+    assert "Application.OnTime" not in source
+    assert "authoritative_commit_worker_cli.py" not in source
+    assert "StartAuthoritativeCommit" not in source
+    assert "post_reopen_target" not in source
+    assert "DAILY_INPUT_APPLIED_PREVIEW.xlsm" not in source
 
 
-def test_daily_input_action_wires_authoritative_commit_worker():
-    assert "StartAuthoritativeCommit" in DAILY_INPUT_MODULE_CODE
-    assert "authoritative_commit_worker_cli.py" in DAILY_INPUT_MODULE_CODE
-    assert 'JsonStringValue(responseText, "source_sha256_before")' in DAILY_INPUT_MODULE_CODE
-    assert 'JsonStringValue(responseText, "output_path")' in DAILY_INPUT_MODULE_CODE
-    assert 'q & "expected_source_sha256" & q' in DAILY_INPUT_MODULE_CODE
-    assert 'q & "preview_path" & q' in DAILY_INPUT_MODULE_CODE
-    assert 'q & "reopen" & q & ":true,"' in DAILY_INPUT_MODULE_CODE
+def test_daily_input_action_reports_operator_facing_results_only():
+    source = DAILY_INPUT_MODULE_CODE
+    messages = _messages(source)
 
-
-def test_daily_input_action_starts_worker_async_then_closes_workbook():
-    start_pos = DAILY_INPUT_MODULE_CODE.index("If Not StartAuthoritativeCommit(")
-    close_pos = DAILY_INPUT_MODULE_CODE.index("ThisWorkbook.Close SaveChanges:=True")
-    assert start_pos < close_pos
-    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in DAILY_INPUT_MODULE_CODE
-
+    assert "Η ημερήσια κατάσταση δεν εφαρμόστηκε" in source
+    assert "Η ημερήσια κατάσταση εφαρμόστηκε επιτυχώς." in source
+    assert "Υπάρχουν συνεδρίες που χρειάζονται αναπλήρωση" in source
+    assert "backend" not in messages
+    assert "worker" not in messages
+    assert "preview" not in messages
+    assert "hash" not in messages
+    assert "κλείσει προσωρινά" not in messages
+    assert "ανοίξει ξανά" not in messages
 
 
 def test_daily_input_action_routes_to_replacements_only_when_needed():
-    assert 'JsonLongValue(responseText, "replacement_sessions_needed") > 0' in DAILY_INPUT_MODULE_CODE
-    assert 'postCommitTarget = "REPLACEMENTS"' in DAILY_INPUT_MODULE_CODE
-    assert 'q & "post_reopen_target" & q' in DAILY_INPUT_MODULE_CODE
+    source = DAILY_INPUT_MODULE_CODE
+
+    assert 'replacementsNeeded = JsonLongValue(responseText, "replacement_sessions_needed")' in source
+    assert "If replacementsNeeded > 0 Then" in source
+    assert "ActivateReplacementScreen" in source
+    assert 'ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate' in source
 
 
-def test_daily_input_action_does_not_mutate_workbook_for_navigation_marker():
-    assert "__EKA_POST_COMMIT_TARGET" not in DAILY_INPUT_MODULE_CODE
-    assert "ThisWorkbook.Names.Add" not in DAILY_INPUT_MODULE_CODE
+def test_daily_input_patch_application_preserves_presentation_contract():
+    source = DAILY_INPUT_MODULE_CODE
+
+    assert "infectious_yellow" in source
+    assert "robotic_pink" in source
+    assert "outpatient_light_blue" in source
+    assert "student_active_green" in source
+    assert "robotic_orange" in source
+    assert "ApplyTextRuns" in source
+    assert "VerifyTextRuns" in source
