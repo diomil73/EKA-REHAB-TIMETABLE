@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from .double_booking_review_vba import install_double_booking_review
+from .global_replacement_action_vba import install_global_replacement_action
+from .therapist_workload_strip_vba import (
+    MODULE_CODE as WORKLOAD_MODULE_CODE,
+    MODULE_NAME as WORKLOAD_MODULE_NAME,
+)
+
+
 DAILY_INPUT_MODULE_NAME = "modDailyInputAction"
 DAILY_INPUT_MACRO_NAME = "ApplyDailyInputPreview"
 
@@ -25,7 +33,6 @@ Public Sub ApplyDailyInputPreview()
     End If
 
     ThisWorkbook.Save
-
     payloadPath = Environ$("TEMP") & "\\eka_daily_input_payload_" & _
                   Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".tsv"
     responsePath = Environ$("TEMP") & "\\eka_daily_input_response_" & _
@@ -36,12 +43,14 @@ Public Sub ApplyDailyInputPreview()
                   " --payload " & QuoteArg(payloadPath) & _
                   " --response " & QuoteArg(responsePath)
 
-    Application.StatusBar = "Έλεγχος και εφαρμογή ημερήσιας κατάστασης..."
+    Application.StatusBar = "Εφαρμογή ημερήσιας κατάστασης..."
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
     Application.StatusBar = False
 
     If Dir$(responsePath) <> "" Then responseText = ReadUtf8Text(responsePath)
-    If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Or Dir$(payloadPath) = "" Then
+    If exitCode <> 0 Or _
+       InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Or _
+       Dir$(payloadPath) = "" Then
         MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε." & vbCrLf & vbCrLf & _
                "Ελέγξτε τις καταχωρίσεις και δοκιμάστε ξανά." & vbCrLf & _
                "Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
@@ -50,14 +59,19 @@ Public Sub ApplyDailyInputPreview()
     End If
 
     If Not ApplyValidatedDailyInputPayload(payloadPath) Then GoTo CleanUp
+    If Not RefreshOperationalViews() Then GoTo CleanUp
 
     replacementsNeeded = JsonLongValue(responseText, "replacement_sessions_needed")
     If replacementsNeeded > 0 Then
-        MsgBox "Η ημερήσια κατάσταση εφαρμόστηκε. Υπάρχουν συνεδρίες που χρειάζονται αναπλήρωση.", vbInformation, "Ημερήσια κατάσταση"
-        ActivateReplacementScreen
+        If ResolveDailyReplacementsInPlace() Then
+            If Not RefreshOperationalViews() Then GoTo CleanUp
+            MsgBox "Η ημερήσια κατάσταση και οι αναπληρώσεις εφαρμόστηκαν επιτυχώς.", _
+                   vbInformation, "Ημερήσια κατάσταση"
+            GoToMaster
+        End If
     Else
         MsgBox "Η ημερήσια κατάσταση εφαρμόστηκε επιτυχώς.", vbInformation, "Ημερήσια κατάσταση"
-        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+        GoToMaster
     End If
 
 CleanUp:
@@ -70,11 +84,13 @@ CleanUp:
 
 ActionError:
     Application.StatusBar = False
-    MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε. Δοκιμάστε ξανά. Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", vbCritical, "Ημερήσια κατάσταση"
+    WriteDailyInputDiagnostic Err.Number, Err.Description, "daily input action", 0, "", ""
+    MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε. Δοκιμάστε ξανά. Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
+           vbCritical, "Ημερήσια κατάσταση"
     Resume CleanUp
 End Sub
 
-Private Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As Boolean
+Public Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As Boolean
     Dim rawText As String, lines As Variant, parts As Variant
     Dim i As Long, patchCount As Long
     Dim rollbackPath As String, previousEvents As Boolean, previousScreenUpdating As Boolean
@@ -154,6 +170,24 @@ ApplyError:
     Resume ApplyExit
 End Function
 
+Private Function RefreshOperationalViews() As Boolean
+    Dim master As Worksheet, daily As Worksheet, refreshShape As Shape
+    On Error GoTo RefreshError
+
+    Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
+    Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
+    RenderTherapistWorkloadStrip
+    Set refreshShape = master.Shapes("ekaWorkload_Refresh")
+    ApplyMasterView
+    RefreshOperationalViews = True
+    Exit Function
+
+RefreshError:
+    WriteDailyInputDiagnostic Err.Number, Err.Description, "refresh operational views", 0, "MASTER_SCHEDULE", ""
+    MsgBox "Οι αλλαγές αποθηκεύτηκαν, αλλά η κεντρική εικόνα δεν ενημερώθηκε σωστά." & vbCrLf & _
+           "Επικοινωνήστε με τον διαχειριστή πριν συνεχίσετε.", vbCritical, "Ημερήσια κατάσταση"
+End Function
+
 Private Sub ValidatePatchTarget(ByVal parts As Variant)
     Dim ws As Worksheet, cellAddress As String
     Dim target As Range
@@ -183,14 +217,10 @@ Private Sub ApplyPatch(ByVal parts As Variant)
     valueText = PayloadValue(parts(4))
 
     Select Case intent
-        Case "clear"
-            cell.ClearContents
-        Case "value"
-            cell.Value = valueText
+        Case "clear": cell.ClearContents
+        Case "value": cell.Value = valueText
         Case "presentation"
-            ' No value mutation.
-        Case Else
-            Err.Raise vbObjectError + 2320, , "Unsupported write intent"
+        Case Else: Err.Raise vbObjectError + 2320, , "Unsupported write intent"
     End Select
 
     wrapToken = PayloadValue(parts(9))
@@ -211,7 +241,6 @@ Private Sub ApplyPatch(ByVal parts As Variant)
     ApplyWholeFontRole cell, PayloadValue(parts(6))
     ApplyFillRole cell, PayloadValue(parts(7))
     ApplyBorderRole cell, PayloadValue(parts(8))
-
     textRuns = PayloadValue(parts(12))
     If Len(textRuns) > 0 Then ApplyTextRuns cell, textRuns, PayloadValue(parts(6))
 End Sub
@@ -250,7 +279,6 @@ Private Function VerifyPatch(ByVal parts As Variant) As Boolean
     If Len(textRuns) > 0 Then
         If Not VerifyTextRuns(cell, textRuns) Then Exit Function
     End If
-
     VerifyPatch = True
 End Function
 
@@ -413,19 +441,6 @@ Private Sub WriteDailyInputDiagnostic( _
     Close #handle
 End Sub
 
-Private Sub ActivateReplacementScreen()
-    Dim ws As Worksheet
-    On Error Resume Next
-    Set ws = ThisWorkbook.Worksheets("REPLACEMENTS")
-    On Error GoTo 0
-    If ws Is Nothing Then
-        ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
-    Else
-        If ws.Visible <> xlSheetVisible Then ws.Visible = xlSheetVisible
-        ws.Activate
-    End If
-End Sub
-
 Private Function PayloadValue(ByVal raw As String) As String
     Dim i As Long, ch As String, result As String, escaped As Boolean
     For i = 1 To Len(raw)
@@ -496,14 +511,24 @@ End Function
 DAILY_INPUT_MODULE_CODE = DAILY_INPUT_MODULE_CODE.replace("\\\\", "\\")
 
 
-def install_daily_input_action(vbproject) -> None:
+def _remove_component_if_present(vbproject, name: str) -> None:
     try:
-        existing = vbproject.VBComponents(DAILY_INPUT_MODULE_NAME)
+        component = vbproject.VBComponents(name)
     except Exception:
-        existing = None
-    if existing is not None:
-        vbproject.VBComponents.Remove(existing)
+        return
+    vbproject.VBComponents.Remove(component)
 
+
+def install_daily_input_action(vbproject) -> None:
+    _remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
     module = vbproject.VBComponents.Add(1)
     module.Name = DAILY_INPUT_MODULE_NAME
     module.CodeModule.AddFromString(DAILY_INPUT_MODULE_CODE)
+
+    install_global_replacement_action(vbproject)
+    install_double_booking_review(vbproject)
+
+    _remove_component_if_present(vbproject, WORKLOAD_MODULE_NAME)
+    workload_module = vbproject.VBComponents.Add(1)
+    workload_module.Name = WORKLOAD_MODULE_NAME
+    workload_module.CodeModule.AddFromString(WORKLOAD_MODULE_CODE)
