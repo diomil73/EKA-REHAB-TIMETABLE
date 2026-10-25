@@ -37,6 +37,11 @@ from .day_finalization import (
     FinalizedSnapshotStatus,
     build_finalized_day_snapshot,
 )
+from .therapist_day_history import (
+    TherapistDayHistoryError,
+    TherapistDayHistoryRow,
+    build_therapist_day_history_rows,
+)
 from .day_patterns import (
     RehabWeekday,
     parse_day_pattern,
@@ -105,6 +110,8 @@ __all__ = [
     "DayFinalizationError",
     "FinalizedDaySnapshot",
     "FinalizedSnapshotStatus",
+    "TherapistDayHistoryError",
+    "TherapistDayHistoryRow",
     "RecurringCapacityCheck",
     "RecurringCapacityIssue",
     "BaseScheduleEntry",
@@ -140,6 +147,7 @@ __all__ = [
     "TherapistWorkload",
     "build_daily_session_states",
     "build_finalized_day_snapshot",
+    "build_therapist_day_history_rows",
     "build_operational_occurrences",
     "build_student_display_map",
     "calculate_daily_treatment_statistics",
