@@ -8,6 +8,10 @@ from rehab_excel.close_day_action_vba import (
 from rehab_excel.registration_menu_vba import Win32ComRegistrationMenuInstaller
 
 
+def _user_visible_message_source(source: str) -> str:
+    return "\n".join(line for line in source.splitlines() if "MsgBox" in line)
+
+
 def test_close_day_action_has_explicit_confirmation_and_authoritative_commit():
     source = CLOSE_DAY_MODULE_CODE
 
@@ -36,13 +40,16 @@ def test_close_day_backend_runs_hidden_without_console_window():
 
 def test_close_day_action_is_fail_closed_with_operator_facing_guidance():
     source = CLOSE_DAY_MODULE_CODE
+    messages = _user_visible_message_source(source).casefold()
 
     assert "If exitCode <> 0" in source
     assert "Η ημέρα δεν έκλεισε." in source
     assert "Ελέγξτε ότι δεν υπάρχουν εκκρεμείς συνεδρίες" in source
     assert "επικοινωνήστε με τον διαχειριστή" in source
-    assert "backend" not in source.casefold()
-    assert "worker" not in source.casefold().replace("resolveauthoritativecommitworkerscript", "").replace("workerscript", "")
+    assert "backend" not in messages
+    assert "worker" not in messages
+    assert "preview" not in messages
+    assert "hash" not in messages
     assert "Η ημέρα έκλεισε επιτυχώς." in source
     assert "Η εφαρμογή θα ανοίξει ξανά αυτόματα" not in source
     assert "StartCloseDayCommit" in source
