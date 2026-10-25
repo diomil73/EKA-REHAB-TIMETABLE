@@ -90,6 +90,20 @@ def _text_runs_token(patch: CellPatch) -> str:
     )
 
 
+def _payload_min_font_size(patch: CellPatch) -> int | None:
+    """Avoid whole-cell font-size checks for rich text.
+
+    Excel returns Null for Range.Font.Size when a cell contains mixed character
+    formatting. Rich-text runs are verified individually by the VBA bridge, so
+    serializing a whole-cell minimum size for those patches would create a false
+    rollback even when the intended formatting was applied correctly.
+    """
+
+    if patch.text_runs:
+        return None
+    return patch.min_font_size
+
+
 def _patch_line(patch: CellPatch) -> str:
     fields = (
         patch.sheet,
@@ -101,7 +115,7 @@ def _patch_line(patch: CellPatch) -> str:
         patch.fill_role,
         patch.border_role,
         _bool_token(patch.wrap_text),
-        patch.min_font_size,
+        _payload_min_font_size(patch),
         patch.source_tag,
         _text_runs_token(patch),
     )
