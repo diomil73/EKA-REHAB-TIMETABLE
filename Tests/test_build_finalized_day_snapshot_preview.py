@@ -24,3 +24,16 @@ def test_preview_tool_reports_real_application_contract_component_names():
     assert "len(source_contract.component_names)" in source
     assert "len(output_contract.component_names)" in source
     assert ".components" not in source
+
+
+def test_preview_tool_uses_official_therapist_registry_for_daily_input():
+    source = TOOL_PATH.read_text(encoding="utf-8")
+
+    settings = source.index("settings = read_settings(source)")
+    daily_input = source.index("daily = read_daily_input(", settings)
+    therapist_registry = source.index(
+        "therapist_names=settings.therapist_names,",
+        daily_input,
+    )
+
+    assert settings < daily_input < therapist_registry
