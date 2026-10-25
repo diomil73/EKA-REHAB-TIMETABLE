@@ -42,38 +42,50 @@ Forbidden in normal production actions:
 - console/Command Prompt windows;
 - user-visible backend/worker/preview/hash/file-lock details.
 
-Preview/copy/replace workflows remain allowed only for developer smoke tests, installation, migration, diagnostics and recovery tooling.
+Temporary copies are allowed only for development/smoke/install/migration or rollback/recovery while the live workbook remains open and authoritative.
 
-Reference implementation pattern: confirmed double-booking validate-only path.
-
-## Close-day state
+## `Κλείσιμο ημέρας` production state
 
 Historical model/backend remains native-verified.
 
-The old close/reopen UI path is retired and no longer the production candidate.
+Implemented now, awaiting focused tests/native smoke:
+
+- `Python/tools/prepare_close_day_in_place.py` performs read-only validation/calculation;
+- emits one payload containing `SNAPSHOT`, all `THERAPIST` rows and one `EVENT` row;
+- rejects already-finalized dates and duplicate historical keys before any workbook write;
+- `modCloseDayAction` contains no workbook close/reopen/reopen-worker logic;
+- VBA preflights all three schemas/duplicates;
+- VBA writes snapshot + therapist history + event into the already-open workbook;
+- every inserted row is reread before Save;
+- failure rolls back inserted rows/new sheets;
+- success protects/hides technical sheets, saves once and remains on `MASTER_SCHEDULE`.
+
+## `DAILY_INPUT` production state
+
+The old preview -> authoritative commit -> close/reopen production path has also been retired in code.
 
 Implemented now, awaiting focused tests/native smoke:
 
-- `Python/tools/prepare_close_day_in_place.py` performs read-only validation/calculation against the saved open workbook;
-- it emits one verified payload containing `SNAPSHOT`, all `THERAPIST` rows and one `EVENT` row;
-- it rejects already-finalized dates and duplicate historical keys before any workbook write;
-- `modCloseDayAction` no longer contains `ThisWorkbook.Close`, `Application.OnTime`, reopen target or authoritative commit worker logic;
-- VBA preflights the three history schemas/duplicate keys;
-- VBA writes snapshot + therapist history + event into the already-open workbook;
-- every inserted row is reread before Save;
-- failure triggers rollback of inserted rows/new sheets;
-- success protects/hides technical sheets, saves once and remains open on `MASTER_SCHEDULE`;
-- focused regression forbids reintroduction of close/reopen mechanics.
+- `Python/tools/prepare_daily_input_in_place.py` rebuilds the dated effective state and validated `WritePlan` without mutating the workbook;
+- official therapist registry names are supplied to `read_daily_input`;
+- payload contains only validated cell patch semantics;
+- `modDailyInputAction` contains no `ThisWorkbook.Close`, `Application.OnTime`, authoritative commit worker or reopen target;
+- VBA applies value/clear/presentation patches directly to the live workbook;
+- fill, border, whole-font, wrap, minimum-font and rich-text run semantics mirror the native writer;
+- each patch is read back before final save;
+- a temporary `SaveCopyAs` file is rollback-only; on failure touched cells are restored from it;
+- success keeps the workbook open and routes to replacements only when replacement work remains, otherwise MASTER.
 
-## Known production migration debt
+## Shared production regression
 
-### `DAILY_INPUT`
+`Tests/test_production_actions_stay_in_session.py` currently guards close-day and DAILY_INPUT against reintroduction of:
 
-`Python/rehab_excel/daily_input_action_vba.py` still uses preview -> authoritative commit -> close/reopen. This is explicit migration debt and must be converted immediately after close-day native green.
+- `ThisWorkbook.Close`;
+- `Application.OnTime` handoff;
+- authoritative commit worker;
+- reopen targets/reopen flags.
 
-Target:
-
-`validate DAILY_INPUT -> compute dated facts/projection -> in-place verified write -> read-back -> Save -> remain open / route to next operational screen`
+Both actions must run Python hidden and keep operator messages free of implementation details.
 
 ## Day-finalization/history state
 
@@ -128,17 +140,17 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 ## Exact resume point
 
-**Do not continue the close/reopen experiment. Do not open another reporting vertical yet.**
+**Do not return to close/reopen mechanics.**
 
 Immediate order:
 
-1. run focused in-place close-day tests;
-2. build a fresh application-shell preview from `DOUBLE_BOOKING_REJECTED.xlsm`;
-3. native-click `Κλείσιμο ημέρας` and verify workbook stays open on MASTER, no console, no reopen, no error;
-4. click `Κλείσιμο ημέρας` again and verify already-closed protection;
-5. after native green, migrate `DAILY_INPUT` to in-place architecture;
-6. add broader production-action regression guard against close/reopen mechanics;
-7. only then continue patient/day finalized outcome history.
+1. run the combined focused in-place regression gate for close-day + DAILY_INPUT + application shell/MASTER;
+2. build one fresh disposable application-shell workbook from `DOUBLE_BOOKING_REJECTED.xlsm`;
+3. native test `Κλείσιμο ημέρας`: success, workbook remains open on MASTER, no console/reopen/error;
+4. immediately repeat close-day and verify already-closed protection;
+5. on a separate fresh disposable workbook with DAILY_INPUT changes, native test `DAILY_INPUT`: apply in place, remain open, correct routing/presentation, no console/reopen;
+6. if both native gates are green, continue patient/day finalized outcome history;
+7. later implement explicit finalized-day amendment/version chain.
 
 ## Safety reminders
 
