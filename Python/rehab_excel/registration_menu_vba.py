@@ -9,6 +9,7 @@ from typing import Protocol
 from zipfile import ZipFile
 
 from .application_shell_vba import APP_SHELL_MODULE_NAME, install_application_shell
+from .close_day_action_vba import CLOSE_DAY_MODULE_NAME, install_close_day_action
 from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
 from .master_toolbar_vba import (
     MASTER_TOOLBAR_MODULE_NAME,
@@ -239,6 +240,8 @@ class Win32ComRegistrationMenuInstaller:
             self._remove_component_if_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
             stage = "removing old DAILY_INPUT action module"
             self._remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
+            stage = "removing old close-day action module"
+            self._remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)
             stage = "removing old patient form"
             self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
             stage = "removing old therapist form"
@@ -287,6 +290,8 @@ class Win32ComRegistrationMenuInstaller:
             install_master_toolbar(vbproject, workbook)
             stage = "installing DAILY_INPUT action"
             install_daily_input_action(vbproject)
+            stage = "installing close-day action"
+            install_close_day_action(vbproject)
             stage = "installing patient form"
             install_patient_form(vbproject, position_control=self._position_control)
             stage = "installing therapist form"
@@ -306,6 +311,7 @@ class Win32ComRegistrationMenuInstaller:
             app_shell_present = self._component_present(vbproject, APP_SHELL_MODULE_NAME)
             master_toolbar_present = self._component_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
             daily_input_action_present = self._component_present(vbproject, DAILY_INPUT_MODULE_NAME)
+            close_day_action_present = self._component_present(vbproject, CLOSE_DAY_MODULE_NAME)
             if not app_shell_present:
                 raise RegistrationMenuVbaError(
                     "Application shell module was not confirmed in the preview VBA project"
@@ -329,6 +335,10 @@ class Win32ComRegistrationMenuInstaller:
             if not daily_input_action_present:
                 raise RegistrationMenuVbaError(
                     "DAILY_INPUT action module was not confirmed in the preview VBA project"
+                )
+            if not close_day_action_present:
+                raise RegistrationMenuVbaError(
+                    "Close-day action module was not confirmed in the preview VBA project"
                 )
             return module_present, form_present
         except RegistrationMenuVbaError:
