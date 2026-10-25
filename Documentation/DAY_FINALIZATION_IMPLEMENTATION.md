@@ -71,6 +71,44 @@ Replacement workload moves to the effective therapist/time. Student replacement 
 
 `Python/rehab_excel/therapist_day_history_store.py` persists these rows in `THERAPIST_DAY_HISTORY` as a separate `VeryHidden` protected technical table keyed by `(SnapshotId, TherapistId)`, with schema validation, duplicate protection, `Value2` writes and exact COM read-back before save.
 
+## Append-only day-history events
+
+`Python/rehab_core/day_history_events.py` defines immutable historical event records and the first explicit event type, `DAY_FINALIZED`.
+
+`Python/rehab_excel/day_history_event_store.py` persists events in `DAY_HISTORY_EVENTS` with the locked minimum schema:
+
+- event ID;
+- service date;
+- event type;
+- timezone-aware recorded timestamp;
+- actor/source;
+- optional therapist/patient/session/reason links;
+- related event/snapshot links;
+- concise audit summary.
+
+The store is append-only by contract: duplicate event IDs are rejected, rows are never rewritten by ordinary close, the sheet is `VeryHidden` and protected, and COM values are read back semantically before save.
+
+The normal close event links directly to the finalized snapshot through `related_snapshot_id`.
+
+## Explicit close-day application action
+
+`Python/tools/close_day.py` is the backend action contract for `Κλείσιμο ημέρας`.
+
+Production ordering is:
+
+1. build and verify the finalized snapshot preview;
+2. build and verify therapist/day history rows from the same final effective state;
+3. append exactly one `DAY_FINALIZED` event linked to that snapshot;
+4. read the event back exactly;
+5. recheck the VBA application contract;
+6. verify the authoritative input hash is unchanged;
+7. expose the verified preview path + source hash for authoritative commit;
+8. delete the preview on any failure after preview creation.
+
+`Python/rehab_excel/close_day_action_vba.py` provides the user-facing `CloseOperationalDay` macro. It requires an explicit Yes/No confirmation, saves the current workbook state, runs the close-day backend, and only after backend verification starts the existing authoritative commit worker. On success the authoritative workbook is replaced from the verified preview and reopened on `MASTER_SCHEDULE`.
+
+The close-day action is intentionally separate from `DAILY_INPUT` so correction/version-chain logic can later evolve independently.
+
 ## Native preview smoke wiring
 
 `Python/tools/build_finalized_day_snapshot_preview.py` reconstructs one concrete day from authoritative operational inputs:
@@ -90,9 +128,11 @@ Then it:
 
 DAILY_INPUT therapist identity is resolved against the official `SETTINGS` therapist registry as well as materialized providers. Legacy `φοιτ N` placeholders are excluded from therapist history. Current therapist capacity history uses the locked operational `6` timeslot baseline until a per-therapist capacity registry is introduced.
 
-## Native verified checkpoint
+## Native verified checkpoints
 
-Using `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`, the first finalized snapshot smoke was verified successfully:
+Using `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`, finalized history is native-green.
+
+### Snapshot V1 checkpoint
 
 - Date: `2026-10-26`
 - Snapshot: `finalized:2026-10-26:v1`
@@ -108,7 +148,20 @@ Using `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`, the first finalized snapsho
 - application contract source: `54` components
 - application contract output: `55` components
 
-This verifies the finalized snapshot header path end-to-end. The next native gate extends the same preview to therapist/day history rows.
+### Snapshot + therapist/day V2 checkpoint
+
+- Date: `2026-10-26`
+- Snapshot: `finalized:2026-10-26:v1`
+- Version/status: `1 / CURRENT_FINAL`
+- Final sessions: `79`
+- Treatment suspensions: `1`
+- Unresolved sessions: `0`
+- Therapist/day history rows: `16`
+- Input unchanged: `True`
+- application contract source: `54` components
+- application contract output: `56` components
+
+This closes the snapshot + therapist/day persistence slice end-to-end.
 
 ## Regression coverage
 
@@ -117,18 +170,21 @@ This verifies the finalized snapshot header path end-to-end. The next native gat
 - `Tests/test_therapist_day_history.py`
 - `Tests/test_therapist_day_history_store.py`
 - `Tests/test_build_finalized_day_snapshot_preview.py`
+- `Tests/test_day_history_events.py`
+- `Tests/test_day_history_event_store.py`
+- `Tests/test_close_day_cli.py`
+- `Tests/test_close_day_action_vba.py`
 
-The workload tests cover shared-slot semantics, replacement transfer, student exclusion, non-performed attribution and unresolved fail-closed behavior.
+## Next gate
 
-## Next slice after therapist/day native gate
+The next gate is the close-action worker path:
 
-After therapist/day persistence is native-green:
-
-1. connect the backend to the explicit application action `Κλείσιμο ημέρας`;
-2. add final close confirmation/summary UI without exposing technical sheets;
-3. persist append-only finalization events;
-4. begin patient/day finalized session-outcome history so patient, therapist and department reports reconcile from one truth;
-5. implement explicit amendment/version-chain operation (`SUPERSEDED` -> new `CURRENT_FINAL`) without destructive overwrite.
+1. run focused event/store/close-action tests;
+2. run `close_day.py` against the verified REJECT fixture into a fresh preview;
+3. require snapshot + 16 therapist/day rows + exactly one `DAY_FINALIZED` event + source unchanged;
+4. once green, install the close-day VBA module and MASTER toolbar button into the application preview and native-smoke the actual button workflow;
+5. then begin patient/day finalized session-outcome history so patient, therapist and department reports reconcile from one truth;
+6. later implement explicit amendment/version-chain operation (`SUPERSEDED` -> new `CURRENT_FINAL`) without destructive overwrite.
 
 ## Safety
 
@@ -137,5 +193,6 @@ After therapist/day persistence is native-green:
 - native smoke uses a fresh preview copy;
 - finalization failure must produce no partial historical record in production design;
 - preview output is disposable and deleted on verification failure;
+- authoritative replacement occurs only after verified preview + source-hash match;
 - later corrections append/version history rather than editing old history in place;
 - no ordinary close path may silently replace an existing `CURRENT_FINAL` snapshot.
