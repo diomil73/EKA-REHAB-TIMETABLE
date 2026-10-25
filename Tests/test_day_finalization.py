@@ -161,6 +161,14 @@ def test_finalization_validates_header_inputs_before_persistence():
             version=0,
         )
 
+    with pytest.raises(DayFinalizationError, match="timezone"):
+        build_finalized_day_snapshot(
+            [],
+            snapshot_id="snap",
+            service_date=DAY,
+            finalized_at=datetime(2026, 10, 26, 15, 30),
+        )
+
     with pytest.raises(DayFinalizationError, match="approved_exception_count"):
         build_finalized_day_snapshot(
             [],
