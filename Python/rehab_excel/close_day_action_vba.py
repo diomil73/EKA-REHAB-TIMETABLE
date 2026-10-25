@@ -49,6 +49,11 @@ Public Sub CloseOperationalDay()
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
     If Dir$(responsePath) <> "" Then responseText = ReadUtf8Text(responsePath)
 
+    If InStr(1, responseText, "already finalized", vbTextCompare) > 0 Then
+        MsgBox "Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.", vbInformation, "Κλείσιμο ημέρας"
+        GoTo CleanUp
+    End If
+
     If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Or Dir$(payloadPath) = "" Then
         MsgBox "Η ημέρα δεν έκλεισε." & vbCrLf & vbCrLf & _
                "Ελέγξτε ότι δεν υπάρχουν εκκρεμείς συνεδρίες και δοκιμάστε ξανά." & vbCrLf & _
