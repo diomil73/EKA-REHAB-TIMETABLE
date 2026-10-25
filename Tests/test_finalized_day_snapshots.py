@@ -145,3 +145,11 @@ def test_reader_rejects_schema_drift(tmp_path: Path):
 
     with pytest.raises(FinalizedDaySnapshotStoreError, match="headers"):
         read_finalized_day_snapshots(path)
+
+
+def test_native_writer_does_not_depend_on_com_number_format_assignment():
+    source = Path("Python/rehab_excel/finalized_day_snapshots.py").read_text(encoding="utf-8")
+
+    assert ".NumberFormat" not in source
+    assert "ws.Cells(next_row, col).Value2 = value" in source
+    assert "Finalized snapshot COM read-back did not match requested snapshot" in source
