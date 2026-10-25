@@ -3,6 +3,7 @@ from __future__ import annotations
 DAILY_INPUT_MODULE_NAME = "modDailyInputAction"
 DAILY_INPUT_MACRO_NAME = "ApplyDailyInputPreview"
 
+
 DAILY_INPUT_MODULE_CODE = r'''Option Explicit
 
 Public Sub ApplyDailyInputPreview()
@@ -77,23 +78,30 @@ Private Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As
     Dim rawText As String, lines As Variant, parts As Variant
     Dim i As Long, patchCount As Long
     Dim rollbackPath As String, previousEvents As Boolean, previousScreenUpdating As Boolean
-    Dim errorText As String
+    Dim errorText As String, currentPhase As String, currentSheet As String, currentCell As String
+    Dim errorNumber As Long, currentPatchIndex As Long
 
     On Error GoTo ApplyError
 
+    currentPhase = "read payload"
     rawText = ReadUtf8Text(payloadPath)
     lines = Split(Replace(rawText, vbCr, ""), vbLf)
     patchCount = 0
+    currentPhase = "preflight"
     For i = LBound(lines) To UBound(lines)
         If Len(Trim$(CStr(lines(i)))) = 0 Then GoTo CountNext
         parts = Split(CStr(lines(i)), vbTab)
         If UBound(parts) <> 12 Or CStr(parts(0)) <> "PATCH" Then Err.Raise vbObjectError + 2301, , "Invalid DAILY_INPUT payload"
+        currentPatchIndex = patchCount + 1
+        currentSheet = PayloadValue(parts(1))
+        currentCell = PayloadValue(parts(2))
         ValidatePatchTarget parts
         patchCount = patchCount + 1
 CountNext:
     Next i
     If patchCount = 0 Then Err.Raise vbObjectError + 2302, , "Empty DAILY_INPUT payload"
 
+    currentPhase = "create rollback"
     rollbackPath = Environ$("TEMP") & "\\eka_daily_input_rollback_" & _
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
     ThisWorkbook.SaveCopyAs rollbackPath
@@ -103,14 +111,21 @@ CountNext:
     Application.EnableEvents = False
     Application.ScreenUpdating = False
 
+    currentPatchIndex = 0
     For i = LBound(lines) To UBound(lines)
         If Len(Trim$(CStr(lines(i)))) = 0 Then GoTo ApplyNext
         parts = Split(CStr(lines(i)), vbTab)
+        currentPatchIndex = currentPatchIndex + 1
+        currentSheet = PayloadValue(parts(1))
+        currentCell = PayloadValue(parts(2))
+        currentPhase = "apply patch"
         ApplyPatch parts
+        currentPhase = "verify patch"
         If Not VerifyPatch(parts) Then Err.Raise vbObjectError + 2303, , "DAILY_INPUT read-back mismatch"
 ApplyNext:
     Next i
 
+    currentPhase = "save"
     ThisWorkbook.Save
     ApplyValidatedDailyInputPayload = True
 
@@ -123,8 +138,10 @@ ApplyExit:
     Exit Function
 
 ApplyError:
+    errorNumber = Err.Number
     errorText = Err.Description
     On Error Resume Next
+    WriteDailyInputDiagnostic errorNumber, errorText, currentPhase, currentPatchIndex, currentSheet, currentCell
     If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then
         RestorePatchesFromRollback rollbackPath, lines
         ThisWorkbook.Save
@@ -139,6 +156,8 @@ End Function
 
 Private Sub ValidatePatchTarget(ByVal parts As Variant)
     Dim ws As Worksheet, cellAddress As String
+    Dim target As Range
+
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets(PayloadValue(parts(1)))
     On Error GoTo 0
@@ -146,7 +165,6 @@ Private Sub ValidatePatchTarget(ByVal parts As Variant)
     cellAddress = PayloadValue(parts(2))
     If Len(cellAddress) = 0 Then Err.Raise vbObjectError + 2311, , "Missing target cell"
     On Error GoTo InvalidCell
-    Dim target As Range
     Set target = ws.Range(cellAddress)
     Exit Sub
 InvalidCell:
@@ -157,6 +175,7 @@ Private Sub ApplyPatch(ByVal parts As Variant)
     Dim ws As Worksheet, cell As Range
     Dim intent As String, valueText As String
     Dim wrapToken As String, minFontToken As String, textRuns As String
+    Dim fontSizeValue As Variant
 
     Set ws = ThisWorkbook.Worksheets(PayloadValue(parts(1)))
     Set cell = ws.Range(PayloadValue(parts(2)))
@@ -180,7 +199,12 @@ Private Sub ApplyPatch(ByVal parts As Variant)
 
     minFontToken = PayloadValue(parts(10))
     If Len(minFontToken) > 0 Then
-        If CDbl(cell.Font.Size) < CDbl(minFontToken) Then cell.Font.Size = CDbl(minFontToken)
+        fontSizeValue = cell.Font.Size
+        If IsNull(fontSizeValue) Then
+            cell.Font.Size = CDbl(minFontToken)
+        ElseIf CDbl(fontSizeValue) < CDbl(minFontToken) Then
+            cell.Font.Size = CDbl(minFontToken)
+        End If
     End If
 
     If PayloadValue(parts(5)) = "1" Then cell.Font.Strikethrough = True
@@ -195,11 +219,13 @@ End Sub
 Private Function VerifyPatch(ByVal parts As Variant) As Boolean
     Dim ws As Worksheet, cell As Range
     Dim intent As String, expected As String, wrapToken As String, minFontToken As String
+    Dim textRuns As String, fontSizeValue As Variant
 
     Set ws = ThisWorkbook.Worksheets(PayloadValue(parts(1)))
     Set cell = ws.Range(PayloadValue(parts(2)))
     intent = LCase$(PayloadValue(parts(3)))
     expected = PayloadValue(parts(4))
+    textRuns = PayloadValue(parts(12))
 
     If intent = "value" Then
         If CStr(cell.Value) <> expected Then Exit Function
@@ -212,15 +238,17 @@ Private Function VerifyPatch(ByVal parts As Variant) As Boolean
     If wrapToken = "0" And cell.WrapText <> False Then Exit Function
 
     minFontToken = PayloadValue(parts(10))
-    If Len(minFontToken) > 0 Then
-        If CDbl(cell.Font.Size) < CDbl(minFontToken) Then Exit Function
+    If Len(minFontToken) > 0 And Len(textRuns) = 0 Then
+        fontSizeValue = cell.Font.Size
+        If IsNull(fontSizeValue) Then Exit Function
+        If CDbl(fontSizeValue) < CDbl(minFontToken) Then Exit Function
     End If
 
     If Not VerifyFillRole(cell, PayloadValue(parts(7))) Then Exit Function
     If Not VerifyWholeFontRole(cell, PayloadValue(parts(6))) Then Exit Function
     If Not VerifyBorderRole(cell, PayloadValue(parts(8))) Then Exit Function
-    If Len(PayloadValue(parts(12))) > 0 Then
-        If Not VerifyTextRuns(cell, PayloadValue(parts(12))) Then Exit Function
+    If Len(textRuns) > 0 Then
+        If Not VerifyTextRuns(cell, textRuns) Then Exit Function
     End If
 
     VerifyPatch = True
@@ -363,6 +391,28 @@ RestoreNext:
     Application.DisplayAlerts = previousAlerts
 End Sub
 
+Private Sub WriteDailyInputDiagnostic( _
+    ByVal errorNumber As Long, _
+    ByVal errorText As String, _
+    ByVal phase As String, _
+    ByVal patchIndex As Long, _
+    ByVal sheetName As String, _
+    ByVal cellAddress As String)
+    Dim filePath As String, handle As Integer
+
+    filePath = Environ$("TEMP") & "\\eka_daily_input_last_error.log"
+    handle = FreeFile
+    Open filePath For Output As #handle
+    Print #handle, "timestamp=" & Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    Print #handle, "phase=" & phase
+    Print #handle, "patch_index=" & CStr(patchIndex)
+    Print #handle, "sheet=" & sheetName
+    Print #handle, "cell=" & cellAddress
+    Print #handle, "error_number=" & CStr(errorNumber)
+    Print #handle, "error=" & errorText
+    Close #handle
+End Sub
+
 Private Sub ActivateReplacementScreen()
     Dim ws As Worksheet
     On Error Resume Next
@@ -385,17 +435,17 @@ Private Function PayloadValue(ByVal raw As String) As String
                 Case "t": result = result & vbTab
                 Case "r": result = result & vbCr
                 Case "n": result = result & vbLf
-                Case "\": result = result & "\"
+                Case "\\": result = result & "\\"
                 Case Else: result = result & ch
             End Select
             escaped = False
-        ElseIf ch = "\" Then
+        ElseIf ch = "\\" Then
             escaped = True
         Else
             result = result & ch
         End If
     Next i
-    If escaped Then result = result & "\"
+    If escaped Then result = result & "\\"
     PayloadValue = result
 End Function
 
