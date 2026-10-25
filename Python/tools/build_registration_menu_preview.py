@@ -17,8 +17,12 @@ from rehab_excel.close_day_action_vba import CLOSE_DAY_MODULE_NAME  # noqa: E402
 from rehab_excel.double_booking_review_vba import (  # noqa: E402
     DOUBLE_BOOKING_FORM_NAME,
     DOUBLE_BOOKING_MODULE_NAME,
+    install_double_booking_review,
 )
-from rehab_excel.global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_NAME  # noqa: E402
+from rehab_excel.global_replacement_action_vba import (  # noqa: E402
+    GLOBAL_REPLACEMENT_MODULE_NAME,
+    install_global_replacement_action,
+)
 from rehab_excel.master_toolbar_vba import MASTER_TOOLBAR_MODULE_NAME  # noqa: E402
 from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
     FORM_NAME as OUTPATIENT_FORM_NAME,
@@ -35,7 +39,10 @@ from rehab_excel.registration_menu_vba import (  # noqa: E402
     RegistrationMenuVbaError,
     create_registration_menu_preview,
 )
-from rehab_excel.therapist_workload_strip_vba import MODULE_NAME as WORKLOAD_MODULE_NAME  # noqa: E402
+from rehab_excel.therapist_workload_strip_vba import (  # noqa: E402
+    MODULE_NAME as WORKLOAD_MODULE_NAME,
+    install_therapist_workload_strip,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -72,13 +79,16 @@ def _remove_component_if_present(vbproject, name: str) -> None:
     vbproject.VBComponents.Remove(component)
 
 
-def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
-    """Remove replaceable forms/modules in one Excel session, then close it.
+def _component_present(vbproject, name: str) -> bool:
+    try:
+        _ = vbproject.VBComponents(name)
+        return True
+    except Exception:
+        return False
 
-    Some Office builds keep a just-deleted UserForm name reserved until the
-    workbook is saved and Excel closes. Rebuilding in a second session avoids
-    the COM failure when assigning the same component name again.
-    """
+
+def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
+    """Remove replaceable forms/modules in one Excel session, then close it."""
 
     if sys.platform != "win32":
         raise RegistrationMenuVbaError(
@@ -150,6 +160,70 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
                 pass
 
 
+def _install_operational_modules(workbook_path: Path) -> None:
+    """Install operational modules omitted by the registration-menu installer.
+
+    This is a developer/build step only. It does not define a production user
+    workflow and may open/close the disposable preview workbook.
+    """
+
+    if sys.platform != "win32":
+        raise RegistrationMenuVbaError("Operational module installation requires Windows + Excel")
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RegistrationMenuVbaError("pywin32 is required") from exc
+
+    excel = None
+    workbook = None
+    stage = "opening preview for operational modules"
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
+        excel.EnableEvents = False
+        workbook = excel.Workbooks.Open(str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False)
+        vbproject = workbook.VBProject
+
+        stage = "installing global replacement action"
+        install_global_replacement_action(vbproject)
+        stage = "installing guided double-booking review"
+        install_double_booking_review(vbproject)
+        stage = "installing therapist workload strip"
+        install_therapist_workload_strip(vbproject, workbook)
+
+        required = (
+            GLOBAL_REPLACEMENT_MODULE_NAME,
+            DOUBLE_BOOKING_MODULE_NAME,
+            DOUBLE_BOOKING_FORM_NAME,
+            WORKLOAD_MODULE_NAME,
+        )
+        missing = [name for name in required if not _component_present(vbproject, name)]
+        if missing:
+            raise RegistrationMenuVbaError(
+                "Operational VBA components were not confirmed: " + ", ".join(missing)
+            )
+        workbook.Save()
+    except RegistrationMenuVbaError:
+        raise
+    except Exception as exc:
+        raise RegistrationMenuVbaError(
+            f"Operational module installation failed during {stage}: {exc}"
+        ) from exc
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
+
+
 def main() -> int:
     args = _build_parser().parse_args()
     source = args.source.resolve()
@@ -179,6 +253,7 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
+        _install_operational_modules(output)
         if _sha256(source) != source_before:
             output.unlink(missing_ok=True)
             raise RegistrationMenuVbaError("Original source workbook changed")
@@ -194,6 +269,7 @@ def main() -> int:
     print(f"VBA project present: {report.vba_present}")
     print(f"Menu module present: {report.module_present}")
     print(f"Menu form present: {report.form_present}")
+    print("Operational replacement/review/workload modules: present")
     print(f"Open Excel and run macro: {report.macro_name}")
     return 0
 
