@@ -11,7 +11,7 @@ from rehab_core.daily_state import DailySessionState, DailySessionStatus
 from rehab_core.models import BaseScheduleEntry, Patient, PatientType
 
 from .master_projection import MasterProjectionError, MasterProjectionRow, build_master_projection
-from .writeback import CellPatch, WritePlan, build_write_plan
+from .writeback import CellPatch, WriteIntent, WritePlan, build_write_plan
 
 
 class MasterDailyOverlayError(RuntimeError):
@@ -76,19 +76,26 @@ def _display_value(
     return "\n".join(parts)
 
 
-def _non_active_display(state: DailySessionState) -> str:
+def _fallback_status_label(state: DailySessionState) -> str:
     if state.status == DailySessionStatus.PATIENT_ABSENT:
-        label = "ΑΠΩΝ"
-    elif state.status == DailySessionStatus.CANCELLED:
-        label = "ΑΚΥΡΩΘΗΚΕ"
-    elif state.status == DailySessionStatus.THERAPIST_ABSENT:
-        label = "ΑΝΑΜΟΝΗ ΑΝΑΠΛΗΡΩΣΗΣ"
-    else:
-        raise MasterDailyOverlayError(
-            f"Unsupported non-active MASTER status {state.status.value!r}"
-        )
-    reason = str(state.reason or "").strip()
-    return f"{label}\n{reason}" if reason else label
+        return "ΑΠΩΝ"
+    if state.status == DailySessionStatus.CANCELLED:
+        return "ΑΚΥΡΩΘΗΚΕ"
+    if state.status == DailySessionStatus.THERAPIST_ABSENT:
+        return "ΑΝΑΜΟΝΗ ΑΝΑΠΛΗΡΩΣΗΣ"
+    raise MasterDailyOverlayError(
+        f"Unsupported non-active MASTER status {state.status.value!r}"
+    )
+
+
+def _patient_status_value(states: Iterable[DailySessionState]) -> str:
+    values: list[str] = []
+    for state in states:
+        reason = str(state.reason or "").strip()
+        value = reason or _fallback_status_label(state)
+        if value not in values:
+            values.append(value)
+    return " / ".join(values)
 
 
 def _find_status_column(path: Path) -> int | None:
@@ -133,11 +140,12 @@ def build_master_daily_overlay_plan(
 ) -> MasterDailyOverlayPlan:
     """Build date-specific MASTER patches from the authoritative daily state.
 
-    MASTER_SCHEDULE remains a derived operational view. Recurring source rows are
-    never edited. Replacements show effective provider/time. Patient absence,
-    cancellation and pending therapist replacement visibly replace the affected
-    treatment cell for the selected date so MASTER cannot continue to present a
-    non-performing session as active.
+    MASTER_SCHEDULE stays a derived view. Replacements may replace the displayed
+    provider/time for the selected date. Patient absence, cancellation and a
+    pending therapist replacement never destroy the recurring display: the
+    affected treatment cell is kept in place and receives a red strike-through.
+    The patient-status column carries the dated reason when no active session for
+    that inpatient remains on the selected date.
     """
 
     path = Path(workbook_path)
@@ -196,26 +204,32 @@ def build_master_daily_overlay_plan(
                     f"Replacement state {state.session_id!r} lacks effective provider/time"
                 )
             provider = labels.get(state.effective_therapist_id, state.effective_therapist_id)
-            value = _display_value(
-                effective_time=state.effective_time,
-                day_pattern=entry.day_pattern,
-                effective_provider=provider,
+            patches.append(
+                CellPatch(
+                    sheet="MASTER_SCHEDULE",
+                    cell=cell,
+                    value=_display_value(
+                        effective_time=state.effective_time,
+                        day_pattern=entry.day_pattern,
+                        effective_provider=provider,
+                    ),
+                    wrap_text=True,
+                    min_font_size=10,
+                    source_tag="master_daily_effective_overlay",
+                )
             )
-            source_tag = "master_daily_effective_overlay"
         else:
-            value = _non_active_display(state)
-            source_tag = "master_daily_non_active_overlay"
-
-        patches.append(
-            CellPatch(
-                sheet="MASTER_SCHEDULE",
-                cell=cell,
-                value=value,
-                wrap_text=True,
-                min_font_size=10,
-                source_tag=source_tag,
+            patches.append(
+                CellPatch(
+                    sheet="MASTER_SCHEDULE",
+                    cell=cell,
+                    intent=WriteIntent.PRESENTATION,
+                    strike_through=True,
+                    font_role="cancelled_red",
+                    source_tag="master_daily_non_active_overlay",
+                )
             )
-        )
+
         bindings.append(
             MasterDailyBinding(
                 session_id=state.session_id,
@@ -238,18 +252,14 @@ def build_master_daily_overlay_plan(
             inactive = non_active_by_patient.get(patient_id, [])
             if not inactive:
                 continue
-            labels_for_patient = []
-            for state in inactive:
-                label = _non_active_display(state).split("\n", 1)[0]
-                if label not in labels_for_patient:
-                    labels_for_patient.append(label)
             patches.append(
                 CellPatch(
                     sheet="MASTER_SCHEDULE",
                     cell=f"{_column_letters(status_column)}{row}",
-                    value=" / ".join(labels_for_patient),
+                    value=_patient_status_value(inactive),
                     wrap_text=True,
                     min_font_size=10,
+                    font_role="cancelled_red",
                     source_tag="master_daily_patient_status_overlay",
                 )
             )
