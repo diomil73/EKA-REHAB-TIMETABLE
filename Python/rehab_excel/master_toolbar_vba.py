@@ -30,6 +30,10 @@ MissingSheet:
     MsgBox "Δεν βρέθηκε το MASTER_SCHEDULE.", vbExclamation, "Κεντρική οθόνη"
 End Sub
 
+Public Sub ToolbarCloseDay()
+    CloseOperationalDay
+End Sub
+
 Public Sub ExitApplication()
     Dim eventsWereEnabled As Boolean
     Dim workbookCount As Long
@@ -118,6 +122,12 @@ BUTTONS = (
         "Ημερήσιο πρόγραμμα",
         "ToolbarTherapistDaily",
         "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών.",
+    ),
+    (
+        "CloseDay",
+        "Κλείσιμο ημέρας",
+        "ToolbarCloseDay",
+        "Οριστικοποίηση της ημερήσιας κατάστασης και αποθήκευση ιστορικού/statistics.",
     ),
     (
         "Exit",
@@ -380,15 +390,10 @@ def finalize_user_navigation(workbook_path) -> None:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
         excel.DisplayAlerts = False
-        excel.ScreenUpdating = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
         _install_operational_navigation(workbook)
         workbook.Save()
-    except MasterToolbarError:
-        raise
-    except Exception as exc:
-        raise MasterToolbarError(f"Could not finalize user navigation: {exc}") from exc
     finally:
         if workbook is not None:
             try:
