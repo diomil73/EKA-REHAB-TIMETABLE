@@ -100,6 +100,21 @@ def _component_present(vbproject, name: str) -> bool:
         return False
 
 
+def _ensure_double_booking_review(vbproject) -> None:
+    """Install the guided review only when the first installer pass did not.
+
+    UserForms can retain Designer/name state inside one Excel/VBE session after
+    removal. Avoiding a redundant remove/recreate cycle keeps the preview build
+    deterministic while still repairing a genuinely missing/partial install.
+    """
+
+    module_present = _component_present(vbproject, DOUBLE_BOOKING_MODULE_NAME)
+    form_present = _component_present(vbproject, DOUBLE_BOOKING_FORM_NAME)
+    if module_present and form_present:
+        return
+    install_double_booking_review(vbproject)
+
+
 def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
     """Remove replaceable forms/modules in one Excel session, then close it."""
 
@@ -200,8 +215,8 @@ def _install_operational_modules(workbook_path: Path) -> None:
 
         stage = "installing global replacement action"
         install_global_replacement_action(vbproject)
-        stage = "installing guided double-booking review"
-        install_double_booking_review(vbproject)
+        stage = "verifying guided double-booking review"
+        _ensure_double_booking_review(vbproject)
         stage = "installing therapist workload strip"
         install_therapist_workload_strip(vbproject, workbook)
 
