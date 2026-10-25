@@ -21,6 +21,10 @@ from rehab_core.day_finalization import (  # noqa: E402
     build_finalized_day_snapshot,
 )
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
+from rehab_core.therapist_day_history import (  # noqa: E402
+    TherapistDayHistoryError,
+    build_therapist_day_history_rows,
+)
 from rehab_excel.application_contract import (  # noqa: E402
     ApplicationContractError,
     assert_application_contract,
@@ -44,6 +48,11 @@ from rehab_excel.patient_registry_source import (  # noqa: E402
     read_patient_registry,
 )
 from rehab_excel.reader import read_settings  # noqa: E402
+from rehab_excel.therapist_day_history_store import (  # noqa: E402
+    TherapistDayHistoryStoreError,
+    append_therapist_day_history_rows,
+    read_therapist_day_history_rows,
+)
 
 
 class FinalizedDayPreviewError(RuntimeError):
@@ -83,6 +92,11 @@ def _daily_input_date(path: Path) -> date:
         except ValueError:
             pass
     raise FinalizedDayPreviewError(f"Invalid DAILY_INPUT date: {raw!r}")
+
+
+def _is_legacy_student_name(value: str) -> bool:
+    compact = str(value).strip().casefold().replace(" ", "")
+    return compact.startswith("φοιτ") or compact.startswith("foit")
 
 
 def build_finalized_day_snapshot_preview(
@@ -140,6 +154,18 @@ def build_finalized_day_snapshot_preview(
         planned_session_count=len(sessions),
         approved_exception_count=approved_exception_count,
     )
+    therapist_ids = tuple(
+        name
+        for name in settings.therapist_names
+        if str(name).strip() and not _is_legacy_student_name(name)
+    )
+    therapist_history = build_therapist_day_history_rows(
+        states,
+        snapshot_id=snapshot.snapshot_id,
+        service_date=service_date,
+        therapist_ids=therapist_ids,
+        capacity_timeslots_by_therapist={name: 6 for name in therapist_ids},
+    )
 
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
@@ -164,6 +190,22 @@ def build_finalized_day_snapshot_preview(
             raise FinalizedDayPreviewError(
                 "Persisted finalized snapshot did not read back exactly as requested"
             )
+
+        history_written = append_therapist_day_history_rows(output, therapist_history)
+        if history_written != len(therapist_history):
+            raise FinalizedDayPreviewError(
+                "Therapist/day history append count did not match requested rows"
+            )
+        history_reread = read_therapist_day_history_rows(
+            output,
+            snapshot_id=snapshot.snapshot_id,
+            service_date=service_date,
+        )
+        if history_reread != therapist_history:
+            raise FinalizedDayPreviewError(
+                "Persisted therapist/day history did not read back exactly as requested"
+            )
+
         output_contract = assert_application_contract(output)
     except Exception:
         try:
@@ -190,7 +232,8 @@ def build_finalized_day_snapshot_preview(
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Build a safe .xlsm copy containing one verified CURRENT_FINAL day snapshot."
+            "Build a safe .xlsm copy containing one verified CURRENT_FINAL day snapshot "
+            "and therapist/day historical workload rows."
         )
     )
     parser.add_argument("--input", required=True, type=Path)
@@ -210,6 +253,8 @@ def main() -> int:
         FinalizedDayPreviewError,
         DayFinalizationError,
         FinalizedDaySnapshotStoreError,
+        TherapistDayHistoryError,
+        TherapistDayHistoryStoreError,
         DailyInputReadError,
         DailyReplacementFactError,
         OutpatientScheduleSourceError,
@@ -221,6 +266,11 @@ def main() -> int:
         print(f"SAFETY STOP: {exc}")
         return 2
 
+    history = read_therapist_day_history_rows(
+        args.output.resolve(),
+        snapshot_id=snapshot.snapshot_id,
+        service_date=snapshot.service_date,
+    )
     print("FINALIZED DAY SNAPSHOT PREVIEW VERIFIED")
     print(f"Date: {snapshot.service_date.isoformat()}")
     print(f"Snapshot: {snapshot.snapshot_id}")
@@ -232,6 +282,7 @@ def main() -> int:
     print(f"Treatment suspensions: {snapshot.treatment_suspension_count}")
     print(f"Approved exceptions: {snapshot.approved_exception_count}")
     print(f"Unresolved sessions: {snapshot.unresolved_sessions}")
+    print(f"Therapist/day history rows: {len(history)}")
     print("Input unchanged: True")
     print(f"Application contract source: OK ({source_components} components)")
     print(f"Application contract output: OK ({output_components} components)")
