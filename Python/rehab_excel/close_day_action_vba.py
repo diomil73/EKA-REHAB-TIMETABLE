@@ -368,6 +368,11 @@ Private Function QuoteArg(ByVal value As String) As String
 End Function
 '''
 
+# VBA string literals do not use backslash escaping. Normalize the Python raw-string
+# source before installation so paths and one-character payload escape parsing use
+# a single Windows separator/backslash at runtime.
+CLOSE_DAY_MODULE_CODE = CLOSE_DAY_MODULE_CODE.replace("\\\\", "\\")
+
 
 def install_close_day_action(vbproject) -> None:
     try:
