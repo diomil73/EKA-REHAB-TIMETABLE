@@ -109,14 +109,10 @@ ScheduleError:
 End Sub
 
 Public Sub FinishCloseDayHandoff()
-    Dim eventsWereEnabled As Boolean
-
     On Error GoTo CloseError
     mCloseDayHandoffPending = False
-    eventsWereEnabled = Application.EnableEvents
-    Application.EnableEvents = False
+    Application.EnableEvents = True
     ThisWorkbook.Close SaveChanges:=False
-    Application.EnableEvents = eventsWereEnabled
     Exit Sub
 
 CloseError:
