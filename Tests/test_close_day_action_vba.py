@@ -12,30 +12,30 @@ def _user_visible_message_source(source: str) -> str:
     return "\n".join(line for line in source.splitlines() if "MsgBox" in line)
 
 
-def test_close_day_action_has_explicit_confirmation_and_authoritative_commit():
+def test_close_day_action_is_explicit_and_in_place():
     source = CLOSE_DAY_MODULE_CODE
 
     assert CLOSE_DAY_MODULE_NAME == "modCloseDayAction"
     assert CLOSE_DAY_MACRO_NAME == "CloseOperationalDay"
     assert "vbYesNo + vbDefaultButton2" in source
     assert "ThisWorkbook.Save" in source
-    assert "close_day.py" in source
-    assert "authoritative_commit_worker_cli.py" in source
-    assert '"post_reopen_target"' in source
-    assert '"MASTER_SCHEDULE"' in source
-    assert "ScheduleDeferredCloseDayHandoff" in source
-    assert "Application.OnTime" in source
-    assert "Public Sub FinishCloseDayHandoff()" in source
-    assert "ThisWorkbook.Close SaveChanges:=False" in source
-    assert "ThisWorkbook.Close SaveChanges:=True" not in source
+    assert "prepare_close_day_in_place.py" in source
+    assert "PersistCloseDayPayload" in source
+    assert 'ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate' in source
+
+    assert "ThisWorkbook.Close" not in source
+    assert "Application.OnTime" not in source
+    assert "authoritative_commit_worker_cli.py" not in source
+    assert "post_reopen_target" not in source
+    assert "StartCloseDayCommit" not in source
+    assert "ScheduleDeferredCloseDayHandoff" not in source
 
 
-def test_close_day_backend_runs_hidden_without_console_window():
+def test_close_day_validation_runs_hidden_without_console_window():
     source = CLOSE_DAY_MODULE_CODE
 
     assert ".Exec(" not in source
-    assert "exitCode = shell.Run(commandLine, 0, True)" in source
-    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in source
+    assert 'CreateObject("WScript.Shell").Run(commandLine, 0, True)' in source
 
 
 def test_close_day_action_is_fail_closed_with_operator_facing_guidance():
@@ -51,26 +51,22 @@ def test_close_day_action_is_fail_closed_with_operator_facing_guidance():
     assert "preview" not in messages
     assert "hash" not in messages
     assert "Η ημέρα έκλεισε επιτυχώς." in source
-    assert "Η εφαρμογή θα ανοίξει ξανά αυτόματα" not in source
-    assert "StartCloseDayCommit" in source
+    assert "ανοίξει ξανά" not in messages
 
 
-def test_close_day_handoff_exits_original_macro_before_closing_workbook():
+def test_close_day_in_place_write_has_preflight_readback_and_rollback():
     source = CLOSE_DAY_MODULE_CODE
 
-    schedule_pos = source.index("ScheduleDeferredCloseDayHandoff")
-    finish_pos = source.index("Public Sub FinishCloseDayHandoff()")
-    close_pos = source.index("ThisWorkbook.Close SaveChanges:=False")
-    assert schedule_pos < finish_pos < close_pos
-
-
-def test_close_day_handoff_keeps_events_enabled_for_reopen_shell():
-    source = CLOSE_DAY_MODULE_CODE
-    finish = source.split("Public Sub FinishCloseDayHandoff()", 1)[1].split("End Sub", 1)[0]
-
-    assert "Application.EnableEvents = True" in finish
-    assert "Application.EnableEvents = False" not in finish
-    assert "ThisWorkbook.Close SaveChanges:=False" in finish
+    assert "PreflightSnapshot" in source
+    assert "PreflightTherapists" in source
+    assert "PreflightEvent" in source
+    assert "RowMatchesPayload" in source
+    assert "RollbackHistoryWrite" in source
+    assert "FINALIZED_DAY_SNAPSHOTS" in source
+    assert "THERAPIST_DAY_HISTORY" in source
+    assert "DAY_HISTORY_EVENTS" in source
+    assert "xlSheetVeryHidden" in source
+    assert "ThisWorkbook.Save" in source
 
 
 def test_registration_menu_installer_installs_and_verifies_close_day_action():
