@@ -21,8 +21,9 @@ Start with `Documentation/ONBOARDING.md`, then `Documentation/IN_PLACE_MUTATION_
 - focused combined in-place gate: `57 passed in 2.65s`
 - focused DAILY_INPUT/global replacement gate: `77 passed in 5.33s`
 - MASTER/status-zone gate after K/L/M correction: `47 passed, 2 warnings in 3.36s`
+- V7 pre-native focused gate: `63 passed, 6 warnings in 5.92s`
 
-The 2 warnings are `ZipFile.__del__` cleanup warnings, not business-logic failures. They should be cleaned later but do not change the gate result.
+The current warnings are `PytestUnraisableExceptionWarning` from Python 3.14/openpyxl `ZipFile.__del__` cleanup in disposable test workbooks. They are not business-logic failures and do not block the V7 native smoke. Keep them as technical cleanup debt; do not reinterpret them as a failed application contract.
 
 ## Locked production interaction architecture
 
@@ -61,7 +62,7 @@ The user entered ΓΙΑΝΝΙΑ as all-day absent/transferred (`Διακομισ
 7. `THERAPIST_DAILY` lacked `Επιστροφή στο MASTER` navigation.
 8. ΓΙΑΝΝΙΑ's DAILY_INPUT interruption was not recorded in the reversible daily-change ledger, so no `Επαναφορά` button existed.
 
-## V6 remediation now on branch, awaiting focused tests
+## V6 remediation now on branch, pre-native gate GREEN
 
 ### MASTER presentation
 
@@ -162,28 +163,29 @@ Added/updated:
 
 The production guard now includes DAILY_INPUT restore and rejects close/reopen/visible-console regressions.
 
+V7 pre-native focused gate is GREEN: `63 passed, 6 warnings in 5.92s`.
+
 ## Exact resume point
 
 Do not native-smoke V6 again.
 
 Immediate order:
 
-1. run the focused V7 pre-native test set covering MASTER presentation, all-day source changes, full restore plans, ledger/navigation, workload, installer and production guards;
-2. debug any Python/source-contract failure before another Excel smoke;
-3. when green, build fresh `DAILY_INPUT_IN_PLACE_V7.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
-4. native all-day ΓΙΑΝΝΙΑ transfer test:
+1. build fresh `DAILY_INPUT_IN_PLACE_V7.xlsm` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
+2. native all-day ΓΙΑΝΝΙΑ transfer test:
    - recurring MASTER treatments for the selected date remain visible but red-struck;
-   - M status shows the dated reason;
+   - M status shows the dated reason `Διακομιστήριο`;
    - THERAPIST_DAILY affected lines are struck;
    - actual original therapist occupied slots release correctly;
    - `Φόρτος θεραπευτών` opens therapist schedule;
    - `Επιστροφή στο MASTER` exists;
    - workload badges cannot be dragged;
    - DAILY_CHANGE_LEDGER panel shows ΓΙΑΝΝΙΑ with individual `Επαναφορά`;
-5. click ΓΙΑΝΝΙΑ restore and verify same workbook returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload and marks ledger RESTORED;
-6. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before any retry;
-7. after patient branch is native green, test therapist absence/global replacement continuation;
-8. then continue patient/day finalized outcome history.
+3. click ΓΙΑΝΝΙΑ restore and verify the same workbook stays open, returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears the exact DAILY_INPUT fact and marks the ledger row RESTORED;
+4. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before any retry;
+5. after patient branch is native green, test therapist absence/global replacement continuation;
+6. then continue patient/day finalized outcome history;
+7. later clean Python 3.14/openpyxl ZipFile destructor warnings without weakening workbook-safety tests.
 
 ## Safety reminders
 
