@@ -26,3 +26,11 @@ def test_production_actions_run_python_hidden():
         assert ".Exec(" not in source, f"{name} would expose a console-backed Exec path"
         assert 'WScript.Shell").Run' in source
         assert ", 0, True)" in source
+
+
+def test_production_vba_runtime_strings_do_not_contain_double_backslashes():
+    for name, source in PRODUCTION_ACTIONS.items():
+        assert "\\\\" not in source, (
+            f"{name} contains a doubled VBA backslash. Python raw strings do not require "
+            "backslash escaping for VBA string literals."
+        )
