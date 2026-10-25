@@ -241,6 +241,7 @@ Private Sub ApplyPatch(ByVal parts As Variant)
     ApplyWholeFontRole cell, PayloadValue(parts(6))
     ApplyFillRole cell, PayloadValue(parts(7))
     ApplyBorderRole cell, PayloadValue(parts(8))
+    ApplySourceTagPresentation cell, PayloadValue(parts(11))
     textRuns = PayloadValue(parts(12))
     If Len(textRuns) > 0 Then ApplyTextRuns cell, textRuns, PayloadValue(parts(6))
 End Sub
@@ -248,7 +249,7 @@ End Sub
 Private Function VerifyPatch(ByVal parts As Variant) As Boolean
     Dim ws As Worksheet, cell As Range
     Dim intent As String, expected As String, wrapToken As String, minFontToken As String
-    Dim textRuns As String, fontSizeValue As Variant
+    Dim textRuns As String, fontSizeValue As Variant, strikeValue As Variant
 
     Set ws = ThisWorkbook.Worksheets(PayloadValue(parts(1)))
     Set cell = ws.Range(PayloadValue(parts(2)))
@@ -273,13 +274,45 @@ Private Function VerifyPatch(ByVal parts As Variant) As Boolean
         If CDbl(fontSizeValue) < CDbl(minFontToken) Then Exit Function
     End If
 
+    If PayloadValue(parts(5)) = "1" And Len(textRuns) = 0 Then
+        strikeValue = cell.Font.Strikethrough
+        If IsNull(strikeValue) Then Exit Function
+        If CBool(strikeValue) <> True Then Exit Function
+    End If
+
     If Not VerifyFillRole(cell, PayloadValue(parts(7))) Then Exit Function
     If Not VerifyWholeFontRole(cell, PayloadValue(parts(6))) Then Exit Function
     If Not VerifyBorderRole(cell, PayloadValue(parts(8))) Then Exit Function
+    If Not VerifySourceTagPresentation(cell, PayloadValue(parts(11))) Then Exit Function
     If Len(textRuns) > 0 Then
         If Not VerifyTextRuns(cell, textRuns) Then Exit Function
     End If
     VerifyPatch = True
+End Function
+
+Private Sub ApplySourceTagPresentation(ByVal cell As Range, ByVal sourceTag As String)
+    Select Case LCase$(sourceTag)
+        Case "master_daily_non_active_overlay"
+            cell.Font.Color = RGB(255, 0, 0)
+            cell.Font.Strikethrough = True
+        Case "master_daily_patient_status_overlay"
+            cell.Font.Color = RGB(255, 0, 0)
+    End Select
+End Sub
+
+Private Function VerifySourceTagPresentation(ByVal cell As Range, ByVal sourceTag As String) As Boolean
+    Dim strikeValue As Variant
+    Select Case LCase$(sourceTag)
+        Case "master_daily_non_active_overlay"
+            strikeValue = cell.Font.Strikethrough
+            If IsNull(strikeValue) Then Exit Function
+            VerifySourceTagPresentation = _
+                (CBool(strikeValue) = True And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+        Case "master_daily_patient_status_overlay"
+            VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+        Case Else
+            VerifySourceTagPresentation = True
+    End Select
 End Function
 
 Private Sub ApplyWholeFontRole(ByVal cell As Range, ByVal role As String)
