@@ -1,10 +1,12 @@
 from rehab_excel.close_day_action_vba import CLOSE_DAY_MODULE_CODE
 from rehab_excel.daily_input_action_vba import DAILY_INPUT_MODULE_CODE
+from rehab_excel.global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_CODE
 
 
 PRODUCTION_ACTIONS = {
     "close_day": CLOSE_DAY_MODULE_CODE,
     "daily_input": DAILY_INPUT_MODULE_CODE,
+    "global_replacements": GLOBAL_REPLACEMENT_MODULE_CODE,
 }
 
 
