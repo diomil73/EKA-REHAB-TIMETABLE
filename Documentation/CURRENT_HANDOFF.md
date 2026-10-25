@@ -71,6 +71,8 @@ Implemented now, awaiting focused tests/native smoke:
 
 - `Python/tools/prepare_daily_input_in_place.py` rebuilds the dated effective state and validated `WritePlan` without mutating the workbook;
 - official therapist registry names are supplied to `read_daily_input`;
+- existing ACTIVE `DAILY_REPLACEMENT_FACTS` are loaded and included in `build_daily_session_states`, so reapplying DAILY_INPUT cannot silently discard already-approved replacements from the effective day;
+- `replacement_sessions_needed` is calculated after those active replacements are applied, so only genuinely unresolved therapist-absence sessions route to replacement work;
 - payload contains only validated cell patch semantics;
 - `modDailyInputAction` contains no `ThisWorkbook.Close`, `Application.OnTime`, authoritative commit worker or reopen target;
 - VBA applies value/clear/presentation patches directly to the live workbook;
@@ -87,6 +89,8 @@ Implemented now, awaiting focused tests/native smoke:
 - `Application.OnTime` handoff;
 - authoritative commit worker;
 - reopen targets/reopen flags.
+
+`Tests/test_prepare_daily_input_in_place.py` additionally guards that active replacement facts are loaded into the effective DAILY_INPUT state before presentation/routing is computed.
 
 Both actions must run Python hidden and keep operator messages free of implementation details.
 
@@ -147,7 +151,7 @@ Patient lifecycle dates are manually correctable for migration of existing patie
 
 Immediate order:
 
-1. pull latest duplicate-message fix and run the combined focused in-place regression gate;
+1. pull latest close-day message + DAILY_INPUT active-replacement fixes and run the combined focused in-place regression gate;
 2. native test in-place `DAILY_INPUT` on a fresh disposable workbook with real DAILY_INPUT changes;
 3. verify apply stays open, routes correctly, preserves presentation, shows no console/reopen and can roll back cleanly on failure;
 4. once DAILY_INPUT is native green, continue patient/day finalized outcome history;
