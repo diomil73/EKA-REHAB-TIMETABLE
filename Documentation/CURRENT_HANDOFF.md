@@ -4,49 +4,87 @@ Last updated: 2026-10-25
 
 ## Read order
 
-Start with `Documentation/ONBOARDING.md`. This file is the exact resume point.
+Start with `Documentation/ONBOARDING.md`, then read `Documentation/IN_PLACE_MUTATION_ARCHITECTURE.md`. This file is the exact resume point.
 
 ## Branch / trusted state
 
 - Branch: `feature/outpatient-scheduling`
 - Baseline `Rehab_Center_System_v27_1.xlsm` remains immutable.
 - Replacement-quality milestone is CLOSED end-to-end.
-- Restore correctness is closed; restore performance remains deferred.
 - Statistics/history milestone is active.
 
 ## Latest confirmed checkpoints
 
 - full regression checkpoint: `699 passed, 19 warnings`
 - OOXML MASTER gate: `59 passed in 6.85s`
-- latest restore profile: `16.509s`
-- double-booking focused gate: `13 passed in 1.63s`
-- global replacement/reclining/service-policy gate: `38 passed in 5.30s`
-- student production wiring gate: `39 passed in 2.35s`
-- student layout/projection gate: `19 passed in 2.35s`
-- unresolved/suspension gate: `24 passed in 3.74s`
-- joined replacement decision gate: `21 passed in 3.95s`
 - native student replacement smoke: VERIFIED
-- native explicit REJECT branch: VERIFIED, 1 persisted `Αναστολή θεραπείας`, unresolved 0, application contract OK (54 components)
-- native explicit ACCEPT branch: VERIFIED, ACTIVE fact `daily-global:planner:92:ΦΘ@2026-10-26:2026-10-26`, `Βασιλειάδης -> Μηλιδάκης 08:30`
-- native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, `CURRENT_FINAL`, 79 final sessions, 1 treatment suspension, unresolved 0, source unchanged, application contract `54 -> 55` components
-- native snapshot + therapist/day history smoke: VERIFIED on `2026-10-26`, 16 therapist/day rows, unresolved 0, source unchanged, application contract `54 -> 56` components
-- native close-day backend smoke: VERIFIED on `2026-10-26`, snapshot `finalized:2026-10-26:v1`, event `day-finalized:2026-10-26:v1`, 79 final sessions, 16 therapist/day rows, unresolved 0, source unchanged, application contract `54 -> 57` components
+- native explicit REJECT branch: VERIFIED, 1 persisted `Αναστολή θεραπείας`, unresolved 0
+- native explicit ACCEPT branch: VERIFIED
+- native finalized-day snapshot smoke: VERIFIED on `2026-10-26`, 79 final sessions, 1 treatment suspension, unresolved 0
+- native snapshot + therapist/day history smoke: VERIFIED, 16 therapist/day rows
+- native close-day backend smoke: VERIFIED, snapshot + 16 therapist/day rows + one `DAY_FINALIZED` event, application contract `54 -> 57`
 
-## Closed replacement decision chain
+## Locked production interaction architecture
 
-Production order is locked as:
+**No normal production/user-facing workflow may close and reopen the workbook to complete an action.**
 
-`recurring/base -> cancellations/no-shows -> therapist absences -> surviving ACTIVE replacements -> global solve -> double-booking review -> explicit ACCEPT/REJECT -> remaining suspension -> final recompute`
+Required model:
 
-Double-booking remains explicit-only. Final operational state requires `unresolved_sessions == 0`.
+`validate -> compute authoritative result -> in-place native write into already-open workbook -> semantic read-back -> Save -> continue in application`
 
-## Student presentation/lifecycle contract
+Forbidden in normal production actions:
 
-- active registered students display by real name;
-- `φοιτ N` labels are physical placeholders only;
-- provider kind remains `STUDENT`;
-- placement end removes active real-name presentation while history retains real StudentID/name;
-- physical-slot overflow safety-stops.
+- `ThisWorkbook.Close` used as part of action completion;
+- automatic workbook reopen;
+- preview-copy replacement of the authoritative open workbook;
+- file-lock waiting in operator flow;
+- requiring the user to close/reopen Excel;
+- console/Command Prompt windows;
+- user-visible backend/worker/preview/hash/file-lock details.
+
+Preview/copy/replace workflows remain allowed only for developer smoke tests, installation, migration, diagnostics and recovery tooling.
+
+Reference implementation pattern: confirmed double-booking validate-only path, where Python validates, VBA writes the verified payload into the already-open workbook, reads it back, saves, and continues.
+
+See `Documentation/IN_PLACE_MUTATION_ARCHITECTURE.md` and `Documentation/OPERATOR_UI_RULES.md`.
+
+## Known production migration debt
+
+### `Κλείσιμο ημέρας`
+
+The close-day data/history backend is valid and native-verified, but the current user action still contains transitional preview/authoritative-commit/deferred-close logic. That interaction path is now RETIRED by architecture decision and must not be native-tested further as a candidate production flow.
+
+Target production flow:
+
+`confirm -> validate final day -> return verified snapshot/history/event payload -> write all records in-place -> exact read-back -> Save -> stay on MASTER`
+
+Snapshot + therapist/day history + `DAY_FINALIZED` event are one logical transaction. A partial write must not be presented as a successfully closed day.
+
+### `DAILY_INPUT`
+
+`Python/rehab_excel/daily_input_action_vba.py` still uses preview -> authoritative commit -> close/reopen. This is explicit migration debt and must be converted before DAILY_INPUT is considered production-complete.
+
+Target:
+
+`validate DAILY_INPUT -> compute dated facts/projection -> in-place verified write -> read-back -> Save -> remain open / route to next operational screen`
+
+## Day-finalization/history state
+
+Implemented and native-verified:
+
+- immutable `FinalizedDaySnapshot`;
+- strict unresolved=0 gate;
+- `FINALIZED_DAY_SNAPSHOTS` schema and native COM persistence;
+- therapist/day historical workload derivation;
+- occupied timeslots kept distinct from active sessions;
+- `THERAPIST_DAY_HISTORY` persistence;
+- immutable append-only `DayHistoryEvent`;
+- `DAY_FINALIZED` linked to snapshot;
+- `DAY_HISTORY_EVENTS` persistence;
+- duplicate protection and semantic read-back;
+- backend close-day reconstruction from final effective state.
+
+The old close/reopen UI experiments and their 1004/reopen-shell fixes are retained only as regression history. Do not continue investing in the reopen path.
 
 ## Therapist workload contract
 
@@ -56,50 +94,13 @@ MASTER badges use `Όνομα n/6`, where `n` is occupied timeslots, not patient
 - 5 yellow/orange
 - 6+ red
 
-History preserves occupied timeslots and active sessions as separate metrics. A legal shared slot with two patients is one occupied timeslot and two active sessions.
+A legal shared slot with two patients is one occupied timeslot and two active sessions. Student replacement work is not silently counted as therapist workload.
 
-## Day-finalization/history implementation state
+## Closed replacement decision chain
 
-Finalization is explicit via `Κλείσιμο ημέρας`, never automatic.
+`recurring/base -> cancellations/no-shows -> therapist absences -> surviving ACTIVE replacements -> global solve -> double-booking review -> explicit ACCEPT/REJECT -> remaining suspension -> final recompute`
 
-Implemented and native-verified:
-
-- immutable `FinalizedDaySnapshot`;
-- strict unresolved=0 finalization gate;
-- `FINALIZED_DAY_SNAPSHOTS` hidden/protected native COM store;
-- one `CURRENT_FINAL` per date;
-- exact semantic read-back before Save;
-- official therapist-registry wiring for DAILY_INPUT;
-- source workbook hash verification;
-- therapist/day historical workload derivation;
-- `THERAPIST_DAY_HISTORY` hidden/protected COM store;
-- 16 therapist/day rows persisted and reread on the verified 2026-10-26 fixture;
-- immutable append-only `DayHistoryEvent` model;
-- `DAY_FINALIZED` event type linked to `related_snapshot_id`;
-- `DAY_HISTORY_EVENTS` hidden/protected COM store;
-- duplicate EventId rejection and semantic COM read-back;
-- `Python/tools/close_day.py` verified-preview backend;
-- native close-day backend smoke with application contract `54 -> 57`.
-
-Implemented, awaiting corrected native UI gate:
-
-- `modCloseDayAction` with explicit Yes/No confirmation;
-- verified preview -> authoritative commit worker -> reopen `MASTER_SCHEDULE` flow;
-- `Κλείσιμο ημέρας` MASTER toolbar button routing to `CloseOperationalDay`;
-- registration/application-shell installer installs and verifies `modCloseDayAction`;
-- application-shell pre-clean removes old `modCloseDayAction` for idempotent reinstall;
-- deferred workbook close via `Application.OnTime`, so the original close-day macro returns before `ThisWorkbook.Close` executes;
-- deferred close uses `SaveChanges:=False` because the workbook is explicitly saved before verified-preview generation, avoiding a second save/close recursion during worker handoff;
-- close-day backend and commit commands run hidden, with no console window for the operator;
-- user-visible messages contain only operator guidance/results, not internal implementation details;
-- deferred close now explicitly leaves `Application.EnableEvents = True` before closing so the reopened workbook can execute `Workbook_Open` and re-enter the application shell.
-
-Native UI findings:
-
-1. First close-day UI attempt completed backend/preview but `ThisWorkbook.Close SaveChanges:=True` inside the same macro stack raised runtime error 1004. Fix: deferred close via `Application.OnTime`.
-2. Next attempt closed and reopened successfully, but reopened with normal Excel chrome. Root cause: `FinishCloseDayHandoff` disabled Excel events immediately before closing; because the workbook closed, the restoring line never ran, leaving the Excel application with events disabled. Consequently `Workbook_Open` did not run on reopen. Fix: do not disable events in the deferred close; explicitly keep events enabled before `ThisWorkbook.Close SaveChanges:=False`.
-
-Current capacity history uses the locked operational 6-timeslot therapist baseline until a per-therapist capacity registry is introduced.
+Double-booking remains explicit-only. Final operational state requires `unresolved_sessions == 0`.
 
 ## Patient-history requirements already locked
 
@@ -109,38 +110,38 @@ Preserve/derive:
 - end/archive date;
 - stay duration;
 - treatment/service days;
-- scheduled/performed/missed sessions and structured reasons;
+- scheduled/performed/missed sessions with structured reasons;
 - expected working days excluding weekends/holidays;
 - treatment counts and timeline;
 - totals/trends by period;
-- manual append-only 15-day evaluation milestones with `Από`, `Έως`, and green/grey/red outcome;
+- manual append-only 15-day evaluation milestones;
 - aggregate patient reporting for all patients and by originating clinic.
 
-Patient lifecycle dates are manually correctable for migration of existing patients. MASTER should later show a compact start-date label such as `Έν. 12/09/26` near the responsible doctor where layout permits.
+Patient lifecycle dates are manually correctable for migration of existing patients. MASTER later shows compact start date such as `Έν. 12/09/26` near the responsible doctor where layout permits.
 
 ## Exact resume point
 
-**Do not open another replacement vertical.** The replacement-quality milestone is closed unless a concrete regression appears.
+**Do not continue the close/reopen experiment. Do not open another reporting vertical yet.**
 
-Immediate next gate:
+Immediate implementation order:
 
-1. run focused close-action/MASTER/installer tests including the event-enabled reopen regression;
-2. build a fresh application-shell preview from `DOUBLE_BOOKING_REJECTED.xlsm` using `build_registration_menu_preview.py`;
-3. native-click `Κλείσιμο ημέρας` and verify: no console window, success message, deferred close without error 1004, authoritative commit, automatic reopen to MASTER, application shell reapplied, and no source corruption;
-4. after the UI gate is green, begin patient/day finalized outcome history so therapist, department and patient reports reconcile from the same finalized truth.
+1. refactor `Κλείσιμο ημέρας` to no-close/no-reopen in-place commit;
+2. add focused regression proving the production close-day VBA path contains no workbook close/reopen/file-replacement handoff;
+3. native-smoke close-day while workbook stays open on MASTER;
+4. refactor `DAILY_INPUT` production apply to the same in-place architecture;
+5. add a broader production-action regression guard against close/reopen mechanics;
+6. only after both production paths are clean, continue patient/day finalized outcome history.
 
 ## Safety reminders
 
 - baseline immutable;
 - daily facts are overlays, never destructive recurring edits;
-- native Excel/COM for real `.xlsm` mutation;
+- native Excel/VBA/COM-compatible mutation for real `.xlsm` production writes;
 - no production/staging `.xlsm` save with openpyxl;
-- fresh preview/smoke copies;
-- verify source hashes;
+- semantic read-back after production writes;
 - Windows tests use `python -m pytest`;
-- no manual Save outside a tested scenario;
 - later corrections append/version history instead of rewriting old finals.
 
 ## Documentation rule
 
-Every agreed design/product/future-feature idea must be recorded in `Documentation/FUTURE_FEATURES.md` or the appropriate roadmap/decision document when agreed.
+Every agreed design/product/future-feature idea must be recorded in repository documentation in the same work cycle.
