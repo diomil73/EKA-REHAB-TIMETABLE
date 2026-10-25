@@ -26,6 +26,7 @@ Start with `Documentation/ONBOARDING.md`, then read `Documentation/IN_PLACE_MUTA
 - native in-place close-day UI: VERIFIED; workbook stays open on MASTER
 - native close-day second-click duplicate protection: VERIFIED
 - focused combined in-place regression before V4: `57 passed in 2.65s`
+- focused DAILY_INPUT/global replacement integration gate before V5: `77 passed in 5.33s`
 
 ## Locked production interaction architecture
 
@@ -61,104 +62,81 @@ Native green in-place:
 - no close/reopen;
 - duplicate second click reports `Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.`
 
-## `DAILY_INPUT` V4 native findings
+## DAILY_INPUT native history
 
-### Patient absence
+### V4
 
-Native V4 patient-absence apply succeeded in place. The workbook stayed open and no console/reopen path appeared.
+- patient absence applied in-place successfully;
+- therapist absence incorrectly routed to raw/blank `REPLACEMENTS` sheet;
+- this raw-sheet route is retired permanently.
 
-The user correctly identified that success was incomplete because the smoke had not verified:
+### V5 finding: MASTER + workload were not operationally correct
 
-- `MASTER_SCHEDULE` projection;
-- `THERAPIST_DAILY` projection;
-- therapist workload badges.
+Native V5 used a real patient cancellation (`ΓΙΑΝΝΙΑ`, reason `Διακομιστήριο`). The DAILY_INPUT action completed, but:
 
-### Therapist absence
+- `MASTER_SCHEDULE` still presented the patient/session as active;
+- therapist `ΠΑΠΑΜΑΝΟΥ` still showed `6/6`, although the cancelled session should release one occupied timeslot.
 
-Native V4 therapist-absence apply parsed and applied, then reported that patients needed redistribution, but routed to a blank/raw `REPLACEMENTS` worksheet. This is invalid production UX.
+Root causes found:
 
-The raw-sheet route is now retired. Normal users must never be sent to `REPLACEMENTS` for replacement work.
+1. `master_daily_overlay.py` only emitted MASTER patches for `REPLACED` states. `PATIENT_ABSENT`, `CANCELLED` and `THERAPIST_ABSENT` were ignored entirely.
+2. `modTherapistWorkloadStrip` counted every non-empty THERAPIST_DAILY cell as occupied. Cancelled/absent sessions remain visibly struck through, so the cell is intentionally non-empty and was therefore counted incorrectly.
+3. The preview pre-clean knew about global replacement / double-booking / workload components, but `create_registration_menu_preview()` did not reinstall those operational components. A fixture could therefore mask missing installer coverage.
 
-## DAILY_INPUT integration now implemented, awaiting focused tests + V5 native smoke
+Fixes now on branch:
+
+- MASTER overlay handles `PATIENT_ABSENT`, `CANCELLED`, `THERAPIST_ABSENT`, and `REPLACED`;
+- affected treatment cells explicitly show the dated operational outcome (`ΑΠΩΝ`, `ΑΚΥΡΩΘΗΚΕ`, or `ΑΝΑΜΟΝΗ ΑΝΑΠΛΗΡΩΣΗΣ`) instead of leaving the recurring treatment visually active;
+- when all dated sessions for an inpatient are non-active, the MASTER patient status column is also overlaid;
+- workload badges now count a slot only when the cell contains at least one operationally active line;
+- struck-through cancellation/absence lines do not count;
+- italic replacement-source lines and `→` routing annotation lines do not count;
+- a shared slot with one cancelled and one active patient remains exactly one occupied timeslot;
+- the preview builder now explicitly installs and verifies `modGlobalReplacementAction`, `modDoubleBookingReview`, `frmDoubleBookingReview`, and `modTherapistWorkloadStrip` after the shell/menu build.
+
+Relevant commits:
+
+- `5288de5987edba9dd5b944c1b47005d0374d4519` MASTER non-active daily overlay
+- `d727825c3af67f71ae385590797b18a12b2eb513` operational workload counting
+- `40bde2fb328fc624313d38bb254bcbb091c79cfd` operational module installation in preview build
+- `fdcffdac4fb7c931eab2ebb7b450fda2ee3f82eb` MASTER cancellation/absence regression tests
+- `0f0aade7b52709904c89df1e0d5bf460edf8f56d` workload inactive-line regression tests
+- `17fd74052b942fa377ea41a88c79c2fdb603d97c` preview operational-module build contract
+
+## DAILY_INPUT integration architecture
 
 ### Operational projection gate
 
-`Python/tools/prepare_daily_input_in_place.py` now composes both:
+`Python/tools/prepare_daily_input_in_place.py` composes both:
 
 - patient/therapist daily presentation;
 - `MASTER_SCHEDULE` daily overlay.
 
 Both are serialized into the same PATCH payload and therefore pass the same in-place write/read-back gate.
 
-Relevant commits:
-
-- `91fe181a126735a1c1acba4ff0860dc99dcec972` MASTER overlay in DAILY_INPUT plan
-- `c36bad91792365299d473fe236307ab8150d07da` regression guard for operational projections
-
 ### Workload gate
 
-`modDailyInputAction` now calls `RenderTherapistWorkloadStrip` after successful patch application and verifies the MASTER refresh shape before reporting success. The installer ensures `modTherapistWorkloadStrip` is present.
+`modDailyInputAction` calls `RenderTherapistWorkloadStrip` after successful patch application and verifies the MASTER refresh shape before reporting success.
 
 Workload remains occupied-timeslot based: `Όνομα n/6`, not patient-line count.
 
 ### Guided/global replacement continuation
 
-New read-only preparation:
+`Python/tools/prepare_global_replacements_in_place.py` reuses the authoritative global solver and includes current DAILY_INPUT facts, ACTIVE replacement facts, provider policy, service hours, patient cross-specialty availability, students, reclining adjacency and explicit double-booking review detection.
 
-- `Python/tools/prepare_global_replacements_in_place.py`
+`Python/rehab_excel/global_replacement_action_vba.py` persists ordinary replacement facts, generated suspensions and final operational projection patches in-place with rollback and `%TEMP%\eka_replacement_last_error.log` diagnostics.
 
-It reuses the authoritative global solver and includes:
-
-- current DAILY_INPUT facts;
-- ACTIVE replacement facts;
-- provider policy;
-- service hours;
-- patient cross-specialty availability;
-- students;
-- reclining adjacency;
-- explicit double-booking review detection.
-
-New in-place action:
-
-- `Python/rehab_excel/global_replacement_action_vba.py`
-
-It can persist:
-
-- ordinary `DAILY_REPLACEMENT_FACTS`;
-- generated treatment suspensions when no reviewable exception exists;
-- final operational projection PATCH rows;
-- rollback recovery and `%TEMP%\eka_replacement_last_error.log` diagnostics.
-
-If an explicit double-booking decision is required, it invokes the existing guided `ShowDoubleBookingReview` form. It does not activate a raw worksheet.
-
-Relevant commits:
-
-- `09fdf9f87f5626118766188676b30dde77672010` read-only global in-place preparation
-- `0abf8dd9fea0e072ba7e3ec79a3d74cd7b71dbec` preparation tests
-- `2ae31fb3a31a25587f001bd1b73c15c72d0693c0` global in-place VBA action
-- `06065e3aede0b824ece1602ff051aea8627ee890` DAILY_INPUT guided routing + workload refresh
-- `065809161a81bb79644f0be7039b5a11981d3060` DAILY_INPUT integration tests
-- `f399f937c425e6cb5b416930fc531e6a95d741de` global action tests
-- `d724d704874c7bf35fe7fa09bbe3cfcb967c9476` shared production guard includes global action
-- `7358de226be94a6dd34f9eb9efb1c78f817cccd9` preview pre-clean includes guided replacement/workload components
-- `070ffc5b3b70c8d3328ca0bd2ccbf661a61fa192` DAILY_INPUT workflow documentation
+If an explicit double-booking decision is required, it invokes the guided `ShowDoubleBookingReview` form. It never activates a raw worksheet.
 
 ## Shared production regression
 
-`Tests/test_production_actions_stay_in_session.py` now guards:
+`Tests/test_production_actions_stay_in_session.py` guards close-day, DAILY_INPUT and global replacements against close/reopen workers, visible execution, reopen targets and doubled runtime VBA backslashes.
 
-- close-day;
-- DAILY_INPUT;
-- global replacements.
+Focused integration tests now also include:
 
-It rejects close/reopen workers, visible execution, reopen targets and doubled runtime VBA backslashes.
-
-Additional focused tests:
-
-- `Tests/test_prepare_daily_input_in_place.py`
-- `Tests/test_daily_input_action_vba.py`
-- `Tests/test_prepare_global_replacements_in_place.py`
-- `Tests/test_global_replacement_action_vba.py`
+- `Tests/test_master_daily_overlay.py`
+- `Tests/test_therapist_workload_strip_vba.py`
+- `Tests/test_build_registration_menu_operational_modules.py`
 
 ## Exact resume point
 
@@ -166,11 +144,14 @@ Do not return to close/reopen mechanics and do not route to raw `REPLACEMENTS`.
 
 Immediate order:
 
-1. run focused Python/VBA source-contract tests for DAILY_INPUT + global replacement + shell/toolbar;
-2. if green, build fresh `DAILY_INPUT_IN_PLACE_V5.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
-3. native patient-absence smoke and explicitly inspect MASTER, THERAPIST_DAILY and workload badge changes;
-4. native therapist-absence smoke and verify global/guided replacement continuation, with no raw worksheet;
-5. if native failure occurs, read `%TEMP%\eka_daily_input_last_error.log` or `%TEMP%\eka_replacement_last_error.log` before any retry;
+1. run focused MASTER/workload/DAILY_INPUT/global replacement/build tests;
+2. if green, build fresh `DAILY_INPUT_IN_PLACE_V6.xlsm` from `DOUBLE_BOOKING_REJECTED.xlsm`;
+3. native cancel one patient session and verify explicitly:
+   - MASTER affected treatment/status no longer appears active;
+   - THERAPIST_DAILY shows the cancellation/absence presentation;
+   - affected therapist occupied badge drops when the slot becomes free;
+4. then test therapist absence and verify global/guided replacement continuation with no raw worksheet;
+5. on any native failure, read `%TEMP%\eka_daily_input_last_error.log` or `%TEMP%\eka_replacement_last_error.log` before retrying;
 6. once both branches are native green, continue patient/day finalized outcome history;
 7. later implement finalized-day amendment/version chain.
 
