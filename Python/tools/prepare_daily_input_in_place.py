@@ -17,7 +17,11 @@ from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
-from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_input_reader import (  # noqa: E402
+    DailyInputReadError,
+    DailyInputSourceChange,
+    read_daily_input,
+)
 from rehab_excel.daily_preview_composer import compose_outpatient_daily_plan  # noqa: E402
 from rehab_excel.daily_replacement_facts import read_daily_replacement_facts  # noqa: E402
 from rehab_excel.master_daily_overlay import (  # noqa: E402
@@ -95,14 +99,6 @@ def _text_runs_token(patch: CellPatch) -> str:
 
 
 def _payload_min_font_size(patch: CellPatch) -> int | None:
-    """Avoid whole-cell font-size checks for rich text.
-
-    Excel returns Null for Range.Font.Size when a cell contains mixed character
-    formatting. Rich-text runs are verified individually by the VBA bridge, so
-    serializing a whole-cell minimum size for those patches would create a false
-    rollback even when the intended formatting was applied correctly.
-    """
-
     if patch.text_runs:
         return None
     return patch.min_font_size
@@ -124,6 +120,21 @@ def _patch_line(patch: CellPatch) -> str:
         _text_runs_token(patch),
     )
     return "\t".join(["PATCH", *(_escape(value) for value in fields)])
+
+
+def _change_line(change: DailyInputSourceChange, target_date: date) -> str:
+    fields = (
+        change.change_id,
+        target_date.isoformat(),
+        change.source_row,
+        change.change_type,
+        change.subject_id,
+        change.display_name,
+        change.reason,
+        "1" if change.all_day else "0",
+        change.start_time.strftime("%H:%M") if change.start_time else "",
+    )
+    return "\t".join(["CHANGE", *(_escape(value) for value in fields)])
 
 
 def prepare_daily_input_payload(
@@ -196,11 +207,10 @@ def prepare_daily_input_payload(
     plan = compose_master_daily_overlay(plan, master_overlay)
     validate_write_plan(plan)
 
+    lines = [_patch_line(patch) for patch in plan.patches]
+    lines.extend(_change_line(change, target_date) for change in daily.source_changes)
     payload.parent.mkdir(parents=True, exist_ok=True)
-    payload.write_text(
-        "\n".join(_patch_line(patch) for patch in plan.patches) + "\n",
-        encoding="utf-8-sig",
-    )
+    payload.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
 
     if file_sha256(source) != source_hash:
         try:
@@ -219,6 +229,7 @@ def prepare_daily_input_payload(
         "patient_rows_read": daily.patient_rows_used,
         "operational_absences": len(daily.absences),
         "session_cancellations": len(daily.cancellations),
+        "daily_input_changes": len(daily.source_changes),
         "active_replacements": len(replacements),
         "changed_sessions": len(preview.bindings),
         "replacement_sessions_needed": replacement_sessions_needed,
@@ -254,6 +265,7 @@ def main() -> int:
     print("DAILY INPUT IN-PLACE PAYLOAD VERIFIED")
     print(f"Date: {result['date']}")
     print(f"Patches: {result['patch_count']}")
+    print(f"Daily input changes: {result['daily_input_changes']}")
     print(f"Touched sheets: {', '.join(result['touched_sheets'])}")
     print(f"Active replacements: {result['active_replacements']}")
     print(f"Replacement sessions needed: {result['replacement_sessions_needed']}")
