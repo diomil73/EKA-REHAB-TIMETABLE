@@ -17,6 +17,7 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.day_finalization import (  # noqa: E402
     DayFinalizationError,
+    FinalizedDaySnapshot,
     build_finalized_day_snapshot,
 )
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
@@ -89,7 +90,7 @@ def build_finalized_day_snapshot_preview(
     *,
     approved_exception_count: int = 0,
     overwrite: bool = False,
-) -> tuple[object, int, int]:
+) -> tuple[FinalizedDaySnapshot, int, int]:
     source = Path(input_path).resolve()
     output = Path(output_path).resolve()
     if not source.exists():
@@ -172,7 +173,11 @@ def build_finalized_day_snapshot_preview(
             pass
         raise FinalizedDayPreviewError("Input workbook changed during preview build")
 
-    return snapshot, len(source_contract.components), len(output_contract.components)
+    return (
+        snapshot,
+        len(source_contract.component_names),
+        len(output_contract.component_names),
+    )
 
 
 def main() -> int:
