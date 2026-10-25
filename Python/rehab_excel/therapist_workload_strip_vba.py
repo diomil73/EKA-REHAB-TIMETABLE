@@ -3,18 +3,64 @@ from __future__ import annotations
 MODULE_NAME = "modTherapistWorkloadStrip"
 SHAPE_PREFIX = "ekaWorkload_"
 BUTTON_NAME = SHAPE_PREFIX + "Refresh"
+NAV_MASTER_BUTTON_NAME = "ekaNav_Master"
 
 MODULE_CODE = r'''Option Explicit
 
 Private Const WORKLOAD_PREFIX As String = "ekaWorkload_"
 Private Const DEFAULT_CAPACITY As Long = 6
+Private Const NAV_MASTER_BUTTON As String = "ekaNav_Master"
 
 Public Sub ShowTherapistWorkload()
     RenderTherapistWorkloadStrip
     On Error Resume Next
-    ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+    ThisWorkbook.Worksheets("THERAPIST_DAILY").Activate
+    EnsureTherapistNavigation
     KeepApplicationShell
     On Error GoTo 0
+End Sub
+
+Public Sub GoToMasterFromTherapistDaily()
+    On Error Resume Next
+    ThisWorkbook.Worksheets("MASTER_SCHEDULE").Activate
+    ApplyMasterView
+    KeepApplicationShell
+    On Error GoTo 0
+End Sub
+
+Public Sub EnsureTherapistNavigation()
+    Dim daily As Worksheet
+    Dim shape As Shape
+
+    On Error GoTo NavigationExit
+    Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
+
+    On Error Resume Next
+    Set shape = daily.Shapes(NAV_MASTER_BUTTON)
+    On Error GoTo NavigationExit
+
+    If shape Is Nothing Then
+        Set shape = daily.Shapes.AddShape(5, _
+            daily.Range("A9").Left + 4, _
+            daily.Range("A9").Top + 2, _
+            150, 24)
+        shape.Name = NAV_MASTER_BUTTON
+    End If
+
+    shape.OnAction = "GoToMasterFromTherapistDaily"
+    shape.Placement = 3
+    shape.Locked = True
+    shape.Fill.ForeColor.RGB = RGB(221, 235, 247)
+    shape.Line.ForeColor.RGB = RGB(166, 166, 166)
+    shape.TextFrame2.TextRange.Text = "Επιστροφή στο MASTER"
+    shape.TextFrame2.TextRange.Font.Name = "Calibri"
+    shape.TextFrame2.TextRange.Font.Size = 9
+    shape.TextFrame2.TextRange.Font.Bold = True
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
+    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+    shape.TextFrame2.VerticalAnchor = 3
+
+NavigationExit:
 End Sub
 
 Public Sub RenderTherapistWorkloadStrip()
@@ -47,6 +93,10 @@ Public Sub RenderTherapistWorkloadStrip()
     Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
     Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
 
+    On Error Resume Next
+    master.Unprotect
+    On Error GoTo RenderError
+
     DeleteWorkloadShapes master
 
     master.Rows(3).RowHeight = 28
@@ -60,6 +110,7 @@ Public Sub RenderTherapistWorkloadStrip()
     shape.Name = WORKLOAD_PREFIX & "Refresh"
     shape.OnAction = "ShowTherapistWorkload"
     shape.Placement = 3
+    shape.Locked = True
     shape.Fill.ForeColor.RGB = RGB(221, 235, 247)
     shape.Line.ForeColor.RGB = RGB(166, 166, 166)
     shape.TextFrame2.TextRange.Text = "Φόρτος θεραπευτών"
@@ -117,6 +168,7 @@ Public Sub RenderTherapistWorkloadStrip()
             topPos, badgeWidth, 24)
         shape.Name = WORKLOAD_PREFIX & "Badge" & CStr(badgeIndex)
         shape.Placement = 3
+        shape.Locked = True
         shape.TextFrame2.TextRange.Text = providerName & " " & CStr(occupied) & "/" & CStr(DEFAULT_CAPACITY)
         shape.TextFrame2.TextRange.Font.Name = "Calibri"
         shape.TextFrame2.TextRange.Font.Size = 9
@@ -135,9 +187,14 @@ Public Sub RenderTherapistWorkloadStrip()
         End If
     Next orderIndex
 
+    EnsureTherapistNavigation
+    master.Protect DrawingObjects:=True, Contents:=False, Scenarios:=False, UserInterfaceOnly:=True
     Exit Sub
 
 RenderError:
+    On Error Resume Next
+    master.Protect DrawingObjects:=True, Contents:=False, Scenarios:=False, UserInterfaceOnly:=True
+    On Error GoTo 0
     MsgBox "Δεν ήταν δυνατή η εμφάνιση του φόρτου θεραπευτών: " & Err.Description, _
            vbExclamation, "Φόρτος θεραπευτών"
 End Sub
@@ -256,16 +313,24 @@ def _remove_component_if_present(vbproject, name: str) -> None:
     vbproject.VBComponents.Remove(component)
 
 
-def install_therapist_workload_strip(vbproject, workbook) -> None:
-    """Install the workload-strip macro and its MASTER refresh button.
+def _style_button(shape, caption: str, macro: str) -> None:
+    shape.OnAction = macro
+    shape.Placement = 3
+    shape.Locked = True
+    shape.Fill.ForeColor.RGB = 15527148
+    shape.Line.ForeColor.RGB = 10921638
+    shape.Line.Weight = 1
+    shape.TextFrame2.TextRange.Text = caption
+    shape.TextFrame2.TextRange.Font.Name = "Calibri"
+    shape.TextFrame2.TextRange.Font.Size = 9
+    shape.TextFrame2.TextRange.Font.Bold = True
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+    shape.TextFrame2.VerticalAnchor = 3
 
-    The strip aggregates each therapist by normalized name and counts unique
-    occupied clock times across the current THERAPIST_DAILY layout blocks.
-    A displayed line counts only when it is operationally active: struck-through
-    cancelled/absent lines and italic replacement-source lines do not consume an
-    occupied slot. Multiple active patients sharing one therapist/time cell still
-    consume one operational timeslot.
-    """
+
+def install_therapist_workload_strip(vbproject, workbook) -> None:
+    """Install fixed workload navigation and MASTER workload badges."""
 
     _remove_component_if_present(vbproject, MODULE_NAME)
     module = vbproject.VBComponents.Add(1)
@@ -273,7 +338,13 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
     module.CodeModule.AddFromString(MODULE_CODE)
 
     master = workbook.Worksheets("MASTER_SCHEDULE")
+    daily = workbook.Worksheets("THERAPIST_DAILY")
     master.Rows(3).RowHeight = 28
+
+    try:
+        master.Unprotect()
+    except Exception:
+        pass
 
     try:
         master.Shapes(BUTTON_NAME).Delete()
@@ -284,15 +355,23 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
     top = float(master.Range("A3").Top) + 2
     shape = master.Shapes.AddShape(5, left, top, 112, 24)
     shape.Name = BUTTON_NAME
-    shape.OnAction = "ShowTherapistWorkload"
-    shape.Placement = 3
-    shape.Fill.ForeColor.RGB = 15527148
-    shape.Line.ForeColor.RGB = 10921638
-    shape.Line.Weight = 1
-    shape.TextFrame2.TextRange.Text = "Φόρτος θεραπευτών"
-    shape.TextFrame2.TextRange.Font.Name = "Calibri"
-    shape.TextFrame2.TextRange.Font.Size = 9
-    shape.TextFrame2.TextRange.Font.Bold = True
-    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
-    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-    shape.TextFrame2.VerticalAnchor = 3
+    _style_button(shape, "Φόρτος θεραπευτών", "ShowTherapistWorkload")
+
+    try:
+        daily.Shapes(NAV_MASTER_BUTTON_NAME).Delete()
+    except Exception:
+        pass
+    nav = daily.Shapes.AddShape(
+        5,
+        float(daily.Range("A9").Left) + 4,
+        float(daily.Range("A9").Top) + 2,
+        150,
+        24,
+    )
+    nav.Name = NAV_MASTER_BUTTON_NAME
+    _style_button(nav, "Επιστροφή στο MASTER", "GoToMasterFromTherapistDaily")
+
+    try:
+        master.Protect(DrawingObjects=True, Contents=False, Scenarios=False, UserInterfaceOnly=True)
+    except Exception:
+        pass
