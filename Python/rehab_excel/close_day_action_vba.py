@@ -7,6 +7,8 @@ CLOSE_DAY_MACRO_NAME = "CloseOperationalDay"
 
 CLOSE_DAY_MODULE_CODE = r'''Option Explicit
 
+Private mCloseDayHandoffPending As Boolean
+
 Public Sub CloseOperationalDay()
     Dim scriptPath As String
     Dim outputPath As String
@@ -89,7 +91,7 @@ Public Sub CloseOperationalDay()
     If Len(responsePath) > 0 Then Kill responsePath
     On Error GoTo 0
 
-    ThisWorkbook.Close SaveChanges:=True
+    ScheduleDeferredCloseDayHandoff
     Exit Sub
 
 CleanUp:
@@ -100,6 +102,42 @@ CleanUp:
 
 ActionError:
     MsgBox "Δεν ήταν δυνατό το Κλείσιμο ημέρας: " & Err.Description, vbCritical, "Κλείσιμο ημέρας"
+End Sub
+
+Private Sub ScheduleDeferredCloseDayHandoff()
+    Dim callbackName As String
+
+    If mCloseDayHandoffPending Then Exit Sub
+    mCloseDayHandoffPending = True
+    callbackName = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!FinishCloseDayHandoff"
+
+    On Error GoTo ScheduleError
+    Application.OnTime EarliestTime:=Now + TimeSerial(0, 0, 1), Procedure:=callbackName, Schedule:=True
+    Exit Sub
+
+ScheduleError:
+    mCloseDayHandoffPending = False
+    MsgBox "Δεν ήταν δυνατό να προγραμματιστεί το ασφαλές κλείσιμο του αρχείου: " & Err.Description, _
+           vbCritical, "Κλείσιμο ημέρας"
+End Sub
+
+Public Sub FinishCloseDayHandoff()
+    Dim eventsWereEnabled As Boolean
+
+    On Error GoTo CloseError
+    mCloseDayHandoffPending = False
+    eventsWereEnabled = Application.EnableEvents
+    Application.EnableEvents = False
+    ThisWorkbook.Close SaveChanges:=False
+    Application.EnableEvents = eventsWereEnabled
+    Exit Sub
+
+CloseError:
+    On Error Resume Next
+    Application.EnableEvents = True
+    On Error GoTo 0
+    MsgBox "Δεν ήταν δυνατό το ασφαλές κλείσιμο του αρχείου μετά την επαλήθευση: " & Err.Description, _
+           vbCritical, "Κλείσιμο ημέρας"
 End Sub
 
 Private Function StartCloseDayCommit(ByVal previewPath As String, ByVal sourceSha256 As String) As Boolean
