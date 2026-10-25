@@ -14,6 +14,11 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from rehab_excel.application_shell_vba import APP_SHELL_MODULE_NAME  # noqa: E402
 from rehab_excel.close_day_action_vba import CLOSE_DAY_MODULE_NAME  # noqa: E402
+from rehab_excel.double_booking_review_vba import (  # noqa: E402
+    DOUBLE_BOOKING_FORM_NAME,
+    DOUBLE_BOOKING_MODULE_NAME,
+)
+from rehab_excel.global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_NAME  # noqa: E402
 from rehab_excel.master_toolbar_vba import MASTER_TOOLBAR_MODULE_NAME  # noqa: E402
 from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
     FORM_NAME as OUTPATIENT_FORM_NAME,
@@ -30,6 +35,7 @@ from rehab_excel.registration_menu_vba import (  # noqa: E402
     RegistrationMenuVbaError,
     create_registration_menu_preview,
 )
+from rehab_excel.therapist_workload_strip_vba import MODULE_NAME as WORKLOAD_MODULE_NAME  # noqa: E402
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -104,28 +110,26 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         vbproject = workbook.VBProject
         _ = vbproject.VBComponents.Count
 
-        stage = "removing old menu module"
-        _remove_component_if_present(vbproject, MENU_MODULE_NAME)
-        stage = "removing old menu form"
-        _remove_component_if_present(vbproject, MENU_FORM_NAME)
-        stage = "removing old patient form"
-        _remove_component_if_present(vbproject, PATIENT_FORM_NAME)
-        stage = "removing old therapist form"
-        _remove_component_if_present(vbproject, THERAPIST_FORM_NAME)
-        stage = "removing old student form"
-        _remove_component_if_present(vbproject, STUDENT_FORM_NAME)
-        stage = "removing old app shell module"
-        _remove_component_if_present(vbproject, APP_SHELL_MODULE_NAME)
-        stage = "removing old MASTER toolbar module"
-        _remove_component_if_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
-        stage = "removing old DAILY_INPUT action module"
-        _remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
-        stage = "removing old close-day action module"
-        _remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)
-        stage = "removing old outpatient schedule module"
-        _remove_component_if_present(vbproject, OUTPATIENT_MODULE_NAME)
-        stage = "removing old outpatient schedule form"
-        _remove_component_if_present(vbproject, OUTPATIENT_FORM_NAME)
+        components = (
+            ("old menu module", MENU_MODULE_NAME),
+            ("old menu form", MENU_FORM_NAME),
+            ("old patient form", PATIENT_FORM_NAME),
+            ("old therapist form", THERAPIST_FORM_NAME),
+            ("old student form", STUDENT_FORM_NAME),
+            ("old app shell module", APP_SHELL_MODULE_NAME),
+            ("old MASTER toolbar module", MASTER_TOOLBAR_MODULE_NAME),
+            ("old DAILY_INPUT action module", DAILY_INPUT_MODULE_NAME),
+            ("old global replacement action module", GLOBAL_REPLACEMENT_MODULE_NAME),
+            ("old double-booking module", DOUBLE_BOOKING_MODULE_NAME),
+            ("old double-booking form", DOUBLE_BOOKING_FORM_NAME),
+            ("old workload module", WORKLOAD_MODULE_NAME),
+            ("old close-day action module", CLOSE_DAY_MODULE_NAME),
+            ("old outpatient schedule module", OUTPATIENT_MODULE_NAME),
+            ("old outpatient schedule form", OUTPATIENT_FORM_NAME),
+        )
+        for label, name in components:
+            stage = f"removing {label}"
+            _remove_component_if_present(vbproject, name)
 
         stage = "saving temporary workbook"
         workbook.Save()
