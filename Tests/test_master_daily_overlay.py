@@ -28,6 +28,8 @@ def _book(tmp_path: Path) -> Path:
         "Εργο",
         "Λογο",
         "ΕΦΑ",
+        "ΨΥΧΟΛΟΓΟΙ",
+        "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ",
         "Κατάσταση",
     ])
     wb.save(path)
@@ -131,7 +133,7 @@ def test_cancelled_session_is_not_left_present_on_master(tmp_path, monkeypatch):
 
     by_cell = {patch.cell: patch for patch in result.write_plan.patches}
     assert by_cell["D7"].value == "ΑΚΥΡΩΘΗΚΕ\nΔιακομιστήριο"
-    assert by_cell["K7"].value == "ΑΚΥΡΩΘΗΚΕ"
+    assert by_cell["M7"].value == "ΑΚΥΡΩΘΗΚΕ"
     assert by_cell["D7"].source_tag == "master_daily_non_active_overlay"
 
 
@@ -162,7 +164,7 @@ def test_patient_absence_is_shown_as_absent_on_master(tmp_path, monkeypatch):
 
     by_cell = {patch.cell: patch for patch in result.write_plan.patches}
     assert by_cell["D7"].value == "ΑΠΩΝ\nΑπουσία"
-    assert by_cell["K7"].value == "ΑΠΩΝ"
+    assert by_cell["M7"].value == "ΑΠΩΝ"
 
 
 def test_patient_status_remains_operational_when_another_session_is_active(tmp_path, monkeypatch):
@@ -197,7 +199,7 @@ def test_patient_status_remains_operational_when_another_session_is_active(tmp_p
         patients=[_patient()],
     )
 
-    assert "K7" not in {patch.cell for patch in result.write_plan.patches}
+    assert "M7" not in {patch.cell for patch in result.write_plan.patches}
     assert any(
         patch.cell == "D7" and patch.value.startswith("ΑΚΥΡΩΘΗΚΕ")
         for patch in result.write_plan.patches
