@@ -79,6 +79,23 @@ Then it:
 6. verifies the source workbook hash is unchanged;
 7. deletes the output on persistence/verification failure.
 
+DAILY_INPUT therapist identity must be resolved against the official `SETTINGS` therapist registry as well as therapists who happen to own a materialized session on that date. This mirrors the established global replacement flow. A valid therapist can therefore be absent on a day where they have no scheduled session and must not be rejected merely because their name is absent from that day's materialized sessions.
+
+### Native safety-stop finding: official therapist registry wiring
+
+The first native snapshot attempt stopped safely with:
+
+`Expected one therapist named 'Πέτσιος' in the official registry/date; found 0`
+
+The cause was integration wiring in the new preview tool, not invalid finalization state and not an invalid therapist. The preview called `read_daily_input(...)` without supplying `settings.therapist_names`, so validation saw only providers present in materialized sessions. The mature global replacement flow already supplies the official registry.
+
+Fix:
+
+- load `read_settings(source)` before reading DAILY_INPUT;
+- pass `therapist_names=settings.therapist_names` into `read_daily_input(...)`;
+- retain the existing strict identity check, with no name-specific exception or hardcoded workaround;
+- add a regression guard proving the finalization preview keeps this official-registry wiring.
+
 The first native smoke should use a known finalized workbook with `unresolved=0`, preferably the already-verified double-booking REJECT/suspension fixture, so no approved double-booking count needs to be inferred yet.
 
 ## Regression coverage
@@ -100,7 +117,7 @@ The first native smoke should use a known finalized workbook with `unresolved=0`
 - rejection of nonzero unresolved history;
 - schema-drift rejection.
 
-`Tests/test_build_finalized_day_snapshot_preview.py` guards production-smoke ordering and application-contract reporting fields.
+`Tests/test_build_finalized_day_snapshot_preview.py` guards production-smoke ordering, application-contract reporting fields and use of the official therapist registry when parsing DAILY_INPUT.
 
 ## Next slice after focused/native gate
 
