@@ -11,6 +11,7 @@ Private Const WORKLOAD_PREFIX As String = "ekaWorkload_"
 Private Const DEFAULT_CAPACITY As Long = 6
 Private Const NAV_MASTER_BUTTON As String = "ekaNav_Master"
 Private Const LEDGER_SHEET As String = "DAILY_CHANGE_LEDGER"
+Private Const LEDGER_SHAPE_PREFIX As String = "ekaLedger_"
 
 Public Sub ShowTherapistWorkload()
     On Error Resume Next
@@ -33,11 +34,9 @@ End Sub
 Public Sub EnsureTherapistNavigation()
     Dim daily As Worksheet
     Dim shape As Shape
-    Dim anchor As Range
 
     On Error GoTo NavigationExit
     Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
-    Set anchor = TherapistNavigationAnchor(daily)
 
     On Error Resume Next
     Set shape = daily.Shapes(NAV_MASTER_BUTTON)
@@ -45,50 +44,153 @@ Public Sub EnsureTherapistNavigation()
 
     If shape Is Nothing Then
         Set shape = daily.Shapes.AddShape(5, _
-            anchor.Left + 4, _
-            anchor.Top + 2, _
-            150, 24)
+            daily.Range("A21").Left + 4, _
+            daily.Range("A21").Top + 2, _
+            170, 32)
         shape.Name = NAV_MASTER_BUTTON
-    Else
-        shape.Left = anchor.Left + 4
-        shape.Top = anchor.Top + 2
-        shape.Width = 150
-        shape.Height = 24
     End If
 
     shape.OnAction = "GoToMasterFromTherapistDaily"
     shape.Placement = 3
     shape.Locked = True
-    shape.Fill.ForeColor.RGB = RGB(221, 235, 247)
-    shape.Line.ForeColor.RGB = RGB(166, 166, 166)
     shape.TextFrame2.TextRange.Text = "Επιστροφή στο MASTER"
-    shape.TextFrame2.TextRange.Font.Name = "Calibri"
-    shape.TextFrame2.TextRange.Font.Size = 9
-    shape.TextFrame2.TextRange.Font.Bold = True
-    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
-    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-    shape.TextFrame2.VerticalAnchor = 3
+    StyleSupervisorButton shape, RGB(205, 235, 225), RGB(117, 166, 151)
+
+    StyleTherapistSupervisorPanel
 
 NavigationExit:
 End Sub
 
-Private Function TherapistNavigationAnchor(ByVal daily As Worksheet) As Range
+Public Sub StyleTherapistSupervisorPanel()
+    Dim daily As Worksheet
     Dim ledger As Worksheet
-    Dim restoreStartRow As Long
-    Dim navRow As Long
+    Dim startRow As Long
+    Dim lastLedgerRow As Long
+    Dim ledgerRow As Long
+    Dim lastDisplayRow As Long
+    Dim displayRow As Long
+    Dim actionRow As Long
+    Dim rowIndex As Long
+    Dim shp As Shape
+    Dim shapeName As String
+    Dim panelRange As Range
 
-    restoreStartRow = 21
-    On Error Resume Next
+    On Error GoTo SafeExit
+    Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
     Set ledger = ThisWorkbook.Worksheets(LEDGER_SHEET)
-    If Not ledger Is Nothing Then
-        If IsNumeric(ledger.Range("R1").Value) Then restoreStartRow = CLng(ledger.Range("R1").Value)
-    End If
-    On Error GoTo 0
 
-    If restoreStartRow < 21 Then restoreStartRow = 21
-    navRow = restoreStartRow - 1
-    Set TherapistNavigationAnchor = daily.Range("A" & CStr(navRow))
-End Function
+    startRow = CLng(ledger.Range("R1").Value)
+    If startRow < 2 Then Exit Sub
+
+    lastLedgerRow = ledger.Cells(ledger.Rows.Count, 1).End(xlUp).Row
+    lastDisplayRow = startRow + 2
+    For ledgerRow = 2 To lastLedgerRow
+        If IsNumeric(ledger.Cells(ledgerRow, 19).Value) Then
+            displayRow = CLng(ledger.Cells(ledgerRow, 19).Value)
+            If displayRow > lastDisplayRow Then lastDisplayRow = displayRow
+        End If
+    Next ledgerRow
+    actionRow = lastDisplayRow + 2
+
+    Set panelRange = daily.Range("A" & CStr(startRow) & ":H" & CStr(actionRow + 2))
+    With panelRange
+        .Interior.Color = RGB(242, 250, 247)
+        .Font.Name = "Calibri"
+        .Font.Size = 10
+        .VerticalAlignment = xlCenter
+        .Borders.Color = RGB(222, 232, 228)
+        .Borders.Weight = xlThin
+    End With
+
+    With daily.Range("A" & CStr(startRow) & ":H" & CStr(startRow))
+        .Interior.Color = RGB(205, 235, 225)
+        .Font.Bold = True
+        .Font.Size = 13
+        .Font.Color = RGB(45, 87, 75)
+        .RowHeight = 30
+    End With
+    daily.Cells(startRow, 1).Value = "Ημερήσιες αλλαγές και επαναφορές"
+
+    With daily.Range("A" & CStr(startRow + 1) & ":G" & CStr(startRow + 1))
+        .Interior.Color = RGB(226, 243, 237)
+        .Font.Bold = True
+        .Font.Size = 10
+        .Font.Color = RGB(57, 91, 81)
+        .RowHeight = 24
+    End With
+
+    For rowIndex = startRow + 2 To lastDisplayRow
+        daily.Rows(rowIndex).RowHeight = 25
+        If (rowIndex - startRow) Mod 2 = 0 Then
+            daily.Range("A" & CStr(rowIndex) & ":G" & CStr(rowIndex)).Interior.Color = RGB(250, 253, 252)
+        Else
+            daily.Range("A" & CStr(rowIndex) & ":G" & CStr(rowIndex)).Interior.Color = RGB(238, 248, 244)
+        End If
+    Next rowIndex
+
+    daily.Rows(actionRow).RowHeight = 38
+    daily.Rows(actionRow + 1).RowHeight = 8
+
+    On Error Resume Next
+    Set shp = daily.Shapes(NAV_MASTER_BUTTON)
+    On Error GoTo SafeExit
+    If Not shp Is Nothing Then
+        shp.Left = daily.Cells(actionRow, 1).Left + 2
+        shp.Top = daily.Cells(actionRow, 1).Top + 2
+        shp.Width = 170
+        shp.Height = 32
+        StyleSupervisorButton shp, RGB(205, 235, 225), RGB(117, 166, 151)
+    End If
+
+    For Each shp In daily.Shapes
+        shapeName = CStr(shp.Name)
+        If Left$(shapeName, Len(LEDGER_SHAPE_PREFIX & "Restore_")) = LEDGER_SHAPE_PREFIX & "Restore_" Then
+            shp.Height = 24
+            StyleSupervisorButton shp, RGB(249, 224, 224), RGB(204, 139, 139)
+        ElseIf shapeName = LEDGER_SHAPE_PREFIX & "RestoreSelected" Then
+            shp.Left = daily.Cells(actionRow, 3).Left + 2
+            shp.Top = daily.Cells(actionRow, 3).Top + 2
+            shp.Width = 190
+            shp.Height = 32
+            StyleSupervisorButton shp, RGB(249, 224, 224), RGB(204, 139, 139)
+        ElseIf shapeName = LEDGER_SHAPE_PREFIX & "RestoreAll" Then
+            shp.Left = daily.Cells(actionRow, 6).Left + 2
+            shp.Top = daily.Cells(actionRow, 6).Top + 2
+            shp.Width = 160
+            shp.Height = 32
+            StyleSupervisorButton shp, RGB(244, 207, 207), RGB(190, 113, 113)
+        End If
+    Next shp
+
+    daily.Columns("A").ColumnWidth = 7
+    daily.Columns("B").ColumnWidth = 25
+    daily.Columns("C:D").ColumnWidth = 22
+    daily.Columns("E").ColumnWidth = 27
+    daily.Columns("F").ColumnWidth = 17
+    daily.Columns("G").ColumnWidth = 20
+    daily.Columns("H").ColumnWidth = 3
+
+SafeExit:
+End Sub
+
+Private Sub StyleSupervisorButton( _
+    ByVal shape As Shape, ByVal fillColor As Long, ByVal lineColor As Long)
+
+    On Error Resume Next
+    shape.Fill.ForeColor.RGB = fillColor
+    shape.Fill.Solid
+    shape.Line.ForeColor.RGB = lineColor
+    shape.Line.Weight = 1.25
+    shape.Locked = True
+    shape.Placement = 3
+    shape.TextFrame2.TextRange.Font.Name = "Calibri"
+    shape.TextFrame2.TextRange.Font.Size = 10
+    shape.TextFrame2.TextRange.Font.Bold = True
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(70, 70, 70)
+    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+    shape.TextFrame2.VerticalAnchor = 3
+    On Error GoTo 0
+End Sub
 
 Public Sub RenderTherapistWorkloadStrip()
     Dim master As Worksheet
@@ -329,14 +431,14 @@ def _style_button(shape, caption: str, macro: str) -> None:
     shape.OnAction = macro
     shape.Placement = 3
     shape.Locked = True
-    shape.Fill.ForeColor.RGB = 15527148
-    shape.Line.ForeColor.RGB = 10921638
-    shape.Line.Weight = 1
+    shape.Fill.ForeColor.RGB = 14805965
+    shape.Line.ForeColor.RGB = 9934453
+    shape.Line.Weight = 1.25
     shape.TextFrame2.TextRange.Text = caption
     shape.TextFrame2.TextRange.Font.Name = "Calibri"
-    shape.TextFrame2.TextRange.Font.Size = 9
+    shape.TextFrame2.TextRange.Font.Size = 10
     shape.TextFrame2.TextRange.Font.Bold = True
-    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 4605510
     shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
     shape.TextFrame2.VerticalAnchor = 3
 
@@ -353,19 +455,6 @@ def _delete_workload_shapes(ws) -> None:
             ws.Shapes(name).Delete()
         except Exception:
             pass
-
-
-def _navigation_anchor(daily, workbook):
-    restore_start_row = 21
-    try:
-        ledger = workbook.Worksheets("DAILY_CHANGE_LEDGER")
-        value = ledger.Range("R1").Value
-        if value is not None:
-            restore_start_row = int(value)
-    except Exception:
-        pass
-    restore_start_row = max(21, restore_start_row)
-    return daily.Range(f"A{restore_start_row - 1}")
 
 
 def install_therapist_workload_strip(vbproject, workbook) -> None:
@@ -390,13 +479,12 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
         daily.Shapes(NAV_MASTER_BUTTON_NAME).Delete()
     except Exception:
         pass
-    anchor = _navigation_anchor(daily, workbook)
     nav = daily.Shapes.AddShape(
         5,
-        float(anchor.Left) + 4,
-        float(anchor.Top) + 2,
-        150,
-        24,
+        float(daily.Range("A21").Left) + 4,
+        float(daily.Range("A21").Top) + 2,
+        170,
+        32,
     )
     nav.Name = NAV_MASTER_BUTTON_NAME
     _style_button(nav, "Επιστροφή στο MASTER", "GoToMasterFromTherapistDaily")
