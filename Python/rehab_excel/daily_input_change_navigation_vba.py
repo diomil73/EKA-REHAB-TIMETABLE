@@ -3,7 +3,6 @@ from __future__ import annotations
 
 MODULE_NAME = "modDailyInputChangeNavigation"
 MACRO_NAME = "OpenTherapistDailyWithChanges"
-WORKLOAD_BUTTON_NAME = "ekaWorkload_Refresh"
 
 MODULE_CODE = r'''Option Explicit
 
@@ -26,11 +25,9 @@ def _remove_component_if_present(vbproject, name: str) -> None:
 
 
 def install_daily_input_change_navigation(vbproject, workbook) -> None:
+    """Install the supervisor-only navigation macro without exposing it on MASTER."""
+
     _remove_component_if_present(vbproject, MODULE_NAME)
     module = vbproject.VBComponents.Add(1)
     module.Name = MODULE_NAME
     module.CodeModule.AddFromString(MODULE_CODE)
-
-    shape = workbook.Worksheets("MASTER_SCHEDULE").Shapes(WORKLOAD_BUTTON_NAME)
-    shape.OnAction = MACRO_NAME
-    shape.Locked = True
