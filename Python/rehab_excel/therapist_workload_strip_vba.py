@@ -2,7 +2,7 @@ from __future__ import annotations
 
 MODULE_NAME = "modTherapistWorkloadStrip"
 SHAPE_PREFIX = "ekaWorkload_"
-BUTTON_NAME = SHAPE_PREFIX + "Refresh"
+BUTTON_NAME = SHAPE_PREFIX + "Refresh"  # legacy MASTER button name; removed by installer/runtime
 NAV_MASTER_BUTTON_NAME = "ekaNav_Master"
 
 MODULE_CODE = r'''Option Explicit
@@ -12,12 +12,13 @@ Private Const DEFAULT_CAPACITY As Long = 6
 Private Const NAV_MASTER_BUTTON As String = "ekaNav_Master"
 
 Public Sub ShowTherapistWorkload()
-    RenderTherapistWorkloadStrip
     On Error Resume Next
     ThisWorkbook.Worksheets("THERAPIST_DAILY").Activate
-    EnsureTherapistNavigation
-    KeepApplicationShell
     On Error GoTo 0
+
+    EnsureTherapistNavigation
+    RenderTherapistWorkloadStrip
+    KeepApplicationShell
 End Sub
 
 Public Sub GoToMasterFromTherapistDaily()
@@ -41,10 +42,15 @@ Public Sub EnsureTherapistNavigation()
 
     If shape Is Nothing Then
         Set shape = daily.Shapes.AddShape(5, _
-            daily.Range("A9").Left + 4, _
-            daily.Range("A9").Top + 2, _
+            daily.Range("K1").Left + 4, _
+            daily.Range("K1").Top + 2, _
             150, 24)
         shape.Name = NAV_MASTER_BUTTON
+    Else
+        shape.Left = daily.Range("K1").Left + 4
+        shape.Top = daily.Range("K1").Top + 2
+        shape.Width = 150
+        shape.Height = 24
     End If
 
     shape.OnAction = "GoToMasterFromTherapistDaily"
@@ -79,7 +85,6 @@ Public Sub RenderTherapistWorkloadStrip()
     Dim leftPos As Double
     Dim topPos As Double
     Dim badgeWidth As Double
-    Dim buttonWidth As Double
     Dim gap As Double
     Dim badgeIndex As Long
     Dim shape As Shape
@@ -93,33 +98,14 @@ Public Sub RenderTherapistWorkloadStrip()
     Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
     Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
 
-    On Error Resume Next
-    master.Unprotect
-    master.Rows(3).RowHeight = 28
-    On Error GoTo RenderError
-
+    ' Privacy rule: MASTER must never expose therapist workload.
     DeleteWorkloadShapes master
+    DeleteWorkloadShapes daily
 
-    buttonWidth = 112
-    badgeWidth = 92
+    badgeWidth = 110
     gap = 5
-    leftPos = master.Range("A3").Left + 4
-    topPos = master.Range("A3").Top + 2
-
-    Set shape = master.Shapes.AddShape(5, leftPos, topPos, buttonWidth, 24)
-    shape.Name = WORKLOAD_PREFIX & "Refresh"
-    shape.OnAction = "ShowTherapistWorkload"
-    shape.Placement = 3
-    shape.Locked = True
-    shape.Fill.ForeColor.RGB = RGB(221, 235, 247)
-    shape.Line.ForeColor.RGB = RGB(166, 166, 166)
-    shape.TextFrame2.TextRange.Text = "Φόρτος θεραπευτών"
-    shape.TextFrame2.TextRange.Font.Name = "Calibri"
-    shape.TextFrame2.TextRange.Font.Size = 9
-    shape.TextFrame2.TextRange.Font.Bold = True
-    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
-    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-    shape.TextFrame2.VerticalAnchor = 3
+    leftPos = daily.Range("K2").Left + 4
+    topPos = daily.Range("K2").Top + 2
 
     headerRows = Array(1, 11)
     firstRows = Array(2, 12)
@@ -163,9 +149,10 @@ Public Sub RenderTherapistWorkloadStrip()
         occupied = providerTimes.Count
 
         badgeIndex = badgeIndex + 1
-        Set shape = master.Shapes.AddShape(5, _
-            leftPos + buttonWidth + gap + (badgeIndex - 1) * (badgeWidth + gap), _
-            topPos, badgeWidth, 24)
+        Set shape = daily.Shapes.AddShape(5, _
+            leftPos, _
+            topPos + (badgeIndex - 1) * (24 + gap), _
+            badgeWidth, 24)
         shape.Name = WORKLOAD_PREFIX & "Badge" & CStr(badgeIndex)
         shape.Placement = 3
         shape.Locked = True
@@ -188,15 +175,19 @@ Public Sub RenderTherapistWorkloadStrip()
     Next orderIndex
 
     EnsureTherapistNavigation
-    master.Protect DrawingObjects:=True, Contents:=False, Scenarios:=False, UserInterfaceOnly:=True
     Exit Sub
 
 RenderError:
-    On Error Resume Next
-    master.Protect DrawingObjects:=True, Contents:=False, Scenarios:=False, UserInterfaceOnly:=True
-    On Error GoTo 0
     MsgBox "Δεν ήταν δυνατή η εμφάνιση του φόρτου θεραπευτών: " & Err.Description, _
            vbExclamation, "Φόρτος θεραπευτών"
+End Sub
+
+Public Sub RemoveMasterTherapistWorkload()
+    Dim master As Worksheet
+    On Error Resume Next
+    Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
+    If Not master Is Nothing Then DeleteWorkloadShapes master
+    On Error GoTo 0
 End Sub
 
 Private Function CellHasActiveWork(ByVal cell As Range) As Boolean
@@ -329,8 +320,22 @@ def _style_button(shape, caption: str, macro: str) -> None:
     shape.TextFrame2.VerticalAnchor = 3
 
 
+def _delete_workload_shapes(ws) -> None:
+    names: list[str] = []
+    for index in range(1, int(ws.Shapes.Count) + 1):
+        shape = ws.Shapes(index)
+        name = str(shape.Name)
+        if name.startswith(SHAPE_PREFIX):
+            names.append(name)
+    for name in names:
+        try:
+            ws.Shapes(name).Delete()
+        except Exception:
+            pass
+
+
 def install_therapist_workload_strip(vbproject, workbook) -> None:
-    """Install fixed workload navigation and MASTER workload badges."""
+    """Install supervisor workload view without exposing workload on MASTER."""
 
     _remove_component_if_present(vbproject, MODULE_NAME)
     module = vbproject.VBComponents.Add(1)
@@ -340,28 +345,12 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
     master = workbook.Worksheets("MASTER_SCHEDULE")
     daily = workbook.Worksheets("THERAPIST_DAILY")
 
+    # Privacy-safe migration: remove the old MASTER button and every old badge.
     try:
         master.Unprotect()
     except Exception:
         pass
-
-    # Row height is cosmetic only. Some native workbook layouts/merged cells
-    # reject RowHeight writes through COM, so it must never block installation.
-    try:
-        master.Rows(3).RowHeight = 28
-    except Exception:
-        pass
-
-    try:
-        master.Shapes(BUTTON_NAME).Delete()
-    except Exception:
-        pass
-
-    left = float(master.Range("A3").Left) + 4
-    top = float(master.Range("A3").Top) + 2
-    shape = master.Shapes.AddShape(5, left, top, 112, 24)
-    shape.Name = BUTTON_NAME
-    _style_button(shape, "Φόρτος θεραπευτών", "ShowTherapistWorkload")
+    _delete_workload_shapes(master)
 
     try:
         daily.Shapes(NAV_MASTER_BUTTON_NAME).Delete()
@@ -369,15 +358,10 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
         pass
     nav = daily.Shapes.AddShape(
         5,
-        float(daily.Range("A9").Left) + 4,
-        float(daily.Range("A9").Top) + 2,
+        float(daily.Range("K1").Left) + 4,
+        float(daily.Range("K1").Top) + 2,
         150,
         24,
     )
     nav.Name = NAV_MASTER_BUTTON_NAME
     _style_button(nav, "Επιστροφή στο MASTER", "GoToMasterFromTherapistDaily")
-
-    try:
-        master.Protect(DrawingObjects=True, Contents=False, Scenarios=False, UserInterfaceOnly=True)
-    except Exception:
-        pass
