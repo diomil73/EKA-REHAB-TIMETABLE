@@ -18,21 +18,31 @@ Public Sub ApplyDailyInputPreview()
     Dim scriptPath As String, payloadPath As String, responsePath As String
     Dim commandLine As String, responseText As String
     Dim exitCode As Long, replacementsNeeded As Long
+    Dim currentPhase As String, backendError As String
+    Dim previousEvents As Boolean
 
     On Error GoTo ActionError
+    previousEvents = Application.EnableEvents
+    currentPhase = "preflight"
 
     If ThisWorkbook.ReadOnly Then
         MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Ανοίξτε το κανονικά και δοκιμάστε ξανά.", vbExclamation, "Ημερήσια κατάσταση"
         Exit Sub
     End If
 
+    currentPhase = "resolve preparation tool"
     scriptPath = ResolveDailyInputPreparationScript()
     If Len(scriptPath) = 0 Then
         MsgBox "Η λειτουργία εφαρμογής της ημερήσιας κατάστασης δεν είναι διαθέσιμη. Επικοινωνήστε με τον διαχειριστή.", vbCritical, "Ημερήσια κατάσταση"
         Exit Sub
     End If
 
+    currentPhase = "initial save"
+    Application.EnableEvents = False
     ThisWorkbook.Save
+    Application.EnableEvents = previousEvents
+
+    currentPhase = "prepare payload paths"
     payloadPath = Environ$("TEMP") & "\\eka_daily_input_payload_" & _
                   Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".tsv"
     responsePath = Environ$("TEMP") & "\\eka_daily_input_response_" & _
@@ -43,6 +53,7 @@ Public Sub ApplyDailyInputPreview()
                   " --payload " & QuoteArg(payloadPath) & _
                   " --response " & QuoteArg(responsePath)
 
+    currentPhase = "python preparation"
     Application.StatusBar = "Εφαρμογή ημερήσιας κατάστασης..."
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
     Application.StatusBar = False
@@ -51,6 +62,9 @@ Public Sub ApplyDailyInputPreview()
     If exitCode <> 0 Or _
        InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Or _
        Dir$(payloadPath) = "" Then
+        backendError = Trim$(responseText)
+        If Len(backendError) = 0 Then backendError = "Preparation failed or payload was not created"
+        WriteDailyInputDiagnostic exitCode, backendError, currentPhase, 0, "", ""
         MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε." & vbCrLf & vbCrLf & _
                "Ελέγξτε τις καταχωρίσεις και δοκιμάστε ξανά." & vbCrLf & _
                "Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
@@ -58,12 +72,16 @@ Public Sub ApplyDailyInputPreview()
         GoTo CleanUp
     End If
 
+    currentPhase = "apply payload"
     If Not ApplyValidatedDailyInputPayload(payloadPath) Then GoTo CleanUp
+    currentPhase = "refresh operational views"
     If Not RefreshOperationalViews() Then GoTo CleanUp
 
     replacementsNeeded = JsonLongValue(responseText, "replacement_sessions_needed")
     If replacementsNeeded > 0 Then
+        currentPhase = "resolve replacements"
         If ResolveDailyReplacementsInPlace() Then
+            currentPhase = "refresh after replacements"
             If Not RefreshOperationalViews() Then GoTo CleanUp
             MsgBox "Η ημερήσια κατάσταση και οι αναπληρώσεις εφαρμόστηκαν επιτυχώς.", _
                    vbInformation, "Ημερήσια κατάσταση"
@@ -76,6 +94,7 @@ Public Sub ApplyDailyInputPreview()
 
 CleanUp:
     Application.StatusBar = False
+    Application.EnableEvents = previousEvents
     On Error Resume Next
     If Len(payloadPath) > 0 And Dir$(payloadPath) <> "" Then Kill payloadPath
     If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
@@ -84,7 +103,8 @@ CleanUp:
 
 ActionError:
     Application.StatusBar = False
-    WriteDailyInputDiagnostic Err.Number, Err.Description, "daily input action", 0, "", ""
+    Application.EnableEvents = previousEvents
+    WriteDailyInputDiagnostic Err.Number, Err.Description, currentPhase, 0, "", ""
     MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε. Δοκιμάστε ξανά. Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
            vbCritical, "Ημερήσια κατάσταση"
     Resume CleanUp
