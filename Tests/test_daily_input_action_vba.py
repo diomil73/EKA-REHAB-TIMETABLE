@@ -24,6 +24,28 @@ def test_daily_input_action_saves_before_hidden_validation():
     assert ".Exec(" not in DAILY_INPUT_MODULE_CODE
 
 
+def test_daily_input_initial_save_disables_events_and_restores_them():
+    source = DAILY_INPUT_MODULE_CODE
+    initial_pos = source.index('currentPhase = "initial save"')
+    disable_pos = source.index("Application.EnableEvents = False", initial_pos)
+    save_pos = source.index("ThisWorkbook.Save", disable_pos)
+    restore_pos = source.index("Application.EnableEvents = previousEvents", save_pos)
+
+    assert initial_pos < disable_pos < save_pos < restore_pos
+    assert 'WriteDailyInputDiagnostic Err.Number, Err.Description, currentPhase' in source
+
+
+def test_daily_input_preparation_failure_is_diagnostic_not_operator_technical_detail():
+    source = DAILY_INPUT_MODULE_CODE
+    messages = _messages(source)
+
+    assert 'currentPhase = "python preparation"' in source
+    assert 'backendError = Trim$(responseText)' in source
+    assert 'WriteDailyInputDiagnostic exitCode, backendError, currentPhase' in source
+    assert "backenderror" not in messages
+    assert "responsepath" not in messages
+
+
 def test_daily_input_action_uses_in_place_write_plan():
     source = DAILY_INPUT_MODULE_CODE
 
