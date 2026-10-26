@@ -195,3 +195,15 @@ def test_master_pin_keeps_toolbar_and_row_four_headers_visible():
     assert ".SplitColumn = 0" in pin_source
     assert ".SplitRow = 4" in pin_source
     assert ".FreezePanes = True" in pin_source
+
+
+def test_application_shell_reapplies_ui_only_protection_for_operational_write_sheets():
+    source = APP_SHELL_MODULE_CODE
+    assert "ConfigureOperationalSheetProtection" in source
+    assert 'ConfigureSheetForMacroWrites "MASTER_SCHEDULE"' in source
+    assert 'ConfigureSheetForMacroWrites "THERAPIST_DAILY"' in source
+    assert "protectContents = ws.ProtectContents" in source
+    assert "protectDrawings = ws.ProtectDrawingObjects" in source
+    assert "protectScenarios = ws.ProtectScenarios" in source
+    assert "ws.Unprotect" in source
+    assert "UserInterfaceOnly:=True" in source
