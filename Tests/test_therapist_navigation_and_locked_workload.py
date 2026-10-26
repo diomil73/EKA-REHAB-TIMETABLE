@@ -18,14 +18,19 @@ def test_supervisor_workload_opens_therapist_daily_and_return_to_master_exists()
     assert 'shape.OnAction = "GoToMasterFromTherapistDaily"' in MODULE_CODE
 
 
-def test_return_to_master_navigation_is_anchored_beside_top_of_grid():
-    assert 'daily.Range("K1").Left + 4' in MODULE_CODE
-    assert 'daily.Range("K1").Top + 2' in MODULE_CODE
+def test_return_to_master_navigation_tracks_restore_panel():
+    assert 'Private Const LEDGER_SHEET As String = "DAILY_CHANGE_LEDGER"' in MODULE_CODE
+    assert 'Set ledger = ThisWorkbook.Worksheets(LEDGER_SHEET)' in MODULE_CODE
+    assert 'ledger.Range("R1").Value' in MODULE_CODE
+    assert 'navRow = restoreStartRow - 1' in MODULE_CODE
+    assert 'daily.Range("A" & CStr(navRow))' in MODULE_CODE
+    assert 'daily.Range("K1")' not in MODULE_CODE
 
     installer_source = inspect.getsource(install_therapist_workload_strip)
-    assert 'daily.Range("K1").Left' in installer_source
-    assert 'daily.Range("K1").Top' in installer_source
-    assert 'daily.Range("A9")' not in installer_source
+    assert "anchor = _navigation_anchor(daily, workbook)" in installer_source
+    assert "float(anchor.Left) + 4" in installer_source
+    assert "float(anchor.Top) + 2" in installer_source
+    assert 'daily.Range("K1")' not in installer_source
 
 
 def test_master_never_renders_or_exposes_therapist_workload():
