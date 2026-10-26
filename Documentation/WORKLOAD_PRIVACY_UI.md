@@ -75,10 +75,11 @@ Relevant modules:
 - `Python/rehab_excel/daily_change_ledger_vba.py`
 - `Python/rehab_excel/daily_input_change_navigation_vba.py`
 
-The workload-strip module owns only the visual supervisory-panel styling and navigation positioning. The daily-change ledger remains authoritative for restore behavior.
+`daily_change_ledger_vba.py` remains authoritative for ledger/restore behavior. The dedicated presentation module `modSupervisorPanelStyle`, installed by `daily_input_change_navigation_vba.py`, repaints the legacy renderer after refresh and replaces grey restore Form Controls with styled Excel shapes. It also positions the MASTER navigation in the final action row. The installer injects the styling call into both the general ledger refresh path and the DAILY_INPUT synchronization path so the panel does not revert after refresh/restore.
 
 Regression coverage:
 
 - `Tests/test_therapist_navigation_and_locked_workload.py`
+- `Tests/test_supervisor_panel_style_vba.py`
 
 The production code must continue to remove legacy MASTER workload shapes from older previews/workbooks so an upgrade cannot accidentally leave management information visible.
