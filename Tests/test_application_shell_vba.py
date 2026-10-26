@@ -208,3 +208,14 @@ def test_application_shell_reapplies_ui_only_protection_for_operational_write_sh
     assert "protectScenarios = ws.ProtectScenarios" in source
     assert "ws.Unprotect" in source
     assert "UserInterfaceOnly:=True" in source
+
+
+def test_therapist_daily_activation_always_reapplies_supervisor_panel_style():
+    source = APP_SHELL_MODULE_CODE
+    keep_start = source.index("Public Sub KeepApplicationShell()")
+    keep_end = source.index("End Sub", keep_start)
+    keep_source = source[keep_start:keep_end]
+    assert 'ElseIf ActiveSheet.Name = "THERAPIST_DAILY" Then' in keep_source
+    assert "TryApplySupervisorPanelStyle" in keep_source
+    assert "Private Sub TryApplySupervisorPanelStyle()" in source
+    assert "StyleSupervisorPanel" in source
