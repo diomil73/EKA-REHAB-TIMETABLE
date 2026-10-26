@@ -166,20 +166,54 @@ Interpretation:
 - failure occurred before any validated PATCH (`patch_index=0`);
 - this is not a ΓΙΑΝΝΙΑ business-rule failure and not a patch-target/read-back failure;
 - the outer action had only generic phase reporting, so the exact pre-payload step was hidden;
-- no `Workbook_BeforeSave` implementation exists in repo source, therefore legacy/binary workbook event behavior remains a plausible source of the protected-sheet mutation during the initial `ThisWorkbook.Save`.
+- no `Workbook_BeforeSave` implementation exists in repo source, therefore legacy/binary workbook event behavior remained a plausible source of the protected-sheet mutation during the initial `ThisWorkbook.Save`.
 
-Fix now on branch:
+Fix on branch:
 
 - outer DAILY_INPUT action captures explicit phases: `preflight`, `resolve preparation tool`, `initial save`, `prepare payload paths`, `python preparation`, `apply payload`, `refresh operational views`, replacement continuation;
 - the initial `ThisWorkbook.Save` runs with `Application.EnableEvents = False` and always restores the prior event state;
-- Python preparation failure now writes the hidden diagnostic response instead of only showing a generic operator message;
+- Python preparation failure writes the hidden diagnostic response instead of only showing a generic operator message;
 - operator messages remain non-technical;
 - cleanup restores the original event setting.
 
 Relevant commits:
 
-- `d40d0f18d5506831633035c9592da33817423fd9` event-safe initial save + phase-aware diagnostics
-- `42ab9a1dd2c71fa902b6a4e69d9c865410670744` regression guards for initial-save event isolation and preparation diagnostics
+- `d40d0f18d5506831633035c9592da33817423fd9`
+- `42ab9a1dd2c71fa902b6a4e69d9c865410670744`
+
+## V8 runtime diagnostic: protected operational sheet at payload entry
+
+Fresh V8 repeated only the ΓΙΑΝΝΙΑ all-day `Διακομιστήριο` branch and produced:
+
+```text
+timestamp=2026-10-26 22:08:28
+phase=apply payload
+patch_index=0
+sheet=
+cell=
+error_number=1004
+error=Το κελί ή το γράφημα που προσπαθείτε να αλλάξετε βρίσκεται σε προστατευμένο φύλλο...
+```
+
+Interpretation:
+
+- event-safe initial save succeeded;
+- Python preparation succeeded far enough to enter payload application;
+- failure is caused by sheet protection state in the new Excel session, before a first target PATCH can be recorded;
+- Excel does not persist `UserInterfaceOnly=True` across workbook close/reopen, so protection configured at build time is not sufficient.
+
+Fix now on branch in `Python/rehab_excel/application_shell_vba.py`:
+
+- `EnterApplicationShell` and `KeepApplicationShell` call `ConfigureOperationalSheetProtection`;
+- `MASTER_SCHEDULE` and `THERAPIST_DAILY` preserve their existing user-facing protection flags;
+- each protected operational sheet is unprotected and immediately re-protected with `UserInterfaceOnly:=True` in the live Excel session;
+- normal users remain blocked from protected content/drawing edits, while trusted VBA write transactions can mutate the approved cells;
+- protection configuration is therefore reapplied on workbook open/activation, which is the correct lifecycle for Excel's non-persistent `UserInterfaceOnly` setting.
+
+Relevant commits:
+
+- `676f5641507b507f9fd4cd948563358db5413fc2` UI-only operational protection lifecycle
+- `db195df718ea13ba673532b1e8fada6a05afc485` regression guard for operational protection reapplication
 
 ## New regression coverage
 
@@ -191,21 +225,22 @@ Added/updated:
 - `Tests/test_therapist_navigation_and_locked_workload.py`
 - `Tests/test_build_registration_menu_operational_modules.py`
 - `Tests/test_daily_input_action_vba.py`
+- `Tests/test_application_shell_vba.py`
 - `Tests/test_production_actions_stay_in_session.py`
 
 The production guard includes DAILY_INPUT restore and rejects close/reopen/visible-console regressions.
 
 ## Exact resume point
 
-Do not reuse an older V7 workbook because installed VBA must contain the latest event-safe DAILY_INPUT action.
+Do not reuse V8 because the installed application shell lacks the new live-session `UserInterfaceOnly` reconfiguration.
 
 Immediate order:
 
 1. pull latest branch;
-2. run focused DAILY_INPUT action + production/build guards;
-3. rebuild a fresh `DAILY_INPUT_IN_PLACE_V8.xlsm` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
+2. run focused application-shell + DAILY_INPUT action + production/build guards;
+3. build fresh `DAILY_INPUT_IN_PLACE_V9.xlsm` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
 4. repeat only the ΓΙΑΝΝΙΑ all-day `Διακομιστήριο` patient branch;
-5. if it fails, immediately read `%TEMP%\eka_daily_input_last_error.log`; the new phase must identify the exact step and no blind retry is allowed;
+5. if it fails, immediately read `%TEMP%\eka_daily_input_last_error.log`; no blind retry;
 6. if application succeeds, verify MASTER red strike, M status, THERAPIST_DAILY affected lines, actual therapist occupied-slot changes, workload navigation/locking and individual ΓΙΑΝΝΙΑ `Επαναφορά`;
 7. click ΓΙΑΝΝΙΑ restore and verify same workbook stays open, returns her to daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears exact DAILY_INPUT fact and marks ledger row RESTORED;
 8. after patient branch is native green, test therapist absence/global replacement continuation;
