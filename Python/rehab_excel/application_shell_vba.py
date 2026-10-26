@@ -14,6 +14,7 @@ Public Sub EnterApplicationShell()
     On Error GoTo SafeExit
 
     ApplyApplicationChrome
+    ConfigureOperationalSheetProtection
 
     If Not ActivatePostCommitTarget() Then
         If WorksheetExists("MASTER_SCHEDULE") Then
@@ -30,11 +31,42 @@ End Sub
 Public Sub KeepApplicationShell()
     On Error Resume Next
     ApplyApplicationChrome
+    ConfigureOperationalSheetProtection
     If ActiveSheet.Name = "MASTER_SCHEDULE" Then
         TryApplyMasterView
         PinMasterToolbarAndHeaders
     End If
     On Error GoTo 0
+End Sub
+
+Private Sub ConfigureOperationalSheetProtection()
+    ConfigureSheetForMacroWrites "MASTER_SCHEDULE"
+    ConfigureSheetForMacroWrites "THERAPIST_DAILY"
+End Sub
+
+Private Sub ConfigureSheetForMacroWrites(ByVal sheetName As String)
+    Dim ws As Worksheet
+    Dim protectContents As Boolean
+    Dim protectDrawings As Boolean
+    Dim protectScenarios As Boolean
+
+    On Error GoTo SafeExit
+    Set ws = ThisWorkbook.Worksheets(sheetName)
+
+    protectContents = ws.ProtectContents
+    protectDrawings = ws.ProtectDrawingObjects
+    protectScenarios = ws.ProtectScenarios
+
+    If Not protectContents And Not protectDrawings And Not protectScenarios Then Exit Sub
+
+    ws.Unprotect
+    ws.Protect _
+        DrawingObjects:=protectDrawings, _
+        Contents:=protectContents, _
+        Scenarios:=protectScenarios, _
+        UserInterfaceOnly:=True
+
+SafeExit:
 End Sub
 
 Private Sub TryApplyMasterView()
