@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-10-25
+Last updated: 2026-10-26
 
 ## Read order
 
@@ -23,7 +23,7 @@ Start with `Documentation/ONBOARDING.md`, then `Documentation/IN_PLACE_MUTATION_
 - MASTER/status-zone gate after K/L/M correction: `47 passed, 2 warnings in 3.36s`
 - V7 pre-native focused gate: `63 passed, 6 warnings in 5.92s`
 
-The current warnings are `PytestUnraisableExceptionWarning` from Python 3.14/openpyxl `ZipFile.__del__` cleanup in disposable test workbooks. They are not business-logic failures and do not block the V7 native smoke. Keep them as technical cleanup debt; do not reinterpret them as a failed application contract.
+The current warnings are `PytestUnraisableExceptionWarning` from Python 3.14/openpyxl `ZipFile.__del__` cleanup in disposable test workbooks. They are not business-logic failures. Keep them as technical cleanup debt.
 
 ## Locked production interaction architecture
 
@@ -62,16 +62,16 @@ The user entered ΓΙΑΝΝΙΑ as all-day absent/transferred (`Διακομισ
 7. `THERAPIST_DAILY` lacked `Επιστροφή στο MASTER` navigation.
 8. ΓΙΑΝΝΙΑ's DAILY_INPUT interruption was not recorded in the reversible daily-change ledger, so no `Επαναφορά` button existed.
 
-## V6 remediation now on branch, pre-native gate GREEN
+## V6 remediation now on branch
 
 ### MASTER presentation
 
 `Python/rehab_excel/master_daily_overlay.py`
 
-- non-active patient/cancellation/therapist states now use PRESENTATION-only treatment patches;
+- non-active patient/cancellation/therapist states use PRESENTATION-only treatment patches;
 - recurring treatment text remains untouched;
 - native writer applies red font + strike-through for `master_daily_non_active_overlay`;
-- patient daily reason/status is written in the confirmed status column M when all dated sessions are non-active;
+- patient daily reason/status is written in confirmed status column M when all dated sessions are non-active;
 - replacement overlays still show dated effective provider/time.
 
 ### Native read-back
@@ -85,11 +85,11 @@ The user entered ΓΙΑΝΝΙΑ as all-day absent/transferred (`Διακομισ
 
 `Python/rehab_excel/therapist_workload_strip_vba.py`
 
-- `Φόρτος θεραπευτών` now opens `THERAPIST_DAILY`;
+- `Φόρτος θεραπευτών` opens `THERAPIST_DAILY`;
 - fixed `Επιστροφή στο MASTER` control added;
 - workload shapes are locked;
 - MASTER protects drawing objects with `UserInterfaceOnly=True` so operators cannot drag badges while macros can redraw them;
-- occupied-slot counting continues to ignore struck, italic replacement-source and `→` annotation lines.
+- occupied-slot counting ignores struck, italic replacement-source and `→` annotation lines.
 
 `Python/rehab_excel/daily_input_change_navigation_vba.py` routes the workload button through daily-change ledger synchronization before operator restore work.
 
@@ -97,14 +97,7 @@ The user entered ΓΙΑΝΝΙΑ as all-day absent/transferred (`Διακομισ
 
 `Python/rehab_excel/daily_input_reader.py`
 
-Each active DAILY_INPUT row now yields a `DailyInputSourceChange` with:
-
-- stable change id;
-- exact source row;
-- change type;
-- subject/display name;
-- reason;
-- all-day/timeslot semantics.
+Each active DAILY_INPUT row yields a `DailyInputSourceChange` with stable change id, exact source row, change type, subject/display name, reason and all-day/timeslot semantics.
 
 Reader supports `ignore_rows=(...)` plus `allow_empty=True` for restore recomputation.
 
@@ -120,11 +113,7 @@ Restore preparation is read-only. It simulates removal of exactly one DAILY_INPU
 
 ### DAILY_INPUT ledger + restore transaction
 
-New:
-
-- `Python/rehab_excel/daily_input_change_ledger_vba.py`
-
-It uses the existing `DAILY_CHANGE_LEDGER` visible panel. DAILY_INPUT entries carry dedicated metadata in the ledger, are rewired to `RestoreDailyInputChangeRow`, and their bulk-selection checkbox is removed so they cannot accidentally enter replacement restore.
+`Python/rehab_excel/daily_input_change_ledger_vba.py` uses the existing `DAILY_CHANGE_LEDGER` visible panel. DAILY_INPUT entries carry dedicated metadata, are rewired to `RestoreDailyInputChangeRow`, and their bulk-selection checkbox is removed so they cannot accidentally enter replacement restore.
 
 Individual restore:
 
@@ -134,26 +123,63 @@ No close/reopen. Diagnostic:
 
 `%TEMP%\eka_daily_input_restore_last_error.log`
 
-### Deterministic preview installation
+## V7 build blockers fixed
 
-Both `registration_menu_vba.py` and `build_registration_menu_preview.py` install/verify the operational shell.
+### Guided double-booking UserForm recreation
 
-First V7 build blocker:
-- second preview pass tried to remove/recreate `frmDoubleBookingReview` even though the first pass had already installed it;
-- Excel/VBE retained the UserForm Designer/name and raised COM error 1004;
-- second pass is now idempotent: existing module+form are kept and only missing/partial installs are recreated.
+The second preview pass tried to remove/recreate `frmDoubleBookingReview` even though the first pass had already installed it. Excel/VBE retained the UserForm Designer/name and raised COM error 1004.
 
-Second V7 build blocker:
-- build progressed to `installing therapist workload strip` and failed on `master.Rows(3).RowHeight = 28` with Excel error `Δεν είναι δυνατός ο ορισμός της ιδιότητας RowHeight από την κλάση Range.`;
-- RowHeight is cosmetic only and is now best-effort in both Python installer and runtime VBA;
-- this failure also occurred before any V7 workbook behavior/native DAILY_INPUT test.
+Fix: second pass is idempotent. Existing module+form are kept and only missing/partial installs are recreated.
 
-Relevant fix commits:
+Relevant commits:
 
-- `3052b371354f740c0e41ad1f85131b5e89b7fc04` idempotent guided-review install
-- `088f833e831fe937b898928d0b88a82e0801d539` guided-review installer regression guard
-- `d9a9572dcb5a373812cec8e599bd9dc4371ee2d0` make RowHeight styling non-fatal in installer/runtime
-- `62fa398f33c409accbc714f62f9e47b01cc05e84` RowHeight non-fatal regression guard
+- `3052b371354f740c0e41ad1f85131b5e89b7fc04`
+- `088f833e831fe937b898928d0b88a82e0801d539`
+
+### Workload RowHeight build failure
+
+Build then progressed to `installing therapist workload strip` and failed on `master.Rows(3).RowHeight = 28`. RowHeight is cosmetic only and is now best-effort in both Python installer and runtime VBA.
+
+Relevant commits:
+
+- `d9a9572dcb5a373812cec8e599bd9dc4371ee2d0`
+- `62fa398f33c409accbc714f62f9e47b01cc05e84`
+
+## V7 first runtime diagnostic
+
+After the builder blockers were removed, the first actual DAILY_INPUT runtime attempt failed with operator message that the daily state was not updated.
+
+Diagnostic captured:
+
+```text
+timestamp=2026-10-26 00:13:25
+phase=daily input action
+patch_index=0
+sheet=
+cell=
+error_number=1004
+error=Το κελί ή το γράφημα που προσπαθείτε να αλλάξετε βρίσκεται σε προστατευμένο φύλλο...
+```
+
+Interpretation:
+
+- failure occurred before any validated PATCH (`patch_index=0`);
+- this is not a ΓΙΑΝΝΙΑ business-rule failure and not a patch-target/read-back failure;
+- the outer action had only generic phase reporting, so the exact pre-payload step was hidden;
+- no `Workbook_BeforeSave` implementation exists in repo source, therefore legacy/binary workbook event behavior remains a plausible source of the protected-sheet mutation during the initial `ThisWorkbook.Save`.
+
+Fix now on branch:
+
+- outer DAILY_INPUT action captures explicit phases: `preflight`, `resolve preparation tool`, `initial save`, `prepare payload paths`, `python preparation`, `apply payload`, `refresh operational views`, replacement continuation;
+- the initial `ThisWorkbook.Save` runs with `Application.EnableEvents = False` and always restores the prior event state;
+- Python preparation failure now writes the hidden diagnostic response instead of only showing a generic operator message;
+- operator messages remain non-technical;
+- cleanup restores the original event setting.
+
+Relevant commits:
+
+- `d40d0f18d5506831633035c9592da33817423fd9` event-safe initial save + phase-aware diagnostics
+- `42ab9a1dd2c71fa902b6a4e69d9c865410670744` regression guards for initial-save event isolation and preparation diagnostics
 
 ## New regression coverage
 
@@ -164,35 +190,27 @@ Added/updated:
 - `Tests/test_daily_input_change_restore_contract.py`
 - `Tests/test_therapist_navigation_and_locked_workload.py`
 - `Tests/test_build_registration_menu_operational_modules.py`
+- `Tests/test_daily_input_action_vba.py`
 - `Tests/test_production_actions_stay_in_session.py`
 
 The production guard includes DAILY_INPUT restore and rejects close/reopen/visible-console regressions.
 
-V7 pre-native focused gate is GREEN: `63 passed, 6 warnings in 5.92s`.
-
 ## Exact resume point
 
-Do not native-smoke V6 again. Discard any partially built V7 file from failed installer attempts.
+Do not reuse an older V7 workbook because installed VBA must contain the latest event-safe DAILY_INPUT action.
 
 Immediate order:
 
 1. pull latest branch;
-2. run focused builder/workload-navigation tests;
-3. rebuild fresh `DAILY_INPUT_IN_PLACE_V7.xlsm` with `--overwrite` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
-4. only if build succeeds, native all-day ΓΙΑΝΝΙΑ transfer test:
-   - recurring MASTER treatments for the selected date remain visible but red-struck;
-   - M status shows `Διακομιστήριο`;
-   - THERAPIST_DAILY affected lines are struck;
-   - actual original therapist occupied slots release correctly;
-   - `Φόρτος θεραπευτών` opens therapist schedule;
-   - `Επιστροφή στο MASTER` exists;
-   - workload badges cannot be dragged;
-   - DAILY_CHANGE_LEDGER panel shows ΓΙΑΝΝΙΑ with individual `Επαναφορά`;
-5. click ΓΙΑΝΝΙΑ restore and verify same workbook stays open, returns her to the daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears the exact DAILY_INPUT fact and marks ledger row RESTORED;
-6. on failure read `%TEMP%\eka_daily_input_last_error.log`, `%TEMP%\eka_replacement_last_error.log` or `%TEMP%\eka_daily_input_restore_last_error.log` before retrying;
-7. after patient branch is native green, test therapist absence/global replacement continuation;
-8. then continue patient/day finalized outcome history;
-9. later clean Python 3.14/openpyxl ZipFile destructor warnings without weakening workbook-safety tests.
+2. run focused DAILY_INPUT action + production/build guards;
+3. rebuild a fresh `DAILY_INPUT_IN_PLACE_V8.xlsm` from `Excel/previews/DOUBLE_BOOKING_REJECTED.xlsm`;
+4. repeat only the ΓΙΑΝΝΙΑ all-day `Διακομιστήριο` patient branch;
+5. if it fails, immediately read `%TEMP%\eka_daily_input_last_error.log`; the new phase must identify the exact step and no blind retry is allowed;
+6. if application succeeds, verify MASTER red strike, M status, THERAPIST_DAILY affected lines, actual therapist occupied-slot changes, workload navigation/locking and individual ΓΙΑΝΝΙΑ `Επαναφορά`;
+7. click ΓΙΑΝΝΙΑ restore and verify same workbook stays open, returns her to daily program, refreshes MASTER/THERAPIST_DAILY/workload, clears exact DAILY_INPUT fact and marks ledger row RESTORED;
+8. after patient branch is native green, test therapist absence/global replacement continuation;
+9. then continue patient/day finalized outcome history;
+10. later clean Python 3.14/openpyxl ZipFile destructor warnings without weakening workbook-safety tests.
 
 ## Safety reminders
 
