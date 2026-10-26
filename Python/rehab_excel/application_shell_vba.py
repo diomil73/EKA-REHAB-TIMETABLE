@@ -35,6 +35,8 @@ Public Sub KeepApplicationShell()
     If ActiveSheet.Name = "MASTER_SCHEDULE" Then
         TryApplyMasterView
         PinMasterToolbarAndHeaders
+    ElseIf ActiveSheet.Name = "THERAPIST_DAILY" Then
+        TryApplySupervisorPanelStyle
     End If
     On Error GoTo 0
 End Sub
@@ -72,6 +74,12 @@ End Sub
 Private Sub TryApplyMasterView()
     On Error Resume Next
     Application.Run "'" & ThisWorkbook.Name & "'!ApplyMasterView"
+    On Error GoTo 0
+End Sub
+
+Private Sub TryApplySupervisorPanelStyle()
+    On Error Resume Next
+    Application.Run "'" & ThisWorkbook.Name & "'!StyleSupervisorPanel"
     On Error GoTo 0
 End Sub
 
