@@ -27,7 +27,9 @@ Therapist workload remains available on the dedicated supervisory surface `THERA
 
 The workload badges are rendered beside the operational grid, beginning at column K, and are not rendered on MASTER.
 
-The `Επιστροφή στο MASTER` navigation control is anchored at `K1`, beside the top of the operational grid. It must not be placed in the middle separator area of the schedule.
+The `Επιστροφή στο MASTER` navigation control belongs to the lower supervisory controls area together with the daily-change / restore panel, not to the top-right of the therapist schedule.
+
+Its position is dynamic: the daily-change ledger stores its visible panel start row in `DAILY_CHANGE_LEDGER!R1`; the navigation control is anchored one row above that start row. This keeps the schedule area visually clean and makes the navigation follow the restore panel if its vertical position changes later.
 
 ### Access policy
 
@@ -43,6 +45,8 @@ A future supervisor menu may call the existing `OpenTherapistDailyWithChanges` a
 ## Daily changes / restore relationship
 
 The reversible daily-change ledger remains part of the Physiotherapy supervisory workflow. Its navigation macro is retained, but it is no longer wired to a general MASTER workload button.
+
+Navigation back to MASTER and patient restore controls are intentionally grouped into the same lower management zone.
 
 This separation is intentional:
 
