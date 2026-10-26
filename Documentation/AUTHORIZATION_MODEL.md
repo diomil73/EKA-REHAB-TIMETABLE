@@ -39,7 +39,7 @@ The model must support role plus specialty scope rather than creating a differen
 
 Example:
 
-`DEPARTMENT_HEAD + LOGOTHERAPY`
+`DEPARTMENT_HEAD + SPEECH_THERAPY`
 
 and
 
@@ -95,13 +95,31 @@ Access:
 - all administrative and operational screens;
 - all registries and settings;
 - therapist workload and management information;
-- daily change/restore functions;
+- Physiotherapy statistics;
+- Physiotherapy automated daily change/restore functions;
 - user and permission administration;
 - ability to intervene in all permitted operational data.
 
 `SUPER_USER` is an authorization superset of all other application roles, except that passwords themselves remain non-readable by design.
 
-### 2. PARAMEDICAL_HEAD
+### 2. PHYSIOTHERAPY_HEAD
+
+Reserved for any additional Physiotherapy Head who may be appointed in the future.
+
+This is a privileged Physiotherapy supervisory role, not a generic department-head role.
+
+Access includes:
+
+- Physiotherapy scheduling and operational intervention;
+- Robotics, Tilt Table and Pool because they belong to the `PHYSIOTHERAPY` scope;
+- therapist workload;
+- Physiotherapy management statistics;
+- Physiotherapy daily change/restore functions;
+- the Physiotherapy supervisory surface.
+
+This role does not automatically imply system administration, user administration or unrestricted access to all non-Physiotherapy specialties unless separately granted.
+
+### 3. PARAMEDICAL_HEAD
 
 Head of paramedical services.
 
@@ -110,6 +128,7 @@ Access:
 - may intervene in patient therapy scheduling for all specialties **except Physiotherapy**;
 - may change the patient names/entries and therapy times that belong to those specialties, according to the operational editing rules;
 - has no authority to alter Physiotherapy scheduling solely by virtue of this role;
+- does not receive Physiotherapy workload/statistics/restore privileges;
 - administrative/system privileges are not implied.
 
 Specialty scope:
@@ -118,7 +137,7 @@ Specialty scope:
 
 This expands to Occupational Therapy, Speech Therapy, Psychology and Special Physical Education only.
 
-### 3. DEPARTMENT_HEAD
+### 4. DEPARTMENT_HEAD
 
 Heads/responsible persons of the remaining specialties.
 
@@ -127,7 +146,8 @@ Access:
 - same type of patient-therapy intervention as `PARAMEDICAL_HEAD`;
 - restricted strictly to the user's own specialty;
 - may change the patient names/entries and therapy times belonging to that specialty;
-- may not modify other specialties or Physiotherapy unless separately granted another role/scope.
+- may not modify other specialties or Physiotherapy unless separately granted another role/scope;
+- does not receive Physiotherapy workload/statistics/restore privileges.
 
 Specialty scope is mandatory for this role and is one of:
 
@@ -136,7 +156,7 @@ Specialty scope is mandatory for this role and is one of:
 - `PSYCHOLOGY`
 - `SPECIAL_PHYSICAL_EDUCATION`
 
-### 4. MEDICAL_VIEWER
+### 5. MEDICAL_VIEWER
 
 Includes Director of Medical Service, Coordinating Directors and other physicians.
 
@@ -147,7 +167,7 @@ Access:
 - link/action to the patient progress view (the view using green/grey/red face indicators);
 - no scheduling/editing authority is implied by this role.
 
-### 5. MASTER_VIEWER
+### 6. MASTER_VIEWER
 
 Includes nursing staff and patient transport/orderly staff.
 
@@ -159,17 +179,44 @@ Access:
 - no patient scheduling/edit actions;
 - no registries/settings.
 
-## Therapist workload privacy rule
+## Physiotherapy supervisory privacy rule
 
-Therapist workload is not a general MASTER feature.
+Therapist workload, Physiotherapy management statistics and automated Physiotherapy daily-change/restore tooling are not general MASTER features.
+
+They are available only to:
+
+- `SUPER_USER`; and
+- `PHYSIOTHERAPY_HEAD` when such a separate account/role exists.
+
+Therefore:
 
 - workload badges/metrics/button must be removed from the normal `MASTER_SCHEDULE` surface;
-- seeing MASTER does not imply permission to see therapist workload;
-- workload belongs to a management/supervisory surface;
-- authorization for workload must be explicit (for example a future `VIEW_THERAPIST_WORKLOAD` capability);
+- seeing MASTER does not imply permission to see therapist workload or management statistics;
+- `PARAMEDICAL_HEAD` and non-Physiotherapy `DEPARTMENT_HEAD` users do not receive these privileges;
+- workload/statistics/restore belong to a dedicated Physiotherapy supervisory surface;
 - the final supervisor-entry location can be decided separately from this contract.
 
 Until the role-aware UI is implemented, the safe default is not to expose workload from MASTER.
+
+## Non-Physiotherapy scheduling boundary
+
+Occupational Therapy, Speech Therapy, Psychology and Special Physical Education do not use the Physiotherapy workload/replacement engine as their normal scheduling model.
+
+Their agreed model is:
+
+`manual specialty scheduling + canonical time selection + cross-specialty patient conflict guard`
+
+Detailed rules are defined in `Documentation/NON_PHYSIOTHERAPY_SCHEDULING_POLICY.md`.
+
+In particular:
+
+- their operators choose times manually from authoritative application time lists;
+- arbitrary/free-text time variants are forbidden;
+- there is no normal override for canonical-time validation;
+- same therapist/date/time may contain multiple patients when legitimate for that specialty;
+- the shared system blocks a patient's selected time when another specialty already occupies that time on the same day;
+- the conflict message identifies the other specialty and offers the patient's free canonical times;
+- there is no normal operator override for a cross-specialty patient collision.
 
 ## Capability direction
 
@@ -184,7 +231,8 @@ Initial capability vocabulary should include at least:
 - `EDIT_PHYSIOTHERAPY_THERAPY`
 - `EDIT_SPECIALTY_THERAPY`
 - `VIEW_THERAPIST_WORKLOAD`
-- `RESTORE_DAILY_CHANGE`
+- `VIEW_PHYSIOTHERAPY_STATISTICS`
+- `RESTORE_PHYSIOTHERAPY_DAILY_CHANGE`
 - `MANAGE_REGISTRIES`
 - `MANAGE_SETTINGS`
 - `MANAGE_USERS`
@@ -214,8 +262,9 @@ Examples:
 
 - `MASTER_VIEWER`: MASTER only.
 - `MEDICAL_VIEWER`: MASTER plus electronic-record and patient-progress actions.
-- `DEPARTMENT_HEAD`: operational editing controls only for owned specialty.
-- `PARAMEDICAL_HEAD`: operational editing controls for all non-Physiotherapy specialties.
+- `DEPARTMENT_HEAD`: manual scheduling controls only for owned specialty, using canonical times and shared conflict validation.
+- `PARAMEDICAL_HEAD`: manual scheduling controls for all non-Physiotherapy specialties, using the same validation.
+- `PHYSIOTHERAPY_HEAD`: Physiotherapy scheduling plus workload/statistics/restore supervisory functions.
 - `SUPER_USER`: complete application/navigation surface.
 
 The same action must still perform an authorization check even if the UI normally hides it from unauthorized users.
@@ -240,7 +289,7 @@ The following are intentionally not fixed yet:
 - exact login-screen visual design;
 - password reset workflow;
 - where user administration appears in the UI;
-- final supervisor-management navigation surface;
+- final Physiotherapy supervisor-management navigation surface;
 - session timeout / lock policy;
 - whether some users may hold multiple roles/scopes simultaneously.
 
