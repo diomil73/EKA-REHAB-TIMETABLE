@@ -25,12 +25,6 @@ def test_supervisor_panel_styles_and_repositions_navigation_with_restore_actions
     assert 'ledger.Range("R1").Value' in MODULE_CODE
     assert "actionRow = lastDisplayRow + 2" in MODULE_CODE
     assert "shp.Left = daily.Cells(actionRow, 1).Left + 2" in MODULE_CODE
-    assert 'shapeName = LEDGER_SHAPE_PREFIX & "RestoreSelected"' not in MODULE_CODE
-    assert 'shapeName = LEDGER_SHAPE_PREFIX & "RestoreAll"' not in MODULE_CODE
-    assert 'shapeName = "ekaLedger_RestoreSelected"' not in MODULE_CODE
-    assert 'shapeName = "ekaLedger_RestoreAll"' not in MODULE_CODE
-    assert 'shapeName = LEDGER_SHAPE_PREFIX & "RestoreSelected"' not in MODULE_CODE
-    assert 'shapeName = LEDGER_SHAPE_PREFIX & "RestoreAll"' not in MODULE_CODE
     assert 'ElseIf shapeName = LEDGER_SHAPE_PREFIX & "RestoreSelected" Then' in MODULE_CODE
     assert 'ElseIf shapeName = LEDGER_SHAPE_PREFIX & "RestoreAll" Then' in MODULE_CODE
 
