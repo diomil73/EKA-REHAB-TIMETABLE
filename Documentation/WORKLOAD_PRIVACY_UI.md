@@ -27,9 +27,24 @@ Therapist workload remains available on the dedicated supervisory surface `THERA
 
 The workload badges are rendered beside the operational grid, beginning at column K, and are not rendered on MASTER.
 
-The `Επιστροφή στο MASTER` navigation control belongs to the lower supervisory controls area together with the daily-change / restore panel, not to the top-right of the therapist schedule.
+The lower daily-change area is a dedicated supervisory panel rather than a raw Excel table. It uses a restrained application-like presentation:
 
-Its position is dynamic: the daily-change ledger stores its visible panel start row in `DAILY_CHANGE_LEDGER!R1`; the navigation control is anchored one row above that start row. This keeps the schedule area visually clean and makes the navigation follow the restore panel if its vertical position changes later.
+- pale mint panel background;
+- stronger mint title/header zone;
+- alternating very-light rows for readability;
+- soft coral/pink restore actions;
+- larger controls and increased row height;
+- light borders instead of a dense spreadsheet grid.
+
+The `Επιστροφή στο MASTER` control belongs in the same bottom action row as the restore controls. It must not sit above/right of the therapist schedule or float as a separate navigation element.
+
+The bottom action row is calculated from the last visible daily-change row, so navigation and restore buttons remain grouped even when the ledger grows or shrinks.
+
+The intended action-row order is:
+
+`Επιστροφή στο MASTER | Επαναφορά επιλεγμένων | Επαναφορά όλων`
+
+The presentation layer must be reapplied whenever the daily-change ledger refreshes; restore/business logic must not depend on the panel styling.
 
 ### Access policy
 
@@ -57,7 +72,10 @@ This separation is intentional:
 Relevant modules:
 
 - `Python/rehab_excel/therapist_workload_strip_vba.py`
+- `Python/rehab_excel/daily_change_ledger_vba.py`
 - `Python/rehab_excel/daily_input_change_navigation_vba.py`
+
+The workload-strip module owns only the visual supervisory-panel styling and navigation positioning. The daily-change ledger remains authoritative for restore behavior.
 
 Regression coverage:
 
