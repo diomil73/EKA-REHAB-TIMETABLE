@@ -47,6 +47,40 @@ and
 
 share the same role semantics but operate only inside their own specialty scope.
 
+## Agreed specialty authorization scopes
+
+The authoritative specialty scopes are:
+
+- `PHYSIOTHERAPY`
+- `OCCUPATIONAL_THERAPY`
+- `SPEECH_THERAPY`
+- `PSYCHOLOGY`
+- `SPECIAL_PHYSICAL_EDUCATION`
+
+### Physiotherapy ownership
+
+`PHYSIOTHERAPY` is one authorization scope and includes all of the following operational areas:
+
+- standard Physiotherapy;
+- Robotics;
+- Tilt Table / reclining-table treatment (`Ανακλινόμενο`);
+- Pool / hydrotherapy (`Πισίνα`).
+
+Robotics, Tilt Table and Pool are **not separate authorization scopes**. They are Physiotherapy-owned treatment areas and inherit Physiotherapy permissions.
+
+Therefore, a user authorized for `PHYSIOTHERAPY` may act on those Physiotherapy sub-areas according to the capabilities granted by their role. A user without `PHYSIOTHERAPY` scope does not gain access to those areas merely because they appear in separate MASTER columns.
+
+### Non-Physiotherapy aggregate scope
+
+`ALL_NON_PHYSIOTHERAPY` is a derived scope used by `PARAMEDICAL_HEAD` and means exactly:
+
+- `OCCUPATIONAL_THERAPY`
+- `SPEECH_THERAPY`
+- `PSYCHOLOGY`
+- `SPECIAL_PHYSICAL_EDUCATION`
+
+It explicitly excludes `PHYSIOTHERAPY` and all Physiotherapy-owned sub-areas.
+
 ## Agreed operational roles
 
 ### 1. SUPER_USER / ADMIN
@@ -82,6 +116,8 @@ Specialty scope:
 
 `ALL_NON_PHYSIOTHERAPY`
 
+This expands to Occupational Therapy, Speech Therapy, Psychology and Special Physical Education only.
+
 ### 3. DEPARTMENT_HEAD
 
 Heads/responsible persons of the remaining specialties.
@@ -93,9 +129,12 @@ Access:
 - may change the patient names/entries and therapy times belonging to that specialty;
 - may not modify other specialties or Physiotherapy unless separately granted another role/scope.
 
-Specialty scope is mandatory for this role.
+Specialty scope is mandatory for this role and is one of:
 
-Examples may include Occupational Therapy, Speech Therapy, Psychology and other specialties represented by the application.
+- `OCCUPATIONAL_THERAPY`
+- `SPEECH_THERAPY`
+- `PSYCHOLOGY`
+- `SPECIAL_PHYSICAL_EDUCATION`
 
 ### 4. MEDICAL_VIEWER
 
@@ -160,9 +199,10 @@ Therapy cells/actions must have an authoritative specialty owner.
 Authorization to edit a patient therapy entry is therefore evaluated as:
 
 1. identify the therapy/schedule specialty;
-2. check whether the logged-in user's role grants editing capability;
-3. check whether the user's specialty scope includes that specialty;
-4. only then expose/execute the edit.
+2. normalize any Physiotherapy sub-area (Robotics, Tilt Table, Pool) to `PHYSIOTHERAPY` ownership;
+3. check whether the logged-in user's role grants editing capability;
+4. check whether the user's specialty scope includes that specialty;
+5. only then expose/execute the edit.
 
 This prevents a department head from editing another department merely by reaching the same worksheet or macro.
 
