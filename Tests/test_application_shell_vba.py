@@ -114,7 +114,8 @@ def test_event_call_installation_is_idempotent():
 def test_registration_menu_installer_installs_application_shell():
     source = inspect.getsource(Win32ComRegistrationMenuInstaller.install)
     assert "install_application_shell(vbproject, workbook=workbook)" in source
-    assert "Application shell module was not confirmed" in source
+    assert "APP_SHELL_MODULE_NAME: \"Application shell\"" in source
+    assert "if not self._component_present(vbproject, name):" in source
 
 
 class FakeComponent:
