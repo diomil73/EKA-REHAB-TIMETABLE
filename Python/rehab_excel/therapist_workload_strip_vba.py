@@ -10,6 +10,7 @@ MODULE_CODE = r'''Option Explicit
 Private Const WORKLOAD_PREFIX As String = "ekaWorkload_"
 Private Const DEFAULT_CAPACITY As Long = 6
 Private Const NAV_MASTER_BUTTON As String = "ekaNav_Master"
+Private Const LEDGER_SHEET As String = "DAILY_CHANGE_LEDGER"
 
 Public Sub ShowTherapistWorkload()
     On Error Resume Next
@@ -32,9 +33,11 @@ End Sub
 Public Sub EnsureTherapistNavigation()
     Dim daily As Worksheet
     Dim shape As Shape
+    Dim anchor As Range
 
     On Error GoTo NavigationExit
     Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
+    Set anchor = TherapistNavigationAnchor(daily)
 
     On Error Resume Next
     Set shape = daily.Shapes(NAV_MASTER_BUTTON)
@@ -42,13 +45,13 @@ Public Sub EnsureTherapistNavigation()
 
     If shape Is Nothing Then
         Set shape = daily.Shapes.AddShape(5, _
-            daily.Range("K1").Left + 4, _
-            daily.Range("K1").Top + 2, _
+            anchor.Left + 4, _
+            anchor.Top + 2, _
             150, 24)
         shape.Name = NAV_MASTER_BUTTON
     Else
-        shape.Left = daily.Range("K1").Left + 4
-        shape.Top = daily.Range("K1").Top + 2
+        shape.Left = anchor.Left + 4
+        shape.Top = anchor.Top + 2
         shape.Width = 150
         shape.Height = 24
     End If
@@ -68,6 +71,24 @@ Public Sub EnsureTherapistNavigation()
 
 NavigationExit:
 End Sub
+
+Private Function TherapistNavigationAnchor(ByVal daily As Worksheet) As Range
+    Dim ledger As Worksheet
+    Dim restoreStartRow As Long
+    Dim navRow As Long
+
+    restoreStartRow = 21
+    On Error Resume Next
+    Set ledger = ThisWorkbook.Worksheets(LEDGER_SHEET)
+    If Not ledger Is Nothing Then
+        If IsNumeric(ledger.Range("R1").Value) Then restoreStartRow = CLng(ledger.Range("R1").Value)
+    End If
+    On Error GoTo 0
+
+    If restoreStartRow < 21 Then restoreStartRow = 21
+    navRow = restoreStartRow - 1
+    Set TherapistNavigationAnchor = daily.Range("A" & CStr(navRow))
+End Function
 
 Public Sub RenderTherapistWorkloadStrip()
     Dim master As Worksheet
@@ -334,6 +355,19 @@ def _delete_workload_shapes(ws) -> None:
             pass
 
 
+def _navigation_anchor(daily, workbook):
+    restore_start_row = 21
+    try:
+        ledger = workbook.Worksheets("DAILY_CHANGE_LEDGER")
+        value = ledger.Range("R1").Value
+        if value is not None:
+            restore_start_row = int(value)
+    except Exception:
+        pass
+    restore_start_row = max(21, restore_start_row)
+    return daily.Range(f"A{restore_start_row - 1}")
+
+
 def install_therapist_workload_strip(vbproject, workbook) -> None:
     """Install supervisor workload view without exposing workload on MASTER."""
 
@@ -356,10 +390,11 @@ def install_therapist_workload_strip(vbproject, workbook) -> None:
         daily.Shapes(NAV_MASTER_BUTTON_NAME).Delete()
     except Exception:
         pass
+    anchor = _navigation_anchor(daily, workbook)
     nav = daily.Shapes.AddShape(
         5,
-        float(daily.Range("K1").Left) + 4,
-        float(daily.Range("K1").Top) + 2,
+        float(anchor.Left) + 4,
+        float(anchor.Top) + 2,
         150,
         24,
     )
