@@ -97,12 +97,12 @@ def test_daily_input_action_routes_to_global_replacement_workflow_only_when_need
     assert "GoToMaster" in source
 
 
-def test_daily_input_success_refreshes_operational_views_and_workload():
+def test_daily_input_success_refreshes_operational_views_without_retired_master_workload_shape():
     source = DAILY_INPUT_MODULE_CODE
 
     assert "RefreshOperationalViews" in source
     assert "RenderTherapistWorkloadStrip" in source
-    assert 'master.Shapes("ekaWorkload_Refresh")' in source
+    assert 'master.Shapes("ekaWorkload_Refresh")' not in source
     assert "ApplyMasterView" in source
     assert 'Worksheets("THERAPIST_DAILY")' in source
 
