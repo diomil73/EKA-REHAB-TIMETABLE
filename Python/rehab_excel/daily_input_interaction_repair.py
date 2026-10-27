@@ -4,6 +4,7 @@ from .daily_input_sheet import THERAPIST_ABSENCE_REASONS
 
 
 DAILY_INPUT_SHEET = "DAILY_INPUT"
+LEDGER_SHEET = "DAILY_CHANGE_LEDGER"
 LISTS_SHEET = "_PY_LISTS"
 THERAPIST_FIRST_ROW = 7
 THERAPIST_LAST_ROW = 16
@@ -12,6 +13,10 @@ PATIENT_LAST_ROW = 40
 REASON_NAME = "PY_THERAPIST_REASONS"
 LEGACY_DIRECT_REPLACEMENT_MACRO = "resolvedailyreplacementsinplace"
 DAILY_INPUT_APPLY_MACRO = "ApplyDailyInputPreview"
+LEDGER_META_PREFIX = "DAILY_INPUT:"
+LEDGER_STATUS_ACTIVE = "ACTIVE"
+LEDGER_STATUS_COLUMN = 12
+LEDGER_META_COLUMN = 18
 
 
 class DailyInputInteractionRepairError(RuntimeError):
@@ -83,6 +88,57 @@ def _set_reason_validation(ws) -> None:
     target.Validation.ShowError = True
 
 
+def _parse_daily_input_source_row(meta: object) -> int | None:
+    text = str(meta or "").strip()
+    if not text.startswith(LEDGER_META_PREFIX):
+        return None
+    source_row_text = text.rsplit(":", 1)[-1].strip()
+    if not source_row_text.isdigit():
+        return None
+    source_row = int(source_row_text)
+    if THERAPIST_FIRST_ROW <= source_row <= THERAPIST_LAST_ROW:
+        return source_row
+    if PATIENT_FIRST_ROW <= source_row <= PATIENT_LAST_ROW:
+        return source_row
+    return None
+
+
+def active_daily_input_rows(workbook) -> tuple[int, ...]:
+    """Return source rows whose DAILY_INPUT ledger record is still ACTIVE."""
+
+    ledger = _find_sheet(workbook, LEDGER_SHEET)
+    if ledger is None:
+        return ()
+
+    last_row = int(ledger.Cells(ledger.Rows.Count, 1).End(-4162).Row)
+    active_rows: set[int] = set()
+    for row in range(2, last_row + 1):
+        status = str(ledger.Cells(row, LEDGER_STATUS_COLUMN).Value or "").strip().upper()
+        if status != LEDGER_STATUS_ACTIVE:
+            continue
+        source_row = _parse_daily_input_source_row(
+            ledger.Cells(row, LEDGER_META_COLUMN).Value
+        )
+        if source_row is not None:
+            active_rows.add(source_row)
+    return tuple(sorted(active_rows))
+
+
+def _apply_input_editability(workbook, ws) -> tuple[int, ...]:
+    active_rows = active_daily_input_rows(workbook)
+
+    ws.Range(f"A{THERAPIST_FIRST_ROW}:F{THERAPIST_LAST_ROW}").Locked = False
+    ws.Range(f"A{PATIENT_FIRST_ROW}:E{PATIENT_LAST_ROW}").Locked = False
+
+    for source_row in active_rows:
+        if THERAPIST_FIRST_ROW <= source_row <= THERAPIST_LAST_ROW:
+            ws.Range(f"A{source_row}:F{source_row}").Locked = True
+        else:
+            ws.Range(f"A{source_row}:E{source_row}").Locked = True
+
+    return active_rows
+
+
 def _rewire_legacy_buttons(ws) -> int:
     rewired = 0
 
@@ -115,7 +171,11 @@ def _rewire_legacy_buttons(ws) -> int:
 
 
 def repair_daily_input_interaction(workbook) -> int:
-    """Repair native DAILY_INPUT interaction without clearing existing entries."""
+    """Repair DAILY_INPUT interaction without clearing existing entries.
+
+    Unapplied input rows remain editable. Rows represented by ACTIVE DAILY_INPUT
+    ledger records are locked and can only be reversed through THERAPIST_DAILY.
+    """
 
     ws = _find_sheet(workbook, DAILY_INPUT_SHEET)
     if ws is None:
@@ -137,13 +197,12 @@ def repair_daily_input_interaction(workbook) -> int:
 
     _ensure_reason_list(workbook)
     _set_reason_validation(ws)
-
-    ws.Range(f"A{THERAPIST_FIRST_ROW}:F{THERAPIST_LAST_ROW}").Locked = False
-    ws.Range(f"A{PATIENT_FIRST_ROW}:E{PATIENT_LAST_ROW}").Locked = False
+    _apply_input_editability(workbook, ws)
 
     rewired = _rewire_legacy_buttons(ws)
 
-    if was_protected:
-        ws.Protect(UserInterfaceOnly=True)
+    # Protection is required for Locked=True to have native UI effect. Input
+    # cells intended for operator editing were explicitly unlocked above.
+    ws.Protect(UserInterfaceOnly=True)
 
     return rewired
