@@ -10,9 +10,12 @@ MODULE_CODE = r'''Option Explicit
 Private Const LEDGER_SHEET As String = "DAILY_CHANGE_LEDGER"
 Private Const DAILY_INPUT_SHEET As String = "DAILY_INPUT"
 Private Const DAILY_VIEW_SHEET As String = "THERAPIST_DAILY"
+Private Const REPLACEMENT_FACT_SHEET As String = "DAILY_REPLACEMENT_FACTS"
 Private Const META_PREFIX As String = "DAILY_INPUT:"
 Private Const STATUS_ACTIVE As String = "ACTIVE"
 Private Const STATUS_RESTORED As String = "RESTORED"
+Private Const AUTO_SUSPENSION_STATUS As String = "Αναστολή θεραπείας"
+Private Const AUTO_SUSPENSION_REASON As String = "Δεν βρέθηκε έγκυρη αναπλήρωση από τον global solver"
 Private Const SHAPE_PREFIX As String = "ekaLedger_"
 
 Public Sub SyncDailyInputChangesToLedger()
@@ -81,6 +84,8 @@ Public Sub RestoreDailyInputChangeRow()
     Dim commandLine As String, responseText As String, rollbackPath As String
     Dim exitCode As Long, previousEvents As Boolean, previousScreen As Boolean
 
+    previousEvents = Application.EnableEvents
+    previousScreen = Application.ScreenUpdating
     On Error GoTo RestoreError
     Set ledger = ThisWorkbook.Worksheets(LEDGER_SHEET)
     callerName = CStr(Application.Caller)
@@ -131,10 +136,11 @@ Public Sub RestoreDailyInputChangeRow()
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
     ThisWorkbook.SaveCopyAs rollbackPath
 
-    previousEvents = Application.EnableEvents
-    previousScreen = Application.ScreenUpdating
     Application.EnableEvents = False
     Application.ScreenUpdating = False
+
+    If Not ApplyRestoreDependencyMutations(responseText) Then _
+        Err.Raise vbObjectError + 2502, , "Dependent replacement restore verification failed"
 
     ResetMasterDailyPresentation
     ThisWorkbook.Worksheets(DAILY_INPUT_SHEET).Range("A" & CStr(sourceRow) & ":F" & CStr(sourceRow)).ClearContents
@@ -174,6 +180,58 @@ CleanUp:
     If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then Kill rollbackPath
     On Error GoTo 0
 End Sub
+
+Private Function ApplyRestoreDependencyMutations(ByVal responseText As String) As Boolean
+    Dim replacementIds As String, suspensionRows As String
+    Dim wsFacts As Worksheet, wsInput As Worksheet, parts As Variant
+    Dim item As Variant, found As Range, rowNumber As Long
+
+    On Error GoTo Failed
+    replacementIds = JsonRestoreStringValue(responseText, "replacement_restore_ids")
+    suspensionRows = JsonRestoreStringValue(responseText, "generated_suspension_rows")
+
+    If Len(replacementIds) > 0 Then
+        On Error Resume Next
+        Set wsFacts = ThisWorkbook.Worksheets(REPLACEMENT_FACT_SHEET)
+        On Error GoTo Failed
+        If wsFacts Is Nothing Then Exit Function
+        wsFacts.Unprotect
+        parts = Split(replacementIds, "|")
+        For Each item In parts
+            Set found = wsFacts.Columns(1).Find(What:=CStr(item), LookAt:=xlWhole, MatchCase:=False)
+            If found Is Nothing Then GoTo Failed
+            If UCase$(Trim$(CStr(wsFacts.Cells(found.Row, 10).Value))) <> STATUS_ACTIVE Then GoTo Failed
+            wsFacts.Cells(found.Row, 10).Value = STATUS_RESTORED
+            If UCase$(Trim$(CStr(wsFacts.Cells(found.Row, 10).Value))) <> STATUS_RESTORED Then GoTo Failed
+        Next item
+        wsFacts.Visible = xlSheetVeryHidden
+        wsFacts.Protect
+    End If
+
+    If Len(suspensionRows) > 0 Then
+        Set wsInput = ThisWorkbook.Worksheets(DAILY_INPUT_SHEET)
+        parts = Split(suspensionRows, ",")
+        For Each item In parts
+            If Not IsNumeric(item) Then GoTo Failed
+            rowNumber = CLng(item)
+            If Trim$(CStr(wsInput.Cells(rowNumber, 4).Value)) <> AUTO_SUSPENSION_STATUS Then GoTo Failed
+            If InStr(1, CStr(wsInput.Cells(rowNumber, 5).Value), AUTO_SUSPENSION_REASON, vbTextCompare) = 0 Then GoTo Failed
+            wsInput.Range("A" & CStr(rowNumber) & ":F" & CStr(rowNumber)).ClearContents
+            If Len(Trim$(CStr(wsInput.Cells(rowNumber, 1).Value))) > 0 Then GoTo Failed
+        Next item
+    End If
+
+    ApplyRestoreDependencyMutations = True
+    Exit Function
+
+Failed:
+    On Error Resume Next
+    If Not wsFacts Is Nothing Then
+        wsFacts.Visible = xlSheetVeryHidden
+        wsFacts.Protect
+    End If
+    On Error GoTo 0
+End Function
 
 Private Function EnsureDailyChangeLedger() As Worksheet
     Dim ws As Worksheet, daily As Worksheet, startRow As Long
@@ -276,6 +334,7 @@ End Sub
 
 Private Sub RestoreDailyInputTransaction(ByVal rollbackPath As String, ByVal sourceRow As Long, ByVal ledgerRow As Long)
     Dim backup As Workbook, oldAlerts As Boolean
+    Dim backupFacts As Worksheet, currentFacts As Worksheet
     oldAlerts = Application.DisplayAlerts
     Application.DisplayAlerts = False
     Set backup = Application.Workbooks.Open(rollbackPath, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False)
@@ -285,10 +344,18 @@ Private Sub RestoreDailyInputTransaction(ByVal rollbackPath As String, ByVal sou
         Destination:=ThisWorkbook.Worksheets("MASTER_SCHEDULE").Range("A1:M5000")
     backup.Worksheets("THERAPIST_DAILY").Range("A1:J200").Copy _
         Destination:=ThisWorkbook.Worksheets("THERAPIST_DAILY").Range("A1:J200")
-    backup.Worksheets(DAILY_INPUT_SHEET).Range("A" & CStr(sourceRow) & ":F" & CStr(sourceRow)).Copy _
-        Destination:=ThisWorkbook.Worksheets(DAILY_INPUT_SHEET).Range("A" & CStr(sourceRow) & ":F" & CStr(sourceRow))
+    backup.Worksheets(DAILY_INPUT_SHEET).Range("A1:F5000").Copy _
+        Destination:=ThisWorkbook.Worksheets(DAILY_INPUT_SHEET).Range("A1:F5000")
     backup.Worksheets(LEDGER_SHEET).Range("A" & CStr(ledgerRow) & ":S" & CStr(ledgerRow)).Copy _
         Destination:=ThisWorkbook.Worksheets(LEDGER_SHEET).Range("A" & CStr(ledgerRow) & ":S" & CStr(ledgerRow))
+    Set backupFacts = backup.Worksheets(REPLACEMENT_FACT_SHEET)
+    Set currentFacts = ThisWorkbook.Worksheets(REPLACEMENT_FACT_SHEET)
+    If Not backupFacts Is Nothing And Not currentFacts Is Nothing Then
+        currentFacts.Unprotect
+        backupFacts.Range("A1:J5000").Copy Destination:=currentFacts.Range("A1:J5000")
+        currentFacts.Visible = xlSheetVeryHidden
+        currentFacts.Protect
+    End If
     Application.CutCopyMode = False
     backup.Close SaveChanges:=False
     ThisWorkbook.Save
@@ -339,6 +406,21 @@ Private Function JoinReason(ByVal firstText As String, ByVal secondText As Strin
     Else
         JoinReason = firstText & " | " & secondText
     End If
+End Function
+
+Private Function JsonRestoreStringValue(ByVal jsonText As String, ByVal key As String) As String
+    Dim marker As String, markerPos As Long, colonPos As Long
+    Dim firstQuote As Long, secondQuote As Long
+    marker = Chr$(34) & key & Chr$(34)
+    markerPos = InStr(1, jsonText, marker, vbTextCompare)
+    If markerPos = 0 Then Exit Function
+    colonPos = InStr(markerPos + Len(marker), jsonText, ":")
+    If colonPos = 0 Then Exit Function
+    firstQuote = InStr(colonPos + 1, jsonText, Chr$(34))
+    If firstQuote = 0 Then Exit Function
+    secondQuote = InStr(firstQuote + 1, jsonText, Chr$(34))
+    If secondQuote = 0 Then Exit Function
+    JsonRestoreStringValue = Mid$(jsonText, firstQuote + 1, secondQuote - firstQuote - 1)
 End Function
 
 Private Function ResolveDailyInputRestoreScript() As String
