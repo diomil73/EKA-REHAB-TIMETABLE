@@ -2,7 +2,8 @@ from __future__ import annotations
 
 MODULE_NAME = "modReplacementOperator"
 FORM_NAME = "frmReplacementDecision"
-MACRO_NAME = "RunManualReplacementWorkflow"
+MACRO_NAME = "ResolveReplacementWorkflow"
+DAILY_INPUT_MODULE_NAME = "modDailyInputAction"
 
 MODULE_CODE = r'''Option Explicit
 
@@ -11,6 +12,27 @@ Private mRowsPath As String
 Private mDecisionResponse As String
 Private mDecisionAccepted As Boolean
 Private mWorkflowCancelled As Boolean
+
+Public Function ResolveReplacementWorkflow() As Boolean
+    Dim answer As VbMsgBoxResult
+
+    answer = MsgBox( _
+        "Υπάρχουν ασθενείς που χρειάζονται αναπλήρωση." & vbCrLf & vbCrLf & _
+        "ΝΑΙ: καλύτερη αυτόματη συνολική λύση" & vbCrLf & _
+        "ΟΧΙ: χειροκίνητη τακτοποίηση ασθενή-ασθενή" & vbCrLf & _
+        "ΑΚΥΡΟ: διακοπή χωρίς νέα αναπλήρωση", _
+        vbYesNoCancel + vbQuestion + vbDefaultButton2, _
+        "Τακτοποίηση αναπληρώσεων")
+
+    Select Case answer
+        Case vbYes
+            ResolveReplacementWorkflow = ResolveDailyReplacementsInPlace()
+        Case vbNo
+            ResolveReplacementWorkflow = RunManualReplacementWorkflow()
+        Case Else
+            ResolveReplacementWorkflow = False
+    End Select
+End Function
 
 Public Function RunManualReplacementWorkflow() As Boolean
     Dim iteration As Long, mode As String
@@ -417,6 +439,21 @@ def _remove_component_if_present(vbproject, name: str) -> None:
     vbproject.VBComponents.Remove(component)
 
 
+def _patch_daily_input_route(vbproject) -> None:
+    component = vbproject.VBComponents(DAILY_INPUT_MODULE_NAME)
+    code_module = component.CodeModule
+    source = str(code_module.Lines(1, code_module.CountOfLines))
+    legacy = "If ResolveDailyReplacementsInPlace() Then"
+    routed = "If ResolveReplacementWorkflow() Then"
+    if routed in source:
+        return
+    if legacy not in source:
+        raise RuntimeError("DAILY_INPUT replacement continuation point was not found")
+    source = source.replace(legacy, routed, 1)
+    code_module.DeleteLines(1, code_module.CountOfLines)
+    code_module.AddFromString(source)
+
+
 def install_replacement_operator(vbproject) -> None:
     _remove_component_if_present(vbproject, MODULE_NAME)
     _remove_component_if_present(vbproject, FORM_NAME)
@@ -442,3 +479,4 @@ def install_replacement_operator(vbproject) -> None:
         control = designer.Controls.Add(prog_id, name, True)
         control.Left = left: control.Top = top: control.Width = width: control.Height = height
     form.CodeModule.AddFromString(FORM_CODE)
+    _patch_daily_input_route(vbproject)
