@@ -108,7 +108,15 @@ Native smoke findings:
 7. application contract repair was run successfully on `MANUAL_REPLACEMENT_SMOKE.xlsm` and verified full contract with no components missing;
 8. interaction repair restored the therapist-reason dropdown and preserved existing entries;
 9. `Legacy direct-global controls rewired: 0`, so the earlier replacement failure was not caused by a sheet control directly invoking the old global macro;
-10. a reliability gap was identified: the first interaction repair unlocked the entire input blocks, which meant an already-applied absence row could still be edited even though it could not be safely deleted.
+10. a reliability gap was identified: the first interaction repair unlocked the entire input blocks, which meant an already-applied absence row could still be edited even though it could not be safely deleted;
+11. updated interaction repair was run successfully on the same disposable preview and reported:
+    - existing entries preserved;
+    - therapist reason dropdown verified;
+    - unapplied input rows editable/clearable verified;
+    - `ACTIVE daily-input rows locked: 0`;
+    - `Legacy direct-global controls rewired: 0`.
+
+Interpretation of `ACTIVE daily-input rows locked: 0`: there are currently no ACTIVE `DAILY_INPUT:*:<source_row>` ledger records in this preview to lock. This does not yet prove the applied-row locking behavior. It is consistent with the earlier native application attempt having failed during application-contract validation before the authoritative daily-input ledger entry could be completed.
 
 ## Current code changes after native findings
 
@@ -132,12 +140,15 @@ Regression tests were extended to cover ACTIVE metadata parsing, range locking a
 
 No native Excel acceptance is claimed yet.
 
-Before continuing the replacement smoke, run the updated DAILY_INPUT interaction regression gate and repair the same disposable preview. Then verify in Excel that:
+Next native sequence on the same disposable preview:
 
-1. an unapplied absence row is editable and clearable;
-2. after the absence is applied, the entire source row is read-only;
-3. restore is performed from `THERAPIST_DAILY` and clears/reopens the source row;
-4. only after that protection contract is green, resume the manual replacement smoke:
-   `therapist absence -> choose manual -> confirm one patient -> ledger row appears with From/To/Restore -> next patient options are recomputed -> restore the confirmed row`.
+1. open from the existing MASTER absence/cancellation button;
+2. enter one therapist absence and verify the `Αιτία` dropdown;
+3. apply it;
+4. if the application succeeds, verify the source row becomes read-only immediately;
+5. confirm the operator router appears and choose manual (`No`);
+6. confirm one patient and verify the visible `THERAPIST_DAILY` ledger row (`Από`, `Προς`, `Επαναφορά`);
+7. verify the next patient choices are recomputed;
+8. use `THERAPIST_DAILY -> Επαναφορά` and confirm the source DAILY_INPUT row clears/reopens.
 
-Only after the manual smoke is green should the automatic-all route be smoke-tested.
+If step 3 fails again, stop and read only the newest diagnostic logs before any further change. Only after the manual smoke is green should the automatic-all route be smoke-tested.
