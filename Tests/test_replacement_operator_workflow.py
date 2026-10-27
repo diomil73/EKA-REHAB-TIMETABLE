@@ -60,6 +60,13 @@ def test_decision_preparer_prioritizes_scarce_sessions_before_flexible_ones():
     assert "next_target = min(" in source
 
 
+def test_auto_proposal_marks_existing_ranking_without_reordering_manual_choices():
+    source = inspect.getsource(decision_tool.prepare_decision)
+    assert '"is_global_recommendation": "1"' in source
+    assert "choices.sort(" not in source
+    assert "visible = choices[:limit]" in source
+
+
 def test_choice_validator_reuses_existing_policy_and_service_rules_without_writing():
     source = inspect.getsource(choice_tool.validate_choice)
     assert "find_policy_replacement_options" in source
