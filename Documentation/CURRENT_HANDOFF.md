@@ -82,31 +82,34 @@ New/updated:
 
 The guards require no dependency on the retired MASTER workload shape, require replacement continuation to remain wired, require therapist-reason dropdown wiring, and cover legacy refresh removal across Excel control types.
 
+## Therapist absence cascade restore checkpoint
+
+The replacement engine remains protected and unchanged. The restore path now handles dependency cleanup around it.
+
+For one restored therapist-absence source row, the preparation step compares the effective therapist absences before and after ignoring only that source row. A session is considered released only when it was covered before and is no longer covered by any therapist absence afterwards. This protects overlapping absence rows.
+
+Only dependencies attached to released sessions are restored:
+
+- ACTIVE rows in `DAILY_REPLACEMENT_FACTS` are changed to `RESTORED`;
+- only solver-generated `Αναστολή θεραπείας` rows with the authoritative global-solver reason are cleared;
+- unrelated replacement facts, manual suspensions and other therapist absences remain untouched.
+
+The rebuilt daily state excludes those dependent facts before calculating the new MASTER and THERAPIST_DAILY projections. VBA applies dependency mutations, clears the selected source row, applies the validated projection, saves, then refreshes workload/ledger.
+
+The same rollback copy now covers the full DAILY_INPUT mutation range and `DAILY_REPLACEMENT_FACTS`, so any dependency or projection verification failure restores the pre-action state.
+
+Protected replacement behavior remains guarded separately by the established global replacement regression gate. No solver, ranking, policy, adjacency, capacity or scarcity logic was modified for cascade restore.
+
 ## Exact resume point
 
-Do not reuse V14 for the therapist-absence test. Build a fresh V15 after pulling and running the focused gate.
+Before native restore testing, run the focused cascade-restore tests together with the protected replacement gate. Only after both are green should a fresh disposable workbook be used to test therapist absence -> replacement -> restore in native Excel.
 
-Native V15 sequence:
+If restore fails natively, do not click the restore action again. Read `%TEMP%\eka_daily_input_restore_last_error.log` immediately and diagnose the recorded phase.
 
-1. open only V15;
-2. verify the old `ΑΝΑΝΕΩΣΗ` control is absent on `THERAPIST_DAILY`;
-3. enter one real therapist absence in `DAILY_INPUT`;
-4. verify `Αιτία` offers the named dropdown;
-5. click `Εφαρμογή` once;
-6. verify no central-view refresh error appears;
-7. verify affected therapist sessions become inactive in the dated operational view;
-8. when orphan sessions exist, verify the flow automatically enters global replacement handling;
-9. if required, continue into guided double-booking review;
-10. keep the workbook open throughout.
-
-If the native action fails, do not click `Εφαρμογή` again. Read `%TEMP%\eka_daily_input_last_error.log` immediately and diagnose from the recorded phase.
-
-## Known follow-up debt after V15 is native green
+## Known follow-up debt after native restore is green
 
 - Guided double-booking VBA contains historical raw-string/backslash risk. Normalize only the path literals if the native flow reaches and exposes that defect; do not blanket-replace JSON escape handling.
-- `daily_input_change_ledger_vba` restore-error cleanup ordering should be hardened so Excel event/screen state is always restored even on an early restore failure.
 - MASTER daily presentation reset should eventually preserve intentional recurring font colors rather than using a blanket black reset.
-- DAILY_INPUT restore preparation should validate that the requested source row still maps to an active source change before ignoring/recomputing it.
 - Python 3.14/openpyxl `ZipFile.__del__` warnings remain non-business cleanup debt in disposable tests.
 
 ## Safety reminders
