@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import unicodedata
+
 
 MODULE_NAME = "modDailyInputChangeNavigation"
 MACRO_NAME = "OpenTherapistDailyWithChanges"
@@ -217,6 +219,11 @@ def _shape_caption(shape) -> str:
     return ""
 
 
+def _fold_control_text(value: object) -> str:
+    text = unicodedata.normalize("NFD", str(value or "").strip().casefold())
+    return "".join(ch for ch in text if not unicodedata.combining(ch))
+
+
 def _macro_terminal_name(action: object) -> str:
     text = str(action or "").strip()
     terminal = text.rsplit("!", 1)[-1].strip()
@@ -225,18 +232,18 @@ def _macro_terminal_name(action: object) -> str:
 
 
 def _is_legacy_refresh_control(*, name: str, caption: str, macro: str) -> bool:
-    name = name.strip().casefold()
-    caption = caption.strip().casefold()
-    macro = macro.strip().casefold()
+    name = _fold_control_text(name)
+    caption = _fold_control_text(caption)
+    macro = _fold_control_text(macro)
 
     # Keep the original high-confidence identity, but native workbooks have shown
     # variants where Excel rewrites the control name or qualified macro action.
     exact_identity = (
         name == "button 1"
-        and caption == "ανανέωση".casefold()
+        and caption == "ανανεωση"
         and macro == "refreshall"
     )
-    caption_identity = caption == "ανανέωση".casefold()
+    caption_identity = caption == "ανανεωση"
     macro_identity = macro == "refreshall" and name == "button 1"
     return exact_identity or caption_identity or macro_identity
 
