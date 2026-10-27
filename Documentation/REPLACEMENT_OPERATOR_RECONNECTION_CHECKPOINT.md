@@ -114,13 +114,17 @@ Native smoke findings:
     - therapist reason dropdown verified;
     - unapplied input rows editable/clearable verified;
     - `ACTIVE daily-input rows locked: 0`;
-    - `Legacy direct-global controls rewired: 0`.
+    - `Legacy direct-global controls rewired: 0`;
+12. after application-contract repair, the native flow advanced successfully through therapist absence, manual routing, candidate display and explicit `Επιβεβαίωση επιλογής`;
+13. immediately after confirmation, Excel reported `Η επιλογή δεν εφαρμόστηκε και αναιρέθηκε.`;
+14. source inspection shows that message can only occur after the operator choice has revalidated and an ACTIVE replacement fact has been written temporarily, when `ApplyOperatorProjectionRefresh()` returns false; the replacement fact is then rolled back by design;
+15. therefore the current native blocker is post-choice projection refresh, not candidate generation, ranking, manual form routing or choice validation.
 
-Interpretation of `ACTIVE daily-input rows locked: 0`: there are currently no ACTIVE `DAILY_INPUT:*:<source_row>` ledger records in this preview to lock. This does not yet prove the applied-row locking behavior. It is consistent with the earlier native application attempt having failed during application-contract validation before the authoritative daily-input ledger entry could be completed.
+Interpretation of `ACTIVE daily-input rows locked: 0`: there were no ACTIVE `DAILY_INPUT:*:<source_row>` ledger records at the time the standalone repair ran. This did not prove live applied-row locking.
 
 ## Current code changes after native findings
 
-The DAILY_INPUT interaction repair now follows the authoritative editability rule:
+The DAILY_INPUT interaction repair follows the authoritative editability rule:
 
 - unlock known input ranges first;
 - read ACTIVE DAILY_INPUT source rows from `DAILY_CHANGE_LEDGER` status column 12 and metadata column 18;
@@ -129,26 +133,30 @@ The DAILY_INPUT interaction repair now follows the authoritative editability rul
 - leave unapplied rows editable;
 - preserve the reason dropdown and existing entries.
 
-The CLI verifier now checks both directions:
+A further native-session protection issue was identified: Excel does not persist `UserInterfaceOnly=True` across workbook close/reopen. A sheet can remain protected for the user while VBA loses permission to write locked cells in the next session. This is a strong candidate for the post-choice projection rollback observed above.
 
-- ACTIVE rows must be locked;
-- unapplied rows must remain unlocked.
+A dedicated `modDailyInputLiveProtection` module and repair path have now been added. It:
 
-Regression tests were extended to cover ACTIVE metadata parsing, range locking and native protection ordering.
+- recalculates ACTIVE source-row locks from `DAILY_CHANGE_LEDGER`;
+- reapplies `UserInterfaceOnly=True` in the live Excel session;
+- hooks the DAILY_INPUT ledger sync so newly ACTIVE rows are locked immediately;
+- hooks the manual replacement projection path before `ApplyValidatedDailyInputPayload`;
+- writes `%TEMP%\\eka_daily_input_protection_last_error.log` and fails closed if protection refresh cannot be established;
+- does not modify replacement feasibility, ranking, validation or the protected global solver.
 
 ## Native verification still required
 
 No native Excel acceptance is claimed yet.
 
-Next native sequence on the same disposable preview:
+Next sequence:
 
-1. open from the existing MASTER absence/cancellation button;
-2. enter one therapist absence and verify the `Αιτία` dropdown;
-3. apply it;
-4. if the application succeeds, verify the source row becomes read-only immediately;
-5. confirm the operator router appears and choose manual (`No`);
-6. confirm one patient and verify the visible `THERAPIST_DAILY` ledger row (`Από`, `Προς`, `Επαναφορά`);
-7. verify the next patient choices are recomputed;
-8. use `THERAPIST_DAILY -> Επαναφορά` and confirm the source DAILY_INPUT row clears/reopens.
+1. run the focused live-protection regression test;
+2. install the live-protection hooks into the same disposable `MANUAL_REPLACEMENT_SMOKE.xlsm` using the repair tool with Excel closed;
+3. reopen the same preview and repeat the already-reached path: MASTER absence -> apply -> choose manual -> select candidate -> `Επιβεβαίωση επιλογής`;
+4. confirm the selection now persists and the projection refresh completes;
+5. confirm the applied DAILY_INPUT source row cannot be edited;
+6. confirm `THERAPIST_DAILY` shows the visible replacement ledger row with `Από`, `Προς`, `Επαναφορά`;
+7. confirm the next patient choices are recomputed;
+8. then test authoritative restore.
 
-If step 3 fails again, stop and read only the newest diagnostic logs before any further change. Only after the manual smoke is green should the automatic-all route be smoke-tested.
+If the selection still rolls back, read the newest `eka_daily_input_last_error.log`, `eka_replacement_operator_last_error.log` and `eka_daily_input_protection_last_error.log` before any further code change. Only after the manual smoke is green should the automatic-all route be smoke-tested.
