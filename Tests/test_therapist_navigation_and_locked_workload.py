@@ -3,6 +3,7 @@ import inspect
 from rehab_excel.daily_input_change_navigation_vba import (
     MACRO_NAME as LEDGER_NAV_MACRO,
     MODULE_CODE as LEDGER_NAV_CODE,
+    _remove_legacy_refresh_button,
     install_daily_input_change_navigation,
 )
 from rehab_excel.therapist_workload_strip_vba import (
@@ -62,4 +63,14 @@ def test_supervisor_entry_point_syncs_reversible_daily_changes_without_master_bi
 
     installer_source = inspect.getsource(install_daily_input_change_navigation)
     assert 'Worksheets("MASTER_SCHEDULE")' not in installer_source
-    assert "Shapes(" not in installer_source
+
+
+def test_navigation_installer_removes_only_identified_legacy_refresh_button():
+    helper_source = inspect.getsource(_remove_legacy_refresh_button)
+    installer_source = inspect.getsource(install_daily_input_change_navigation)
+
+    assert 'workbook.Worksheets("THERAPIST_DAILY")' in helper_source
+    assert 'name == "button 1"' in helper_source
+    assert 'caption == "ανανέωση".casefold()' in helper_source
+    assert 'macro == "refreshall"' in helper_source
+    assert "_remove_legacy_refresh_button(workbook)" in installer_source
