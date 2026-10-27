@@ -267,15 +267,22 @@ def prepare_decision(
                 }
             )
 
-    choices.sort(
-        key=lambda row: (
-            0 if row["is_global_recommendation"] == "1" else 1,
-            row["provider_name"].casefold(),
-            row["replacement_time"],
-        )
-    )
-    if limit > 0:
-        choices = choices[:limit]
+    if limit > 0 and len(choices) > limit:
+        visible = choices[:limit]
+        if recommended_pair is not None and not any(
+            row["is_global_recommendation"] == "1" for row in visible
+        ):
+            recommended_row = next(
+                (
+                    row
+                    for row in choices
+                    if row["is_global_recommendation"] == "1"
+                ),
+                None,
+            )
+            if recommended_row is not None:
+                visible[-1] = recommended_row
+        choices = visible
 
     rows_output.parent.mkdir(parents=True, exist_ok=True)
     with rows_output.open("w", encoding="utf-8-sig", newline="") as handle:
