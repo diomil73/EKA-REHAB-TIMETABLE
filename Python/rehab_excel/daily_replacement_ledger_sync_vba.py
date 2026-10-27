@@ -65,6 +65,7 @@ Private Function ApplyLedgerRows(ByVal rowsPath As String) As Boolean
     Dim rawText As String, lines As Variant, fields As Variant
     Dim rowIndex As Long, outputRow As Long, startRow As Long
     Dim previousEvents As Boolean, previousScreenUpdating As Boolean
+    Dim dateText As String
 
     On Error GoTo Failed
     previousEvents = Application.EnableEvents
@@ -98,8 +99,10 @@ Private Function ApplyLedgerRows(ByVal rowsPath As String) As Boolean
         fields = Split(CStr(lines(rowIndex)), vbTab)
         If UBound(fields) <> 9 Then GoTo Failed
         ws.Cells(outputRow, 1).Value2 = PayloadValue(fields(0))
-        ws.Cells(outputRow, 2).NumberFormat = "@"
-        ws.Cells(outputRow, 2).Value2 = PayloadValue(fields(1))
+        dateText = PayloadValue(fields(1))
+        If Len(dateText) <> 10 Then GoTo Failed
+        ws.Cells(outputRow, 2).NumberFormat = "dd/mm/yyyy"
+        ws.Cells(outputRow, 2).Value = DateSerial(CInt(Left$(dateText, 4)), CInt(Mid$(dateText, 6, 2)), CInt(Right$(dateText, 2)))
         ws.Cells(outputRow, 3).Value2 = PayloadValue(fields(2))
         ws.Cells(outputRow, 4).Value2 = PayloadValue(fields(3))
         ws.Cells(outputRow, 5).Value2 = PayloadValue(fields(4))
