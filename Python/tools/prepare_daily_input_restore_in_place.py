@@ -16,12 +16,20 @@ from rehab_excel.application_contract import assert_application_contract  # noqa
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_excel.daily_input_reader import read_daily_input  # noqa: E402
 from rehab_excel.daily_preview_composer import compose_outpatient_daily_plan  # noqa: E402
-from rehab_excel.daily_replacement_facts import read_daily_replacement_facts  # noqa: E402
+from rehab_excel.daily_replacement_facts import (  # noqa: E402
+    read_daily_replacement_fact_rows,
+    read_daily_replacement_facts,
+)
 from rehab_excel.full_daily_projection import build_full_therapist_daily_plan  # noqa: E402
 from rehab_excel.full_master_daily_projection import build_full_master_daily_plan  # noqa: E402
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
 from rehab_excel.reader import read_settings  # noqa: E402
+from rehab_excel.therapist_absence_restore import (  # noqa: E402
+    dependent_active_replacement_ids,
+    dependent_generated_suspension_ids,
+    released_therapist_session_ids,
+)
 from rehab_excel.writeback import build_write_plan, validate_write_plan  # noqa: E402
 from tools.prepare_daily_input_in_place import _patch_line, _target_date  # noqa: E402
 
@@ -38,6 +46,23 @@ def _write_response(path: Path | None, payload: dict[str, object]) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8-sig",
     )
+
+
+def _source_rows_from_cancellation_ids(values: tuple[str, ...]) -> tuple[int, ...]:
+    rows: list[int] = []
+    for value in values:
+        prefix = "daily-input:"
+        if not value.startswith(prefix):
+            raise DailyInputRestorePreparationError(
+                f"Generated suspension has unsupported source identity: {value!r}"
+            )
+        raw_row = value[len(prefix) :]
+        if not raw_row.isdigit():
+            raise DailyInputRestorePreparationError(
+                f"Generated suspension has invalid source row identity: {value!r}"
+            )
+        rows.append(int(raw_row))
+    return tuple(sorted(set(rows)))
 
 
 def prepare_daily_input_restore_payload(
@@ -61,7 +86,23 @@ def prepare_daily_input_restore_payload(
     base_entries = read_unified_base_schedule(source, patients=patients)
     sessions = materialize_sessions_for_date(base_entries, target_date)
 
-    daily = read_daily_input(
+    before = read_daily_input(
+        source,
+        patients=patients,
+        sessions=sessions,
+        therapist_names=settings.therapist_names,
+        allow_empty=True,
+    )
+    selected_changes = tuple(
+        change for change in before.source_changes if change.source_row == source_row
+    )
+    if len(selected_changes) != 1:
+        raise DailyInputRestorePreparationError(
+            f"DAILY_INPUT row {source_row} is not one active source change"
+        )
+    selected_change = selected_changes[0]
+
+    after_selected = read_daily_input(
         source,
         patients=patients,
         sessions=sessions,
@@ -69,10 +110,51 @@ def prepare_daily_input_restore_payload(
         ignore_rows=(source_row,),
         allow_empty=True,
     )
-    replacements = read_daily_replacement_facts(
+
+    replacement_restore_ids: tuple[str, ...] = ()
+    generated_suspension_rows: tuple[int, ...] = ()
+    released_session_ids: tuple[str, ...] = ()
+
+    if selected_change.change_type == "therapist_absence":
+        released_session_ids = released_therapist_session_ids(
+            sessions=sessions,
+            before_absences=before.absences,
+            after_absences=after_selected.absences,
+        )
+        replacement_rows = read_daily_replacement_fact_rows(
+            source,
+            target_date=target_date,
+            include_restored=True,
+        )
+        replacement_restore_ids = dependent_active_replacement_ids(
+            replacement_rows,
+            released_session_ids=released_session_ids,
+        )
+        generated_suspension_ids = dependent_generated_suspension_ids(
+            before.cancellations,
+            released_session_ids=released_session_ids,
+        )
+        generated_suspension_rows = _source_rows_from_cancellation_ids(
+            generated_suspension_ids
+        )
+
+    ignored_rows = tuple(sorted({source_row, *generated_suspension_rows}))
+    daily = read_daily_input(
         source,
+        patients=patients,
         sessions=sessions,
-        target_date=target_date,
+        therapist_names=settings.therapist_names,
+        ignore_rows=ignored_rows,
+        allow_empty=True,
+    )
+    replacements = tuple(
+        replacement
+        for replacement in read_daily_replacement_facts(
+            source,
+            sessions=sessions,
+            target_date=target_date,
+        )
+        if replacement.replacement_id not in set(replacement_restore_ids)
     )
     states = build_daily_session_states(
         sessions,
@@ -123,9 +205,17 @@ def prepare_daily_input_restore_payload(
         "ok": True,
         "date": target_date.isoformat(),
         "source_row": source_row,
+        "source_change_type": selected_change.change_type,
         "patch_count": len(plan.patches),
         "remaining_daily_input_changes": len(daily.source_changes),
         "active_replacements": len(replacements),
+        "released_session_count": len(released_session_ids),
+        "replacement_restore_count": len(replacement_restore_ids),
+        "replacement_restore_ids": "|".join(replacement_restore_ids),
+        "generated_suspension_count": len(generated_suspension_rows),
+        "generated_suspension_rows": ",".join(
+            str(row) for row in generated_suspension_rows
+        ),
         "source_unchanged": True,
     }
 
@@ -157,6 +247,9 @@ def main() -> int:
     print(f"Date: {result['date']}")
     print(f"Source row: {result['source_row']}")
     print(f"Patches: {result['patch_count']}")
+    print(f"Released sessions: {result['released_session_count']}")
+    print(f"Replacement facts to restore: {result['replacement_restore_count']}")
+    print(f"Generated suspensions to clear: {result['generated_suspension_count']}")
     print(f"Remaining daily changes: {result['remaining_daily_input_changes']}")
     print("Input unchanged: True")
     return 0
