@@ -56,6 +56,7 @@ from rehab_excel.registration_menu_vba import (  # noqa: E402
     RegistrationMenuVbaError,
     create_registration_menu_preview,
 )
+from rehab_excel.replacement_ledger_hook_vba import install_replacement_ledger_hooks  # noqa: E402
 from rehab_excel.replacement_operator_vba import (  # noqa: E402
     FORM_NAME as REPLACEMENT_OPERATOR_FORM_NAME,
     MODULE_NAME as REPLACEMENT_OPERATOR_MODULE_NAME,
@@ -232,6 +233,8 @@ def _install_operational_modules(workbook_path: Path) -> None:
         )
         stage = "installing authoritative replacement ledger sync"
         install_daily_replacement_ledger_sync(vbproject)
+        stage = "hooking replacement commits into authoritative ledger sync"
+        install_replacement_ledger_hooks(vbproject)
         stage = "installing reversible DAILY_INPUT ledger"
         install_daily_input_change_ledger(vbproject)
         stage = "routing workload navigation through daily change sync"
