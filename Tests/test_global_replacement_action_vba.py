@@ -36,6 +36,20 @@ def test_global_replacement_action_uses_guided_review_not_raw_replacements_sheet
     assert 'Worksheets("REPLACEMENTS").Activate' not in source
 
 
+def test_global_replacement_action_requires_operator_confirmation_before_persisting():
+    source = GLOBAL_REPLACEMENT_MODULE_CODE
+
+    gate = "If Not ConfirmAutomaticReplacementProposal(mode) Then GoTo CleanUp"
+    persist = "If Not PersistReplacementPayload(payloadPath, mode = \"resolved\") Then GoTo CleanUp"
+
+    assert "Private Function ConfirmAutomaticReplacementProposal" in source
+    assert gate in source
+    assert persist in source
+    assert source.index(gate) < source.index(persist)
+    assert 'vbYesNo + vbQuestion' in source
+    assert '"Εφαρμογή καλύτερης αυτόματης λύσης"' in source
+
+
 def test_global_replacement_action_has_transaction_rollback_and_diagnostic():
     source = GLOBAL_REPLACEMENT_MODULE_CODE
     messages = _messages(source)
