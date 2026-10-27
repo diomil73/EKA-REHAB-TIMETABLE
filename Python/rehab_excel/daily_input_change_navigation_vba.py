@@ -202,6 +202,75 @@ def _remove_component_if_present(vbproject, name: str) -> None:
     vbproject.VBComponents.Remove(component)
 
 
+def _shape_caption(shape) -> str:
+    for reader in (
+        lambda: shape.TextFrame2.TextRange.Text,
+        lambda: shape.TextFrame.Characters().Text,
+        lambda: shape.TextFrame.Characters.Text,
+    ):
+        try:
+            value = reader()
+        except Exception:
+            continue
+        if value is not None:
+            return str(value).strip()
+    return ""
+
+
+def _remove_legacy_refresh_button(workbook) -> int:
+    """Remove only the retired THERAPIST_DAILY RefreshAll button."""
+
+    ws = workbook.Worksheets("THERAPIST_DAILY")
+    removed = 0
+
+    try:
+        buttons = ws.Buttons()
+    except Exception:
+        buttons = None
+
+    if buttons is not None:
+        for index in range(int(buttons.Count), 0, -1):
+            button = buttons.Item(index)
+            try:
+                name = str(button.Name or "").strip().casefold()
+            except Exception:
+                name = ""
+            try:
+                caption = str(button.Caption or "").strip().casefold()
+            except Exception:
+                caption = ""
+            try:
+                action = str(button.OnAction or "").strip()
+            except Exception:
+                action = ""
+            macro = action.rsplit("!", 1)[-1].strip().casefold()
+            if name == "button 1" and caption == "ανανέωση".casefold() and macro == "refreshall":
+                button.Delete()
+                removed += 1
+
+    for index in range(int(ws.Shapes.Count), 0, -1):
+        shape = ws.Shapes.Item(index)
+        try:
+            name = str(shape.Name or "").strip().casefold()
+        except Exception:
+            name = ""
+        try:
+            action = str(shape.OnAction or "").strip()
+        except Exception:
+            action = ""
+        try:
+            alt_text = str(shape.AlternativeText or "").strip().casefold()
+        except Exception:
+            alt_text = ""
+        caption = _shape_caption(shape).strip().casefold() or alt_text
+        macro = action.rsplit("!", 1)[-1].strip().casefold()
+        if name == "button 1" and caption == "ανανέωση".casefold() and macro == "refreshall":
+            shape.Delete()
+            removed += 1
+
+    return removed
+
+
 def _inject_style_after_refresh(vbproject) -> None:
     """Make every ledger refresh repaint through the application presentation layer."""
 
@@ -243,6 +312,8 @@ def _inject_style_after_daily_input_sync(vbproject) -> None:
 
 def install_daily_input_change_navigation(vbproject, workbook) -> None:
     """Install supervisor navigation plus the dedicated THERAPIST_DAILY presentation layer."""
+
+    _remove_legacy_refresh_button(workbook)
 
     _remove_component_if_present(vbproject, MODULE_NAME)
     module = vbproject.VBComponents.Add(1)
