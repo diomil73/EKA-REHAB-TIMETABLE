@@ -18,6 +18,14 @@ PATIENT_CANCELLATION_STATUSES = (
     "ΔΕΝ ΠΡΟΣΗΛΘΕ",
     "Αναστολή θεραπείας",
 )
+THERAPIST_ABSENCE_REASONS = (
+    "Άδεια",
+    "Ασθένεια",
+    "Ρεπό",
+    "Εκπαίδευση",
+    "Υπηρεσιακή ανάγκη",
+    "Άλλο",
+)
 
 
 class DailyInputSheetError(RuntimeError):
@@ -61,6 +69,7 @@ class DailyInputSpec:
     patient_statuses: tuple[str, ...]
     timeslots: tuple[str, ...]
     yes_no_values: tuple[str, ...] = ("ΝΑΙ", "ΟΧΙ")
+    therapist_reasons: tuple[str, ...] = THERAPIST_ABSENCE_REASONS
     therapist_rows: int = 10
     patient_rows: int = 20
 
@@ -105,6 +114,7 @@ def build_daily_input_spec(
             (*patient_statuses, *PATIENT_CANCELLATION_STATUSES)
         ),
         timeslots=tuple(_time_text(value) for value in timeslots),
+        therapist_reasons=THERAPIST_ABSENCE_REASONS,
         therapist_rows=therapist_rows,
         patient_rows=patient_rows,
     )
@@ -202,12 +212,20 @@ def _configure_lists(workbook, spec: DailyInputSpec):
     _write_column(lists, 3, spec.patient_statuses)
     _write_column(lists, 4, spec.timeslots, as_text=True)
     _write_column(lists, 5, spec.yes_no_values)
+    _write_column(lists, 6, spec.therapist_reasons)
 
     _add_named_range(workbook, "PY_THERAPISTS", LISTS_SHEET_NAME, "A", len(spec.therapist_names))
     _add_named_range(workbook, "PY_PATIENTS", LISTS_SHEET_NAME, "B", len(spec.patient_names))
     _add_named_range(workbook, "PY_STATUSES", LISTS_SHEET_NAME, "C", len(spec.patient_statuses))
     _add_named_range(workbook, "PY_TIMESLOTS", LISTS_SHEET_NAME, "D", len(spec.timeslots))
     _add_named_range(workbook, "PY_YESNO", LISTS_SHEET_NAME, "E", len(spec.yes_no_values))
+    _add_named_range(
+        workbook,
+        "PY_THERAPIST_REASONS",
+        LISTS_SHEET_NAME,
+        "F",
+        len(spec.therapist_reasons),
+    )
 
     # xlSheetVeryHidden = 2. Users should interact only with DAILY_INPUT.
     lists.Visible = 2
@@ -257,6 +275,7 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     _set_validation(ws.Range(f"A{tr1}:A{tr2}"), "=PY_THERAPISTS")
     _set_validation(ws.Range(f"B{tr1}:B{tr2}"), "=PY_YESNO")
     _set_validation(ws.Range(f"C{tr1}:D{tr2}"), "=PY_TIMESLOTS")
+    _set_validation(ws.Range(f"E{tr1}:E{tr2}"), "=PY_THERAPIST_REASONS")
     for rng in (ws.Range(f"C{tr1}:D{tr2}"),):
         try:
             rng.NumberFormat = "@"
