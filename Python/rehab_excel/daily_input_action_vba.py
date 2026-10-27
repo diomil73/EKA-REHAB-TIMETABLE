@@ -191,13 +191,12 @@ ApplyError:
 End Function
 
 Private Function RefreshOperationalViews() As Boolean
-    Dim master As Worksheet, daily As Worksheet, refreshShape As Shape
+    Dim master As Worksheet, daily As Worksheet
     On Error GoTo RefreshError
 
     Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
     Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
     RenderTherapistWorkloadStrip
-    Set refreshShape = master.Shapes("ekaWorkload_Refresh")
     ApplyMasterView
     RefreshOperationalViews = True
     Exit Function
