@@ -145,6 +145,14 @@ V15 proved that the current implementation violates this contract in two ways:
 
 These are orchestration/UI defects. They are not a reason to rewrite the global solver or its candidate-policy pipeline.
 
+## 2026-10-27 safety restoration checkpoint
+
+The first repair step is now implemented in the active branch without touching the protected solver or replacement rules.
+
+`modGlobalReplacementAction.ResolveDailyReplacementsInPlace` now requires explicit operator confirmation before `PersistReplacementPayload` can run. Choosing `Όχι` leaves the workbook unchanged and reserves the unresolved sessions for the manual patient-by-patient workflow. The confirmation is specifically labelled as applying the best automatic global solution, so automatic assistance is an explicit operator action rather than the default side effect of therapist absence entry.
+
+Regression coverage in `Tests/test_global_replacement_action_vba.py` asserts that the confirmation gate appears before persistence. This is a safety checkpoint, not the final manual UI. The next implementation step is to connect the existing sequential replacement engine to a calm Excel patient-by-patient interface while keeping this global confirmation gate as the separate automatic-all path.
+
 ## V16 experimental overlay withdrawn
 
 The isolated V16 operator overlay was tested natively on 2026-10-27 and is not an accepted replacement baseline. It exposed unsafe orchestration behavior when an already-applied therapist absence was interrupted and then edited to another therapist. The V16 overlay components and their dedicated tests have therefore been removed from the active branch.
