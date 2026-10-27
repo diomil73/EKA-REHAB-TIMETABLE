@@ -37,13 +37,45 @@ def test_workload_navigation_syncs_daily_changes_before_operator_restore():
     assert "KeepApplicationShell" in NAV_CODE
 
 
-def test_restore_preparation_ignores_only_selected_source_row_and_allows_empty_day():
+def test_restore_preparation_validates_source_change_and_rebuilds_without_dependencies():
     source = inspect.getsource(prepare_daily_input_restore_payload)
-    assert "ignore_rows=(source_row,)" in source
+    assert "selected_changes = tuple(" in source
+    assert "if len(selected_changes) != 1:" in source
+    assert 'selected_change.change_type == "therapist_absence"' in source
+    assert "released_therapist_session_ids(" in source
+    assert "dependent_active_replacement_ids(" in source
+    assert "dependent_generated_suspension_ids(" in source
+    assert "ignored_rows = tuple(sorted({source_row, *generated_suspension_rows}))" in source
+    assert "replacement.replacement_id not in set(replacement_restore_ids)" in source
     assert "allow_empty=True" in source
     assert "build_full_therapist_daily_plan(" in source
     assert "build_full_master_daily_plan(" in source
     assert "file_sha256(source) != source_hash" in source
+
+
+def test_restore_response_carries_only_verified_dependency_identities():
+    source = inspect.getsource(prepare_daily_input_restore_payload)
+    assert '"replacement_restore_ids": "|".join(replacement_restore_ids)' in source
+    assert '"generated_suspension_rows": ",".join(' in source
+    assert '"released_session_count": len(released_session_ids)' in source
+
+
+def test_restore_vba_mutates_dependencies_before_projection_and_verifies_them():
+    dependency_step = LEDGER_CODE.index("If Not ApplyRestoreDependencyMutations(responseText) Then")
+    clear_source = LEDGER_CODE.index('Range("A" & CStr(sourceRow) & ":F" & CStr(sourceRow)).ClearContents')
+    apply_projection = LEDGER_CODE.index("If Not ApplyValidatedDailyInputPayload(payloadPath) Then")
+    assert dependency_step < clear_source < apply_projection
+    assert 'UCase$(Trim$(CStr(wsFacts.Cells(found.Row, 10).Value))) <> STATUS_ACTIVE' in LEDGER_CODE
+    assert 'wsFacts.Cells(found.Row, 10).Value = STATUS_RESTORED' in LEDGER_CODE
+    assert 'Trim$(CStr(wsInput.Cells(rowNumber, 4).Value)) <> AUTO_SUSPENSION_STATUS' in LEDGER_CODE
+    assert "AUTO_SUSPENSION_REASON" in LEDGER_CODE
+
+
+def test_restore_transaction_rolls_back_daily_input_and_replacement_fact_mutations():
+    assert 'backup.Worksheets(DAILY_INPUT_SHEET).Range("A1:F5000").Copy' in LEDGER_CODE
+    assert 'Set backupFacts = backup.Worksheets(REPLACEMENT_FACT_SHEET)' in LEDGER_CODE
+    assert 'backupFacts.Range("A1:J5000").Copy Destination:=currentFacts.Range("A1:J5000")' in LEDGER_CODE
+    assert "currentFacts.Protect" in LEDGER_CODE
 
 
 def test_full_daily_projection_clears_stale_grid_before_rebuilding():
