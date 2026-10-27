@@ -3,6 +3,7 @@ import inspect
 from rehab_excel.daily_input_change_navigation_vba import (
     MACRO_NAME as LEDGER_NAV_MACRO,
     MODULE_CODE as LEDGER_NAV_CODE,
+    _is_legacy_refresh_control,
     _remove_legacy_refresh_button,
     install_daily_input_change_navigation,
 )
@@ -65,12 +66,28 @@ def test_supervisor_entry_point_syncs_reversible_daily_changes_without_master_bi
     assert 'Worksheets("MASTER_SCHEDULE")' not in installer_source
 
 
-def test_navigation_installer_removes_only_identified_legacy_refresh_button():
+def test_navigation_installer_removes_legacy_refresh_across_excel_control_types():
     helper_source = inspect.getsource(_remove_legacy_refresh_button)
     installer_source = inspect.getsource(install_daily_input_change_navigation)
 
     assert 'workbook.Worksheets("THERAPIST_DAILY")' in helper_source
-    assert 'name == "button 1"' in helper_source
-    assert 'caption == "ανανέωση".casefold()' in helper_source
-    assert 'macro == "refreshall"' in helper_source
+    assert "ws.Buttons()" in helper_source
+    assert "ws.OLEObjects()" in helper_source
+    assert "ws.Shapes.Count" in helper_source
+    assert "_is_legacy_refresh_control" in helper_source
     assert "_remove_legacy_refresh_button(workbook)" in installer_source
+
+
+def test_legacy_refresh_identity_accepts_native_excel_variants_but_not_other_controls():
+    assert _is_legacy_refresh_control(
+        name="Button 1", caption="ΑΝΑΝΕΩΣΗ", macro="refreshall"
+    )
+    assert _is_legacy_refresh_control(
+        name="CommandButton7", caption="ΑΝΑΝΕΩΣΗ", macro=""
+    )
+    assert _is_legacy_refresh_control(
+        name="Button 1", caption="", macro="refreshall"
+    )
+    assert not _is_legacy_refresh_control(
+        name="ekaNav_Master", caption="Επιστροφή στο MASTER", macro="GoToMasterFromTherapistDaily"
+    )
