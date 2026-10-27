@@ -217,8 +217,32 @@ def _shape_caption(shape) -> str:
     return ""
 
 
+def _macro_terminal_name(action: object) -> str:
+    text = str(action or "").strip()
+    terminal = text.rsplit("!", 1)[-1].strip()
+    terminal = terminal.rsplit(".", 1)[-1].strip()
+    return terminal.casefold()
+
+
+def _is_legacy_refresh_control(*, name: str, caption: str, macro: str) -> bool:
+    name = name.strip().casefold()
+    caption = caption.strip().casefold()
+    macro = macro.strip().casefold()
+
+    # Keep the original high-confidence identity, but native workbooks have shown
+    # variants where Excel rewrites the control name or qualified macro action.
+    exact_identity = (
+        name == "button 1"
+        and caption == "ανανέωση".casefold()
+        and macro == "refreshall"
+    )
+    caption_identity = caption == "ανανέωση".casefold()
+    macro_identity = macro == "refreshall" and name == "button 1"
+    return exact_identity or caption_identity or macro_identity
+
+
 def _remove_legacy_refresh_button(workbook) -> int:
-    """Remove only the retired THERAPIST_DAILY RefreshAll button."""
+    """Remove the retired THERAPIST_DAILY refresh control across Excel control types."""
 
     ws = workbook.Worksheets("THERAPIST_DAILY")
     removed = 0
@@ -232,39 +256,58 @@ def _remove_legacy_refresh_button(workbook) -> int:
         for index in range(int(buttons.Count), 0, -1):
             button = buttons.Item(index)
             try:
-                name = str(button.Name or "").strip().casefold()
+                name = str(button.Name or "")
             except Exception:
                 name = ""
             try:
-                caption = str(button.Caption or "").strip().casefold()
+                caption = str(button.Caption or "")
             except Exception:
                 caption = ""
             try:
-                action = str(button.OnAction or "").strip()
+                macro = _macro_terminal_name(button.OnAction)
             except Exception:
-                action = ""
-            macro = action.rsplit("!", 1)[-1].strip().casefold()
-            if name == "button 1" and caption == "ανανέωση".casefold() and macro == "refreshall":
+                macro = ""
+            if _is_legacy_refresh_control(name=name, caption=caption, macro=macro):
                 button.Delete()
+                removed += 1
+
+    # ActiveX controls are exposed through OLEObjects and may not behave like
+    # Forms buttons or ordinary Shapes when reading Caption/OnAction.
+    try:
+        ole_objects = ws.OLEObjects()
+    except Exception:
+        ole_objects = None
+    if ole_objects is not None:
+        for index in range(int(ole_objects.Count), 0, -1):
+            ole = ole_objects.Item(index)
+            try:
+                name = str(ole.Name or "")
+            except Exception:
+                name = ""
+            try:
+                caption = str(ole.Object.Caption or "")
+            except Exception:
+                caption = ""
+            if _is_legacy_refresh_control(name=name, caption=caption, macro=""):
+                ole.Delete()
                 removed += 1
 
     for index in range(int(ws.Shapes.Count), 0, -1):
         shape = ws.Shapes.Item(index)
         try:
-            name = str(shape.Name or "").strip().casefold()
+            name = str(shape.Name or "")
         except Exception:
             name = ""
         try:
-            action = str(shape.OnAction or "").strip()
+            macro = _macro_terminal_name(shape.OnAction)
         except Exception:
-            action = ""
+            macro = ""
         try:
-            alt_text = str(shape.AlternativeText or "").strip().casefold()
+            alt_text = str(shape.AlternativeText or "").strip()
         except Exception:
             alt_text = ""
-        caption = _shape_caption(shape).strip().casefold() or alt_text
-        macro = action.rsplit("!", 1)[-1].strip().casefold()
-        if name == "button 1" and caption == "ανανέωση".casefold() and macro == "refreshall":
+        caption = _shape_caption(shape).strip() or alt_text
+        if _is_legacy_refresh_control(name=name, caption=caption, macro=macro):
             shape.Delete()
             removed += 1
 
