@@ -1,6 +1,9 @@
 import inspect
 
+from rehab_excel import daily_replacement_ledger_sync_vba as ledger_sync_vba
+from rehab_excel import replacement_ledger_hook_vba as ledger_hook_vba
 from rehab_excel import replacement_operator_vba as operator_vba
+from tools import prepare_daily_replacement_ledger_sync as ledger_tool
 from tools import prepare_replacement_operator_decision as decision_tool
 from tools import validate_replacement_operator_choice as choice_tool
 
@@ -82,3 +85,45 @@ def test_operator_installer_patches_route_only_after_installing_form_and_module(
     assert "module.CodeModule.AddFromString(MODULE_CODE)" in source
     assert "form.CodeModule.AddFromString(FORM_CODE)" in source
     assert "_patch_daily_input_route(vbproject)" in source
+
+
+def test_ledger_sync_payload_is_read_only_and_derived_from_authoritative_facts():
+    source = inspect.getsource(ledger_tool.prepare_ledger_rows)
+    assert "read_daily_replacement_fact_rows" in source
+    assert "include_restored=True" in source
+    assert "materialize_sessions_for_date" in source
+    assert "read_patient_registry" in source
+    assert "file_sha256(source)" in source
+    assert "save(" not in source
+    assert "append_daily_replacement_facts" not in source
+
+
+def test_ledger_sync_reuses_established_daily_change_ledger_contract():
+    source = ledger_sync_vba.MODULE_CODE
+    for header in (
+        "ChangeID",
+        "Date",
+        "PatientID",
+        "Patient",
+        "OriginalProvider",
+        "OriginalTime",
+        "EffectiveProvider",
+        "EffectiveTime",
+        "Reason",
+        "Status",
+        "DisplayRow",
+    ):
+        assert f'"{header}"' in source
+    assert 'Private Const LEDGER_SHEET As String = "DAILY_CHANGE_LEDGER"' in source
+    assert 'Application.Run "RefreshDailyChangeLedgerView"' in source
+    assert 'DateSerial(CInt(Left$(dateText, 4))' in source
+
+
+def test_ledger_hooks_are_exact_fail_closed_and_cover_manual_and_completed_routes():
+    source = inspect.getsource(ledger_hook_vba)
+    assert "source.count(marker) != 1" in source
+    assert "raise RuntimeError" in source
+    assert "SyncDailyReplacementLedgerFromFacts" in ledger_hook_vba._MANUAL_REPLACEMENT
+    assert "SyncDailyReplacementLedgerFromFacts" in ledger_hook_vba._ROUTE_REPLACEMENT
+    assert "mDecisionAccepted = True" in ledger_hook_vba._MANUAL_REPLACEMENT
+    assert "refresh after replacements" in ledger_hook_vba._ROUTE_REPLACEMENT
