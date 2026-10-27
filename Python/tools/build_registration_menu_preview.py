@@ -52,6 +52,11 @@ from rehab_excel.registration_menu_vba import (  # noqa: E402
     RegistrationMenuVbaError,
     create_registration_menu_preview,
 )
+from rehab_excel.replacement_operator_vba import (  # noqa: E402
+    FORM_NAME as REPLACEMENT_OPERATOR_FORM_NAME,
+    MODULE_NAME as REPLACEMENT_OPERATOR_MODULE_NAME,
+    install_replacement_operator,
+)
 from rehab_excel.therapist_workload_strip_vba import (  # noqa: E402
     MODULE_NAME as WORKLOAD_MODULE_NAME,
     install_therapist_workload_strip,
@@ -101,13 +106,6 @@ def _component_present(vbproject, name: str) -> bool:
 
 
 def _ensure_double_booking_review(vbproject) -> None:
-    """Install the guided review only when the first installer pass did not.
-
-    UserForms can retain Designer/name state inside one Excel/VBE session after
-    removal. Avoiding a redundant remove/recreate cycle keeps the preview build
-    deterministic while still repairing a genuinely missing/partial install.
-    """
-
     module_present = _component_present(vbproject, DOUBLE_BOOKING_MODULE_NAME)
     form_present = _component_present(vbproject, DOUBLE_BOOKING_FORM_NAME)
     if module_present and form_present:
@@ -116,8 +114,6 @@ def _ensure_double_booking_review(vbproject) -> None:
 
 
 def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
-    """Remove replaceable forms/modules in one Excel session, then close it."""
-
     if sys.platform != "win32":
         raise RegistrationMenuVbaError(
             "Registration menu installation requires Windows with Microsoft Excel"
@@ -158,6 +154,8 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
             ("old MASTER toolbar module", MASTER_TOOLBAR_MODULE_NAME),
             ("old DAILY_INPUT action module", DAILY_INPUT_MODULE_NAME),
             ("old global replacement action module", GLOBAL_REPLACEMENT_MODULE_NAME),
+            ("old replacement operator module", REPLACEMENT_OPERATOR_MODULE_NAME),
+            ("old replacement operator form", REPLACEMENT_OPERATOR_FORM_NAME),
             ("old double-booking module", DOUBLE_BOOKING_MODULE_NAME),
             ("old double-booking form", DOUBLE_BOOKING_FORM_NAME),
             ("old workload module", WORKLOAD_MODULE_NAME),
@@ -192,8 +190,6 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
 
 
 def _install_operational_modules(workbook_path: Path) -> None:
-    """Reinstall the complete operational shell on a disposable preview."""
-
     if sys.platform != "win32":
         raise RegistrationMenuVbaError("Operational module installation requires Windows + Excel")
     try:
@@ -215,6 +211,8 @@ def _install_operational_modules(workbook_path: Path) -> None:
 
         stage = "installing global replacement action"
         install_global_replacement_action(vbproject)
+        stage = "installing operator-controlled replacement workflow"
+        install_replacement_operator(vbproject)
         stage = "verifying guided double-booking review"
         _ensure_double_booking_review(vbproject)
         stage = "installing therapist workload strip"
@@ -234,6 +232,8 @@ def _install_operational_modules(workbook_path: Path) -> None:
 
         required = (
             GLOBAL_REPLACEMENT_MODULE_NAME,
+            REPLACEMENT_OPERATOR_MODULE_NAME,
+            REPLACEMENT_OPERATOR_FORM_NAME,
             DOUBLE_BOOKING_MODULE_NAME,
             DOUBLE_BOOKING_FORM_NAME,
             WORKLOAD_MODULE_NAME,
