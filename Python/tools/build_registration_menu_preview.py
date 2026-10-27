@@ -26,6 +26,10 @@ from rehab_excel.daily_input_change_navigation_vba import (  # noqa: E402
     MODULE_NAME as DAILY_INPUT_CHANGE_NAV_MODULE_NAME,
     install_daily_input_change_navigation,
 )
+from rehab_excel.daily_replacement_ledger_sync_vba import (  # noqa: E402
+    MODULE_NAME as REPLACEMENT_LEDGER_SYNC_MODULE_NAME,
+    install_daily_replacement_ledger_sync,
+)
 from rehab_excel.daily_restore_in_session_vba import build_in_session_ledger_vba  # noqa: E402
 from rehab_excel.double_booking_review_vba import (  # noqa: E402
     DOUBLE_BOOKING_FORM_NAME,
@@ -156,6 +160,7 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
             ("old global replacement action module", GLOBAL_REPLACEMENT_MODULE_NAME),
             ("old replacement operator module", REPLACEMENT_OPERATOR_MODULE_NAME),
             ("old replacement operator form", REPLACEMENT_OPERATOR_FORM_NAME),
+            ("old replacement ledger sync module", REPLACEMENT_LEDGER_SYNC_MODULE_NAME),
             ("old double-booking module", DOUBLE_BOOKING_MODULE_NAME),
             ("old double-booking form", DOUBLE_BOOKING_FORM_NAME),
             ("old workload module", WORKLOAD_MODULE_NAME),
@@ -225,6 +230,8 @@ def _install_operational_modules(workbook_path: Path) -> None:
         ledger_module.CodeModule.AddFromString(
             build_in_session_ledger_vba(DAILY_CHANGE_LEDGER_BASE_CODE)
         )
+        stage = "installing authoritative replacement ledger sync"
+        install_daily_replacement_ledger_sync(vbproject)
         stage = "installing reversible DAILY_INPUT ledger"
         install_daily_input_change_ledger(vbproject)
         stage = "routing workload navigation through daily change sync"
@@ -234,6 +241,7 @@ def _install_operational_modules(workbook_path: Path) -> None:
             GLOBAL_REPLACEMENT_MODULE_NAME,
             REPLACEMENT_OPERATOR_MODULE_NAME,
             REPLACEMENT_OPERATOR_FORM_NAME,
+            REPLACEMENT_LEDGER_SYNC_MODULE_NAME,
             DOUBLE_BOOKING_MODULE_NAME,
             DOUBLE_BOOKING_FORM_NAME,
             WORKLOAD_MODULE_NAME,
