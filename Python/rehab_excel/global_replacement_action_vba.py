@@ -55,6 +55,7 @@ Public Function ResolveDailyReplacementsInPlace() As Boolean
         GoTo CleanUp
     End If
 
+    If Not ConfirmAutomaticReplacementProposal(mode) Then GoTo CleanUp
     If Not PersistReplacementPayload(payloadPath, mode = "resolved") Then GoTo CleanUp
 
     If mode = "review_required" Then
@@ -93,6 +94,22 @@ CleanUp:
     If Len(payloadPath) > 0 And Dir$(payloadPath) <> "" Then Kill payloadPath
     If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
     On Error GoTo 0
+End Function
+
+Private Function ConfirmAutomaticReplacementProposal(ByVal mode As String) As Boolean
+    Dim prompt As String
+
+    prompt = "Βρέθηκε η καλύτερη συνολική πρόταση αναπληρώσεων με βάση τους ισχύοντες κανόνες." & vbCrLf & vbCrLf & _
+             "Να εφαρμοστεί τώρα η αυτόματη πρόταση;" & vbCrLf & _
+             "Επιλέξτε Όχι αν θέλετε να κάνετε χειροκίνητες επιλογές ασθενή-ασθενή."
+
+    If mode = "review_required" Then
+        prompt = prompt & vbCrLf & vbCrLf & _
+                 "Μετά την εφαρμογή θα ζητηθεί ξεχωριστή απόφαση για όποια συνεδρία χρειάζεται εξαίρεση."
+    End If
+
+    ConfirmAutomaticReplacementProposal = _
+        (MsgBox(prompt, vbYesNo + vbQuestion, "Εφαρμογή καλύτερης αυτόματης λύσης") = vbYes)
 End Function
 
 Private Function PersistReplacementPayload(ByVal payloadPath As String, ByVal applyFinalPatches As Boolean) As Boolean
