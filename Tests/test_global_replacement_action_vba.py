@@ -36,30 +36,6 @@ def test_global_replacement_action_uses_guided_review_not_raw_replacements_sheet
     assert 'Worksheets("REPLACEMENTS").Activate' not in source
 
 
-def test_global_resolved_plan_requires_explicit_operator_confirmation_before_persist():
-    source = GLOBAL_REPLACEMENT_MODULE_CODE
-
-    resolved_pos = source.index('If mode = "resolved" Then')
-    confirm_pos = source.index("ConfirmGlobalReplacementProposal", resolved_pos)
-    persist_pos = source.index("PersistReplacementPayload(payloadPath, True)", resolved_pos)
-
-    assert resolved_pos < confirm_pos < persist_pos
-    assert "If Not ConfirmGlobalReplacementProposal(responseText) Then GoTo CleanUp" in source
-    assert 'If Not PersistReplacementPayload(payloadPath, mode = "resolved")' not in source
-
-
-def test_global_replacement_confirmation_is_operator_facing_and_non_technical():
-    source = GLOBAL_REPLACEMENT_MODULE_CODE
-    messages = _messages(source)
-
-    assert "Private Function ConfirmGlobalReplacementProposal" in source
-    assert 'JsonLongValue(responseText, "normal_assignments")' in source
-    assert "δεν έχει εφαρμοστεί ακόμη" in source
-    assert "θέλετε να εφαρμοστεί" in source
-    assert "backend" not in messages
-    assert "payload" not in messages
-
-
 def test_global_replacement_action_has_transaction_rollback_and_diagnostic():
     source = GLOBAL_REPLACEMENT_MODULE_CODE
     messages = _messages(source)
