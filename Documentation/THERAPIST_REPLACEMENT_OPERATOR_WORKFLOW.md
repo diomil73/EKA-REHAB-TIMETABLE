@@ -145,20 +145,10 @@ V15 proved that the current implementation violates this contract in two ways:
 
 These are orchestration/UI defects. They are not a reason to rewrite the global solver or its candidate-policy pipeline.
 
-## V16 isolated overlay checkpoint
+## V16 experimental overlay withdrawn
 
-V16 is intentionally implemented as an overlay on a copy of the accepted V15 workbook rather than being merged immediately into the central registration-menu builder.
+The isolated V16 operator overlay was tested natively on 2026-10-27 and is not an accepted replacement baseline. It exposed unsafe orchestration behavior when an already-applied therapist absence was interrupted and then edited to another therapist. The V16 overlay components and their dedicated tests have therefore been removed from the active branch.
 
-New components:
+This withdrawal does not revert or alter the protected replacement core, the global solver, feasibility rules, adjacency logic, cross-specialty protection, capacity rules, provider policy, service hours, workload balancing, unique-slot protection, or the established double-booking validation path.
 
-- `Python/tools/prepare_replacement_operator_decision.py`: read-only preparation of one scarce-first unresolved patient plus ranked valid therapist/time choices and a marker for the existing global solver's recommended pair;
-- `Python/tools/validate_replacement_operator_choice.py`: read-only revalidation of the exact operator-selected therapist/time against the current workbook state, provider policy, service hours, capacity and existing replacement facts;
-- `Python/rehab_excel/replacement_operator_vba.py`: modal per-patient UserForm/controller, explicit confirmation, native fact persistence with read-back, projection refresh and recomputation before the next patient;
-- `Python/tools/build_replacement_operator_preview.py`: copies V15 to a disposable V16 preview and installs only the operator overlay;
-- `Tests/test_replacement_operator_workflow.py`: orchestration guards.
-
-V16 does **not** replace or edit the global solver. Manual choice order remains the existing replacement ranking order. The global solution is only flagged as an automatic recommendation and does not reorder the manual list.
-
-If no normal valid choice exists for the current patient, V16 deliberately stops rather than silently creating treatment suspension or double-booking. Exceptional double-booking/suspension handling remains a later UI step and the legacy dense review is not used as the main screen.
-
-V15 remains the fallback/reference workbook until V16 passes focused tests and native operator-flow verification.
+Resume from the pre-V16 replacement implementation and treat future work as narrowly scoped orchestration/restore integration. Any future UI change must reuse the existing replacement engine and must pass the established replacement regression gate before native Excel verification.
