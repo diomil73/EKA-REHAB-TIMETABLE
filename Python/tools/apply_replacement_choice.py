@@ -21,16 +21,35 @@ from rehab_core.models import (  # noqa: E402
 )
 from rehab_core.replacement_options import find_replacement_options  # noqa: E402
 from rehab_core.replacement_workflow import choose_replacement_option  # noqa: E402
+from rehab_excel.daily_change_ledger_vba import (  # noqa: E402
+    DailyChangeLedgerPreviewError,
+    DailyChangeLedgerRecord,
+    install_daily_change_ledger_preview,
+)
+from rehab_excel.daily_preview_composer import (  # noqa: E402
+    DailyPreviewCompositionError,
+    compose_outpatient_daily_plan,
+)
+from rehab_excel.master_daily_overlay import (  # noqa: E402
+    MasterDailyOverlayError,
+    build_master_daily_overlay_plan,
+    compose_master_daily_overlay,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
+from rehab_excel.outpatient_schedule_source import (  # noqa: E402
+    OutpatientScheduleSourceError,
+    read_unified_base_schedule,
+)
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.reader import (  # noqa: E402
-    read_base_schedule,
-    read_patients,
-    read_settings,
+from rehab_excel.patient_registry_source import (  # noqa: E402
+    PatientRegistrySourceError,
+    read_patient_registry,
 )
+from rehab_excel.reader import read_settings  # noqa: E402
 
 
 def _norm(value: str) -> str:
@@ -80,6 +99,12 @@ def _find_target_session(sessions, patients, patient_name: str, target_time: tim
 
 def _fmt_times(slots: tuple[time, ...]) -> str:
     return ", ".join(slot.strftime("%H:%M") for slot in slots)
+
+
+def _fmt_load(option) -> str:
+    if option.capacity_limit is None:
+        return str(option.active_timeslots)
+    return f"{option.active_timeslots}/{option.capacity_limit}"
 
 
 def _has_vba(path: Path) -> bool:
@@ -138,9 +163,9 @@ def main() -> int:
         return 2
 
     try:
-        patients = read_patients(source)
+        patients = read_patient_registry(source)
         settings = read_settings(source)
-        base_entries = read_base_schedule(source)
+        base_entries = read_unified_base_schedule(source)
         sessions = materialize_sessions_for_date(base_entries, args.date)
         patient, target = _find_target_session(
             sessions, patients, args.patient, args.time
@@ -177,7 +202,8 @@ def main() -> int:
         for index, option in enumerate(visible, start=1):
             exact = "exact" if option.exact_time_available else "alternative"
             print(
-                f"  {index}. {option.display_name} | load {option.active_sessions} | "
+                f"  {index}. {option.display_name} | load {_fmt_load(option)} | "
+                f"patients {option.active_sessions} | "
                 f"recommended {option.recommended_time.strftime('%H:%M')} ({exact}) | "
                 f"free: {_fmt_times(option.available_timeslots)}"
             )
@@ -216,12 +242,57 @@ def main() -> int:
             patients=patients,
             rebuild_multi_member_groups=True,
         )
-        report = apply_write_plan_to_copy(
+        composed_plan = compose_outpatient_daily_plan(
             preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        master_overlay = build_master_daily_overlay_plan(
+            source,
+            base_entries=base_entries,
+            states=states,
+            patients=patients,
+        )
+        composed_plan = compose_master_daily_overlay(composed_plan, master_overlay)
+        report = apply_write_plan_to_copy(
+            composed_plan,
             output,
             overwrite=args.overwrite,
         )
-    except (ValueError, PatientCentricPreviewError) as exc:
+
+        binding = next(
+            item for item in preview.bindings if item.session_id == target.session_id
+        )
+        if binding.effective_cell is None:
+            raise DailyChangeLedgerPreviewError(
+                "Replacement preview did not expose an effective destination cell"
+            )
+        ledger_record = DailyChangeLedgerRecord(
+            change_id=replacement.replacement_id,
+            change_date=args.date,
+            patient_id=patient.patient_id,
+            patient_name=patient.display_name,
+            original_provider=target.therapist_id,
+            original_time=target.start_time,
+            effective_provider=option.provider_id,
+            effective_time=option.recommended_time,
+            original_cell=binding.original_cell,
+            effective_cell=binding.effective_cell,
+            reason="προσωρινή ανακατανομή",
+        )
+        install_daily_change_ledger_preview(output, source, (ledger_record,))
+    except (
+        PatientCentricPreviewError,
+        PatientRegistrySourceError,
+        OutpatientScheduleSourceError,
+        OutpatientPresentationError,
+        DailyPreviewCompositionError,
+        MasterDailyOverlayError,
+        DailyChangeLedgerPreviewError,
+        ValueError,
+        KeyError,
+        StopIteration,
+    ) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
@@ -234,7 +305,9 @@ def main() -> int:
     print(f"Preview: {report.output_path}")
     print(f"Source unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
-    print("NEXT: open only the guided preview and inspect the original and destination cells.")
+    print("MASTER daily overlay installed: yes")
+    print("Daily change ledger installed: yes")
+    print("NEXT: verify MASTER and THERAPIST_DAILY before Restore, then verify both return after Restore.")
     return 0 if report.source_unchanged and vba_preserved else 3
 
 

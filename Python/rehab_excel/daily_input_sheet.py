@@ -8,9 +8,24 @@ import shutil
 import sys
 from typing import Iterable, Sequence
 
+from .outpatient_presentation import OUTPATIENT_LIGHT_BLUE_RGB
+
 
 SHEET_NAME = "DAILY_INPUT"
 LISTS_SHEET_NAME = "_PY_LISTS"
+PATIENT_CANCELLATION_STATUSES = (
+    "ΑΝΑΒΟΛΗ ΤΜΗΜΑΤΟΣ",
+    "ΔΕΝ ΠΡΟΣΗΛΘΕ",
+    "Αναστολή θεραπείας",
+)
+THERAPIST_ABSENCE_REASONS = (
+    "Άδεια",
+    "Ασθένεια",
+    "Ρεπό",
+    "Εκπαίδευση",
+    "Υπηρεσιακή ανάγκη",
+    "Άλλο",
+)
 
 
 class DailyInputSheetError(RuntimeError):
@@ -54,6 +69,7 @@ class DailyInputSpec:
     patient_statuses: tuple[str, ...]
     timeslots: tuple[str, ...]
     yes_no_values: tuple[str, ...] = ("ΝΑΙ", "ΟΧΙ")
+    therapist_reasons: tuple[str, ...] = THERAPIST_ABSENCE_REASONS
     therapist_rows: int = 10
     patient_rows: int = 20
 
@@ -94,18 +110,46 @@ def build_daily_input_spec(
         target_date=target_date,
         therapist_names=_unique_nonblank(therapist_names),
         patient_names=_unique_nonblank(patient_names),
-        patient_statuses=_unique_nonblank(patient_statuses),
+        patient_statuses=_unique_nonblank(
+            (*patient_statuses, *PATIENT_CANCELLATION_STATUSES)
+        ),
         timeslots=tuple(_time_text(value) for value in timeslots),
+        therapist_reasons=THERAPIST_ABSENCE_REASONS,
         therapist_rows=therapist_rows,
         patient_rows=patient_rows,
     )
 
 
-def _delete_sheet_if_present(workbook, name: str) -> None:
+def _find_sheet(workbook, name: str):
     for sheet in workbook.Worksheets:
         if str(sheet.Name).casefold() == name.casefold():
-            sheet.Delete()
-            return
+            return sheet
+    return None
+
+
+def _reset_sheet(ws) -> None:
+    try:
+        ws.Cells.UnMerge()
+    except Exception:
+        pass
+    try:
+        ws.Cells.Clear()
+    except Exception:
+        pass
+
+
+def _get_or_create_sheet(workbook, name: str, *, before_first: bool = False):
+    ws = _find_sheet(workbook, name)
+    if ws is not None:
+        _reset_sheet(ws)
+        return ws
+
+    if before_first:
+        ws = workbook.Worksheets.Add(Before=workbook.Worksheets(1))
+    else:
+        ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
+    ws.Name = name
+    return ws
 
 
 def _remove_name_if_present(workbook, name: str) -> None:
@@ -157,21 +201,31 @@ def _set_validation(cell_range, formula1: str) -> None:
 
 
 def _configure_lists(workbook, spec: DailyInputSpec):
-    _delete_sheet_if_present(workbook, LISTS_SHEET_NAME)
-    lists = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
-    lists.Name = LISTS_SHEET_NAME
+    lists = _get_or_create_sheet(workbook, LISTS_SHEET_NAME)
+    try:
+        lists.Visible = -1
+    except Exception:
+        pass
 
     _write_column(lists, 1, spec.therapist_names)
     _write_column(lists, 2, spec.patient_names)
     _write_column(lists, 3, spec.patient_statuses)
     _write_column(lists, 4, spec.timeslots, as_text=True)
     _write_column(lists, 5, spec.yes_no_values)
+    _write_column(lists, 6, spec.therapist_reasons)
 
     _add_named_range(workbook, "PY_THERAPISTS", LISTS_SHEET_NAME, "A", len(spec.therapist_names))
     _add_named_range(workbook, "PY_PATIENTS", LISTS_SHEET_NAME, "B", len(spec.patient_names))
     _add_named_range(workbook, "PY_STATUSES", LISTS_SHEET_NAME, "C", len(spec.patient_statuses))
     _add_named_range(workbook, "PY_TIMESLOTS", LISTS_SHEET_NAME, "D", len(spec.timeslots))
     _add_named_range(workbook, "PY_YESNO", LISTS_SHEET_NAME, "E", len(spec.yes_no_values))
+    _add_named_range(
+        workbook,
+        "PY_THERAPIST_REASONS",
+        LISTS_SHEET_NAME,
+        "F",
+        len(spec.therapist_reasons),
+    )
 
     # xlSheetVeryHidden = 2. Users should interact only with DAILY_INPUT.
     lists.Visible = 2
@@ -221,6 +275,7 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     _set_validation(ws.Range(f"A{tr1}:A{tr2}"), "=PY_THERAPISTS")
     _set_validation(ws.Range(f"B{tr1}:B{tr2}"), "=PY_YESNO")
     _set_validation(ws.Range(f"C{tr1}:D{tr2}"), "=PY_TIMESLOTS")
+    _set_validation(ws.Range(f"E{tr1}:E{tr2}"), "=PY_THERAPIST_REASONS")
     for rng in (ws.Range(f"C{tr1}:D{tr2}"),):
         try:
             rng.NumberFormat = "@"
@@ -241,6 +296,22 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
         except Exception:
             pass
     _set_validation(ws.Range(f"D{pr1}:D{pr2}"), "=PY_STATUSES")
+
+    # Mark outpatient selections consistently with THERAPIST_DAILY.
+    try:
+        patient_range = ws.Range(f"A{pr1}:A{pr2}")
+        patient_range.FormatConditions.Delete()
+        condition = patient_range.FormatConditions.Add(
+            Type=2,
+            Formula1=f'=LEFT(A{pr1},2)="ΕΞ"',
+        )
+        rgb = OUTPATIENT_LIGHT_BLUE_RGB
+        red = int(rgb[0:2], 16)
+        green = int(rgb[2:4], 16)
+        blue = int(rgb[4:6], 16)
+        condition.Interior.Color = red + (green << 8) + (blue << 16)
+    except Exception:
+        pass
 
     # Keep unused rows visually empty. Whole-day is chosen only when needed.
     # This avoids a wall of ΟΧΙ values and removes one click per active row.
@@ -273,6 +344,7 @@ def _format_daily_sheet(ws, spec: DailyInputSpec) -> None:
     except Exception:
         pass
 
+
 def create_daily_input_sheet(workbook_path: str | Path, spec: DailyInputSpec) -> None:
     if sys.platform != "win32":
         raise DailyInputSheetError("DAILY_INPUT preview requires Windows + Microsoft Excel")
@@ -292,10 +364,8 @@ def create_daily_input_sheet(workbook_path: str | Path, spec: DailyInputSpec) ->
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(workbook_path), UpdateLinks=0, ReadOnly=False)
 
-        _delete_sheet_if_present(workbook, SHEET_NAME)
+        ws = _get_or_create_sheet(workbook, SHEET_NAME, before_first=True)
         _configure_lists(workbook, spec)
-        ws = workbook.Worksheets.Add(Before=workbook.Worksheets(1))
-        ws.Name = SHEET_NAME
         _format_daily_sheet(ws, spec)
         workbook.Save()
     except Exception as exc:

@@ -147,7 +147,6 @@ def test_student_replacement_can_resolve_legacy_student_column(fake_layout):
     student = Student(
         student_id="ST1",
         display_name="ΜΑΡΙΑ ΦΟΙΤΗΤΡΙΑ",
-        student_number=1,
         placement_start=date(2026, 9, 1),
         placement_end=date(2026, 12, 31),
     )

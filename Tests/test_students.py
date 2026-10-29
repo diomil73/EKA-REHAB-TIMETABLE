@@ -23,7 +23,6 @@ def _student(*, max_slots: int = 5, replacement_capable: bool = True) -> Student
     return Student(
         student_id="STU-1",
         display_name="Μαρία Παπαδοπούλου",
-        student_number=1,
         placement_start=date(2026, 9, 1),
         placement_end=date(2026, 12, 20),
         replacement_capable=replacement_capable,

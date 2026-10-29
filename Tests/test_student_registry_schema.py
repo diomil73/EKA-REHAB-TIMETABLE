@@ -35,7 +35,6 @@ def test_students_registry_imports_identity_placement_and_capabilities(tmp_path)
         [
             "STU-1",
             "Μαρία Παπαδοπούλου",
-            1,
             date(2026, 9, 1),
             date(2026, 12, 20),
             "Πέτσιος",
@@ -51,7 +50,6 @@ def test_students_registry_imports_identity_placement_and_capabilities(tmp_path)
     student = students[0]
     assert student.student_id == "STU-1"
     assert student.display_name == "Μαρία Παπαδοπούλου"
-    assert student.student_number == 1
     assert student.placement_start == date(2026, 9, 1)
     assert student.placement_end == date(2026, 12, 20)
     assert student.supervisor_therapist_id == "Πέτσιος"
@@ -70,7 +68,6 @@ def test_students_registry_accepts_native_excel_date_serials(tmp_path):
         [
             "STU-SERIAL",
             "Δοκιμαστικός Φοιτητής",
-            1,
             46296,
             46387,
             "Πέτσιος",
@@ -96,7 +93,6 @@ def test_blank_capabilities_use_confirmed_student_defaults(tmp_path):
         [
             "STU-2",
             "Νίκος Δοκιμή",
-            2,
             "01/10/2026",
             "31/12/2026",
             None,
@@ -118,8 +114,8 @@ def test_duplicate_student_identity_is_rejected(tmp_path):
     ws = wb.active
     ws.title = "STUDENTS"
     ws.append(STUDENT_REGISTRY_HEADERS)
-    ws.append(["STU-1", "Α", 1, "01/09/2026", "30/09/2026", None, None, None])
-    ws.append(["stu-1", "Β", 2, "01/09/2026", "30/09/2026", None, None, None])
+    ws.append(["STU-1", "Α", "01/09/2026", "30/09/2026", None, None, None])
+    ws.append(["stu-1", "Β", "01/09/2026", "30/09/2026", None, None, None])
     wb.save(path)
 
     with pytest.raises(StudentRegistryError, match="duplicate StudentID"):

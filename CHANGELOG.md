@@ -10,6 +10,11 @@
 ## Unreleased
 
 ### Added
+- Native suspension-resolution flow for global replacement leftovers: unresolved displaced sessions now become explicit `Αναστολή θεραπείας` daily cancellations instead of blocking the entire daily plan.
+- Native smoke preparation and verification for suspension resolution, including persisted DAILY_INPUT read-back, zero unresolved sessions after recompute, and treatment-suspension statistics verification.
+- Application-style outpatient schedule manager listing patient, treatment, time, days and therapist while keeping worksheet row/internal target mapping hidden from the user.
+- Outpatient daily-edit hardening that removes stale plain/decorated patient render lines from affected old/destination `THERAPIST_DAILY` cells before rendering the edited placement once.
+- Regression coverage proving one outpatient recurring entry materializes to one operational session and contributes one occupied therapist timeslot.
 - Replacement ranking based first on operational daily workload, then exact-time match, then another common free timeslot.
 - Alternative-timeslot visibility for replacement candidates.
 - Student replacement providers with active-placement and capability checks.
@@ -17,10 +22,29 @@
 - Student workload and exact-timeslot availability engine.
 - Provider-kind metadata so therapist and student replacements remain distinct.
 - Student double-booking conflict classification.
+- In-session daily-ledger restore bridge that keeps the authoritative Python preview/recompute gate while applying the verified result back into the already-open workbook with a rollback copy.
+- Backend restore profiler with Excel-output and pre-Excel phase timings for targeted latency work.
 
 ### Changed
+- Global replacement finalization now treats a day as complete when every solver leftover has been converted to an explicit `TREATMENT_SUSPENDED` cancellation. Replacement-fact persistence and the reversible daily ledger remain strict for genuinely unresolved sessions.
+- The global replacement ledger accepts solver leftovers only when the same session IDs are explicitly present in final cancellations as `TREATMENT_SUSPENDED`; otherwise it still safety-stops.
+- Outpatient smoke installation now upgrades legacy registration menus that did not yet contain an outpatient action: it creates the visible `Προγράμματα εξωτερικών ασθενών` button, moves the close action out of the way, and routes the new button to the schedule manager.
+- `EditOutpatientSchedule` now opens the business-facing outpatient schedule manager instead of asking the user for an `OUTPATIENT_SCHEDULE` worksheet row. The existing registration menu outpatient action is routed to the same manager.
+- Outpatient recurring edit carries `target_base_entry_id` through conflict validation and the final in-session write. The writer validates the target row and PatientID, updates the same `outpatient:<row>` instead of appending a duplicate, and refreshes the current-date therapist-daily placement when therapist/time/day changes.
+- Native outpatient edit debugging identified a daily-projection representation mismatch: normal daily rendering may decorate the patient name (for example with `[Καθ/να]`) while the old in-session edit cleanup matched only the plain name. The fresh smoke builder now installs a post-conflict hardening patch so stale decorated lines are removed before the edited placement is rendered once.
+- Locked the requirements for global multi-therapist-absence replacement planning: scarcity-aware assignment across all displaced patients, persistent pool/robotic operating hours, reclining-treatment adjacency preferences, workload-balance goals, and user-approved last-resort double-booking.
+- Clarified that patient-specific physical suitability, compatibility, and waiting tolerance should be captured selectively rather than creating mandatory high-volume data entry.
+- Audited the existing replacement path: candidate ranking remains workload-first and the workflow remains sequential; global scarcity-aware planning and persistent pool/robotic operating-hour constraints are documented as required follow-up work, not claimed as implemented.
 - A provider busy at the requested time is no longer automatically removed from replacement suggestions when another common free timeslot exists.
 - Infectious workload is now a tie-breaker after total load and exact-time availability, rather than overriding the confirmed load-first priority.
+- Daily ledger restore no longer uses a visible `WScript.Shell.Exec` console or the detached workbook close/reopen commit worker on the primary UI path. Backend execution is hidden and blocking, then the verified operational sheet set is synchronized in-session and saved without closing the workbook.
+- Native Excel correctness is now confirmed for per-row restore, selected multi-row restore, and restore-all, with exact fresh reconstruction/statistics checks after each scenario.
+- User-facing ledger `Αιτία` now shows agreed Greek business wording for known technical replacement reasons instead of exposing internal English labels.
+- Restore performance work reduced backend latency from about 45.7s to 31.3s by batching MASTER projection COM writes; profiling then isolated the remaining dominant pre-Excel phases.
+- Restore recomputation now reuses the already-loaded patient registry and already-built MASTER projection instead of reparsing those identical inputs a second time.
+- Selected/all restore no longer starts a second hidden Excel process only to mark `DAILY_REPLACEMENT_FACTS` as RESTORED. The requested set is validated in memory, effective ACTIVE replacements are derived without mutating the stage, and authoritative fact statuses are persisted in the existing verified-output Excel session before its single save.
+- MASTER projection metadata now reads PATIENTS source rows, SETTINGS room order, and MASTER header position directly from the read-only OOXML ZIP/XML package instead of loading the full macro-enabled workbook through openpyxl.
+- Restore latency remains an open performance/UX item until native total time reaches the acceptance target.
 
 ### Unchanged
 - Base schedule remains immutable.
@@ -38,7 +62,7 @@
 
 - Formalized `PATIENTS`, `PATIENT_PLANNER` and `SETTINGS` as the only current authoritative Excel import sources.
 - Added immutable read-only `WorkbookSnapshot`.
-- Added safety gate that blocks operational import when authoritative identity/source errors exist.
+- Added a safety gate that blocks operational import when authoritative identity/source errors exist.
 - Classified `SESSIONS` as audit-only and workbook output/UI sheets as non-authoritative.
 - Added a privacy rule: no automatic patient-data export to repository files.
 ## 2026-09-18 - Excel write-back dry run
@@ -87,4 +111,3 @@
 - Replacements now keep the original patient in muted italics without strikethrough and append `→ provider HH:MM`.
 - Absence/cancellation-style states retain strikethrough semantics.
 - Added multi-replacement same-cell regression coverage and corrected `DailySessionState.original_should_be_struck_through`.
-
