@@ -12,8 +12,10 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_excel.daily_change_ledger_live_protection_patch import (  # noqa: E402
     install_daily_change_ledger_live_protection,
 )
+from rehab_excel.manual_operator_v2_source_normalizer import (  # noqa: E402
+    normalize_manual_operator_v2_sources,
+)
 from rehab_excel.manual_replacement_operator_v2_patch import (  # noqa: E402
-    ManualReplacementOperatorV2PatchError,
     install_manual_operator_v2,
 )
 
@@ -25,6 +27,7 @@ def main() -> int:
 
     try:
         install_daily_change_ledger_live_protection(args.workbook)
+        normalize_manual_operator_v2_sources(args.workbook)
         install_manual_operator_v2(args.workbook)
     except Exception as exc:
         print(f"SAFETY STOP: {exc}")
@@ -33,6 +36,7 @@ def main() -> int:
     print("MANUAL REPLACEMENT OPERATOR V2 REPAIR OK")
     print(f"Workbook: {args.workbook.resolve()}")
     print("Protected ledger rendering: installed")
+    print("Live VBA source normalization: installed")
     print("Treatment suspension action: installed")
     print("Explicit provider/time selection: installed")
     print("Previous/next operator navigation: installed")
