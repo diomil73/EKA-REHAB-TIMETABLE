@@ -15,6 +15,16 @@ def _norm_line(value: str) -> str:
     return " ".join(value.strip().split()).casefold()
 
 
+def _compact_line(value: str) -> str:
+    """Normalize a VBA line for structural matching only.
+
+    VBA permits insignificant whitespace around parentheses and operators, so structural
+    matching must not depend on formatting such as Worksheets( DAILY_SHEET ).
+    """
+
+    return "".join(value.split()).casefold()
+
+
 def _find_line(lines: list[str], predicate, *, start: int = 0, end: int | None = None) -> int:
     stop = len(lines) if end is None else min(end, len(lines))
     for index in range(start, stop):
@@ -46,50 +56,53 @@ def patch_ledger_module_source(source: str) -> str:
     lines = source.split("\n")
     proc_start = _find_line(
         lines,
-        lambda line: _norm_line(line).startswith("public sub refreshdailychangeledgerview("),
+        lambda line: _compact_line(line).startswith("publicsubrefreshdailychangeledgerview("),
     )
     if proc_start < 0:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh procedure marker not found")
 
-    proc_end = _find_line(lines, lambda line: _norm_line(line) == "end sub", start=proc_start + 1)
+    proc_end = _find_line(lines, lambda line: _compact_line(line) == "endsub", start=proc_start + 1)
     if proc_end < 0:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh procedure end not found")
 
-    error_label = _find_line(lines, lambda line: _norm_line(line) == "rendererror:", start=proc_start + 1, end=proc_end)
+    error_label = _find_line(lines, lambda line: _compact_line(line) == "rendererror:", start=proc_start + 1, end=proc_end)
     if error_label < 0:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh error label not found")
 
     on_error = _find_line(
         lines,
-        lambda line: _norm_line(line) == "on error goto rendererror",
+        lambda line: _compact_line(line) == "onerrorgotorendererror",
         start=proc_start + 1,
         end=error_label,
     )
     if on_error < 0:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh error handler marker not found")
 
-    if not any(_norm_line(line) == "dim rendererrortext as string" for line in lines[proc_start:error_label]):
+    if not any(_compact_line(line) == "dimrendererrortextasstring" for line in lines[proc_start:error_label]):
         lines.insert(on_error, "    Dim renderErrorText As String")
         error_label += 1
         proc_end += 1
 
     set_daily = _find_line(
         lines,
-        lambda line: "set wsdaily" in _norm_line(line) and "worksheets(daily_sheet)" in _norm_line(line),
+        lambda line: (
+            _compact_line(line).startswith("setwsdaily=")
+            and "worksheets(daily_sheet)" in _compact_line(line)
+        ),
         start=proc_start + 1,
         end=error_label,
     )
     if set_daily < 0:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh DAILY sheet assignment not found")
 
-    if not any(_norm_line(line) == "wsdaily.unprotect" for line in lines[set_daily + 1:error_label]):
+    if not any(_compact_line(line) == "wsdaily.unprotect" for line in lines[set_daily + 1:error_label]):
         lines.insert(set_daily + 1, "    wsDaily.Unprotect")
         error_label += 1
         proc_end += 1
 
     start_guard = _find_line(
         lines,
-        lambda line: "if startrow < 2 then" in _norm_line(line),
+        lambda line: _compact_line(line).startswith("ifstartrow<2then"),
         start=set_daily + 1,
         end=error_label,
     )
@@ -98,18 +111,17 @@ def patch_ledger_module_source(source: str) -> str:
 
     last_guard = _find_line(
         lines,
-        lambda line: "if lastledgerrow < 2 then" in _norm_line(line),
+        lambda line: _compact_line(line).startswith("iflastledgerrow<2then"),
         start=set_daily + 1,
         end=error_label,
     )
     if last_guard >= 0:
         lines[last_guard] = "    If lastLedgerRow < 2 Then GoTo RenderProtectionExit"
 
-    # Protect on the normal exit immediately before the existing RenderError handler.
-    error_label = _find_line(lines, lambda line: _norm_line(line) == "rendererror:", start=proc_start + 1)
+    error_label = _find_line(lines, lambda line: _compact_line(line) == "rendererror:", start=proc_start + 1)
     normal_exit = -1
     for index in range(error_label - 1, proc_start, -1):
-        if _norm_line(lines[index]) == "exit sub":
+        if _compact_line(lines[index]) == "exitsub":
             normal_exit = index
             break
     if normal_exit < 0:
@@ -125,7 +137,7 @@ def patch_ledger_module_source(source: str) -> str:
     ]
     lines[normal_exit:normal_exit + 1] = protection_block
 
-    error_label = _find_line(lines, lambda line: _norm_line(line) == "rendererror:", start=proc_start + 1)
+    error_label = _find_line(lines, lambda line: _compact_line(line) == "rendererror:", start=proc_start + 1)
     if error_label < 0:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh error label disappeared")
 
@@ -138,8 +150,7 @@ def patch_ledger_module_source(source: str) -> str:
     ]
     lines[error_label:error_label + 1] = error_body
 
-    # Preserve the existing user-facing message but make it use the captured error text.
-    proc_end = _find_line(lines, lambda line: _norm_line(line) == "end sub", start=error_label + len(error_body))
+    proc_end = _find_line(lines, lambda line: _compact_line(line) == "endsub", start=error_label + len(error_body))
     if proc_end < 0:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh procedure end disappeared")
     msg_index = _find_line(
