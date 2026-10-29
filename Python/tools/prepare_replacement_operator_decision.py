@@ -18,9 +18,7 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_config.provider_policy_store import load_policy_book  # noqa: E402
 from rehab_config.service_hours_store import load_service_hours  # noqa: E402
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
-from rehab_core.global_replacement_end_to_end import build_global_replacement_assignments  # noqa: E402
 from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
-from rehab_core.reclining_adjacency import build_reclining_adjacency_penalty  # noqa: E402
 from rehab_core.replacement_policy import find_policy_replacement_options  # noqa: E402
 from rehab_core.service_replacement_options import build_service_id_by_session, filter_replacement_options_for_service_hours  # noqa: E402
 from rehab_core.therapist_absence_queue import build_therapist_absence_replacement_queue  # noqa: E402
@@ -37,6 +35,7 @@ HEADERS = (
     "provider_id", "provider_name", "replacement_time", "load_text", "free_times",
     "is_global_recommendation",
 )
+
 
 class ReplacementDecisionPreparationError(RuntimeError):
     pass
@@ -120,7 +119,6 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
     policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
     service_hours = load_service_hours(REPO_ROOT / "Config" / "service_hours.json")
     service_id_by_session = build_service_id_by_session(base_entries, target_date)
-    adjacency_penalty = build_reclining_adjacency_penalty(base_entries)
     existing = tuple(read_daily_replacement_facts(source, sessions=sessions, target_date=target_date))
     queue = build_therapist_absence_replacement_queue(
         sessions=sessions, absences=daily.absences, cancellations=daily.cancellations,
@@ -133,8 +131,14 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
         rows_output.parent.mkdir(parents=True, exist_ok=True)
         with rows_output.open("w", encoding="utf-8-sig", newline="") as handle:
             csv.DictWriter(handle, fieldnames=HEADERS, delimiter="\t").writeheader()
-        return {"ok": True, "mode": "complete", "date": target_date.isoformat(), "pending_count": 0,
-                "choice_count": 0, "source_unchanged": file_sha256(source) == source_hash}
+        return {
+            "ok": True,
+            "mode": "complete",
+            "date": target_date.isoformat(),
+            "pending_count": 0,
+            "choice_count": 0,
+            "source_unchanged": file_sha256(source) == source_hash,
+        }
 
     options_by_session: dict[str, tuple] = {}
     for target in targets:
@@ -144,33 +148,28 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
             cancellations=daily.cancellations, requested_time=target.start_time,
             timeslots=settings.standard_timeslots, students=students, base_entries=base_entries,
         )
-        options_by_session[target.session_id] = tuple(filter_replacement_options_for_service_hours(
-            options, target_session=target, hours_book=service_hours,
-            explicit_service_id=service_id_by_session.get(target.session_id),
-        ))
+        options_by_session[target.session_id] = tuple(
+            filter_replacement_options_for_service_hours(
+                options,
+                target_session=target,
+                hours_book=service_hours,
+                explicit_service_id=service_id_by_session.get(target.session_id),
+            )
+        )
 
     next_target = min(
         targets,
         key=lambda target: (
-            len(options_by_session[target.session_id]), target.start_time,
-            patient_by_id[target.patient_id].display_name.casefold(), target.session_id,
+            len(options_by_session[target.session_id]),
+            target.start_time,
+            patient_by_id[target.patient_id].display_name.casefold(),
+            target.session_id,
         ),
     )
 
-    global_result = build_global_replacement_assignments(
-        targets, therapists=therapists, sessions=sessions, absences=daily.absences,
-        patients=patients, replacements=existing, cancellations=daily.cancellations,
-        timeslots=settings.standard_timeslots, students=students, adjacency_penalty=adjacency_penalty,
-        policy_book=policy_book, base_entries=base_entries, service_hours=service_hours,
-        service_id_by_session=service_id_by_session,
-        replacement_id_factory=lambda session_id: f"proposal:{session_id}",
-        reason="operator proposal only",
-    )
-    recommendation = next((item for item in global_result.assignments if item.target_session_id == next_target.session_id), None)
-    recommended_pair = None if recommendation is None else (
-        recommendation.replacement_therapist_id, recommendation.replacement_time.strftime("%H:%M")
-    )
-
+    # Manual mode must stay responsive. It intentionally does not run the full
+    # global assignment solver merely to decorate one option as a recommendation.
+    # The automatic "Yes" route still owns the authoritative global solve.
     patient = patient_by_id[next_target.patient_id]
     choices: list[dict[str, str]] = []
     for option in options_by_session[next_target.session_id]:
@@ -186,16 +185,11 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
                 "replacement_time": slot_text,
                 "load_text": _load_text(option),
                 "free_times": _free_times(option),
-                "is_global_recommendation": "1" if recommended_pair == (option.provider_id, slot_text) else "0",
+                "is_global_recommendation": "0",
             })
 
     if limit > 0 and len(choices) > limit:
-        visible = choices[:limit]
-        if recommended_pair is not None and not any(row["is_global_recommendation"] == "1" for row in visible):
-            recommended_row = next((row for row in choices if row["is_global_recommendation"] == "1"), None)
-            if recommended_row is not None:
-                visible[-1] = recommended_row
-        choices = visible
+        choices = choices[:limit]
 
     rows_output.parent.mkdir(parents=True, exist_ok=True)
     with rows_output.open("w", encoding="utf-8-sig", newline="") as handle:
@@ -208,13 +202,18 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
         raise ReplacementDecisionPreparationError("Workbook changed during replacement decision preparation")
 
     return {
-        "ok": True, "mode": "decision_required", "date": target_date.isoformat(),
-        "pending_count": len(targets), "target_session_id": next_target.session_id,
-        "patient_name": patient.display_name, "original_therapist": next_target.therapist_id,
+        "ok": True,
+        "mode": "decision_required",
+        "date": target_date.isoformat(),
+        "pending_count": len(targets),
+        "target_session_id": next_target.session_id,
+        "patient_name": patient.display_name,
+        "original_therapist": next_target.therapist_id,
         "original_time": next_target.start_time.strftime("%H:%M"),
-        "normal_option_count": len(options_by_session[next_target.session_id]), "choice_count": len(choices),
-        "recommended_provider_id": "" if recommendation is None else recommendation.replacement_therapist_id,
-        "recommended_time": "" if recommendation is None else recommendation.replacement_time.strftime("%H:%M"),
+        "normal_option_count": len(options_by_session[next_target.session_id]),
+        "choice_count": len(choices),
+        "recommended_provider_id": "",
+        "recommended_time": "",
         "source_unchanged": True,
     }
 
