@@ -30,11 +30,17 @@ def patch_ledger_module_source(source: str) -> str:
     if already:
         return source
 
-    old_decl = "    Dim titleText As String\n    Dim statusText As String\n"
-    new_decl = "    Dim titleText As String\n    Dim statusText As String\n    Dim renderErrorText As String\n"
-    if old_decl not in source:
-        raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh declaration marker not found")
-    source = source.replace(old_decl, new_decl, 1)
+    proc_start = "Public Sub RefreshDailyChangeLedgerView()\n"
+    error_marker = "    On Error GoTo RenderError\n"
+    proc_pos = source.find(proc_start)
+    if proc_pos < 0:
+        raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh procedure marker not found")
+    error_pos = source.find(error_marker, proc_pos)
+    if error_pos < 0:
+        raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh error marker not found")
+    declaration = "    Dim renderErrorText As String\n"
+    if declaration not in source[proc_pos:error_pos]:
+        source = source[:error_pos] + declaration + source[error_pos:]
 
     old_setup = '''    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)\n    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)\n    startRow = CLng(wsLedger.Range("R1").Value)\n    If startRow < 2 Then Exit Sub\n'''
     new_setup = '''    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)\n    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)\n    wsDaily.Unprotect\n    startRow = CLng(wsLedger.Range("R1").Value)\n    If startRow < 2 Then GoTo RenderProtectionExit\n'''
