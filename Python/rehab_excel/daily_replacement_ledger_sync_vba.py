@@ -12,6 +12,7 @@ Public Function SyncDailyReplacementLedgerFromFacts() As Boolean
     Dim scriptPath As String, rowsPath As String, responsePath As String
     Dim commandLine As String, responseText As String
     Dim exitCode As Long
+    Dim wsDaily As Worksheet
 
     On Error GoTo SyncError
 
@@ -38,7 +39,10 @@ Public Function SyncDailyReplacementLedgerFromFacts() As Boolean
        Dir$(rowsPath) = "" Then GoTo SyncFailed
 
     If Not ApplyLedgerRows(rowsPath) Then GoTo SyncFailed
+    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)
+    wsDaily.Unprotect
     Application.Run "RefreshDailyChangeLedgerView"
+    wsDaily.Protect UserInterfaceOnly:=True
     ThisWorkbook.Save
     SyncDailyReplacementLedgerFromFacts = True
     GoTo SyncExit
@@ -55,6 +59,7 @@ SyncError:
 
 SyncExit:
     On Error Resume Next
+    If Not wsDaily Is Nothing Then wsDaily.Protect UserInterfaceOnly:=True
     If Len(rowsPath) > 0 And Dir$(rowsPath) <> "" Then Kill rowsPath
     If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
     On Error GoTo 0
