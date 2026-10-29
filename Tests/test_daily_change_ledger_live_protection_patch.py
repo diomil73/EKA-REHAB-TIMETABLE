@@ -28,6 +28,17 @@ def test_patch_tolerates_extra_existing_declarations_in_refresh_procedure():
     assert "RenderProtectionExit:" in patched
 
 
+def test_patch_accepts_excel_com_crlf_line_endings():
+    crlf_source = VBA_CODE.replace("\n", "\r\n")
+
+    patched = patch_ledger_module_source(crlf_source)
+
+    assert "Public Sub RefreshDailyChangeLedgerView()\n" in patched
+    assert "wsDaily.Unprotect" in patched
+    assert "RenderProtectionExit:" in patched
+    assert "wsDaily.Protect UserInterfaceOnly:=True" in patched
+
+
 def test_patch_is_idempotent():
     once = patch_ledger_module_source(VBA_CODE)
     twice = patch_ledger_module_source(once)
