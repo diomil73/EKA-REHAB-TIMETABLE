@@ -14,10 +14,14 @@ class DailyChangeLedgerLiveProtectionPatchError(RuntimeError):
 def patch_ledger_module_source(source: str) -> str:
     """Make the THERAPIST_DAILY ledger renderer safe on a protected live sheet.
 
-    Excel does not persist UserInterfaceOnly across sessions. The renderer therefore
-    owns a narrow unprotect/render/reprotect bracket and restores protection on every
-    normal or error exit. No replacement or restore business rule is changed here.
+    Excel COM commonly returns VBA source with CRLF line endings, while generated
+    source in tests uses LF. Normalize first so structural markers are stable across
+    both sources. The renderer owns a narrow unprotect/render/reprotect bracket and
+    restores protection on every normal or error exit. No replacement or restore
+    business rule is changed here.
     """
+
+    source = source.replace("\r\n", "\n").replace("\r", "\n")
 
     if "Private Const DAILY_SHEET As String = \"THERAPIST_DAILY\"" not in source:
         raise DailyChangeLedgerLiveProtectionPatchError("Unexpected daily-change-ledger module")
@@ -42,8 +46,17 @@ def patch_ledger_module_source(source: str) -> str:
     if declaration not in source[proc_pos:error_pos]:
         source = source[:error_pos] + declaration + source[error_pos:]
 
-    old_setup = '''    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)\n    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)\n    startRow = CLng(wsLedger.Range("R1").Value)\n    If startRow < 2 Then Exit Sub\n'''
-    new_setup = '''    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)\n    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)\n    wsDaily.Unprotect\n    startRow = CLng(wsLedger.Range("R1").Value)\n    If startRow < 2 Then GoTo RenderProtectionExit\n'''
+    old_setup = '''    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)
+    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)
+    startRow = CLng(wsLedger.Range("R1").Value)
+    If startRow < 2 Then Exit Sub
+'''
+    new_setup = '''    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)
+    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)
+    wsDaily.Unprotect
+    startRow = CLng(wsLedger.Range("R1").Value)
+    If startRow < 2 Then GoTo RenderProtectionExit
+'''
     if old_setup not in source:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh setup marker not found")
     source = source.replace(old_setup, new_setup, 1)
@@ -54,8 +67,31 @@ def patch_ledger_module_source(source: str) -> str:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger empty-view marker not found")
     source = source.replace(old_empty, new_empty, 1)
 
-    old_tail = '''    wsDaily.Columns("F").ColumnWidth = 18\n    wsDaily.Columns("G").ColumnWidth = 20\n    Exit Sub\n\nRenderError:\n    MsgBox "Δεν ήταν δυνατή η εμφάνιση της λίστας αλλαγών: " & Err.Description, vbExclamation\nEnd Sub\n'''
-    new_tail = '''    wsDaily.Columns("F").ColumnWidth = 18\n    wsDaily.Columns("G").ColumnWidth = 20\n\nRenderProtectionExit:\n    On Error Resume Next\n    wsDaily.Protect UserInterfaceOnly:=True\n    On Error GoTo 0\n    Exit Sub\n\nRenderError:\n    renderErrorText = Err.Description\n    On Error Resume Next\n    If Not wsDaily Is Nothing Then wsDaily.Protect UserInterfaceOnly:=True\n    On Error GoTo 0\n    MsgBox "Δεν ήταν δυνατή η εμφάνιση της λίστας αλλαγών: " & renderErrorText, vbExclamation\nEnd Sub\n'''
+    old_tail = '''    wsDaily.Columns("F").ColumnWidth = 18
+    wsDaily.Columns("G").ColumnWidth = 20
+    Exit Sub
+
+RenderError:
+    MsgBox "Δεν ήταν δυνατή η εμφάνιση της λίστας αλλαγών: " & Err.Description, vbExclamation
+End Sub
+'''
+    new_tail = '''    wsDaily.Columns("F").ColumnWidth = 18
+    wsDaily.Columns("G").ColumnWidth = 20
+
+RenderProtectionExit:
+    On Error Resume Next
+    wsDaily.Protect UserInterfaceOnly:=True
+    On Error GoTo 0
+    Exit Sub
+
+RenderError:
+    renderErrorText = Err.Description
+    On Error Resume Next
+    If Not wsDaily Is Nothing Then wsDaily.Protect UserInterfaceOnly:=True
+    On Error GoTo 0
+    MsgBox "Δεν ήταν δυνατή η εμφάνιση της λίστας αλλαγών: " & renderErrorText, vbExclamation
+End Sub
+'''
     if old_tail not in source:
         raise DailyChangeLedgerLiveProtectionPatchError("Ledger refresh exit marker not found")
     return source.replace(old_tail, new_tail, 1)
