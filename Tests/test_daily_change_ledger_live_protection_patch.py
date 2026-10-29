@@ -39,6 +39,21 @@ def test_patch_accepts_excel_com_crlf_line_endings():
     assert "wsDaily.Protect UserInterfaceOnly:=True" in patched
 
 
+def test_patch_tolerates_noncanonical_setup_spacing_and_intermediate_lines():
+    variant = VBA_CODE.replace(
+        '    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)\n    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)\n    startRow = CLng(wsLedger.Range("R1").Value)\n',
+        '    Set wsDaily = ThisWorkbook.Worksheets( DAILY_SHEET )\n    Debug.Print "ledger refresh"\n    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)\n    startRow = CLng(wsLedger.Range("R1").Value)\n',
+        1,
+    )
+
+    patched = patch_ledger_module_source(variant)
+
+    assert 'Debug.Print "ledger refresh"' in patched
+    assert "wsDaily.Unprotect" in patched
+    assert "If startRow < 2 Then GoTo RenderProtectionExit" in patched
+    assert "RenderProtectionExit:" in patched
+
+
 def test_patch_is_idempotent():
     once = patch_ledger_module_source(VBA_CODE)
     twice = patch_ledger_module_source(once)
