@@ -1,6 +1,6 @@
 # Replacement operator reconnection checkpoint
 
-Date: 2026-10-27
+Date: 2026-10-29
 
 ## Purpose
 
@@ -44,11 +44,13 @@ The manual path is sequential:
 
 The preparation and validation Python tools are read-only. They do not save or mutate the workbook.
 
+Manual preparation must remain lightweight. It must not invoke the full global assignment solver merely to decorate one displayed choice as a recommendation. The automatic **Yes** route remains the owner of the authoritative global solve. Manual mode still uses the established feasibility, policy, capacity, service-hour and queue logic to enumerate valid choices.
+
 ## DAILY_CHANGE_LEDGER contract
 
 `DAILY_CHANGE_LEDGER` remains the existing visible change/restore ledger beneath `THERAPIST_DAILY`. No second ledger is introduced.
 
-The ledger is now treated as a projection of authoritative `DAILY_REPLACEMENT_FACTS`:
+The ledger is treated as a projection of authoritative `DAILY_REPLACEMENT_FACTS`:
 
 - `ChangeID` is the exact `ReplacementId`;
 - patient, original therapist/time, effective therapist/time, reason and status are reconstructed from authoritative workbook data;
@@ -62,7 +64,7 @@ Legacy snapshot columns remain part of the established sheet schema for compatib
 
 The operational absence/cancellation entry point is the existing button on `MASTER`, which opens the daily-state input sheet. It is not a registration-menu workflow.
 
-The intended editability contract is now explicit:
+The intended editability contract is explicit:
 
 - unapplied input rows remain editable and clearable;
 - therapist absence `Αιτία` has a native dropdown restored from the established reason list;
@@ -72,15 +74,6 @@ The intended editability contract is now explicit:
 - after authoritative restore, the source row is cleared and becomes available again.
 
 The active-row lock is derived only from existing ACTIVE ledger metadata `DAILY_INPUT:*:<source_row>`. No new source of truth is introduced.
-
-## Fail-closed wiring
-
-The installer uses exact transforms to add ledger synchronization after:
-
-- every confirmed manual replacement;
-- completion of the selected replacement workflow, including the automatic-all route.
-
-If expected VBA markers are absent or duplicated, the build must stop rather than apply a speculative patch.
 
 ## Verification completed on 2026-10-27
 
@@ -103,46 +96,63 @@ Native smoke findings:
 2. therapist `Αιτία` dropdown was missing natively;
 3. daily-state rows were not reliably editable/clearable before repair;
 4. user confirmed absence workflow is entered from the MASTER button, not ShowRegistrationMenu or DAILY_INPUT as a standalone menu action;
-5. diagnostic log at `2026-10-27 23:46:12` showed current blocker was application-contract validation, not the replacement solver: missing `modOutpatientScheduleManager` and `frmOutpatientScheduleManager`;
-6. older `persist suspensions` diagnostic at `23:28:52` is historical and is not treated as the current blocker;
-7. application contract repair was run successfully on `MANUAL_REPLACEMENT_SMOKE.xlsm` and verified full contract with no components missing;
-8. interaction repair restored the therapist-reason dropdown and preserved existing entries;
-9. `Legacy direct-global controls rewired: 0`, so the earlier replacement failure was not caused by a sheet control directly invoking the old global macro;
-10. a reliability gap was identified: the first interaction repair unlocked the entire input blocks, which meant an already-applied absence row could still be edited even though it could not be safely deleted;
-11. updated interaction repair was run successfully on the same disposable preview and reported:
-    - existing entries preserved;
-    - therapist reason dropdown verified;
-    - unapplied input rows editable/clearable verified;
-    - `ACTIVE daily-input rows locked: 0`;
-    - `Legacy direct-global controls rewired: 0`;
-12. after application-contract repair, the native flow advanced successfully through therapist absence, manual routing, candidate display and explicit `Επιβεβαίωση επιλογής`;
-13. immediately after confirmation, Excel reported `Η επιλογή δεν εφαρμόστηκε και αναιρέθηκε.`;
-14. source inspection shows that message can only occur after the operator choice has revalidated and an ACTIVE replacement fact has been written temporarily, when `ApplyOperatorProjectionRefresh()` returns false; the replacement fact is then rolled back by design;
-15. therefore the current native blocker is post-choice projection refresh, not candidate generation, ranking, manual form routing or choice validation.
+5. diagnostic log at `2026-10-27 23:46:12` showed the blocker was application-contract validation, not the replacement solver: missing `modOutpatientScheduleManager` and `frmOutpatientScheduleManager`;
+6. application contract repair was run successfully on `MANUAL_REPLACEMENT_SMOKE.xlsm` and verified full contract with no components missing;
+7. interaction repair restored the therapist-reason dropdown and preserved existing entries;
+8. `Legacy direct-global controls rewired: 0`;
+9. updated interaction repair reported existing entries preserved, therapist reason dropdown verified, unapplied input rows editable/clearable verified, `ACTIVE daily-input rows locked: 0`, and no legacy direct-global controls rewired;
+10. after application-contract repair, the native flow advanced through therapist absence, manual routing, candidate display and explicit `Επιβεβαίωση επιλογής`;
+11. immediately after confirmation, Excel reported `Η επιλογή δεν εφαρμόστηκε και αναιρέθηκε.`;
+12. source inspection showed that message occurs after operator choice revalidation and temporary ACTIVE replacement persistence when `ApplyOperatorProjectionRefresh()` returns false, after which the replacement fact is rolled back by design.
 
 Interpretation of `ACTIVE daily-input rows locked: 0`: there were no ACTIVE `DAILY_INPUT:*:<source_row>` ledger records at the time the standalone repair ran. This did not prove live applied-row locking.
 
-## Current code changes after native findings
+## Live-protection repair added after the 2026-10-27 smoke
 
-The DAILY_INPUT interaction repair follows the authoritative editability rule:
+Excel does not persist `UserInterfaceOnly=True` across workbook close/reopen. A dedicated `modDailyInputLiveProtection` module and repair path were added to:
 
-- unlock known input ranges first;
-- read ACTIVE DAILY_INPUT source rows from `DAILY_CHANGE_LEDGER` status column 12 and metadata column 18;
-- re-lock exactly those ACTIVE source rows;
-- enable sheet protection so the lock has native UI effect;
-- leave unapplied rows editable;
-- preserve the reason dropdown and existing entries.
+- recalculate ACTIVE source-row locks from `DAILY_CHANGE_LEDGER`;
+- reapply `UserInterfaceOnly=True` in the live Excel session;
+- hook DAILY_INPUT ledger sync so newly ACTIVE rows are locked immediately;
+- hook the manual replacement projection path before `ApplyValidatedDailyInputPayload`;
+- write `%TEMP%\\eka_daily_input_protection_last_error.log` and fail closed if protection refresh cannot be established;
+- avoid changing replacement feasibility, ranking, validation or the protected global solver.
 
-A further native-session protection issue was identified: Excel does not persist `UserInterfaceOnly=True` across workbook close/reopen. A sheet can remain protected for the user while VBA loses permission to write locked cells in the next session. This is a strong candidate for the post-choice projection rollback observed above.
+## Native diagnosis on 2026-10-29
 
-A dedicated `modDailyInputLiveProtection` module and repair path have now been added. It:
+The same disposable preview was reopened and a therapist absence was applied successfully. The operator router appeared normally and **No / manual** was selected.
 
-- recalculates ACTIVE source-row locks from `DAILY_CHANGE_LEDGER`;
-- reapplies `UserInterfaceOnly=True` in the live Excel session;
-- hooks the DAILY_INPUT ledger sync so newly ACTIVE rows are locked immediately;
-- hooks the manual replacement projection path before `ApplyValidatedDailyInputPayload`;
-- writes `%TEMP%\\eka_daily_input_protection_last_error.log` and fails closed if protection refresh cannot be established;
-- does not modify replacement feasibility, ranking, validation or the protected global solver.
+The workflow then appeared to hang before the manual candidate form appeared.
+
+Evidence collected while Excel remained open:
+
+- fresh DAILY_INPUT payload/response files were created at `2026-10-29 21:24`, proving the daily-input application stage had completed;
+- no new replacement-operator rows/response had been completed yet;
+- two Python processes existed for the same `prepare_replacement_operator_decision.py` command, one launcher and one real worker;
+- the real worker PID `21032` increased from `381.5625` to `395.15625` CPU seconds across the observation interval, proving active computation rather than file-lock or I/O waiting;
+- Excel itself reported `Responding=True` while synchronously waiting for the Python preparation process;
+- terminating only those two Python processes caused the VBA fail-safe message `Δεν ήταν δυνατός ο υπολογισμός των επιλογών αναπλήρωσης.` and returned control to Excel;
+- the preparation tool is read-only with respect to the workbook, so this diagnostic termination did not create an authoritative replacement fact.
+
+Source inspection identified the cause of the excessive manual preparation cost: `prepare_replacement_operator_decision.py` first computed valid manual options, then invoked the full `build_global_replacement_assignments()` solver only to mark one displayed option as `is_global_recommendation`. This made opening the manual form depend on completion of a full global solve.
+
+This does **not** prove a defect in the protected global solver itself. The regression is architectural: the manual UI path unnecessarily depended on the full automatic solver before it could display valid choices.
+
+## Fix on 2026-10-29
+
+Manual preparation has been decoupled from the full global solve:
+
+- `prepare_replacement_operator_decision.py` still builds the authoritative unresolved queue;
+- it still applies existing feasibility, policy, capacity, student, service-hour and cancellation/absence rules;
+- it still chooses the next target deterministically and emits valid therapist/time choices;
+- it no longer imports or invokes `build_global_replacement_assignments()` or reclining-adjacency scoring merely to decorate a recommendation;
+- compatibility fields remain present, with `is_global_recommendation=0` and blank recommended provider/time;
+- the automatic **Yes** route remains unchanged and still calls `ResolveDailyReplacementsInPlace()` for the protected global solution.
+
+Commits:
+
+- `a3f4c7ab79d03cb16da1e07e415ac74812d4cb7e` `Keep manual replacement preparation out of global solve`
+- `9df56759ee7786b5ccefa2dd7a13c0be35668d29` `Guard lightweight manual replacement preparation`
 
 ## Native verification still required
 
@@ -150,13 +160,13 @@ No native Excel acceptance is claimed yet.
 
 Next sequence:
 
-1. run the focused live-protection regression test;
-2. install the live-protection hooks into the same disposable `MANUAL_REPLACEMENT_SMOKE.xlsm` using the repair tool with Excel closed;
-3. reopen the same preview and repeat the already-reached path: MASTER absence -> apply -> choose manual -> select candidate -> `Επιβεβαίωση επιλογής`;
-4. confirm the selection now persists and the projection refresh completes;
-5. confirm the applied DAILY_INPUT source row cannot be edited;
-6. confirm `THERAPIST_DAILY` shows the visible replacement ledger row with `Από`, `Προς`, `Επαναφορά`;
-7. confirm the next patient choices are recomputed;
-8. then test authoritative restore.
+1. pull the branch and run the new lightweight-manual regression guard together with the established replacement operator/live-protection tests;
+2. do **not** run another interaction or live-protection repair on the current preview unless a code change specifically requires reinstalling generated VBA;
+3. reopen the smoke workbook and repeat: MASTER -> Κατάσταση ημέρας -> therapist absence -> apply -> choose **No/manual**;
+4. verify the manual candidate form appears promptly and no long-running `prepare_replacement_operator_decision.py` worker remains;
+5. confirm one manual candidate;
+6. if confirmation again rolls back with `Η επιλογή δεν εφαρμόστηκε και αναιρέθηκε.`, return to the already-isolated projection/protection diagnostics rather than the solver;
+7. only after one manual replacement persists, verify ACTIVE DAILY_INPUT row locking, visible `THERAPIST_DAILY` ledger projection, next-patient recomputation and authoritative restore;
+8. only after the manual smoke is green should the automatic-all route be smoke-tested.
 
-If the selection still rolls back, read the newest `eka_daily_input_last_error.log`, `eka_replacement_operator_last_error.log` and `eka_daily_input_protection_last_error.log` before any further code change. Only after the manual smoke is green should the automatic-all route be smoke-tested.
+After any generic native failure, read the relevant fresh diagnostic log before another retry. Do not repeat blind smokes.
