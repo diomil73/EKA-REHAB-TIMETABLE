@@ -12,7 +12,6 @@ Public Function SyncDailyReplacementLedgerFromFacts() As Boolean
     Dim scriptPath As String, rowsPath As String, responsePath As String
     Dim commandLine As String, responseText As String
     Dim exitCode As Long
-    Dim wsDaily As Worksheet
 
     On Error GoTo SyncError
 
@@ -23,9 +22,9 @@ Public Function SyncDailyReplacementLedgerFromFacts() As Boolean
     End If
 
     ThisWorkbook.Save
-    rowsPath = Environ$("TEMP") & "\eka_replacement_ledger_rows_" & _
+    rowsPath = Environ$("TEMP") & "\\eka_replacement_ledger_rows_" & _
                Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".tsv"
-    responsePath = Environ$("TEMP") & "\eka_replacement_ledger_response_" & _
+    responsePath = Environ$("TEMP") & "\\eka_replacement_ledger_response_" & _
                    Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".json"
     commandLine = QuoteArg("python") & " " & QuoteArg(scriptPath) & _
                   " --input " & QuoteArg(ThisWorkbook.FullName) & _
@@ -39,10 +38,7 @@ Public Function SyncDailyReplacementLedgerFromFacts() As Boolean
        Dir$(rowsPath) = "" Then GoTo SyncFailed
 
     If Not ApplyLedgerRows(rowsPath) Then GoTo SyncFailed
-    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)
-    wsDaily.Unprotect
     Application.Run "RefreshDailyChangeLedgerView"
-    wsDaily.Protect UserInterfaceOnly:=True
     ThisWorkbook.Save
     SyncDailyReplacementLedgerFromFacts = True
     GoTo SyncExit
@@ -59,7 +55,6 @@ SyncError:
 
 SyncExit:
     On Error Resume Next
-    If Not wsDaily Is Nothing Then wsDaily.Protect UserInterfaceOnly:=True
     If Len(rowsPath) > 0 And Dir$(rowsPath) <> "" Then Kill rowsPath
     If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
     On Error GoTo 0
@@ -154,9 +149,9 @@ End Sub
 
 Private Function ResolveLedgerSyncTool() As String
     Dim candidate As String
-    candidate = ThisWorkbook.Path & "\Python\tools\prepare_daily_replacement_ledger_sync.py"
+    candidate = ThisWorkbook.Path & "\\Python\\tools\\prepare_daily_replacement_ledger_sync.py"
     If Dir$(candidate) <> "" Then ResolveLedgerSyncTool = candidate: Exit Function
-    candidate = ThisWorkbook.Path & "\..\..\Python\tools\prepare_daily_replacement_ledger_sync.py"
+    candidate = ThisWorkbook.Path & "\\..\\..\\Python\\tools\\prepare_daily_replacement_ledger_sync.py"
     If Dir$(candidate) <> "" Then _
         ResolveLedgerSyncTool = CreateObject("Scripting.FileSystemObject").GetAbsolutePathName(candidate)
 End Function
@@ -170,17 +165,17 @@ Private Function PayloadValue(ByVal raw As String) As String
                 Case "t": result = result & vbTab
                 Case "r": result = result & vbCr
                 Case "n": result = result & vbLf
-                Case "\": result = result & "\"
+                Case "\\": result = result & "\\"
                 Case Else: result = result & ch
             End Select
             escaped = False
-        ElseIf ch = "\" Then
+        ElseIf ch = "\\" Then
             escaped = True
         Else
             result = result & ch
         End If
     Next i
-    If escaped Then result = result & "\"
+    If escaped Then result = result & "\\"
     PayloadValue = result
 End Function
 
@@ -201,7 +196,7 @@ End Function
 
 Private Sub WriteLedgerSyncDiagnostic(ByVal errorNumber As Long, ByVal errorText As String)
     Dim filePath As String, handle As Integer
-    filePath = Environ$("TEMP") & "\eka_replacement_ledger_last_error.log"
+    filePath = Environ$("TEMP") & "\\eka_replacement_ledger_last_error.log"
     handle = FreeFile
     Open filePath For Output As #handle
     Print #handle, "timestamp=" & Format$(Now, "yyyy-mm-dd hh:nn:ss")
