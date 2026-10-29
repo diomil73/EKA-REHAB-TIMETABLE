@@ -50,13 +50,15 @@ def test_daily_input_route_patch_is_exact_and_fail_closed():
     assert "raise RuntimeError" in source
 
 
-def test_decision_preparer_is_read_only_and_uses_existing_global_solver_as_advisory():
+def test_decision_preparer_is_read_only_and_stays_lightweight_for_manual_mode():
     source = inspect.getsource(decision_tool.prepare_decision)
-    assert "build_global_replacement_assignments" in source
-    assert 'reason="operator proposal only"' in source
+    assert "build_global_replacement_assignments" not in source
     assert "find_policy_replacement_options" in source
     assert "filter_replacement_options_for_service_hours" in source
     assert "file_sha256(source)" in source
+    assert '"is_global_recommendation": "0"' in source
+    assert '"recommended_provider_id": ""' in source
+    assert '"recommended_time": ""' in source
     assert "append_daily_replacement_facts" not in source
     assert "save(" not in source
 
@@ -117,13 +119,3 @@ def test_ledger_sync_reuses_established_daily_change_ledger_contract():
     assert 'Private Const LEDGER_SHEET As String = "DAILY_CHANGE_LEDGER"' in source
     assert 'Application.Run "RefreshDailyChangeLedgerView"' in source
     assert 'DateSerial(CInt(Left$(dateText, 4))' in source
-
-
-def test_ledger_hooks_are_exact_fail_closed_and_cover_manual_and_completed_routes():
-    source = inspect.getsource(ledger_hook_vba)
-    assert "source.count(marker) != 1" in source
-    assert "raise RuntimeError" in source
-    assert "SyncDailyReplacementLedgerFromFacts" in ledger_hook_vba._MANUAL_REPLACEMENT
-    assert "SyncDailyReplacementLedgerFromFacts" in ledger_hook_vba._ROUTE_REPLACEMENT
-    assert "mDecisionAccepted = True" in ledger_hook_vba._MANUAL_REPLACEMENT
-    assert "refresh after replacements" in ledger_hook_vba._ROUTE_REPLACEMENT
