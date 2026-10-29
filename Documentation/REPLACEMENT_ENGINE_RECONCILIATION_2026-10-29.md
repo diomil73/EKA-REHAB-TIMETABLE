@@ -41,6 +41,37 @@ The established manual path reached the native candidate form promptly after the
 
 A separate native problem remains in the projection/rendering layer: after confirmation, Excel can raise a protected-sheet error while refreshing the visible change list on `THERAPIST_DAILY`. This must be treated as a renderer/protection problem only. It is not evidence to reopen replacement feasibility or solver logic.
 
+## Canonical replacement gate after reconciliation
+
+The protected replacement gate was rerun after the reconciliation decision:
+
+- `Tests/test_manual_replacement_preparation_stays_lightweight.py`
+- `Tests/test_replacement_operator_workflow.py`
+- `Tests/test_apply_global_daily_replacements.py`
+
+Result reported by the operator: `23 passed in 2.26s`.
+
+This re-confirms the established automatic solver, manual candidate generation, policy/capacity/service-hour filtering and authoritative replacement facts before any new UI work.
+
+## Canonical projection/protection fix
+
+The protected-sheet native warning is now addressed in the canonical runtime sync path rather than through live-workbook marker patching.
+
+`Python/rehab_excel/daily_replacement_ledger_sync_vba.py` now brackets only the visible ledger render call with:
+
+- `THERAPIST_DAILY.Unprotect` before `RefreshDailyChangeLedgerView`;
+- `Protect UserInterfaceOnly:=True` immediately after the render;
+- the same reprotection in `SyncExit`, so an error cannot intentionally leave the daily sheet unprotected.
+
+No solver, ranking, replacement-fact, candidate-generation or restore business rule was changed by this fix.
+
+Regression ownership: `Tests/test_daily_replacement_ledger_sync_protection.py`.
+
+Commits:
+
+- `799f99bb0eebfd07180a1954789a6007201c687b` — canonical runtime protection bracket;
+- `ce56d59e996e37eb26618e9f8ead1fee2caf054b` — focused protection regression guards.
+
 ## New operator UX requirements
 
 The following are valid product requirements, but they must be implemented as a thin operator/presentation layer over the established engine rather than by rewriting the replacement engine:
