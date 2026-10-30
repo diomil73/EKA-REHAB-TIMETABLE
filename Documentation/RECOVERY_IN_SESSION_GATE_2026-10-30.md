@@ -61,6 +61,17 @@ This focused gate confirms the presentation-only follow-up derived from the succ
 
 The solver/global assignment engine, scoring, capacity rules, double-booking review and persistence semantics remain unchanged.
 
+### COM-safe operator visibility gate
+
+`34 passed in 2.58s`
+
+This repeat gate confirms the fix for the failed E build verification:
+
+- post-install summary verification no longer depends on the Unicode arrow glyph surviving Excel/VBA COM code insertion unchanged,
+- the summary presentation uses ASCII `->`,
+- post-install verification requires the semantic tokens `PatientDisplayName(patientId)`, `replacementTherapist`, and `replacementTime`,
+- workload visibility and all in-session production safety regressions remain green.
+
 ## Safety boundary
 
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` remains frozen native-smoke evidence and must not be overwritten or repaired in place.
@@ -266,11 +277,9 @@ No solver, assignment, persistence, workload calculation, or close-day logic cha
 
 ## Next exact step
 
-1. Pull `fcc9405` and `60c9047`.
-2. Run the focused operator-visibility/build regression gate again.
-3. If green, build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261031_F.xlsm`; do not reuse E.
-4. Verify source SHA unchanged and application contract remains green.
-5. Native-test DAILY_INPUT on F with at least one replacement.
-6. Confirm the success flow names patient, replacement therapist and replacement time for only the new action.
-7. Confirm MASTER does not auto-display therapist `x/6` badges after DAILY_INPUT; the workload button may remain for explicit use.
-8. Only after both UX checks pass may F proceed to the first native `CloseOperationalDay` smoke.
+1. Build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261031_F.xlsm`; do not reuse E.
+2. Verify source SHA unchanged and application contract remains green.
+3. Native-test DAILY_INPUT on F with at least one replacement.
+4. Confirm the success flow names patient, replacement therapist and replacement time for only the new action.
+5. Confirm MASTER does not auto-display therapist `x/6` badges after DAILY_INPUT; the workload button may remain for explicit use.
+6. Only after both UX checks pass may F proceed to the first native `CloseOperationalDay` smoke.
