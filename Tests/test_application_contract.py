@@ -24,6 +24,7 @@ def test_application_contract_covers_existing_app_ui_stack():
         "modPatientRegistrationBridge",
         "frmEditPatient",
         "modDailyInputAction",
+        "modGlobalReplacementAction",
         "modTherapistWorkloadStrip",
         "modOutpatientSchedule",
         "frmOutpatientSchedule",
