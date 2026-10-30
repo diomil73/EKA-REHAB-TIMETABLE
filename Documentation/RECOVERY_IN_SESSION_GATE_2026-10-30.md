@@ -1,6 +1,8 @@
 # Recovery In-Session Gate — 2026-10-30
 
-## Operator-confirmed green gate
+## Operator-confirmed green gates
+
+### In-session production gate
 
 `63 passed in 3.92s`
 
@@ -28,6 +30,21 @@ The gate explicitly rejects normal-production reintroduction of:
 - `authoritative_commit_worker_cli.py`,
 - `post_reopen_target`,
 - console-backed `.Exec(` paths.
+
+### Outpatient + DAILY_INPUT recovery gate
+
+`48 passed, 3 warnings in 3.97s`
+
+This focused gate confirms the two bounded fixes derived from native C evidence:
+
+- canonical creation/verification of authoritative `OUTPATIENT_SCHEDULE`,
+- application-contract enforcement of the sheet and exact header schema,
+- outpatient manager/build regressions,
+- complete DAILY_INPUT reversible reader contract (`source_changes`, `ignore_rows`, `allow_empty`),
+- in-place DAILY_INPUT preparer/action integration,
+- production actions still remain in-session.
+
+The three warnings were `PytestUnraisableExceptionWarning` messages from Python 3.14 `zipfile.ZipFile.__del__` after openpyxl/keep_vba cleanup (`ValueError: I/O operation on closed file`). They did not fail any test and did not indicate workbook mutation. Track them as cleanup noise rather than suppressing them silently, but they do not block the next native smoke candidate.
 
 ## Safety boundary
 
@@ -145,8 +162,9 @@ No workbook persistence code was added by this reader recovery. The reader remai
 
 ## Next exact step
 
-1. Pull the outpatient structural fixes and DAILY_INPUT reader-contract fixes.
-2. Run the focused combined source gate for outpatient sheet/build/contract plus DAILY_INPUT reader/preparer/action.
-3. Do not rebuild or repair C.
-4. Only after the combined gate is green, build a fresh uniquely named D workbook.
-5. Native-test outpatient shell and DAILY_INPUT on D before any `CloseOperationalDay` action.
+1. Build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` from immutable `Rehab_Center_System_v27_1.xlsm` without `--overwrite`.
+2. Verify source SHA unchanged and the strengthened application contract.
+3. Read-only verify D contains `OUTPATIENT_SCHEDULE` with exact headers before native smoke.
+4. Native-test outpatient manager and DAILY_INPUT on D.
+5. If either fails, freeze D as evidence and diagnose from exact native/log output; do not repair D in place.
+6. Only if both are healthy may `CloseOperationalDay` be tested.
