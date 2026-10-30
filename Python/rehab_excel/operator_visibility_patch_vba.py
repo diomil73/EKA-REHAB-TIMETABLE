@@ -95,7 +95,7 @@ Private Function BuildReplacementSummarySince(ByVal previousLastRow As Long) As 
             replacementTime = Trim$(CStr(ws.Cells(row, 7).Text))
             If Len(replacementTime) = 0 Then replacementTime = Trim$(CStr(ws.Cells(row, 7).Value))
             If Len(result) > 0 Then result = result & vbCrLf
-            result = result & PatientDisplayName(patientId) & " → " & replacementTherapist & " → " & replacementTime
+            result = result & PatientDisplayName(patientId) & " -> " & replacementTherapist & " -> " & replacementTime
         End If
     Next row
     BuildReplacementSummarySince = result
@@ -155,5 +155,16 @@ def install_operator_visibility_patch(vbproject) -> None:
         raise RuntimeError("DAILY_INPUT still auto-renders workload badges")
     if "BuildReplacementSummarySince" not in installed_replacement:
         raise RuntimeError("Replacement summary patch was not installed")
-    if 'PatientDisplayName(patientId) & " → " & replacementTherapist' not in installed_replacement:
+
+    summary_start = installed_replacement.find("Private Function BuildReplacementSummarySince")
+    summary_end = installed_replacement.find("End Function", summary_start)
+    if summary_start < 0 or summary_end < 0:
+        raise RuntimeError("Replacement summary procedure was not installed")
+    summary_code = installed_replacement[summary_start:summary_end]
+    required_tokens = (
+        "PatientDisplayName(patientId)",
+        "replacementTherapist",
+        "replacementTime",
+    )
+    if not all(token in summary_code for token in required_tokens):
         raise RuntimeError("Replacement summary details were not installed")
