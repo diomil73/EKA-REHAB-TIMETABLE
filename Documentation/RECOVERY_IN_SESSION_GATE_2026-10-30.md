@@ -46,14 +46,29 @@ This focused gate confirms the two bounded fixes derived from native C evidence:
 
 The three warnings were `PytestUnraisableExceptionWarning` messages from Python 3.14 `zipfile.ZipFile.__del__` after openpyxl/keep_vba cleanup (`ValueError: I/O operation on closed file`). They did not fail any test and did not indicate workbook mutation. Track them as cleanup noise rather than suppressing them silently, but they do not block the next native smoke candidate.
 
+### Operator visibility UX gate
+
+`34 passed in 3.09s`
+
+This focused gate confirms the presentation-only follow-up derived from the successful native D smoke:
+
+- successful automatic replacements expose a current-action summary containing patient, replacement therapist and replacement time,
+- summary generation is scoped to only the replacement fact rows appended by the current action,
+- normal DAILY_INPUT refresh no longer auto-renders therapist workload badges on `MASTER_SCHEDULE`,
+- the existing workload button remains available for explicit operator request,
+- production actions remain in-session,
+- canonical builder installs the visibility patch after workload/global replacement modules are present.
+
+The solver/global assignment engine, scoring, capacity rules, double-booking review and persistence semantics remain unchanged.
+
 ## Safety boundary
 
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` remains frozen native-smoke evidence and must not be overwritten or repaired in place.
 - Production workbook remains immutable.
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm` is frozen as native-smoke evidence and must not be repaired in place.
-- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` is now frozen as successful native evidence after the results below and must not be repaired in place.
+- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` is frozen as successful native evidence and must not be repaired in place.
 - Any UX verification after the operator-visibility patch must use a fresh uniquely named workbook.
-- Close-day native testing remains blocked until the replacement-summary/workload-visibility UX patch is source-gated and verified on the fresh copy.
+- Close-day native testing remains blocked until replacement-summary/workload-visibility UX is verified on that fresh copy.
 
 ## Fresh C unified build
 
@@ -226,9 +241,10 @@ This patch does not change assignment scoring, candidate generation, capacity ru
 
 ## Next exact step
 
-1. Pull the operator-visibility patch commits.
-2. Run the focused visibility + production-action + canonical-build regression gate.
-3. If green, build a fresh uniquely named E workbook; do not modify D.
-4. Native-test DAILY_INPUT on E and confirm the replacement summary explicitly names patient, replacement therapist and time.
-5. Confirm MASTER no longer auto-displays therapist `x/6` badges after DAILY_INPUT; the workload button may remain for explicit use.
-6. Only after those UX checks pass may `CloseOperationalDay` be tested on the same fresh E candidate.
+1. Build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261031_E.xlsm` from immutable `Rehab_Center_System_v27_1.xlsm` without `--overwrite`.
+2. Verify source SHA unchanged and application contract remains green.
+3. Native-test DAILY_INPUT on E with a case that produces at least one replacement.
+4. Confirm the success flow explicitly shows `patient → replacement therapist → replacement time` for only the new action.
+5. Confirm MASTER does not auto-display therapist `x/6` badges after DAILY_INPUT; the workload button may remain for explicit use.
+6. If both UX checks pass, E may proceed to the first native `CloseOperationalDay` smoke.
+7. If either UX check fails, freeze E as evidence and diagnose without repairing it in place.
