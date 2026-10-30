@@ -20,6 +20,10 @@ from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
 from rehab_excel.outpatient_schedule_manager_vba import (  # noqa: E402
     install_outpatient_schedule_manager_in_workbook,
 )
+from rehab_excel.outpatient_schedule_sheet import (  # noqa: E402
+    OutpatientScheduleSheetError,
+    ensure_outpatient_schedule_sheet_in_workbook,
+)
 
 
 def main() -> int:
@@ -31,9 +35,10 @@ def main() -> int:
 
     try:
         report = create_outpatient_schedule_form_preview(args.source, args.output, overwrite=args.overwrite)
+        ensure_outpatient_schedule_sheet_in_workbook(report.output_path)
         install_outpatient_schedule_edit_support_in_workbook(report.output_path)
         install_outpatient_schedule_manager_in_workbook(report.output_path)
-    except (OutpatientScheduleFormVbaError, RuntimeError) as exc:
+    except (OutpatientScheduleFormVbaError, OutpatientScheduleSheetError, RuntimeError) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
@@ -45,6 +50,7 @@ def main() -> int:
     print(f"Form present: {report.form_present}")
     print(f"Create macro: {report.macro_name}")
     print(f"Edit macro: {EDIT_MACRO_NAME}")
+    print("Outpatient schedule source: verified")
     print("Outpatient schedule manager: installed")
     return 0
 
