@@ -1,6 +1,6 @@
 from datetime import date, time
 
-from rehab_core.models import ReplacementProviderKind, Session
+from rehab_core.models import BaseScheduleEntry, ReplacementProviderKind, Session
 from rehab_core.replacement_options import ReplacementProviderOption
 from rehab_core.service_hours import (
     POOL_SERVICE_ID,
@@ -9,6 +9,7 @@ from rehab_core.service_hours import (
     SpecialServiceHoursBook,
 )
 from rehab_core.service_replacement_options import (
+    build_service_id_by_session,
     filter_replacement_options_for_service_hours,
     service_id_for_session,
 )
@@ -75,6 +76,42 @@ def test_explicit_pool_service_filters_without_guessing_treatment_text():
     )
 
     assert filtered[0].available_timeslots == (time(11, 0),)
+
+
+def test_pool_service_map_is_built_from_authoritative_base_entry():
+    entry = BaseScheduleEntry(
+        base_entry_id="outpatient:7",
+        patient_id="P1",
+        treatment="Πισίνα",
+        start_time=time(9, 15),
+        day_pattern="Καθ/να",
+        therapist_id="T1",
+    )
+
+    mapping = build_service_id_by_session((entry,), TODAY)
+
+    assert mapping == {f"outpatient:7@{TODAY.isoformat()}": POOL_SERVICE_ID}
+
+
+def test_pool_service_map_ignores_non_applicable_or_providerless_entries():
+    wrong_day = BaseScheduleEntry(
+        base_entry_id="pool-wrong-day",
+        patient_id="P1",
+        treatment="Πισίνα",
+        start_time=time(9, 15),
+        day_pattern="Τρι",
+        therapist_id="T1",
+    )
+    providerless = BaseScheduleEntry(
+        base_entry_id="pool-providerless",
+        patient_id="P1",
+        treatment="Πισίνα",
+        start_time=time(10, 0),
+        day_pattern="Καθ/να",
+        therapist_id=None,
+    )
+
+    assert build_service_id_by_session((wrong_day, providerless), TODAY) == {}
 
 
 def test_closed_service_removes_provider_option_entirely():
