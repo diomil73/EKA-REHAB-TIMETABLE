@@ -62,6 +62,54 @@ def test_unified_builder_runs_stages_in_required_order(tmp_path, monkeypatch):
     assert "2026-09-28" in calls[5][1]
 
 
+def test_unified_final_verification_requires_application_contract(tmp_path, monkeypatch):
+    output = tmp_path / "unified.xlsm"
+    output.write_bytes(b"preview")
+
+    class FakeWorkbook:
+        sheetnames = ["DAILY_INPUT"]
+
+        def close(self) -> None:
+            pass
+
+    calls: list[Path] = []
+    monkeypatch.setattr(unified, "_has_vba", lambda path: True)
+    monkeypatch.setattr(unified, "load_workbook", lambda *args, **kwargs: FakeWorkbook())
+    monkeypatch.setattr(
+        unified,
+        "assert_application_contract",
+        lambda path: calls.append(Path(path)),
+    )
+
+    unified._verify_final_workbook(output)
+
+    assert calls == [output]
+
+
+def test_unified_final_verification_fails_closed_on_application_contract_error(
+    tmp_path, monkeypatch
+):
+    output = tmp_path / "unified.xlsm"
+    output.write_bytes(b"preview")
+
+    class FakeWorkbook:
+        sheetnames = ["DAILY_INPUT"]
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(unified, "_has_vba", lambda path: True)
+    monkeypatch.setattr(unified, "load_workbook", lambda *args, **kwargs: FakeWorkbook())
+
+    def fail_contract(path):
+        raise unified.ApplicationContractError("missing frmOutpatientSchedule")
+
+    monkeypatch.setattr(unified, "assert_application_contract", fail_contract)
+
+    with pytest.raises(unified.UnifiedBuildError, match="application contract"):
+        unified._verify_final_workbook(output)
+
+
 def test_unified_builder_refuses_source_equal_to_output(tmp_path):
     source = tmp_path / "same.xlsm"
     source.write_bytes(b"source")
