@@ -1,53 +1,54 @@
-from rehab_excel.therapist_workload_strip_vba import (
-    BUTTON_NAME,
-    MODULE_CODE,
-    MODULE_NAME,
-    SHAPE_PREFIX,
-)
+import inspect
+
+from rehab_excel import therapist_workload_strip_vba as module
 
 
-def test_workload_strip_has_application_facing_refresh_action():
-    assert MODULE_NAME == "modTherapistWorkloadStrip"
-    assert BUTTON_NAME == "ekaWorkload_Refresh"
-    assert SHAPE_PREFIX == "ekaWorkload_"
-    assert "Public Sub ShowTherapistWorkload()" in MODULE_CODE
-    assert 'ThisWorkbook.Worksheets("MASTER_SCHEDULE")' in MODULE_CODE
-    assert 'ThisWorkbook.Worksheets("THERAPIST_DAILY")' in MODULE_CODE
-    assert '"Φόρτος θεραπευτών"' in MODULE_CODE
+def test_workload_module_remains_stable_backend_dependency():
+    assert module.MODULE_NAME == "modTherapistWorkloadStrip"
+    assert module.SHAPE_PREFIX == "ekaWorkload_"
+    assert module.BUTTON_NAME == "ekaWorkload_Refresh"
+    assert "Public Function TherapistCurrentWorkload" in module.MODULE_CODE
+    assert "Public Function TherapistWorkloadCapacity" in module.MODULE_CODE
+    assert 'ThisWorkbook.Worksheets("THERAPIST_DAILY")' in module.MODULE_CODE
 
 
-def test_workload_strip_counts_unique_occupied_timeslots_not_patient_lines():
-    assert 'Set providers = CreateObject("Scripting.Dictionary")' in MODULE_CODE
-    assert 'Set providerTimes = CreateObject("Scripting.Dictionary")' in MODULE_CODE
-    assert "providerTimes(timeValue) = True" in MODULE_CODE
-    assert "occupied = providerTimes.Count" in MODULE_CODE
-    assert "Split(" not in MODULE_CODE
-    assert "DEFAULT_CAPACITY As Long = 6" in MODULE_CODE
+def test_workload_backend_counts_unique_occupied_timeslots():
+    code = module.MODULE_CODE
+
+    assert 'Set providerTimes = CreateObject("Scripting.Dictionary")' in code
+    assert "providerTimes(timeValue) = True" in code
+    assert "TherapistCurrentWorkload = providerTimes.Count" in code
+    assert "DEFAULT_CAPACITY As Long = 6" in code
+    assert "TherapistWorkloadCapacity = DEFAULT_CAPACITY" in code
 
 
-def test_workload_strip_merges_same_therapist_across_layout_blocks():
-    assert "providerKey = NormalizeProviderName(providerName)" in MODULE_CODE
-    assert "If Not providers.Exists(providerKey) Then" in MODULE_CODE
-    assert "providerOrder.Add providerKey" in MODULE_CODE
-    assert "Set providerTimes = providers(providerKey)" in MODULE_CODE
-    assert "NormalizeProviderName" in MODULE_CODE
+def test_workload_backend_merges_matching_therapist_across_layout_blocks():
+    code = module.MODULE_CODE
+
+    assert "providerKey = NormalizeProviderName(providerName)" in code
+    assert "headerKey = NormalizeProviderName" in code
+    assert "If headerKey = providerKey Then" in code
+    assert "headerRows = Array(1, 11)" in code
+    assert "firstRows = Array(2, 12)" in code
+    assert "lastRows = Array(8, 18)" in code
+    assert "For col = 2 To 10" in code
 
 
-def test_workload_strip_uses_current_therapist_daily_layout_blocks():
-    assert "headerRows = Array(1, 11)" in MODULE_CODE
-    assert "firstRows = Array(2, 12)" in MODULE_CODE
-    assert "lastRows = Array(8, 18)" in MODULE_CODE
-    assert "For col = 2 To 10" in MODULE_CODE
-    assert "TimeKey(daily.Cells(rowIndex, 1).Value)" in MODULE_CODE
+def test_workload_module_no_longer_renders_or_buttons_on_master():
+    code = module.MODULE_CODE
+    install_source = inspect.getsource(module.install_therapist_workload_strip)
+
+    assert 'Worksheets("MASTER_SCHEDULE")' not in code
+    assert "AddShape" not in code
+    assert "RenderTherapistWorkloadStrip" not in code
+    assert "ShowTherapistWorkload" not in code
+    assert "AddShape" not in install_source
+    assert "_delete_legacy_master_workload_shapes(workbook)" in install_source
 
 
-def test_workload_strip_color_thresholds_are_green_orange_red():
-    assert "If occupied >= DEFAULT_CAPACITY Then" in MODULE_CODE
-    assert "ElseIf occupied = DEFAULT_CAPACITY - 1 Then" in MODULE_CODE
-    assert "RGB(244, 176, 132)" in MODULE_CODE
-    assert "RGB(255, 217, 102)" in MODULE_CODE
-    assert "RGB(169, 208, 142)" in MODULE_CODE
+def test_installer_removes_legacy_workload_shapes_by_prefix():
+    source = inspect.getsource(module._delete_legacy_master_workload_shapes)
 
-
-def test_workload_strip_caption_shows_timeslot_capacity_fraction():
-    assert 'providerName & " " & CStr(occupied) & "/" & CStr(DEFAULT_CAPACITY)' in MODULE_CODE
+    assert 'workbook.Worksheets("MASTER_SCHEDULE")' in source
+    assert "name.startswith(SHAPE_PREFIX)" in source
+    assert "master.Shapes(name).Delete()" in source
