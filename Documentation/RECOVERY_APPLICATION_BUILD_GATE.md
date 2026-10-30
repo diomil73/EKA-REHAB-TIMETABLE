@@ -48,7 +48,13 @@ This checkpoint records the recovery-only application build safety work performe
 
 `64 passed in 6.21s`
 
-This latest gate covered the recovered close-day VBA action, read-only in-session payload preparation, preview/CLI history chain, application contract and unified builder tests.
+This gate covered the recovered close-day VBA action, read-only in-session payload preparation, preview/CLI history chain, application contract and unified builder tests.
+
+### Final pre-smoke gate
+
+`64 passed in 5.69s`
+
+This final source-only gate re-ran the strengthened application contract with `modCloseDayAction`, unified builder tests, close-day VBA/in-session preparation, preview/CLI history chain, finalized snapshot/event stores, therapist/day history and daily-state behavior. No workbook build had been performed yet when this gate passed.
 
 ## Recovered 2026-10-24 roadmap alignment
 
@@ -161,8 +167,7 @@ Do not reintroduce quarantined replacement V2 patch/repair tooling. Do not bulk 
 
 ## Next exact step
 
-1. Run the final pre-smoke gate with the strengthened application contract including `modCloseDayAction`.
-2. If green, build one fresh uniquely named unified `.xlsm` from the recovery branch. Do not overwrite any prior smoke/preview workbook.
-3. Verify source hash unchanged and final application contract on the new copy.
-4. Perform native Excel smoke on the new copy, including outpatient flow, DAILY_INPUT and `CloseOperationalDay`.
-5. Only after native proof, treat the recovered close-day/history slice as integrated and move to amendment/version-chain work or the next roadmap vertical.
+1. Build one fresh uniquely named unified `.xlsm` from the recovery branch, with no overwrite of any existing preview.
+2. Verify source hash unchanged and final application contract on the new copy.
+3. Perform native Excel smoke on the new copy, including outpatient flow, DAILY_INPUT and `CloseOperationalDay`.
+4. Only after native proof, treat the recovered close-day/history slice as integrated and move to amendment/version-chain work or the next roadmap vertical.
