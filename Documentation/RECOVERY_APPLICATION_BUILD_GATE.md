@@ -102,7 +102,47 @@ Operator verification recorded:
 - `DAILY_INPUT!B2` reads `30/10/2026`,
 - output SHA256 begins `92AC14E820A35F8E22EFF282880BB640C1AE360359B...` as reported by PowerShell.
 
-The B workbook is now the only native smoke candidate for the next step. Do not rebuild or overwrite it. Any further experiment must use a new uniquely named copy.
+The B workbook is frozen as native smoke evidence and must not be rebuilt, overwritten or repaired in place.
+
+## Native B smoke findings
+
+Operator smoke on B exposed two separate native application problems before close-day testing:
+
+1. The outpatient menu action displayed that the outpatient schedule form was unavailable.
+2. DAILY_INPUT accepted a patient absence, entered the operational transition, closed the blackboard view, prompted for continuation, and finally failed with `Close of object '_Workbook' failed`.
+
+Source inspection established:
+
+- the outpatient menu wrapper maps any runtime error from `frmOutpatientSchedule.Show` to the same generic "form not installed" message, so the B message is not proof that the form component is actually missing,
+- the outpatient form source itself matches the later established source, so the next fresh build needs diagnostic visibility into the real native error rather than another form rewrite,
+- the DAILY_INPUT source in the recovery lineage still contained the older authoritative close/reopen handoff, which is incompatible with the established in-session mutation architecture and directly explains the workbook-close failure path.
+
+Close-day native testing is therefore blocked until the application shell and DAILY_INPUT path are healthy. `CloseOperationalDay` must not be run on B.
+
+## In-place DAILY_INPUT recovery slice
+
+The established read-only preparation layers were selectively recovered from the later branch without bulk merging and without modifying any workbook:
+
+- `17d5568` recover `prepare_daily_input_in_place.py`
+- `139c610` recover `prepare_global_replacements_in_place.py`
+- `763ca86` recover DAILY_INPUT in-place preparation regression tests
+- `27b2b2f` recover global replacement preparation regression tests
+- `50f58a1` record native B smoke findings and recovery boundary
+
+The first focused test run correctly stopped during collection because the global replacement preparer imports `rehab_core.reclining_adjacency`, which had not yet been recovered into the isolated branch:
+
+`ModuleNotFoundError: No module named 'rehab_core.reclining_adjacency'`
+
+This was a source dependency gap only. No workbook was opened or modified by that failed test collection.
+
+The missing dependency was inspected before recovery. It is a pure core soft-preference helper for keeping replacement ΦΘ slots near same-day reclining treatment, and it depends only on existing core modules. It contains no Excel/COM/VBA/persistence logic.
+
+Additional bounded recovery commits:
+
+- `c13cbcd` recover `rehab_core/reclining_adjacency.py`
+- `b899b47` recover `Tests/test_reclining_adjacency.py`
+
+The in-place DAILY_INPUT VBA action has not yet been installed on the recovery branch at this checkpoint. That remains intentionally gated on a green source-only preparation/dependency test run.
 
 ## Recovered 2026-10-24 roadmap alignment
 
@@ -167,8 +207,9 @@ Do not reintroduce quarantined replacement V2 patch/repair tooling. Do not bulk 
 
 ## Next exact step
 
-1. Open only `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` for native Excel smoke.
-2. Verify application/menu shell and outpatient flow without modifying production or forensic workbooks.
-3. Verify DAILY_INPUT native interaction on the B copy.
-4. Run `CloseOperationalDay` only after the preceding smoke checks are healthy.
-5. Record the native close-day result before moving to amendment/version-chain work or the next roadmap vertical.
+1. Re-run the focused read-only DAILY_INPUT/global-replacement gate including `test_reclining_adjacency.py`.
+2. If green, recover the established in-session `modDailyInputAction` and thin global replacement VBA wrapper together with their regression tests.
+3. Add diagnostic visibility to the outpatient menu wrapper without changing the outpatient form itself.
+4. Run source-only VBA/application/build gates that explicitly reject `ThisWorkbook.Close`, `Application.OnTime` and authoritative worker plumbing in normal DAILY_INPUT flow.
+5. Only after all source gates are green, build a fresh uniquely named C workbook. Do not overwrite B.
+6. Native-test outpatient shell and DAILY_INPUT on C before any close-day action.
