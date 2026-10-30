@@ -5,7 +5,7 @@ from rehab_excel.close_day_action_vba import (
     CLOSE_DAY_MODULE_CODE,
     CLOSE_DAY_MODULE_NAME,
 )
-from rehab_excel.registration_menu_vba import Win32ComRegistrationMenuInstaller
+from tools import build_registration_menu_preview
 
 
 def _user_visible_message_source(source: str) -> str:
@@ -78,9 +78,15 @@ def test_close_day_in_place_write_has_preflight_readback_and_rollback():
     assert "ThisWorkbook.Save" in source
 
 
-def test_registration_menu_installer_installs_and_verifies_close_day_action():
-    source = inspect.getsource(Win32ComRegistrationMenuInstaller.install)
+def test_canonical_registration_build_installs_and_verifies_close_day_action():
+    install_source = inspect.getsource(
+        build_registration_menu_preview._install_close_day_action_in_workbook
+    )
+    main_source = inspect.getsource(build_registration_menu_preview.main)
+    clean_source = inspect.getsource(build_registration_menu_preview._prepare_clean_vba_copy)
 
-    assert "install_close_day_action(vbproject)" in source
-    assert "CLOSE_DAY_MODULE_NAME" in source
-    assert "Close-day action module was not confirmed" in source
+    assert "install_close_day_action(vbproject)" in install_source
+    assert "CLOSE_DAY_MODULE_NAME" in install_source
+    assert "Close-day action module was not confirmed" in install_source
+    assert "_install_close_day_action_in_workbook(output)" in main_source
+    assert "_remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)" in clean_source
