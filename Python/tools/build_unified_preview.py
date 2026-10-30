@@ -12,6 +12,10 @@ from zipfile import ZipFile
 from openpyxl import load_workbook
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from rehab_excel.application_contract import (  # noqa: E402
+    ApplicationContractError,
+    assert_application_contract,
+)
 from rehab_excel.master_projection_writer import (  # noqa: E402
     MasterProjectionWriteError,
     refresh_master_projection_in_place,
@@ -97,6 +101,13 @@ def _verify_final_workbook(path: Path) -> None:
             raise UnifiedBuildError("Unified output has no DAILY_INPUT sheet")
     finally:
         wb.close()
+
+    try:
+        assert_application_contract(path)
+    except ApplicationContractError as exc:
+        raise UnifiedBuildError(
+            f"Unified output failed application contract: {exc}"
+        ) from exc
 
 
 def build_unified_preview(
@@ -283,6 +294,7 @@ def main() -> int:
     print("Source unchanged: True")
     print("VBA project present: True")
     print("DAILY_INPUT sheet present: True")
+    print("Application contract: verified")
     print("NEXT: open only the unified preview and run ShowRegistrationMenu.")
     return 0
 
