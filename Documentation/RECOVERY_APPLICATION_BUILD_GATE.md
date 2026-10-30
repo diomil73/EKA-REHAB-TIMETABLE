@@ -32,6 +32,12 @@ This gate covered the application contract, unified builder, patient registratio
 
 This gate covered recovered day finalization, therapist/day history derivation and existing daily-state behavior. It confirms that the recovered core remains fail-closed for unresolved sessions and preserves the known daily truth semantics.
 
+### Finalized persistence/history store gate
+
+`32 passed in 4.29s`
+
+This gate covered finalized snapshot persistence readers/schema guards, therapist/day history storage, day finalization, therapist/day history derivation and existing daily-state behavior.
+
 ## Recovered 2026-10-24 roadmap alignment
 
 A user-provided roadmap snapshot dated 2026-10-24 confirms the intended project sequence after the scheduling engine milestone:
@@ -105,17 +111,26 @@ Recovered persistence/store source after the pure-core gate became green:
 - `Tests/test_finalized_day_snapshots.py`
 - `Tests/test_therapist_day_history_store.py`
 
-Persistence safety properties recovered:
+Recovered append-only historical event layer after the persistence gate became green:
+
+- `Python/rehab_core/day_history_events.py`
+- `Python/rehab_excel/day_history_event_store.py`
+- `Tests/test_day_history_events.py`
+- `Tests/test_day_history_event_store.py`
+
+Persistence/event safety properties recovered:
 
 - finalized snapshot reader validates schema and rejects duplicate `CURRENT_FINAL` rows per service date,
 - finalized history rejects unresolved snapshots,
 - native writers use Excel COM and semantic read-back rather than openpyxl mutation of operational `.xlsm`,
 - therapist/day store rejects duplicate `(SnapshotId, TherapistId)` keys,
 - one append batch is constrained to one snapshot/date,
+- day-history events use immutable IDs, timezone-aware timestamps and append-only semantics,
+- duplicate `EventId` values are rejected both on read and append,
 - technical history sheets are protected and `VeryHidden`,
 - COM `NumberFormat` assignment is intentionally avoided because it was previously unreliable across Excel builds/locales.
 
-No close-day CLI, VBA action, amendment workflow or canonical installer hook has been recovered yet. Those remain gated behind the persistence tests.
+No close-day CLI, VBA action, amendment workflow or canonical installer hook has been recovered yet. Those remain gated behind the event-layer tests.
 
 ## Commits in this recovery line
 
@@ -135,6 +150,10 @@ No close-day CLI, VBA action, amendment workflow or canonical installer hook has
 - `cec4776` recovered therapist/day history store
 - `fda76fe` recovered finalized snapshot store tests
 - `5426db3` recovered therapist/day history store tests
+- `d1df042` recovered append-only day history event model
+- `d86303f` recovered day history event store
+- `62a3bc6` recovered day history event tests
+- `fad96c9` recovered day history event store tests
 
 ## Important exclusion
 
@@ -144,9 +163,9 @@ Those components must first be recovered as explicit source/build slices with th
 
 ## Next exact step
 
-1. Run the finalized snapshot store and therapist/day history store tests together with the already-green core tests.
-2. If green, recover the append-only day history event model/store as the next no-VBA slice.
-3. Then recover `close_day.py` and its integration tests.
-4. Recover the in-session/VBA close-day action only after persistence/event tests are green.
+1. Run the append-only day history event model/store tests together with the already-green finalized persistence/core tests.
+2. If green, recover `close_day.py` and its CLI tests as the next slice.
+3. Then recover the close-day preparation/in-session path.
+4. Recover the VBA close-day action only after CLI/in-session tests are green.
 5. Add `modCloseDayAction` to the application contract only after its canonical installer/build path is explicit and green.
 6. Build a fresh uniquely named unified `.xlsm` only after all Python gates are green.
