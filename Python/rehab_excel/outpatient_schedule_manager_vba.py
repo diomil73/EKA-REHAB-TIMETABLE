@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
 
 FORM_NAME = "frmOutpatientScheduleManager"
 MODULE_NAME = "modOutpatientScheduleManager"
@@ -330,3 +333,39 @@ def install_outpatient_schedule_manager(vbproject) -> None:
         raise RuntimeError("Outpatient schedule manager edit action was not installed")
     if "ShowOutpatientScheduleManager" not in installed_registration:
         raise RuntimeError("Registration menu does not route to outpatient schedule manager")
+
+
+def install_outpatient_schedule_manager_in_workbook(workbook_path: str | Path) -> None:
+    """Install the outpatient schedule manager into an existing safe workbook copy."""
+
+    path = Path(workbook_path).resolve()
+    if sys.platform != "win32":
+        raise RuntimeError("Outpatient schedule manager installation requires Windows Excel")
+
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError("pywin32 is required") from exc
+
+    excel = None
+    workbook = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
+        excel.EnableEvents = False
+        workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
+        install_outpatient_schedule_manager(workbook.VBProject)
+        workbook.Save()
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
