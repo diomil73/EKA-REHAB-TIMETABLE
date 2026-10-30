@@ -33,8 +33,8 @@ The gate explicitly rejects normal-production reintroduction of:
 
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` remains frozen native-smoke evidence and must not be overwritten or repaired in place.
 - Production workbook remains immutable.
-- The next native artifact must be a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm`.
-- No close-day native test is allowed until outpatient shell and DAILY_INPUT smoke are healthy on C.
+- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm` is frozen as the current native-smoke evidence after the results below and must not be repaired in place.
+- No close-day native test is allowed until outpatient shell and DAILY_INPUT smoke are healthy on a later fresh copy.
 
 ## Fresh C unified build
 
@@ -76,12 +76,27 @@ Artifact metadata reported by the operator:
 - last write: `30/10/2026 11:55:40 μμ`,
 - SHA256 begins `56C66E90E592E07DDA9F5D67AFEF6A132842B790857...`.
 
-C is now the active native-smoke candidate. Do not rebuild, overwrite or repair it in place. Any later experimental build must use a new unique filename.
+## Native C smoke findings
+
+Operator smoke on C exposed two remaining native failures before close-day testing:
+
+1. Selecting outpatient schedule management displayed `Η διαχείριση προγραμμάτων εξωτερικών ασθενών δεν είναι διαθέσιμη σε αυτό το αρχείο.`
+2. DAILY_INPUT with one patient absence displayed `Η ημερήσια κατάσταση δεν εφαρμόστηκε. Ελέγξτε τις καταχωρίσεις και δοκιμάστε ξανά...`.
+
+Important progress relative to B:
+
+- the C workbook remained open during the DAILY_INPUT failure,
+- the previous `Close of object '_Workbook' failed` symptom did not recur,
+- therefore the recovered in-session architecture removed the old close/reopen failure path even though preparation/apply still failed for a separate reason.
+
+Outpatient source inspection established that the reported message comes from `REGISTRATION_MENU_OUTPATIENT_CLICK` in `outpatient_schedule_manager_vba.py`, which still converts any runtime failure from `ShowOutpatientScheduleManager` into the same generic unavailable message. The manager initializes by reading authoritative sheet `OUTPATIENT_SCHEDULE`; this sheet name matches `outpatient_schedule_source.py`, so there is no evidence of a stale sheet-name contract. The next diagnosis must identify the actual manager initialization/runtime error rather than rewrite scheduling logic.
+
+DAILY_INPUT now writes a hidden diagnostic file `%TEMP%\eka_daily_input_last_error.log` containing phase, patch index, sheet, cell, error number and error text. The next diagnosis must use that log before any code change.
 
 ## Next exact step
 
-1. Open only C and run `ShowRegistrationMenu`.
-2. Test `Πρόγραμμα εξωτερικού ασθενή`. If it fails, record the exact diagnostic `Err.Number` and `Err.Description` now exposed by the menu patch.
-3. Test DAILY_INPUT with one patient absence. The workbook must remain open and must not show `Close of object '_Workbook' failed`.
-4. Only if outpatient shell and DAILY_INPUT are healthy may `CloseOperationalDay` be tested on C.
-5. Record all native results before any next recovery slice.
+1. Do not run `CloseOperationalDay` on C.
+2. Read `%TEMP%\eka_daily_input_last_error.log` after the failed C DAILY_INPUT attempt.
+3. Read-only inspect C for existence and headers of `OUTPATIENT_SCHEDULE`.
+4. Use those two facts to make the next bounded source fix.
+5. Any later native experiment must use a new uniquely named workbook, not B or C.
