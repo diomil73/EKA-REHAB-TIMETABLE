@@ -38,6 +38,12 @@ This gate covered recovered day finalization, therapist/day history derivation a
 
 This gate covered finalized snapshot persistence readers/schema guards, therapist/day history storage, day finalization, therapist/day history derivation and existing daily-state behavior.
 
+### Append-only historical event gate
+
+`40 passed in 2.81s`
+
+This gate covered the append-only event model/store together with the already-green finalized snapshot, therapist/day history and daily-state layers.
+
 ## Recovered 2026-10-24 roadmap alignment
 
 A user-provided roadmap snapshot dated 2026-10-24 confirms the intended project sequence after the scheduling engine milestone:
@@ -104,19 +110,28 @@ Recovered pure-core source:
 - `Tests/test_day_finalization.py`
 - `Tests/test_therapist_day_history.py`
 
-Recovered persistence/store source after the pure-core gate became green:
+Recovered persistence/store source:
 
 - `Python/rehab_excel/finalized_day_snapshots.py`
 - `Python/rehab_excel/therapist_day_history_store.py`
 - `Tests/test_finalized_day_snapshots.py`
 - `Tests/test_therapist_day_history_store.py`
 
-Recovered append-only historical event layer after the persistence gate became green:
+Recovered append-only historical event layer:
 
 - `Python/rehab_core/day_history_events.py`
 - `Python/rehab_excel/day_history_event_store.py`
 - `Tests/test_day_history_events.py`
 - `Tests/test_day_history_event_store.py`
+
+Recovered close-day orchestration slice after the event gate became green:
+
+- `Python/tools/build_finalized_day_snapshot_preview.py`
+- `Tests/test_build_finalized_day_snapshot_preview.py`
+- `Python/tools/close_day.py`
+- `Tests/test_close_day_cli.py`
+
+The recovered close-day CLI still builds a fresh output copy rather than mutating the source workbook. It validates the application contract, verifies source SHA unchanged, persists the finalized snapshot and therapist/day history, appends the `DAY_FINALIZED` event, reads it back, and deletes the output on post-preview failure.
 
 Persistence/event safety properties recovered:
 
@@ -130,7 +145,7 @@ Persistence/event safety properties recovered:
 - technical history sheets are protected and `VeryHidden`,
 - COM `NumberFormat` assignment is intentionally avoided because it was previously unreliable across Excel builds/locales.
 
-No close-day CLI, VBA action, amendment workflow or canonical installer hook has been recovered yet. Those remain gated behind the event-layer tests.
+No close-day VBA action, in-session mutation path, amendment workflow or canonical installer hook has been recovered yet. Those remain gated behind the close-day CLI/preview tests.
 
 ## Commits in this recovery line
 
@@ -154,6 +169,10 @@ No close-day CLI, VBA action, amendment workflow or canonical installer hook has
 - `d86303f` recovered day history event store
 - `62a3bc6` recovered day history event tests
 - `fad96c9` recovered day history event store tests
+- `7c9ed45` recovered finalized-day snapshot preview builder
+- `c4daf0a` recovered finalized-day preview regression tests
+- `b2a0658` recovered close-day orchestration CLI
+- `cc5b2e1` recovered close-day CLI regression tests
 
 ## Important exclusion
 
@@ -163,9 +182,8 @@ Those components must first be recovered as explicit source/build slices with th
 
 ## Next exact step
 
-1. Run the append-only day history event model/store tests together with the already-green finalized persistence/core tests.
-2. If green, recover `close_day.py` and its CLI tests as the next slice.
-3. Then recover the close-day preparation/in-session path.
-4. Recover the VBA close-day action only after CLI/in-session tests are green.
-5. Add `modCloseDayAction` to the application contract only after its canonical installer/build path is explicit and green.
-6. Build a fresh uniquely named unified `.xlsm` only after all Python gates are green.
+1. Run the finalized-day preview builder and close-day CLI tests together with the full already-green history/event stack.
+2. If green, recover `prepare_close_day_in_place.py` and its tests.
+3. Recover the VBA close-day action only after the in-session preparation path is green.
+4. Add `modCloseDayAction` to the application contract only after its canonical installer/build path is explicit and green.
+5. Build a fresh uniquely named unified `.xlsm` only after all Python gates are green.
