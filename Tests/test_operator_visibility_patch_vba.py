@@ -31,7 +31,7 @@ def test_global_replacement_success_shows_new_assignment_details():
     assert 'replacementTherapist = Trim$(CStr(ws.Cells(row, 5).Value))' in patched
     assert 'replacementTime = Trim$(CStr(ws.Cells(row, 7).Text))' in patched
     assert '"Οι αναπληρώσεις εφαρμόστηκαν:"' in patched
-    assert '" → " & replacementTherapist & " → " & replacementTime' in patched
+    assert '" -> " & replacementTherapist & " -> " & replacementTime' in patched
 
 
 def test_global_replacement_summary_only_reads_rows_appended_by_current_action():
@@ -52,8 +52,13 @@ def test_canonical_registration_build_installs_operator_visibility_patch():
     )
 
 
-def test_patch_installer_verifies_both_visibility_contracts():
+def test_patch_installer_verifies_both_visibility_contracts_semantically():
     source = inspect.getsource(install_operator_visibility_patch)
 
     assert "DAILY_INPUT still auto-renders workload badges" in source
     assert "Replacement summary patch was not installed" in source
+    assert "Replacement summary procedure was not installed" in source
+    assert '"PatientDisplayName(patientId)"' in source
+    assert '"replacementTherapist"' in source
+    assert '"replacementTime"' in source
+    assert "→" not in source
