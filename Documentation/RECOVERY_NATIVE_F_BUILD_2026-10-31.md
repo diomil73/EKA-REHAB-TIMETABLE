@@ -92,17 +92,29 @@ Bounded source fixes:
 
 The therapist personal card itself remains a later UI/reporting slice; this recovery change only removes the incorrect MASTER presentation while preserving workload calculation for that future card.
 
-## Next gate
+## Post-fix focused gate
 
-Before any new native build, run the focused source gate covering:
+Operator-confirmed focused regression gate after the MASTER-clear and workload-placement fixes:
 
-- `Tests/test_master_daily_overlay.py`,
-- `Tests/test_prepare_daily_input_in_place.py`,
-- `Tests/test_daily_input_action_vba.py`,
-- `Tests/test_therapist_workload_strip_vba.py`,
-- `Tests/test_therapist_workload_canonical_build.py`,
-- `Tests/test_operator_visibility_patch_vba.py`,
-- `Tests/test_production_actions_stay_in_session.py`,
-- `Tests/test_unified_builder.py`.
+`45 passed in 4.25s`
 
-If green, build a fresh uniquely named G artifact. Do not reuse F. Native-test the same patient absence and verify the MASTER treatment cell is cleared while the daily projection remains correct and no workload button/badges appear on MASTER. Only then may close-day smoke resume.
+Covered:
+
+- MASTER daily overlay,
+- in-session DAILY_INPUT preparation/action,
+- therapist workload backend-only contract,
+- canonical workload installation/legacy-shape cleanup,
+- operator visibility patch,
+- production actions stay in-session,
+- unified builder regressions.
+
+This source gate is green for the fresh G build. F remains frozen and must not be modified.
+
+## Next exact step
+
+1. Build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261031_G.xlsm` from immutable `Rehab_Center_System_v27_1.xlsm`; do not reuse F.
+2. Verify source SHA unchanged and application contract remains green.
+3. Native-test the same Πετιρόπουλος patient absence and confirm both the daily projection and the matching MASTER treatment cell are cleared.
+4. Confirm MASTER contains neither a `Φόρτος θεραπευτών` button nor `x/6` workload badges.
+5. Then test a therapist absence that actually produces a replacement and confirm the success summary names patient, replacement therapist and time.
+6. Only if all of these checks pass may G proceed to the first native `CloseOperationalDay` smoke.
