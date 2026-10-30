@@ -18,17 +18,19 @@ This checkpoint records the recovery-only application build safety work performe
 
 ### Structural recovery gate
 
-On 2026-10-30 the focused recovery gate completed successfully:
-
 `11 passed in 3.23s`
 
 ### Strengthened canonical application gate
 
-After expanding the application contract to the full currently-established outpatient application stack, the operator reported:
-
 `74 passed in 4.60s`
 
 This gate covered the application contract, unified builder, patient registration bridge/edit, outpatient form/edit/manager, conflict guard, in-session writer and scheduling conflict popup.
+
+### Pure finalization/history core gate
+
+`21 passed in 1.51s`
+
+This gate covered recovered day finalization, therapist/day history derivation and existing daily-state behavior. It confirms that the recovered core remains fail-closed for unresolved sessions and preserves the known daily truth semantics.
 
 ## Recovered 2026-10-24 roadmap alignment
 
@@ -85,27 +87,35 @@ The application contract now covers components that are explicit outputs of the 
 
 This intentionally means a workbook that has VBA but has lost the outpatient create form/module cannot be accepted as a complete application artifact.
 
-## Selective history recovery started
+## Selective history recovery
 
 The later `feature/outpatient-scheduling` line was compared against the trusted recovery branch. The close-day/history work exists there as a bounded implementation slice, alongside many unrelated later changes and quarantined V2 experiments. Therefore no bulk merge/cherry-pick is allowed.
 
-The first recovered slice is deliberately pure-core only and performs no Excel/COM mutation:
+Recovered pure-core source:
 
 - `Python/rehab_core/day_finalization.py`
 - `Python/rehab_core/therapist_day_history.py`
 - `Tests/test_day_finalization.py`
 - `Tests/test_therapist_day_history.py`
 
-Recovered semantics:
+Recovered persistence/store source after the pure-core gate became green:
 
-- day finalization is fail-closed when unresolved sessions remain,
-- finalized snapshot counts come from effective daily truth,
-- therapist/day workload distinguishes occupied timeslots from active sessions,
-- replacement workload moves to the effective therapist,
-- student replacement work is not misreported as therapist workload,
-- non-performed outcomes stay attributable to the original therapist.
+- `Python/rehab_excel/finalized_day_snapshots.py`
+- `Python/rehab_excel/therapist_day_history_store.py`
+- `Tests/test_finalized_day_snapshots.py`
+- `Tests/test_therapist_day_history_store.py`
 
-No persistence store, close-day CLI, VBA action, or installer hook has been recovered yet. Those remain gated behind the pure-core tests.
+Persistence safety properties recovered:
+
+- finalized snapshot reader validates schema and rejects duplicate `CURRENT_FINAL` rows per service date,
+- finalized history rejects unresolved snapshots,
+- native writers use Excel COM and semantic read-back rather than openpyxl mutation of operational `.xlsm`,
+- therapist/day store rejects duplicate `(SnapshotId, TherapistId)` keys,
+- one append batch is constrained to one snapshot/date,
+- technical history sheets are protected and `VeryHidden`,
+- COM `NumberFormat` assignment is intentionally avoided because it was previously unreliable across Excel builds/locales.
+
+No close-day CLI, VBA action, amendment workflow or canonical installer hook has been recovered yet. Those remain gated behind the persistence tests.
 
 ## Commits in this recovery line
 
@@ -121,6 +131,10 @@ No persistence store, close-day CLI, VBA action, or installer hook has been reco
 - `3eaa5cb` recovered therapist/day history core
 - `b52a087` recovered day-finalization tests
 - `d6deb93` recovered therapist/day history tests
+- `2b410b3` recovered finalized snapshot store
+- `cec4776` recovered therapist/day history store
+- `fda76fe` recovered finalized snapshot store tests
+- `5426db3` recovered therapist/day history store tests
 
 ## Important exclusion
 
@@ -130,9 +144,9 @@ Those components must first be recovered as explicit source/build slices with th
 
 ## Next exact step
 
-1. Run the pure-core finalization/history tests together with the already-green daily-state/statistics tests.
-2. If green, recover finalized snapshot persistence and therapist/day history storage as a separate no-VBA slice.
-3. Test persistence/version-chain behavior before recovering `close_day.py` or `modCloseDayAction`.
-4. Recover the close-day in-session/VBA action only after persistence tests are green.
+1. Run the finalized snapshot store and therapist/day history store tests together with the already-green core tests.
+2. If green, recover the append-only day history event model/store as the next no-VBA slice.
+3. Then recover `close_day.py` and its integration tests.
+4. Recover the in-session/VBA close-day action only after persistence/event tests are green.
 5. Add `modCloseDayAction` to the application contract only after its canonical installer/build path is explicit and green.
 6. Build a fresh uniquely named unified `.xlsm` only after all Python gates are green.
