@@ -54,6 +54,12 @@ This checkpoint records the recovery-only application build safety work performe
 
 This final source-only gate re-ran the strengthened application contract with `modCloseDayAction`, unified builder tests, close-day VBA/in-session preparation, preview/CLI history chain, finalized snapshot/event stores, therapist/day history and daily-state behavior.
 
+### Workload-strip regression gate
+
+`16 passed in 2.86s`
+
+This focused gate covered the canonical workload-strip installation hook together with close-day action, application-contract and unified-builder regression tests.
+
 ## First native unified-build attempt
 
 The first fresh native build target was `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261030_A.xlsm`.
@@ -81,6 +87,22 @@ Commits:
 
 - `51c6a23` install/verify workload strip in canonical registration build
 - `2db84df` regression test for workload strip canonical build hook
+
+## Successful unified B smoke candidate
+
+A fresh second build target, `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm`, was created successfully after the workload-strip fix.
+
+Operator verification recorded:
+
+- source SHA remained unchanged,
+- output file exists and was not overwritten,
+- output size: `382507` bytes,
+- output last-write time: `30/10/2026 11:14:07 μμ`,
+- `DAILY_INPUT` is present,
+- `DAILY_INPUT!B2` reads `30/10/2026`,
+- output SHA256 begins `92AC14E820A35F8E22EFF282880BB640C1AE360359B...` as reported by PowerShell.
+
+The B workbook is now the only native smoke candidate for the next step. Do not rebuild or overwrite it. Any further experiment must use a new uniquely named copy.
 
 ## Recovered 2026-10-24 roadmap alignment
 
@@ -145,7 +167,8 @@ Do not reintroduce quarantined replacement V2 patch/repair tooling. Do not bulk 
 
 ## Next exact step
 
-1. Run focused source tests for the new workload-strip canonical build hook plus unified/application contract tests.
-2. If green, build a new fresh uniquely named unified preview (`..._B.xlsm`), not the failed `..._A.xlsm` name.
-3. Verify source hash unchanged and final application contract on the new copy.
-4. Perform native Excel smoke only after the build fully succeeds.
+1. Open only `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` for native Excel smoke.
+2. Verify application/menu shell and outpatient flow without modifying production or forensic workbooks.
+3. Verify DAILY_INPUT native interaction on the B copy.
+4. Run `CloseOperationalDay` only after the preceding smoke checks are healthy.
+5. Record the native close-day result before moving to amendment/version-chain work or the next roadmap vertical.
