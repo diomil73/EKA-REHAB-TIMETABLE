@@ -67,7 +67,8 @@ The solver/global assignment engine, scoring, capacity rules, double-booking rev
 - Production workbook remains immutable.
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm` is frozen as native-smoke evidence and must not be repaired in place.
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` is frozen as successful native evidence and must not be repaired in place.
-- Any UX verification after the operator-visibility patch must use a fresh uniquely named workbook.
+- The attempted `UNIFIED_CLOSE_DAY_RECOVERY_20261031_E.xlsm` build failed before artifact creation; no E workbook exists and no retry should reuse that name.
+- Any UX verification after the COM-safe visibility verification fix must use a fresh uniquely named workbook.
 - Close-day native testing remains blocked until replacement-summary/workload-visibility UX is verified on that fresh copy.
 
 ## Fresh C unified build
@@ -232,19 +233,44 @@ The solver/global assignment engine remains unchanged.
 Bounded presentation-only fixes:
 
 - `79fb796` adds `operator_visibility_patch_vba.py`, which patches the installed normal-production VBA so DAILY_INPUT refresh stops auto-rendering workload badges and successful global replacement shows a summary of only the replacement fact rows appended by the current action,
-- replacement summary resolves `PatientID` through `PATIENTS` and displays `patient → replacement therapist → replacement time`,
+- replacement summary resolves `PatientID` through `PATIENTS` and displays patient, replacement therapist and replacement time,
 - the existing `Φόρτος θεραπευτών` button remains available for explicit operator request,
 - `adb9309` installs the visibility patch in the canonical registration/operational build session after workload/global replacement modules are present,
 - `c99eb0a` adds regressions for replacement summary, current-action row scoping, optional workload visibility, and canonical build installation.
 
 This patch does not change assignment scoring, candidate generation, capacity rules, double-booking review, suspension semantics, or replacement persistence.
 
+## Failed E build and COM-safe verification fix
+
+The first fresh E build attempt stopped fail-closed during registration/operational module installation with:
+
+```text
+SAFETY STOP: Operational module installation failed during patching operator visibility: Replacement summary details were not installed
+```
+
+Safety observations:
+
+- the builder returned exit code 2,
+- no `UNIFIED_CLOSE_DAY_RECOVERY_20261031_E.xlsm` artifact was emitted,
+- the immutable source workbook SHA remained unchanged,
+- therefore this was a source-side post-install verification failure, not workbook corruption.
+
+Diagnosis: the visibility installer verified summary details using an exact Unicode source fragment containing the `→` arrow. Excel/VBA COM `CodeModule.AddFromString` can normalize or recode such characters, making the exact typography-sensitive post-install comparison unreliable even when the semantic code is present.
+
+Bounded fixes:
+
+- `fcc9405` switches the displayed separator to ASCII `->` and changes post-install verification to inspect the installed `BuildReplacementSummarySince` procedure for the semantic tokens `PatientDisplayName(patientId)`, `replacementTherapist`, and `replacementTime`,
+- `60c9047` updates regressions to forbid reliance on the Unicode arrow in installer verification and to require the semantic token checks.
+
+No solver, assignment, persistence, workload calculation, or close-day logic changed.
+
 ## Next exact step
 
-1. Build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261031_E.xlsm` from immutable `Rehab_Center_System_v27_1.xlsm` without `--overwrite`.
-2. Verify source SHA unchanged and application contract remains green.
-3. Native-test DAILY_INPUT on E with a case that produces at least one replacement.
-4. Confirm the success flow explicitly shows `patient → replacement therapist → replacement time` for only the new action.
-5. Confirm MASTER does not auto-display therapist `x/6` badges after DAILY_INPUT; the workload button may remain for explicit use.
-6. If both UX checks pass, E may proceed to the first native `CloseOperationalDay` smoke.
-7. If either UX check fails, freeze E as evidence and diagnose without repairing it in place.
+1. Pull `fcc9405` and `60c9047`.
+2. Run the focused operator-visibility/build regression gate again.
+3. If green, build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261031_F.xlsm`; do not reuse E.
+4. Verify source SHA unchanged and application contract remains green.
+5. Native-test DAILY_INPUT on F with at least one replacement.
+6. Confirm the success flow names patient, replacement therapist and replacement time for only the new action.
+7. Confirm MASTER does not auto-display therapist `x/6` badges after DAILY_INPUT; the workload button may remain for explicit use.
+8. Only after both UX checks pass may F proceed to the first native `CloseOperationalDay` smoke.
