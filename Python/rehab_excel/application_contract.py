@@ -25,6 +25,7 @@ REQUIRED_APP_COMPONENTS: tuple[str, ...] = (
     "modOutpatientScheduleEdit",
     "modOutpatientScheduleManager",
     "frmOutpatientScheduleManager",
+    "modCloseDayAction",
 )
 
 
