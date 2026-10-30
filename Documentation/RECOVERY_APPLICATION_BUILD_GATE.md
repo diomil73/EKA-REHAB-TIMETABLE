@@ -48,21 +48,45 @@ This checkpoint records the recovery-only application build safety work performe
 
 `64 passed in 6.21s`
 
-This gate covered the recovered close-day VBA action, read-only in-session payload preparation, preview/CLI history chain, application contract and unified builder tests.
-
 ### Final pre-smoke gate
 
 `64 passed in 5.69s`
 
-This final source-only gate re-ran the strengthened application contract with `modCloseDayAction`, unified builder tests, close-day VBA/in-session preparation, preview/CLI history chain, finalized snapshot/event stores, therapist/day history and daily-state behavior. No workbook build had been performed yet when this gate passed.
+This final source-only gate re-ran the strengthened application contract with `modCloseDayAction`, unified builder tests, close-day VBA/in-session preparation, preview/CLI history chain, finalized snapshot/event stores, therapist/day history and daily-state behavior.
+
+## First native unified-build attempt
+
+The first fresh native build target was `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261030_A.xlsm`.
+
+The build safely stopped at the `DAILY_INPUT` stage with:
+
+`Workbook is not a complete application artifact; missing VBA component(s): modTherapistWorkloadStrip`
+
+Important safety result:
+
+- source SHA before/after was unchanged,
+- the requested final output file did not exist after the failure,
+- therefore the unified builder fail-closed path worked as intended.
+
+Diagnosis: `modTherapistWorkloadStrip` was already an application-contract requirement and its installer already existed, but the current canonical registration build stage did not explicitly install it before the DAILY_INPUT stage asserted the application contract. Static/source tests did not expose this because they did not execute the full native COM build chain.
+
+Recovery fix:
+
+- canonical `build_registration_menu_preview.py` now installs the existing therapist workload strip in the same explicit operational-module installation session as `modCloseDayAction`,
+- the pre-clean stage removes any stale workload-strip module before rebuilding,
+- the native stage verifies `modTherapistWorkloadStrip` exists before saving,
+- a dedicated regression test now locks this canonical build hook.
+
+Commits:
+
+- `51c6a23` install/verify workload strip in canonical registration build
+- `2db84df` regression test for workload strip canonical build hook
 
 ## Recovered 2026-10-24 roadmap alignment
 
-A user-provided roadmap snapshot dated 2026-10-24 confirms the intended project sequence after the scheduling engine milestone:
+The roadmap sequence remains:
 
 `Scheduling engine -> Day closure/history -> Statistics/reporting -> Patient progress -> App UI -> Integrated beta -> Hardening -> Production`.
-
-The roadmap explicitly places `Κλείσιμο ημέρας + finalized historical snapshot` as the next implementation slice and matches `STATISTICS_HISTORY_DESIGN.md`: fail-closed finalization, versioned snapshots, append-only events, therapist/day history, later patient/department reporting, progress, application UI, beta, hardening and production.
 
 The old effort estimate (`160h baseline / 190h safe budget`) is retained only as historical planning context, not as a current remaining-effort metric.
 
@@ -95,46 +119,9 @@ The application contract now covers the explicit canonical stack including:
 - `frmOutpatientScheduleManager`
 - `modCloseDayAction`
 
-The close-day component was added to the contract only after its source, in-session preparation path, canonical build hook and regression tests were all green.
-
 ## Selective history recovery completed so far
 
-Recovered pure-core source:
-
-- `Python/rehab_core/day_finalization.py`
-- `Python/rehab_core/therapist_day_history.py`
-- `Tests/test_day_finalization.py`
-- `Tests/test_therapist_day_history.py`
-
-Recovered persistence/store source:
-
-- `Python/rehab_excel/finalized_day_snapshots.py`
-- `Python/rehab_excel/therapist_day_history_store.py`
-- `Tests/test_finalized_day_snapshots.py`
-- `Tests/test_therapist_day_history_store.py`
-
-Recovered append-only event source:
-
-- `Python/rehab_core/day_history_events.py`
-- `Python/rehab_excel/day_history_event_store.py`
-- `Tests/test_day_history_events.py`
-- `Tests/test_day_history_event_store.py`
-
-Recovered close-day orchestration and in-session preparation:
-
-- `Python/tools/build_finalized_day_snapshot_preview.py`
-- `Tests/test_build_finalized_day_snapshot_preview.py`
-- `Python/tools/close_day.py`
-- `Tests/test_close_day_cli.py`
-- `Python/tools/prepare_close_day_in_place.py`
-- `Tests/test_prepare_close_day_in_place.py`
-
-Recovered VBA integration:
-
-- `Python/rehab_excel/close_day_action_vba.py`
-- `Tests/test_close_day_action_vba.py`
-- canonical `build_registration_menu_preview.py` explicitly installs and verifies `modCloseDayAction`
-- `REQUIRED_APP_COMPONENTS` now requires `modCloseDayAction`
+Recovered core, persistence, append-only event, close-day orchestration, in-session preparation and VBA integration remain isolated on the recovery branch and are individually test-gated.
 
 ## Close-day safety properties now recovered
 
@@ -152,22 +139,13 @@ Recovered VBA integration:
 - technical history sheets are protected and `VeryHidden`,
 - duplicate close attempts are handled as an already-finalized state.
 
-## Recovery commits for the close-day integration slice
-
-- `b7f3094` recovered `modCloseDayAction`
-- `0f634d0` canonical build installs/verifies close-day action
-- `baeae77` close-day VBA/build integration regression test
-- `5d7b65b` close-day VBA recovery checkpoint
-- `7b60620` require close-day action in application contract
-- `c5c9fdb` test close-day action as required application component
-
 ## Important exclusion
 
 Do not reintroduce quarantined replacement V2 patch/repair tooling. Do not bulk merge the later feature branch. Recovery remains selective and test-gated.
 
 ## Next exact step
 
-1. Build one fresh uniquely named unified `.xlsm` from the recovery branch, with no overwrite of any existing preview.
-2. Verify source hash unchanged and final application contract on the new copy.
-3. Perform native Excel smoke on the new copy, including outpatient flow, DAILY_INPUT and `CloseOperationalDay`.
-4. Only after native proof, treat the recovered close-day/history slice as integrated and move to amendment/version-chain work or the next roadmap vertical.
+1. Run focused source tests for the new workload-strip canonical build hook plus unified/application contract tests.
+2. If green, build a new fresh uniquely named unified preview (`..._B.xlsm`), not the failed `..._A.xlsm` name.
+3. Verify source hash unchanged and final application contract on the new copy.
+4. Perform native Excel smoke only after the build fully succeeds.
