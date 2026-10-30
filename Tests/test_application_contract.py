@@ -33,6 +33,7 @@ def test_application_contract_covers_existing_app_ui_stack():
         "modOutpatientScheduleEdit",
         "modOutpatientScheduleManager",
         "frmOutpatientScheduleManager",
+        "modCloseDayAction",
     }
 
     assert expected <= required
