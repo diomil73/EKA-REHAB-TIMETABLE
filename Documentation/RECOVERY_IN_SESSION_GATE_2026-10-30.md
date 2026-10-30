@@ -33,7 +33,7 @@ The gate explicitly rejects normal-production reintroduction of:
 
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` remains frozen native-smoke evidence and must not be overwritten or repaired in place.
 - Production workbook remains immutable.
-- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm` is frozen as the current native-smoke evidence after the results below and must not be repaired in place.
+- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm` is frozen as native-smoke evidence and must not be repaired in place.
 - No close-day native test is allowed until outpatient shell and DAILY_INPUT smoke are healthy on a later fresh copy.
 
 ## Fresh C unified build
@@ -89,14 +89,35 @@ Important progress relative to B:
 - the previous `Close of object '_Workbook' failed` symptom did not recur,
 - therefore the recovered in-session architecture removed the old close/reopen failure path even though preparation/apply still failed for a separate reason.
 
-Outpatient source inspection established that the reported message comes from `REGISTRATION_MENU_OUTPATIENT_CLICK` in `outpatient_schedule_manager_vba.py`, which still converts any runtime failure from `ShowOutpatientScheduleManager` into the same generic unavailable message. The manager initializes by reading authoritative sheet `OUTPATIENT_SCHEDULE`; this sheet name matches `outpatient_schedule_source.py`, so there is no evidence of a stale sheet-name contract. The next diagnosis must identify the actual manager initialization/runtime error rather than rewrite scheduling logic.
+## Confirmed outpatient structural omission
 
-DAILY_INPUT now writes a hidden diagnostic file `%TEMP%\eka_daily_input_last_error.log` containing phase, patch index, sheet, cell, error number and error text. The next diagnosis must use that log before any code change.
+Read-only inspection of C confirmed:
+
+- `OUTPATIENT_SCHEDULE PRESENT: False`,
+- therefore no headers or rows were available,
+- the manager's `UserForm_Initialize` requires `ThisWorkbook.Worksheets("OUTPATIENT_SCHEDULE")`, so the missing authoritative source sheet directly explains the generic unavailable message.
+
+This exposed a second application-contract gap: the contract verified required VBA components but did not require the authoritative outpatient data sheet. The canonical outpatient build stage installed form/edit/manager code but did not create the underlying `OUTPATIENT_SCHEDULE` source.
+
+Bounded recovery fixes:
+
+- `29f74ac` add build-time `outpatient_schedule_sheet.py` initializer with exact authoritative headers and fail-closed schema verification,
+- `5c82e48` invoke the initializer before outpatient edit/manager installation in the canonical build stage,
+- `06ad12a` strengthen the application contract to require `OUTPATIENT_SCHEDULE` and its exact header schema,
+- `b1c5196` add application-contract regressions for the required outpatient source,
+- `ad4fa23` add initializer/build-order regression tests.
+
+The initializer is build-time only and is intended for fresh preview/staging copies. It does not mutate production and it rejects an existing `OUTPATIENT_SCHEDULE` sheet whose headers do not exactly match the authoritative schema.
+
+## DAILY_INPUT diagnosis still pending
+
+DAILY_INPUT now writes `%TEMP%\eka_daily_input_last_error.log` containing phase, patch index, sheet, cell, error number and error text. The operator has not yet supplied that log from the failed C attempt. No further DAILY_INPUT code change should be made until the log is read.
 
 ## Next exact step
 
-1. Do not run `CloseOperationalDay` on C.
-2. Read `%TEMP%\eka_daily_input_last_error.log` after the failed C DAILY_INPUT attempt.
-3. Read-only inspect C for existence and headers of `OUTPATIENT_SCHEDULE`.
-4. Use those two facts to make the next bounded source fix.
-5. Any later native experiment must use a new uniquely named workbook, not B or C.
+1. Run the focused outpatient structural regression gate after pulling the five commits above.
+2. Read `%TEMP%\eka_daily_input_last_error.log` from the failed C DAILY_INPUT attempt.
+3. Do not rebuild or repair C.
+4. Diagnose DAILY_INPUT from the log before any next code change.
+5. Only after both source fixes are green may a fresh uniquely named D workbook be built.
+6. Native-test outpatient shell and DAILY_INPUT on D before any `CloseOperationalDay` action.
