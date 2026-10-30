@@ -13,17 +13,29 @@ from tools import preview_daily_input_sheet
 def test_application_contract_covers_existing_app_ui_stack():
     required = set(REQUIRED_APP_COMPONENTS)
 
-    assert "modApplicationShell" in required
-    assert "modMasterToolbar" in required
-    assert "modRegistrationMenu" in required
-    assert "frmRegistrationMenu" in required
-    assert "frmNewPatient" in required
-    assert "frmNewTherapist" in required
-    assert "frmNewStudent" in required
-    assert "modDailyInputAction" in required
-    assert "modTherapistWorkloadStrip" in required
-    assert "modOutpatientScheduleManager" in required
-    assert "frmOutpatientScheduleManager" in required
+    expected = {
+        "modApplicationShell",
+        "modMasterToolbar",
+        "modRegistrationMenu",
+        "frmRegistrationMenu",
+        "frmNewPatient",
+        "frmNewTherapist",
+        "frmNewStudent",
+        "modPatientRegistrationBridge",
+        "frmEditPatient",
+        "modDailyInputAction",
+        "modTherapistWorkloadStrip",
+        "modOutpatientSchedule",
+        "frmOutpatientSchedule",
+        "modOutpatientInSession",
+        "modSchedulingConflict",
+        "frmSchedulingConflict",
+        "modOutpatientScheduleEdit",
+        "modOutpatientScheduleManager",
+        "frmOutpatientScheduleManager",
+    }
+
+    assert expected <= required
 
 
 def test_daily_input_preview_defaults_to_known_good_app_source():
