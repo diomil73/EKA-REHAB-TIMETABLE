@@ -9,7 +9,7 @@ from rehab_core.daily_state import DailySessionState, DailySessionStatus
 from rehab_core.models import BaseScheduleEntry, Patient, PatientType
 
 from .master_projection import MasterProjectionError, MasterProjectionRow, build_master_projection
-from .writeback import CellPatch, WritePlan, build_write_plan
+from .writeback import CellPatch, WriteIntent, WritePlan, build_write_plan
 
 
 class MasterDailyOverlayError(RuntimeError):
@@ -99,8 +99,10 @@ def build_master_daily_overlay_plan(
     """Build date-specific MASTER treatment-cell patches from DailySessionState.
 
     MASTER_SCHEDULE remains a derived view. Recurring source rows are never
-    edited. For now this overlay writes active REPLACED states; other daily
-    statuses will be added as their explicit MASTER presentation is locked.
+    edited. A resolved replacement writes the effective therapist/time. A
+    patient absence or explicit cancellation clears only that day's concrete
+    treatment cell from the MASTER view. Pending therapist absences are left
+    untouched until replacement resolution decides the effective daily state.
 
     Callers that already computed the logical MASTER projection may provide it
     so the workbook does not need to be parsed a second time for identical rows.
@@ -122,9 +124,14 @@ def build_master_daily_overlay_plan(
 
     patches: list[CellPatch] = []
     bindings: list[MasterDailyBinding] = []
+    visible_statuses = {
+        DailySessionStatus.REPLACED,
+        DailySessionStatus.PATIENT_ABSENT,
+        DailySessionStatus.CANCELLED,
+    }
 
     for state in states:
-        if state.status != DailySessionStatus.REPLACED:
+        if state.status not in visible_statuses:
             continue
         patient = patient_map.get(state.patient_id)
         if patient is None:
@@ -139,10 +146,6 @@ def build_master_daily_overlay_plan(
             raise MasterDailyOverlayError(
                 f"Inpatient {state.patient_id!r} has no MASTER_SCHEDULE projection row"
             )
-        if state.effective_time is None or state.effective_therapist_id is None:
-            raise MasterDailyOverlayError(
-                f"Replacement state {state.session_id!r} lacks effective provider/time"
-            )
 
         base_id = _base_entry_id_from_session(state.session_id)
         entry = entries.get(base_id)
@@ -152,21 +155,40 @@ def build_master_daily_overlay_plan(
             )
         column = _treatment_column(entry.treatment)
         cell = f"{_column_letters(column)}{row}"
-        provider = labels.get(state.effective_therapist_id, state.effective_therapist_id)
-        patches.append(
-            CellPatch(
-                sheet="MASTER_SCHEDULE",
-                cell=cell,
-                value=_display_value(
-                    effective_time=state.effective_time,
-                    day_pattern=entry.day_pattern,
-                    effective_provider=provider,
-                ),
-                wrap_text=True,
-                min_font_size=10,
-                source_tag="master_daily_effective_overlay",
+
+        if state.status in {
+            DailySessionStatus.PATIENT_ABSENT,
+            DailySessionStatus.CANCELLED,
+        }:
+            patches.append(
+                CellPatch(
+                    sheet="MASTER_SCHEDULE",
+                    cell=cell,
+                    intent=WriteIntent.CLEAR,
+                    source_tag="master_daily_inactive_overlay",
+                )
             )
-        )
+        else:
+            if state.effective_time is None or state.effective_therapist_id is None:
+                raise MasterDailyOverlayError(
+                    f"Replacement state {state.session_id!r} lacks effective provider/time"
+                )
+            provider = labels.get(state.effective_therapist_id, state.effective_therapist_id)
+            patches.append(
+                CellPatch(
+                    sheet="MASTER_SCHEDULE",
+                    cell=cell,
+                    value=_display_value(
+                        effective_time=state.effective_time,
+                        day_pattern=entry.day_pattern,
+                        effective_provider=provider,
+                    ),
+                    wrap_text=True,
+                    min_font_size=10,
+                    source_tag="master_daily_effective_overlay",
+                )
+            )
+
         bindings.append(
             MasterDailyBinding(
                 session_id=state.session_id,
