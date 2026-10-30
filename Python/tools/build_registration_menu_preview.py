@@ -13,6 +13,10 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from rehab_excel.application_shell_vba import APP_SHELL_MODULE_NAME  # noqa: E402
+from rehab_excel.close_day_action_vba import (  # noqa: E402
+    CLOSE_DAY_MODULE_NAME,
+    install_close_day_action,
+)
 from rehab_excel.master_toolbar_vba import MASTER_TOOLBAR_MODULE_NAME  # noqa: E402
 from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
     FORM_NAME as OUTPATIENT_FORM_NAME,
@@ -119,6 +123,8 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         _remove_component_if_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
         stage = "removing old DAILY_INPUT action module"
         _remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
+        stage = "removing old close-day action module"
+        _remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)
         stage = "removing old outpatient schedule module"
         _remove_component_if_present(vbproject, OUTPATIENT_MODULE_NAME)
         stage = "removing old outpatient schedule form"
@@ -129,6 +135,63 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
     except Exception as exc:
         raise RegistrationMenuVbaError(
             f"Excel registration menu pre-clean failed during {stage}: {exc}"
+        ) from exc
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
+
+
+def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
+    if sys.platform != "win32":
+        raise RegistrationMenuVbaError(
+            "Close-day action installation requires Windows with Microsoft Excel"
+        )
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RegistrationMenuVbaError(
+            "pywin32 is required for close-day action installation"
+        ) from exc
+
+    excel = None
+    workbook = None
+    stage = "opening workbook for close-day action installation"
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.ScreenUpdating = False
+        excel.EnableEvents = False
+        workbook = excel.Workbooks.Open(
+            str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
+        )
+        stage = "accessing VBA project for close-day action"
+        vbproject = workbook.VBProject
+        _ = vbproject.VBComponents.Count
+        stage = "installing close-day action"
+        install_close_day_action(vbproject)
+        stage = "verifying close-day action"
+        try:
+            _ = vbproject.VBComponents(CLOSE_DAY_MODULE_NAME)
+        except Exception as exc:
+            raise RegistrationMenuVbaError(
+                "Close-day action module was not confirmed in the preview VBA project"
+            ) from exc
+        stage = "saving close-day action"
+        workbook.Save()
+    except RegistrationMenuVbaError:
+        raise
+    except Exception as exc:
+        raise RegistrationMenuVbaError(
+            f"Close-day action installation failed during {stage}: {exc}"
         ) from exc
     finally:
         if workbook is not None:
@@ -172,10 +235,12 @@ def main() -> int:
             output,
             overwrite=args.overwrite,
         )
+        _install_close_day_action_in_workbook(output)
         if _sha256(source) != source_before:
             output.unlink(missing_ok=True)
             raise RegistrationMenuVbaError("Original source workbook changed")
     except RegistrationMenuVbaError as exc:
+        output.unlink(missing_ok=True)
         print(f"SAFETY STOP: {exc}")
         return 2
     finally:
@@ -187,6 +252,7 @@ def main() -> int:
     print(f"VBA project present: {report.vba_present}")
     print(f"Menu module present: {report.module_present}")
     print(f"Menu form present: {report.form_present}")
+    print(f"Close-day action present: {CLOSE_DAY_MODULE_NAME}")
     print(f"Open Excel and run macro: {report.macro_name}")
     return 0
 
