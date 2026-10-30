@@ -33,6 +33,10 @@ from rehab_excel.registration_menu_vba import (  # noqa: E402
     RegistrationMenuVbaError,
     create_registration_menu_preview,
 )
+from rehab_excel.therapist_workload_strip_vba import (  # noqa: E402
+    MODULE_NAME as WORKLOAD_MODULE_NAME,
+    install_therapist_workload_strip,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -125,6 +129,8 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         _remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
         stage = "removing old close-day action module"
         _remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)
+        stage = "removing old therapist workload strip module"
+        _remove_component_if_present(vbproject, WORKLOAD_MODULE_NAME)
         stage = "removing old outpatient schedule module"
         _remove_component_if_present(vbproject, OUTPATIENT_MODULE_NAME)
         stage = "removing old outpatient schedule form"
@@ -152,18 +158,18 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
 def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
     if sys.platform != "win32":
         raise RegistrationMenuVbaError(
-            "Close-day action installation requires Windows with Microsoft Excel"
+            "Operational module installation requires Windows with Microsoft Excel"
         )
     try:
         import win32com.client  # type: ignore[import-not-found]
     except ImportError as exc:
         raise RegistrationMenuVbaError(
-            "pywin32 is required for close-day action installation"
+            "pywin32 is required for operational module installation"
         ) from exc
 
     excel = None
     workbook = None
-    stage = "opening workbook for close-day action installation"
+    stage = "opening workbook for operational module installation"
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
@@ -173,11 +179,15 @@ def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
         workbook = excel.Workbooks.Open(
             str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
         )
-        stage = "accessing VBA project for close-day action"
+        stage = "accessing VBA project for operational modules"
         vbproject = workbook.VBProject
         _ = vbproject.VBComponents.Count
+
         stage = "installing close-day action"
         install_close_day_action(vbproject)
+        stage = "installing therapist workload strip"
+        install_therapist_workload_strip(vbproject, workbook)
+
         stage = "verifying close-day action"
         try:
             _ = vbproject.VBComponents(CLOSE_DAY_MODULE_NAME)
@@ -185,13 +195,22 @@ def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
             raise RegistrationMenuVbaError(
                 "Close-day action module was not confirmed in the preview VBA project"
             ) from exc
-        stage = "saving close-day action"
+
+        stage = "verifying therapist workload strip"
+        try:
+            _ = vbproject.VBComponents(WORKLOAD_MODULE_NAME)
+        except Exception as exc:
+            raise RegistrationMenuVbaError(
+                "Therapist workload strip module was not confirmed in the preview VBA project"
+            ) from exc
+
+        stage = "saving operational modules"
         workbook.Save()
     except RegistrationMenuVbaError:
         raise
     except Exception as exc:
         raise RegistrationMenuVbaError(
-            f"Close-day action installation failed during {stage}: {exc}"
+            f"Operational module installation failed during {stage}: {exc}"
         ) from exc
     finally:
         if workbook is not None:
@@ -253,6 +272,7 @@ def main() -> int:
     print(f"Menu module present: {report.module_present}")
     print(f"Menu form present: {report.form_present}")
     print(f"Close-day action present: {CLOSE_DAY_MODULE_NAME}")
+    print(f"Therapist workload strip present: {WORKLOAD_MODULE_NAME}")
     print(f"Open Excel and run macro: {report.macro_name}")
     return 0
 
