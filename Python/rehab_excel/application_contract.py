@@ -29,6 +29,19 @@ REQUIRED_APP_COMPONENTS: tuple[str, ...] = (
     "modCloseDayAction",
 )
 
+REQUIRED_APP_SHEETS: tuple[str, ...] = (
+    "OUTPATIENT_SCHEDULE",
+)
+
+OUTPATIENT_SCHEDULE_HEADERS: tuple[str, ...] = (
+    "PatientID",
+    "Ασθενής",
+    "Θεραπεία",
+    "Ώρα",
+    "Ημέρες",
+    "Θεραπευτής",
+)
+
 
 class ApplicationContractError(RuntimeError):
     pass
@@ -45,9 +58,9 @@ def assert_application_contract(workbook_path: str | Path) -> ApplicationContrac
     """Require the workbook to contain the established canonical application stack.
 
     This is intentionally stricter than merely checking for ``vbaProject.bin``.
-    A workbook with a VBA project but missing one of the components produced by
-    the canonical unified build pipeline is not a valid complete application
-    artifact.
+    A workbook with a VBA project but missing one of the components or required
+    authoritative data sources produced by the canonical unified build pipeline
+    is not a valid complete application artifact.
     """
 
     path = Path(workbook_path).resolve()
@@ -98,6 +111,27 @@ def assert_application_contract(workbook_path: str | Path) -> ApplicationContrac
             raise ApplicationContractError(
                 "Workbook is not a complete application artifact; missing VBA component(s): "
                 + ", ".join(missing)
+            )
+
+        sheet_names = {
+            str(workbook.Worksheets.Item(index).Name)
+            for index in range(1, int(workbook.Worksheets.Count) + 1)
+        }
+        missing_sheets = tuple(name for name in REQUIRED_APP_SHEETS if name not in sheet_names)
+        if missing_sheets:
+            raise ApplicationContractError(
+                "Workbook is not a complete application artifact; missing required sheet(s): "
+                + ", ".join(missing_sheets)
+            )
+
+        outpatient = workbook.Worksheets("OUTPATIENT_SCHEDULE")
+        outpatient_headers = tuple(
+            str(outpatient.Cells(1, index).Value or "").strip()
+            for index in range(1, len(OUTPATIENT_SCHEDULE_HEADERS) + 1)
+        )
+        if outpatient_headers != OUTPATIENT_SCHEDULE_HEADERS:
+            raise ApplicationContractError(
+                "Workbook is not a complete application artifact; OUTPATIENT_SCHEDULE header schema is invalid"
             )
 
         return ApplicationContractReport(
