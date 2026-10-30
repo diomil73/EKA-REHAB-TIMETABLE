@@ -109,15 +109,44 @@ Bounded recovery fixes:
 
 The initializer is build-time only and is intended for fresh preview/staging copies. It does not mutate production and it rejects an existing `OUTPATIENT_SCHEDULE` sheet whose headers do not exactly match the authoritative schema.
 
-## DAILY_INPUT diagnosis still pending
+## Confirmed DAILY_INPUT reader API mismatch
 
-DAILY_INPUT now writes `%TEMP%\eka_daily_input_last_error.log` containing phase, patch index, sheet, cell, error number and error text. The operator has not yet supplied that log from the failed C attempt. No further DAILY_INPUT code change should be made until the log is read.
+The C diagnostic log reported:
+
+```text
+phase=python preparation
+patch_index=0
+sheet=
+cell=
+error_number=2
+error={
+  "ok": false,
+  "error": "'DailyInputReadResult' object has no attribute 'source_changes'"
+}
+```
+
+This proves the failure occurred during Python preparation before any in-workbook patch was applied. The in-session VBA shell therefore failed closed correctly.
+
+Source comparison showed that the isolated recovery branch still had the older `DailyInputReadResult` contract, while the recovered in-place preparer expects the later reversible-input reader contract. The later contract adds:
+
+- `DailyInputSourceChange`,
+- `DailyInputReadResult.source_changes`,
+- `ignore_rows`,
+- `allow_empty`.
+
+These fields/options are required by the in-session / daily-change-ledger flow and are not optional cosmetic additions.
+
+Bounded recovery fixes:
+
+- `6212c10` recover the complete DAILY_INPUT reader source-change contract,
+- `4871371` add focused regressions for `source_changes`, `ignore_rows`, and `allow_empty`.
+
+No workbook persistence code was added by this reader recovery. The reader remains openpyxl/read-only with respect to source workbook persistence.
 
 ## Next exact step
 
-1. Run the focused outpatient structural regression gate after pulling the five commits above.
-2. Read `%TEMP%\eka_daily_input_last_error.log` from the failed C DAILY_INPUT attempt.
+1. Pull the outpatient structural fixes and DAILY_INPUT reader-contract fixes.
+2. Run the focused combined source gate for outpatient sheet/build/contract plus DAILY_INPUT reader/preparer/action.
 3. Do not rebuild or repair C.
-4. Diagnose DAILY_INPUT from the log before any next code change.
-5. Only after both source fixes are green may a fresh uniquely named D workbook be built.
-6. Native-test outpatient shell and DAILY_INPUT on D before any `CloseOperationalDay` action.
+4. Only after the combined gate is green, build a fresh uniquely named D workbook.
+5. Native-test outpatient shell and DAILY_INPUT on D before any `CloseOperationalDay` action.
