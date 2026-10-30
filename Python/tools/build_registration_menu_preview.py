@@ -21,6 +21,9 @@ from rehab_excel.global_replacement_action_vba import (  # noqa: E402
     GLOBAL_REPLACEMENT_MODULE_NAME,
 )
 from rehab_excel.master_toolbar_vba import MASTER_TOOLBAR_MODULE_NAME  # noqa: E402
+from rehab_excel.operator_visibility_patch_vba import (  # noqa: E402
+    install_operator_visibility_patch,
+)
 from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
     FORM_NAME as OUTPATIENT_FORM_NAME,
     MODULE_NAME as OUTPATIENT_MODULE_NAME,
@@ -224,6 +227,8 @@ def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
         install_close_day_action(vbproject)
         stage = "installing therapist workload strip"
         install_therapist_workload_strip(vbproject, workbook)
+        stage = "patching operator visibility"
+        install_operator_visibility_patch(vbproject)
         stage = "patching outpatient menu diagnostic"
         _replace_outpatient_menu_handler(vbproject)
 
