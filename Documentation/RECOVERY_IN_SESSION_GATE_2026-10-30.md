@@ -51,7 +51,8 @@ The three warnings were `PytestUnraisableExceptionWarning` messages from Python 
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` remains frozen native-smoke evidence and must not be overwritten or repaired in place.
 - Production workbook remains immutable.
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm` is frozen as native-smoke evidence and must not be repaired in place.
-- No close-day native test is allowed until outpatient shell and DAILY_INPUT smoke are healthy on a later fresh copy.
+- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` is now the active native-smoke candidate and must not be rebuilt, overwritten, or repaired in place after testing begins.
+- No close-day native test is allowed until outpatient shell and DAILY_INPUT smoke are healthy on D.
 
 ## Fresh C unified build
 
@@ -160,11 +161,40 @@ Bounded recovery fixes:
 
 No workbook persistence code was added by this reader recovery. The reader remains openpyxl/read-only with respect to source workbook persistence.
 
+## Fresh D unified build
+
+Operator-confirmed canonical build of `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` succeeded after the outpatient-sheet and DAILY_INPUT-reader fixes.
+
+Builder output again confirmed all unified stages and reported:
+
+- `UNIFIED PREVIEW OK`,
+- `DAILY_INPUT date: 2026-10-30`,
+- `Source unchanged: True`,
+- VBA project present,
+- DAILY_INPUT sheet present,
+- application contract verified.
+
+Independent post-build verification reported:
+
+- `SOURCE HASH UNCHANGED: True`,
+- application contract count: `21`,
+- `modGlobalReplacementAction: True`,
+- `OUTPATIENT_SCHEDULE PRESENT: True`,
+- exact headers: `PatientID`, `Ασθενής`, `Θεραπεία`, `Ώρα`, `Ημέρες`, `Θεραπευτής`.
+
+Artifact metadata reported by the operator:
+
+- path: `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm`,
+- size: `425218` bytes,
+- last write: `31/10/2026 12:18:17 πμ`,
+- SHA256 begins `3C3F51B808F840376CF08EC29B5111BC5F890812F2F...`.
+
+D is therefore the first candidate that satisfies both the 21-component VBA application contract and the authoritative outpatient source-sheet contract before native smoke.
+
 ## Next exact step
 
-1. Build a fresh uniquely named `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` from immutable `Rehab_Center_System_v27_1.xlsm` without `--overwrite`.
-2. Verify source SHA unchanged and the strengthened application contract.
-3. Read-only verify D contains `OUTPATIENT_SCHEDULE` with exact headers before native smoke.
-4. Native-test outpatient manager and DAILY_INPUT on D.
-5. If either fails, freeze D as evidence and diagnose from exact native/log output; do not repair D in place.
-6. Only if both are healthy may `CloseOperationalDay` be tested.
+1. Open only D and run `ShowRegistrationMenu`.
+2. Test `Προγράμματα εξωτερικών ασθενών`; it should now open against the authoritative empty/initialized `OUTPATIENT_SCHEDULE` source.
+3. Test DAILY_INPUT with one patient absence; the workbook must remain open and the prior `source_changes` preparation error must not recur.
+4. If either native path fails, freeze D as evidence and collect the exact message/log; do not repair D in place.
+5. Only if both paths are healthy may `CloseOperationalDay` be tested on D.
