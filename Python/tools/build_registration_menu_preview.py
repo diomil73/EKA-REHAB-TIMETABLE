@@ -17,6 +17,9 @@ from rehab_excel.close_day_action_vba import (  # noqa: E402
     CLOSE_DAY_MODULE_NAME,
     install_close_day_action,
 )
+from rehab_excel.global_replacement_action_vba import (  # noqa: E402
+    GLOBAL_REPLACEMENT_MODULE_NAME,
+)
 from rehab_excel.master_toolbar_vba import MASTER_TOOLBAR_MODULE_NAME  # noqa: E402
 from rehab_excel.outpatient_schedule_form_vba import (  # noqa: E402
     FORM_NAME as OUTPATIENT_FORM_NAME,
@@ -37,6 +40,17 @@ from rehab_excel.therapist_workload_strip_vba import (  # noqa: E402
     MODULE_NAME as WORKLOAD_MODULE_NAME,
     install_therapist_workload_strip,
 )
+
+
+OUTPATIENT_DIAGNOSTIC_HANDLER = '''Private Sub cmdOutpatientSchedule_Click()
+    On Error GoTo OpenFailed
+    frmOutpatientSchedule.Show
+    Exit Sub
+OpenFailed:
+    MsgBox "Η φόρμα προγράμματος εξωτερικού ασθενή δεν άνοιξε." & vbCrLf & vbCrLf & _
+           "Σφάλμα " & CStr(Err.Number) & ": " & Err.Description, _
+           vbExclamation, "Πρόγραμμα εξωτερικού ασθενή"
+End Sub'''
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -131,6 +145,8 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         _remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)
         stage = "removing old therapist workload strip module"
         _remove_component_if_present(vbproject, WORKLOAD_MODULE_NAME)
+        stage = "removing old global replacement action module"
+        _remove_component_if_present(vbproject, GLOBAL_REPLACEMENT_MODULE_NAME)
         stage = "removing old outpatient schedule module"
         _remove_component_if_present(vbproject, OUTPATIENT_MODULE_NAME)
         stage = "removing old outpatient schedule form"
@@ -153,6 +169,27 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
                 excel.Quit()
             except Exception:
                 pass
+
+
+def _replace_outpatient_menu_handler(vbproject) -> None:
+    form = vbproject.VBComponents(MENU_FORM_NAME)
+    code = form.CodeModule
+    proc_name = "cmdOutpatientSchedule_Click"
+    start_line = int(code.ProcStartLine(proc_name, 0))
+    line_count = int(code.ProcCountLines(proc_name, 0))
+    if start_line < 1 or line_count < 1:
+        raise RegistrationMenuVbaError(
+            "Outpatient menu handler was not found for diagnostic patching"
+        )
+    code.DeleteLines(start_line, line_count)
+    code.InsertLines(start_line, OUTPATIENT_DIAGNOSTIC_HANDLER)
+    installed = str(
+        code.Lines(start_line, len(OUTPATIENT_DIAGNOSTIC_HANDLER.splitlines()))
+    )
+    if "Err.Description" not in installed or "Err.Number" not in installed:
+        raise RegistrationMenuVbaError(
+            "Outpatient menu diagnostic handler was not confirmed after patching"
+        )
 
 
 def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
@@ -187,6 +224,8 @@ def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
         install_close_day_action(vbproject)
         stage = "installing therapist workload strip"
         install_therapist_workload_strip(vbproject, workbook)
+        stage = "patching outpatient menu diagnostic"
+        _replace_outpatient_menu_handler(vbproject)
 
         stage = "verifying close-day action"
         try:
@@ -202,6 +241,14 @@ def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
         except Exception as exc:
             raise RegistrationMenuVbaError(
                 "Therapist workload strip module was not confirmed in the preview VBA project"
+            ) from exc
+
+        stage = "verifying global replacement action"
+        try:
+            _ = vbproject.VBComponents(GLOBAL_REPLACEMENT_MODULE_NAME)
+        except Exception as exc:
+            raise RegistrationMenuVbaError(
+                "Global replacement action module was not confirmed in the preview VBA project"
             ) from exc
 
         stage = "saving operational modules"
@@ -273,6 +320,7 @@ def main() -> int:
     print(f"Menu form present: {report.form_present}")
     print(f"Close-day action present: {CLOSE_DAY_MODULE_NAME}")
     print(f"Therapist workload strip present: {WORKLOAD_MODULE_NAME}")
+    print(f"Global replacement action present: {GLOBAL_REPLACEMENT_MODULE_NAME}")
     print(f"Open Excel and run macro: {report.macro_name}")
     return 0
 
