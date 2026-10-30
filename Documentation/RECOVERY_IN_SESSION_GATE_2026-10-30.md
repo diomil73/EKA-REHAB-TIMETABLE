@@ -51,8 +51,9 @@ The three warnings were `PytestUnraisableExceptionWarning` messages from Python 
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_B.xlsm` remains frozen native-smoke evidence and must not be overwritten or repaired in place.
 - Production workbook remains immutable.
 - `UNIFIED_CLOSE_DAY_RECOVERY_20261030_C.xlsm` is frozen as native-smoke evidence and must not be repaired in place.
-- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` is now the active native-smoke candidate and must not be rebuilt, overwritten, or repaired in place after testing begins.
-- No close-day native test is allowed until outpatient shell and DAILY_INPUT smoke are healthy on D.
+- `UNIFIED_CLOSE_DAY_RECOVERY_20261030_D.xlsm` is now frozen as successful native evidence after the results below and must not be repaired in place.
+- Any UX verification after the operator-visibility patch must use a fresh uniquely named workbook.
+- Close-day native testing remains blocked until the replacement-summary/workload-visibility UX patch is source-gated and verified on the fresh copy.
 
 ## Fresh C unified build
 
@@ -191,10 +192,43 @@ Artifact metadata reported by the operator:
 
 D is therefore the first candidate that satisfies both the 21-component VBA application contract and the authoritative outpatient source-sheet contract before native smoke.
 
+## Native D smoke findings
+
+Operator-confirmed D smoke results:
+
+1. Outpatient schedule management opened and its controls worked correctly. The initialized outpatient source contained no registered outpatient patient, so there was no real patient available to create a schedule for; this is data state, not a UI/runtime failure.
+2. DAILY_INPUT with one patient absence completed successfully in-session and returned to `MASTER_SCHEDULE` correctly.
+3. The MASTER refresh displayed therapist workload information after the operation.
+
+These results close the two native failures found on B/C:
+
+- outpatient manager is now operational,
+- DAILY_INPUT no longer closes/reopens the workbook and no longer fails on the reversible-reader contract.
+
+Two UX gaps remain and were explicitly reconfirmed by the operator:
+
+- automatic replacement is not transparent enough: after success the operator must be told which patient was assigned to which replacement therapist and at what time,
+- therapist workload must not be published automatically across the MASTER view after normal DAILY_INPUT/replacement operations; workload information should be available only when explicitly requested.
+
+## Operator visibility UX patch
+
+The solver/global assignment engine remains unchanged.
+
+Bounded presentation-only fixes:
+
+- `79fb796` adds `operator_visibility_patch_vba.py`, which patches the installed normal-production VBA so DAILY_INPUT refresh stops auto-rendering workload badges and successful global replacement shows a summary of only the replacement fact rows appended by the current action,
+- replacement summary resolves `PatientID` through `PATIENTS` and displays `patient → replacement therapist → replacement time`,
+- the existing `Φόρτος θεραπευτών` button remains available for explicit operator request,
+- `adb9309` installs the visibility patch in the canonical registration/operational build session after workload/global replacement modules are present,
+- `c99eb0a` adds regressions for replacement summary, current-action row scoping, optional workload visibility, and canonical build installation.
+
+This patch does not change assignment scoring, candidate generation, capacity rules, double-booking review, suspension semantics, or replacement persistence.
+
 ## Next exact step
 
-1. Open only D and run `ShowRegistrationMenu`.
-2. Test `Προγράμματα εξωτερικών ασθενών`; it should now open against the authoritative empty/initialized `OUTPATIENT_SCHEDULE` source.
-3. Test DAILY_INPUT with one patient absence; the workbook must remain open and the prior `source_changes` preparation error must not recur.
-4. If either native path fails, freeze D as evidence and collect the exact message/log; do not repair D in place.
-5. Only if both paths are healthy may `CloseOperationalDay` be tested on D.
+1. Pull the operator-visibility patch commits.
+2. Run the focused visibility + production-action + canonical-build regression gate.
+3. If green, build a fresh uniquely named E workbook; do not modify D.
+4. Native-test DAILY_INPUT on E and confirm the replacement summary explicitly names patient, replacement therapist and time.
+5. Confirm MASTER no longer auto-displays therapist `x/6` badges after DAILY_INPUT; the workload button may remain for explicit use.
+6. Only after those UX checks pass may `CloseOperationalDay` be tested on the same fresh E candidate.
