@@ -16,6 +16,7 @@ REQUIRED_APP_COMPONENTS: tuple[str, ...] = (
     "modPatientRegistrationBridge",
     "frmEditPatient",
     "modDailyInputAction",
+    "modGlobalReplacementAction",
     "modTherapistWorkloadStrip",
     "modOutpatientSchedule",
     "frmOutpatientSchedule",
