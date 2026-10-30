@@ -52,16 +52,57 @@ Artifact metadata reported by the operator:
 - Production `Rehab_Center_System_v27_1.xlsm` remains immutable and its hash was unchanged.
 - B, C, and D remain frozen evidence artifacts.
 - E was never emitted after its fail-closed build failure and its name is not reused.
-- F is now the active native UX/close-day candidate. Do not rebuild, overwrite, or repair F in place after native testing begins.
+- F is frozen as native evidence after the findings below. Do not rebuild, overwrite, or repair F in place.
+- Close-day native testing remains blocked until a fresh artifact verifies the patient-absence MASTER projection fix and the corrected workload UI placement.
 
-## Required native UX smoke before close-day
+## Native F findings
 
-On F, use a DAILY_INPUT scenario that creates at least one real replacement and verify:
+Operator-confirmed behavior on F:
 
-1. successful replacement flow shows a current-action summary containing patient, replacement therapist, and replacement time,
-2. MASTER does not automatically show therapist `x/6` workload badges after DAILY_INPUT/replacement refresh,
-3. the explicit `Φόρτος θεραπευτών` button may remain available.
+1. Normal DAILY_INPUT no longer auto-renders therapist `x/6` badges on MASTER.
+2. The recovery-only `Φόρτος θεραπευτών` button still remained on MASTER and displayed workload when clicked.
+3. This button placement is not the agreed final UX. The authoritative UI roadmap places current workload and workload history in the therapist personal card opened from the therapist identity, not as MASTER badges/button.
+4. A patient absence was then tested with patient Πετιρόπουλος.
+5. The patient was correctly removed from the daily therapist/operational schedule.
+6. The same patient treatment remained visible on `MASTER_SCHEDULE`, creating a cross-view inconsistency.
+7. No replacement flow was expected for this patient absence. Replacement resolution is the therapist-absence path.
 
-Only after those two UX conditions pass may the same F candidate proceed to the first native `CloseOperationalDay` smoke.
+## Confirmed MASTER projection cause
 
-No solver, assignment scoring, capacity, persistence, or close-day semantics were changed by the operator-visibility work.
+`master_daily_overlay.py` only emitted MASTER patches for `DailySessionStatus.REPLACED` and skipped all other daily statuses. Therefore a `PATIENT_ABSENT` or explicit `CANCELLED` state could be removed from the daily therapist projection while the recurring MASTER treatment cell remained unchanged.
+
+Bounded source fixes:
+
+- `7f4884c` extends the MASTER daily overlay to emit `WriteIntent.CLEAR` for inpatient `PATIENT_ABSENT` and `CANCELLED` states, scoped only to the affected treatment cell,
+- pending `THERAPIST_ABSENT` is deliberately not cleared before replacement resolution,
+- recurring/base source rows remain untouched,
+- `fd1afbb` adds regressions for replacement overlay, patient-absence clear, explicit-cancellation clear, pending therapist absence, precomputed projection, and outpatient exclusion.
+
+`prepare_daily_input_in_place.py` already composes `build_master_daily_overlay_plan` into the validated in-session payload, so the new clear patch follows the established native apply/verify/rollback path.
+
+## Corrected workload UI direction
+
+The authoritative UI roadmap specifies therapist current workload/history inside the therapist personal card, reached from therapist identity in the application. MASTER is not the workload dashboard.
+
+Bounded source fixes:
+
+- `f0cfe7b` converts `modTherapistWorkloadStrip` from MASTER presentation UI into a backend workload helper exposing current workload and capacity,
+- canonical installation removes legacy `ekaWorkload_*` shapes from MASTER and no longer creates a workload button or badges,
+- `5bb950a` locks the backend-only workload contract and legacy-shape cleanup in regression tests.
+
+The therapist personal card itself remains a later UI/reporting slice; this recovery change only removes the incorrect MASTER presentation while preserving workload calculation for that future card.
+
+## Next gate
+
+Before any new native build, run the focused source gate covering:
+
+- `Tests/test_master_daily_overlay.py`,
+- `Tests/test_prepare_daily_input_in_place.py`,
+- `Tests/test_daily_input_action_vba.py`,
+- `Tests/test_therapist_workload_strip_vba.py`,
+- `Tests/test_therapist_workload_canonical_build.py`,
+- `Tests/test_operator_visibility_patch_vba.py`,
+- `Tests/test_production_actions_stay_in_session.py`,
+- `Tests/test_unified_builder.py`.
+
+If green, build a fresh uniquely named G artifact. Do not reuse F. Native-test the same patient absence and verify the MASTER treatment cell is cleared while the daily projection remains correct and no workload button/badges appear on MASTER. Only then may close-day smoke resume.
