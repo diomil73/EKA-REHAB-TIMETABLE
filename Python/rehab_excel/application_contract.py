@@ -13,8 +13,16 @@ REQUIRED_APP_COMPONENTS: tuple[str, ...] = (
     "frmNewPatient",
     "frmNewTherapist",
     "frmNewStudent",
+    "modPatientRegistrationBridge",
+    "frmEditPatient",
     "modDailyInputAction",
     "modTherapistWorkloadStrip",
+    "modOutpatientSchedule",
+    "frmOutpatientSchedule",
+    "modOutpatientInSession",
+    "modSchedulingConflict",
+    "frmSchedulingConflict",
+    "modOutpatientScheduleEdit",
     "modOutpatientScheduleManager",
     "frmOutpatientScheduleManager",
 )
@@ -32,11 +40,12 @@ class ApplicationContractReport:
 
 
 def assert_application_contract(workbook_path: str | Path) -> ApplicationContractReport:
-    """Require the workbook to contain the already-established application UI stack.
+    """Require the workbook to contain the established canonical application stack.
 
     This is intentionally stricter than merely checking for ``vbaProject.bin``.
-    A workbook with a VBA project but missing the app shell, toolbar, registration
-    entry points or workload/outpatient UI is not a valid application artifact.
+    A workbook with a VBA project but missing one of the components produced by
+    the canonical unified build pipeline is not a valid complete application
+    artifact.
     """
 
     path = Path(workbook_path).resolve()
