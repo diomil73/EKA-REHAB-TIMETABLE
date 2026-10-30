@@ -4,7 +4,9 @@ from pathlib import Path
 import inspect
 
 from rehab_excel.application_contract import (
+    OUTPATIENT_SCHEDULE_HEADERS,
     REQUIRED_APP_COMPONENTS,
+    REQUIRED_APP_SHEETS,
     assert_application_contract,
 )
 from tools import preview_daily_input_sheet
@@ -38,6 +40,23 @@ def test_application_contract_covers_existing_app_ui_stack():
     }
 
     assert expected <= required
+
+
+def test_application_contract_requires_outpatient_authoritative_source():
+    assert "OUTPATIENT_SCHEDULE" in REQUIRED_APP_SHEETS
+    assert OUTPATIENT_SCHEDULE_HEADERS == (
+        "PatientID",
+        "Ασθενής",
+        "Θεραπεία",
+        "Ώρα",
+        "Ημέρες",
+        "Θεραπευτής",
+    )
+
+    source = inspect.getsource(assert_application_contract)
+    assert "missing required sheet(s)" in source
+    assert 'workbook.Worksheets("OUTPATIENT_SCHEDULE")' in source
+    assert "OUTPATIENT_SCHEDULE header schema is invalid" in source
 
 
 def test_daily_input_preview_defaults_to_known_good_app_source():
