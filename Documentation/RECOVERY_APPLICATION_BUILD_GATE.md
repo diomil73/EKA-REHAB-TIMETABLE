@@ -30,6 +30,31 @@ After expanding the application contract to the full currently-established outpa
 
 This gate covered the application contract, unified builder, patient registration bridge/edit, outpatient form/edit/manager, conflict guard, in-session writer and scheduling conflict popup.
 
+## Recovered 2026-10-24 roadmap alignment
+
+A user-provided roadmap snapshot dated 2026-10-24 confirms the intended project sequence after the scheduling engine milestone:
+
+`Scheduling engine -> Day closure/history -> Statistics/reporting -> Patient progress -> App UI -> Integrated beta -> Hardening -> Production`.
+
+The roadmap explicitly places `Κλείσιμο ημέρας + finalized historical snapshot` as the next implementation slice and specifies the same architecture already recorded in `STATISTICS_HISTORY_DESIGN.md`:
+
+- fail-closed day finalization with unresolved = 0,
+- immutable/versioned daily snapshots plus append-only historical events,
+- superseded/current-final correction chains,
+- patient lifecycle dates and historical patient reporting,
+- therapist workload history with occupied timeslots and active sessions as separate metrics,
+- department and clinic aggregation from the same finalized facts,
+- 15-day patient progress milestones keyed by stable PatientID,
+- authoritative holiday/attendance semantics,
+- reporting UI with tables first and charts/trends as complementary views,
+- MASTER as the eventual application home screen,
+- interactive patient/therapist links after historical identity is locked,
+- integrated beta, regression, hardening, migration and production packaging only after the historical/reporting layers are stable.
+
+This recovered roadmap is treated as planning evidence and scope continuity, not as permission to trust later experimental implementation. In particular, the statement that the scheduling/replacement engine was complete refers to the known-good engine state at that time and does not validate later quarantined replacement V2 patch/repair work.
+
+The old effort estimate (`160h baseline / 190h safe budget`) is preserved only as historical planning context. It is not used as a current progress metric because substantial parts of the roadmap were implemented after 2026-10-24 and are now being selectively recovered rather than rebuilt.
+
 ## Structural recovery fixes now recorded
 
 The canonical outpatient form stage now installs the already-established outpatient schedule manager rather than depending on prior workbook state.
