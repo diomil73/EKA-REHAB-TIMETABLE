@@ -28,11 +28,12 @@ def test_restore_marker_keeps_exact_change_id():
     )
 
 
-def test_restore_preparer_recomputes_truth_with_only_selected_source_row_ignored():
+def test_restore_preparer_recomputes_truth_with_all_selected_source_rows_ignored_atomically():
     source = inspect.getsource(prepare_daily_change_restore_payload)
     assert "current_daily.source_changes" in source
-    assert "len(matches) != 1" in source
-    assert "ignore_rows=(change.source_row,)" in source
+    assert "missing = tuple" in source
+    assert "ignore_rows = tuple(sorted({change.source_row for change in changes}))" in source
+    assert "ignore_rows=ignore_rows" in source
     assert "allow_empty=True" in source
     assert "restored_daily.absences" in source
     assert "restored_daily.cancellations" in source
@@ -59,17 +60,23 @@ def test_restore_preparer_is_read_only_and_fail_closed_for_therapist_absence():
     assert "shutil.copy" not in source
 
 
-def test_restore_payload_orders_source_clear_and_restore_marker_before_projection_patches():
+def test_restore_payload_orders_all_source_clears_and_markers_before_projection_patches():
     source = inspect.getsource(prepare_daily_change_restore_payload)
-    assert "_source_clear_line(change.source_row)" in source
-    assert "_restore_marker_line(change.change_id)" in source
+    assert "*(_source_clear_line(change.source_row) for change in changes)" in source
+    assert "*(_restore_marker_line(change.change_id) for change in changes)" in source
     assert "*(_patch_line(patch) for patch in plan.patches)" in source
 
 
-def test_empty_change_id_is_rejected_before_any_restore_work(tmp_path):
+def test_restore_cli_accepts_repeated_change_ids():
+    source = inspect.getsource(__import__("tools.prepare_daily_change_restore_in_place", fromlist=["main"]).main)
+    assert 'parser.add_argument("--change-id", action="append", default=[])' in source
+    assert "change_ids=tuple(args.change_id)" in source
+
+
+def test_missing_workbook_fails_before_restore_mutation(tmp_path):
     with pytest.raises(Exception, match="Workbook not found"):
         prepare_daily_change_restore_payload(
             tmp_path / "missing.xlsm",
             tmp_path / "payload.tsv",
-            change_id="",
+            change_ids=("daily-input:2026-10-31:patient:23",),
         )
