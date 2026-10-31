@@ -8,6 +8,7 @@ from rehab_excel.operator_visibility_patch_vba import (
 )
 from tools.patch_native_restore_recovery import (
     NativeRestoreRecoveryPatchError,
+    _compact_vba,
     patch_daily_change_ledger_code,
     patch_daily_input_status_rich_text,
 )
@@ -64,6 +65,19 @@ def test_master_status_normalization_clears_character_level_strike_through():
         "master.Cells(row, statusCol).Characters(1, "
         "Len(CStr(master.Cells(row, statusCol).Value))).Font.Strikethrough = False"
     ) in patched
+
+
+def test_rich_text_verification_tolerates_com_spacing_and_line_continuation():
+    variant = (
+        "master.Cells(row, statusCol).Characters( 1 , _\r\n"
+        "    Len( CStr( master.Cells(row, statusCol).Value ) ) ).Font.Strikethrough = False"
+    )
+    compact = _compact_vba(variant)
+    expected = (
+        "master.Cells(row,statusCol).Characters(1,Len(CStr(master.Cells(row,statusCol).Value)))"
+        ".Font.Strikethrough=False"
+    )
+    assert expected in compact
 
 
 def test_recovery_patch_fails_closed_when_expected_markers_are_missing():
