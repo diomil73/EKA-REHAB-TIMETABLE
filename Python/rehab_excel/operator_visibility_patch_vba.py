@@ -20,6 +20,10 @@ def _code(component) -> str:
     return str(module.Lines(1, count)) if count else ""
 
 
+def _normalize_vba(code: str) -> str:
+    return code.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def _replace_all(component, code: str) -> None:
     module = component.CodeModule
     count = int(module.CountOfLines)
@@ -29,7 +33,7 @@ def _replace_all(component, code: str) -> None:
 
 
 def patch_daily_input_workload_visibility(code: str) -> str:
-    normalized = code.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = _normalize_vba(code)
     target = '''    Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
     Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
     RenderTherapistWorkloadStrip
@@ -46,7 +50,7 @@ def patch_daily_input_workload_visibility(code: str) -> str:
 def patch_daily_input_patient_status_visibility(code: str) -> str:
     """Keep the MASTER reason red and readable, never struck through."""
 
-    normalized = code.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = _normalize_vba(code)
     apply_marker = '''        Case "master_daily_patient_status_overlay"
             cell.Font.Color = RGB(255, 0, 0)'''
     apply_replacement = '''        Case "master_daily_patient_status_overlay"
@@ -125,7 +129,7 @@ End Function
 
 
 def patch_global_replacement_summary(code: str) -> str:
-    normalized = code.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = _normalize_vba(code)
     normalized = normalized.replace(
         "    Dim exitCode As Long, beforeReview As Long, afterReview As Long",
         "    Dim exitCode As Long, beforeReview As Long, afterReview As Long, previousLastFactRow As Long\n"
@@ -180,8 +184,8 @@ def install_operator_visibility_patch(vbproject) -> None:
     # Its installer routes DAILY_INPUT through ResolveReplacementWorkflow.
     install_replacement_operator(vbproject)
 
-    installed_daily = _code(daily)
-    installed_replacement = _code(global_replacement)
+    installed_daily = _normalize_vba(_code(daily))
+    installed_replacement = _normalize_vba(_code(global_replacement))
     if "RenderTherapistWorkloadStrip\n    ApplyMasterView" in installed_daily:
         raise RuntimeError("DAILY_INPUT still auto-renders workload badges")
     if "ResolveReplacementWorkflow()" not in installed_daily:
