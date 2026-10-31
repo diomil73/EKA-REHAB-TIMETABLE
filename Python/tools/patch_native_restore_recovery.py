@@ -14,9 +14,27 @@ def _normalize_vba(code: str) -> str:
 
 
 def patch_daily_change_ledger_code(code: str) -> str:
-    """Patch only the three native defects proven by the M smoke."""
+    """Patch only the native defects proven by the M smoke."""
 
     normalized = _normalize_vba(code)
+
+    view_declaration_marker = (
+        "    Dim startRow As Long, lastLedgerRow As Long, ledgerRow As Long, displayRow As Long\n"
+        "    Dim shp As Shape, cb As Shape, btn As Shape"
+    )
+    view_declaration_replacement = (
+        "    Dim startRow As Long, lastLedgerRow As Long, ledgerRow As Long, displayRow As Long\n"
+        "    Dim previousStartRow As Long, previousEndRow As Long, previousDisplayRow As Long\n"
+        "    Dim lastDataCell As Range\n"
+        "    Dim shp As Shape, cb As Shape, btn As Shape"
+    )
+    if view_declaration_marker not in normalized:
+        raise NativeRestoreRecoveryPatchError(
+            "daily-change ledger view declaration marker not found"
+        )
+    normalized = normalized.replace(
+        view_declaration_marker, view_declaration_replacement, 1
+    )
 
     declaration_marker = (
         "    Dim rollbackPath As String, patchPath As String\n"
@@ -61,8 +79,6 @@ def patch_daily_change_ledger_code(code: str) -> str:
     ' Never clear an arbitrary block below column A. Operational detail can
     ' continue in other THERAPIST_DAILY columns. Place the ledger below the
     ' real last used row and only clear rows previously owned by the ledger.
-    Dim previousStartRow As Long, previousEndRow As Long, previousDisplayRow As Long
-    Dim lastDataCell As Range
     For ledgerRow = 2 To lastLedgerRow
         If IsNumeric(wsLedger.Cells(ledgerRow, 12).Value) Then
             previousDisplayRow = CLng(Val(CStr(wsLedger.Cells(ledgerRow, 12).Value)))
@@ -103,6 +119,8 @@ def patch_daily_change_ledger_code(code: str) -> str:
         )
     if "Dim changeId As String" not in normalized:
         raise NativeRestoreRecoveryPatchError("restore changeId declaration missing")
+    if "Dim lastDataCell As Range" not in normalized:
+        raise NativeRestoreRecoveryPatchError("safe ledger declarations missing")
     if 'wsDaily.Cells.Find(What:="*"' not in normalized:
         raise NativeRestoreRecoveryPatchError("safe ledger anchor was not installed")
     return normalized
@@ -197,6 +215,8 @@ def patch_workbook(workbook_path: Path) -> None:
             )
         if "Dim changeId As String" not in installed_ledger:
             raise NativeRestoreRecoveryPatchError("restore changeId declaration missing")
+        if "Dim lastDataCell As Range" not in installed_ledger:
+            raise NativeRestoreRecoveryPatchError("safe ledger declarations missing")
         if 'wsDaily.Cells.Find(What:="*"' not in installed_ledger:
             raise NativeRestoreRecoveryPatchError("safe ledger anchor missing")
         if ".Characters(1, Len(CStr(master.Cells(row, statusCol).Value))).Font.Strikethrough = False" not in installed_daily:
