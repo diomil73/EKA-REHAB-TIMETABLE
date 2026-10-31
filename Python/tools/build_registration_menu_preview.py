@@ -17,6 +17,10 @@ from rehab_excel.close_day_action_vba import (  # noqa: E402
     CLOSE_DAY_MODULE_NAME,
     install_close_day_action,
 )
+from rehab_excel.daily_change_ledger_in_place_vba import (  # noqa: E402
+    MODULE_NAME as DAILY_CHANGE_LEDGER_MODULE_NAME,
+    install_daily_change_ledger,
+)
 from rehab_excel.global_replacement_action_vba import (  # noqa: E402
     GLOBAL_REPLACEMENT_MODULE_NAME,
 )
@@ -91,18 +95,10 @@ def _remove_component_if_present(vbproject, name: str) -> None:
 
 
 def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
-    """Remove replaceable forms/modules in one Excel session, then close it.
-
-    Some Office builds keep a just-deleted UserForm name reserved until the
-    workbook is saved and Excel closes. Rebuilding in a second session avoids
-    the COM failure when assigning the same component name again.
-    """
-
     if sys.platform != "win32":
         raise RegistrationMenuVbaError(
             "Registration menu installation requires Windows with Microsoft Excel"
         )
-
     try:
         import win32com.client  # type: ignore[import-not-found]
     except ImportError as exc:
@@ -120,7 +116,6 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         excel.DisplayAlerts = False
         excel.ScreenUpdating = False
         excel.EnableEvents = False
-
         workbook = excel.Workbooks.Open(
             str(temp_path.resolve()), UpdateLinks=0, ReadOnly=False
         )
@@ -128,32 +123,23 @@ def _prepare_clean_vba_copy(source: Path, temp_path: Path) -> None:
         vbproject = workbook.VBProject
         _ = vbproject.VBComponents.Count
 
-        stage = "removing old menu module"
-        _remove_component_if_present(vbproject, MENU_MODULE_NAME)
-        stage = "removing old menu form"
-        _remove_component_if_present(vbproject, MENU_FORM_NAME)
-        stage = "removing old patient form"
-        _remove_component_if_present(vbproject, PATIENT_FORM_NAME)
-        stage = "removing old therapist form"
-        _remove_component_if_present(vbproject, THERAPIST_FORM_NAME)
-        stage = "removing old student form"
-        _remove_component_if_present(vbproject, STUDENT_FORM_NAME)
-        stage = "removing old app shell module"
-        _remove_component_if_present(vbproject, APP_SHELL_MODULE_NAME)
-        stage = "removing old MASTER toolbar module"
-        _remove_component_if_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
-        stage = "removing old DAILY_INPUT action module"
-        _remove_component_if_present(vbproject, DAILY_INPUT_MODULE_NAME)
-        stage = "removing old close-day action module"
-        _remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)
-        stage = "removing old therapist workload strip module"
-        _remove_component_if_present(vbproject, WORKLOAD_MODULE_NAME)
-        stage = "removing old global replacement action module"
-        _remove_component_if_present(vbproject, GLOBAL_REPLACEMENT_MODULE_NAME)
-        stage = "removing old outpatient schedule module"
-        _remove_component_if_present(vbproject, OUTPATIENT_MODULE_NAME)
-        stage = "removing old outpatient schedule form"
-        _remove_component_if_present(vbproject, OUTPATIENT_FORM_NAME)
+        for stage, component_name in (
+            ("removing old menu module", MENU_MODULE_NAME),
+            ("removing old menu form", MENU_FORM_NAME),
+            ("removing old patient form", PATIENT_FORM_NAME),
+            ("removing old therapist form", THERAPIST_FORM_NAME),
+            ("removing old student form", STUDENT_FORM_NAME),
+            ("removing old app shell module", APP_SHELL_MODULE_NAME),
+            ("removing old MASTER toolbar module", MASTER_TOOLBAR_MODULE_NAME),
+            ("removing old DAILY_INPUT action module", DAILY_INPUT_MODULE_NAME),
+            ("removing old close-day action module", CLOSE_DAY_MODULE_NAME),
+            ("removing old therapist workload strip module", WORKLOAD_MODULE_NAME),
+            ("removing old global replacement action module", GLOBAL_REPLACEMENT_MODULE_NAME),
+            ("removing old daily change ledger module", DAILY_CHANGE_LEDGER_MODULE_NAME),
+            ("removing old outpatient schedule module", OUTPATIENT_MODULE_NAME),
+            ("removing old outpatient schedule form", OUTPATIENT_FORM_NAME),
+        ):
+            _remove_component_if_present(vbproject, component_name)
 
         stage = "saving temporary workbook"
         workbook.Save()
@@ -229,32 +215,23 @@ def _install_close_day_action_in_workbook(workbook_path: Path) -> None:
         install_therapist_workload_strip(vbproject, workbook)
         stage = "patching operator visibility"
         install_operator_visibility_patch(vbproject)
+        stage = "installing daily change ledger"
+        install_daily_change_ledger(vbproject, workbook)
         stage = "patching outpatient menu diagnostic"
         _replace_outpatient_menu_handler(vbproject)
 
-        stage = "verifying close-day action"
-        try:
-            _ = vbproject.VBComponents(CLOSE_DAY_MODULE_NAME)
-        except Exception as exc:
-            raise RegistrationMenuVbaError(
-                "Close-day action module was not confirmed in the preview VBA project"
-            ) from exc
-
-        stage = "verifying therapist workload strip"
-        try:
-            _ = vbproject.VBComponents(WORKLOAD_MODULE_NAME)
-        except Exception as exc:
-            raise RegistrationMenuVbaError(
-                "Therapist workload strip module was not confirmed in the preview VBA project"
-            ) from exc
-
-        stage = "verifying global replacement action"
-        try:
-            _ = vbproject.VBComponents(GLOBAL_REPLACEMENT_MODULE_NAME)
-        except Exception as exc:
-            raise RegistrationMenuVbaError(
-                "Global replacement action module was not confirmed in the preview VBA project"
-            ) from exc
+        for stage, component_name, error_label in (
+            ("verifying close-day action", CLOSE_DAY_MODULE_NAME, "Close-day action"),
+            ("verifying therapist workload strip", WORKLOAD_MODULE_NAME, "Therapist workload strip"),
+            ("verifying global replacement action", GLOBAL_REPLACEMENT_MODULE_NAME, "Global replacement action"),
+            ("verifying daily change ledger", DAILY_CHANGE_LEDGER_MODULE_NAME, "Daily change ledger"),
+        ):
+            try:
+                _ = vbproject.VBComponents(component_name)
+            except Exception as exc:
+                raise RegistrationMenuVbaError(
+                    f"{error_label} module was not confirmed in the preview VBA project"
+                ) from exc
 
         stage = "saving operational modules"
         workbook.Save()
@@ -326,6 +303,7 @@ def main() -> int:
     print(f"Close-day action present: {CLOSE_DAY_MODULE_NAME}")
     print(f"Therapist workload strip present: {WORKLOAD_MODULE_NAME}")
     print(f"Global replacement action present: {GLOBAL_REPLACEMENT_MODULE_NAME}")
+    print(f"Daily change ledger present: {DAILY_CHANGE_LEDGER_MODULE_NAME}")
     print(f"Open Excel and run macro: {report.macro_name}")
     return 0
 
