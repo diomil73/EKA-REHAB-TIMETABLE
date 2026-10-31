@@ -3,6 +3,7 @@ import inspect
 from rehab_excel.daily_input_action_vba import DAILY_INPUT_MODULE_CODE
 from rehab_excel.global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_CODE
 from rehab_excel.operator_visibility_patch_vba import (
+    _normalize_vba,
     install_operator_visibility_patch,
     patch_daily_input_patient_status_visibility,
     patch_daily_input_workload_visibility,
@@ -26,6 +27,13 @@ def test_master_patient_status_reason_is_red_but_never_struck_through():
     assert '''Case "master_daily_patient_status_overlay"\n            cell.Font.Color = RGB(255, 0, 0)\n            cell.Font.Strikethrough = False''' in patched
     assert '''Case "master_daily_patient_status_overlay"\n            strikeValue = cell.Font.Strikethrough\n            If IsNull(strikeValue) Then Exit Function''' in patched
     assert "CBool(strikeValue) = False" in patched
+
+
+def test_vba_normalization_handles_excel_com_crlf_without_changing_semantics():
+    sample = 'Case "master_daily_patient_status_overlay"\r\n    cell.Font.Color = RGB(255, 0, 0)\r\n    cell.Font.Strikethrough = False\r\n'
+    normalized = _normalize_vba(sample)
+    assert "\r" not in normalized
+    assert normalized == 'Case "master_daily_patient_status_overlay"\n    cell.Font.Color = RGB(255, 0, 0)\n    cell.Font.Strikethrough = False\n'
 
 
 def test_global_replacement_success_shows_new_assignment_details():
@@ -63,6 +71,8 @@ def test_canonical_registration_build_installs_operator_visibility_patch():
 
 def test_patch_installer_verifies_visibility_and_operator_contracts_semantically():
     source = inspect.getsource(install_operator_visibility_patch)
+    assert "_normalize_vba(_code(daily))" in source
+    assert "_normalize_vba(_code(global_replacement))" in source
     assert "DAILY_INPUT still auto-renders workload badges" in source
     assert "DAILY_INPUT was not routed through the replacement operator" in source
     assert "MASTER patient status still permits strike-through" in source
