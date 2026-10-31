@@ -613,6 +613,9 @@ def install_replacement_operator(vbproject) -> None:
     ]
     for prog_id, name, left, top, width, height in controls:
         control = designer.Controls.Add(prog_id, name, True)
-        control.Left = left: control.Top = top: control.Width = width: control.Height = height
+        control.Left = left
+        control.Top = top
+        control.Width = width
+        control.Height = height
     form.CodeModule.AddFromString(FORM_CODE)
     _patch_daily_input_route(vbproject)
