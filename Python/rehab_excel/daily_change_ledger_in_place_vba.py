@@ -238,65 +238,63 @@ CleanUp:
 Failed:
     Application.StatusBar = False
     WriteRestoreDiagnostic Err.Number, Err.Description, "restore action"
-    MsgBox "Η επαναφορά δεν ολοκληρώθηκε: " & Err.Description, vbExclamation, "Επαναφορά"
+    MsgBox "Η επαναφορά απέτυχε: " & Err.Description, vbCritical, "Επαναφορά"
     Resume CleanUp
 End Function
 
-Public Function ApplyDailyChangeRestorePayload(ByVal payloadPath As String) As Boolean
-    Dim rawText As String, lines As Variant, parts As Variant, i As Long
-    Dim rollbackPath As String, patchPath As String, patchText As String
-    Dim ws As Worksheet, rowNumber As Long, changeId As String
+Private Function ApplyDailyChangeRestorePayload(ByVal payloadPath As String) As Boolean
+    Dim text As String, lines As Variant, parts As Variant, i As Long, patchLines As String
+    Dim rollbackPath As String, patchPath As String
     Dim previousEvents As Boolean, previousScreenUpdating As Boolean
     On Error GoTo Failed
-    rawText = ReadUtf8Text(payloadPath)
-    lines = Split(Replace(rawText, vbCr, ""), vbLf)
+    text = ReadUtf8Text(payloadPath)
+    lines = Split(Replace(text, vbCrLf, vbLf), vbLf)
+
     For i = LBound(lines) To UBound(lines)
         If Len(Trim$(CStr(lines(i)))) = 0 Then GoTo PreflightNext
         parts = Split(CStr(lines(i)), vbTab)
         Select Case CStr(parts(0))
             Case "SOURCE_CLEAR"
                 If UBound(parts) <> 4 Then Err.Raise vbObjectError + 2830, , "Invalid SOURCE_CLEAR payload"
-                If PayloadValue(parts(1)) <> INPUT_SHEET Or PayloadValue(parts(3)) <> "A" Or PayloadValue(parts(4)) <> "E" Then Err.Raise vbObjectError + 2831, , "Unsafe source clear target"
-                If Not IsNumeric(PayloadValue(parts(2))) Or CLng(PayloadValue(parts(2))) < 2 Then Err.Raise vbObjectError + 2832, , "Invalid source row"
+                If PayloadValue(parts(1)) <> INPUT_SHEET Or PayloadValue(parts(3)) <> "A" Or PayloadValue(parts(4)) <> "E" Then Err.Raise vbObjectError + 2831, , "Invalid DAILY_INPUT restore scope"
+                If Not IsNumeric(PayloadValue(parts(2))) Then Err.Raise vbObjectError + 2832, , "Invalid DAILY_INPUT source row"
             Case "RESTORE_CHANGE"
-                If UBound(parts) <> 1 Then Err.Raise vbObjectError + 2833, , "Invalid RESTORE_CHANGE payload"
-                If Not ActiveLedgerChangeExists(PayloadValue(parts(1))) Then Err.Raise vbObjectError + 2834, , "Restore change is not ACTIVE"
+                If UBound(parts) <> 1 Or Not ActiveLedgerChangeExists(PayloadValue(parts(1))) Then Err.Raise vbObjectError + 2833, , "Inactive or unknown ledger restore id"
             Case "PATCH"
-                If UBound(parts) <> 12 Then Err.Raise vbObjectError + 2835, , "Invalid PATCH payload"
-                patchText = patchText & CStr(lines(i)) & vbLf
+                If UBound(parts) <> 12 Then Err.Raise vbObjectError + 2834, , "Invalid PATCH restore payload"
             Case Else
-                Err.Raise vbObjectError + 2836, , "Unsupported restore payload row"
+                Err.Raise vbObjectError + 2835, , "Unknown restore payload row"
         End Select
 PreflightNext:
     Next i
-    If Len(patchText) = 0 Then Err.Raise vbObjectError + 2837, , "Restore payload has no projection patches"
-
-    rollbackPath = Environ$("TEMP") & "\eka_daily_restore_rollback_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
-    ThisWorkbook.SaveCopyAs rollbackPath
-    patchPath = Environ$("TEMP") & "\eka_daily_restore_patches_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".tsv"
-    WriteUtf8Text patchPath, patchText
 
     previousEvents = Application.EnableEvents
     previousScreenUpdating = Application.ScreenUpdating
     Application.EnableEvents = False
     Application.ScreenUpdating = False
-    Set ws = ThisWorkbook.Worksheets(INPUT_SHEET)
+    rollbackPath = Environ$("TEMP") & "\eka_daily_restore_rollback_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
+    ThisWorkbook.SaveCopyAs rollbackPath
+
     For i = LBound(lines) To UBound(lines)
-        If Len(Trim$(CStr(lines(i)))) = 0 Then GoTo ApplyNext
+        If Len(Trim$(CStr(lines(i)))) = 0 Then GoTo SourceNext
         parts = Split(CStr(lines(i)), vbTab)
         If CStr(parts(0)) = "SOURCE_CLEAR" Then
-            rowNumber = CLng(PayloadValue(parts(2)))
-            ws.Range("A" & rowNumber & ":E" & rowNumber).ClearContents
+            With ThisWorkbook.Worksheets(INPUT_SHEET)
+                .Range(PayloadValue(parts(3)) & CLng(PayloadValue(parts(2))) & ":" & PayloadValue(parts(4)) & CLng(PayloadValue(parts(2)))).ClearContents
+            End With
         End If
-ApplyNext:
+SourceNext:
     Next i
-    Application.EnableEvents = previousEvents
-    Application.ScreenUpdating = previousScreenUpdating
 
-    If Not ApplyValidatedDailyInputPayload(patchPath) Then GoTo Failed
+    patchPath = Environ$("TEMP") & "\eka_daily_restore_patches_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".tsv"
+    For i = LBound(lines) To UBound(lines)
+        If Left$(CStr(lines(i)), 6) = "PATCH" & vbTab Then patchLines = patchLines & CStr(lines(i)) & vbCrLf
+    Next i
+    WriteUtf8Text patchPath, patchLines
+    If Len(patchLines) > 0 Then
+        If Not ApplyPayloadFileInPlace(patchPath, "daily-change restore") Then Err.Raise vbObjectError + 2836, , "Restore patch apply failed"
+    End If
 
-    Application.EnableEvents = False
-    Application.ScreenUpdating = False
     For i = LBound(lines) To UBound(lines)
         If Len(Trim$(CStr(lines(i)))) = 0 Then GoTo MarkNext
         parts = Split(CStr(lines(i)), vbTab)
@@ -544,14 +542,23 @@ def patch_daily_input_for_ledger(code: str) -> str:
         raise RuntimeError("DAILY_INPUT ledger rollback integration marker not found")
     normalized = normalized.replace(error_marker, error_replacement, 1)
 
-    refresh_marker = '''    ApplyMasterView
+    normalized_refresh_marker = '''    ApplyMasterView
+    NormalizeMasterPatientStatusPresentation master
     RefreshOperationalViews = True'''
-    refresh_replacement = '''    ApplyMasterView
+    normalized_refresh_replacement = '''    ApplyMasterView
+    NormalizeMasterPatientStatusPresentation master
     RefreshDailyChangeLedgerView
     RefreshOperationalViews = True'''
-    if refresh_marker not in normalized:
-        raise RuntimeError("DAILY_INPUT ledger refresh marker not found")
-    return normalized.replace(refresh_marker, refresh_replacement, 1)
+    base_refresh_marker = '''    ApplyMasterView
+    RefreshOperationalViews = True'''
+    base_refresh_replacement = '''    ApplyMasterView
+    RefreshDailyChangeLedgerView
+    RefreshOperationalViews = True'''
+    if normalized_refresh_marker in normalized:
+        return normalized.replace(normalized_refresh_marker, normalized_refresh_replacement, 1)
+    if base_refresh_marker in normalized:
+        return normalized.replace(base_refresh_marker, base_refresh_replacement, 1)
+    raise RuntimeError("DAILY_INPUT ledger refresh marker not found")
 
 
 def ensure_daily_change_ledger_sheet(workbook) -> None:
