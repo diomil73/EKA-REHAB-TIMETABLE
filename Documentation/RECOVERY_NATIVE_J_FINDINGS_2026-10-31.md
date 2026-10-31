@@ -27,11 +27,29 @@ J is frozen as forensic evidence. Do not run `CloseOperationalDay`, do not repai
 
 A regression verifies the post-view normalization hook, dynamic `Κατάσταση` header lookup, and explicit `Font.Strikethrough=False` on non-empty status cells.
 
-## Restore diagnosis next step
+## Restore diagnosis and bounded fix
 
-The J restore failure must be diagnosed from the exact Python backend error before changing restore semantics. The existing J workbook is the correct read-only diagnostic specimen because it contains the real ACTIVE ledger row and DAILY_INPUT state that failed natively.
+The exact Python backend failure from frozen J was:
 
-Run the restore preparer directly against a copy/frozen J state with a temporary payload/response and inspect the emitted `SAFETY STOP` / JSON `error`. This diagnostic must not modify the workbook.
+`At least one non-active daily state is required`
+
+The ACTIVE reversible change was `daily-input:2026-10-30:patient:21`. Restoring that one change removes the final non-active state and returns the date to a fully ACTIVE day. The generic patient-centric preview builder intentionally rejects an empty non-active state set, so using it directly for this restore edge case was the wrong projection path.
+
+The bounded fix keeps the generic invariant unchanged and adds a restore-only clean-day path in `prepare_daily_change_restore_in_place.py`. When the post-restore truth has no non-active states, the preparer reconstructs only the affected operational cells from recurring/base truth and restores the corresponding MASTER treatment presentation and base patient status. No solver semantics, close/reopen behavior, or global preview invariant were changed.
+
+Regression coverage was added for the zero-change restore branch and confirms that the clean-day path is explicit rather than weakening the generic preview builder.
+
+## Read-only J verification after fix
+
+The exact frozen J specimen was re-run through the restore preparer without applying the payload. The same change ID that previously failed now produced a verified atomic payload beginning with:
+
+- `SOURCE_CLEAR DAILY_INPUT 21 A E`
+- `RESTORE_CHANGE daily-input:2026-10-30:patient:21`
+- `PATCH THERAPIST_DAILY B7 ... daily_change_restore_base_slot`
+- `PATCH MASTER_SCHEDULE D8 ... master_daily_restore_overlay`
+- `PATCH MASTER_SCHEDULE M8 value παρών ... master_daily_restore_status`
+
+The J SHA-256 remained unchanged after the diagnostic (`J HASH UNCHANGED: True`). This proves the zero-change preparation failure is closed at the read-only backend boundary while preserving J as forensic evidence.
 
 ## Safety boundary
 
@@ -39,4 +57,5 @@ Run the restore preparer directly against a copy/frozen J state with a temporary
 - J remains frozen evidence,
 - no close/reopen restore architecture is reintroduced,
 - therapist-absence restore remains disabled until related replacement facts can be rolled back atomically,
-- next native artifact gets a fresh filename only after focused source gate and exact restore-preparation diagnosis.
+- no K artifact may be built unless the focused source gate is green,
+- K must use a fresh filename and must not overwrite any prior preview.
