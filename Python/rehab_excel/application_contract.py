@@ -20,6 +20,7 @@ REQUIRED_APP_COMPONENTS: tuple[str, ...] = (
     "modReplacementOperator",
     "frmReplacementDecision",
     "modTherapistWorkloadStrip",
+    "modDailyChangeLedger",
     "modOutpatientSchedule",
     "frmOutpatientSchedule",
     "modOutpatientInSession",
@@ -33,6 +34,7 @@ REQUIRED_APP_COMPONENTS: tuple[str, ...] = (
 
 REQUIRED_APP_SHEETS: tuple[str, ...] = (
     "OUTPATIENT_SCHEDULE",
+    "DAILY_CHANGE_LEDGER",
 )
 
 OUTPATIENT_SCHEDULE_HEADERS: tuple[str, ...] = (
@@ -42,6 +44,21 @@ OUTPATIENT_SCHEDULE_HEADERS: tuple[str, ...] = (
     "Ώρα",
     "Ημέρες",
     "Θεραπευτής",
+)
+
+DAILY_CHANGE_LEDGER_HEADERS: tuple[str, ...] = (
+    "ChangeID",
+    "Date",
+    "ChangeType",
+    "SubjectID",
+    "Subject",
+    "FromText",
+    "ToText",
+    "Reason",
+    "SourceRow",
+    "Status",
+    "RestoredAt",
+    "DisplayRow",
 )
 
 
@@ -54,6 +71,14 @@ class ApplicationContractReport:
     workbook_path: str
     component_names: tuple[str, ...]
     required_components: tuple[str, ...]
+
+
+def _headers(workbook, sheet_name: str, expected: tuple[str, ...]) -> tuple[str, ...]:
+    sheet = workbook.Worksheets(sheet_name)
+    return tuple(
+        str(sheet.Cells(1, index).Value or "").strip()
+        for index in range(1, len(expected) + 1)
+    )
 
 
 def assert_application_contract(workbook_path: str | Path) -> ApplicationContractReport:
@@ -118,14 +143,14 @@ def assert_application_contract(workbook_path: str | Path) -> ApplicationContrac
                 + ", ".join(missing_sheets)
             )
 
-        outpatient = workbook.Worksheets("OUTPATIENT_SCHEDULE")
-        outpatient_headers = tuple(
-            str(outpatient.Cells(1, index).Value or "").strip()
-            for index in range(1, len(OUTPATIENT_SCHEDULE_HEADERS) + 1)
-        )
-        if outpatient_headers != OUTPATIENT_SCHEDULE_HEADERS:
+        if _headers(workbook, "OUTPATIENT_SCHEDULE", OUTPATIENT_SCHEDULE_HEADERS) != OUTPATIENT_SCHEDULE_HEADERS:
             raise ApplicationContractError(
                 "Workbook is not a complete application artifact; OUTPATIENT_SCHEDULE header schema is invalid"
+            )
+
+        if _headers(workbook, "DAILY_CHANGE_LEDGER", DAILY_CHANGE_LEDGER_HEADERS) != DAILY_CHANGE_LEDGER_HEADERS:
+            raise ApplicationContractError(
+                "Workbook is not a complete application artifact; DAILY_CHANGE_LEDGER header schema is invalid"
             )
 
         return ApplicationContractReport(
