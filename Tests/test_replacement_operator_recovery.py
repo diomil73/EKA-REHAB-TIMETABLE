@@ -70,6 +70,15 @@ def test_operator_installer_routes_daily_input_through_operator():
     assert "install_replacement_operator(vbproject)" in patch_source
 
 
+def test_operator_installer_uses_valid_python_control_assignments():
+    source = inspect.getsource(replacement_operator_vba.install_replacement_operator)
+    assert "control.Left = left\n" in source
+    assert "control.Top = top\n" in source
+    assert "control.Width = width\n" in source
+    assert "control.Height = height\n" in source
+    assert "control.Left = left: control.Top" not in source
+
+
 def test_operator_support_tools_are_read_only():
     prep = inspect.getsource(prepare_replacement_operator_decision)
     validate = inspect.getsource(validate_replacement_operator_choice)
