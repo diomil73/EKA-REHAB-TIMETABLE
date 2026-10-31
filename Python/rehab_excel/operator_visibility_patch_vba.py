@@ -82,21 +82,31 @@ def patch_daily_input_patient_status_visibility(code: str) -> str:
 
     helper = r'''
 Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)
-    Dim statusCol As Long, lastRow As Long, col As Long, row As Long
-    Dim headerText As String
+    Dim statusCol As Long, headerRow As Long, lastRow As Long, col As Long, row As Long
+    Dim roomText As String, patientText As String, headerText As String
 
-    For col = 1 To master.Cells(1, master.Columns.Count).End(xlToLeft).Column
-        headerText = UCase$(Trim$(CStr(master.Cells(1, col).Value)))
-        If headerText = UCase$("Κατάσταση") Then
+    For row = 1 To Application.WorksheetFunction.Min(master.UsedRange.Rows.Count, 12)
+        roomText = LCase$(Trim$(CStr(master.Cells(row, 2).Value)))
+        patientText = LCase$(Trim$(CStr(master.Cells(row, 3).Value)))
+        If roomText = LCase$("Θάλαμος") And patientText = LCase$("Ασθενής") Then
+            headerRow = row
+            Exit For
+        End If
+    Next row
+    If headerRow = 0 Then Exit Sub
+
+    For col = 1 To Application.WorksheetFunction.Min(master.Cells(headerRow, master.Columns.Count).End(xlToLeft).Column, 20)
+        headerText = LCase$(Trim$(CStr(master.Cells(headerRow, col).Value)))
+        If headerText = LCase$("Κατάσταση") Then
             statusCol = col
             Exit For
         End If
     Next col
-    If statusCol = 0 Then Err.Raise vbObjectError + 2360, , "MASTER status column not found"
+    If statusCol = 0 Then Exit Sub
 
     lastRow = master.Cells(master.Rows.Count, statusCol).End(xlUp).Row
-    If lastRow < 2 Then Exit Sub
-    For row = 2 To lastRow
+    If lastRow <= headerRow Then Exit Sub
+    For row = headerRow + 1 To lastRow
         If Len(Trim$(CStr(master.Cells(row, statusCol).Value))) > 0 Then
             master.Cells(row, statusCol).Font.Strikethrough = False
         End If
