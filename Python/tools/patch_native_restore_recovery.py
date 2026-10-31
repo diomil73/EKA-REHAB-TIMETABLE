@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import re
 import sys
+import tempfile
 
 
 class NativeRestoreRecoveryPatchError(RuntimeError):
@@ -18,6 +19,23 @@ def _compact_vba(code: str) -> str:
     normalized = _normalize_vba(code)
     normalized = re.sub(r"_\s*\n", "", normalized)
     return re.sub(r"\s+", "", normalized)
+
+
+def _extract_vba_sub(code: str, signature: str) -> str:
+    normalized = _normalize_vba(code)
+    pattern = re.compile(
+        rf"(?ims)^\s*{re.escape(signature)}\s*$.*?^\s*End Sub\s*$"
+    )
+    match = pattern.search(normalized)
+    if match is None:
+        raise NativeRestoreRecoveryPatchError(
+            f"VBA procedure boundary not found exactly once: {signature}"
+        )
+    if pattern.search(normalized, match.end()) is not None:
+        raise NativeRestoreRecoveryPatchError(
+            f"VBA procedure boundary found more than once: {signature}"
+        )
+    return match.group(0)
 
 
 _SAFE_LEDGER_REFRESH = r'''Public Sub RefreshDailyChangeLedgerView()
@@ -227,6 +245,12 @@ def _replace_component_code(vbproject, component_name: str, code: str) -> None:
     module.AddFromString(code)
 
 
+def _write_master_status_diagnostic(proc: str) -> Path:
+    path = Path(tempfile.gettempdir()) / "eka_master_status_normalization_vba.log"
+    path.write_text(proc, encoding="utf-8")
+    return path
+
+
 def patch_workbook(workbook_path: Path) -> None:
     workbook_path = workbook_path.resolve()
     if not workbook_path.exists():
@@ -295,14 +319,20 @@ def patch_workbook(workbook_path: Path) -> None:
         if 'wsDaily.Cells.Find(What:="*"' not in installed_ledger:
             raise NativeRestoreRecoveryPatchError("safe ledger anchor missing")
 
-        compact_daily = _compact_vba(installed_daily)
-        rich_text_token = (
-            "master.Cells(row,statusCol).Characters(1,Len(CStr(master.Cells(row,statusCol).Value)))"
-            ".Font.Strikethrough=False"
+        status_proc = _extract_vba_sub(
+            installed_daily, "Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)"
         )
-        if rich_text_token not in compact_daily:
+        compact_status_proc = _compact_vba(status_proc)
+        has_character_format = (
+            ".Characters(" in compact_status_proc
+            and ".Font.Strikethrough=False" in compact_status_proc
+            and "statusCol" in compact_status_proc
+        )
+        if not has_character_format:
+            diagnostic_path = _write_master_status_diagnostic(status_proc)
             raise NativeRestoreRecoveryPatchError(
-                "MASTER status rich-text normalization missing"
+                "MASTER status rich-text normalization missing; diagnostic="
+                + str(diagnostic_path)
             )
 
         workbook.Save()
