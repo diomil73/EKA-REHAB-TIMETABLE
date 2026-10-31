@@ -101,7 +101,13 @@ def _absence_reason(absences, target) -> str:
     return "Απουσία θεραπευτή"
 
 
-def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit: int = 20) -> dict[str, object]:
+def prepare_decision(
+    workbook_path: str | Path,
+    rows_path: str | Path,
+    *,
+    limit: int = 20,
+    skip_target_session_ids: tuple[str, ...] = (),
+) -> dict[str, object]:
     source = Path(workbook_path).resolve()
     rows_output = Path(rows_path).resolve()
     if not source.exists():
@@ -137,8 +143,8 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
         timeslots=settings.standard_timeslots, students=students, policy_book=policy_book,
         base_entries=base_entries,
     )
-    targets = tuple(session_by_id[item.session_id] for item in queue.items)
-    if not targets:
+    all_targets = tuple(session_by_id[item.session_id] for item in queue.items)
+    if not all_targets:
         rows_output.parent.mkdir(parents=True, exist_ok=True)
         with rows_output.open("w", encoding="utf-8-sig", newline="") as handle:
             csv.DictWriter(handle, fieldnames=HEADERS, delimiter="\t").writeheader()
@@ -147,6 +153,12 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
             "pending_count": 0, "choice_count": 0,
             "source_unchanged": file_sha256(source) == source_hash,
         }
+
+    skipped = {value for value in skip_target_session_ids if value}
+    targets = tuple(target for target in all_targets if target.session_id not in skipped)
+    if not targets:
+        targets = all_targets
+        skipped = set()
 
     options_by_session: dict[str, tuple] = {}
     for target in targets:
@@ -201,7 +213,8 @@ def prepare_decision(workbook_path: str | Path, rows_path: str | Path, *, limit:
 
     return {
         "ok": True, "mode": "decision_required", "date": target_date.isoformat(),
-        "pending_count": len(targets), "target_session_id": next_target.session_id,
+        "pending_count": len(all_targets), "deferred_count": len(skipped),
+        "target_session_id": next_target.session_id,
         "patient_name": patient.display_name, "original_therapist": next_target.therapist_id,
         "original_time": next_target.start_time.strftime("%H:%M"),
         "absence_reason": _absence_reason(daily.absences, next_target),
@@ -217,9 +230,15 @@ def main() -> int:
     parser.add_argument("--rows", required=True, type=Path)
     parser.add_argument("--response", type=Path)
     parser.add_argument("--limit", type=int, default=20)
+    parser.add_argument("--skip-target", action="append", default=[])
     args = parser.parse_args()
     try:
-        result = prepare_decision(args.input, args.rows, limit=max(args.limit, 1))
+        result = prepare_decision(
+            args.input,
+            args.rows,
+            limit=max(args.limit, 1),
+            skip_target_session_ids=tuple(args.skip_target),
+        )
     except Exception as exc:
         args.rows.unlink(missing_ok=True)
         _write_response(args.response, {"ok": False, "error": str(exc)})
