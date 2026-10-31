@@ -48,7 +48,7 @@ def patch_daily_input_workload_visibility(code: str) -> str:
 
 
 def patch_daily_input_patient_status_visibility(code: str) -> str:
-    """Keep the MASTER reason red and readable, never struck through."""
+    """Keep MASTER status/reason readable after both patching and view refresh."""
 
     normalized = _normalize_vba(code)
     apply_marker = '''        Case "master_daily_patient_status_overlay"
@@ -69,7 +69,44 @@ def patch_daily_input_patient_status_visibility(code: str) -> str:
                 (CBool(strikeValue) = False And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
     if verify_marker not in normalized:
         raise RuntimeError("MASTER patient-status verification marker not found")
-    return normalized.replace(verify_marker, verify_replacement, 1)
+    normalized = normalized.replace(verify_marker, verify_replacement, 1)
+
+    refresh_marker = '''    ApplyMasterView
+    RefreshOperationalViews = True'''
+    refresh_replacement = '''    ApplyMasterView
+    NormalizeMasterPatientStatusPresentation master
+    RefreshOperationalViews = True'''
+    if refresh_marker not in normalized:
+        raise RuntimeError("MASTER view refresh marker not found")
+    normalized = normalized.replace(refresh_marker, refresh_replacement, 1)
+
+    helper = r'''
+Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)
+    Dim statusCol As Long, lastRow As Long, col As Long, row As Long
+    Dim headerText As String
+
+    For col = 1 To master.Cells(1, master.Columns.Count).End(xlToLeft).Column
+        headerText = UCase$(Trim$(CStr(master.Cells(1, col).Value)))
+        If headerText = UCase$("Κατάσταση") Then
+            statusCol = col
+            Exit For
+        End If
+    Next col
+    If statusCol = 0 Then Err.Raise vbObjectError + 2360, , "MASTER status column not found"
+
+    lastRow = master.Cells(master.Rows.Count, statusCol).End(xlUp).Row
+    If lastRow < 2 Then Exit Sub
+    For row = 2 To lastRow
+        If Len(Trim$(CStr(master.Cells(row, statusCol).Value))) > 0 Then
+            master.Cells(row, statusCol).Font.Strikethrough = False
+        End If
+    Next row
+End Sub
+'''
+    insert_at = normalized.find("\nPrivate Sub ValidatePatchTarget")
+    if insert_at < 0:
+        raise RuntimeError("MASTER status helper insertion marker not found")
+    return normalized[:insert_at] + "\n" + helper + normalized[insert_at:]
 
 
 _SUMMARY_HELPERS = r'''
@@ -180,8 +217,6 @@ def install_operator_visibility_patch(vbproject) -> None:
     _replace_all(daily, daily_code)
     _replace_all(global_replacement, patch_global_replacement_summary(_code(global_replacement)))
 
-    # Restore the stable operator layer after DAILY_INPUT/global action exist.
-    # Its installer routes DAILY_INPUT through ResolveReplacementWorkflow.
     install_replacement_operator(vbproject)
 
     installed_daily = _normalize_vba(_code(daily))
@@ -192,6 +227,8 @@ def install_operator_visibility_patch(vbproject) -> None:
         raise RuntimeError("DAILY_INPUT was not routed through the replacement operator")
     if 'Case "master_daily_patient_status_overlay"\n            cell.Font.Color = RGB(255, 0, 0)\n            cell.Font.Strikethrough = False' not in installed_daily:
         raise RuntimeError("MASTER patient status still permits strike-through")
+    if "NormalizeMasterPatientStatusPresentation master" not in installed_daily:
+        raise RuntimeError("MASTER status normalization was not installed after ApplyMasterView")
     if "BuildReplacementSummarySince" not in installed_replacement:
         raise RuntimeError("Replacement summary patch was not installed")
     if "χειροκίνητες επιλογές ασθενή-ασθενή" in installed_replacement:
