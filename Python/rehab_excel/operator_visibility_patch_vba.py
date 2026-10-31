@@ -43,6 +43,31 @@ def patch_daily_input_workload_visibility(code: str) -> str:
     return normalized.replace(target, replacement, 1)
 
 
+def patch_daily_input_patient_status_visibility(code: str) -> str:
+    """Keep the MASTER reason red and readable, never struck through."""
+
+    normalized = code.replace("\r\n", "\n").replace("\r", "\n")
+    apply_marker = '''        Case "master_daily_patient_status_overlay"
+            cell.Font.Color = RGB(255, 0, 0)'''
+    apply_replacement = '''        Case "master_daily_patient_status_overlay"
+            cell.Font.Color = RGB(255, 0, 0)
+            cell.Font.Strikethrough = False'''
+    if apply_marker not in normalized:
+        raise RuntimeError("MASTER patient-status presentation marker not found")
+    normalized = normalized.replace(apply_marker, apply_replacement, 1)
+
+    verify_marker = '''        Case "master_daily_patient_status_overlay"
+            VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
+    verify_replacement = '''        Case "master_daily_patient_status_overlay"
+            strikeValue = cell.Font.Strikethrough
+            If IsNull(strikeValue) Then Exit Function
+            VerifySourceTagPresentation = _
+                (CBool(strikeValue) = False And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
+    if verify_marker not in normalized:
+        raise RuntimeError("MASTER patient-status verification marker not found")
+    return normalized.replace(verify_marker, verify_replacement, 1)
+
+
 _SUMMARY_HELPERS = r'''
 Private Function LastReplacementFactRow() As Long
     Dim ws As Worksheet
@@ -146,7 +171,9 @@ def install_operator_visibility_patch(vbproject) -> None:
     daily = _component(vbproject, DAILY_INPUT_MODULE_NAME)
     global_replacement = _component(vbproject, GLOBAL_REPLACEMENT_MODULE_NAME)
 
-    _replace_all(daily, patch_daily_input_workload_visibility(_code(daily)))
+    daily_code = patch_daily_input_workload_visibility(_code(daily))
+    daily_code = patch_daily_input_patient_status_visibility(daily_code)
+    _replace_all(daily, daily_code)
     _replace_all(global_replacement, patch_global_replacement_summary(_code(global_replacement)))
 
     # Restore the stable operator layer after DAILY_INPUT/global action exist.
@@ -159,6 +186,8 @@ def install_operator_visibility_patch(vbproject) -> None:
         raise RuntimeError("DAILY_INPUT still auto-renders workload badges")
     if "ResolveReplacementWorkflow()" not in installed_daily:
         raise RuntimeError("DAILY_INPUT was not routed through the replacement operator")
+    if 'Case "master_daily_patient_status_overlay"\n            cell.Font.Color = RGB(255, 0, 0)\n            cell.Font.Strikethrough = False' not in installed_daily:
+        raise RuntimeError("MASTER patient status still permits strike-through")
     if "BuildReplacementSummarySince" not in installed_replacement:
         raise RuntimeError("Replacement summary patch was not installed")
     if "χειροκίνητες επιλογές ασθενή-ασθενή" in installed_replacement:
