@@ -14,45 +14,24 @@ from tools import preview_daily_input_sheet
 
 def test_application_contract_covers_existing_app_ui_stack():
     required = set(REQUIRED_APP_COMPONENTS)
-
     expected = {
-        "modApplicationShell",
-        "modMasterToolbar",
-        "modRegistrationMenu",
-        "frmRegistrationMenu",
-        "frmNewPatient",
-        "frmNewTherapist",
-        "frmNewStudent",
-        "modPatientRegistrationBridge",
-        "frmEditPatient",
-        "modDailyInputAction",
-        "modGlobalReplacementAction",
-        "modTherapistWorkloadStrip",
-        "modOutpatientSchedule",
-        "frmOutpatientSchedule",
-        "modOutpatientInSession",
-        "modSchedulingConflict",
-        "frmSchedulingConflict",
-        "modOutpatientScheduleEdit",
-        "modOutpatientScheduleManager",
-        "frmOutpatientScheduleManager",
-        "modCloseDayAction",
+        "modApplicationShell", "modMasterToolbar", "modRegistrationMenu", "frmRegistrationMenu",
+        "frmNewPatient", "frmNewTherapist", "frmNewStudent", "modPatientRegistrationBridge",
+        "frmEditPatient", "modDailyInputAction", "modGlobalReplacementAction",
+        "modReplacementOperator", "frmReplacementDecision", "modTherapistWorkloadStrip",
+        "modOutpatientSchedule", "frmOutpatientSchedule", "modOutpatientInSession",
+        "modSchedulingConflict", "frmSchedulingConflict", "modOutpatientScheduleEdit",
+        "modOutpatientScheduleManager", "frmOutpatientScheduleManager", "modCloseDayAction",
     }
-
     assert expected <= required
+    assert len(REQUIRED_APP_COMPONENTS) == 23
 
 
 def test_application_contract_requires_outpatient_authoritative_source():
     assert "OUTPATIENT_SCHEDULE" in REQUIRED_APP_SHEETS
     assert OUTPATIENT_SCHEDULE_HEADERS == (
-        "PatientID",
-        "Ασθενής",
-        "Θεραπεία",
-        "Ώρα",
-        "Ημέρες",
-        "Θεραπευτής",
+        "PatientID", "Ασθενής", "Θεραπεία", "Ώρα", "Ημέρες", "Θεραπευτής",
     )
-
     source = inspect.getsource(assert_application_contract)
     assert "missing required sheet(s)" in source
     assert 'workbook.Worksheets("OUTPATIENT_SCHEDULE")' in source
@@ -61,7 +40,6 @@ def test_application_contract_requires_outpatient_authoritative_source():
 
 def test_daily_input_preview_defaults_to_known_good_app_source():
     source = inspect.getsource(preview_daily_input_sheet)
-
     assert '"OUTPATIENT_RECURRING_SMOKE.xlsm"' in source
     assert 'default=REPO_ROOT / "Rehab_Center_System_v27_1.xlsm"' not in source
     assert "assert_application_contract(source)" in source
@@ -70,7 +48,6 @@ def test_daily_input_preview_defaults_to_known_good_app_source():
 
 def test_application_contract_requires_windows_excel_component_inspection():
     source = inspect.getsource(assert_application_contract)
-
     assert 'sys.platform != "win32"' in source
     assert 'DispatchEx("Excel.Application")' in source
     assert "workbook.VBProject" in source
