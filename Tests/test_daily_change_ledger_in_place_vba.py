@@ -9,6 +9,10 @@ from rehab_excel.daily_change_ledger_in_place_vba import (
     patch_daily_input_for_ledger,
 )
 from rehab_excel.daily_input_action_vba import DAILY_INPUT_MODULE_CODE
+from rehab_excel.operator_visibility_patch_vba import (
+    patch_daily_input_patient_status_visibility,
+    patch_daily_input_workload_visibility,
+)
 from tools import build_registration_menu_preview
 
 
@@ -71,6 +75,20 @@ def test_daily_input_patch_accepts_change_rows_and_restores_ledger_on_failure():
     assert "RestoreDailyChangeLedgerFromRollback rollbackPath" in patched
     assert 'If CStr(parts(0)) <> "PATCH" Then GoTo RestoreNext' in patched
     assert "RefreshDailyChangeLedgerView" in patched
+
+
+def test_ledger_patch_composes_after_operator_status_normalization():
+    operator_patched = patch_daily_input_workload_visibility(DAILY_INPUT_MODULE_CODE)
+    operator_patched = patch_daily_input_patient_status_visibility(operator_patched)
+    patched = patch_daily_input_for_ledger(operator_patched)
+    expected = (
+        "    ApplyMasterView\n"
+        "    NormalizeMasterPatientStatusPresentation master\n"
+        "    RefreshDailyChangeLedgerView\n"
+        "    RefreshOperationalViews = True"
+    )
+    assert expected in patched
+    assert patched.count("RefreshDailyChangeLedgerView") == 1
 
 
 def test_canonical_build_installs_ledger_after_operator_patch():
