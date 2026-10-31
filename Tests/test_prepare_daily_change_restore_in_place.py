@@ -4,6 +4,7 @@ import pytest
 
 from tools.prepare_daily_change_restore_in_place import (
     SUPPORTED_SOURCE_CHANGE_TYPES,
+    _build_clean_day_restore_plan,
     _restore_marker_line,
     _source_clear_line,
     prepare_daily_change_restore_payload,
@@ -48,6 +49,45 @@ def test_restore_preparer_preserves_active_replacements_and_rebuilds_both_views(
     assert "build_master_daily_overlay_plan(" in source
     assert "compose_master_daily_overlay(" in source
     assert "validate_write_plan(plan)" in source
+
+
+def test_restore_to_fully_active_day_uses_bounded_clean_day_path():
+    source = inspect.getsource(prepare_daily_change_restore_payload)
+    assert "non_active_after_restore" in source
+    assert "if non_active_after_restore:" in source
+    assert "current_states = build_daily_session_states(" in source
+    assert "plan = _build_clean_day_restore_plan(" in source
+
+
+def test_clean_day_restore_rebuilds_only_touched_operational_cells_from_base():
+    source = inspect.getsource(_build_clean_day_restore_plan)
+    assert "rebuild_multi_member_groups=False" in source
+    assert "current_preview.bindings" in source
+    assert "render_base_slot(" in source
+    assert 'sheet="THERAPIST_DAILY"' in source
+    assert 'source_tag="daily_change_restore_base_slot"' in source
+    assert "_base_slot_runs(render)" in source
+
+
+def test_clean_day_restore_resets_master_treatment_and_status_presentation():
+    source = inspect.getsource(_build_clean_day_restore_plan)
+    assert "build_master_daily_overlay_plan(" in source
+    assert "build_master_projection(" in source
+    assert 'patch.source_tag == "master_daily_non_active_overlay"' in source
+    assert 'source_tag="master_daily_restore_overlay"' in source
+    assert 'patch.source_tag == "master_daily_patient_status_overlay"' in source
+    assert 'source_tag="master_daily_restore_status"' in source
+    assert "_plain_runs(value)" in source
+
+
+def test_clean_day_restore_does_not_weaken_generic_preview_empty_state_guard():
+    source = inspect.getsource(_build_clean_day_restore_plan)
+    assert "current_states" in source
+    assert "build_patient_centric_preview_plan(" in source
+    assert "rebuild_multi_member_groups=False" in source
+    preparer = inspect.getsource(prepare_daily_change_restore_payload)
+    assert "states=states" in preparer
+    assert "non_active_after_restore" in preparer
 
 
 def test_restore_preparer_is_read_only_and_fail_closed_for_therapist_absence():
