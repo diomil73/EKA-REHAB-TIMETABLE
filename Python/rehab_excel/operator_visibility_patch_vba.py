@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .replacement_operator_vba import install_replacement_operator
+
 
 DAILY_INPUT_MODULE_NAME = "modDailyInputAction"
 GLOBAL_REPLACEMENT_MODULE_NAME = "modGlobalReplacementAction"
@@ -34,8 +36,7 @@ def patch_daily_input_workload_visibility(code: str) -> str:
     ApplyMasterView'''
     replacement = '''    Set master = ThisWorkbook.Worksheets("MASTER_SCHEDULE")
     Set daily = ThisWorkbook.Worksheets("THERAPIST_DAILY")
-    ' Workload is operator-requested information. Do not publish therapist load
-    ' badges automatically after every DAILY_INPUT/replacement refresh.
+    ' Workload belongs to the therapist card, not the MASTER surface.
     ApplyMasterView'''
     if target not in normalized:
         raise RuntimeError("DAILY_INPUT workload refresh marker not found")
@@ -61,10 +62,7 @@ Private Function PatientDisplayName(ByVal patientId As String) As String
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets("PATIENTS")
     On Error GoTo 0
-    If ws Is Nothing Then
-        PatientDisplayName = patientId
-        Exit Function
-    End If
+    If ws Is Nothing Then PatientDisplayName = patientId: Exit Function
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     For row = 2 To lastRow
         If Trim$(CStr(ws.Cells(row, 1).Value)) = patientId Then
@@ -80,12 +78,10 @@ Private Function BuildReplacementSummarySince(ByVal previousLastRow As Long) As 
     Dim ws As Worksheet, lastRow As Long, row As Long
     Dim patientId As String, replacementTherapist As String, replacementTime As String
     Dim statusText As String, result As String
-
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets(FACT_SHEET)
     On Error GoTo 0
     If ws Is Nothing Then Exit Function
-
     lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
     For row = previousLastRow + 1 To lastRow
         statusText = UCase$(Trim$(CStr(ws.Cells(row, 10).Value)))
@@ -117,6 +113,14 @@ def patch_global_replacement_summary(code: str) -> str:
         raise RuntimeError("Global replacement persistence marker not found")
     normalized = normalized.replace(marker, replacement, 1)
 
+    old_prompt = '''             "Να εφαρμοστεί τώρα η αυτόματη πρόταση;" & vbCrLf & _
+             "Επιλέξτε Όχι αν θέλετε να κάνετε χειροκίνητες επιλογές ασθενή-ασθενή."'''
+    new_prompt = '''             "Να εφαρμοστεί τώρα η αυτόματη πρόταση;" & vbCrLf & _
+             "Επιλέξτε Όχι για επιστροφή χωρίς εφαρμογή της πρότασης."'''
+    if old_prompt not in normalized:
+        raise RuntimeError("Global replacement confirmation prompt marker not found")
+    normalized = normalized.replace(old_prompt, new_prompt, 1)
+
     success_marker = '''    ResolveDailyReplacementsInPlace = True
     GoTo CleanUp'''
     success_replacement = '''    replacementSummary = BuildReplacementSummarySince(previousLastFactRow)
@@ -135,26 +139,30 @@ def patch_global_replacement_summary(code: str) -> str:
     insert_at = normalized.find("\nPrivate Function ConfirmAutomaticReplacementProposal")
     if insert_at < 0:
         raise RuntimeError("Global replacement helper insertion marker not found")
-    normalized = normalized[:insert_at] + "\n" + _SUMMARY_HELPERS + normalized[insert_at:]
-    return normalized
+    return normalized[:insert_at] + "\n" + _SUMMARY_HELPERS + normalized[insert_at:]
 
 
 def install_operator_visibility_patch(vbproject) -> None:
     daily = _component(vbproject, DAILY_INPUT_MODULE_NAME)
     global_replacement = _component(vbproject, GLOBAL_REPLACEMENT_MODULE_NAME)
 
-    daily_code = patch_daily_input_workload_visibility(_code(daily))
-    replacement_code = patch_global_replacement_summary(_code(global_replacement))
+    _replace_all(daily, patch_daily_input_workload_visibility(_code(daily)))
+    _replace_all(global_replacement, patch_global_replacement_summary(_code(global_replacement)))
 
-    _replace_all(daily, daily_code)
-    _replace_all(global_replacement, replacement_code)
+    # Restore the stable operator layer after DAILY_INPUT/global action exist.
+    # Its installer routes DAILY_INPUT through ResolveReplacementWorkflow.
+    install_replacement_operator(vbproject)
 
     installed_daily = _code(daily)
     installed_replacement = _code(global_replacement)
     if "RenderTherapistWorkloadStrip\n    ApplyMasterView" in installed_daily:
         raise RuntimeError("DAILY_INPUT still auto-renders workload badges")
+    if "ResolveReplacementWorkflow()" not in installed_daily:
+        raise RuntimeError("DAILY_INPUT was not routed through the replacement operator")
     if "BuildReplacementSummarySince" not in installed_replacement:
         raise RuntimeError("Replacement summary patch was not installed")
+    if "χειροκίνητες επιλογές ασθενή-ασθενή" in installed_replacement:
+        raise RuntimeError("Global automatic prompt still claims to own manual routing")
 
     summary_start = installed_replacement.find("Private Function BuildReplacementSummarySince")
     summary_end = installed_replacement.find("End Function", summary_start)
