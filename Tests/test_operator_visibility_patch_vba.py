@@ -4,6 +4,7 @@ from rehab_excel.daily_input_action_vba import DAILY_INPUT_MODULE_CODE
 from rehab_excel.global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_CODE
 from rehab_excel.operator_visibility_patch_vba import (
     install_operator_visibility_patch,
+    patch_daily_input_patient_status_visibility,
     patch_daily_input_workload_visibility,
     patch_global_replacement_summary,
 )
@@ -18,6 +19,13 @@ def test_daily_input_refresh_stops_auto_rendering_workload_badges():
     assert "ApplyMasterView" in refresh
     assert "RenderTherapistWorkloadStrip" not in refresh
     assert "therapist card" in refresh
+
+
+def test_master_patient_status_reason_is_red_but_never_struck_through():
+    patched = patch_daily_input_patient_status_visibility(DAILY_INPUT_MODULE_CODE)
+    assert '''Case "master_daily_patient_status_overlay"\n            cell.Font.Color = RGB(255, 0, 0)\n            cell.Font.Strikethrough = False''' in patched
+    assert '''Case "master_daily_patient_status_overlay"\n            strikeValue = cell.Font.Strikethrough\n            If IsNull(strikeValue) Then Exit Function''' in patched
+    assert "CBool(strikeValue) = False" in patched
 
 
 def test_global_replacement_success_shows_new_assignment_details():
@@ -57,6 +65,7 @@ def test_patch_installer_verifies_visibility_and_operator_contracts_semantically
     source = inspect.getsource(install_operator_visibility_patch)
     assert "DAILY_INPUT still auto-renders workload badges" in source
     assert "DAILY_INPUT was not routed through the replacement operator" in source
+    assert "MASTER patient status still permits strike-through" in source
     assert "Replacement summary patch was not installed" in source
     assert "Replacement summary procedure was not installed" in source
     assert '"PatientDisplayName(patientId)"' in source
