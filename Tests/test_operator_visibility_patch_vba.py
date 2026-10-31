@@ -27,6 +27,10 @@ def test_master_patient_status_reason_is_red_but_never_struck_through():
     assert '''Case "master_daily_patient_status_overlay"\n            cell.Font.Color = RGB(255, 0, 0)\n            cell.Font.Strikethrough = False''' in patched
     assert '''Case "master_daily_patient_status_overlay"\n            strikeValue = cell.Font.Strikethrough\n            If IsNull(strikeValue) Then Exit Function''' in patched
     assert "CBool(strikeValue) = False" in patched
+    assert "ApplyMasterView\n    NormalizeMasterPatientStatusPresentation master" in patched
+    assert "Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)" in patched
+    assert 'If headerText = UCase$("Κατάσταση") Then' in patched
+    assert "master.Cells(row, statusCol).Font.Strikethrough = False" in patched
 
 
 def test_vba_normalization_handles_excel_com_crlf_without_changing_semantics():
@@ -76,6 +80,7 @@ def test_patch_installer_verifies_visibility_and_operator_contracts_semantically
     assert "DAILY_INPUT still auto-renders workload badges" in source
     assert "DAILY_INPUT was not routed through the replacement operator" in source
     assert "MASTER patient status still permits strike-through" in source
+    assert "MASTER status normalization was not installed after ApplyMasterView" in source
     assert "Replacement summary patch was not installed" in source
     assert "Replacement summary procedure was not installed" in source
     assert '"PatientDisplayName(patientId)"' in source
