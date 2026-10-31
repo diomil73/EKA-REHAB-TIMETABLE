@@ -1,4 +1,6 @@
 import inspect
+from datetime import date
+from types import SimpleNamespace
 
 from rehab_excel.writeback import CellPatch, TextRunPatch
 from tools import prepare_daily_input_in_place as module
@@ -52,6 +54,31 @@ def test_daily_input_payload_serializes_patch_semantics():
     assert "patch.wrap_text" in source
     assert "_payload_min_font_size(patch)" in source
     assert "_text_runs_token(patch)" in source
+
+
+def test_daily_input_payload_serializes_authoritative_change_records_before_patches():
+    source = inspect.getsource(module.prepare_daily_input_payload)
+    assert "*(_change_line(change, target_date) for change in daily.source_changes)" in source
+    assert "*(_patch_line(patch) for patch in plan.patches)" in source
+    assert '"ledger_rows": len(daily.source_changes)' in source
+
+
+def test_change_line_preserves_change_id_subject_reason_and_source_row():
+    change = SimpleNamespace(
+        change_id="daily-input:2026-10-31:patient:23",
+        change_type="patient_absence",
+        subject_id="P23",
+        display_name="Πετιρόπουλος",
+        reason="ΔΕΝ ΠΡΟΣΗΛΘΕ",
+        source_row=23,
+        all_day=True,
+        start_time=None,
+    )
+    line = module._change_line(change, date(2026, 10, 31))
+    assert line.startswith("CHANGE\tdaily-input:2026-10-31:patient:23\t2026-10-31\tpatient_absence\tP23\tΠετιρόπουλος")
+    assert "Κανονικό πρόγραμμα" in line
+    assert "Απουσία ασθενούς όλη ημέρα" in line
+    assert line.endswith("ΔΕΝ ΠΡΟΣΗΛΘΕ\t23")
 
 
 def test_rich_text_payload_skips_whole_cell_min_font_size():
