@@ -31,6 +31,23 @@ def test_ledger_refresh_never_clears_arbitrary_block_below_column_a():
     assert 'Range("A" & previousStartRow & ":G" & previousEndRow).ClearContents' in patched
 
 
+def test_ledger_overlap_patch_tolerates_com_spacing_and_crlf():
+    variant = LEDGER_VBA_CODE.replace("\n", "\r\n")
+    variant = variant.replace(
+        "startRow = wsDaily.Cells(wsDaily.Rows.Count, 1).End(xlUp).Row + 3",
+        "startRow  =  wsDaily.Cells(wsDaily.Rows.Count, 1).End(xlUp).Row  +  3",
+        1,
+    )
+    variant = variant.replace(
+        "If lastLedgerRow < 2 Then Exit Sub",
+        "If  lastLedgerRow  <  2  Then  Exit  Sub",
+        1,
+    )
+    patched = patch_daily_change_ledger_code(variant)
+    assert 'wsDaily.Cells.Find(What:="*"' in patched
+    assert 'Range("A" & startRow & ":G" & startRow + 200).ClearContents' not in patched
+
+
 def test_master_status_normalization_clears_character_level_strike_through():
     daily = patch_daily_input_workload_visibility(DAILY_INPUT_MODULE_CODE)
     daily = patch_daily_input_patient_status_visibility(daily)
