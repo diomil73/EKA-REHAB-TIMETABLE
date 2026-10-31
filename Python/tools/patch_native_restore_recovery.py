@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import re
 import sys
 
 
@@ -65,14 +66,6 @@ def patch_daily_change_ledger_code(code: str) -> str:
         )
     normalized = normalized.replace(apply_marker, apply_replacement, 1)
 
-    overlap_marker = '''    startRow = wsDaily.Cells(wsDaily.Rows.Count, 1).End(xlUp).Row + 3
-    If startRow < 21 Then startRow = 21
-    wsDaily.Range("A" & startRow & ":G" & startRow + 200).ClearContents
-    wsDaily.Range("A" & startRow & ":G" & startRow + 200).Font.Italic = False
-    wsDaily.Range("A" & startRow & ":G" & startRow + 200).Font.Bold = False
-
-    lastLedgerRow = wsLedger.Cells(wsLedger.Rows.Count, 1).End(xlUp).Row
-    If lastLedgerRow < 2 Then Exit Sub'''
     overlap_replacement = '''    lastLedgerRow = wsLedger.Cells(wsLedger.Rows.Count, 1).End(xlUp).Row
     If lastLedgerRow < 2 Then Exit Sub
 
@@ -107,11 +100,18 @@ def patch_daily_change_ledger_code(code: str) -> str:
         startRow = lastDataCell.Row + 3
         If startRow < 21 Then startRow = 21
     End If'''
-    if overlap_marker not in normalized:
+
+    overlap_pattern = re.compile(
+        r"^[ \t]*startRow[ \t]*=[ \t]*wsDaily\.Cells\(wsDaily\.Rows\.Count,[ \t]*1\)\.End\(xlUp\)\.Row[ \t]*\+[ \t]*3[ \t]*\n"
+        r".*?"
+        r"^[ \t]*If[ \t]+lastLedgerRow[ \t]*<[ \t]*2[ \t]+Then[ \t]+Exit[ \t]+Sub[ \t]*$",
+        re.MULTILINE | re.DOTALL,
+    )
+    normalized, overlap_count = overlap_pattern.subn(overlap_replacement, normalized, count=1)
+    if overlap_count != 1:
         raise NativeRestoreRecoveryPatchError(
-            "THERAPIST_DAILY ledger overlap marker not found"
+            "THERAPIST_DAILY ledger overlap markers not found semantically"
         )
-    normalized = normalized.replace(overlap_marker, overlap_replacement, 1)
 
     if "ApplyPayloadFileInPlace" in normalized:
         raise NativeRestoreRecoveryPatchError(
