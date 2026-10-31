@@ -29,7 +29,13 @@ def test_master_patient_status_reason_is_red_but_never_struck_through():
     assert "CBool(strikeValue) = False" in patched
     assert "ApplyMasterView\n    NormalizeMasterPatientStatusPresentation master" in patched
     assert "Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)" in patched
-    assert 'If headerText = UCase$("Κατάσταση") Then' in patched
+    assert 'roomText = LCase$(Trim$(CStr(master.Cells(row, 2).Value)))' in patched
+    assert 'patientText = LCase$(Trim$(CStr(master.Cells(row, 3).Value)))' in patched
+    assert 'roomText = LCase$("Θάλαμος") And patientText = LCase$("Ασθενής")' in patched
+    assert 'If headerText = LCase$("Κατάσταση") Then' in patched
+    assert "If headerRow = 0 Then Exit Sub" in patched
+    assert "If statusCol = 0 Then Exit Sub" in patched
+    assert "MASTER status column not found" not in patched
     assert "master.Cells(row, statusCol).Font.Strikethrough = False" in patched
 
 
