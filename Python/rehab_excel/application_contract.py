@@ -17,6 +17,8 @@ REQUIRED_APP_COMPONENTS: tuple[str, ...] = (
     "frmEditPatient",
     "modDailyInputAction",
     "modGlobalReplacementAction",
+    "modReplacementOperator",
+    "frmReplacementDecision",
     "modTherapistWorkloadStrip",
     "modOutpatientSchedule",
     "frmOutpatientSchedule",
@@ -55,13 +57,7 @@ class ApplicationContractReport:
 
 
 def assert_application_contract(workbook_path: str | Path) -> ApplicationContractReport:
-    """Require the workbook to contain the established canonical application stack.
-
-    This is intentionally stricter than merely checking for ``vbaProject.bin``.
-    A workbook with a VBA project but missing one of the components or required
-    authoritative data sources produced by the canonical unified build pipeline
-    is not a valid complete application artifact.
-    """
+    """Require the workbook to contain the established canonical application stack."""
 
     path = Path(workbook_path).resolve()
     if not path.exists():
@@ -104,9 +100,7 @@ def assert_application_contract(workbook_path: str | Path) -> ApplicationContrac
                 "Could not inspect VBA components. Enable Trust access to the VBA project object model."
             ) from exc
 
-        missing = tuple(
-            name for name in REQUIRED_APP_COMPONENTS if name not in set(component_names)
-        )
+        missing = tuple(name for name in REQUIRED_APP_COMPONENTS if name not in set(component_names))
         if missing:
             raise ApplicationContractError(
                 "Workbook is not a complete application artifact; missing VBA component(s): "
