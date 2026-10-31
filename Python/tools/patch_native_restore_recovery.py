@@ -14,6 +14,12 @@ def _normalize_vba(code: str) -> str:
     return code.replace("\r\n", "\n").replace("\r", "\n")
 
 
+def _compact_vba(code: str) -> str:
+    normalized = _normalize_vba(code)
+    normalized = re.sub(r"_\s*\n", "", normalized)
+    return re.sub(r"\s+", "", normalized)
+
+
 _SAFE_LEDGER_REFRESH = r'''Public Sub RefreshDailyChangeLedgerView()
     Dim wsDaily As Worksheet, wsLedger As Worksheet
     Dim startRow As Long, lastLedgerRow As Long, ledgerRow As Long, displayRow As Long
@@ -288,7 +294,13 @@ def patch_workbook(workbook_path: Path) -> None:
             raise NativeRestoreRecoveryPatchError("safe ledger declarations missing")
         if 'wsDaily.Cells.Find(What:="*"' not in installed_ledger:
             raise NativeRestoreRecoveryPatchError("safe ledger anchor missing")
-        if ".Characters(1, Len(CStr(master.Cells(row, statusCol).Value))).Font.Strikethrough = False" not in installed_daily:
+
+        compact_daily = _compact_vba(installed_daily)
+        rich_text_token = (
+            "master.Cells(row,statusCol).Characters(1,Len(CStr(master.Cells(row,statusCol).Value)))"
+            ".Font.Strikethrough=False"
+        )
+        if rich_text_token not in compact_daily:
             raise NativeRestoreRecoveryPatchError(
                 "MASTER status rich-text normalization missing"
             )
