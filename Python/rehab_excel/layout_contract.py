@@ -92,7 +92,13 @@ WRITE_ZONES: tuple[CellRange, ...] = (
         "MASTER_SCHEDULE",
         "D2",
         "J5000",
-        "Derived therapy display cells only; identity/status columns protected",
+        "Derived therapy display cells only; identity/other columns protected",
+    ),
+    CellRange(
+        "MASTER_SCHEDULE",
+        "M2",
+        "M5000",
+        "Derived daily patient status/reason only; header and identity columns protected",
     ),
     CellRange(
         "CONFLICT_LOG",
