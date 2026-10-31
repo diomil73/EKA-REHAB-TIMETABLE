@@ -2,7 +2,7 @@
 
 ## Scope
 
-This checkpoint records the full recovery sequence from the first native J restore attempt through the current pre-M gate. It is intended as the authoritative handoff for the next session so the same debugging tracks are not repeated.
+This checkpoint records the full recovery sequence from the first native J restore attempt through the current M native gate. It is intended as the authoritative handoff so the same debugging tracks are not repeated.
 
 ## Safety invariants preserved
 
@@ -105,7 +105,7 @@ Relevant commits:
 
 K filename is retired. No K workbook exists.
 
-## L build
+## L build and native finding
 
 `UNIFIED_CLOSE_DAY_RECOVERY_20261031_L.xlsm` built successfully.
 
@@ -118,8 +118,6 @@ Evidence:
 
 Build checkpoint commit:
 - `cc985c8`
-
-## L native restore finding
 
 The restore transaction itself persisted the requested changes, but the central operational view then reported:
 
@@ -144,14 +142,12 @@ The helper was changed to follow the same layout-aware strategy as the Python MA
 3. normalize non-empty status cells to `Font.Strikethrough=False`,
 4. if the status column is absent, `Exit Sub` safely instead of raising a hard error.
 
-This means missing/variant status layout can no longer abort the whole operational refresh.
-
 Relevant commits:
 - `bb78577` layout-aware, fail-soft MASTER status normalization
 - `f03c322` regression for native L `MASTER status column not found`
 - `8b796c2` L refresh failure checkpoint
 
-L is frozen as evidence. Do not continue testing on L.
+L is frozen as evidence.
 
 ## Current source gate
 
@@ -163,7 +159,23 @@ Warnings are the known Python 3.14/openpyxl ZipFile destructor warnings from `Te
 
 `PytestUnraisableExceptionWarning: ValueError: I/O operation on closed file.`
 
-They are not current gate failures, but should remain tracked for later cleanup.
+They are not current gate failures, but remain tracked for later cleanup.
+
+## M build
+
+`UNIFIED_CLOSE_DAY_RECOVERY_20261031_M.xlsm` built successfully and is the current native candidate.
+
+Evidence supplied by operator:
+- unified preview build completed successfully,
+- production source unchanged: `True`,
+- VBA project present: `True`,
+- DAILY_INPUT sheet present: `True`,
+- application contract verified: `24/24`,
+- SHA-256 starts `C41AA27AEF444EE2C42D0A95C6B9EB126D65ADE55F3...`,
+- size: `470921` bytes,
+- last write: `2026-10-31 18:59:55` local.
+
+M must not be modified in place except through the intended native smoke workflow.
 
 ## Current status
 
@@ -181,32 +193,34 @@ Patient/session restore stack now has:
 - post-view status readability normalization,
 - canonical builder compatibility with the ledger patch.
 
-Still not native-proven end-to-end after the latest L refresh fix.
+The latest source state is green, but the final patient/session restore path is still not native-proven end-to-end after the layout-aware MASTER fix.
 
-## Immediate next step
+## Immediate native gate
 
-Build a fresh artifact using the next unused filename:
+Use only:
 
 `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261031_M.xlsm`
 
-Do not reuse J, K, or L.
-
 Native M smoke order:
 
-1. open only M,
-2. enter one patient absence in DAILY_INPUT,
-3. apply DAILY_INPUT,
-4. verify MASTER treatment remains visible, red and struck through,
-5. verify MASTER status/reason is readable and not struck through,
-6. verify ledger row is visible under THERAPIST_DAILY,
-7. restore only that row,
-8. verify exact DAILY_INPUT A:E source row clears,
-9. verify THERAPIST_DAILY returns to recurring/base display,
-10. verify MASTER treatment returns to normal,
-11. verify patient status returns to base state (`παρών` for the current specimen),
-12. verify ledger row remains visible as `Επαναφέρθηκε`,
-13. verify the same workbook remains open with no close/reopen.
+1. enter one patient absence in DAILY_INPUT,
+2. apply DAILY_INPUT,
+3. verify MASTER treatment remains visible, red and struck through,
+4. verify MASTER status/reason is readable and not struck through,
+5. verify ledger row is visible under THERAPIST_DAILY,
+6. restore only that row,
+7. verify exact DAILY_INPUT A:E source row clears,
+8. verify THERAPIST_DAILY returns to recurring/base display,
+9. verify MASTER treatment returns to normal,
+10. verify patient status returns to base state (`παρών` for the current specimen),
+11. verify ledger row remains visible as `Επαναφέρθηκε`,
+12. verify the same workbook remains open with no close/reopen,
+13. verify no central-view refresh error appears.
 
 Only after single-row restore passes should `Επαναφορά επιλεγμένων` and `Επαναφορά όλων` be tested.
 
 Do not test therapist-absence restore or close-day yet.
+
+## Deferred bounded improvement
+
+The native restore action still collapses Python preparation failures into the generic user-facing message `Η προετοιμασία επαναφοράς απέτυχε.` The backend JSON response is available but is not yet preserved in the restore diagnostic log. This is a bounded diagnostic improvement and should be implemented after the M native gate so it does not change the source underneath the current M artifact.
