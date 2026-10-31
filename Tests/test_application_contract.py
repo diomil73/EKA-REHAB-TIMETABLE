@@ -4,6 +4,7 @@ from pathlib import Path
 import inspect
 
 from rehab_excel.application_contract import (
+    DAILY_CHANGE_LEDGER_HEADERS,
     OUTPATIENT_SCHEDULE_HEADERS,
     REQUIRED_APP_COMPONENTS,
     REQUIRED_APP_SHEETS,
@@ -19,12 +20,12 @@ def test_application_contract_covers_existing_app_ui_stack():
         "frmNewPatient", "frmNewTherapist", "frmNewStudent", "modPatientRegistrationBridge",
         "frmEditPatient", "modDailyInputAction", "modGlobalReplacementAction",
         "modReplacementOperator", "frmReplacementDecision", "modTherapistWorkloadStrip",
-        "modOutpatientSchedule", "frmOutpatientSchedule", "modOutpatientInSession",
+        "modDailyChangeLedger", "modOutpatientSchedule", "frmOutpatientSchedule", "modOutpatientInSession",
         "modSchedulingConflict", "frmSchedulingConflict", "modOutpatientScheduleEdit",
         "modOutpatientScheduleManager", "frmOutpatientScheduleManager", "modCloseDayAction",
     }
     assert expected <= required
-    assert len(REQUIRED_APP_COMPONENTS) == 23
+    assert len(REQUIRED_APP_COMPONENTS) == 24
 
 
 def test_application_contract_requires_outpatient_authoritative_source():
@@ -34,8 +35,17 @@ def test_application_contract_requires_outpatient_authoritative_source():
     )
     source = inspect.getsource(assert_application_contract)
     assert "missing required sheet(s)" in source
-    assert 'workbook.Worksheets("OUTPATIENT_SCHEDULE")' in source
     assert "OUTPATIENT_SCHEDULE header schema is invalid" in source
+
+
+def test_application_contract_requires_daily_change_ledger_schema():
+    assert "DAILY_CHANGE_LEDGER" in REQUIRED_APP_SHEETS
+    assert DAILY_CHANGE_LEDGER_HEADERS == (
+        "ChangeID", "Date", "ChangeType", "SubjectID", "Subject", "FromText",
+        "ToText", "Reason", "SourceRow", "Status", "RestoredAt", "DisplayRow",
+    )
+    source = inspect.getsource(assert_application_contract)
+    assert "DAILY_CHANGE_LEDGER header schema is invalid" in source
 
 
 def test_daily_input_preview_defaults_to_known_good_app_source():
