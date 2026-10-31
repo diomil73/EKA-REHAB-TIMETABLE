@@ -117,8 +117,6 @@ def _patch_line(patch: CellPatch) -> str:
 
 
 def _source_clear_line(source_row: int) -> str:
-    # DAILY_INPUT patient rows own A:E. The VBA apply layer will validate the
-    # exact source row again before clearing it inside the open workbook.
     return "\t".join(("SOURCE_CLEAR", "DAILY_INPUT", str(source_row), "A", "E"))
 
 
@@ -130,17 +128,17 @@ def prepare_daily_change_restore_payload(
     workbook_path: str | Path,
     payload_path: str | Path,
     *,
-    change_id: str,
+    change_ids: tuple[str, ...],
 ) -> dict[str, object]:
     source = Path(workbook_path).resolve()
     payload = Path(payload_path).resolve()
-    wanted_change_id = str(change_id or "").strip()
+    requested = tuple(dict.fromkeys(str(value or "").strip() for value in change_ids if str(value or "").strip()))
     if not source.exists():
         raise DailyChangeRestorePreparationError(f"Workbook not found: {source}")
     if source.suffix.casefold() != ".xlsm":
         raise DailyChangeRestorePreparationError("Workbook must be an .xlsm file")
-    if not wanted_change_id:
-        raise DailyChangeRestorePreparationError("A non-empty change_id is required")
+    if not requested:
+        raise DailyChangeRestorePreparationError("At least one non-empty change_id is required")
 
     source_hash = file_sha256(source)
     contract = assert_application_contract(source)
@@ -156,29 +154,30 @@ def prepare_daily_change_restore_payload(
         sessions=sessions,
         therapist_names=settings.therapist_names,
     )
-    matches = tuple(
-        change for change in current_daily.source_changes if change.change_id == wanted_change_id
-    )
-    if len(matches) != 1:
+    by_id = {change.change_id: change for change in current_daily.source_changes}
+    missing = tuple(change_id for change_id in requested if change_id not in by_id)
+    if missing:
         raise DailyChangeRestorePreparationError(
-            f"Expected exactly one active DAILY_INPUT source change {wanted_change_id!r}; found {len(matches)}"
+            f"Active DAILY_INPUT source change(s) not found: {missing!r}"
         )
-    change = matches[0]
-    if change.change_type not in SUPPORTED_SOURCE_CHANGE_TYPES:
-        if change.change_type == "therapist_absence":
+    changes = tuple(by_id[change_id] for change_id in requested)
+    unsupported = tuple(change for change in changes if change.change_type not in SUPPORTED_SOURCE_CHANGE_TYPES)
+    if unsupported:
+        if any(change.change_type == "therapist_absence" for change in unsupported):
             raise DailyChangeRestorePreparationError(
                 "Therapist-absence restore requires coordinated rollback of related replacement facts and is not enabled by this preparer"
             )
         raise DailyChangeRestorePreparationError(
-            f"Unsupported DAILY_INPUT source change type: {change.change_type!r}"
+            f"Unsupported DAILY_INPUT source change type(s): {tuple(change.change_type for change in unsupported)!r}"
         )
 
+    ignore_rows = tuple(sorted({change.source_row for change in changes}))
     restored_daily = read_daily_input(
         source,
         patients=patients,
         sessions=sessions,
         therapist_names=settings.therapist_names,
-        ignore_rows=(change.source_row,),
+        ignore_rows=ignore_rows,
         allow_empty=True,
     )
     replacements = read_daily_replacement_facts(
@@ -217,8 +216,8 @@ def prepare_daily_change_restore_payload(
     validate_write_plan(plan)
 
     lines = [
-        _source_clear_line(change.source_row),
-        _restore_marker_line(change.change_id),
+        *(_source_clear_line(change.source_row) for change in changes),
+        *(_restore_marker_line(change.change_id) for change in changes),
         *(_patch_line(patch) for patch in plan.patches),
     ]
     payload.parent.mkdir(parents=True, exist_ok=True)
@@ -237,12 +236,9 @@ def prepare_daily_change_restore_payload(
         "payload_path": str(payload),
         "source_sha256_before": source_hash,
         "date": target_date.isoformat(),
-        "change_id": change.change_id,
-        "change_type": change.change_type,
-        "source_row": change.source_row,
-        "subject_id": change.subject_id,
-        "display_name": change.display_name,
-        "reason": change.reason,
+        "change_ids": list(requested),
+        "change_count": len(changes),
+        "source_rows": list(ignore_rows),
         "patch_count": len(plan.patches),
         "touched_sheets": touched_sheets,
         "application_contract_components": len(contract.component_names),
@@ -252,19 +248,19 @@ def prepare_daily_change_restore_payload(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Prepare an in-place restore payload for one reversible DAILY_INPUT source change."
+        description="Prepare an atomic in-place restore payload for reversible DAILY_INPUT source changes."
     )
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--payload", required=True, type=Path)
     parser.add_argument("--response", type=Path)
-    parser.add_argument("--change-id", required=True)
+    parser.add_argument("--change-id", action="append", default=[])
     args = parser.parse_args()
 
     try:
         result = prepare_daily_change_restore_payload(
             args.input,
             args.payload,
-            change_id=args.change_id,
+            change_ids=tuple(args.change_id),
         )
     except Exception as exc:
         try:
@@ -279,9 +275,8 @@ def main() -> int:
     _write_response(args.response, result)
     print("DAILY CHANGE RESTORE IN-PLACE PAYLOAD VERIFIED")
     print(f"Date: {result['date']}")
-    print(f"Change: {result['change_id']}")
-    print(f"Type: {result['change_type']}")
-    print(f"Source row: {result['source_row']}")
+    print(f"Changes: {result['change_count']}")
+    print(f"Source rows: {', '.join(str(value) for value in result['source_rows'])}")
     print(f"Patches: {result['patch_count']}")
     print("Input unchanged: True")
     return 0
