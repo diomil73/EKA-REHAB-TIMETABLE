@@ -14,64 +14,26 @@ def _normalize_vba(code: str) -> str:
     return code.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def patch_daily_change_ledger_code(code: str) -> str:
-    """Patch only the native defects proven by the M smoke."""
+_SAFE_LEDGER_REFRESH = r'''Public Sub RefreshDailyChangeLedgerView()
+    Dim wsDaily As Worksheet, wsLedger As Worksheet
+    Dim startRow As Long, lastLedgerRow As Long, ledgerRow As Long, displayRow As Long
+    Dim previousStartRow As Long, previousEndRow As Long, previousDisplayRow As Long
+    Dim lastDataCell As Range
+    Dim shp As Shape, cb As Shape, btn As Shape
+    Dim statusText As String, changeType As String
 
-    normalized = _normalize_vba(code)
+    On Error GoTo RenderError
+    Set wsDaily = ThisWorkbook.Worksheets(DAILY_SHEET)
+    Set wsLedger = ThisWorkbook.Worksheets(LEDGER_SHEET)
 
-    view_declaration_marker = (
-        "    Dim startRow As Long, lastLedgerRow As Long, ledgerRow As Long, displayRow As Long\n"
-        "    Dim shp As Shape, cb As Shape, btn As Shape"
-    )
-    view_declaration_replacement = (
-        "    Dim startRow As Long, lastLedgerRow As Long, ledgerRow As Long, displayRow As Long\n"
-        "    Dim previousStartRow As Long, previousEndRow As Long, previousDisplayRow As Long\n"
-        "    Dim lastDataCell As Range\n"
-        "    Dim shp As Shape, cb As Shape, btn As Shape"
-    )
-    if view_declaration_marker not in normalized:
-        raise NativeRestoreRecoveryPatchError(
-            "daily-change ledger view declaration marker not found"
-        )
-    normalized = normalized.replace(
-        view_declaration_marker, view_declaration_replacement, 1
-    )
+    For Each shp In wsDaily.Shapes
+        If Left$(shp.Name, Len(SHAPE_PREFIX)) = SHAPE_PREFIX Then shp.Delete
+    Next shp
 
-    declaration_marker = (
-        "    Dim rollbackPath As String, patchPath As String\n"
-        "    Dim previousEvents As Boolean, previousScreenUpdating As Boolean"
-    )
-    declaration_replacement = (
-        "    Dim rollbackPath As String, patchPath As String\n"
-        "    Dim changeId As String\n"
-        "    Dim previousEvents As Boolean, previousScreenUpdating As Boolean"
-    )
-    if declaration_marker not in normalized:
-        raise NativeRestoreRecoveryPatchError(
-            "daily-change restore declaration marker not found"
-        )
-    normalized = normalized.replace(declaration_marker, declaration_replacement, 1)
-
-    apply_marker = (
-        '        If Not ApplyPayloadFileInPlace(patchPath, "daily-change restore") Then '
-        'Err.Raise vbObjectError + 2836, , "Restore patch apply failed"'
-    )
-    apply_replacement = (
-        "        If Not ApplyValidatedDailyInputPayload(patchPath) Then "
-        'Err.Raise vbObjectError + 2836, , "Restore patch apply failed"'
-    )
-    if apply_marker not in normalized:
-        raise NativeRestoreRecoveryPatchError(
-            "daily-change restore apply marker not found"
-        )
-    normalized = normalized.replace(apply_marker, apply_replacement, 1)
-
-    overlap_replacement = '''    lastLedgerRow = wsLedger.Cells(wsLedger.Rows.Count, 1).End(xlUp).Row
+    lastLedgerRow = wsLedger.Cells(wsLedger.Rows.Count, 1).End(xlUp).Row
     If lastLedgerRow < 2 Then Exit Sub
 
-    ' Never clear an arbitrary block below column A. Operational detail can
-    ' continue in other THERAPIST_DAILY columns. Place the ledger below the
-    ' real last used row and only clear rows previously owned by the ledger.
+    ' Clear only the rows previously owned by this ledger UI.
     For ledgerRow = 2 To lastLedgerRow
         If IsNumeric(wsLedger.Cells(ledgerRow, 12).Value) Then
             previousDisplayRow = CLng(Val(CStr(wsLedger.Cells(ledgerRow, 12).Value)))
@@ -90,6 +52,7 @@ def patch_daily_change_ledger_code(code: str) -> str:
         wsDaily.Range("A" & previousStartRow & ":G" & previousEndRow).Font.Bold = False
     End If
 
+    ' Anchor below the true last used row across the whole sheet, not column A.
     Set lastDataCell = wsDaily.Cells.Find(What:="*", After:=wsDaily.Cells(1, 1), _
                                          LookIn:=xlFormulas, LookAt:=xlPart, _
                                          SearchOrder:=xlByRows, SearchDirection:=xlPrevious, _
@@ -99,18 +62,124 @@ def patch_daily_change_ledger_code(code: str) -> str:
     Else
         startRow = lastDataCell.Row + 3
         If startRow < 21 Then startRow = 21
-    End If'''
+    End If
 
-    overlap_pattern = re.compile(
-        r"^[ \t]*startRow[ \t]*=[ \t]*wsDaily\.Cells\(wsDaily\.Rows\.Count,[ \t]*1\)\.End\(xlUp\)\.Row[ \t]*\+[ \t]*3[ \t]*\n"
-        r".*?"
-        r"^[ \t]*If[ \t]+lastLedgerRow[ \t]*<[ \t]*2[ \t]+Then[ \t]+Exit[ \t]+Sub[ \t]*$",
-        re.MULTILINE | re.DOTALL,
+    wsDaily.Cells(startRow, 1).Value = "Αλλαγές ημέρας"
+    With wsDaily.Range("A" & startRow & ":G" & startRow)
+        .Font.Bold = True
+        .Interior.Color = RGB(221, 235, 247)
+    End With
+    wsDaily.Cells(startRow + 1, 1).Value = "✓"
+    wsDaily.Cells(startRow + 1, 2).Value = "Ασθενής / Θεραπευτής"
+    wsDaily.Cells(startRow + 1, 3).Value = "Από"
+    wsDaily.Cells(startRow + 1, 4).Value = "Προς"
+    wsDaily.Cells(startRow + 1, 5).Value = "Αιτία"
+    wsDaily.Cells(startRow + 1, 6).Value = "Κατάσταση"
+    wsDaily.Cells(startRow + 1, 7).Value = "Ενέργεια"
+    wsDaily.Range("A" & startRow + 1 & ":G" & startRow + 1).Font.Bold = True
+
+    displayRow = startRow + 2
+    For ledgerRow = 2 To lastLedgerRow
+        If Len(Trim$(CStr(wsLedger.Cells(ledgerRow, 1).Value))) = 0 Then GoTo NextLedger
+        statusText = UCase$(Trim$(CStr(wsLedger.Cells(ledgerRow, 10).Value)))
+        changeType = LCase$(Trim$(CStr(wsLedger.Cells(ledgerRow, 3).Value)))
+        wsDaily.Cells(displayRow, 2).Value = wsLedger.Cells(ledgerRow, 5).Value
+        wsDaily.Cells(displayRow, 3).Value = wsLedger.Cells(ledgerRow, 6).Value
+        wsDaily.Cells(displayRow, 4).Value = wsLedger.Cells(ledgerRow, 7).Value
+        wsDaily.Cells(displayRow, 5).Value = GreekLedgerReason(CStr(wsLedger.Cells(ledgerRow, 8).Value))
+        If statusText = STATUS_RESTORED Then
+            wsDaily.Cells(displayRow, 6).Value = "Επαναφέρθηκε"
+            wsDaily.Range("B" & displayRow & ":G" & displayRow).Font.Color = RGB(128, 128, 128)
+            wsDaily.Range("B" & displayRow & ":G" & displayRow).Font.Italic = True
+        Else
+            wsDaily.Cells(displayRow, 6).Value = "Ενεργή αλλαγή"
+            If changeType = "patient_absence" Or changeType = "session_cancellation" Then
+                Set cb = wsDaily.Shapes.AddFormControl(1, wsDaily.Cells(displayRow, 1).Left + 4, wsDaily.Cells(displayRow, 1).Top + 2, 16, 16)
+                cb.Name = SHAPE_PREFIX & "Select_" & CStr(ledgerRow)
+                cb.TextFrame.Characters.Text = ""
+                Set btn = wsDaily.Shapes.AddFormControl(0, wsDaily.Cells(displayRow, 7).Left + 2, wsDaily.Cells(displayRow, 7).Top + 1, wsDaily.Cells(displayRow, 7).Width - 4, wsDaily.Cells(displayRow, 7).Height - 2)
+                btn.Name = SHAPE_PREFIX & "Restore_" & CStr(ledgerRow)
+                btn.TextFrame.Characters.Text = "Επαναφορά"
+                btn.OnAction = "RestoreDailyChangeRow"
+            Else
+                wsDaily.Cells(displayRow, 7).Value = "Επαναφορά σύντομα"
+            End If
+        End If
+        wsLedger.Cells(ledgerRow, 12).Value2 = displayRow
+        displayRow = displayRow + 1
+NextLedger:
+    Next ledgerRow
+
+    Set btn = wsDaily.Shapes.AddFormControl(0, wsDaily.Cells(displayRow + 1, 2).Left, wsDaily.Cells(displayRow + 1, 2).Top, 170, 26)
+    btn.Name = SHAPE_PREFIX & "RestoreSelected"
+    btn.TextFrame.Characters.Text = "Επαναφορά επιλεγμένων"
+    btn.OnAction = "RestoreSelectedDailyChanges"
+
+    Set btn = wsDaily.Shapes.AddFormControl(0, wsDaily.Cells(displayRow + 1, 5).Left, wsDaily.Cells(displayRow + 1, 5).Top, 145, 26)
+    btn.Name = SHAPE_PREFIX & "RestoreAll"
+    btn.TextFrame.Characters.Text = "Επαναφορά όλων"
+    btn.OnAction = "RestoreAllDailyChanges"
+
+    wsDaily.Columns("A").ColumnWidth = 8
+    wsDaily.Columns("B").ColumnWidth = 28
+    wsDaily.Columns("C:D").ColumnWidth = 24
+    wsDaily.Columns("E").ColumnWidth = 30
+    wsDaily.Columns("F").ColumnWidth = 18
+    wsDaily.Columns("G").ColumnWidth = 21
+    Exit Sub
+RenderError:
+    MsgBox "Δεν ήταν δυνατή η εμφάνιση της λίστας αλλαγών: " & Err.Description, vbExclamation, "Αλλαγές ημέρας"
+End Sub'''
+
+
+def _replace_vba_sub(code: str, signature: str, replacement: str) -> str:
+    pattern = re.compile(
+        rf"(?ims)^\s*{re.escape(signature)}\s*$.*?^\s*End Sub\s*$"
     )
-    normalized, overlap_count = overlap_pattern.subn(overlap_replacement, normalized, count=1)
-    if overlap_count != 1:
+    updated, count = pattern.subn(replacement, code, count=1)
+    if count != 1:
         raise NativeRestoreRecoveryPatchError(
-            "THERAPIST_DAILY ledger overlap markers not found semantically"
+            f"VBA procedure boundary not found exactly once: {signature}"
+        )
+    return updated
+
+
+def patch_daily_change_ledger_code(code: str) -> str:
+    """Patch only the native defects proven by the M smoke."""
+
+    normalized = _normalize_vba(code)
+
+    normalized = _replace_vba_sub(
+        normalized,
+        "Public Sub RefreshDailyChangeLedgerView()",
+        _SAFE_LEDGER_REFRESH,
+    )
+
+    declaration_marker = (
+        "    Dim rollbackPath As String, patchPath As String\n"
+        "    Dim previousEvents As Boolean, previousScreenUpdating As Boolean"
+    )
+    declaration_replacement = (
+        "    Dim rollbackPath As String, patchPath As String\n"
+        "    Dim changeId As String\n"
+        "    Dim previousEvents As Boolean, previousScreenUpdating As Boolean"
+    )
+    if declaration_marker not in normalized:
+        raise NativeRestoreRecoveryPatchError(
+            "daily-change restore declaration marker not found"
+        )
+    normalized = normalized.replace(declaration_marker, declaration_replacement, 1)
+
+    apply_pattern = re.compile(
+        r'(?m)^\s*If Not ApplyPayloadFileInPlace\(patchPath,\s*"daily-change restore"\) Then\s*Err\.Raise vbObjectError \+ 2836, , "Restore patch apply failed"\s*$'
+    )
+    apply_replacement = (
+        '        If Not ApplyValidatedDailyInputPayload(patchPath) Then Err.Raise vbObjectError + 2836, , "Restore patch apply failed"'
+    )
+    normalized, apply_count = apply_pattern.subn(apply_replacement, normalized, count=1)
+    if apply_count != 1:
+        raise NativeRestoreRecoveryPatchError(
+            "daily-change restore apply marker not found semantically"
         )
 
     if "ApplyPayloadFileInPlace" in normalized:
