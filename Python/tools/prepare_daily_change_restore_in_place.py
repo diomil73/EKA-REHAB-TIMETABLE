@@ -4,6 +4,7 @@ import argparse
 from datetime import date, datetime
 import json
 from pathlib import Path
+import re
 import sys
 
 from openpyxl import load_workbook
@@ -14,7 +15,7 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
-from rehab_core.daily_state import build_daily_session_states  # noqa: E402
+from rehab_core.daily_state import DailySessionStatus, build_daily_session_states  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
@@ -24,11 +25,21 @@ from rehab_excel.master_daily_overlay import (  # noqa: E402
     build_master_daily_overlay_plan,
     compose_master_daily_overlay,
 )
+from rehab_excel.master_projection import build_master_projection  # noqa: E402
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
-from rehab_excel.patient_centric_preview import build_patient_centric_preview_plan  # noqa: E402
+from rehab_excel.patient_centric_preview import (  # noqa: E402
+    build_patient_centric_preview_plan,
+    render_base_slot,
+)
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
 from rehab_excel.reader import read_settings  # noqa: E402
-from rehab_excel.writeback import CellPatch, validate_write_plan  # noqa: E402
+from rehab_excel.writeback import (  # noqa: E402
+    CellPatch,
+    TextRunPatch,
+    WriteIntent,
+    build_write_plan,
+    validate_write_plan,
+)
 
 
 class DailyChangeRestorePreparationError(RuntimeError):
@@ -124,6 +135,142 @@ def _restore_marker_line(change_id: str) -> str:
     return "\t".join(("RESTORE_CHANGE", _escape(change_id)))
 
 
+def _plain_runs(text: str, *, font_role: str = "default") -> tuple[TextRunPatch, ...]:
+    if not text:
+        return ()
+    return (
+        TextRunPatch(
+            start=1,
+            length=len(text),
+            strike_through=False,
+            italic=False,
+            font_role=font_role,
+        ),
+    )
+
+
+def _base_slot_runs(render) -> tuple[TextRunPatch, ...]:
+    runs: list[TextRunPatch] = []
+    cursor = 0
+    for line in render.lines:
+        if line.text:
+            runs.append(
+                TextRunPatch(
+                    start=cursor + 1,
+                    length=len(line.text),
+                    strike_through=False,
+                    italic=False,
+                    font_role=line.font_role or "default",
+                )
+            )
+        cursor += len(line.text) + 1
+    return tuple(runs)
+
+
+def _cell_row(cell: str) -> int:
+    match = re.search(r"(\d+)$", str(cell).strip())
+    if match is None:
+        raise DailyChangeRestorePreparationError(f"Could not parse row from cell {cell!r}")
+    return int(match.group(1))
+
+
+def _build_clean_day_restore_plan(
+    source: Path,
+    *,
+    base_entries,
+    current_states,
+    sessions,
+    patients,
+):
+    """Restore only cells touched by the current deviations when final truth is all ACTIVE."""
+
+    patient_map = {patient.patient_id: patient for patient in patients}
+    session_by_id = {session.session_id: session for session in sessions}
+    grouped: dict[tuple[str, object], list[object]] = {}
+    for entry in base_entries:
+        if entry.therapist_id is not None:
+            grouped.setdefault((entry.therapist_id, entry.start_time), []).append(entry)
+
+    current_preview = build_patient_centric_preview_plan(
+        source,
+        base_entries=base_entries,
+        states=current_states,
+        sessions=sessions,
+        patients=patients,
+        rebuild_multi_member_groups=False,
+    )
+
+    patches: list[CellPatch] = []
+    seen_daily_cells: set[str] = set()
+    for binding in current_preview.bindings:
+        if binding.original_cell in seen_daily_cells:
+            continue
+        session = session_by_id.get(binding.session_id)
+        if session is None:
+            raise DailyChangeRestorePreparationError(
+                f"Missing session {binding.session_id!r} while restoring clean day"
+            )
+        key = (session.therapist_id, session.start_time)
+        render = render_base_slot(key[0], key[1], grouped.get(key, ()), patient_map)
+        patches.append(
+            CellPatch(
+                sheet="THERAPIST_DAILY",
+                cell=binding.original_cell,
+                value=render.text,
+                wrap_text=True,
+                text_runs=_base_slot_runs(render),
+                source_tag="daily_change_restore_base_slot",
+            )
+        )
+        seen_daily_cells.add(binding.original_cell)
+
+    current_master = build_master_daily_overlay_plan(
+        source,
+        base_entries=base_entries,
+        states=current_states,
+        patients=patients,
+    )
+    projection = build_master_projection(source, patients=patients)
+    status_by_row = {item.target_row: str(item.status or "") for item in projection}
+
+    wb = load_workbook(source, read_only=True, data_only=False, keep_vba=True)
+    try:
+        master = wb["MASTER_SCHEDULE"]
+        for patch in current_master.write_plan.patches:
+            if patch.source_tag == "master_daily_non_active_overlay":
+                value = str(master[patch.cell].value or "")
+                patches.append(
+                    CellPatch(
+                        sheet="MASTER_SCHEDULE",
+                        cell=patch.cell,
+                        value=value,
+                        wrap_text=True,
+                        text_runs=_plain_runs(value),
+                        source_tag="master_daily_restore_overlay",
+                    )
+                )
+            elif patch.source_tag == "master_daily_patient_status_overlay":
+                value = status_by_row.get(_cell_row(patch.cell), "")
+                patches.append(
+                    CellPatch(
+                        sheet="MASTER_SCHEDULE",
+                        cell=patch.cell,
+                        value=value,
+                        wrap_text=True,
+                        text_runs=_plain_runs(value),
+                        source_tag="master_daily_restore_status",
+                    )
+                )
+    finally:
+        wb.close()
+
+    if not patches:
+        raise DailyChangeRestorePreparationError(
+            "Clean-day restore produced no operational projection patches"
+        )
+    return build_write_plan(source, patches)
+
+
 def prepare_daily_change_restore_payload(
     workbook_path: str | Path,
     payload_path: str | Path,
@@ -132,7 +279,13 @@ def prepare_daily_change_restore_payload(
 ) -> dict[str, object]:
     source = Path(workbook_path).resolve()
     payload = Path(payload_path).resolve()
-    requested = tuple(dict.fromkeys(str(value or "").strip() for value in change_ids if str(value or "").strip()))
+    requested = tuple(
+        dict.fromkeys(
+            str(value or "").strip()
+            for value in change_ids
+            if str(value or "").strip()
+        )
+    )
     if not source.exists():
         raise DailyChangeRestorePreparationError(f"Workbook not found: {source}")
     if source.suffix.casefold() != ".xlsm":
@@ -161,7 +314,11 @@ def prepare_daily_change_restore_payload(
             f"Active DAILY_INPUT source change(s) not found: {missing!r}"
         )
     changes = tuple(by_id[change_id] for change_id in requested)
-    unsupported = tuple(change for change in changes if change.change_type not in SUPPORTED_SOURCE_CHANGE_TYPES)
+    unsupported = tuple(
+        change
+        for change in changes
+        if change.change_type not in SUPPORTED_SOURCE_CHANGE_TYPES
+    )
     if unsupported:
         if any(change.change_type == "therapist_absence" for change in unsupported):
             raise DailyChangeRestorePreparationError(
@@ -193,26 +350,46 @@ def prepare_daily_change_restore_payload(
         target_date=target_date,
     )
 
-    preview = build_patient_centric_preview_plan(
-        source,
-        base_entries=base_entries,
-        states=states,
-        sessions=sessions,
-        patients=patients,
-        rebuild_multi_member_groups=True,
+    non_active_after_restore = tuple(
+        state for state in states if state.status != DailySessionStatus.ACTIVE
     )
-    plan = compose_outpatient_daily_plan(
-        preview.write_plan,
-        states=states,
-        patients=patients,
-    )
-    master_overlay = build_master_daily_overlay_plan(
-        source,
-        base_entries=base_entries,
-        states=states,
-        patients=patients,
-    )
-    plan = compose_master_daily_overlay(plan, master_overlay)
+    if non_active_after_restore:
+        preview = build_patient_centric_preview_plan(
+            source,
+            base_entries=base_entries,
+            states=states,
+            sessions=sessions,
+            patients=patients,
+            rebuild_multi_member_groups=True,
+        )
+        plan = compose_outpatient_daily_plan(
+            preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        master_overlay = build_master_daily_overlay_plan(
+            source,
+            base_entries=base_entries,
+            states=states,
+            patients=patients,
+        )
+        plan = compose_master_daily_overlay(plan, master_overlay)
+    else:
+        current_states = build_daily_session_states(
+            sessions,
+            absences=current_daily.absences,
+            replacements=replacements,
+            cancellations=current_daily.cancellations,
+            target_date=target_date,
+        )
+        plan = _build_clean_day_restore_plan(
+            source,
+            base_entries=base_entries,
+            current_states=current_states,
+            sessions=sessions,
+            patients=patients,
+        )
+
     validate_write_plan(plan)
 
     lines = [
@@ -228,7 +405,9 @@ def prepare_daily_change_restore_payload(
             payload.unlink()
         except OSError:
             pass
-        raise DailyChangeRestorePreparationError("Workbook changed during daily-change restore validation")
+        raise DailyChangeRestorePreparationError(
+            "Workbook changed during daily-change restore validation"
+        )
 
     touched_sheets = sorted({patch.sheet for patch in plan.patches})
     return {
