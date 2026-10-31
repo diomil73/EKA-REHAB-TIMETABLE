@@ -118,6 +118,37 @@ def _patch_line(patch: CellPatch) -> str:
     return "\t".join(["PATCH", *(_escape(value) for value in fields)])
 
 
+def _change_line(change, target_date: date) -> str:
+    if change.change_type == "patient_absence":
+        from_text = "Κανονικό πρόγραμμα"
+        to_text = "Απουσία ασθενούς"
+    elif change.change_type == "session_cancellation":
+        from_text = "Προγραμματισμένη συνεδρία"
+        to_text = "Ακύρωση συνεδρίας"
+    elif change.change_type == "therapist_absence":
+        from_text = "Κανονικό πρόγραμμα θεραπευτή"
+        to_text = "Απουσία θεραπευτή"
+    else:
+        from_text = "Κανονική κατάσταση"
+        to_text = change.change_type
+    if change.start_time is not None:
+        to_text = f"{to_text} {change.start_time.strftime('%H:%M')}"
+    elif change.all_day:
+        to_text = f"{to_text} όλη ημέρα"
+    fields = (
+        change.change_id,
+        target_date.isoformat(),
+        change.change_type,
+        change.subject_id,
+        change.display_name,
+        from_text,
+        to_text,
+        change.reason,
+        change.source_row,
+    )
+    return "\t".join(["CHANGE", *(_escape(value) for value in fields)])
+
+
 def prepare_daily_input_payload(
     workbook_path: str | Path,
     payload_path: str | Path,
@@ -188,11 +219,12 @@ def prepare_daily_input_payload(
     plan = compose_master_daily_overlay(plan, master_overlay)
     validate_write_plan(plan)
 
+    lines = [
+        *(_change_line(change, target_date) for change in daily.source_changes),
+        *(_patch_line(patch) for patch in plan.patches),
+    ]
     payload.parent.mkdir(parents=True, exist_ok=True)
-    payload.write_text(
-        "\n".join(_patch_line(patch) for patch in plan.patches) + "\n",
-        encoding="utf-8-sig",
-    )
+    payload.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
 
     if file_sha256(source) != source_hash:
         try:
@@ -212,6 +244,7 @@ def prepare_daily_input_payload(
         "operational_absences": len(daily.absences),
         "session_cancellations": len(daily.cancellations),
         "daily_input_changes": len(daily.source_changes),
+        "ledger_rows": len(daily.source_changes),
         "active_replacements": len(replacements),
         "changed_sessions": len(preview.bindings),
         "replacement_sessions_needed": replacement_sessions_needed,
@@ -248,6 +281,7 @@ def main() -> int:
     print(f"Date: {result['date']}")
     print(f"Patches: {result['patch_count']}")
     print(f"Daily input changes: {result['daily_input_changes']}")
+    print(f"Ledger rows: {result['ledger_rows']}")
     print(f"Touched sheets: {', '.join(result['touched_sheets'])}")
     print(f"Active replacements: {result['active_replacements']}")
     print(f"Replacement sessions needed: {result['replacement_sessions_needed']}")
