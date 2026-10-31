@@ -14,7 +14,8 @@ def test_canonical_registration_build_installs_and_verifies_workload_strip():
 
     assert "install_therapist_workload_strip(vbproject, workbook)" in install_source
     assert "WORKLOAD_MODULE_NAME" in install_source
-    assert "Therapist workload strip module was not confirmed" in install_source
+    assert '("verifying therapist workload strip", WORKLOAD_MODULE_NAME, "Therapist workload strip")' in install_source
+    assert 'f"{error_label} module was not confirmed in the preview VBA project"' in install_source
     assert "_install_close_day_action_in_workbook(output)" in main_source
     assert "Therapist workload strip present:" in main_source
-    assert "_remove_component_if_present(vbproject, WORKLOAD_MODULE_NAME)" in clean_source
+    assert '("removing old therapist workload strip module", WORKLOAD_MODULE_NAME)' in clean_source
