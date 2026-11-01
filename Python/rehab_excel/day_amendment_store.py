@@ -137,6 +137,10 @@ def persist_day_amendment(
         excel.ScreenUpdating = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
+        if bool(workbook.ReadOnly):
+            raise DayAmendmentStoreError(
+                "Workbook is still in use and opened read-only; retry after Excel releases it"
+            )
 
         snapshot_ws = _find_sheet(workbook, SNAPSHOT_SHEET)
         therapist_ws = _find_sheet(workbook, THERAPIST_SHEET)
