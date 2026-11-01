@@ -73,7 +73,10 @@ Public Sub ApplyDailyInputPreview()
     End If
 
     currentPhase = "apply payload"
-    If Not ApplyValidatedDailyInputPayload(payloadPath) Then GoTo CleanUp
+    If Not ApplyValidatedDailyInputPayload(payloadPath) Then
+        PreserveDailyInputFailureArtifacts payloadPath, responsePath
+        GoTo CleanUp
+    End If
     currentPhase = "refresh operational views"
     If Not RefreshOperationalViews() Then GoTo CleanUp
 
@@ -189,6 +192,22 @@ ApplyError:
            "Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Ημερήσια κατάσταση"
     Resume ApplyExit
 End Function
+
+
+Private Sub PreserveDailyInputFailureArtifacts(ByVal payloadPath As String, ByVal responsePath As String)
+    Dim payloadCopy As String, responseCopy As String
+
+    On Error Resume Next
+    payloadCopy = Environ$("TEMP") & "\eka_daily_input_last_payload.tsv"
+    responseCopy = Environ$("TEMP") & "\eka_daily_input_last_response.json"
+
+    If Dir$(payloadCopy) <> "" Then Kill payloadCopy
+    If Len(payloadPath) > 0 And Dir$(payloadPath) <> "" Then FileCopy payloadPath, payloadCopy
+
+    If Dir$(responseCopy) <> "" Then Kill responseCopy
+    If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then FileCopy responsePath, responseCopy
+    On Error GoTo 0
+End Sub
 
 Private Function RefreshOperationalViews() As Boolean
     Dim master As Worksheet, daily As Worksheet
