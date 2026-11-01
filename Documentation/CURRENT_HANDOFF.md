@@ -27,83 +27,111 @@ The system exists to:
 
 Do not let a local technical workaround undermine those goals.
 
-## Most important current forensic conclusion
+## Current recovery status
 
-The patient-centric / DAILY_INPUT planning engine is still functional.
+The DAILY_INPUT native apply/restore recovery blocker is closed for the tested patient-absence scenario.
 
-On 2026-11-01 the user ran the old copy-based apply path against the current U workbook:
+Fresh canonical workbook:
 
-- input: `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261101_U.xlsm`
-- output: `Excel/previews/DIAGNOSTIC_OLD_ENGINE_FROM_U_20261101.xlsm`
-- tool: `Python/tools/apply_daily_input.py`
+`Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261101_X.xlsm`
 
-Result:
+Native scenario:
 
-- `DAILY INPUT APPLIED PREVIEW OK`
-- patient rows read: 1
-- operational absences: 1
-- changed sessions: 1
-- `patient_absent: planner:4:ΦΘ@2026-10-30 [B7]`
-- input unchanged: True
-- VBA preserved: True
-- input hash unchanged: True
+- patient `ΖΑΛΟΚΩΣΤΑΣ`,
+- all-day absence,
+- reason/status `διακομισμένος`,
+- Apply once,
+- Restore once.
 
-Checkpoint: `f6e77bd89f3dd2ed3b0ca79b275d7d265510f382`
+Observed green result:
 
-Therefore the current failure is NOT evidence that the replacement/patient-centric engine is broken.
+- patient removed correctly from MASTER and THERAPIST_DAILY during active absence,
+- patient restored correctly to MASTER and THERAPIST_DAILY,
+- `MASTER_SCHEDULE!D8` returned to its internal `PATIENT_PLANNER` formula with no `[1]` external-workbook qualifier,
+- `MASTER_SCHEDULE!M8` returned to `παρών`,
+- `DAILY_CHANGE_LEDGER` row moved from `ACTIVE` to `RESTORED`,
+- `RestoredAt` was populated,
+- DAILY_INPUT source row was cleared after restore.
 
-## Active blocker
+The old W failure was fully explained:
 
-The newer in-place VBA transaction applies the prepared payload, then fails semantic read-back at the first MASTER treatment presentation patch and rolls the transaction back.
+- restore patch #2 targeted `MASTER_SCHEDULE!D8`,
+- a formula string had been serialized as a normal value patch,
+- VBA compared `cell.Value` against formula text and produced a deterministic read-back mismatch,
+- rollback then used cross-workbook Copy and rewrote internal formulas as `[1]PATIENT_PLANNER!...`.
 
-Observed error log pattern:
+Canonical fix commit:
 
-- phase: `verify patch`
-- patch_index: `2`
-- sheet: `MASTER_SCHEDULE`
-- cell: D8 or equivalent affected treatment cell
-- error: `DAILY_INPUT read-back mismatch`
+`70f1564` — `Fix DAILY_INPUT restore formula contract`
 
-Restore then fails secondarily because it uses the same validated patch engine.
+Green focused source gate before X:
 
-This rollback hides all downstream effects, which explains why the user sees no durable THERAPIST_DAILY source/destination changes, ledger progression or restore behavior.
+`17 passed in 4.43s`
+
+Native X proof checkpoint:
+
+`921422f` — `Record green native X restore proof`
+
+## Important interpretation of diagnostic logs
+
+The remaining `%TEMP%` restore / DAILY_INPUT error logs observed after X had timestamps around 18:44 and belong to the earlier failed W run. X restored successfully at approximately 19:06. Do not treat those stale logs as X failures.
+
+## Small post-recovery usability follow-ups
+
+These are not blockers for close-day/history work:
+
+- when a patient is marked `διακομισμένος`, the visible status text may still show strike presentation,
+- patient-absence ledger `FromText` currently says only `Κανονικό πρόγραμμα`; a later usability enhancement should show the original therapist and scheduled time, reusing the same scheduling/replacement facts already used in therapist-absence workflows.
+
+Do not reopen the recovery track solely for these cosmetic/history-display enhancements.
+
+## Current application contract
+
+`modCloseDayAction` is already present in `REQUIRED_APP_COMPONENTS` in `Python/rehab_excel/application_contract.py`.
+
+Therefore the older 2026-10-30 close-day checkpoint instruction to promote `modCloseDayAction` into the contract is obsolete.
 
 ## Exact next step
 
-Do not build another V/W artifact yet.
+Return to the product roadmap:
 
-Do not modify the replacement solver.
+1. close-day/history regression gate on the current canonical source,
+2. if green, build a fresh uniquely named workbook,
+3. perform one native close-day smoke,
+4. verify finalized day snapshots, therapist history and day history events,
+5. only after native close-day proof continue to statistics/reporting.
 
-Do not modify patient-centric THERAPIST_DAILY rendering.
+Do not restart DAILY_INPUT verifier debugging unless new native evidence specifically points back there.
 
-Instrument the VBA verifier so the failing MASTER patch logs each individual verification predicate before rollback:
+## Close-day/history stack already recovered
 
-- expected/actual value,
-- source tag,
-- strike state,
-- font color,
-- text-run state,
-- source-tag presentation result,
-- generic strike verification result,
-- exact branch/Exit Function responsible for failure.
+The recovered close-day implementation includes:
 
-The next source change must be based on that exact predicate, not another blind verifier guess.
+- explicit operator confirmation,
+- read-only preparation before mutation,
+- in-session persistence,
+- `FINALIZED_DAY_SNAPSHOTS`,
+- `THERAPIST_DAY_HISTORY`,
+- `DAY_HISTORY_EVENTS`,
+- duplicate/schema preflight,
+- semantic row read-back,
+- rollback of partial history writes on failure,
+- technical history sheets kept `xlSheetVeryHidden`,
+- same-workbook save on success.
 
-## Recent source gate
+Historical close-day checkpoint:
 
-Bounded MASTER tri-state/read-back source tests reached:
+`Documentation/CLOSE_DAY_VBA_RECOVERY_CHECKPOINT_2026-10-30.md`
 
-`63 passed, 2 warnings in 3.88s`
-
-The warnings are known Python 3.14 ZipFile cleanup warnings and are not current blockers.
+Use it for implementation history only. Its old next-step section has been superseded by this handoff.
 
 ## Native artifact rule
 
-Freeze all prior smoke artifacts. Never repair/reuse them.
+Freeze prior smoke artifacts. Never repair/reuse them.
 
-U is evidence only.
-
-A new native artifact is created only after the next diagnostic/source fix passes its focused Python regression gate.
+- W is failed restore evidence only.
+- X is green apply/restore evidence only.
+- the next native close-day test must use a fresh uniquely named workbook.
 
 ## Retired approach
 
@@ -128,4 +156,4 @@ Normal builds use only:
 
 ## User working preference
 
-Continue proactively without waiting for repeated “ok”. Ask for user action only when a genuinely local/native result is required. Keep detailed checkpoint notes for every meaningful outcome so a future conversation never needs to rediscover the same ground.
+Continue proactively without waiting for repeated `ok`. Ask for user action only when a genuinely local/native result is required. Keep detailed checkpoint notes for every meaningful outcome so a future conversation never needs to rediscover the same ground.
