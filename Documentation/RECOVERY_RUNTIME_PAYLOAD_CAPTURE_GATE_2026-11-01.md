@@ -7,9 +7,9 @@ Native U failure evidence and fresh manual payload evidence disagree on patch or
 - native U log at 2026-11-01 12:37:33 reports `patch_index=2`, `MASTER_SCHEDULE!D8`,
 - a fresh payload prepared from the same U workbook reports `MASTER_SCHEDULE!D8` as raw `PATCH #11` and `MASTER_SCHEDULE!M8` as `PATCH #12`.
 
-This discrepancy must be resolved before changing verifier semantics again.
+This discrepancy had to be resolved before changing verifier semantics again.
 
-## What has been ruled out
+## What was ruled out
 
 ### Wrong workbook VBA / wrong script path
 
@@ -58,13 +58,7 @@ Observed proof:
 - `VBA preserved: True`
 - source SHA256 unchanged before/after.
 
-Therefore the business/planning engine remains functional and must not be rewritten based on the current native rollback symptom.
-
-## Decision
-
-Do not modify replacement logic, THERAPIST_DAILY rendering, MASTER verifier semantics, or start another blind rebuild cycle merely from the contradictory patch number.
-
-First capture the exact payload used by Excel at runtime.
+Therefore the business/planning engine remains functional and must not be rewritten based on the earlier native rollback symptom.
 
 ## Diagnostic source change
 
@@ -97,36 +91,130 @@ Result:
 
 `14 passed in 4.00s`
 
-This is the accepted source gate for the runtime payload capture change.
+Accepted canonical source commit:
 
-## Exact next sequence
+`1b039de796a6609a3bf16983b7b8beb67bfc0685` — `Capture failing DAILY_INPUT runtime payload`
 
-1. Run `git diff --check`.
-2. Commit/push only the canonical `Python/rehab_excel/daily_input_action_vba.py` change.
-3. Build one fresh canonical workbook only:
-   - `Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261101_V.xlsm`
-   - using `Python/tools/build_unified_preview.py`
-   - no overwrite
-   - no post-build patcher.
-4. Delete only the old `%TEMP%` diagnostic capture files before native testing.
-5. Open V only.
-6. Enter the same single patient absence in `DAILY_INPUT`.
-7. Press Apply once.
-8. If it fails, do not retry V.
-9. Immediately capture:
-   - `%TEMP%\eka_daily_input_last_error.log`
-   - `%TEMP%\eka_daily_input_last_payload.tsv`
-   - `%TEMP%\eka_daily_input_last_response.json`
-10. Compare the actual runtime payload line-for-line with a fresh manual payload from the same frozen V state before making any verifier change.
+## V native provenance
+
+Fresh workbook:
+
+`Excel/previews/UNIFIED_CLOSE_DAY_RECOVERY_20261101_V.xlsm`
+
+Provenance inspection showed:
+
+- workbook SHA256: `1dd912b91d232e631897fa99bf2a309d39c809add5fa8d0b1b912844695ec80e`,
+- `MODULE_LINES: 660`,
+- character-strike helper present,
+- tri-state non-active branch present,
+- whole-cell-first verifier comment present,
+- resolver points to repository `Python/tools/prepare_daily_input_in_place.py`,
+- resolved script hash equals repository script hash,
+- branch HEAD was `1b039de` when the native V was built/run.
+
+Therefore V definitely contained the intended runtime-capture source.
+
+## V native outcome — FIRST GREEN IN-PLACE PATIENT ABSENCE
+
+The runtime capture files did not exist after the V run. Read-only post-run inspection proved this was because the validated apply did **not fail**. The patient absence was durably committed.
+
+Observed V state:
+
+### DAILY_INPUT
+
+- date: `30/10/2026`,
+- row 21: patient `ΖΑΛΟΚΩΣΤΑΣ`, all day `ΝΑΙ`, status/reason `διακομισμένος`.
+
+### THERAPIST_DAILY
+
+`B7`:
+
+- value: `ΖΑΛΟΚΩΣΤΑΣ`,
+- `strike=True`,
+- muted/gray font preserved,
+- infectious yellow fill preserved.
+
+Other rebuilt multi-member cells were also present and readable, including D2, H2, I13, J13, E14, E15, G6, J16, F17.
+
+### MASTER_SCHEDULE
+
+`D8`:
+
+- original formula preserved,
+- `strike=True`,
+- font color red,
+- fill preserved.
+
+`M8`:
+
+- value: `διακομισμένος`,
+- font color red,
+- no whole-cell strike.
+
+Nearby unaffected row 9 remained normal, confirming the overlay did not smear into adjacent patient rows.
+
+### DAILY_CHANGE_LEDGER
+
+Row 2 was persisted:
+
+- ChangeID: `daily-input:2026-10-30:patient:21`,
+- ChangeType: `patient_absence`,
+- Subject: `ΖΑΛΟΚΩΣΤΑΣ`,
+- FromText: `Κανονικό πρόγραμμα`,
+- ToText: `Απουσία ασθενούς όλη ημέρα`,
+- Reason: `διακομισμένος`,
+- SourceRow: `21`,
+- Status: `ACTIVE`.
+
+## Architectural conclusion after V
+
+The earlier native blocker `DAILY_INPUT read-back mismatch` at `MASTER_SCHEDULE D8/D9` is now cleared for this patient-absence scenario.
+
+This is the first native proof that the current in-place transaction can:
+
+1. read DAILY_INPUT,
+2. compute the patient-centric operational plan,
+3. apply THERAPIST_DAILY changes,
+4. apply MASTER presentation/status overlay,
+5. pass semantic read-back verification,
+6. persist an ACTIVE daily-change ledger row,
+7. save the same workbook without rollback.
+
+Therefore:
+
+- do not reopen the D8/D9 verifier investigation unless new contradictory evidence appears,
+- do not modify replacement/global solver,
+- do not modify patient-centric renderer,
+- do not interpret missing failure-capture files as a problem when the transaction succeeded.
+
+## Next gate
+
+The recovery blocker now advances to **native restore proof**.
+
+Use one fresh workbook for an end-to-end absence + restore scenario. Do not reuse V for a new native test.
+
+Required proof:
+
+1. apply the same patient absence successfully,
+2. confirm an ACTIVE ledger row exists,
+3. restore that change through the workbook UI,
+4. verify DAILY_INPUT row is restored/cleared as designed,
+5. verify THERAPIST_DAILY B7 returns to active presentation,
+6. verify MASTER D8/M8 return to normal projection/presentation,
+7. verify ledger row becomes `RESTORED` with `RestoredAt`,
+8. verify no unrelated THERAPIST_DAILY content is erased,
+9. verify same-workbook save succeeds.
+
+Only after native restore is green may the close-day/history track resume.
 
 ## Do not do
 
-- Do not reuse U for another native repair attempt.
-- Do not repair-over-repair V after a failure.
+- Do not reuse U or V for another native repair experiment.
+- Do not repair-over-repair a failed workbook.
 - Do not modify replacement/global solver.
 - Do not modify patient-centric renderer.
-- Do not modify MASTER verifier semantics before exact runtime payload evidence.
+- Do not modify MASTER verifier semantics without new failure evidence.
 - Do not revive N/O/P/Q post-build recovery patching.
 - Do not touch the production baseline workbook.
 
-This checkpoint is the authoritative resume point for the next native diagnostic cycle.
+This checkpoint is the authoritative resume point after the first green native in-place patient absence.
