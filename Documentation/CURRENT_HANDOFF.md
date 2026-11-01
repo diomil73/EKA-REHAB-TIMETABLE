@@ -27,7 +27,7 @@ The system exists to:
 
 Do not let a local technical workaround undermine those goals.
 
-## Current recovery status
+## DAILY_INPUT recovery status
 
 The DAILY_INPUT native apply/restore recovery blocker is closed for the tested patient-absence scenario.
 
@@ -53,57 +53,111 @@ Observed green result:
 - `RestoredAt` was populated,
 - DAILY_INPUT source row was cleared after restore.
 
-The old W failure was fully explained:
-
-- restore patch #2 targeted `MASTER_SCHEDULE!D8`,
-- a formula string had been serialized as a normal value patch,
-- VBA compared `cell.Value` against formula text and produced a deterministic read-back mismatch,
-- rollback then used cross-workbook Copy and rewrote internal formulas as `[1]PATIENT_PLANNER!...`.
-
 Canonical fix commit:
 
 `70f1564` — `Fix DAILY_INPUT restore formula contract`
-
-Green focused source gate before X:
-
-`17 passed in 4.43s`
 
 Native X proof checkpoint:
 
 `921422f` — `Record green native X restore proof`
 
-## Close-day Y diagnostic outcome
+## Close-day durable history status — H2 closed
 
-Fresh native close-day candidate:
-
-`Excel/previews/UNIFIED_CLOSE_DAY_HISTORY_20261101_Y.xlsm`
-
-The close-day inspector found no `CURRENT_FINAL` row for `2026-10-30`.
-
-A read-only preparation probe was then run after Excel was fully closed. It reproduced the same deterministic failure:
-
-`DAILY_INPUT contains no active absence/cancellation rows`
-
-No close-day payload was created.
-
-This proves Y did not reach snapshot/history persistence. The blocker was in preparation before any mutation.
-
-Root cause in canonical source:
-
-- `read_daily_input(...)` intentionally supports `allow_empty=True`,
-- `prepare_close_day_in_place.py` called it with the default `allow_empty=False`,
-- therefore a completely clean operational day with no absence/cancellation rows could not be finalized even if it had zero unresolved sessions.
+The earlier Y candidate failed before persistence because clean days were rejected by DAILY_INPUT preparation. Y is frozen failed evidence.
 
 Bounded fix:
 
 - `4ea05f4` — `Allow clean days in close-day preparation`
 - `2b457df` — `Cover clean close-day preparation`
 
-The fix changes only the close-day reader call to `allow_empty=True`. It does not weaken finalization safety: unresolved sessions are still rejected downstream by the existing finalized-day snapshot contract.
+Fresh green close-day/history proof:
 
-Y is frozen as failed diagnostic evidence and must not be reused or repaired in place.
+`Excel/previews/UNIFIED_CLOSE_DAY_HISTORY_20261101_Z.xlsm`
 
-The next source gate must include the close-day preparer/action tests and the native close-day inspector tests. Only after that gate is green should a fresh close-day candidate be built.
+Operator-confirmed native Z flow completed successfully:
+
+- focused close-day/history regression gate green,
+- fresh Z build green,
+- read-only preflight green,
+- native `CloseOperationalDay` executed once successfully,
+- post-close inspector green.
+
+Exact inspector field values were not pasted, so do not invent them.
+
+Checkpoint:
+
+`eed0eb0` — `Record green native Z close-day proof`
+
+H2 durable close-day persistence is therefore closed/operator-confirmed.
+
+## Closed-day correction/version chain — H3 backend green
+
+The H3 backend now has operator-confirmed native proof.
+
+Focused source gate:
+
+`35 passed in 3.23s`
+
+The implemented H3 stack includes:
+
+- pure-core amendment/version-chain contract,
+- preservation of previous finalized snapshot,
+- explicit `SUPERSEDED` status for the prior version,
+- replacement `CURRENT_FINAL` snapshot with exactly `version + 1`,
+- `supersedes_snapshot_id` linkage,
+- append-only `DAY_AMENDMENT_STARTED` and `DAY_AMENDMENT_FINALIZED` events,
+- atomic native Excel persistence in one COM session,
+- no `Save()` until every preflight and semantic read-back passes,
+- read-only amendment preparation,
+- source SHA-256 binding between preparation and apply,
+- post-save semantic verification,
+- independent amendment outcome inspector.
+
+Fresh green native artifact:
+
+`Excel/previews/UNIFIED_DAY_AMENDMENT_20261101_AB.xlsm`
+
+Observed inspector output:
+
+```text
+DAY AMENDMENT OUTCOME OK
+Date: 2026-10-30
+Version: 1 -> 2
+Current snapshot: finalized:2026-10-30:v2
+Therapist/day history rows: 16
+```
+
+This proves:
+
+- version 1 is preserved as superseded history,
+- version 2 is the new current final snapshot,
+- the version chain is contiguous,
+- the current amended snapshot has zero unresolved sessions by contract,
+- therapist/day history exists for v2,
+- amendment events are present and correctly linked under the inspector contract.
+
+Checkpoint:
+
+`19fd49c` — `Record green native AB day amendment proof`
+
+AB is frozen green evidence and must not be reused or repaired in place.
+
+AA is not authoritative proof. A safety stop showed AA already existed, after which a copy command was still issued. Freeze AA as uncertain evidence and never reuse it.
+
+## App-wide navigation convention
+
+`Save & Exit` is an application-shell action, not a MASTER-only feature.
+
+Canonical behavior comes from `modMasterToolbar.ExitApplication` and appears on:
+
+- `MASTER_SCHEDULE`,
+- `DAILY_INPUT`,
+- `THERAPIST_DAILY`,
+- `REPLACEMENTS`.
+
+It saves the workbook, restores the normal Excel interface, and exits/closes the application workbook.
+
+`Κλείσιμο ημέρας` and future `Διόρθωση κλεισμένης ημέρας` are business operations. They must remain distinct from `Save & Exit` and must not duplicate or silently replace it.
 
 ## Important interpretation of diagnostic logs
 
@@ -111,7 +165,7 @@ The remaining `%TEMP%` restore / DAILY_INPUT error logs observed after X had tim
 
 ## Small post-recovery usability follow-ups
 
-These are not blockers for close-day/history work:
+These are not blockers for history/statistics work:
 
 - when a patient is marked `διακομισμένος`, the visible status text may still show strike presentation,
 - patient-absence ledger `FromText` currently says only `Κανονικό πρόγραμμα`; a later usability enhancement should show the original therapist and scheduled time, reusing the same scheduling/replacement facts already used in therapist-absence workflows.
@@ -126,46 +180,70 @@ Therefore the older 2026-10-30 close-day checkpoint instruction to promote `modC
 
 ## Exact next step
 
-Return to the product roadmap:
+Continue H3 with the explicit user-facing closed-day correction workflow.
 
-1. rerun the close-day/history regression gate after the clean-day preparation fix,
-2. if green, build a fresh uniquely named close-day workbook,
-3. perform one native close-day smoke,
-4. verify finalized day snapshots, therapist history and day history events,
-5. only after native close-day proof continue to statistics/reporting.
+The next implementation slice must:
 
-Do not restart DAILY_INPUT verifier debugging unless new native evidence specifically points back there.
+1. expose a separate `Διόρθωση κλεισμένης ημέρας` action in the application shell,
+2. keep correction separate from ordinary DAILY_INPUT editing and from `Save & Exit`,
+3. require an explicit amendment reason/summary before persistence,
+4. prepare the amendment read-only first,
+5. apply only the hash-bound prepared payload,
+6. preserve the existing v1→v2 atomic/version-chain guarantees,
+7. use a fresh uniquely named workbook for every native UI smoke,
+8. only after native UI proof move on to H4 historical reporting/statistics.
 
-## Close-day/history stack already recovered
+Do not restart DAILY_INPUT or close-day recovery debugging unless new evidence specifically points there.
 
-The recovered close-day implementation includes:
+## Roadmap after H3 UI integration
 
-- explicit operator confirmation,
-- read-only preparation before mutation,
-- in-session persistence,
-- `FINALIZED_DAY_SNAPSHOTS`,
-- `THERAPIST_DAY_HISTORY`,
-- `DAY_HISTORY_EVENTS`,
-- duplicate/schema preflight,
-- semantic row read-back,
-- rollback of partial history writes on failure,
-- technical history sheets kept `xlSheetVeryHidden`,
-- same-workbook save on success.
+### H4 — first historical report slice
 
-Historical close-day checkpoint:
+Report at least:
 
-`Documentation/CLOSE_DAY_VBA_RECOVERY_CHECKPOINT_2026-10-30.md`
+- therapist,
+- day,
+- occupied timeslots,
+- active-session count,
+- final operational outcome counts,
+- actual workload,
+- planned workload when available.
 
-Use it for implementation history only. Its old next-step section has been superseded by this handoff.
+Then add weekly therapist workload history/trend.
+
+### H5 — patient historical statistics
+
+Add:
+
+- scheduled/delivered,
+- missed/no-show,
+- department cancellation / specific-session cancellation,
+- patient absence days/reasons,
+- replacement/suspension outcomes,
+- later 15-day progress trend.
+
+### H6 — therapist profile/statistics
+
+Add:
+
+- current workload,
+- historical workload/trend,
+- absence days/reasons,
+- replacements/history,
+- scheduled vs delivered.
 
 ## Native artifact rule
 
 Freeze prior smoke artifacts. Never repair/reuse them.
 
-- W is failed restore evidence only.
-- X is green apply/restore evidence only.
-- Y is failed close-day preparation evidence only.
-- the next native close-day test must use a fresh uniquely named workbook.
+- W: failed restore evidence only.
+- X: green apply/restore evidence only.
+- Y: failed close-day preparation evidence only.
+- Z: green close-day/history proof only.
+- AA: uncertain amendment candidate, never reuse.
+- AB: green H3 amendment/version-chain proof only.
+
+Every new native UI test must use a fresh uniquely named workbook.
 
 ## Retired approach
 
@@ -183,10 +261,12 @@ Normal builds use only:
 - production baseline `Rehab_Center_System_v27_1.xlsm` is immutable,
 - unique fresh preview for every native test,
 - preserve source hash and VBA,
+- finalized day must always have unresolved/orphan sessions = 0,
 - no broad THERAPIST_DAILY clearing,
 - no blind alphabetic rebuild loops,
 - Python tests before native proof,
-- native proof before integration.
+- native proof before integration,
+- no silent destructive rewrite of historical snapshots.
 
 ## User working preference
 
