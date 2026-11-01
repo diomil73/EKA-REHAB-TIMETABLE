@@ -63,10 +63,21 @@ RestoreNext:'''
     assert "If rollbackCell.HasFormula Then targetCell.Formula = rollbackCell.Formula" in updated
 
 
-def test_canonical_sources_match_expected_pre_fix_markers():
+def test_canonical_sources_match_expected_post_fix_markers():
     module = _load_module()
     restore_text = module.RESTORE_PREPARER.read_text(encoding="utf-8")
     vba_text = module.DAILY_INPUT_VBA.read_text(encoding="utf-8")
-    assert 'value = str(master[patch.cell].value or "")' in restore_text
+
+    assert 'intent=WriteIntent.PRESENTATION' in restore_text
     assert 'source_tag="master_daily_restore_overlay"' in restore_text
-    assert 'rollbackBook.Worksheets(sheetName).Range(cellAddress).Copy Destination:=ThisWorkbook.Worksheets(sheetName).Range(cellAddress)' in vba_text
+    assert 'value = str(master[patch.cell].value or "")' not in restore_text
+    assert 'text_runs=_plain_runs(value)' not in restore_text
+
+    assert 'Case "master_daily_restore_overlay", "master_daily_restore_status"' in vba_text
+    assert "Dim rollbackCell As Range, targetCell As Range" in vba_text
+    assert "rollbackCell.Copy Destination:=targetCell" in vba_text
+    assert "If rollbackCell.HasFormula Then targetCell.Formula = rollbackCell.Formula" in vba_text
+    assert (
+        'rollbackBook.Worksheets(sheetName).Range(cellAddress).Copy Destination:=ThisWorkbook.Worksheets(sheetName).Range(cellAddress)'
+        not in vba_text
+    )
