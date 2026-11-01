@@ -46,7 +46,7 @@ def test_day_amendment_action_requires_reason_and_summary():
     assert '" --reason-code "' in source
     assert '" --summary "' in source
     assert "If Len(reasonCode) = 0 Then Exit Sub" in source
-    assert "If Len(summaryText) = 0 Then Exit Sub"
+    assert "If Len(summaryText) = 0 Then Exit Sub" in source
 
 
 def test_day_save_installer_keeps_master_clean_and_uses_daily_input_footer():
