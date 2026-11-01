@@ -11,6 +11,7 @@ from rehab_excel.daily_change_ledger_in_place_vba import (
 from rehab_excel.daily_input_action_vba import DAILY_INPUT_MODULE_CODE
 from rehab_excel.operator_visibility_patch_vba import (
     patch_daily_input_patient_status_visibility,
+    patch_daily_input_rich_text_strike_contract,
     patch_daily_input_workload_visibility,
 )
 from tools import build_registration_menu_preview
@@ -42,6 +43,14 @@ def test_ledger_ui_renders_change_history_and_all_restore_controls():
         assert token in VBA_CODE
 
 
+def test_ledger_view_never_blindly_clears_operational_rows():
+    assert 'startRow = wsDaily.Cells(wsDaily.Rows.Count, 1).End(xlUp).Row + 3' not in VBA_CODE
+    assert 'Range("A" & startRow & ":G" & startRow + 200).ClearContents' not in VBA_CODE
+    assert 'Set lastDataCell = wsDaily.Cells.Find(What:="*"' in VBA_CODE
+    assert 'If CStr(wsDaily.Cells(previousStartRow, 1).Value) = "Αλλαγές ημέρας" Then' in VBA_CODE
+    assert 'wsDaily.Range("A" & previousStartRow & ":G" & previousEndRow).ClearContents' in VBA_CODE
+
+
 def test_restore_is_hidden_in_session_and_uses_atomic_multi_id_preparer():
     assert 'WScript.Shell").Run(commandLine, 0, True)' in VBA_CODE
     assert "prepare_daily_change_restore_in_place.py" in VBA_CODE
@@ -50,6 +59,13 @@ def test_restore_is_hidden_in_session_and_uses_atomic_multi_id_preparer():
     assert "ThisWorkbook.Close" not in VBA_CODE
     assert "Application.OnTime" not in VBA_CODE
     assert "authoritative_commit_worker_cli.py" not in VBA_CODE
+
+
+def test_restore_uses_canonical_validated_patch_engine_and_declares_change_id():
+    assert "ApplyPayloadFileInPlace" not in VBA_CODE
+    assert "ApplyValidatedDailyInputPayload(patchPath)" in VBA_CODE
+    assert "Dim changeId As String" in VBA_CODE
+    assert 'Err.Raise vbObjectError + 2836, , "Restore patch apply failed"' in VBA_CODE
 
 
 def test_restore_payload_is_fail_closed_with_rollback_and_semantic_source_scope():
@@ -79,6 +95,7 @@ def test_daily_input_patch_accepts_change_rows_and_restores_ledger_on_failure():
 
 def test_ledger_patch_composes_after_operator_status_normalization():
     operator_patched = patch_daily_input_workload_visibility(DAILY_INPUT_MODULE_CODE)
+    operator_patched = patch_daily_input_rich_text_strike_contract(operator_patched)
     operator_patched = patch_daily_input_patient_status_visibility(operator_patched)
     patched = patch_daily_input_for_ledger(operator_patched)
     expected = (
@@ -89,6 +106,7 @@ def test_ledger_patch_composes_after_operator_status_normalization():
     )
     assert expected in patched
     assert patched.count("RefreshDailyChangeLedgerView") == 1
+    assert "VerifyCharacterStrike(cell, True)" in patched
 
 
 def test_canonical_build_installs_ledger_after_operator_patch():
