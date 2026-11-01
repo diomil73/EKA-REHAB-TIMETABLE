@@ -74,7 +74,11 @@ def patch_daily_input_rich_text_strike_contract(code: str) -> str:
         If CBool(strikeValue) <> True Then Exit Function
     End If'''
     verify_replacement = '''    If PayloadValue(parts(5)) = "1" And Len(textRuns) = 0 Then
-        If Not VerifyCharacterStrike(cell, True) Then Exit Function
+        If Not VerifyCharacterStrike(cell, True) Then
+            If PayloadValue(parts(11)) <> "master_daily_non_active_overlay" Then Exit Function
+            strikeValue = cell.Font.Strikethrough
+            If Not IsNull(strikeValue) Then Exit Function
+        End If
     End If'''
     if verify_marker not in normalized:
         raise RuntimeError("DAILY_INPUT strike verification marker not found")
@@ -103,8 +107,13 @@ def patch_daily_input_rich_text_strike_contract(code: str) -> str:
         Case "master_daily_patient_status_overlay"
             VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
     source_verify_replacement = '''        Case "master_daily_non_active_overlay"
-            VerifySourceTagPresentation = _
-                (VerifyCharacterStrike(cell, True) And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+            strikeValue = cell.Font.Strikethrough
+            If IsNull(strikeValue) Then
+                VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+            Else
+                VerifySourceTagPresentation = _
+                    (CBool(strikeValue) = True And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+            End If
         Case "master_daily_patient_status_overlay"
             VerifySourceTagPresentation = _
                 (VerifyCharacterStrike(cell, False) And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
