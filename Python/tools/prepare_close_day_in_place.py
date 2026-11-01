@@ -128,6 +128,7 @@ def prepare_close_day_payload(
         patients=patients,
         sessions=sessions,
         therapist_names=settings.therapist_names,
+        allow_empty=True,
     )
     replacements = read_daily_replacement_facts(
         source,
