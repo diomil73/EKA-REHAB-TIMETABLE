@@ -64,6 +64,8 @@ End Sub
 Public Sub RefreshDailyChangeLedgerView()
     Dim wsDaily As Worksheet, wsLedger As Worksheet
     Dim startRow As Long, lastLedgerRow As Long, ledgerRow As Long, displayRow As Long
+    Dim previousStartRow As Long, previousEndRow As Long, previousDisplayRow As Long
+    Dim lastDataCell As Range
     Dim shp As Shape, cb As Shape, btn As Shape
     Dim statusText As String, changeType As String
 
@@ -75,14 +77,39 @@ Public Sub RefreshDailyChangeLedgerView()
         If Left$(shp.Name, Len(SHAPE_PREFIX)) = SHAPE_PREFIX Then shp.Delete
     Next shp
 
-    startRow = wsDaily.Cells(wsDaily.Rows.Count, 1).End(xlUp).Row + 3
-    If startRow < 21 Then startRow = 21
-    wsDaily.Range("A" & startRow & ":G" & startRow + 200).ClearContents
-    wsDaily.Range("A" & startRow & ":G" & startRow + 200).Font.Italic = False
-    wsDaily.Range("A" & startRow & ":G" & startRow + 200).Font.Bold = False
-
     lastLedgerRow = wsLedger.Cells(wsLedger.Rows.Count, 1).End(xlUp).Row
     If lastLedgerRow < 2 Then Exit Sub
+
+    For ledgerRow = 2 To lastLedgerRow
+        If IsNumeric(wsLedger.Cells(ledgerRow, 12).Value) Then
+            previousDisplayRow = CLng(Val(CStr(wsLedger.Cells(ledgerRow, 12).Value)))
+            If previousDisplayRow > 0 Then
+                If previousStartRow = 0 Or previousDisplayRow < previousStartRow Then previousStartRow = previousDisplayRow
+                If previousDisplayRow > previousEndRow Then previousEndRow = previousDisplayRow
+            End If
+        End If
+    Next ledgerRow
+    If previousStartRow > 0 Then
+        previousStartRow = previousStartRow - 2
+        If previousStartRow < 1 Then previousStartRow = 1
+        previousEndRow = previousEndRow + 2
+        If CStr(wsDaily.Cells(previousStartRow, 1).Value) = "Αλλαγές ημέρας" Then
+            wsDaily.Range("A" & previousStartRow & ":G" & previousEndRow).ClearContents
+            wsDaily.Range("A" & previousStartRow & ":G" & previousEndRow).Font.Italic = False
+            wsDaily.Range("A" & previousStartRow & ":G" & previousEndRow).Font.Bold = False
+        End If
+    End If
+
+    Set lastDataCell = wsDaily.Cells.Find(What:="*", After:=wsDaily.Cells(1, 1), _
+                                         LookIn:=xlFormulas, LookAt:=xlPart, _
+                                         SearchOrder:=xlByRows, SearchDirection:=xlPrevious, _
+                                         MatchCase:=False)
+    If lastDataCell Is Nothing Then
+        startRow = 21
+    Else
+        startRow = lastDataCell.Row + 3
+        If startRow < 21 Then startRow = 21
+    End If
 
     wsDaily.Cells(startRow, 1).Value = "Αλλαγές ημέρας"
     With wsDaily.Range("A" & startRow & ":G" & startRow)
@@ -245,6 +272,7 @@ End Function
 Private Function ApplyDailyChangeRestorePayload(ByVal payloadPath As String) As Boolean
     Dim text As String, lines As Variant, parts As Variant, i As Long, patchLines As String
     Dim rollbackPath As String, patchPath As String
+    Dim changeId As String
     Dim previousEvents As Boolean, previousScreenUpdating As Boolean
     On Error GoTo Failed
     text = ReadUtf8Text(payloadPath)
@@ -292,7 +320,7 @@ SourceNext:
     Next i
     WriteUtf8Text patchPath, patchLines
     If Len(patchLines) > 0 Then
-        If Not ApplyPayloadFileInPlace(patchPath, "daily-change restore") Then Err.Raise vbObjectError + 2836, , "Restore patch apply failed"
+        If Not ApplyValidatedDailyInputPayload(patchPath) Then Err.Raise vbObjectError + 2836, , "Restore patch apply failed"
     End If
 
     For i = LBound(lines) To UBound(lines)
