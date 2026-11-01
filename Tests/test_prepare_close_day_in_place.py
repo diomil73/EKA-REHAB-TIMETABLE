@@ -21,6 +21,12 @@ def test_close_day_preparation_is_read_only_for_workbook():
     assert "shutil.copy" not in source
 
 
+def test_close_day_preparation_allows_clean_day_without_daily_input_changes():
+    source = inspect.getsource(module.prepare_close_day_payload)
+
+    assert "allow_empty=True" in source
+
+
 def test_close_day_payload_contains_all_three_atomic_blocks():
     source = inspect.getsource(module.prepare_close_day_payload)
 
