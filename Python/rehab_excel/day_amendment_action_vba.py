@@ -116,6 +116,21 @@ End Function
 '''
 
 
+def _last_used_row(ws) -> int:
+    try:
+        used = ws.UsedRange
+        return max(1, int(used.Row) + int(used.Rows.Count) - 1)
+    except Exception:
+        return 1
+
+
+def _delete_button_if_present(ws) -> None:
+    try:
+        ws.Shapes(DAY_AMENDMENT_BUTTON_NAME).Delete()
+    except Exception:
+        pass
+
+
 def install_day_amendment_action(vbproject, workbook) -> None:
     try:
         component = vbproject.VBComponents(DAY_AMENDMENT_MODULE_NAME)
@@ -127,14 +142,24 @@ def install_day_amendment_action(vbproject, workbook) -> None:
     module.Name = DAY_AMENDMENT_MODULE_NAME
     module.CodeModule.AddFromString(DAY_AMENDMENT_MODULE_CODE)
 
-    ws = workbook.Worksheets("MASTER_SCHEDULE")
+    # MASTER stays a clean read-only operational hub. Remove any stale button
+    # left by an earlier preview experiment, but never install the action there.
     try:
-        ws.Shapes(DAY_AMENDMENT_BUTTON_NAME).Delete()
+        master = workbook.Worksheets("MASTER_SCHEDULE")
+        _delete_button_if_present(master)
     except Exception:
         pass
 
-    anchor = ws.Range("A3")
-    shape = ws.Shapes.AddShape(5, float(anchor.Left) + 4, float(anchor.Top) + 2, 170, 24)
+    ws = workbook.Worksheets("DAILY_INPUT")
+    _delete_button_if_present(ws)
+
+    last_row = _last_used_row(ws)
+    anchor = ws.Range(f"A{last_row + 2}")
+    # Existing DAILY_INPUT footer layout uses Apply & Continue, MASTER, Save & Exit.
+    # Place day save on that same row, immediately after those controls.
+    left = float(anchor.Left) + 292
+    top = float(anchor.Top) + 2
+    shape = ws.Shapes.AddShape(5, left, top, 112, 24)
     shape.Name = DAY_AMENDMENT_BUTTON_NAME
     shape.OnAction = DAY_AMENDMENT_MACRO_NAME
     shape.AlternativeText = "Αποθήκευση αλλαγών σε ήδη κλεισμένη ημέρα με διατήρηση της προηγούμενης καταχώρησης στο ιστορικό."
