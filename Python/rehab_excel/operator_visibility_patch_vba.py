@@ -47,29 +47,134 @@ def patch_daily_input_workload_visibility(code: str) -> str:
     return normalized.replace(target, replacement, 1)
 
 
+def patch_daily_input_rich_text_strike_contract(code: str) -> str:
+    """Apply and verify MASTER strike state at character level.
+
+    MASTER treatment/status cells may contain mixed formatting. Excel can return
+    Null for whole-cell Font.Strikethrough even after a visually correct update,
+    so the in-place contract must write and read back every displayed character.
+    """
+
+    normalized = _normalize_vba(code)
+    if (
+        "Private Sub ApplyCharacterStrike(ByVal cell As Range, ByVal enabled As Boolean)" in normalized
+        and "Private Function VerifyCharacterStrike(ByVal cell As Range, ByVal enabled As Boolean) As Boolean" in normalized
+    ):
+        return normalized
+
+    apply_marker = '    If PayloadValue(parts(5)) = "1" Then cell.Font.Strikethrough = True'
+    apply_replacement = '    If PayloadValue(parts(5)) = "1" Then ApplyCharacterStrike cell, True'
+    if apply_marker not in normalized:
+        raise RuntimeError("DAILY_INPUT strike apply marker not found")
+    normalized = normalized.replace(apply_marker, apply_replacement, 1)
+
+    verify_marker = '''    If PayloadValue(parts(5)) = "1" And Len(textRuns) = 0 Then
+        strikeValue = cell.Font.Strikethrough
+        If IsNull(strikeValue) Then Exit Function
+        If CBool(strikeValue) <> True Then Exit Function
+    End If'''
+    verify_replacement = '''    If PayloadValue(parts(5)) = "1" And Len(textRuns) = 0 Then
+        If Not VerifyCharacterStrike(cell, True) Then Exit Function
+    End If'''
+    if verify_marker not in normalized:
+        raise RuntimeError("DAILY_INPUT strike verification marker not found")
+    normalized = normalized.replace(verify_marker, verify_replacement, 1)
+
+    source_apply_marker = '''        Case "master_daily_non_active_overlay"
+            cell.Font.Color = RGB(255, 0, 0)
+            cell.Font.Strikethrough = True
+        Case "master_daily_patient_status_overlay"
+            cell.Font.Color = RGB(255, 0, 0)'''
+    source_apply_replacement = '''        Case "master_daily_non_active_overlay"
+            cell.Font.Color = RGB(255, 0, 0)
+            ApplyCharacterStrike cell, True
+        Case "master_daily_patient_status_overlay"
+            cell.Font.Color = RGB(255, 0, 0)
+            ApplyCharacterStrike cell, False'''
+    if source_apply_marker not in normalized:
+        raise RuntimeError("MASTER source-tag strike apply marker not found")
+    normalized = normalized.replace(source_apply_marker, source_apply_replacement, 1)
+
+    source_verify_marker = '''        Case "master_daily_non_active_overlay"
+            strikeValue = cell.Font.Strikethrough
+            If IsNull(strikeValue) Then Exit Function
+            VerifySourceTagPresentation = _
+                (CBool(strikeValue) = True And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+        Case "master_daily_patient_status_overlay"
+            VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
+    source_verify_replacement = '''        Case "master_daily_non_active_overlay"
+            VerifySourceTagPresentation = _
+                (VerifyCharacterStrike(cell, True) And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+        Case "master_daily_patient_status_overlay"
+            VerifySourceTagPresentation = _
+                (VerifyCharacterStrike(cell, False) And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
+    if source_verify_marker not in normalized:
+        raise RuntimeError("MASTER source-tag strike verification marker not found")
+    normalized = normalized.replace(source_verify_marker, source_verify_replacement, 1)
+
+    helper = r'''
+Private Sub ApplyCharacterStrike(ByVal cell As Range, ByVal enabled As Boolean)
+    Dim textLength As Long
+    cell.Font.Strikethrough = enabled
+    textLength = Len(CStr(cell.Value))
+    If textLength > 0 Then cell.Characters(1, textLength).Font.Strikethrough = enabled
+End Sub
+
+Private Function VerifyCharacterStrike(ByVal cell As Range, ByVal enabled As Boolean) As Boolean
+    Dim textLength As Long, charIndex As Long
+    Dim strikeValue As Variant
+
+    textLength = Len(CStr(cell.Value))
+    If textLength = 0 Then
+        strikeValue = cell.Font.Strikethrough
+        If IsNull(strikeValue) Then Exit Function
+        VerifyCharacterStrike = (CBool(strikeValue) = enabled)
+        Exit Function
+    End If
+
+    For charIndex = 1 To textLength
+        strikeValue = cell.Characters(charIndex, 1).Font.Strikethrough
+        If IsNull(strikeValue) Then Exit Function
+        If CBool(strikeValue) <> enabled Then Exit Function
+    Next charIndex
+    VerifyCharacterStrike = True
+End Function
+'''
+    insert_at = normalized.find("\nPrivate Sub ApplySourceTagPresentation")
+    if insert_at < 0:
+        raise RuntimeError("MASTER character-strike helper insertion marker not found")
+    return normalized[:insert_at] + "\n" + helper + normalized[insert_at:]
+
+
 def patch_daily_input_patient_status_visibility(code: str) -> str:
     """Keep MASTER status/reason readable after both patching and view refresh."""
 
     normalized = _normalize_vba(code)
-    apply_marker = '''        Case "master_daily_patient_status_overlay"
+    canonical_rich_text = (
+        "ApplyCharacterStrike cell, False" in normalized
+        and "VerifyCharacterStrike(cell, False)" in normalized
+    )
+
+    if not canonical_rich_text:
+        apply_marker = '''        Case "master_daily_patient_status_overlay"
             cell.Font.Color = RGB(255, 0, 0)'''
-    apply_replacement = '''        Case "master_daily_patient_status_overlay"
+        apply_replacement = '''        Case "master_daily_patient_status_overlay"
             cell.Font.Color = RGB(255, 0, 0)
             cell.Font.Strikethrough = False'''
-    if apply_marker not in normalized:
-        raise RuntimeError("MASTER patient-status presentation marker not found")
-    normalized = normalized.replace(apply_marker, apply_replacement, 1)
+        if apply_marker not in normalized:
+            raise RuntimeError("MASTER patient-status presentation marker not found")
+        normalized = normalized.replace(apply_marker, apply_replacement, 1)
 
-    verify_marker = '''        Case "master_daily_patient_status_overlay"
+        verify_marker = '''        Case "master_daily_patient_status_overlay"
             VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
-    verify_replacement = '''        Case "master_daily_patient_status_overlay"
+        verify_replacement = '''        Case "master_daily_patient_status_overlay"
             strikeValue = cell.Font.Strikethrough
             If IsNull(strikeValue) Then Exit Function
             VerifySourceTagPresentation = _
                 (CBool(strikeValue) = False And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))'''
-    if verify_marker not in normalized:
-        raise RuntimeError("MASTER patient-status verification marker not found")
-    normalized = normalized.replace(verify_marker, verify_replacement, 1)
+        if verify_marker not in normalized:
+            raise RuntimeError("MASTER patient-status verification marker not found")
+        normalized = normalized.replace(verify_marker, verify_replacement, 1)
 
     refresh_marker = '''    ApplyMasterView
     RefreshOperationalViews = True'''
@@ -108,7 +213,7 @@ Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)
     If lastRow <= headerRow Then Exit Sub
     For row = headerRow + 1 To lastRow
         If Len(Trim$(CStr(master.Cells(row, statusCol).Value))) > 0 Then
-            master.Cells(row, statusCol).Font.Strikethrough = False
+            ApplyCharacterStrike master.Cells(row, statusCol), False
         End If
     Next row
 End Sub
@@ -223,6 +328,7 @@ def install_operator_visibility_patch(vbproject) -> None:
     global_replacement = _component(vbproject, GLOBAL_REPLACEMENT_MODULE_NAME)
 
     daily_code = patch_daily_input_workload_visibility(_code(daily))
+    daily_code = patch_daily_input_rich_text_strike_contract(daily_code)
     daily_code = patch_daily_input_patient_status_visibility(daily_code)
     _replace_all(daily, daily_code)
     _replace_all(global_replacement, patch_global_replacement_summary(_code(global_replacement)))
@@ -235,10 +341,14 @@ def install_operator_visibility_patch(vbproject) -> None:
         raise RuntimeError("DAILY_INPUT still auto-renders workload badges")
     if "ResolveReplacementWorkflow()" not in installed_daily:
         raise RuntimeError("DAILY_INPUT was not routed through the replacement operator")
-    if 'Case "master_daily_patient_status_overlay"\n            cell.Font.Color = RGB(255, 0, 0)\n            cell.Font.Strikethrough = False' not in installed_daily:
-        raise RuntimeError("MASTER patient status still permits strike-through")
+    if "ApplyCharacterStrike cell, False" not in installed_daily:
+        raise RuntimeError("MASTER patient status still permits character-level strike-through")
+    if "VerifyCharacterStrike(cell, True)" not in installed_daily:
+        raise RuntimeError("MASTER treatment strike read-back is not character-safe")
     if "NormalizeMasterPatientStatusPresentation master" not in installed_daily:
         raise RuntimeError("MASTER status normalization was not installed after ApplyMasterView")
+    if "ApplyCharacterStrike master.Cells(row, statusCol), False" not in installed_daily:
+        raise RuntimeError("MASTER status normalization is not character-safe")
     if "BuildReplacementSummarySince" not in installed_replacement:
         raise RuntimeError("Replacement summary patch was not installed")
     if "χειροκίνητες επιλογές ασθενή-ασθενή" in installed_replacement:
