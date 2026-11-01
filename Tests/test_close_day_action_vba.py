@@ -91,4 +91,5 @@ def test_canonical_registration_build_installs_and_verifies_close_day_action():
     assert "vbproject.VBComponents(component_name)" in install_source
     assert 'f"{error_label} module was not confirmed in the preview VBA project"' in install_source
     assert "_install_close_day_action_in_workbook(output)" in main_source
-    assert "_remove_component_if_present(vbproject, CLOSE_DAY_MODULE_NAME)" in clean_source
+    assert '("removing old close-day action module", CLOSE_DAY_MODULE_NAME)' in clean_source
+    assert "_remove_component_if_present(vbproject, component_name)" in clean_source
