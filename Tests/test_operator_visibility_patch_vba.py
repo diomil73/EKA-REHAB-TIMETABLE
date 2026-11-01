@@ -26,10 +26,14 @@ def test_daily_input_refresh_stops_auto_rendering_workload_badges():
 def test_master_rich_text_strike_contract_is_character_safe_for_apply_and_readback():
     patched = patch_daily_input_rich_text_strike_contract(DAILY_INPUT_MODULE_CODE)
     assert 'If PayloadValue(parts(5)) = "1" Then ApplyCharacterStrike cell, True' in patched
-    assert "If Not VerifyCharacterStrike(cell, True) Then Exit Function" in patched
+    assert "If Not VerifyCharacterStrike(cell, True) Then" in patched
+    assert 'If PayloadValue(parts(11)) <> "master_daily_non_active_overlay" Then Exit Function' in patched
+    assert "strikeValue = cell.Font.Strikethrough" in patched
+    assert "If Not IsNull(strikeValue) Then Exit Function" in patched
     assert 'Case "master_daily_non_active_overlay"' in patched
     assert "ApplyCharacterStrike cell, True" in patched
-    assert "VerifyCharacterStrike(cell, True)" in patched
+    assert "If IsNull(strikeValue) Then" in patched
+    assert "VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))" in patched
     assert 'Case "master_daily_patient_status_overlay"' in patched
     assert "ApplyCharacterStrike cell, False" in patched
     assert "VerifyCharacterStrike(cell, False)" in patched
