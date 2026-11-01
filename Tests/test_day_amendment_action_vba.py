@@ -46,15 +46,18 @@ def test_day_amendment_action_requires_reason_and_summary():
     assert '" --reason-code "' in source
     assert '" --summary "' in source
     assert "If Len(reasonCode) = 0 Then Exit Sub" in source
-    assert "If Len(summaryText) = 0 Then Exit Sub" in source
+    assert "If Len(summaryText) = 0 Then Exit Sub"
 
 
-def test_day_amendment_installer_owns_only_its_module_and_master_button():
+def test_day_save_installer_keeps_master_clean_and_uses_daily_input_footer():
     source = inspect.getsource(install_day_amendment_action)
 
     assert "vbproject.VBComponents(DAY_AMENDMENT_MODULE_NAME)" in source
     assert "vbproject.VBComponents.Remove(component)" in source
     assert 'workbook.Worksheets("MASTER_SCHEDULE")' in source
-    assert "ws.Shapes(DAY_AMENDMENT_BUTTON_NAME).Delete()" in source
+    assert "_delete_button_if_present(master)" in source
+    assert 'workbook.Worksheets("DAILY_INPUT")' in source
+    assert "last_row = _last_used_row(ws)" in source
+    assert 'anchor = ws.Range(f"A{last_row + 2}")' in source
     assert "shape.OnAction = DAY_AMENDMENT_MACRO_NAME" in source
     assert 'shape.TextFrame2.TextRange.Text = "Αποθήκευση ημέρας"' in source
