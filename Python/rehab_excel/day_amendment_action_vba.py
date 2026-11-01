@@ -16,27 +16,27 @@ Public Sub StartClosedDayAmendment()
     On Error GoTo ActionError
 
     If ThisWorkbook.ReadOnly Then
-        MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Ανοίξτε το κανονικά και δοκιμάστε ξανά.", vbExclamation, "Νέα έκδοση κλεισμένης ημέρας"
+        MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Ανοίξτε το κανονικά και δοκιμάστε ξανά.", vbExclamation, "Διόρθωση κλεισμένης ημέρας"
         Exit Sub
     End If
 
     answer = MsgBox( _
-        "Να δημιουργηθεί νέα έκδοση της κλεισμένης ημέρας;" & vbCrLf & vbCrLf & _
+        "Να ξεκινήσει διόρθωση της κλεισμένης ημέρας;" & vbCrLf & vbCrLf & _
         "Η προηγούμενη έκδοση θα παραμείνει στο ιστορικό και θα δημιουργηθεί νέα έκδοση.", _
         vbQuestion + vbYesNo + vbDefaultButton2, _
-        "Νέα έκδοση κλεισμένης ημέρας")
+        "Διόρθωση κλεισμένης ημέρας")
     If answer <> vbYes Then Exit Sub
 
-    reasonCode = Trim$(InputBox("Κωδικός / σύντομος λόγος νέας έκδοσης:", "Νέα έκδοση κλεισμένης ημέρας"))
+    reasonCode = Trim$(InputBox("Κωδικός / σύντομος λόγος διόρθωσης:", "Διόρθωση κλεισμένης ημέρας"))
     If Len(reasonCode) = 0 Then Exit Sub
 
-    summaryText = Trim$(InputBox("Περιγραφή της νέας έκδοσης:", "Νέα έκδοση κλεισμένης ημέρας"))
+    summaryText = Trim$(InputBox("Περιγραφή της διόρθωσης:", "Διόρθωση κλεισμένης ημέρας"))
     If Len(summaryText) = 0 Then Exit Sub
 
     prepareScript = ResolveRepoTool("prepare_day_amendment.py")
     workerScript = ResolveRepoTool("day_amendment_worker.py")
     If Len(prepareScript) = 0 Or Len(workerScript) = 0 Then
-        MsgBox "Η λειτουργία νέας έκδοσης δεν είναι διαθέσιμη. Επικοινωνήστε με τον διαχειριστή.", vbCritical, "Νέα έκδοση κλεισμένης ημέρας"
+        MsgBox "Η λειτουργία διόρθωσης δεν είναι διαθέσιμη. Επικοινωνήστε με τον διαχειριστή.", vbCritical, "Διόρθωση κλεισμένης ημέρας"
         Exit Sub
     End If
 
@@ -58,10 +58,10 @@ Public Sub StartClosedDayAmendment()
     If Dir$(prepareResponse) <> "" Then responseText = ReadUtf8File(prepareResponse)
 
     If exitCode <> 0 Or InStr(1, responseText, Chr$(34) & "ok" & Chr$(34) & ": false", vbTextCompare) > 0 Or Dir$(payloadPath) = "" Then
-        MsgBox "Η νέα έκδοση δεν προετοιμάστηκε." & vbCrLf & vbCrLf & _
+        MsgBox "Η διόρθωση δεν προετοιμάστηκε." & vbCrLf & vbCrLf & _
                "Ελέγξτε ότι η ημέρα είναι κλεισμένη και ότι δεν υπάρχουν εκκρεμείς συνεδρίες." & vbCrLf & _
                "Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
-               vbExclamation, "Νέα έκδοση κλεισμένης ημέρας"
+               vbExclamation, "Διόρθωση κλεισμένης ημέρας"
         GoTo CleanUpPrepare
     End If
 
@@ -82,7 +82,7 @@ CleanUpPrepare:
     Exit Sub
 
 ActionError:
-    MsgBox "Η νέα έκδοση δεν ολοκληρώθηκε. Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Νέα έκδοση κλεισμένης ημέρας"
+    MsgBox "Η διόρθωση δεν ολοκληρώθηκε. Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Διόρθωση κλεισμένης ημέρας"
 End Sub
 
 Private Function ResolveRepoTool(ByVal fileName As String) As String
@@ -137,12 +137,12 @@ def install_day_amendment_action(vbproject, workbook) -> None:
     shape = ws.Shapes.AddShape(5, float(anchor.Left) + 4, float(anchor.Top) + 2, 170, 24)
     shape.Name = DAY_AMENDMENT_BUTTON_NAME
     shape.OnAction = DAY_AMENDMENT_MACRO_NAME
-    shape.AlternativeText = "Δημιουργία νέας έκδοσης ήδη κλεισμένης ημέρας με διατήρηση όλων των προηγούμενων εκδόσεων."
+    shape.AlternativeText = "Ρητή διόρθωση ήδη κλεισμένης ημέρας με διατήρηση όλων των προηγούμενων εκδόσεων."
     shape.Placement = 3
     shape.Fill.ForeColor.RGB = 15527148
     shape.Line.ForeColor.RGB = 10066329
     shape.Line.Weight = 1
-    shape.TextFrame2.TextRange.Text = "Νέα έκδοση κλεισμένης ημέρας"
+    shape.TextFrame2.TextRange.Text = "Διόρθωση κλεισμένης ημέρας"
     shape.TextFrame2.TextRange.Font.Name = "Calibri"
     shape.TextFrame2.TextRange.Font.Size = 9
     shape.TextFrame2.TextRange.Font.Bold = True
