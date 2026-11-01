@@ -52,18 +52,20 @@ class _FakeWorksheet:
         return _Rows(self, key)
 
 
-def test_master_toolbar_contract_has_consolidated_actions_and_exit():
+def test_normal_user_master_has_no_operational_buttons():
     assert MASTER_TOOLBAR_MODULE_NAME == "modMasterToolbar"
     assert MASTER_TOOLBAR_PREFIX == "ekaToolbar_"
-    assert [item[1] for item in BUTTONS] == [
-        "Διαχείριση Μητρώων",
-        "Απουσίες / Ακυρώσεις",
-        "Ημερήσιο πρόγραμμα",
-        "Save & Exit",
-    ]
+    assert BUTTONS == ()
+
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba.install_master_toolbar)
+    assert "_delete_existing_toolbar_shapes(ws)" in source
+    assert "for index, (key, caption, macro, description) in enumerate(BUTTONS)" not in source
+    assert "ws.Shapes.AddShape" not in source
 
 
-def test_master_toolbar_actions_route_to_existing_features():
+def test_master_toolbar_actions_remain_available_for_routing_from_other_surfaces():
     assert "Public Sub ToolbarRegistryManagement()" in MASTER_TOOLBAR_MODULE_CODE
     assert "ShowRegistrationMenu" in MASTER_TOOLBAR_MODULE_CODE
     assert "Public Sub ToolbarAbsences()" in MASTER_TOOLBAR_MODULE_CODE
@@ -94,15 +96,14 @@ def test_existing_app_header_is_idempotent():
     assert ws.shifted is False
 
 
-def test_registration_menu_installer_installs_master_toolbar():
+def test_registration_menu_installer_installs_master_toolbar_module():
     source = inspect.getsource(Win32ComRegistrationMenuInstaller.install)
     assert "install_master_toolbar(vbproject, workbook)" in source
     assert "MASTER toolbar module was not confirmed" in source
 
 
-def test_master_toolbar_includes_exit_action():
-    captions = [item[1] for item in BUTTONS]
-    assert "Save & Exit" in captions
+def test_exit_action_remains_available_outside_master():
+    assert BUTTONS == ()
     assert "Public Sub ExitApplication()" in MASTER_TOOLBAR_MODULE_CODE
     assert "RestoreExcelInterface" in MASTER_TOOLBAR_MODULE_CODE
     assert "ThisWorkbook.Save" in MASTER_TOOLBAR_MODULE_CODE
@@ -125,14 +126,12 @@ def test_master_toolbar_clears_freeze_and_split():
     assert "window.SplitRow = 0" in source
 
 
-def test_master_toolbar_forces_black_button_text():
+def test_operational_navigation_forces_black_button_text():
     from rehab_excel import master_toolbar_vba
 
     helper = inspect.getsource(master_toolbar_vba._set_shape_text_black)
-    install = inspect.getsource(master_toolbar_vba.install_master_toolbar)
     nav = inspect.getsource(master_toolbar_vba._add_navigation_button)
     assert "ForeColor.RGB = 0" in helper
-    assert "_set_shape_text_black(shape)" in install
     assert "_set_shape_text_black(shape)" in nav
 
 
