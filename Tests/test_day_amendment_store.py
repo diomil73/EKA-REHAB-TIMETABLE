@@ -96,6 +96,16 @@ def test_amendment_store_is_one_excel_transaction_with_single_save_boundary():
     assert "append_day_history_events(" not in source
 
 
+def test_amendment_store_rejects_read_only_open_before_any_mutation():
+    source = inspect.getsource(module.persist_day_amendment)
+    open_marker = source.index("Workbooks.Open")
+    read_only_marker = source.index("if bool(workbook.ReadOnly):")
+    mutation_marker = source.index("# Mutation begins only after every preflight has passed.")
+
+    assert open_marker < read_only_marker < mutation_marker
+    assert "Workbook is still in use and opened read-only" in source
+
+
 def test_amendment_store_preflights_all_history_sheets_before_mutation():
     source = inspect.getsource(module.persist_day_amendment)
     mutation_marker = source.index("# Mutation begins only after every preflight has passed.")
