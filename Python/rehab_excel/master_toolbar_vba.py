@@ -100,32 +100,9 @@ End Sub
 '''
 
 
-BUTTONS = (
-    (
-        "RegistryManagement",
-        "Διαχείριση Μητρώων",
-        "ToolbarRegistryManagement",
-        "Προσθήκη, μεταβολή ή απενεργοποίηση ασθενών, θεραπευτών και φοιτητών.",
-    ),
-    (
-        "Absences",
-        "Απουσίες / Ακυρώσεις",
-        "ToolbarAbsences",
-        "Καταχώρηση απουσιών και ακυρώσεων ασθενών ή θεραπευτών.",
-    ),
-    (
-        "TherapistDaily",
-        "Ημερήσιο πρόγραμμα",
-        "ToolbarTherapistDaily",
-        "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών.",
-    ),
-    (
-        "Exit",
-        "Save & Exit",
-        "ExitApplication",
-        "Αποθήκευση αλλαγών, κλείσιμο της εφαρμογής και επαναφορά του κανονικού Excel.",
-    ),
-)
+# Normal-user MASTER is intentionally free of operational/admin buttons.
+# A future super-user overlay, if added, must be an explicit separate mode.
+BUTTONS: tuple[tuple[str, str, str, str], ...] = ()
 
 
 class MasterToolbarError(RuntimeError):
@@ -331,33 +308,10 @@ def install_master_toolbar(vbproject, workbook) -> None:
 
     _ensure_app_header_rows(ws)
     _ensure_master_display_schema(ws)
+    # Normal mode: MASTER is a clean read-only operational hub.
+    # Remove any legacy/master toolbar shapes and install none there.
     _delete_existing_toolbar_shapes(ws)
     _clear_master_freeze(ws, workbook)
-
-    left = float(ws.Range("A2").Left) + 4
-    top = float(ws.Range("A2").Top) + 2
-    available_width = float(ws.Range("A2:K2").Width) - 8
-    gap = 6.0
-    button_width = (available_width - gap * (len(BUTTONS) - 1)) / len(BUTTONS)
-    button_height = max(24.0, float(ws.Rows(2).Height) - 4)
-
-    for index, (key, caption, macro, description) in enumerate(BUTTONS):
-        shape = ws.Shapes.AddShape(5, left + index * (button_width + gap), top, button_width, button_height)
-        shape.Name = MASTER_TOOLBAR_PREFIX + key
-        shape.OnAction = macro
-        shape.AlternativeText = description
-        shape.Placement = 3
-        shape.Fill.ForeColor.RGB = 15527148
-        shape.Line.ForeColor.RGB = 10066329
-        shape.Line.Weight = 1
-        shape.TextFrame2.TextRange.Text = caption
-        shape.TextFrame2.TextRange.Font.Name = "Calibri"
-        shape.TextFrame2.TextRange.Font.Size = 10
-        shape.TextFrame2.TextRange.Font.Bold = True
-        _set_shape_text_black(shape)
-        shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
-        shape.TextFrame2.VerticalAnchor = 3
-
     _install_operational_navigation(workbook)
 
 
