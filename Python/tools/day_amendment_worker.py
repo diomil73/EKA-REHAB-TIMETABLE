@@ -4,9 +4,15 @@ import argparse
 import json
 import os
 from pathlib import Path
+import sys
 import time
 
-from tools.apply_day_amendment import DayAmendmentApplyError, apply_day_amendment
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PYTHON_ROOT = REPO_ROOT / "Python"
+if str(PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(PYTHON_ROOT))
+
+from tools.apply_day_amendment import DayAmendmentApplyError, apply_day_amendment  # noqa: E402
 
 
 class DayAmendmentWorkerError(RuntimeError):
