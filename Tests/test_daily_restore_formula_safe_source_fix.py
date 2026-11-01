@@ -68,10 +68,20 @@ def test_canonical_sources_match_expected_post_fix_markers():
     restore_text = module.RESTORE_PREPARER.read_text(encoding="utf-8")
     vba_text = module.DAILY_INPUT_VBA.read_text(encoding="utf-8")
 
-    assert 'intent=WriteIntent.PRESENTATION' in restore_text
-    assert 'source_tag="master_daily_restore_overlay"' in restore_text
-    assert 'value = str(master[patch.cell].value or "")' not in restore_text
-    assert 'text_runs=_plain_runs(value)' not in restore_text
+    overlay_start = restore_text.index('if patch.source_tag == "master_daily_non_active_overlay":')
+    overlay_end = restore_text.index('elif patch.source_tag == "master_daily_patient_status_overlay":')
+    overlay_block = restore_text[overlay_start:overlay_end]
+
+    assert 'intent=WriteIntent.PRESENTATION' in overlay_block
+    assert 'source_tag="master_daily_restore_overlay"' in overlay_block
+    assert 'value = str(master[patch.cell].value or "")' not in overlay_block
+    assert 'text_runs=_plain_runs(value)' not in overlay_block
+
+    status_start = overlay_end
+    status_end = restore_text.index('finally:', status_start)
+    status_block = restore_text[status_start:status_end]
+    assert 'source_tag="master_daily_restore_status"' in status_block
+    assert 'text_runs=_plain_runs(value)' in status_block
 
     assert 'Case "master_daily_restore_overlay", "master_daily_restore_status"' in vba_text
     assert "Dim rollbackCell As Range, targetCell As Range" in vba_text
