@@ -72,6 +72,39 @@ Native X proof checkpoint:
 
 `921422f` — `Record green native X restore proof`
 
+## Close-day Y diagnostic outcome
+
+Fresh native close-day candidate:
+
+`Excel/previews/UNIFIED_CLOSE_DAY_HISTORY_20261101_Y.xlsm`
+
+The close-day inspector found no `CURRENT_FINAL` row for `2026-10-30`.
+
+A read-only preparation probe was then run after Excel was fully closed. It reproduced the same deterministic failure:
+
+`DAILY_INPUT contains no active absence/cancellation rows`
+
+No close-day payload was created.
+
+This proves Y did not reach snapshot/history persistence. The blocker was in preparation before any mutation.
+
+Root cause in canonical source:
+
+- `read_daily_input(...)` intentionally supports `allow_empty=True`,
+- `prepare_close_day_in_place.py` called it with the default `allow_empty=False`,
+- therefore a completely clean operational day with no absence/cancellation rows could not be finalized even if it had zero unresolved sessions.
+
+Bounded fix:
+
+- `4ea05f4` — `Allow clean days in close-day preparation`
+- `2b457df` — `Cover clean close-day preparation`
+
+The fix changes only the close-day reader call to `allow_empty=True`. It does not weaken finalization safety: unresolved sessions are still rejected downstream by the existing finalized-day snapshot contract.
+
+Y is frozen as failed diagnostic evidence and must not be reused or repaired in place.
+
+The next source gate must include the close-day preparer/action tests and the native close-day inspector tests. Only after that gate is green should a fresh close-day candidate be built.
+
 ## Important interpretation of diagnostic logs
 
 The remaining `%TEMP%` restore / DAILY_INPUT error logs observed after X had timestamps around 18:44 and belong to the earlier failed W run. X restored successfully at approximately 19:06. Do not treat those stale logs as X failures.
@@ -95,8 +128,8 @@ Therefore the older 2026-10-30 close-day checkpoint instruction to promote `modC
 
 Return to the product roadmap:
 
-1. close-day/history regression gate on the current canonical source,
-2. if green, build a fresh uniquely named workbook,
+1. rerun the close-day/history regression gate after the clean-day preparation fix,
+2. if green, build a fresh uniquely named close-day workbook,
 3. perform one native close-day smoke,
 4. verify finalized day snapshots, therapist history and day history events,
 5. only after native close-day proof continue to statistics/reporting.
@@ -131,6 +164,7 @@ Freeze prior smoke artifacts. Never repair/reuse them.
 
 - W is failed restore evidence only.
 - X is green apply/restore evidence only.
+- Y is failed close-day preparation evidence only.
 - the next native close-day test must use a fresh uniquely named workbook.
 
 ## Retired approach
