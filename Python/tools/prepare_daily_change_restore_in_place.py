@@ -238,14 +238,17 @@ def _build_clean_day_restore_plan(
         master = wb["MASTER_SCHEDULE"]
         for patch in current_master.write_plan.patches:
             if patch.source_tag == "master_daily_non_active_overlay":
-                value = str(master[patch.cell].value or "")
+                # The daily non-active overlay never replaces the underlying MASTER
+                # treatment formula; it only changes presentation.  Restore it the
+                # same way.  Writing the formula text as a value makes VBA compare
+                # cell.Value (calculated result) with the formula string and causes
+                # a deterministic read-back mismatch.
                 patches.append(
                     CellPatch(
                         sheet="MASTER_SCHEDULE",
                         cell=patch.cell,
-                        value=value,
+                        intent=WriteIntent.PRESENTATION,
                         wrap_text=True,
-                        text_runs=_plain_runs(value),
                         source_tag="master_daily_restore_overlay",
                     )
                 )

@@ -335,6 +335,9 @@ Private Sub ApplySourceTagPresentation(ByVal cell As Range, ByVal sourceTag As S
             cell.Font.Strikethrough = True
         Case "master_daily_patient_status_overlay"
             cell.Font.Color = RGB(255, 0, 0)
+        Case "master_daily_restore_overlay", "master_daily_restore_status"
+            cell.Font.Color = RGB(0, 0, 0)
+            cell.Font.Strikethrough = False
     End Select
 End Sub
 
@@ -348,6 +351,11 @@ Private Function VerifySourceTagPresentation(ByVal cell As Range, ByVal sourceTa
                 (CBool(strikeValue) = True And CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
         Case "master_daily_patient_status_overlay"
             VerifySourceTagPresentation = (CLng(cell.Font.Color) = CLng(RGB(255, 0, 0)))
+        Case "master_daily_restore_overlay", "master_daily_restore_status"
+            strikeValue = cell.Font.Strikethrough
+            If IsNull(strikeValue) Then Exit Function
+            VerifySourceTagPresentation = _
+                (CBool(strikeValue) = False And CLng(cell.Font.Color) = CLng(RGB(0, 0, 0)))
         Case Else
             VerifySourceTagPresentation = True
     End Select
@@ -467,6 +475,7 @@ End Function
 
 Private Sub RestorePatchesFromRollback(ByVal rollbackPath As String, ByVal lines As Variant)
     Dim rollbackBook As Workbook, parts As Variant
+    Dim rollbackCell As Range, targetCell As Range
     Dim i As Long, sheetName As String, cellAddress As String
     Dim previousAlerts As Boolean
 
@@ -482,7 +491,12 @@ Private Sub RestorePatchesFromRollback(ByVal rollbackPath As String, ByVal lines
         parts = Split(CStr(lines(i)), vbTab)
         sheetName = PayloadValue(parts(1))
         cellAddress = PayloadValue(parts(2))
-        rollbackBook.Worksheets(sheetName).Range(cellAddress).Copy Destination:=ThisWorkbook.Worksheets(sheetName).Range(cellAddress)
+        Set rollbackCell = rollbackBook.Worksheets(sheetName).Range(cellAddress)
+        Set targetCell = ThisWorkbook.Worksheets(sheetName).Range(cellAddress)
+        rollbackCell.Copy Destination:=targetCell
+        ' Cross-workbook Copy can rewrite internal formulas as [1]Sheet! references.
+        ' Re-assign the original formula text after copying formats/content.
+        If rollbackCell.HasFormula Then targetCell.Formula = rollbackCell.Formula
 RestoreNext:
     Next i
     Application.CutCopyMode = False
