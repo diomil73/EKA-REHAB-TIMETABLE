@@ -71,10 +71,7 @@ Public Sub StartClosedDayAmendment()
                   " --response " & QuoteArg(workerResponse)
 
     CreateObject("WScript.Shell").Run commandLine, 0, False
-
-    Application.EnableEvents = False
     ThisWorkbook.Close SaveChanges:=False
-    Application.EnableEvents = True
     Exit Sub
 
 CleanUpPrepare:
@@ -85,9 +82,6 @@ CleanUpPrepare:
     Exit Sub
 
 ActionError:
-    On Error Resume Next
-    Application.EnableEvents = True
-    On Error GoTo 0
     MsgBox "Η διόρθωση δεν ολοκληρώθηκε. Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Διόρθωση κλεισμένης ημέρας"
 End Sub
 
