@@ -124,20 +124,30 @@ Private Function VerifyCharacterStrike(ByVal cell As Range, ByVal enabled As Boo
     Dim textLength As Long, charIndex As Long
     Dim strikeValue As Variant
 
-    textLength = Len(CStr(cell.Value))
-    If textLength = 0 Then
-        strikeValue = cell.Font.Strikethrough
-        If IsNull(strikeValue) Then Exit Function
+    ' Prefer Excel's whole-cell answer whenever it is definitive.  Some MASTER
+    ' cells expose Font.Strikethrough correctly but do not expose Characters()
+    ' through COM; forcing character read-back there creates a false mismatch.
+    strikeValue = cell.Font.Strikethrough
+    If Not IsNull(strikeValue) Then
         VerifyCharacterStrike = (CBool(strikeValue) = enabled)
         Exit Function
     End If
 
+    ' Only mixed-format cells that return Null need character-level fallback.
+    textLength = Len(CStr(cell.Value))
+    If textLength = 0 Then Exit Function
+
+    On Error GoTo CharacterReadFailed
     For charIndex = 1 To textLength
         strikeValue = cell.Characters(charIndex, 1).Font.Strikethrough
         If IsNull(strikeValue) Then Exit Function
         If CBool(strikeValue) <> enabled Then Exit Function
     Next charIndex
     VerifyCharacterStrike = True
+    Exit Function
+
+CharacterReadFailed:
+    VerifyCharacterStrike = False
 End Function
 '''
     insert_at = normalized.find("\nPrivate Sub ApplySourceTagPresentation")

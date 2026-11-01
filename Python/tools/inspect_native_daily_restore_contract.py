@@ -53,7 +53,7 @@ def inspect_workbook(path: Path) -> int:
             "daily.character_apply": "Private Sub ApplyCharacterStrike" in daily,
             "daily.character_verify": "Private Function VerifyCharacterStrike" in daily,
             "daily.status_normalizer": "NormalizeMasterPatientStatusPresentation master" in daily,
-            "daily.status_character_clear": ".Characters(1, Len(CStr(master.Cells(row, statusCol).Value))).Font.Strikethrough = False" in daily,
+            "daily.status_character_clear": "ApplyCharacterStrike master.Cells(row, statusCol), False" in daily,
             "ledger.canonical_apply": "ApplyValidatedDailyInputPayload(patchPath)" in ledger,
             "ledger.old_apply_absent": "ApplyPayloadFileInPlace" not in ledger,
             "ledger.safe_anchor": 'wsDaily.Cells.Find(What:="*"' in ledger,
