@@ -15,9 +15,9 @@ def test_day_amendment_action_is_explicit_and_separate_from_save_exit():
     assert DAY_AMENDMENT_MODULE_NAME == "modDayAmendmentAction"
     assert DAY_AMENDMENT_MACRO_NAME == "StartClosedDayAmendment"
     assert DAY_AMENDMENT_BUTTON_NAME == "ekaToolbar_DayAmendment"
-    assert "Διόρθωση κλεισμένης ημέρας" in source
+    assert "Αποθήκευση ημέρας" in source
     assert "vbYesNo + vbDefaultButton2" in source
-    assert "Η προηγούμενη έκδοση θα παραμείνει στο ιστορικό" in source
+    assert "Η προηγούμενη καταχώρηση θα παραμείνει στο ιστορικό" in source
     assert "ExitApplication" not in source
     assert "Save & Exit" not in source
 
@@ -57,4 +57,4 @@ def test_day_amendment_installer_owns_only_its_module_and_master_button():
     assert 'workbook.Worksheets("MASTER_SCHEDULE")' in source
     assert "ws.Shapes(DAY_AMENDMENT_BUTTON_NAME).Delete()" in source
     assert "shape.OnAction = DAY_AMENDMENT_MACRO_NAME" in source
-    assert 'shape.TextFrame2.TextRange.Text = "Διόρθωση κλεισμένης ημέρας"' in source
+    assert 'shape.TextFrame2.TextRange.Text = "Αποθήκευση ημέρας"' in source
