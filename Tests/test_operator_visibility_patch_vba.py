@@ -6,6 +6,7 @@ from rehab_excel.operator_visibility_patch_vba import (
     _normalize_vba,
     install_operator_visibility_patch,
     patch_daily_input_patient_status_visibility,
+    patch_daily_input_rich_text_strike_contract,
     patch_daily_input_workload_visibility,
     patch_global_replacement_summary,
 )
@@ -22,11 +23,27 @@ def test_daily_input_refresh_stops_auto_rendering_workload_badges():
     assert "therapist card" in refresh
 
 
+def test_master_rich_text_strike_contract_is_character_safe_for_apply_and_readback():
+    patched = patch_daily_input_rich_text_strike_contract(DAILY_INPUT_MODULE_CODE)
+    assert 'If PayloadValue(parts(5)) = "1" Then ApplyCharacterStrike cell, True' in patched
+    assert "If Not VerifyCharacterStrike(cell, True) Then Exit Function" in patched
+    assert 'Case "master_daily_non_active_overlay"' in patched
+    assert "ApplyCharacterStrike cell, True" in patched
+    assert "VerifyCharacterStrike(cell, True)" in patched
+    assert 'Case "master_daily_patient_status_overlay"' in patched
+    assert "ApplyCharacterStrike cell, False" in patched
+    assert "VerifyCharacterStrike(cell, False)" in patched
+    assert "Private Sub ApplyCharacterStrike(ByVal cell As Range, ByVal enabled As Boolean)" in patched
+    assert "cell.Characters(1, textLength).Font.Strikethrough = enabled" in patched
+    assert "For charIndex = 1 To textLength" in patched
+    assert "cell.Characters(charIndex, 1).Font.Strikethrough" in patched
+
+
 def test_master_patient_status_reason_is_red_but_never_struck_through():
-    patched = patch_daily_input_patient_status_visibility(DAILY_INPUT_MODULE_CODE)
-    assert '''Case "master_daily_patient_status_overlay"\n            cell.Font.Color = RGB(255, 0, 0)\n            cell.Font.Strikethrough = False''' in patched
-    assert '''Case "master_daily_patient_status_overlay"\n            strikeValue = cell.Font.Strikethrough\n            If IsNull(strikeValue) Then Exit Function''' in patched
-    assert "CBool(strikeValue) = False" in patched
+    rich = patch_daily_input_rich_text_strike_contract(DAILY_INPUT_MODULE_CODE)
+    patched = patch_daily_input_patient_status_visibility(rich)
+    assert "ApplyCharacterStrike cell, False" in patched
+    assert "VerifyCharacterStrike(cell, False)" in patched
     assert "ApplyMasterView\n    NormalizeMasterPatientStatusPresentation master" in patched
     assert "Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)" in patched
     assert 'roomText = LCase$(Trim$(CStr(master.Cells(row, 2).Value)))' in patched
@@ -36,14 +53,14 @@ def test_master_patient_status_reason_is_red_but_never_struck_through():
     assert "If headerRow = 0 Then Exit Sub" in patched
     assert "If statusCol = 0 Then Exit Sub" in patched
     assert "MASTER status column not found" not in patched
-    assert "master.Cells(row, statusCol).Font.Strikethrough = False" in patched
+    assert "ApplyCharacterStrike master.Cells(row, statusCol), False" in patched
 
 
 def test_vba_normalization_handles_excel_com_crlf_without_changing_semantics():
-    sample = 'Case "master_daily_patient_status_overlay"\r\n    cell.Font.Color = RGB(255, 0, 0)\r\n    cell.Font.Strikethrough = False\r\n'
+    sample = 'Case "master_daily_patient_status_overlay"\r\n    cell.Font.Color = RGB(255, 0, 0)\r\n    ApplyCharacterStrike cell, False\r\n'
     normalized = _normalize_vba(sample)
     assert "\r" not in normalized
-    assert normalized == 'Case "master_daily_patient_status_overlay"\n    cell.Font.Color = RGB(255, 0, 0)\n    cell.Font.Strikethrough = False\n'
+    assert normalized == 'Case "master_daily_patient_status_overlay"\n    cell.Font.Color = RGB(255, 0, 0)\n    ApplyCharacterStrike cell, False\n'
 
 
 def test_global_replacement_success_shows_new_assignment_details():
@@ -81,12 +98,15 @@ def test_canonical_registration_build_installs_operator_visibility_patch():
 
 def test_patch_installer_verifies_visibility_and_operator_contracts_semantically():
     source = inspect.getsource(install_operator_visibility_patch)
+    assert "patch_daily_input_rich_text_strike_contract" in source
     assert "_normalize_vba(_code(daily))" in source
     assert "_normalize_vba(_code(global_replacement))" in source
     assert "DAILY_INPUT still auto-renders workload badges" in source
     assert "DAILY_INPUT was not routed through the replacement operator" in source
-    assert "MASTER patient status still permits strike-through" in source
+    assert "MASTER patient status still permits character-level strike-through" in source
+    assert "MASTER treatment strike read-back is not character-safe" in source
     assert "MASTER status normalization was not installed after ApplyMasterView" in source
+    assert "MASTER status normalization is not character-safe" in source
     assert "Replacement summary patch was not installed" in source
     assert "Replacement summary procedure was not installed" in source
     assert '"PatientDisplayName(patientId)"' in source
