@@ -14,10 +14,23 @@ from rehab_excel.day_amendment_action_vba import (  # noqa: E402
     DAY_AMENDMENT_MODULE_NAME,
     install_day_amendment_action,
 )
+from rehab_excel.master_toolbar_vba import (  # noqa: E402
+    MASTER_TOOLBAR_PREFIX,
+    install_master_toolbar,
+)
 
 
 class DayAmendmentUiInstallError(RuntimeError):
     pass
+
+
+def _master_toolbar_shapes(workbook) -> tuple[str, ...]:
+    ws = workbook.Worksheets("MASTER_SCHEDULE")
+    return tuple(
+        str(ws.Shapes(index).Name)
+        for index in range(1, int(ws.Shapes.Count) + 1)
+        if str(ws.Shapes(index).Name).startswith(MASTER_TOOLBAR_PREFIX)
+    )
 
 
 def install_day_amendment_ui(workbook_path: str | Path) -> dict[str, object]:
@@ -46,20 +59,29 @@ def install_day_amendment_ui(workbook_path: str | Path) -> dict[str, object]:
         if not bool(workbook.HasVBProject):
             raise DayAmendmentUiInstallError("Workbook has no VBA project")
         vbproject = workbook.VBProject
+
+        install_master_toolbar(vbproject, workbook)
         install_day_amendment_action(vbproject, workbook)
 
         try:
             _ = vbproject.VBComponents(DAY_AMENDMENT_MODULE_NAME)
         except Exception as exc:
             raise DayAmendmentUiInstallError("Day-amendment VBA module was not confirmed") from exc
+
+        master_shapes = _master_toolbar_shapes(workbook)
+        if master_shapes:
+            raise DayAmendmentUiInstallError(
+                f"MASTER_SCHEDULE still contains operational toolbar shapes: {master_shapes!r}"
+            )
+
         try:
-            button = workbook.Worksheets("MASTER_SCHEDULE").Shapes(DAY_AMENDMENT_BUTTON_NAME)
+            button = workbook.Worksheets("DAILY_INPUT").Shapes(DAY_AMENDMENT_BUTTON_NAME)
             if str(button.OnAction) != "StartClosedDayAmendment":
-                raise DayAmendmentUiInstallError("Day-amendment button macro binding is invalid")
+                raise DayAmendmentUiInstallError("Day-save button macro binding is invalid")
         except DayAmendmentUiInstallError:
             raise
         except Exception as exc:
-            raise DayAmendmentUiInstallError("Day-amendment MASTER button was not confirmed") from exc
+            raise DayAmendmentUiInstallError("Day-save DAILY_INPUT button was not confirmed") from exc
 
         workbook.Save()
         return {
@@ -67,6 +89,8 @@ def install_day_amendment_ui(workbook_path: str | Path) -> dict[str, object]:
             "workbook": str(path),
             "module": DAY_AMENDMENT_MODULE_NAME,
             "button": DAY_AMENDMENT_BUTTON_NAME,
+            "master_clean": True,
+            "button_sheet": "DAILY_INPUT",
         }
     finally:
         if workbook is not None:
@@ -82,7 +106,7 @@ def install_day_amendment_ui(workbook_path: str | Path) -> dict[str, object]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install the explicit closed-day amendment UI into an XLSM preview.")
+    parser = argparse.ArgumentParser(description="Install the day-save UI into an XLSM preview.")
     parser.add_argument("workbook", type=Path)
     args = parser.parse_args()
 
@@ -96,6 +120,8 @@ def main() -> int:
     print(f"Workbook: {result['workbook']}")
     print(f"Module: {result['module']}")
     print(f"Button: {result['button']}")
+    print("MASTER clean: True")
+    print("Button sheet: DAILY_INPUT")
     return 0
 
 
