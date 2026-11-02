@@ -5,8 +5,10 @@ import pytest
 from rehab_core.day_finalization import FinalizedDaySnapshot, FinalizedSnapshotStatus
 from rehab_core.therapist_day_history import TherapistDayHistoryRow
 from rehab_core.therapist_history_reports import (
+    TherapistDailyReport,
     TherapistHistoryReportError,
     build_therapist_daily_reports,
+    build_therapist_weekly_reports,
 )
 
 
@@ -57,6 +59,24 @@ def _row(snapshot_id: str, therapist_id: str = "T1", *, service_date: date = DAY
     )
 
 
+def _daily(day: date, *, therapist_id: str = "T1", capacity: int | None = 6) -> TherapistDailyReport:
+    return TherapistDailyReport(
+        snapshot_id=f"snap:{day.isoformat()}",
+        service_date=day,
+        snapshot_version=1,
+        therapist_id=therapist_id,
+        capacity_timeslots=capacity,
+        planned_occupied_timeslots=5,
+        planned_sessions=5,
+        final_occupied_timeslots=4,
+        final_active_sessions=4,
+        replacements_received=1,
+        released_by_cancellation_or_no_show=1,
+        treatment_suspensions_affecting_load=0,
+        approved_shared_or_over_capacity_events=0,
+    )
+
+
 def test_reports_use_only_current_final_version_after_amendment():
     snapshots = (
         _snapshot("snap-v1", version=1, status=FinalizedSnapshotStatus.SUPERSEDED),
@@ -92,12 +112,7 @@ def test_report_filters_therapist_and_date_range():
     next_day = date(2026, 10, 31)
     snapshots = (
         _snapshot("snap-a", version=1, status=FinalizedSnapshotStatus.CURRENT_FINAL),
-        _snapshot(
-            "snap-b",
-            version=1,
-            status=FinalizedSnapshotStatus.CURRENT_FINAL,
-            service_date=next_day,
-        ),
+        _snapshot("snap-b", version=1, status=FinalizedSnapshotStatus.CURRENT_FINAL, service_date=next_day),
     )
     rows = (
         _row("snap-a", "T1"),
@@ -135,13 +150,43 @@ def test_report_fails_closed_on_duplicate_therapist_row_for_current_snapshot():
 
 def test_report_fails_closed_if_current_snapshot_has_unresolved_sessions():
     snapshots = (
-        _snapshot(
-            "snap-v2",
-            version=2,
-            status=FinalizedSnapshotStatus.CURRENT_FINAL,
-            unresolved_sessions=1,
-        ),
+        _snapshot("snap-v2", version=2, status=FinalizedSnapshotStatus.CURRENT_FINAL, unresolved_sessions=1),
     )
 
     with pytest.raises(TherapistHistoryReportError, match="unresolved sessions"):
         build_therapist_daily_reports(snapshots, (_row("snap-v2"),))
+
+
+def test_weekly_report_sums_daily_workload_and_uses_monday_sunday_window():
+    reports = build_therapist_weekly_reports(
+        (_daily(date(2026, 10, 26)), _daily(date(2026, 10, 30)))
+    )
+
+    assert len(reports) == 1
+    report = reports[0]
+    assert report.week_start == date(2026, 10, 26)
+    assert report.week_end == date(2026, 11, 1)
+    assert report.reported_days == 2
+    assert report.capacity_timeslots == 12
+    assert report.planned_occupied_timeslots == 10
+    assert report.final_occupied_timeslots == 8
+    assert report.planned_sessions == 10
+    assert report.final_active_sessions == 8
+    assert report.replacements_received == 2
+    assert report.released_by_cancellation_or_no_show == 2
+    assert report.actual_capacity_utilization == pytest.approx(8 / 12)
+
+
+def test_weekly_report_keeps_therapists_separate():
+    rows = build_therapist_weekly_reports(
+        (_daily(date(2026, 10, 30), therapist_id="T1"), _daily(date(2026, 10, 30), therapist_id="T2"))
+    )
+    assert [row.therapist_id for row in rows] == ["T1", "T2"]
+
+
+def test_weekly_utilization_is_unknown_if_any_daily_capacity_is_unknown():
+    report = build_therapist_weekly_reports(
+        (_daily(date(2026, 10, 29)), _daily(date(2026, 10, 30), capacity=None))
+    )[0]
+    assert report.capacity_timeslots is None
+    assert report.actual_capacity_utilization is None
