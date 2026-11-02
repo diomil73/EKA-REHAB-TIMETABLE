@@ -48,13 +48,27 @@ def test_day_save_in_session_persistence_is_preflight_readback_save_and_rollback
     assert "oldSnapshotRow = FindRowById" in source
     assert '"CURRENT_FINAL"' in source
     assert "HistoryPairExists" in source
-    assert "Mutation begins only after every sheet and collision preflight has passed" in source
+    assert "SupersededSnapshotMatches" in source
     assert "RowMatchesPayload" in source
     assert "oldStatus = CStr" in source
     assert "wsSnapshot.Cells(oldSnapshotRow, 4).Value2 = oldStatus" in source
     assert "ClearContents" in source
     assert "FinalizeTechnicalSheet" in source
     assert "ThisWorkbook.Save" in source
+
+
+def test_supersede_readback_checks_identity_version_and_status_not_serialized_date_cells():
+    source = DAY_AMENDMENT_MODULE_CODE
+
+    assert "Private Function SupersededSnapshotMatches" in source
+    assert "ws.Cells(targetRow, 1).Value" in source
+    assert "ws.Cells(targetRow, 3).Value" in source
+    assert "ws.Cells(targetRow, 4).Value" in source
+    assert "PayloadValue(parts(1))" in source
+    assert "PayloadValue(parts(3))" in source
+    assert "PayloadValue(parts(4))" in source
+    assert "SupersededSnapshotMatches(wsSnapshot, oldSnapshotRow, supersedeParts)" in source
+    assert "RowMatchesPayload(wsSnapshot, oldSnapshotRow, supersedeParts, 1, 15)" not in source
 
 
 def test_day_amendment_action_has_no_manual_reason_or_summary_prompts():
