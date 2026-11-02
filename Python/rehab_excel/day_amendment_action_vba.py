@@ -62,7 +62,7 @@ Public Sub StartClosedDayAmendment()
                   " --response " & QuoteArg(workerResponse)
 
     CreateObject("WScript.Shell").Run commandLine, 0, False
-    ThisWorkbook.Close SaveChanges:=False
+    CloseForDaySaveHandoff
     Exit Sub
 
 CleanUpPrepare:
@@ -73,7 +73,39 @@ CleanUpPrepare:
     Exit Sub
 
 ActionError:
+    On Error Resume Next
+    Application.EnableEvents = True
+    On Error GoTo 0
     MsgBox "Η ημέρα δεν αποθηκεύτηκε. Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Αποθήκευση ημέρας"
+End Sub
+
+Private Sub CloseForDaySaveHandoff()
+    Dim eventsWereEnabled As Boolean
+    Dim workbookCount As Long
+
+    On Error GoTo CloseError
+
+    On Error Resume Next
+    RestoreExcelInterface
+    On Error GoTo CloseError
+
+    eventsWereEnabled = Application.EnableEvents
+    workbookCount = Application.Workbooks.Count
+    Application.EnableEvents = False
+
+    If workbookCount <= 1 Then
+        Application.Quit
+    Else
+        ThisWorkbook.Close SaveChanges:=False
+        Application.EnableEvents = eventsWereEnabled
+    End If
+    Exit Sub
+
+CloseError:
+    On Error Resume Next
+    Application.EnableEvents = eventsWereEnabled
+    On Error GoTo 0
+    Err.Raise vbObjectError + 731, "CloseForDaySaveHandoff", "Δεν ήταν δυνατό να κλείσει το αρχείο για την Αποθήκευση ημέρας."
 End Sub
 
 Private Function ResolveRepoTool(ByVal fileName As String) As String
