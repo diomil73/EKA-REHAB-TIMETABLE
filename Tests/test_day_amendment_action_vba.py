@@ -57,7 +57,7 @@ def test_day_save_in_session_persistence_is_preflight_readback_save_and_rollback
     assert "ThisWorkbook.Save" in source
 
 
-def test_supersede_readback_checks_identity_version_and_status_not_serialized_date_cells():
+def test_supersede_readback_checks_identity_numeric_version_and_status_not_serialized_date_cells():
     source = DAY_AMENDMENT_MODULE_CODE
 
     assert "Private Function SupersededSnapshotMatches" in source
@@ -67,6 +67,9 @@ def test_supersede_readback_checks_identity_version_and_status_not_serialized_da
     assert "PayloadValue(parts(1))" in source
     assert "PayloadValue(parts(3))" in source
     assert "PayloadValue(parts(4))" in source
+    assert "IsNumeric(ws.Cells(targetRow, 3).Value)" in source
+    assert "IsNumeric(PayloadValue(parts(3)))" in source
+    assert "CLng(ws.Cells(targetRow, 3).Value) <> CLng(PayloadValue(parts(3)))" in source
     assert "SupersededSnapshotMatches(wsSnapshot, oldSnapshotRow, supersedeParts)" in source
     assert "RowMatchesPayload(wsSnapshot, oldSnapshotRow, supersedeParts, 1, 15)" not in source
 
