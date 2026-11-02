@@ -19,6 +19,15 @@ class DayAmendmentWorkerError(RuntimeError):
     pass
 
 
+def _windows_error_code(exc: BaseException) -> int | None:
+    code = getattr(exc, "winerror", None)
+    if isinstance(code, int):
+        return code
+    if exc.args and isinstance(exc.args[0], int):
+        return exc.args[0]
+    return None
+
+
 def _workbook_is_exclusively_available(path: Path) -> bool:
     """Return True only when Windows grants an exclusive read/write handle.
 
@@ -49,8 +58,13 @@ def _workbook_is_exclusively_available(path: Path) -> bool:
             None,
         )
         return True
-    except OSError:
-        return False
+    except Exception as exc:
+        # pywin32 raises pywintypes.error for sharing/lock violations; that
+        # exception is not guaranteed to inherit from OSError. These two Windows
+        # errors simply mean that Excel still owns the workbook, so keep polling.
+        if _windows_error_code(exc) in (32, 33):
+            return False
+        raise
     finally:
         if handle is not None:
             try:
