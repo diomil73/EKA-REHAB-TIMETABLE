@@ -12,6 +12,8 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from rehab_core.therapist_history_reports import (  # noqa: E402
     build_therapist_daily_reports,
+    build_therapist_monthly_reports,
+    build_therapist_overall_reports,
     build_therapist_weekly_reports,
 )
 from rehab_excel.finalized_day_snapshots import read_finalized_day_snapshots  # noqa: E402
@@ -52,28 +54,53 @@ def report_therapist_history(
     )
 
 
+def _print_period_rows(rows) -> None:
+    for report in rows:
+        print(
+            " | ".join(
+                (
+                    f"{report.period_start.isoformat()}..{report.period_end.isoformat()}",
+                    report.therapist_id,
+                    f"days={report.reported_days}",
+                    f"planned_slots={report.planned_occupied_timeslots}",
+                    f"actual_slots={report.final_occupied_timeslots}",
+                    f"planned_sessions={report.planned_sessions}",
+                    f"active_sessions={report.final_active_sessions}",
+                    f"replacements={report.replacements_received}",
+                    f"released={report.released_by_cancellation_or_no_show}",
+                    f"suspensions={report.treatment_suspensions_affecting_load}",
+                    f"planned_util={_pct(report.planned_capacity_utilization)}",
+                    f"actual_util={_pct(report.actual_capacity_utilization)}",
+                )
+            )
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read therapist historical workload from finalized workbook history.")
     parser.add_argument("--workbook", required=True, type=Path)
     parser.add_argument("--therapist")
     parser.add_argument("--from-date")
     parser.add_argument("--to-date")
-    parser.add_argument("--weekly", action="store_true", help="Aggregate daily history into Monday-Sunday weekly trends")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--weekly", action="store_true")
+    mode.add_argument("--monthly", action="store_true")
+    mode.add_argument("--overall", action="store_true")
     args = parser.parse_args()
 
     try:
-        daily = report_therapist_history(
+        daily_reports = report_therapist_history(
             args.workbook,
             therapist_id=args.therapist,
             start_date=_parse_date(args.from_date),
             end_date=_parse_date(args.to_date),
         )
-        reports = build_therapist_weekly_reports(daily) if args.weekly else daily
     except Exception as exc:
         print(f"THERAPIST HISTORY REPORT FAILED: {exc}")
         return 2
 
     if args.weekly:
+        reports = build_therapist_weekly_reports(daily_reports)
         print("THERAPIST WEEKLY HISTORY REPORT OK")
         print(f"Rows: {len(reports)}")
         for report in reports:
@@ -97,9 +124,23 @@ def main() -> int:
             )
         return 0
 
+    if args.monthly:
+        reports = build_therapist_monthly_reports(daily_reports)
+        print("THERAPIST MONTHLY HISTORY REPORT OK")
+        print(f"Rows: {len(reports)}")
+        _print_period_rows(reports)
+        return 0
+
+    if args.overall:
+        reports = build_therapist_overall_reports(daily_reports)
+        print("THERAPIST OVERALL HISTORY REPORT OK")
+        print(f"Rows: {len(reports)}")
+        _print_period_rows(reports)
+        return 0
+
     print("THERAPIST HISTORY REPORT OK")
-    print(f"Rows: {len(reports)}")
-    for report in reports:
+    print(f"Rows: {len(daily_reports)}")
+    for report in daily_reports:
         print(
             " | ".join(
                 (
