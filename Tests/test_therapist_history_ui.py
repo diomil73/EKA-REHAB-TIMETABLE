@@ -91,8 +91,6 @@ def test_report_buttons_have_dedicated_visible_row_and_are_brought_to_front():
     assert "shape.Top = topPos" in source
     assert "shape.Height = 24" in source
     assert "shape.ZOrder 0" in source
-    assert 'ws.Range("A6").Select' in source
-    assert "ActiveWindow.SplitRow = 5" in source
 
 
 def test_report_refresh_recreates_buttons_and_keeps_shapes_unprotected():
@@ -103,7 +101,21 @@ def test_report_refresh_recreates_buttons_and_keeps_shapes_unprotected():
     assert 'EnsureOneReportButton ws, "ekaHistory_Monthly"' in source
     assert 'EnsureOneReportButton ws, "ekaHistory_Overall"' in source
     assert 'EnsureOneReportButton ws, "ekaHistory_Back"' in source
+    assert "shape.Visible = True" in source
     assert "ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True" in source
+
+
+def test_each_mode_resets_window_to_top_and_refreezes_after_render():
+    source = THERAPIST_HISTORY_MODULE_CODE
+    assert "ResetReportWindow ws" in source
+    assert "ActiveWindow.FreezePanes = False" in source
+    assert "ActiveWindow.SplitColumn = 0" in source
+    assert "ActiveWindow.SplitRow = 0" in source
+    assert "ActiveWindow.ScrollColumn = 1" in source
+    assert "ActiveWindow.ScrollRow = 1" in source
+    assert 'ws.Range("A6").Select' in source
+    assert "ActiveWindow.SplitRow = 5" in source
+    assert "ActiveWindow.FreezePanes = True" in source
 
 
 def test_report_ui_does_not_expose_or_mutate_technical_history_sheets():
