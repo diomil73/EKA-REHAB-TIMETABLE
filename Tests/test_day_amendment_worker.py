@@ -28,6 +28,18 @@ def test_worker_file_lock_probe_uses_exclusive_windows_handle_without_excel():
     assert "apply_day_amendment" not in source
 
 
+def test_worker_file_lock_probe_treats_sharing_and_lock_violations_as_still_locked():
+    source = inspect.getsource(module._workbook_is_exclusively_available)
+
+    assert "except Exception as exc" in source
+    assert "_windows_error_code(exc) in (32, 33)" in source
+    assert "return False" in source
+
+    helper = inspect.getsource(module._windows_error_code)
+    assert 'getattr(exc, "winerror", None)' in helper
+    assert "exc.args[0]" in helper
+
+
 def test_worker_fails_immediately_on_hash_mismatch_after_release():
     source = inspect.getsource(module.apply_when_released)
 
