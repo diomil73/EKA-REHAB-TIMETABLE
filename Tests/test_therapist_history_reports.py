@@ -8,6 +8,8 @@ from rehab_core.therapist_history_reports import (
     TherapistDailyReport,
     TherapistHistoryReportError,
     build_therapist_daily_reports,
+    build_therapist_monthly_reports,
+    build_therapist_overall_reports,
     build_therapist_weekly_reports,
 )
 
@@ -190,3 +192,57 @@ def test_weekly_utilization_is_unknown_if_any_daily_capacity_is_unknown():
     )[0]
     assert report.capacity_timeslots is None
     assert report.actual_capacity_utilization is None
+
+
+def test_monthly_report_groups_calendar_month_and_sums_daily_facts():
+    reports = build_therapist_monthly_reports(
+        (
+            _daily(date(2026, 10, 5)),
+            _daily(date(2026, 10, 30)),
+            _daily(date(2026, 11, 2)),
+        )
+    )
+
+    assert len(reports) == 2
+    october, november = reports
+    assert october.period_start == date(2026, 10, 1)
+    assert october.period_end == date(2026, 10, 31)
+    assert october.reported_days == 2
+    assert october.capacity_timeslots == 12
+    assert october.final_active_sessions == 8
+    assert october.actual_capacity_utilization == pytest.approx(8 / 12)
+    assert november.period_start == date(2026, 11, 1)
+    assert november.period_end == date(2026, 11, 30)
+    assert november.reported_days == 1
+
+
+def test_overall_report_uses_first_and_last_available_finalized_day_per_therapist():
+    reports = build_therapist_overall_reports(
+        (
+            _daily(date(2026, 10, 5), therapist_id="T2"),
+            _daily(date(2026, 10, 30), therapist_id="T1"),
+            _daily(date(2026, 11, 2), therapist_id="T1"),
+        )
+    )
+
+    assert [report.therapist_id for report in reports] == ["T1", "T2"]
+    t1 = reports[0]
+    assert t1.period_start == date(2026, 10, 30)
+    assert t1.period_end == date(2026, 11, 2)
+    assert t1.reported_days == 2
+    assert t1.planned_sessions == 10
+    assert t1.final_active_sessions == 8
+
+
+def test_monthly_and_overall_utilization_fail_closed_to_unknown_on_partial_capacity():
+    rows = (
+        _daily(date(2026, 10, 29)),
+        _daily(date(2026, 10, 30), capacity=None),
+    )
+    monthly = build_therapist_monthly_reports(rows)[0]
+    overall = build_therapist_overall_reports(rows)[0]
+
+    assert monthly.capacity_timeslots is None
+    assert monthly.actual_capacity_utilization is None
+    assert overall.capacity_timeslots is None
+    assert overall.actual_capacity_utilization is None
