@@ -10,7 +10,6 @@ Public Sub StartClosedDayAmendment()
     Dim prepareScript As String, workerScript As String
     Dim payloadPath As String, prepareResponse As String, workerResponse As String
     Dim commandLine As String, responseText As String
-    Dim reasonCode As String, summaryText As String
     Dim answer As VbMsgBoxResult, exitCode As Long
 
     On Error GoTo ActionError
@@ -26,12 +25,6 @@ Public Sub StartClosedDayAmendment()
         vbQuestion + vbYesNo + vbDefaultButton2, _
         "Αποθήκευση ημέρας")
     If answer <> vbYes Then Exit Sub
-
-    reasonCode = Trim$(InputBox("Κωδικός / σύντομος λόγος αποθήκευσης:", "Αποθήκευση ημέρας"))
-    If Len(reasonCode) = 0 Then Exit Sub
-
-    summaryText = Trim$(InputBox("Περιγραφή των αλλαγών που αποθηκεύονται:", "Αποθήκευση ημέρας"))
-    If Len(summaryText) = 0 Then Exit Sub
 
     prepareScript = ResolveRepoTool("prepare_day_amendment.py")
     workerScript = ResolveRepoTool("day_amendment_worker.py")
@@ -50,9 +43,7 @@ Public Sub StartClosedDayAmendment()
                   " --input " & QuoteArg(ThisWorkbook.FullName) & _
                   " --payload " & QuoteArg(payloadPath) & _
                   " --response " & QuoteArg(prepareResponse) & _
-                  " --actor-or-source " & QuoteArg("excel:" & Environ$("USERNAME")) & _
-                  " --reason-code " & QuoteArg(reasonCode) & _
-                  " --summary " & QuoteArg(summaryText)
+                  " --actor-or-source " & QuoteArg("excel:" & Environ$("USERNAME"))
 
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
     If Dir$(prepareResponse) <> "" Then responseText = ReadUtf8File(prepareResponse)
@@ -142,21 +133,13 @@ def install_day_amendment_action(vbproject, workbook) -> None:
     module.Name = DAY_AMENDMENT_MODULE_NAME
     module.CodeModule.AddFromString(DAY_AMENDMENT_MODULE_CODE)
 
-    # MASTER stays a clean read-only operational hub. Remove any stale button
-    # left by an earlier preview experiment, but never install the action there.
-    try:
-        master = workbook.Worksheets("MASTER_SCHEDULE")
-        _delete_button_if_present(master)
-    except Exception:
-        pass
-
+    # This installer owns only the day-save action on DAILY_INPUT.
+    # MASTER and the wider application shell are intentionally untouched.
     ws = workbook.Worksheets("DAILY_INPUT")
     _delete_button_if_present(ws)
 
     last_row = _last_used_row(ws)
     anchor = ws.Range(f"A{last_row + 2}")
-    # Existing DAILY_INPUT footer layout uses Apply & Continue, MASTER, Save & Exit.
-    # Place day save on that same row, immediately after those controls.
     left = float(anchor.Left) + 292
     top = float(anchor.Top) + 2
     shape = ws.Shapes.AddShape(5, left, top, 112, 24)
