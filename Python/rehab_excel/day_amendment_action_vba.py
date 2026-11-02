@@ -10,6 +10,7 @@ Public Sub StartClosedDayAmendment()
     Dim prepareScript As String, workerScript As String
     Dim payloadPath As String, prepareResponse As String, workerResponse As String
     Dim commandLine As String, responseText As String
+    Dim actorOrSource As String
     Dim answer As VbMsgBoxResult, exitCode As Long
 
     On Error GoTo ActionError
@@ -35,15 +36,18 @@ Public Sub StartClosedDayAmendment()
 
     ThisWorkbook.Save
 
+    actorOrSource = "excel:" & Environ$("USERNAME")
     payloadPath = Environ$("TEMP") & "\\eka_day_amendment_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Int(Timer * 100)) & ".json"
     prepareResponse = Environ$("TEMP") & "\\eka_day_amendment_prepare_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Int(Timer * 100)) & ".json"
     workerResponse = Environ$("TEMP") & "\\eka_day_amendment_worker_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Int(Timer * 100)) & ".json"
 
+    ' Preflight while Excel is still open. This prevents closing the workbook if
+    ' the selected day is not eligible for a new saved version.
     commandLine = QuoteArg("python") & " " & QuoteArg(prepareScript) & _
                   " --input " & QuoteArg(ThisWorkbook.FullName) & _
                   " --payload " & QuoteArg(payloadPath) & _
                   " --response " & QuoteArg(prepareResponse) & _
-                  " --actor-or-source " & QuoteArg("excel:" & Environ$("USERNAME"))
+                  " --actor-or-source " & QuoteArg(actorOrSource)
 
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
     If Dir$(prepareResponse) <> "" Then responseText = ReadUtf8File(prepareResponse)
@@ -56,10 +60,15 @@ Public Sub StartClosedDayAmendment()
         GoTo CleanUpPrepare
     End If
 
+    ' Excel can rewrite the xlsm package during shutdown. The worker therefore
+    ' rebuilds this payload after the file is fully released, preserving strict
+    ' hash binding to the actual closed workbook before apply.
     commandLine = QuoteArg("python") & " " & QuoteArg(workerScript) & _
                   " --workbook " & QuoteArg(ThisWorkbook.FullName) & _
                   " --payload " & QuoteArg(payloadPath) & _
-                  " --response " & QuoteArg(workerResponse)
+                  " --response " & QuoteArg(workerResponse) & _
+                  " --refresh-payload-after-release" & _
+                  " --actor-or-source " & QuoteArg(actorOrSource)
 
     CreateObject("WScript.Shell").Run commandLine, 0, False
     CloseForDaySaveHandoff
