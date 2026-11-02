@@ -77,6 +77,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     ws.Range("A1:N2").UnMerge
     On Error GoTo ReportError
     ws.Range("A1:M1048576").ClearContents
+    EnsureReportButtons ws
     ws.Cells(1, 1).Value2 = "Ιστορικό / Στατιστικά Θεραπευτών"
     ws.Cells(2, 1).Value2 = ReportModeDescription(reportMode)
     For col = 0 To UBound(headers)
@@ -88,7 +89,6 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         If Len(Trim$(CStr(lines(sourceLine)))) = 0 Then GoTo NextLine
         parts = Split(CStr(lines(sourceLine)), vbTab)
         If UBound(parts) <> 13 Then Err.Raise vbObjectError + 7601, , "Invalid therapist-history UI row"
-
         ws.Cells(rowIndex, 1).Value2 = DisplayPeriodStart(reportMode, parts(0), parts(1))
         ws.Cells(rowIndex, 2).Value2 = DisplayPeriodEnd(reportMode, parts(0), parts(1))
         ws.Cells(rowIndex, 3).Value2 = parts(3)
@@ -103,7 +103,8 @@ NextLine:
     Next sourceLine
 
     FormatReportSheet ws, rowIndex - 1
-    ws.Protect
+    EnsureReportButtons ws
+    ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     ws.Activate
     ws.Range("A1").Select
     KeepApplicationShell
@@ -142,19 +143,15 @@ End Function
 
 Private Function DisplayPeriodStart(ByVal reportMode As String, ByVal startText As String, ByVal endText As String) As String
     Select Case LCase$(Trim$(reportMode))
-        Case "monthly"
-            DisplayPeriodStart = Left$(startText, 7)
-        Case Else
-            DisplayPeriodStart = startText
+        Case "monthly": DisplayPeriodStart = Left$(startText, 7)
+        Case Else: DisplayPeriodStart = startText
     End Select
 End Function
 
 Private Function DisplayPeriodEnd(ByVal reportMode As String, ByVal startText As String, ByVal endText As String) As String
     Select Case LCase$(Trim$(reportMode))
-        Case "daily", "monthly"
-            DisplayPeriodEnd = ""
-        Case Else
-            DisplayPeriodEnd = endText
+        Case "daily", "monthly": DisplayPeriodEnd = ""
+        Case Else: DisplayPeriodEnd = endText
     End Select
 End Function
 
@@ -190,22 +187,57 @@ Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
     On Error GoTo 0
 End Sub
 
+Private Sub EnsureReportButtons(ByVal ws As Worksheet)
+    EnsureOneReportButton ws, "ekaHistory_Daily", "Ημερήσια", "ShowTherapistHistoryDaily", 98#
+    EnsureOneReportButton ws, "ekaHistory_Weekly", "Εβδομαδιαία", "ShowTherapistHistoryWeekly", 108#
+    EnsureOneReportButton ws, "ekaHistory_Monthly", "Μηνιαία", "ShowTherapistHistoryMonthly", 98#
+    EnsureOneReportButton ws, "ekaHistory_Overall", "Συνολικά", "ShowTherapistHistoryOverall", 90#
+    EnsureOneReportButton ws, "ekaHistory_Back", "← MASTER", "GoToMaster", 86#
+    PositionReportButtons ws
+End Sub
+
+Private Sub EnsureOneReportButton(ByVal ws As Worksheet, ByVal buttonName As String, ByVal caption As String, ByVal macroName As String, ByVal buttonWidth As Double)
+    Dim shape As Shape
+    On Error Resume Next
+    Set shape = ws.Shapes(buttonName)
+    On Error GoTo 0
+    If shape Is Nothing Then
+        Set shape = ws.Shapes.AddShape(5, 0, 0, buttonWidth, 24)
+        shape.Name = buttonName
+    End If
+    shape.OnAction = macroName
+    shape.Placement = 3
+    shape.Fill.ForeColor.RGB = 15527148
+    shape.Line.ForeColor.RGB = 10066329
+    shape.Line.Weight = 1
+    shape.TextFrame2.TextRange.Text = caption
+    shape.TextFrame2.TextRange.Font.Name = "Calibri"
+    shape.TextFrame2.TextRange.Font.Size = 9
+    shape.TextFrame2.TextRange.Font.Bold = True
+    On Error Resume Next
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+    shape.TextFrame2.VerticalAnchor = 3
+    shape.ZOrder 0
+    On Error GoTo 0
+End Sub
+
 Private Sub PositionReportButtons(ByVal ws As Worksheet)
     Dim specs As Variant, i As Long
     Dim shape As Shape, leftPos As Double, topPos As Double, buttonWidth As Double
-
     specs = Array( _
         Array("ekaHistory_Daily", 98#), _
         Array("ekaHistory_Weekly", 108#), _
         Array("ekaHistory_Monthly", 98#), _
         Array("ekaHistory_Overall", 90#), _
         Array("ekaHistory_Back", 86#))
-
     topPos = ws.Rows(3).Top + 4
     leftPos = ws.Range("A3").Left + 4
     For i = LBound(specs) To UBound(specs)
         Set shape = Nothing
+        On Error Resume Next
         Set shape = ws.Shapes(CStr(specs(i)(0)))
+        On Error GoTo 0
         If Not shape Is Nothing Then
             buttonWidth = CDbl(specs(i)(1))
             shape.Left = leftPos
@@ -294,7 +326,6 @@ def install_therapist_history_report(vbproject, workbook) -> None:
         vbproject.VBComponents.Remove(component)
     except Exception:
         pass
-
     module = vbproject.VBComponents.Add(1)
     module.Name = THERAPIST_HISTORY_MODULE_NAME
     module.CodeModule.AddFromString(THERAPIST_HISTORY_MODULE_CODE)
@@ -304,11 +335,11 @@ def install_therapist_history_report(vbproject, workbook) -> None:
     except Exception:
         report_ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
         report_ws.Name = THERAPIST_HISTORY_SHEET_NAME
-    report_ws.Visible = -1
     try:
         report_ws.Unprotect()
     except Exception:
         pass
+    report_ws.Visible = -1
     report_ws.Cells.ClearContents()
 
     button_specs = (
@@ -320,17 +351,9 @@ def install_therapist_history_report(vbproject, workbook) -> None:
     )
     left = 4.0
     for suffix, caption, macro in button_specs:
-        width = 98.0 if suffix not in {"Overall", "Back"} else (90.0 if suffix == "Overall" else 86.0)
-        _add_button(
-            report_ws,
-            name=THERAPIST_HISTORY_BUTTON_PREFIX + suffix,
-            caption=caption,
-            macro=macro,
-            left=left,
-            top=54.0,
-            width=width,
-        )
-        left += width + 7.0
+        width = 90.0 if suffix != "Back" else 82.0
+        _add_button(report_ws, name=THERAPIST_HISTORY_BUTTON_PREFIX + suffix, caption=caption, macro=macro, left=left, top=48.0, width=width)
+        left += width + 6.0
 
     try:
         source_ws = workbook.Worksheets("THERAPIST_DAILY")
@@ -338,12 +361,4 @@ def install_therapist_history_report(vbproject, workbook) -> None:
         raise RuntimeError("Workbook has no THERAPIST_DAILY sheet") from exc
     last_row = _last_used_row(source_ws)
     anchor = source_ws.Range(f"A{last_row + 2}")
-    _add_button(
-        source_ws,
-        name=THERAPIST_HISTORY_NAV_BUTTON,
-        caption="Στατιστικά θεραπευτών",
-        macro=THERAPIST_HISTORY_OPEN_MACRO,
-        left=float(anchor.Left) + 164,
-        top=float(anchor.Top) + 2,
-        width=126,
-    )
+    _add_button(source_ws, name=THERAPIST_HISTORY_NAV_BUTTON, caption="Στατιστικά θεραπευτών", macro=THERAPIST_HISTORY_OPEN_MACRO, left=float(anchor.Left) + 164, top=float(anchor.Top) + 2, width=126)
