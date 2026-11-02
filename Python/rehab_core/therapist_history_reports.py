@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Iterable
 
 from .day_finalization import FinalizedDaySnapshot, FinalizedSnapshotStatus
@@ -18,6 +18,39 @@ class TherapistDailyReport:
     service_date: date
     snapshot_version: int
     therapist_id: str
+    capacity_timeslots: int | None
+    planned_occupied_timeslots: int
+    planned_sessions: int
+    final_occupied_timeslots: int
+    final_active_sessions: int
+    replacements_received: int
+    released_by_cancellation_or_no_show: int
+    treatment_suspensions_affecting_load: int
+    approved_shared_or_over_capacity_events: int
+
+    @property
+    def planned_capacity_utilization(self) -> float | None:
+        if self.capacity_timeslots is None or self.capacity_timeslots <= 0:
+            return None
+        return self.planned_occupied_timeslots / self.capacity_timeslots
+
+    @property
+    def actual_capacity_utilization(self) -> float | None:
+        if self.capacity_timeslots is None or self.capacity_timeslots <= 0:
+            return None
+        return self.final_occupied_timeslots / self.capacity_timeslots
+
+    @property
+    def session_delta(self) -> int:
+        return self.final_active_sessions - self.planned_sessions
+
+
+@dataclass(frozen=True)
+class TherapistWeeklyReport:
+    week_start: date
+    week_end: date
+    therapist_id: str
+    reported_days: int
     capacity_timeslots: int | None
     planned_occupied_timeslots: int
     planned_sessions: int
@@ -130,3 +163,55 @@ def build_therapist_daily_reports(
 
     reports.sort(key=lambda report: (report.service_date, report.therapist_id.casefold()))
     return tuple(reports)
+
+
+def build_therapist_weekly_reports(
+    daily_reports: Iterable[TherapistDailyReport],
+) -> tuple[TherapistWeeklyReport, ...]:
+    """Aggregate authoritative daily reports into Monday-Sunday workload trends."""
+
+    groups: dict[tuple[date, str], list[TherapistDailyReport]] = {}
+    for report in daily_reports:
+        week_start = report.service_date - timedelta(days=report.service_date.weekday())
+        groups.setdefault((week_start, report.therapist_id), []).append(report)
+
+    result: list[TherapistWeeklyReport] = []
+    for (week_start, therapist_id), rows in groups.items():
+        rows = sorted(rows, key=lambda item: item.service_date)
+        dates = {row.service_date for row in rows}
+        if len(dates) != len(rows):
+            raise TherapistHistoryReportError(
+                f"Duplicate daily report for therapist/date: {therapist_id} / {week_start.isoformat()}"
+            )
+
+        capacities = [row.capacity_timeslots for row in rows]
+        capacity_total = None if any(value is None for value in capacities) else sum(
+            int(value) for value in capacities if value is not None
+        )
+
+        result.append(
+            TherapistWeeklyReport(
+                week_start=week_start,
+                week_end=week_start + timedelta(days=6),
+                therapist_id=therapist_id,
+                reported_days=len(rows),
+                capacity_timeslots=capacity_total,
+                planned_occupied_timeslots=sum(row.planned_occupied_timeslots for row in rows),
+                planned_sessions=sum(row.planned_sessions for row in rows),
+                final_occupied_timeslots=sum(row.final_occupied_timeslots for row in rows),
+                final_active_sessions=sum(row.final_active_sessions for row in rows),
+                replacements_received=sum(row.replacements_received for row in rows),
+                released_by_cancellation_or_no_show=sum(
+                    row.released_by_cancellation_or_no_show for row in rows
+                ),
+                treatment_suspensions_affecting_load=sum(
+                    row.treatment_suspensions_affecting_load for row in rows
+                ),
+                approved_shared_or_over_capacity_events=sum(
+                    row.approved_shared_or_over_capacity_events for row in rows
+                ),
+            )
+        )
+
+    result.sort(key=lambda report: (report.week_start, report.therapist_id.casefold()))
+    return tuple(result)
