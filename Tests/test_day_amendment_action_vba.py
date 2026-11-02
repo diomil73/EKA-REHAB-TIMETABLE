@@ -50,6 +50,7 @@ def test_day_save_in_session_persistence_is_preflight_readback_save_and_rollback
     assert "HistoryPairExists" in source
     assert "SupersededSnapshotMatches" in source
     assert "RowMatchesPayload" in source
+    assert "CellMatchesPayload" in source
     assert "oldStatus = CStr" in source
     assert "wsSnapshot.Cells(oldSnapshotRow, 4).Value2 = oldStatus" in source
     assert "ClearContents" in source
@@ -57,21 +58,27 @@ def test_day_save_in_session_persistence_is_preflight_readback_save_and_rollback
     assert "ThisWorkbook.Save" in source
 
 
-def test_supersede_readback_checks_identity_numeric_version_and_status_not_serialized_date_cells():
+def test_supersede_readback_checks_identity_version_and_status_without_full_row_serialization():
     source = DAY_AMENDMENT_MODULE_CODE
 
     assert "Private Function SupersededSnapshotMatches" in source
-    assert "ws.Cells(targetRow, 1).Value" in source
-    assert "ws.Cells(targetRow, 3).Value" in source
-    assert "ws.Cells(targetRow, 4).Value" in source
-    assert "PayloadValue(parts(1))" in source
-    assert "PayloadValue(parts(3))" in source
+    assert "CellMatchesPayload(ws.Cells(targetRow, 1).Value, PayloadValue(parts(1)))" in source
+    assert "CellMatchesPayload(ws.Cells(targetRow, 3).Value, PayloadValue(parts(3)))" in source
     assert "PayloadValue(parts(4))" in source
-    assert "IsNumeric(ws.Cells(targetRow, 3).Value)" in source
-    assert "IsNumeric(PayloadValue(parts(3)))" in source
-    assert "CLng(ws.Cells(targetRow, 3).Value) <> CLng(PayloadValue(parts(3)))" in source
     assert "SupersededSnapshotMatches(wsSnapshot, oldSnapshotRow, supersedeParts)" in source
     assert "RowMatchesPayload(wsSnapshot, oldSnapshotRow, supersedeParts, 1, 15)" not in source
+
+
+def test_row_readback_normalizes_numeric_and_iso_date_excel_values():
+    source = DAY_AMENDMENT_MODULE_CODE
+
+    assert "Private Function CellMatchesPayload" in source
+    assert "If IsNumeric(actualValue) And IsNumeric(expectedText) Then" in source
+    assert "CDbl(actualValue) = CDbl(expectedText)" in source
+    assert "If IsIsoDateText(expectedText) And IsDate(actualValue) Then" in source
+    assert 'Format$(CDate(actualValue), "yyyy-mm-dd") = expectedText' in source
+    assert "Private Function IsIsoDateText" in source
+    assert "If Not CellMatchesPayload(ws.Cells(targetRow, i + 1).Value" in source
 
 
 def test_day_amendment_action_has_no_manual_reason_or_summary_prompts():
