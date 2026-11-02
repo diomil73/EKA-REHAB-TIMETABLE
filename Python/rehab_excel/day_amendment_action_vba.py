@@ -160,9 +160,8 @@ NextLine:
     eventStartRow = NextWriteRow(wsEvent)
 
     ' The amendment core changes only Status on the prior snapshot. Native Excel
-    ' may store ServiceDate as a typed date, so comparing the entire existing row
-    ' to ISO-text payload would produce a false mismatch. Verify the immutable
-    ' identity/version plus the one field that is intentionally mutated.
+    ' may store ServiceDate as a typed date and Version as a numeric Double, so
+    ' compare only the intended fields with numeric normalization for Version.
     wsSnapshot.Cells(oldSnapshotRow, 4).Value2 = PayloadValue(supersedeParts(4))
     If Not SupersededSnapshotMatches(wsSnapshot, oldSnapshotRow, supersedeParts) Then
         Err.Raise vbObjectError + 7420, , "Superseded snapshot read-back mismatch"
@@ -261,7 +260,8 @@ End Sub
 
 Private Function SupersededSnapshotMatches(ByVal ws As Worksheet, ByVal targetRow As Long, ByVal parts As Variant) As Boolean
     If Trim$(CStr(ws.Cells(targetRow, 1).Value)) <> PayloadValue(parts(1)) Then Exit Function
-    If Trim$(CStr(ws.Cells(targetRow, 3).Value)) <> PayloadValue(parts(3)) Then Exit Function
+    If Not IsNumeric(ws.Cells(targetRow, 3).Value) Or Not IsNumeric(PayloadValue(parts(3))) Then Exit Function
+    If CLng(ws.Cells(targetRow, 3).Value) <> CLng(PayloadValue(parts(3))) Then Exit Function
     If UCase$(Trim$(CStr(ws.Cells(targetRow, 4).Value))) <> UCase$(PayloadValue(parts(4))) Then Exit Function
     SupersededSnapshotMatches = True
 End Function
