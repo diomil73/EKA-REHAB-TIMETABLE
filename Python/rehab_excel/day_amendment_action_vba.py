@@ -159,9 +159,6 @@ NextLine:
     therapistStartRow = NextWriteRow(wsTherapist)
     eventStartRow = NextWriteRow(wsEvent)
 
-    ' The amendment core changes only Status on the prior snapshot. Native Excel
-    ' may store ServiceDate as a typed date and Version as a numeric Double, so
-    ' compare only the intended fields with numeric normalization for Version.
     wsSnapshot.Cells(oldSnapshotRow, 4).Value2 = PayloadValue(supersedeParts(4))
     If Not SupersededSnapshotMatches(wsSnapshot, oldSnapshotRow, supersedeParts) Then
         Err.Raise vbObjectError + 7420, , "Superseded snapshot read-back mismatch"
@@ -259,9 +256,8 @@ Private Sub WritePayloadFields(ByVal ws As Worksheet, ByVal targetRow As Long, B
 End Sub
 
 Private Function SupersededSnapshotMatches(ByVal ws As Worksheet, ByVal targetRow As Long, ByVal parts As Variant) As Boolean
-    If Trim$(CStr(ws.Cells(targetRow, 1).Value)) <> PayloadValue(parts(1)) Then Exit Function
-    If Not IsNumeric(ws.Cells(targetRow, 3).Value) Or Not IsNumeric(PayloadValue(parts(3))) Then Exit Function
-    If CLng(ws.Cells(targetRow, 3).Value) <> CLng(PayloadValue(parts(3))) Then Exit Function
+    If Not CellMatchesPayload(ws.Cells(targetRow, 1).Value, PayloadValue(parts(1))) Then Exit Function
+    If Not CellMatchesPayload(ws.Cells(targetRow, 3).Value, PayloadValue(parts(3))) Then Exit Function
     If UCase$(Trim$(CStr(ws.Cells(targetRow, 4).Value))) <> UCase$(PayloadValue(parts(4))) Then Exit Function
     SupersededSnapshotMatches = True
 End Function
@@ -269,9 +265,39 @@ End Function
 Private Function RowMatchesPayload(ByVal ws As Worksheet, ByVal targetRow As Long, ByVal parts As Variant, ByVal firstPart As Long, ByVal fieldCount As Long) As Boolean
     Dim i As Long
     For i = 0 To fieldCount - 1
-        If Trim$(CStr(ws.Cells(targetRow, i + 1).Value)) <> PayloadValue(parts(firstPart + i)) Then Exit Function
+        If Not CellMatchesPayload(ws.Cells(targetRow, i + 1).Value, PayloadValue(parts(firstPart + i))) Then Exit Function
     Next i
     RowMatchesPayload = True
+End Function
+
+Private Function CellMatchesPayload(ByVal actualValue As Variant, ByVal expectedText As String) As Boolean
+    Dim actualText As String
+    actualText = Trim$(CStr(actualValue))
+    expectedText = Trim$(expectedText)
+
+    If actualText = expectedText Then
+        CellMatchesPayload = True
+        Exit Function
+    End If
+
+    If IsNumeric(actualValue) And IsNumeric(expectedText) Then
+        CellMatchesPayload = (CDbl(actualValue) = CDbl(expectedText))
+        Exit Function
+    End If
+
+    If IsIsoDateText(expectedText) And IsDate(actualValue) Then
+        CellMatchesPayload = (Format$(CDate(actualValue), "yyyy-mm-dd") = expectedText)
+        Exit Function
+    End If
+End Function
+
+Private Function IsIsoDateText(ByVal value As String) As Boolean
+    If Len(value) <> 10 Then Exit Function
+    If Mid$(value, 5, 1) <> "-" Or Mid$(value, 8, 1) <> "-" Then Exit Function
+    If Not IsNumeric(Left$(value, 4)) Then Exit Function
+    If Not IsNumeric(Mid$(value, 6, 2)) Then Exit Function
+    If Not IsNumeric(Right$(value, 2)) Then Exit Function
+    IsIsoDateText = True
 End Function
 
 Private Function PayloadValue(ByVal raw As Variant) As String
@@ -343,8 +369,6 @@ def install_day_amendment_action(vbproject, workbook) -> None:
     module.Name = DAY_AMENDMENT_MODULE_NAME
     module.CodeModule.AddFromString(DAY_AMENDMENT_MODULE_CODE)
 
-    # This installer owns only the day-save action on DAILY_INPUT.
-    # MASTER and the wider application shell are intentionally untouched.
     ws = workbook.Worksheets("DAILY_INPUT")
     _delete_button_if_present(ws)
 
