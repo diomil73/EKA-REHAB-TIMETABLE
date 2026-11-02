@@ -35,9 +35,7 @@ def _daily(therapist: str = "T1") -> TherapistDailyReport:
 def test_ui_export_writes_stable_tsv_schema(monkeypatch, tmp_path):
     monkeypatch.setattr(exporter, "report_therapist_history", lambda *args, **kwargs: (_daily(),))
     output = tmp_path / "report.tsv"
-
     result = exporter.export_therapist_history_ui("ignored.xlsm", output, mode="daily")
-
     assert result["rows"] == 1
     lines = output.read_text(encoding="utf-8-sig").splitlines()
     assert lines[0].split("\t") == list(exporter.HEADERS)
@@ -49,7 +47,6 @@ def test_ui_export_writes_stable_tsv_schema(monkeypatch, tmp_path):
 
 def test_ui_export_supports_weekly_monthly_and_overall(monkeypatch, tmp_path):
     monkeypatch.setattr(exporter, "report_therapist_history", lambda *args, **kwargs: (_daily(),))
-
     for mode in ("weekly", "monthly", "overall"):
         output = tmp_path / f"{mode}.tsv"
         result = exporter.export_therapist_history_ui("ignored.xlsm", output, mode=mode)
@@ -60,7 +57,6 @@ def test_ui_export_supports_weekly_monthly_and_overall(monkeypatch, tmp_path):
 
 def test_vba_report_runs_read_only_export_synchronously_in_same_excel_session():
     source = THERAPIST_HISTORY_MODULE_CODE
-
     assert THERAPIST_HISTORY_MODULE_NAME == "modTherapistHistoryReport"
     assert THERAPIST_HISTORY_SHEET_NAME == "THERAPIST_HISTORY_REPORT"
     assert THERAPIST_HISTORY_OPEN_MACRO == "OpenTherapistHistoryReport"
@@ -77,7 +73,6 @@ def test_vba_report_runs_read_only_export_synchronously_in_same_excel_session():
 
 def test_user_facing_report_hides_snapshot_version_and_explains_each_mode():
     source = THERAPIST_HISTORY_MODULE_CODE
-
     assert 'ReportHeaders = Array("Ημερομηνία", "", "Θεραπευτής"' in source
     assert 'ReportHeaders = Array("Μήνας", "", "Θεραπευτής"' in source
     assert 'ReportHeaders = Array("Από", "Έως", "Θεραπευτής"' in source
@@ -89,7 +84,6 @@ def test_user_facing_report_hides_snapshot_version_and_explains_each_mode():
 
 def test_report_buttons_have_dedicated_visible_row_and_are_brought_to_front():
     source = THERAPIST_HISTORY_MODULE_CODE
-
     assert "ws.Rows(3).RowHeight = 32" in source
     assert "ws.Rows(4).RowHeight = 6" in source
     assert "ws.Rows(5).RowHeight = 30" in source
@@ -101,9 +95,19 @@ def test_report_buttons_have_dedicated_visible_row_and_are_brought_to_front():
     assert "ActiveWindow.SplitRow = 5" in source
 
 
+def test_report_refresh_recreates_buttons_and_keeps_shapes_unprotected():
+    source = THERAPIST_HISTORY_MODULE_CODE
+    assert "EnsureReportButtons ws" in source
+    assert 'EnsureOneReportButton ws, "ekaHistory_Daily"' in source
+    assert 'EnsureOneReportButton ws, "ekaHistory_Weekly"' in source
+    assert 'EnsureOneReportButton ws, "ekaHistory_Monthly"' in source
+    assert 'EnsureOneReportButton ws, "ekaHistory_Overall"' in source
+    assert 'EnsureOneReportButton ws, "ekaHistory_Back"' in source
+    assert "ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True" in source
+
+
 def test_report_ui_does_not_expose_or_mutate_technical_history_sheets():
     source = THERAPIST_HISTORY_MODULE_CODE
-
     assert "FINALIZED_DAY_SNAPSHOTS" not in source
     assert "THERAPIST_DAY_HISTORY" not in source
     assert "DAY_HISTORY_EVENTS" not in source
@@ -112,7 +116,6 @@ def test_report_ui_does_not_expose_or_mutate_technical_history_sheets():
 
 def test_installer_entry_is_on_therapist_daily_not_master():
     source = inspect.getsource(install_therapist_history_report)
-
     assert THERAPIST_HISTORY_NAV_BUTTON == "ekaToolbar_TherapistHistory"
     assert 'workbook.Worksheets("THERAPIST_DAILY")' in source
     assert 'workbook.Worksheets("MASTER_SCHEDULE")' not in source
@@ -123,7 +126,6 @@ def test_installer_entry_is_on_therapist_daily_not_master():
 
 def test_native_installer_requires_technical_history_to_remain_very_hidden():
     source = inspect.getsource(installer.install_therapist_history_ui)
-
     assert '"FINALIZED_DAY_SNAPSHOTS"' in source
     assert '"THERAPIST_DAY_HISTORY"' in source
     assert '"DAY_HISTORY_EVENTS"' in source
