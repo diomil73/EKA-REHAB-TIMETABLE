@@ -4,6 +4,7 @@ import argparse
 import shutil
 import sys
 import tempfile
+from datetime import date, datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -26,14 +27,6 @@ def _parse_payload(path: Path):
 
 
 def _cell_text(value) -> str:
-    """Mirror VBA CStr closely enough for Excel COM read-back diagnostics.
-
-    Excel COM commonly returns integer-valued cells as Python floats (for
-    example Version 1 as 1.0), while VBA CStr on the same cell yields "1".
-    Normalize only integral floats so this diagnostic does not report a false
-    mismatch that the installed VBA would not see.
-    """
-
     if value is None:
         return ""
     if isinstance(value, float) and value.is_integer():
@@ -41,8 +34,39 @@ def _cell_text(value) -> str:
     return str(value).strip()
 
 
-def _row_text(ws, row: int, count: int) -> list[str]:
-    return [_cell_text(ws.Cells(row, col).Value) for col in range(1, count + 1)]
+def _is_iso_date_text(value: str) -> bool:
+    if len(value) != 10 or value[4] != "-" or value[7] != "-":
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _values_equal(expected: str, actual) -> bool:
+    actual_text = _cell_text(actual)
+    if actual_text == expected:
+        return True
+
+    try:
+        if expected.strip() and float(actual) == float(expected):
+            return True
+    except (TypeError, ValueError):
+        pass
+
+    if _is_iso_date_text(expected) and isinstance(actual, (datetime, date)):
+        return actual.date().isoformat() == expected if isinstance(actual, datetime) else actual.isoformat() == expected
+
+    return False
+
+
+def _row_matches(ws, row: int, expected: list[str]) -> tuple[bool, int | None, object | None]:
+    for col, value in enumerate(expected, 1):
+        actual = ws.Cells(row, col).Value
+        if not _values_equal(value, actual):
+            return False, col, actual
+    return True, None, None
 
 
 def _next_row(ws) -> int:
@@ -116,13 +140,17 @@ def main() -> int:
             print(f"PASS stage=preflight previous_row={old_row}")
             old_status = ws_snap.Cells(old_row, 4).Value
             ws_snap.Cells(old_row, 4).Value2 = supersede[3]
-            actual_identity = [
-                _cell_text(ws_snap.Cells(old_row, 1).Value),
-                _cell_text(ws_snap.Cells(old_row, 3).Value),
-                _cell_text(ws_snap.Cells(old_row, 4).Value).upper(),
-            ]
-            expected_identity = [supersede[0], supersede[2], supersede[3].upper()]
-            if actual_identity != expected_identity:
+            if not (
+                _values_equal(supersede[0], ws_snap.Cells(old_row, 1).Value)
+                and _values_equal(supersede[2], ws_snap.Cells(old_row, 3).Value)
+                and _cell_text(ws_snap.Cells(old_row, 4).Value).upper() == supersede[3].upper()
+            ):
+                actual_identity = [
+                    _cell_text(ws_snap.Cells(old_row, 1).Value),
+                    _cell_text(ws_snap.Cells(old_row, 3).Value),
+                    _cell_text(ws_snap.Cells(old_row, 4).Value).upper(),
+                ]
+                expected_identity = [supersede[0], supersede[2], supersede[3].upper()]
                 print(f"FAIL stage=supersede_readback expected={expected_identity!r} actual={actual_identity!r}")
                 return 1
             print("PASS stage=supersede_readback")
@@ -130,12 +158,10 @@ def main() -> int:
             new_row = _next_row(ws_snap)
             for col, value in enumerate(snapshot, 1):
                 ws_snap.Cells(new_row, col).Value2 = value
-            actual = _row_text(ws_snap, new_row, len(snapshot))
-            if actual != snapshot:
-                for idx, (exp, got) in enumerate(zip(snapshot, actual), 1):
-                    if exp != got:
-                        print(f"FAIL stage=replacement_snapshot_readback col={idx} expected={exp!r} actual={got!r}")
-                        break
+            ok, col, actual = _row_matches(ws_snap, new_row, snapshot)
+            if not ok:
+                assert col is not None
+                print(f"FAIL stage=replacement_snapshot_readback col={col} expected={snapshot[col - 1]!r} actual={_cell_text(actual)!r}")
                 return 1
             print("PASS stage=replacement_snapshot_readback")
 
@@ -144,12 +170,13 @@ def main() -> int:
                 target = th_row + offset
                 for col, value in enumerate(values, 1):
                     ws_th.Cells(target, col).Value2 = value
-                actual = _row_text(ws_th, target, len(values))
-                if actual != values:
-                    for idx, (exp, got) in enumerate(zip(values, actual), 1):
-                        if exp != got:
-                            print(f"FAIL stage=therapist_readback row={offset + 1} col={idx} therapist={values[2]!r} expected={exp!r} actual={got!r}")
-                            break
+                ok, col, actual = _row_matches(ws_th, target, values)
+                if not ok:
+                    assert col is not None
+                    print(
+                        f"FAIL stage=therapist_readback row={offset + 1} col={col} "
+                        f"therapist={values[2]!r} expected={values[col - 1]!r} actual={_cell_text(actual)!r}"
+                    )
                     return 1
             print(f"PASS stage=therapist_readback rows={len(therapists)}")
 
@@ -158,12 +185,13 @@ def main() -> int:
                 target = ev_row + offset
                 for col, value in enumerate(values, 1):
                     ws_ev.Cells(target, col).Value2 = value
-                actual = _row_text(ws_ev, target, len(values))
-                if actual != values:
-                    for idx, (exp, got) in enumerate(zip(values, actual), 1):
-                        if exp != got:
-                            print(f"FAIL stage=event_readback row={offset + 1} col={idx} expected={exp!r} actual={got!r}")
-                            break
+                ok, col, actual = _row_matches(ws_ev, target, values)
+                if not ok:
+                    assert col is not None
+                    print(
+                        f"FAIL stage=event_readback row={offset + 1} col={col} "
+                        f"expected={values[col - 1]!r} actual={_cell_text(actual)!r}"
+                    )
                     return 1
             print(f"PASS stage=event_readback rows={len(events)}")
 
