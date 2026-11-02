@@ -22,32 +22,39 @@ def test_day_amendment_action_is_explicit_and_separate_from_save_exit():
     assert "Save & Exit" not in source
 
 
-def test_day_amendment_action_prepares_before_handoff_and_uses_proven_app_exit_flow():
+def test_day_save_is_fully_in_session_without_close_worker_or_reopen():
     source = DAY_AMENDMENT_MODULE_CODE
 
-    assert "prepare_day_amendment.py" in source
-    assert "day_amendment_worker.py" in source
+    assert "prepare_day_amendment_in_session.py" in source
+    assert "PersistDaySavePayload(payloadPath)" in source
     assert "ThisWorkbook.Save" in source
     assert 'CreateObject("WScript.Shell").Run(commandLine, 0, True)' in source
-    assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in source
-    assert "CloseForDaySaveHandoff" in source
 
-    prepare_pos = source.index("prepare_day_amendment.py")
-    worker_pos = source.index("day_amendment_worker.py")
-    handoff_pos = source.index("CloseForDaySaveHandoff")
-    assert prepare_pos < worker_pos < handoff_pos
+    assert "day_amendment_worker.py" not in source
+    assert "CloseForDaySaveHandoff" not in source
+    assert "Application.Quit" not in source
+    assert "ThisWorkbook.Close" not in source
+    assert "os.startfile" not in source
+    assert 'Run commandLine, 0, False' not in source
 
-    # Mirror the already-working Save & Exit lifecycle: restore UI, suppress
-    # workbook events during close, quit Excel when this is the only workbook,
-    # otherwise close just this workbook and restore the prior event state.
-    assert "RestoreExcelInterface" in source
-    assert "eventsWereEnabled = Application.EnableEvents" in source
-    assert "workbookCount = Application.Workbooks.Count" in source
-    assert "Application.EnableEvents = False" in source
-    assert "If workbookCount <= 1 Then" in source
-    assert "Application.Quit" in source
-    assert "ThisWorkbook.Close SaveChanges:=False" in source
-    assert "Application.EnableEvents = eventsWereEnabled" in source
+
+def test_day_save_in_session_persistence_is_preflight_readback_save_and_rollback():
+    source = DAY_AMENDMENT_MODULE_CODE
+
+    assert 'Case "SUPERSEDE"' in source
+    assert 'Case "SNAPSHOT"' in source
+    assert 'Case "THERAPIST"' in source
+    assert 'Case "EVENT"' in source
+    assert "oldSnapshotRow = FindRowById" in source
+    assert '"CURRENT_FINAL"' in source
+    assert "HistoryPairExists" in source
+    assert "Mutation begins only after every sheet and collision preflight has passed" in source
+    assert "RowMatchesPayload" in source
+    assert "oldStatus = CStr" in source
+    assert "wsSnapshot.Cells(oldSnapshotRow, 4).Value2 = oldStatus" in source
+    assert "ClearContents" in source
+    assert "FinalizeTechnicalSheet" in source
+    assert "ThisWorkbook.Save" in source
 
 
 def test_day_amendment_action_has_no_manual_reason_or_summary_prompts():
