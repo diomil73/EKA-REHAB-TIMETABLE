@@ -75,6 +75,32 @@ def test_vba_report_runs_read_only_export_synchronously_in_same_excel_session():
     assert "Workbooks.Open" not in source
 
 
+def test_user_facing_report_hides_snapshot_version_and_explains_each_mode():
+    source = THERAPIST_HISTORY_MODULE_CODE
+
+    assert 'ReportHeaders = Array("Ημερομηνία", "", "Θεραπευτής"' in source
+    assert 'ReportHeaders = Array("Μήνας", "", "Θεραπευτής"' in source
+    assert 'ReportHeaders = Array("Από", "Έως", "Θεραπευτής"' in source
+    assert '"Έκδοση"' not in source
+    assert '"Συνολικά για όλο το διαθέσιμο ιστορικό"' in source
+    assert 'ws.Cells(rowIndex, 3).Value2 = parts(3)' in source
+    assert 'parts(2)' not in source
+
+
+def test_report_buttons_have_dedicated_visible_row_and_are_brought_to_front():
+    source = THERAPIST_HISTORY_MODULE_CODE
+
+    assert "ws.Rows(3).RowHeight = 32" in source
+    assert "ws.Rows(4).RowHeight = 6" in source
+    assert "ws.Rows(5).RowHeight = 30" in source
+    assert "PositionReportButtons ws" in source
+    assert "shape.Top = topPos" in source
+    assert "shape.Height = 24" in source
+    assert "shape.ZOrder 0" in source
+    assert 'ws.Range("A6").Select' in source
+    assert "ActiveWindow.SplitRow = 5" in source
+
+
 def test_report_ui_does_not_expose_or_mutate_technical_history_sheets():
     source = THERAPIST_HISTORY_MODULE_CODE
 
@@ -92,6 +118,7 @@ def test_installer_entry_is_on_therapist_daily_not_master():
     assert 'workbook.Worksheets("MASTER_SCHEDULE")' not in source
     assert 'caption="Στατιστικά θεραπευτών"' in source
     assert "THERAPIST_HISTORY_REPORT" in source or "THERAPIST_HISTORY_SHEET_NAME" in source
+    assert "report_ws.Unprotect()" in source
 
 
 def test_native_installer_requires_technical_history_to_remain_very_hidden():
