@@ -104,10 +104,11 @@ NextLine:
 
     FormatReportSheet ws, rowIndex - 1
     EnsureReportButtons ws
-    ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     ws.Activate
-    ws.Range("A1").Select
     KeepApplicationShell
+    ResetReportWindow ws
+    EnsureReportButtons ws
+    ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
 
 CleanUp:
     On Error Resume Next
@@ -177,13 +178,26 @@ Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
     ws.Rows(5).RowHeight = 30
     PositionReportButtons ws
     ws.ScrollArea = "A1:M" & CStr(Application.Max(lastRow + 2, 13))
+    On Error GoTo 0
+End Sub
+
+Private Sub ResetReportWindow(ByVal ws As Worksheet)
+    On Error Resume Next
+    ws.Activate
     If Not ActiveWindow Is Nothing Then
         ActiveWindow.DisplayGridlines = False
         ActiveWindow.FreezePanes = False
+        ActiveWindow.SplitColumn = 0
+        ActiveWindow.SplitRow = 0
+        ActiveWindow.ScrollColumn = 1
+        ActiveWindow.ScrollRow = 1
         ws.Range("A6").Select
         ActiveWindow.SplitRow = 5
         ActiveWindow.FreezePanes = True
+        ActiveWindow.ScrollColumn = 1
+        ActiveWindow.ScrollRow = 1
     End If
+    ws.Range("A1").Select
     On Error GoTo 0
 End Sub
 
@@ -207,6 +221,7 @@ Private Sub EnsureOneReportButton(ByVal ws As Worksheet, ByVal buttonName As Str
     End If
     shape.OnAction = macroName
     shape.Placement = 3
+    shape.Visible = True
     shape.Fill.ForeColor.RGB = 15527148
     shape.Line.ForeColor.RGB = 10066329
     shape.Line.Weight = 1
@@ -240,6 +255,7 @@ Private Sub PositionReportButtons(ByVal ws As Worksheet)
         On Error GoTo 0
         If Not shape Is Nothing Then
             buttonWidth = CDbl(specs(i)(1))
+            shape.Visible = True
             shape.Left = leftPos
             shape.Top = topPos
             shape.Width = buttonWidth
