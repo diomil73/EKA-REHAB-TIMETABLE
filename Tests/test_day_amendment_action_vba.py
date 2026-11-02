@@ -38,24 +38,23 @@ def test_day_amendment_action_prepares_before_handoff_and_closes_only_after_work
     assert prepare_pos < worker_pos < close_pos
 
 
-def test_day_amendment_action_requires_reason_and_summary():
+def test_day_amendment_action_has_no_manual_reason_or_summary_prompts():
     source = DAY_AMENDMENT_MODULE_CODE
 
-    assert "reasonCode = Trim$(InputBox" in source
-    assert "summaryText = Trim$(InputBox" in source
-    assert '" --reason-code "' in source
-    assert '" --summary "' in source
-    assert "If Len(reasonCode) = 0 Then Exit Sub" in source
-    assert "If Len(summaryText) = 0 Then Exit Sub" in source
+    assert "InputBox(" not in source
+    assert "reasonCode" not in source
+    assert "summaryText" not in source
+    assert '" --reason-code "' not in source
+    assert '" --summary "' not in source
+    assert '" --actor-or-source "' in source
 
 
-def test_day_save_installer_keeps_master_clean_and_uses_daily_input_footer():
+def test_day_save_installer_touches_only_daily_input_not_master():
     source = inspect.getsource(install_day_amendment_action)
 
     assert "vbproject.VBComponents(DAY_AMENDMENT_MODULE_NAME)" in source
     assert "vbproject.VBComponents.Remove(component)" in source
-    assert 'workbook.Worksheets("MASTER_SCHEDULE")' in source
-    assert "_delete_button_if_present(master)" in source
+    assert 'workbook.Worksheets("MASTER_SCHEDULE")' not in source
     assert 'workbook.Worksheets("DAILY_INPUT")' in source
     assert "last_row = _last_used_row(ws)" in source
     assert 'anchor = ws.Range(f"A{last_row + 2}")' in source
