@@ -78,6 +78,39 @@ class TherapistWeeklyReport:
         return self.final_active_sessions - self.planned_sessions
 
 
+@dataclass(frozen=True)
+class TherapistPeriodReport:
+    period_start: date
+    period_end: date
+    therapist_id: str
+    reported_days: int
+    capacity_timeslots: int | None
+    planned_occupied_timeslots: int
+    planned_sessions: int
+    final_occupied_timeslots: int
+    final_active_sessions: int
+    replacements_received: int
+    released_by_cancellation_or_no_show: int
+    treatment_suspensions_affecting_load: int
+    approved_shared_or_over_capacity_events: int
+
+    @property
+    def planned_capacity_utilization(self) -> float | None:
+        if self.capacity_timeslots is None or self.capacity_timeslots <= 0:
+            return None
+        return self.planned_occupied_timeslots / self.capacity_timeslots
+
+    @property
+    def actual_capacity_utilization(self) -> float | None:
+        if self.capacity_timeslots is None or self.capacity_timeslots <= 0:
+            return None
+        return self.final_occupied_timeslots / self.capacity_timeslots
+
+    @property
+    def session_delta(self) -> int:
+        return self.final_active_sessions - self.planned_sessions
+
+
 def build_therapist_daily_reports(
     snapshots: Iterable[FinalizedDaySnapshot],
     therapist_rows: Iterable[TherapistDayHistoryRow],
@@ -165,6 +198,48 @@ def build_therapist_daily_reports(
     return tuple(reports)
 
 
+def _capacity_total(rows: Iterable[TherapistDailyReport]) -> int | None:
+    values = [row.capacity_timeslots for row in rows]
+    if any(value is None for value in values):
+        return None
+    return sum(int(value) for value in values if value is not None)
+
+
+def _period_report(
+    rows: list[TherapistDailyReport],
+    *,
+    period_start: date,
+    period_end: date,
+    therapist_id: str,
+) -> TherapistPeriodReport:
+    dates = {row.service_date for row in rows}
+    if len(dates) != len(rows):
+        raise TherapistHistoryReportError(
+            f"Duplicate daily report for therapist/date: {therapist_id} / {period_start.isoformat()}"
+        )
+    return TherapistPeriodReport(
+        period_start=period_start,
+        period_end=period_end,
+        therapist_id=therapist_id,
+        reported_days=len(rows),
+        capacity_timeslots=_capacity_total(rows),
+        planned_occupied_timeslots=sum(row.planned_occupied_timeslots for row in rows),
+        planned_sessions=sum(row.planned_sessions for row in rows),
+        final_occupied_timeslots=sum(row.final_occupied_timeslots for row in rows),
+        final_active_sessions=sum(row.final_active_sessions for row in rows),
+        replacements_received=sum(row.replacements_received for row in rows),
+        released_by_cancellation_or_no_show=sum(
+            row.released_by_cancellation_or_no_show for row in rows
+        ),
+        treatment_suspensions_affecting_load=sum(
+            row.treatment_suspensions_affecting_load for row in rows
+        ),
+        approved_shared_or_over_capacity_events=sum(
+            row.approved_shared_or_over_capacity_events for row in rows
+        ),
+    )
+
+
 def build_therapist_weekly_reports(
     daily_reports: Iterable[TherapistDailyReport],
 ) -> tuple[TherapistWeeklyReport, ...]:
@@ -178,40 +253,82 @@ def build_therapist_weekly_reports(
     result: list[TherapistWeeklyReport] = []
     for (week_start, therapist_id), rows in groups.items():
         rows = sorted(rows, key=lambda item: item.service_date)
-        dates = {row.service_date for row in rows}
-        if len(dates) != len(rows):
-            raise TherapistHistoryReportError(
-                f"Duplicate daily report for therapist/date: {therapist_id} / {week_start.isoformat()}"
-            )
-
-        capacities = [row.capacity_timeslots for row in rows]
-        capacity_total = None if any(value is None for value in capacities) else sum(
-            int(value) for value in capacities if value is not None
+        period = _period_report(
+            rows,
+            period_start=week_start,
+            period_end=week_start + timedelta(days=6),
+            therapist_id=therapist_id,
         )
-
         result.append(
             TherapistWeeklyReport(
-                week_start=week_start,
-                week_end=week_start + timedelta(days=6),
-                therapist_id=therapist_id,
-                reported_days=len(rows),
-                capacity_timeslots=capacity_total,
-                planned_occupied_timeslots=sum(row.planned_occupied_timeslots for row in rows),
-                planned_sessions=sum(row.planned_sessions for row in rows),
-                final_occupied_timeslots=sum(row.final_occupied_timeslots for row in rows),
-                final_active_sessions=sum(row.final_active_sessions for row in rows),
-                replacements_received=sum(row.replacements_received for row in rows),
-                released_by_cancellation_or_no_show=sum(
-                    row.released_by_cancellation_or_no_show for row in rows
-                ),
-                treatment_suspensions_affecting_load=sum(
-                    row.treatment_suspensions_affecting_load for row in rows
-                ),
-                approved_shared_or_over_capacity_events=sum(
-                    row.approved_shared_or_over_capacity_events for row in rows
-                ),
+                week_start=period.period_start,
+                week_end=period.period_end,
+                therapist_id=period.therapist_id,
+                reported_days=period.reported_days,
+                capacity_timeslots=period.capacity_timeslots,
+                planned_occupied_timeslots=period.planned_occupied_timeslots,
+                planned_sessions=period.planned_sessions,
+                final_occupied_timeslots=period.final_occupied_timeslots,
+                final_active_sessions=period.final_active_sessions,
+                replacements_received=period.replacements_received,
+                released_by_cancellation_or_no_show=period.released_by_cancellation_or_no_show,
+                treatment_suspensions_affecting_load=period.treatment_suspensions_affecting_load,
+                approved_shared_or_over_capacity_events=period.approved_shared_or_over_capacity_events,
             )
         )
 
     result.sort(key=lambda report: (report.week_start, report.therapist_id.casefold()))
+    return tuple(result)
+
+
+def build_therapist_monthly_reports(
+    daily_reports: Iterable[TherapistDailyReport],
+) -> tuple[TherapistPeriodReport, ...]:
+    """Aggregate authoritative daily reports by calendar month and therapist."""
+
+    groups: dict[tuple[int, int, str], list[TherapistDailyReport]] = {}
+    for report in daily_reports:
+        key = (report.service_date.year, report.service_date.month, report.therapist_id)
+        groups.setdefault(key, []).append(report)
+
+    result: list[TherapistPeriodReport] = []
+    for (year, month, therapist_id), rows in groups.items():
+        rows = sorted(rows, key=lambda item: item.service_date)
+        month_start = date(year, month, 1)
+        next_month = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+        result.append(
+            _period_report(
+                rows,
+                period_start=month_start,
+                period_end=next_month - timedelta(days=1),
+                therapist_id=therapist_id,
+            )
+        )
+
+    result.sort(key=lambda report: (report.period_start, report.therapist_id.casefold()))
+    return tuple(result)
+
+
+def build_therapist_overall_reports(
+    daily_reports: Iterable[TherapistDailyReport],
+) -> tuple[TherapistPeriodReport, ...]:
+    """Aggregate all available finalized history into one row per therapist."""
+
+    groups: dict[str, list[TherapistDailyReport]] = {}
+    for report in daily_reports:
+        groups.setdefault(report.therapist_id, []).append(report)
+
+    result: list[TherapistPeriodReport] = []
+    for therapist_id, rows in groups.items():
+        rows = sorted(rows, key=lambda item: item.service_date)
+        result.append(
+            _period_report(
+                rows,
+                period_start=rows[0].service_date,
+                period_end=rows[-1].service_date,
+                therapist_id=therapist_id,
+            )
+        )
+
+    result.sort(key=lambda report: report.therapist_id.casefold())
     return tuple(result)
