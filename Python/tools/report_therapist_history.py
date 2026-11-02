@@ -10,7 +10,10 @@ PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
-from rehab_core.therapist_history_reports import build_therapist_daily_reports  # noqa: E402
+from rehab_core.therapist_history_reports import (  # noqa: E402
+    build_therapist_daily_reports,
+    build_therapist_weekly_reports,
+)
 from rehab_excel.finalized_day_snapshots import read_finalized_day_snapshots  # noqa: E402
 from rehab_excel.therapist_day_history_store import read_therapist_day_history_rows  # noqa: E402
 
@@ -55,18 +58,44 @@ def main() -> int:
     parser.add_argument("--therapist")
     parser.add_argument("--from-date")
     parser.add_argument("--to-date")
+    parser.add_argument("--weekly", action="store_true", help="Aggregate daily history into Monday-Sunday weekly trends")
     args = parser.parse_args()
 
     try:
-        reports = report_therapist_history(
+        daily = report_therapist_history(
             args.workbook,
             therapist_id=args.therapist,
             start_date=_parse_date(args.from_date),
             end_date=_parse_date(args.to_date),
         )
+        reports = build_therapist_weekly_reports(daily) if args.weekly else daily
     except Exception as exc:
         print(f"THERAPIST HISTORY REPORT FAILED: {exc}")
         return 2
+
+    if args.weekly:
+        print("THERAPIST WEEKLY HISTORY REPORT OK")
+        print(f"Rows: {len(reports)}")
+        for report in reports:
+            print(
+                " | ".join(
+                    (
+                        f"{report.week_start.isoformat()}..{report.week_end.isoformat()}",
+                        report.therapist_id,
+                        f"days={report.reported_days}",
+                        f"planned_slots={report.planned_occupied_timeslots}",
+                        f"actual_slots={report.final_occupied_timeslots}",
+                        f"planned_sessions={report.planned_sessions}",
+                        f"active_sessions={report.final_active_sessions}",
+                        f"replacements={report.replacements_received}",
+                        f"released={report.released_by_cancellation_or_no_show}",
+                        f"suspensions={report.treatment_suspensions_affecting_load}",
+                        f"planned_util={_pct(report.planned_capacity_utilization)}",
+                        f"actual_util={_pct(report.actual_capacity_utilization)}",
+                    )
+                )
+            )
+        return 0
 
     print("THERAPIST HISTORY REPORT OK")
     print(f"Rows: {len(reports)}")
