@@ -40,6 +40,18 @@ def test_worker_file_lock_probe_treats_sharing_and_lock_violations_as_still_lock
     assert "exc.args[0]" in helper
 
 
+def test_worker_can_refresh_payload_after_release_before_strict_apply():
+    source = inspect.getsource(module.apply_when_released)
+
+    assert "refresh_payload_after_release" in source
+    assert "prepare_day_amendment(" in source
+    assert "actor_or_source=actor_or_source" in source
+    assert source.index("prepare_day_amendment(") < source.index(
+        "apply_day_amendment(workbook, payload)"
+    )
+    assert '"payload_refreshed_after_release": refresh_payload_after_release' in source
+
+
 def test_worker_fails_immediately_on_hash_mismatch_after_release():
     source = inspect.getsource(module.apply_when_released)
 
@@ -47,10 +59,14 @@ def test_worker_fails_immediately_on_hash_mismatch_after_release():
     assert "raise DayAmendmentWorkerError" in source
 
 
-def test_worker_cli_writes_failure_response_instead_of_mutating_request():
+def test_worker_cli_supports_post_release_refresh_and_writes_failure_response():
     source = inspect.getsource(module.main)
 
     assert 'parser.add_argument("--workbook"' in source
     assert 'parser.add_argument("--payload"' in source
     assert 'parser.add_argument("--response"' in source
+    assert 'parser.add_argument("--refresh-payload-after-release"' in source
+    assert 'parser.add_argument("--actor-or-source"' in source
+    assert "refresh_payload_after_release=args.refresh_payload_after_release" in source
+    assert "actor_or_source=args.actor_or_source" in source
     assert '_write_response(args.response, {"ok": False, "error": str(exc)})' in source
