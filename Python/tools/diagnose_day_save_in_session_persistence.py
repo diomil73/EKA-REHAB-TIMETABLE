@@ -26,8 +26,18 @@ def _parse_payload(path: Path):
 
 
 def _cell_text(value) -> str:
+    """Mirror VBA CStr closely enough for Excel COM read-back diagnostics.
+
+    Excel COM commonly returns integer-valued cells as Python floats (for
+    example Version 1 as 1.0), while VBA CStr on the same cell yields "1".
+    Normalize only integral floats so this diagnostic does not report a false
+    mismatch that the installed VBA would not see.
+    """
+
     if value is None:
         return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
     return str(value).strip()
 
 
@@ -106,7 +116,11 @@ def main() -> int:
             print(f"PASS stage=preflight previous_row={old_row}")
             old_status = ws_snap.Cells(old_row, 4).Value
             ws_snap.Cells(old_row, 4).Value2 = supersede[3]
-            actual_identity = [_cell_text(ws_snap.Cells(old_row, 1).Value), _cell_text(ws_snap.Cells(old_row, 3).Value), _cell_text(ws_snap.Cells(old_row, 4).Value).upper()]
+            actual_identity = [
+                _cell_text(ws_snap.Cells(old_row, 1).Value),
+                _cell_text(ws_snap.Cells(old_row, 3).Value),
+                _cell_text(ws_snap.Cells(old_row, 4).Value).upper(),
+            ]
             expected_identity = [supersede[0], supersede[2], supersede[3].upper()]
             if actual_identity != expected_identity:
                 print(f"FAIL stage=supersede_readback expected={expected_identity!r} actual={actual_identity!r}")
