@@ -50,3 +50,15 @@ def test_day_amendment_preparation_rejects_event_and_history_collisions():
     assert "read_day_history_events" in source
     assert "Replacement therapist/day history already exists" in source
     assert "Amendment EventId already exists" in source
+
+
+def test_day_amendment_preparation_defaults_audit_metadata_automatically():
+    signature = inspect.signature(module.prepare_day_amendment)
+    main_source = inspect.getsource(module.main)
+
+    assert module.AUTO_REASON_CODE == "AUTO_DAY_SAVE"
+    assert module.AUTO_SUMMARY == "Automatic day save from workbook state"
+    assert signature.parameters["reason_code"].default == module.AUTO_REASON_CODE
+    assert signature.parameters["summary"].default == module.AUTO_SUMMARY
+    assert 'parser.add_argument("--reason-code", default=AUTO_REASON_CODE)' in main_source
+    assert 'parser.add_argument("--summary", default=AUTO_SUMMARY)' in main_source
