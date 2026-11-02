@@ -29,6 +29,10 @@ from rehab_excel.reader import read_settings  # noqa: E402
 from rehab_excel.therapist_day_history_store import read_therapist_day_history_rows  # noqa: E402
 
 
+AUTO_REASON_CODE = "AUTO_DAY_SAVE"
+AUTO_SUMMARY = "Automatic day save from workbook state"
+
+
 class DayAmendmentPreparationError(RuntimeError):
     pass
 
@@ -123,8 +127,8 @@ def prepare_day_amendment(
     payload_path: str | Path,
     *,
     actor_or_source: str,
-    reason_code: str,
-    summary: str,
+    reason_code: str = AUTO_REASON_CODE,
+    summary: str = AUTO_SUMMARY,
     approved_exception_count: int = 0,
 ) -> dict[str, object]:
     source = Path(workbook_path).resolve()
@@ -283,8 +287,8 @@ def main() -> int:
     parser.add_argument("--payload", required=True, type=Path)
     parser.add_argument("--response", type=Path)
     parser.add_argument("--actor-or-source", default="day-amendment")
-    parser.add_argument("--reason-code", required=True)
-    parser.add_argument("--summary", required=True)
+    parser.add_argument("--reason-code", default=AUTO_REASON_CODE)
+    parser.add_argument("--summary", default=AUTO_SUMMARY)
     parser.add_argument("--approved-exception-count", type=int, default=0)
     args = parser.parse_args()
 
