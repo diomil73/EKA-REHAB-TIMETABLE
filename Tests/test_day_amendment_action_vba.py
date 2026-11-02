@@ -22,7 +22,7 @@ def test_day_amendment_action_is_explicit_and_separate_from_save_exit():
     assert "Save & Exit" not in source
 
 
-def test_day_amendment_action_prepares_before_handoff_and_closes_only_after_worker_launch():
+def test_day_amendment_action_prepares_before_handoff_and_uses_proven_app_exit_flow():
     source = DAY_AMENDMENT_MODULE_CODE
 
     assert "prepare_day_amendment.py" in source
@@ -30,12 +30,24 @@ def test_day_amendment_action_prepares_before_handoff_and_closes_only_after_work
     assert "ThisWorkbook.Save" in source
     assert 'CreateObject("WScript.Shell").Run(commandLine, 0, True)' in source
     assert 'CreateObject("WScript.Shell").Run commandLine, 0, False' in source
-    assert "ThisWorkbook.Close SaveChanges:=False" in source
+    assert "CloseForDaySaveHandoff" in source
 
     prepare_pos = source.index("prepare_day_amendment.py")
     worker_pos = source.index("day_amendment_worker.py")
-    close_pos = source.index("ThisWorkbook.Close SaveChanges:=False")
-    assert prepare_pos < worker_pos < close_pos
+    handoff_pos = source.index("CloseForDaySaveHandoff")
+    assert prepare_pos < worker_pos < handoff_pos
+
+    # Mirror the already-working Save & Exit lifecycle: restore UI, suppress
+    # workbook events during close, quit Excel when this is the only workbook,
+    # otherwise close just this workbook and restore the prior event state.
+    assert "RestoreExcelInterface" in source
+    assert "eventsWereEnabled = Application.EnableEvents" in source
+    assert "workbookCount = Application.Workbooks.Count" in source
+    assert "Application.EnableEvents = False" in source
+    assert "If workbookCount <= 1 Then" in source
+    assert "Application.Quit" in source
+    assert "ThisWorkbook.Close SaveChanges:=False" in source
+    assert "Application.EnableEvents = eventsWereEnabled" in source
 
 
 def test_day_amendment_action_has_no_manual_reason_or_summary_prompts():
