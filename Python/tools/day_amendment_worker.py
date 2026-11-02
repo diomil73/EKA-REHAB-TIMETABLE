@@ -19,6 +19,46 @@ class DayAmendmentWorkerError(RuntimeError):
     pass
 
 
+def _workbook_is_exclusively_available(path: Path) -> bool:
+    """Return True only when Windows grants an exclusive read/write handle.
+
+    This is intentionally a cheap file-lock probe. It must not start Excel while
+    the interactive workbook is still closing, because a read-only Excel retry
+    can itself prolong the handoff and obscure whether the original session has
+    actually released the file.
+    """
+
+    if sys.platform != "win32":
+        return True
+
+    try:
+        import win32con  # type: ignore[import-not-found]
+        import win32file  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise DayAmendmentWorkerError("pywin32 is required for workbook release probing") from exc
+
+    handle = None
+    try:
+        handle = win32file.CreateFile(
+            str(path),
+            win32con.GENERIC_READ | win32con.GENERIC_WRITE,
+            0,
+            None,
+            win32con.OPEN_EXISTING,
+            win32con.FILE_ATTRIBUTE_NORMAL,
+            None,
+        )
+        return True
+    except OSError:
+        return False
+    finally:
+        if handle is not None:
+            try:
+                handle.Close()
+            except Exception:
+                pass
+
+
 def apply_when_released(
     workbook_path: str | Path,
     payload_path: str | Path,
@@ -30,25 +70,28 @@ def apply_when_released(
     workbook = Path(workbook_path).resolve()
     payload = Path(payload_path).resolve()
     deadline = time.monotonic() + timeout_seconds
-    attempts = 0
-    last_error: Exception | None = None
+    probes = 0
 
     while time.monotonic() <= deadline:
-        attempts += 1
-        try:
-            result = apply_day_amendment(workbook, payload)
-            if reopen:
-                os.startfile(str(workbook))  # type: ignore[attr-defined]
-            return {**result, "attempts": attempts, "reopened": reopen}
-        except (DayAmendmentApplyError, OSError, RuntimeError) as exc:
-            last_error = exc
-            if "Workbook changed after amendment preparation" in str(exc):
-                raise DayAmendmentWorkerError(str(exc)) from exc
-            time.sleep(poll_seconds)
+        probes += 1
+        if _workbook_is_exclusively_available(workbook):
+            break
+        time.sleep(poll_seconds)
+    else:
+        raise DayAmendmentWorkerError(
+            f"Workbook was not released for amendment apply after {probes} file-lock probes"
+        )
 
-    raise DayAmendmentWorkerError(
-        f"Workbook was not released for amendment apply after {attempts} attempts: {last_error}"
-    )
+    try:
+        result = apply_day_amendment(workbook, payload)
+    except DayAmendmentApplyError as exc:
+        if "Workbook changed after amendment preparation" in str(exc):
+            raise DayAmendmentWorkerError(str(exc)) from exc
+        raise
+
+    if reopen:
+        os.startfile(str(workbook))  # type: ignore[attr-defined]
+    return {**result, "attempts": probes, "reopened": reopen}
 
 
 def _write_response(path: Path, data: dict[str, object]) -> None:
