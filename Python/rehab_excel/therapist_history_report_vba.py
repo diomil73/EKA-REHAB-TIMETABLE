@@ -70,26 +70,34 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         GoTo CleanUp
     End If
 
-    headers = Array("Από", "Έως", "Έκδοση", "Θεραπευτής", "Ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος")
+    headers = ReportHeaders(reportMode)
 
     ws.Unprotect
-    ws.Range("A1:N1048576").ClearContents
+    On Error Resume Next
+    ws.Range("A1:N2").UnMerge
+    On Error GoTo ReportError
+    ws.Range("A1:M1048576").ClearContents
     ws.Cells(1, 1).Value2 = "Ιστορικό / Στατιστικά Θεραπευτών"
-    ws.Cells(2, 1).Value2 = "Προβολή: " & ReportModeCaption(reportMode)
+    ws.Cells(2, 1).Value2 = ReportModeDescription(reportMode)
     For col = 0 To UBound(headers)
-        ws.Cells(4, col + 1).Value2 = headers(col)
+        ws.Cells(5, col + 1).Value2 = headers(col)
     Next col
 
-    rowIndex = 5
+    rowIndex = 6
     For sourceLine = 1 To UBound(lines)
         If Len(Trim$(CStr(lines(sourceLine)))) = 0 Then GoTo NextLine
         parts = Split(CStr(lines(sourceLine)), vbTab)
         If UBound(parts) <> 13 Then Err.Raise vbObjectError + 7601, , "Invalid therapist-history UI row"
-        For col = 0 To 11
-            ws.Cells(rowIndex, col + 1).Value2 = parts(col)
+
+        ws.Cells(rowIndex, 1).Value2 = DisplayPeriodStart(reportMode, parts(0), parts(1))
+        ws.Cells(rowIndex, 2).Value2 = DisplayPeriodEnd(reportMode, parts(0), parts(1))
+        ws.Cells(rowIndex, 3).Value2 = parts(3)
+        ws.Cells(rowIndex, 4).Value2 = parts(4)
+        For col = 5 To 12
+            ws.Cells(rowIndex, col).Value2 = parts(col)
         Next col
-        If Len(parts(12)) > 0 Then ws.Cells(rowIndex, 13).Value2 = parts(12) & "%"
-        If Len(parts(13)) > 0 Then ws.Cells(rowIndex, 14).Value2 = parts(13) & "%"
+        If Len(parts(12)) > 0 Then ws.Cells(rowIndex, 12).Value2 = parts(12) & "%"
+        If Len(parts(13)) > 0 Then ws.Cells(rowIndex, 13).Value2 = parts(13) & "%"
         rowIndex = rowIndex + 1
 NextLine:
     Next sourceLine
@@ -111,48 +119,109 @@ ReportError:
     Resume CleanUp
 End Sub
 
+Private Function ReportHeaders(ByVal reportMode As String) As Variant
+    Select Case LCase$(Trim$(reportMode))
+        Case "daily"
+            ReportHeaders = Array("Ημερομηνία", "", "Θεραπευτής", "Ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος")
+        Case "monthly"
+            ReportHeaders = Array("Μήνας", "", "Θεραπευτής", "Ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος")
+        Case Else
+            ReportHeaders = Array("Από", "Έως", "Θεραπευτής", "Ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος")
+    End Select
+End Function
+
+Private Function ReportModeDescription(ByVal reportMode As String) As String
+    Select Case LCase$(Trim$(reportMode))
+        Case "daily": ReportModeDescription = "Ημερήσια προβολή ανά κλεισμένη ημέρα"
+        Case "weekly": ReportModeDescription = "Εβδομαδιαία σύνοψη (Δευτέρα έως Κυριακή)"
+        Case "monthly": ReportModeDescription = "Μηνιαία σύνοψη"
+        Case "overall": ReportModeDescription = "Συνολικά για όλο το διαθέσιμο ιστορικό"
+        Case Else: ReportModeDescription = reportMode
+    End Select
+End Function
+
+Private Function DisplayPeriodStart(ByVal reportMode As String, ByVal startText As String, ByVal endText As String) As String
+    Select Case LCase$(Trim$(reportMode))
+        Case "monthly"
+            DisplayPeriodStart = Left$(startText, 7)
+        Case Else
+            DisplayPeriodStart = startText
+    End Select
+End Function
+
+Private Function DisplayPeriodEnd(ByVal reportMode As String, ByVal startText As String, ByVal endText As String) As String
+    Select Case LCase$(Trim$(reportMode))
+        Case "daily", "monthly"
+            DisplayPeriodEnd = ""
+        Case Else
+            DisplayPeriodEnd = endText
+    End Select
+End Function
+
 Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
     On Error Resume Next
     ws.Cells.Font.Name = "Calibri"
     ws.Cells.Font.Size = 10
-    ws.Range("A1:N1").Merge
+    ws.Range("A1:M1").Merge
     ws.Range("A1").Font.Size = 16
     ws.Range("A1").Font.Bold = True
-    ws.Range("A2:N2").Merge
+    ws.Range("A2:M2").Merge
     ws.Range("A2").Font.Bold = True
-    ws.Range("A4:N4").Font.Bold = True
-    ws.Range("A4:N4").WrapText = True
-    ws.Columns("A:B").ColumnWidth = 12
-    ws.Columns("C").ColumnWidth = 8
-    ws.Columns("D").ColumnWidth = 18
-    ws.Columns("E:N").ColumnWidth = 13
-    If lastRow >= 4 Then ws.Range("A4:N" & CStr(lastRow)).Borders.LineStyle = 1
-    ws.Rows("1:4").RowHeight = 22
-    ws.ScrollArea = "A1:N" & CStr(Application.Max(lastRow + 2, 12))
+    ws.Range("A5:M5").Font.Bold = True
+    ws.Range("A5:M5").WrapText = True
+    ws.Columns("A:B").ColumnWidth = 13
+    ws.Columns("C").ColumnWidth = 19
+    ws.Columns("D:M").ColumnWidth = 13
+    If lastRow >= 5 Then ws.Range("A5:M" & CStr(lastRow)).Borders.LineStyle = 1
+    ws.Rows(1).RowHeight = 28
+    ws.Rows(2).RowHeight = 22
+    ws.Rows(3).RowHeight = 32
+    ws.Rows(4).RowHeight = 6
+    ws.Rows(5).RowHeight = 30
+    PositionReportButtons ws
+    ws.ScrollArea = "A1:M" & CStr(Application.Max(lastRow + 2, 13))
     If Not ActiveWindow Is Nothing Then
         ActiveWindow.DisplayGridlines = False
         ActiveWindow.FreezePanes = False
-        ws.Range("A5").Select
-        ActiveWindow.SplitRow = 4
+        ws.Range("A6").Select
+        ActiveWindow.SplitRow = 5
         ActiveWindow.FreezePanes = True
     End If
     On Error GoTo 0
+End Sub
+
+Private Sub PositionReportButtons(ByVal ws As Worksheet)
+    Dim specs As Variant, i As Long
+    Dim shape As Shape, leftPos As Double, topPos As Double, buttonWidth As Double
+
+    specs = Array( _
+        Array("ekaHistory_Daily", 98#), _
+        Array("ekaHistory_Weekly", 108#), _
+        Array("ekaHistory_Monthly", 98#), _
+        Array("ekaHistory_Overall", 90#), _
+        Array("ekaHistory_Back", 86#))
+
+    topPos = ws.Rows(3).Top + 4
+    leftPos = ws.Range("A3").Left + 4
+    For i = LBound(specs) To UBound(specs)
+        Set shape = Nothing
+        Set shape = ws.Shapes(CStr(specs(i)(0)))
+        If Not shape Is Nothing Then
+            buttonWidth = CDbl(specs(i)(1))
+            shape.Left = leftPos
+            shape.Top = topPos
+            shape.Width = buttonWidth
+            shape.Height = 24
+            shape.ZOrder 0
+            leftPos = leftPos + buttonWidth + 7
+        End If
+    Next i
 End Sub
 
 Private Function ExistingReportSheet() As Worksheet
     On Error Resume Next
     Set ExistingReportSheet = ThisWorkbook.Worksheets(REPORT_SHEET)
     On Error GoTo 0
-End Function
-
-Private Function ReportModeCaption(ByVal reportMode As String) As String
-    Select Case LCase$(Trim$(reportMode))
-        Case "daily": ReportModeCaption = "Ημερήσια"
-        Case "weekly": ReportModeCaption = "Εβδομαδιαία"
-        Case "monthly": ReportModeCaption = "Μηνιαία"
-        Case "overall": ReportModeCaption = "Συνολικά"
-        Case Else: ReportModeCaption = reportMode
-    End Select
 End Function
 
 Private Function ResolveReportTool(ByVal fileName As String) As String
@@ -236,6 +305,10 @@ def install_therapist_history_report(vbproject, workbook) -> None:
         report_ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
         report_ws.Name = THERAPIST_HISTORY_SHEET_NAME
     report_ws.Visible = -1
+    try:
+        report_ws.Unprotect()
+    except Exception:
+        pass
     report_ws.Cells.ClearContents()
 
     button_specs = (
@@ -247,17 +320,17 @@ def install_therapist_history_report(vbproject, workbook) -> None:
     )
     left = 4.0
     for suffix, caption, macro in button_specs:
-        width = 90.0 if suffix != "Back" else 82.0
+        width = 98.0 if suffix not in {"Overall", "Back"} else (90.0 if suffix == "Overall" else 86.0)
         _add_button(
             report_ws,
             name=THERAPIST_HISTORY_BUTTON_PREFIX + suffix,
             caption=caption,
             macro=macro,
             left=left,
-            top=48.0,
+            top=54.0,
             width=width,
         )
-        left += width + 6.0
+        left += width + 7.0
 
     try:
         source_ws = workbook.Worksheets("THERAPIST_DAILY")
