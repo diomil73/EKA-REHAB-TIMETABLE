@@ -13,6 +13,7 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from tools.apply_day_amendment import DayAmendmentApplyError, apply_day_amendment  # noqa: E402
+from tools.prepare_day_amendment import prepare_day_amendment  # noqa: E402
 
 
 class DayAmendmentWorkerError(RuntimeError):
@@ -80,6 +81,8 @@ def apply_when_released(
     timeout_seconds: float = 30.0,
     poll_seconds: float = 0.5,
     reopen: bool = True,
+    refresh_payload_after_release: bool = False,
+    actor_or_source: str = "day-amendment-worker",
 ) -> dict[str, object]:
     workbook = Path(workbook_path).resolve()
     payload = Path(payload_path).resolve()
@@ -96,6 +99,17 @@ def apply_when_released(
             f"Workbook was not released for amendment apply after {probes} file-lock probes"
         )
 
+    # Excel may rewrite the xlsm package while it closes even when the visible
+    # workbook state has not changed. A payload prepared before close therefore
+    # can be semantically valid but hash-stale. Rebuild it only after the file is
+    # genuinely released so the strict apply hash remains authoritative.
+    if refresh_payload_after_release:
+        prepare_day_amendment(
+            workbook,
+            payload,
+            actor_or_source=actor_or_source,
+        )
+
     try:
         result = apply_day_amendment(workbook, payload)
     except DayAmendmentApplyError as exc:
@@ -105,7 +119,12 @@ def apply_when_released(
 
     if reopen:
         os.startfile(str(workbook))  # type: ignore[attr-defined]
-    return {**result, "attempts": probes, "reopened": reopen}
+    return {
+        **result,
+        "attempts": probes,
+        "reopened": reopen,
+        "payload_refreshed_after_release": refresh_payload_after_release,
+    }
 
 
 def _write_response(path: Path, data: dict[str, object]) -> None:
@@ -121,6 +140,8 @@ def main() -> int:
     parser.add_argument("--timeout-seconds", type=float, default=30.0)
     parser.add_argument("--poll-seconds", type=float, default=0.5)
     parser.add_argument("--no-reopen", action="store_true")
+    parser.add_argument("--refresh-payload-after-release", action="store_true")
+    parser.add_argument("--actor-or-source", default="day-amendment-worker")
     args = parser.parse_args()
 
     try:
@@ -130,6 +151,8 @@ def main() -> int:
             timeout_seconds=args.timeout_seconds,
             poll_seconds=args.poll_seconds,
             reopen=not args.no_reopen,
+            refresh_payload_after_release=args.refresh_payload_after_release,
+            actor_or_source=args.actor_or_source,
         )
     except Exception as exc:
         _write_response(args.response, {"ok": False, "error": str(exc)})
