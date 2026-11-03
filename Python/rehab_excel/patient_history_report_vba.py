@@ -36,14 +36,16 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     Dim lines As Variant, fields As Variant, index As Long, rowIndex As Long, col As Long
     Dim priorEvents As Boolean, priorScreenUpdating As Boolean
     Dim succeeded As Boolean
+    Dim previousSheet As Worksheet
 
+    priorEvents = Application.EnableEvents
+    priorScreenUpdating = Application.ScreenUpdating
     On Error GoTo RenderError
+    Set previousSheet = ThisWorkbook.ActiveSheet
     Set ws = ThisWorkbook.Worksheets(REPORT_SHEET)
     scriptPath = ResolvePatientReportScript()
     If Len(scriptPath) = 0 Then Err.Raise vbObjectError + 7901, , "Patient report exporter not found"
 
-    priorEvents = Application.EnableEvents
-    priorScreenUpdating = Application.ScreenUpdating
     ThisWorkbook.Save
 
     outputPath = Environ$("TEMP") & "\\eka_patient_report_" & _
@@ -111,6 +113,9 @@ RenderCleanup:
     Application.ScreenUpdating = priorScreenUpdating
     On Error GoTo 0
     If Not succeeded Then
+        On Error Resume Next
+        If Not previousSheet Is Nothing Then previousSheet.Activate
+        On Error GoTo 0
         MsgBox "Δεν ήταν δυνατή η προβολή του ιστορικού ασθενών. Δεν τροποποιήθηκε το ιστορικό.", _
             vbCritical, "Ιστορικό ασθενών"
     End If
