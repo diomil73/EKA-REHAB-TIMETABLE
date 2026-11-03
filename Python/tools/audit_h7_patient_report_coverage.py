@@ -63,7 +63,12 @@ def audit_patient_report_coverage(workbook: Path) -> int:
             f"distinct_patients={len(patient_ids)}, "
             f"performed={performed}, absences={absent}, cancellations={cancelled}"
         )
-        print("PATIENT 15 in source:", "YES" if any(v.isascii() and v.isdecimal() and int(v) == 15 for v in patient_ids) else "NO")
+        numeric_source = {int(v) for v in patient_ids if v.isascii() and v.isdecimal()}
+        for patient_number in (15, 18, 19, 20, 21, 22):
+            print(
+                f"PATIENT {patient_number:02d} in CURRENT_FINAL source:",
+                "YES" if patient_number in numeric_source else "NO",
+            )
         print(
             "NUMERIC ID GAPS IN SOURCE (not proof of error):",
             ", ".join(missing_ids) if missing_ids else "none",
