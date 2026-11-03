@@ -6,6 +6,7 @@ from openpyxl import Workbook
 from tools import inspect_close_day_native_outcome as module
 from rehab_excel.day_history_event_store import HEADERS as EVENT_HEADERS
 from rehab_excel.finalized_day_snapshots import HEADERS as SNAPSHOT_HEADERS
+from rehab_excel.patient_session_history_store import HEADERS as PATIENT_HEADERS
 from rehab_excel.therapist_day_history_store import HEADERS as THERAPIST_HEADERS
 
 
@@ -58,6 +59,30 @@ def test_inspector_accepts_one_consistent_finalized_day(tmp_path: Path):
     )
     therapists.sheet_state = "veryHidden"
 
+    patients = wb.create_sheet("PATIENT_SESSION_HISTORY")
+    _write_row(patients, 1, PATIENT_HEADERS)
+    _write_row(
+        patients,
+        2,
+        (
+            snapshot_id,
+            "2026-10-30",
+            1,
+            "session-1",
+            "patient-1",
+            "active",
+            "THERAPIST A",
+            "09:00:00",
+            "THERAPIST A",
+            "09:00:00",
+            "",
+            "",
+            "",
+            "",
+        ),
+    )
+    patients.sheet_state = "veryHidden"
+
     events = wb.create_sheet("DAY_HISTORY_EVENTS")
     _write_row(events, 1, EVENT_HEADERS)
     _write_row(
@@ -87,6 +112,7 @@ def test_inspector_accepts_one_consistent_finalized_day(tmp_path: Path):
     assert result["snapshot_id"] == snapshot_id
     assert result["snapshot_status"] == "CURRENT_FINAL"
     assert result["therapist_history_rows"] == 1
+    assert result["patient_history_rows"] == 1
     assert result["event_id"] == "day-finalized:2026-10-30:v1"
     assert set(result["history_sheet_states"].values()) == {"veryHidden"}
 
