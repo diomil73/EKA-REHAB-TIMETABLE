@@ -19,6 +19,11 @@ HEADERS = (
 )
 
 
+def _display_patient_id(value: str) -> str:
+    """Pad one-digit numeric identifiers only for display; keep stored IDs intact."""
+    return value.zfill(2) if value.isascii() and value.isdecimal() and len(value) == 1 else value
+
+
 def _field(value: object) -> str:
     text = str(value)
     if any(c in text for c in ("\t", "\r", "\n")):
@@ -40,7 +45,7 @@ def export_patient_history_ui(
     for row in rows:
         fields = (
             row.period_start.isoformat(), row.period_end.isoformat(),
-            row.patient_id, row.finalized_days, row.scheduled, row.performed,
+            _display_patient_id(row.patient_id), row.finalized_days, row.scheduled, row.performed,
             row.patient_absences, row.cancellations, row.replacements,
         )
         lines.append("\t".join(_field(item) for item in fields))
