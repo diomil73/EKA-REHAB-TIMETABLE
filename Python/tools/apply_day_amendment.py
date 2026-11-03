@@ -20,11 +20,16 @@ from rehab_core.day_history_events import (  # noqa: E402
     DayHistoryEvent,
     DayHistoryEventType,
 )
+from rehab_core.patient_session_history import PatientSessionHistoryRow  # noqa: E402
 from rehab_core.therapist_day_history import TherapistDayHistoryRow  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
 from rehab_excel.day_amendment_store import persist_day_amendment  # noqa: E402
 from rehab_excel.day_history_event_store import read_day_history_events  # noqa: E402
 from rehab_excel.finalized_day_snapshots import read_finalized_day_snapshots  # noqa: E402
+from rehab_excel.patient_session_history_store import (  # noqa: E402
+    _row_from_values as patient_row_from_values,
+    read_patient_session_history_rows,
+)
 from rehab_excel.therapist_day_history_store import read_therapist_day_history_rows  # noqa: E402
 
 
@@ -134,6 +139,29 @@ def _therapist_row(data: dict[str, object]) -> TherapistDayHistoryRow:
     )
 
 
+def _patient_row(data: dict[str, object]) -> PatientSessionHistoryRow:
+    values = (
+        data.get("snapshot_id"),
+        data.get("service_date"),
+        data.get("snapshot_version"),
+        data.get("session_id"),
+        data.get("patient_id"),
+        data.get("status"),
+        data.get("original_therapist_id"),
+        data.get("original_time"),
+        data.get("effective_therapist_id"),
+        data.get("effective_time"),
+        data.get("replacement_id"),
+        data.get("cancellation_id"),
+        data.get("cancellation_kind"),
+        data.get("reason"),
+    )
+    try:
+        return patient_row_from_values(values, row=0)
+    except Exception as exc:
+        raise DayAmendmentApplyError(f"Invalid patient_row: {exc}") from exc
+
+
 def _dict(value: object, *, field: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise DayAmendmentApplyError(f"{field} must be an object")
@@ -154,8 +182,9 @@ def apply_day_amendment(workbook_path: str | Path, payload_path: str | Path) -> 
         raise DayAmendmentApplyError(f"Could not read amendment payload: {exc}") from exc
     if not isinstance(data, dict):
         raise DayAmendmentApplyError("Amendment payload root must be an object")
-    if data.get("schema") != "day-amendment-v1":
-        raise DayAmendmentApplyError(f"Unsupported amendment payload schema: {data.get('schema')!r}")
+    schema = data.get("schema")
+    if schema not in {"day-amendment-v1", "day-amendment-v2"}:
+        raise DayAmendmentApplyError(f"Unsupported amendment payload schema: {schema!r}")
 
     payload_source = Path(_required_text(data.get("source_path"), field="source_path")).resolve()
     if payload_source != source:
@@ -180,6 +209,15 @@ def apply_day_amendment(workbook_path: str | Path, payload_path: str | Path) -> 
         raise DayAmendmentApplyError("therapist_rows must be an array")
     therapist_rows = tuple(_therapist_row(_dict(item, field="therapist_row")) for item in raw_rows)
 
+    patient_rows: tuple[PatientSessionHistoryRow, ...] | None = None
+    if schema == "day-amendment-v2":
+        raw_patient_rows = data.get("patient_rows")
+        if not isinstance(raw_patient_rows, list):
+            raise DayAmendmentApplyError("patient_rows must be an array for day-amendment-v2")
+        patient_rows = tuple(
+            _patient_row(_dict(item, field="patient_row")) for item in raw_patient_rows
+        )
+
     plan = DayAmendmentPlan(
         previous_snapshot=previous,
         superseded_snapshot=superseded,
@@ -187,7 +225,12 @@ def apply_day_amendment(workbook_path: str | Path, payload_path: str | Path) -> 
         started_event=started,
         finalized_event=finalized,
     )
-    persisted = persist_day_amendment(source, plan, therapist_rows)
+    persisted = persist_day_amendment(
+        source,
+        plan,
+        therapist_rows,
+        patient_rows=patient_rows,
+    )
 
     snapshots = read_finalized_day_snapshots(source, service_date=replacement.service_date)
     by_id = {item.snapshot_id: item for item in snapshots}
@@ -198,6 +241,14 @@ def apply_day_amendment(workbook_path: str | Path, payload_path: str | Path) -> 
     current = [item for item in snapshots if item.status == FinalizedSnapshotStatus.CURRENT_FINAL]
     if current != [replacement]:
         raise DayAmendmentApplyError("Post-save verification did not find exactly the replacement CURRENT_FINAL snapshot")
+
+    if patient_rows is not None:
+        persisted_patient_rows = read_patient_session_history_rows(
+            source,
+            snapshot_id=replacement.snapshot_id,
+        )
+        if persisted_patient_rows != patient_rows:
+            raise DayAmendmentApplyError("Post-save patient/session history verification failed")
 
     persisted_rows = read_therapist_day_history_rows(source, snapshot_id=replacement.snapshot_id)
     if persisted_rows != therapist_rows:
@@ -246,6 +297,8 @@ def main() -> int:
     print(f"Date: {result['service_date']}")
     print(f"Replacement snapshot: {result['replacement_snapshot_id']}")
     print(f"Version: {result['replacement_version']}")
+    if result.get("patient_history_rows") is not None:
+        print(f"Patient/session history rows: {result['patient_history_rows']}")
     print(f"Therapist/day history rows: {result['therapist_history_rows']}")
     print("Post-save verification: True")
     return 0
