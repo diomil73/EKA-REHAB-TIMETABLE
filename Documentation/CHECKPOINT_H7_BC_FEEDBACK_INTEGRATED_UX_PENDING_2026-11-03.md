@@ -17,7 +17,7 @@ BC remains **visual provisional / superseded by feedback**, FROZEN; never repair
 - `Python/tools/export_patient_history_ui.py` commit `2ceed32`: pad *single-digit all-numeric* ID **only in display output**, never in historical storage; preserve prefixed IDs and existing zero-padded values.
 - `Python/rehab_excel/patient_history_report_vba.py` commits `62488e5`, `8fc495d`: patient statistics navigation now on THERAPIST_DAILY aligned just right of H4 therapist statistics, delete legacy DAILY_INPUT nav, mark patient ID display column as Excel text to preserve 01.
 - `Python/tools/install_patient_history_ui.py` commit `8b11df3`: on persisted reopen, enforce both buttons exist on THERAPIST_DAILY, are aligned and do not overlap, and none remains on DAILY_INPUT.
-- `Tests/test_h7_integrated_toolbar_and_patient_order.py` commit `c12f226`: 5 targeted new tests.
+- `Tests/test_h7_integrated_toolbar_and_patient_order.py` commit `c12f226`: 7 targeted new tests (two additional smoke-builder guards in commit b14d56a).
 
 ## Next SOURCE gate, not yet run
 
@@ -26,7 +26,7 @@ git pull --ff-only origin work/history-statistics-rebuild
 python -m pytest Tests/test_patient_history_ui_h7.py Tests/test_patient_history_reports_h7.py Tests/test_h7_integrated_toolbar_and_patient_order.py -q
 ```
 
-Expected 17 passed if new tests pass. **Do not claim green until user supplies output.**
+Expected 19 passed if new tests pass. **Do not claim green until user supplies output.**
 
 ## Planned integrated native gate after source green
 
@@ -48,3 +48,16 @@ Then inspect controls read-only with `Python/tools/inspect_unified_day_save_cont
 ## Release blocker
 
 Final worksheet editing protection remains deferred but mandatory before production, per `Documentation/BACKLOG_FINAL_WORKSHEET_PROTECTION_2026-11-03.md`.
+
+## Single fail-fast integrated installer added
+
+`Python/tools/prepare_h7_integrated_ui_smoke.py` commit `96eea88`, regression `b14d56a`. Automatically copies frozen AZ to a fresh non-existing BD, verifies SHA-256 byte equality, then applies H6 MASTER-only, H4 therapist UI, and H7 patient UI installers sequentially with nonzero failure stops. Uses separate Excel COM installer runs. No claim of Windows/native execution until operator output.
+
+After source tests GREEN and Excel fully closed:
+```powershell
+python .\\Python\\tools\\prepare_h7_integrated_ui_smoke.py --output ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H7_20261103_BD.xlsm"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BD integrated preparation failed" }
+python .\\Python\\tools\\inspect_unified_day_save_controls.py ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H7_20261103_BD.xlsm"
+```
+
+Verify installer output and read-only audit before opening. Existing BD must fail (never overwrite/reuse). If successful, perform only focused UI checks and freeze.
