@@ -30,11 +30,22 @@ def _audit(workbook) -> None:
     report = workbook.Worksheets(PATIENT_REPORT_SHEET)
     if int(report.Visible) != -1:
         raise PatientHistoryUiInstallError("Patient report is not visible")
-    nav = workbook.Worksheets("DAILY_INPUT").Shapes(PATIENT_REPORT_NAV)
+    therapist = workbook.Worksheets("THERAPIST_DAILY").Shapes("ekaToolbar_TherapistHistory")
+    nav = workbook.Worksheets("THERAPIST_DAILY").Shapes(PATIENT_REPORT_NAV)
     if str(nav.OnAction).split("!")[-1].strip("'") != PATIENT_REPORT_OPEN:
         raise PatientHistoryUiInstallError("Patient report navigation mismatch")
-    if not bool(nav.Visible):
-        raise PatientHistoryUiInstallError("Patient report entry is not visible")
+    if not bool(nav.Visible) or not bool(therapist.Visible):
+        raise PatientHistoryUiInstallError("Statistics navigation is not visible")
+    if abs(float(nav.Top) - float(therapist.Top)) > 1:
+        raise PatientHistoryUiInstallError("Patient and therapist statistics buttons misaligned")
+    if float(nav.Left) < float(therapist.Left) + float(therapist.Width) + 4:
+        raise PatientHistoryUiInstallError("Statistics navigation buttons overlap")
+    try:
+        workbook.Worksheets("DAILY_INPUT").Shapes(PATIENT_REPORT_NAV)
+    except Exception:
+        pass
+    else:
+        raise PatientHistoryUiInstallError("Legacy patient button remains on DAILY_INPUT")
     for sheet_name in (
         "FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY",
         "PATIENT_SESSION_HISTORY", "DAY_HISTORY_EVENTS",
@@ -94,7 +105,9 @@ def main() -> int:
         print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
         return 2
     print("H7 PATIENT HISTORY UI INSTALL OK")
-    print("Entry: DAILY_INPUT -> Στατιστικά ασθενών")
+    print("Entry: THERAPIST_DAILY -> Στατιστικά θεραπευτών + Στατιστικά ασθενών")
+    print("Statistics buttons: aligned and non-overlapping")
+    print("DAILY_INPUT patient button: absent")
     print("Technical history sheets: veryHidden")
     print("Persisted VBA reopen verification: OK")
     return 0
