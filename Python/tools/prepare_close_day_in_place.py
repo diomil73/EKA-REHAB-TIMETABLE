@@ -17,6 +17,7 @@ from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.day_finalization import build_finalized_day_snapshot  # noqa: E402
 from rehab_core.day_history_events import build_day_finalized_event  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
+from rehab_core.patient_session_history import build_patient_session_history_rows  # noqa: E402
 from rehab_core.therapist_day_history import build_therapist_day_history_rows  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
@@ -26,6 +27,10 @@ from rehab_excel.day_history_event_store import read_day_history_events  # noqa:
 from rehab_excel.finalized_day_snapshots import read_finalized_day_snapshots  # noqa: E402
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
+from rehab_excel.patient_session_history_store import (  # noqa: E402
+    read_patient_session_history_rows,
+    values_for_payload as patient_values_for_payload,
+)
 from rehab_excel.reader import read_settings  # noqa: E402
 from rehab_excel.therapist_day_history_store import read_therapist_day_history_rows  # noqa: E402
 
@@ -151,6 +156,12 @@ def prepare_close_day_payload(
         planned_session_count=len(sessions),
         approved_exception_count=approved_exception_count,
     )
+    patient_rows = build_patient_session_history_rows(
+        states,
+        snapshot_id=snapshot.snapshot_id,
+        service_date=service_date,
+        snapshot_version=snapshot.version,
+    )
     therapist_ids = tuple(
         name
         for name in settings.therapist_names
@@ -176,6 +187,8 @@ def prepare_close_day_payload(
         ),
     )
 
+    if read_patient_session_history_rows(source, snapshot_id=snapshot.snapshot_id):
+        raise CloseDayPreparationError("Patient/session history already exists for snapshot")
     if read_therapist_day_history_rows(source, snapshot_id=snapshot.snapshot_id):
         raise CloseDayPreparationError("Therapist/day history already exists for snapshot")
     if any(item.event_id == event.event_id for item in read_day_history_events(source)):
@@ -214,6 +227,8 @@ def prepare_close_day_payload(
     )
 
     lines = [_line("SNAPSHOT", snapshot_values)]
+    for row in patient_rows:
+        lines.append(_line("PATIENT", patient_values_for_payload(row)))
     for row in therapist_rows:
         lines.append(
             _line(
@@ -253,6 +268,7 @@ def prepare_close_day_payload(
         "snapshot_id": snapshot.snapshot_id,
         "event_id": event.event_id,
         "final_sessions": snapshot.final_session_count,
+        "patient_history_rows": len(patient_rows),
         "therapist_history_rows": len(therapist_rows),
         "unresolved_sessions": snapshot.unresolved_sessions,
         "application_contract_components": len(contract.component_names),
@@ -290,6 +306,7 @@ def main() -> int:
     print("CLOSE DAY IN-PLACE PAYLOAD VERIFIED")
     print(f"Date: {result['service_date']}")
     print(f"Snapshot: {result['snapshot_id']}")
+    print(f"Patient/session history rows: {result['patient_history_rows']}")
     print(f"Therapist/day history rows: {result['therapist_history_rows']}")
     print(f"Event: {result['event_id']}")
     print("Input unchanged: True")
