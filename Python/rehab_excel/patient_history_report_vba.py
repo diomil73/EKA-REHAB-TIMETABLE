@@ -310,9 +310,28 @@ def install_patient_report_components(vbproject, workbook) -> None:
         source.Shapes(PATIENT_REPORT_NAV).Delete()
     except Exception:
         pass
-    left = float(therapist_button.Left) + float(therapist_button.Width) + 8
-    top = float(therapist_button.Top)
-    shape = source.Shapes.AddShape(5, left, top, 146, 24)
+    # Normalize both companion buttons to exactly the same geometry and
+    # readable style. Only the disposable target workbook is changed.
+    base_left = float(therapist_button.Left)
+    base_top = float(therapist_button.Top)
+    for button in (therapist_button,):
+        button.Left = base_left
+        button.Top = base_top
+        button.Width = 146
+        button.Height = 26
+        button.Placement = 3
+        button.Fill.ForeColor.RGB = 15527148
+        button.Line.ForeColor.RGB = 10066329
+        button.TextFrame2.TextRange.Font.Name = "Calibri"
+        button.TextFrame2.TextRange.Font.Size = 9
+        button.TextFrame2.TextRange.Font.Bold = True
+        button.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+        button.TextFrame2.TextRange.Font.Fill.Transparency = 0
+        button.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+        button.TextFrame2.VerticalAnchor = 3
+    left = base_left + 154
+    top = base_top
+    shape = source.Shapes.AddShape(5, left, top, 146, 26)
     shape.Name = PATIENT_REPORT_NAV
     shape.OnAction = PATIENT_REPORT_OPEN
     shape.Placement = 3
