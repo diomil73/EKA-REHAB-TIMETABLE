@@ -68,14 +68,41 @@ def test_close_day_in_place_write_has_preflight_readback_and_rollback():
 
     assert "PreflightSnapshot" in source
     assert "PreflightTherapists" in source
+    assert "PreflightPatients" in source
     assert "PreflightEvent" in source
     assert "RowMatchesPayload" in source
     assert "RollbackHistoryWrite" in source
     assert "FINALIZED_DAY_SNAPSHOTS" in source
     assert "THERAPIST_DAY_HISTORY" in source
+    assert "PATIENT_SESSION_HISTORY" in source
     assert "DAY_HISTORY_EVENTS" in source
     assert "xlSheetVeryHidden" in source
     assert "ThisWorkbook.Save" in source
+
+
+def test_close_day_patient_history_is_atomic_and_duplicate_safe():
+    source = CLOSE_DAY_MODULE_CODE
+
+    assert 'Case "PATIENT"' in source
+    assert "If UBound(parts) <> 14" in source
+    assert "PatientHeaders()" in source
+    assert "Set wsPatient = EnsureHistorySheet(PATIENT_SHEET, PatientHeaders(), patientCreated)" in source
+    assert "patientStartRow = NextWriteRow(wsPatient)" in source
+    assert "WritePayloadFields wsPatient, patientStartRow + i - 1, parts, 1, 14" in source
+    assert "RowMatchesPayload(wsPatient, patientStartRow + i - 1, parts, 1, 14)" in source
+    assert "RollbackHistoryWrite wsPatient, patientCreated, patientStartRow, patientCount" in source
+    assert "Trim$(CStr(ws.Cells(row, 1).Value)) = PayloadValue(parts(1))" in source
+    assert "Trim$(CStr(ws.Cells(row, 4).Value)) = PayloadValue(parts(4))" in source
+
+
+def test_close_day_patient_history_readback_normalizes_excel_time_values():
+    source = CLOSE_DAY_MODULE_CODE
+
+    assert "Private Function CellMatchesPayload" in source
+    assert "If IsIsoTimeText(expectedText) And IsDate(actualValue) Then" in source
+    assert 'Format$(CDate(actualValue), "hh:nn:ss") = expectedText' in source
+    assert "Private Function IsIsoTimeText" in source
+    assert 'PatientHeaders = Array("SnapshotId", "ServiceDate", "SnapshotVersion", "SessionId", "PatientId", "Status", "OriginalTherapistId", "OriginalTime", "EffectiveTherapistId", "EffectiveTime", "ReplacementId", "CancellationId", "CancellationKind", "Reason")' in source
 
 
 def test_canonical_registration_build_installs_and_verifies_close_day_action():
