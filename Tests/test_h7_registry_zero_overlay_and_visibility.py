@@ -122,3 +122,9 @@ def test_vba_expressly_labels_current_registry_and_zero_activity():
 
     assert '--include-registered-zero' in PATIENT_REPORT_VBA
     assert 'Τρέχον μητρώο: χωρίς συνεδρία = 0' in PATIENT_REPORT_VBA
+
+
+def test_patient_report_rows_have_readable_height():
+    from rehab_excel.patient_history_report_vba import PATIENT_REPORT_VBA
+
+    assert 'If lastRow >= 6 Then ws.Rows("6:" & CStr(lastRow)).RowHeight = 21' in PATIENT_REPORT_VBA
