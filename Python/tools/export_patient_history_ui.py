@@ -10,7 +10,11 @@ PYTHON_ROOT = ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
-from rehab_excel.patient_history_reports import read_patient_history_report  # noqa: E402
+from rehab_excel.patient_history_reports import (  # noqa: E402
+    read_patient_history_report,
+    include_registered_patients_without_sessions,
+)
+from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
 
 
 HEADERS = (
@@ -38,9 +42,15 @@ def export_patient_history_ui(
     mode: str = "monthly",
     start: date | None = None,
     end: date | None = None,
+    include_registered_zero: bool = False,
 ) -> dict[str, object]:
     """Emit report TSV without opening or changing Excel."""
     rows = read_patient_history_report(workbook_path, mode=mode, start=start, end=end)
+    if include_registered_zero:
+        registered = read_patient_registry(workbook_path)
+        rows = include_registered_patients_without_sessions(
+            rows, tuple(str(patient.patient_id) for patient in registered)
+        )
     lines = ["\t".join(HEADERS)]
     for row in rows:
         fields = (
@@ -64,10 +74,13 @@ def main() -> int:
     parser.add_argument("--mode", choices=("daily", "weekly", "monthly", "overall"), default="monthly")
     parser.add_argument("--start", type=date.fromisoformat)
     parser.add_argument("--end", type=date.fromisoformat)
+    parser.add_argument("--include-registered-zero", action="store_true",
+                        help="Show all current registry patients, including those without finalized activity")
     args = parser.parse_args()
     try:
         result = export_patient_history_ui(
-            args.workbook, args.output, mode=args.mode, start=args.start, end=args.end
+            args.workbook, args.output, mode=args.mode, start=args.start, end=args.end,
+            include_registered_zero=args.include_registered_zero
         )
     except Exception as exc:
         print(f"SAFETY STOP: {exc}")
