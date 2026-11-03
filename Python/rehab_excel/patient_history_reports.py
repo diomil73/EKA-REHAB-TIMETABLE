@@ -144,3 +144,69 @@ def read_patient_history_report(
         read_current_patient_session_history_rows(workbook_path),
         mode=mode, start=start, end=end,
     )
+
+
+def include_registered_patients_without_sessions(
+    reports: tuple[PatientHistoryReportRow, ...],
+    registry_ids: tuple[str, ...],
+) -> tuple[PatientHistoryReportRow, ...]:
+    """Optional complete-current-registry view for periods with finalized sessions.
+
+    A zero row is a *presentation placeholder*, not a finalized history record.
+    Current PATIENTS membership is not proof of membership on a historic date.
+    """
+    def identity(value: str) -> tuple[str, str | int]:
+        clean = str(value).strip()
+        if not clean:
+            raise PatientHistoryReportError("Blank registry patient identifier")
+        if clean.isascii() and clean.isdecimal():
+            return ("numeric", int(clean))
+        return ("text", clean.casefold())
+
+    registry: dict[tuple[str, str | int], str] = {}
+    for original in registry_ids:
+        key = identity(original)
+        if key in registry:
+            raise PatientHistoryReportError("Duplicate patient ID in registry")
+        registry[key] = str(original).strip()
+
+    periods = {(row.period_start, row.period_end) for row in reports}
+    if not periods:
+        return reports
+
+    existing: dict[tuple[date, date], set[tuple[str, str | int]]] = {
+        period: set() for period in periods
+    }
+    for row in reports:
+        patient_key = identity(row.patient_id)
+        if patient_key not in registry:
+            raise PatientHistoryReportError(
+                "CURRENT_FINAL patient is absent from current registry"
+            )
+        period = (row.period_start, row.period_end)
+        if patient_key in existing[period]:
+            raise PatientHistoryReportError("Duplicate patient period row")
+        existing[period].add(patient_key)
+
+    extended = list(reports)
+    for beginning, ending in sorted(periods):
+        for key, patient_id in registry.items():
+            if key in existing[(beginning, ending)]:
+                continue
+            extended.append(PatientHistoryReportRow(
+                period_start=beginning,
+                period_end=ending,
+                patient_id=patient_id,
+                finalized_days=0,
+                scheduled=0,
+                performed=0,
+                patient_absences=0,
+                cancellations=0,
+                replacements=0,
+            ))
+    return tuple(sorted(
+        extended,
+        key=lambda row: (
+            row.period_start, row.period_end, _patient_sort_key(row.patient_id)
+        ),
+    ))
