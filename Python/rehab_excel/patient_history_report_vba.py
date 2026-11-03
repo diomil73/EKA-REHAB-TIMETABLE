@@ -344,3 +344,5 @@ def install_patient_report_components(vbproject, workbook) -> None:
     shape.TextFrame2.TextRange.Font.Bold = True
     shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
     shape.TextFrame2.VerticalAnchor = 3
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+    shape.TextFrame2.TextRange.Font.Fill.Transparency = 0
