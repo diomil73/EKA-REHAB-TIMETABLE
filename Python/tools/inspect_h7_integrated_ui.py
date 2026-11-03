@@ -72,6 +72,7 @@ def inspect(path: Path) -> int:
             if _shape(daily, name) is not None:
                 errors.append(f"DAILY_INPUT forbidden button: {name}")
 
+        therapist_exit = _shape(therapist_daily, "ekaToolbar_ExitApp")
         t = _shape(therapist_daily, "ekaToolbar_TherapistHistory")
         p = _shape(therapist_daily, "ekaToolbar_PatientHistory")
         if t is None or p is None:
@@ -92,6 +93,11 @@ def inspect(path: Path) -> int:
                 errors.append("Statistics button is not visible")
             if abs(float(t.Top) - float(p.Top)) > 1:
                 errors.append("Statistics buttons not aligned")
+            if therapist_exit is None:
+                errors.append("THERAPIST_DAILY Save & Exit missing")
+            elif (abs(float(t.Top) - float(therapist_exit.Top)) > 1 or
+                  float(t.Left) < float(therapist_exit.Left) + float(therapist_exit.Width) + 4):
+                errors.append("Statistics buttons not on main navigation row after Save & Exit")
             if float(p.Left) < float(t.Left) + float(t.Width) + 4:
                 errors.append("Statistics buttons overlap")
 
