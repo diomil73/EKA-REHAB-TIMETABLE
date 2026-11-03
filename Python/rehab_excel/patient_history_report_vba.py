@@ -54,7 +54,7 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     commandLine = QuotePatientArg("python") & " " & QuotePatientArg(scriptPath) & _
         " --workbook " & QuotePatientArg(ThisWorkbook.FullName) & _
         " --output " & QuotePatientArg(outputPath) & _
-        " --mode " & QuotePatientArg(reportMode)
+        " --mode " & QuotePatientArg(reportMode) & " --include-registered-zero"
 
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
     If exitCode <> 0 Or Dir$(outputPath) = "" Then _
@@ -78,7 +78,7 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     ws.Columns("C").NumberFormat = "@"
 
     ws.Range("A1").Value2 = "Ιστορικό / Στατιστικά Ασθενών"
-    ws.Range("A2").Value2 = ModeDescription(reportMode)
+    ws.Range("A2").Value2 = ModeDescription(reportMode) & " | Τρέχον μητρώο: χωρίς συνεδρία = 0"
     ws.Range("A5:I5").Value = Array( _
         "Από", "Έως", "Ασθενής", "Ημέρες", "Προγρ. συνεδρίες", _
         "Πραγμ. συνεδρίες", "Απουσίες", "Ακυρώσεις", "Αναπληρώσεις")
