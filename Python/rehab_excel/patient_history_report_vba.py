@@ -313,8 +313,13 @@ def install_patient_report_components(vbproject, workbook) -> None:
         pass
     # Normalize both companion buttons to exactly the same geometry and
     # readable style. Only the disposable target workbook is changed.
-    base_left = float(therapist_button.Left)
-    base_top = float(therapist_button.Top)
+    # Use the *existing* application navigation toolbar row, not the
+    # dynamic UsedRange bottom (which can overlap restoration controls).
+    exit_button = source.Shapes("ekaToolbar_ExitApp")
+    if not bool(exit_button.Visible):
+        raise RuntimeError("THERAPIST_DAILY Save & Exit is not visible")
+    base_left = float(exit_button.Left) + float(exit_button.Width) + 8
+    base_top = float(exit_button.Top)
     for button in (therapist_button,):
         button.Left = base_left
         button.Top = base_top
