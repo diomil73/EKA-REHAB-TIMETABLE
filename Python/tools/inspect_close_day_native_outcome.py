@@ -21,6 +21,11 @@ from rehab_excel.finalized_day_snapshots import (  # noqa: E402
     SHEET_NAME as SNAPSHOT_SHEET,
     read_finalized_day_snapshots,
 )
+from rehab_excel.patient_session_history_store import (  # noqa: E402
+    SHEET_NAME as PATIENT_SHEET,
+    read_current_patient_session_history_rows,
+    read_patient_session_history_rows,
+)
 from rehab_excel.therapist_day_history_store import (  # noqa: E402
     SHEET_NAME as THERAPIST_SHEET,
     read_therapist_day_history_rows,
@@ -57,7 +62,7 @@ def _sheet_states(path: Path) -> dict[str, str]:
     wb = load_workbook(path, read_only=True, data_only=False, keep_vba=True)
     try:
         states: dict[str, str] = {}
-        for name in (SNAPSHOT_SHEET, THERAPIST_SHEET, EVENT_SHEET):
+        for name in (SNAPSHOT_SHEET, THERAPIST_SHEET, PATIENT_SHEET, EVENT_SHEET):
             if name not in wb.sheetnames:
                 raise CloseDayInspectionError(f"Missing history sheet: {name}")
             states[name] = wb[name].sheet_state
@@ -99,6 +104,31 @@ def inspect_close_day_outcome(workbook_path: str | Path) -> dict[str, object]:
     if any(row.service_date != service_date for row in therapist_rows):
         raise CloseDayInspectionError("Therapist/day history references another service date")
 
+    patient_rows = read_patient_session_history_rows(
+        path,
+        snapshot_id=snapshot.snapshot_id,
+        service_date=service_date,
+    )
+    if not patient_rows:
+        raise CloseDayInspectionError("No patient/session history rows for finalized snapshot")
+    if any(row.snapshot_id != snapshot.snapshot_id for row in patient_rows):
+        raise CloseDayInspectionError("Patient/session history references another snapshot")
+    if any(row.service_date != service_date for row in patient_rows):
+        raise CloseDayInspectionError("Patient/session history references another service date")
+    if any(row.snapshot_version != snapshot.version for row in patient_rows):
+        raise CloseDayInspectionError("Patient/session history references another snapshot version")
+
+    current_patient_rows = read_current_patient_session_history_rows(
+        path,
+        service_date=service_date,
+    )
+    patient_keys = {(row.snapshot_id, row.session_id) for row in patient_rows}
+    current_patient_keys = {(row.snapshot_id, row.session_id) for row in current_patient_rows}
+    if current_patient_keys != patient_keys:
+        raise CloseDayInspectionError(
+            "CURRENT_FINAL patient/session history does not exactly match finalized snapshot rows"
+        )
+
     finalized_events = read_day_history_events(
         path,
         service_date=service_date,
@@ -139,6 +169,7 @@ def inspect_close_day_outcome(workbook_path: str | Path) -> dict[str, object]:
         "treatment_suspensions": snapshot.treatment_suspension_count,
         "approved_exceptions": snapshot.approved_exception_count,
         "therapist_history_rows": len(therapist_rows),
+        "patient_history_rows": len(patient_rows),
         "event_id": event.event_id,
         "event_actor": event.actor_or_source,
         "event_summary": event.summary,
@@ -176,6 +207,7 @@ def main() -> int:
         f"approved_exceptions={result['approved_exceptions']}"
     )
     print(f"THERAPIST_HISTORY_ROWS: {result['therapist_history_rows']}")
+    print(f"PATIENT_HISTORY_ROWS: {result['patient_history_rows']}")
     print(
         "DAY_FINALIZED_EVENT: "
         f"id={result['event_id']} actor={result['event_actor']} "
