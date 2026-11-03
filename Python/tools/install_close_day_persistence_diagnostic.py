@@ -30,6 +30,22 @@ def _replace_once(text: str, old: str, new: str, *, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def _assert_markers(source: str) -> None:
+    markers = (
+        'persistStage = "patient-write-readback row=" & CStr(i)',
+        '" col=" & CStr(mismatchCol + 1)',
+        '" expected=[" & expectedValue & "] actual=[" & actualValueText & "] type="',
+        '"Diagnostic stage: " & persistStage',
+        "errorNumber = Err.Number",
+        "errorDescription = Err.Description",
+    )
+    for marker in markers:
+        if marker not in source:
+            raise CloseDayDiagnosticInstallError(
+                f"Diagnostic marker not confirmed: {marker}"
+            )
+
+
 def install_close_day_persistence_diagnostic(workbook_path: str | Path) -> dict[str, object]:
     if sys.platform != "win32":
         raise CloseDayDiagnosticInstallError(
@@ -139,22 +155,28 @@ def install_close_day_persistence_diagnostic(workbook_path: str | Path) -> dict[
 
         code_module.DeleteLines(1, int(code_module.CountOfLines))
         code_module.AddFromString(source)
+        _assert_markers(_module_text(code_module))
         workbook.Save()
+        workbook.Close(SaveChanges=True)
+        workbook = None
 
-        installed = _module_text(code_module)
-        for marker in (
-            'persistStage = "patient-write-readback row=" & CStr(i)',
-            '" col=" & CStr(mismatchCol + 1)',
-            '"Diagnostic stage: " & persistStage',
-            "errorNumber = Err.Number",
-            "errorDescription = Err.Description",
-        ):
-            if marker not in installed:
-                raise CloseDayDiagnosticInstallError(
-                    f"Diagnostic marker not confirmed: {marker}"
-                )
+        # Reopen from disk and verify that the diagnostic VBA actually persisted.
+        workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=True)
+        try:
+            persisted_component = workbook.VBProject.VBComponents(MODULE_NAME)
+        except Exception as exc:
+            raise CloseDayDiagnosticInstallError(
+                f"Persisted VBA module not found after reopen: {MODULE_NAME}"
+            ) from exc
+        persisted_source = _module_text(persisted_component.CodeModule)
+        _assert_markers(persisted_source)
 
-        return {"ok": True, "workbook": str(path), "module": MODULE_NAME}
+        return {
+            "ok": True,
+            "workbook": str(path),
+            "module": MODULE_NAME,
+            "persisted_reopen_verified": True,
+        }
     finally:
         if workbook is not None:
             try:
@@ -186,6 +208,7 @@ def main() -> int:
     print(f"Module: {result['module']}")
     print("Diagnostic stages: installed")
     print("Patient mismatch detail: installed")
+    print("Persisted VBA reopen verification: OK")
     print("Rollback semantics: unchanged")
     return 0
 
