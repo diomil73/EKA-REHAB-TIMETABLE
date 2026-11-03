@@ -24,6 +24,10 @@ def test_installer_has_persisted_reopen_verification_and_deduplicates_buttons():
     text = script.read_text(encoding="utf-8")
     assert set(OLD_BUTTONS) == {"ekaToolbar_CloseDay", "ekaToolbar_DayAmendment"}
     assert DAILY_BUTTON != MASTER_BUTTON
+    assert "for old_name in (*OLD_BUTTONS, DAILY_BUTTON):" in text
+    assert 'print("Controls: MASTER_SCHEDULE only")' in text
+    assert 'master.Shapes("ekaToolbar_ExitApp")' in text
+    assert "float(exit_button.Left) + float(exit_button.Width) + 8" in text
     assert "_delete_if_present(daily, name)" in text
     assert 'workbook.Worksheets("MASTER_SCHEDULE")' in text
     assert 'Workbooks.Open(str(path.resolve()), UpdateLinks=0, ReadOnly=True)' in text
