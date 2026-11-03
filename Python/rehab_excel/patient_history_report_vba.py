@@ -71,6 +71,7 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     Application.ScreenUpdating = False
     ws.Unprotect
     ws.Range("A1:I1048576").ClearContents
+    ws.Columns("C").NumberFormat = "@"
 
     ws.Range("A1").Value2 = "Ιστορικό / Στατιστικά Ασθενών"
     ws.Range("A2").Value2 = ModeDescription(reportMode)
