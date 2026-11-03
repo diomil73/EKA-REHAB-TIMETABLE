@@ -281,20 +281,34 @@ def install_patient_report_components(vbproject, workbook) -> None:
     report.Cells.ClearContents()
     report.Visible = -1
 
+    # Patient and therapist statistics belong together on THERAPIST_DAILY.
+    # Fail closed if the companion H4 button was not installed in this workbook.
+    source = workbook.Worksheets("THERAPIST_DAILY")
+    therapist_button = source.Shapes("ekaToolbar_TherapistHistory")
+    if str(therapist_button.OnAction).split("!")[-1].strip("'") != "OpenTherapistHistoryReport":
+        raise RuntimeError("H4 therapist statistics button is not correctly bound")
+    if not bool(therapist_button.Visible):
+        raise RuntimeError("H4 therapist statistics button is not visible")
+
+    # Remove legacy patient button from DAILY_INPUT if present.
     daily = workbook.Worksheets("DAILY_INPUT")
     try:
         daily.Shapes(PATIENT_REPORT_NAV).Delete()
     except Exception:
         pass
-    used = daily.UsedRange
-    last_row = max(1, int(used.Row) + int(used.Rows.Count) - 1)
-    anchor = daily.Range(f"A{last_row + 2}")
-    shape = daily.Shapes.AddShape(
-        5, float(anchor.Left) + 302, float(anchor.Top) + 2, 146, 24
-    )
+    try:
+        source.Shapes(PATIENT_REPORT_NAV).Delete()
+    except Exception:
+        pass
+    left = float(therapist_button.Left) + float(therapist_button.Width) + 8
+    top = float(therapist_button.Top)
+    shape = source.Shapes.AddShape(5, left, top, 146, 24)
     shape.Name = PATIENT_REPORT_NAV
     shape.OnAction = PATIENT_REPORT_OPEN
     shape.Placement = 3
+    shape.Visible = True
+    shape.Fill.ForeColor.RGB = 15527148
+    shape.Line.ForeColor.RGB = 10066329
     shape.TextFrame2.TextRange.Text = "Στατιστικά ασθενών"
     shape.TextFrame2.TextRange.Font.Name = "Calibri"
     shape.TextFrame2.TextRange.Font.Size = 9
