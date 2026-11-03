@@ -94,12 +94,12 @@ def summarize_final_history(snapshots, patient_rows, therapist_rows, *, start: d
         absent = sum(r.status == DailySessionStatus.PATIENT_ABSENT for r in rows)
         cancelled = sum(r.status == DailySessionStatus.CANCELLED for r in rows)
         replaced = sum(r.status == DailySessionStatus.REPLACED for r in rows)
+        if snap.planned_session_count is not None and len(rows) != snap.planned_session_count:
+            raise HistoricalStatisticsError(f"Missing patient history rows: {snap.snapshot_id}")
         expected = (snap.final_session_count, snap.patient_absence_count, snap.cancellation_count, snap.replacement_count)
         actual = (performed, absent, cancelled, replaced)
         if actual != expected:
             raise HistoricalStatisticsError(f"Snapshot totals disagree with patient history: {snap.snapshot_id}")
-        if snap.planned_session_count is not None and len(rows) != snap.planned_session_count:
-            raise HistoricalStatisticsError(f"Missing patient history rows: {snap.snapshot_id}")
 
         therapist_ids = set()
         for row in trows:
