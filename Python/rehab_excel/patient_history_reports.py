@@ -46,6 +46,13 @@ def _period_range(day: date, mode: str) -> tuple[date, date]:
     raise PatientHistoryReportError(f"Unsupported report mode: {mode!r}")
 
 
+def _patient_sort_key(value: str) -> tuple[int, int | str, str]:
+    """Natural order for numeric patient identifiers without altering IDs."""
+    if value.isascii() and value.isdecimal():
+        return (0, int(value), value)
+    return (1, value.casefold(), value)
+
+
 def summarize_patient_history_report(
     rows: tuple,
     *,
@@ -106,7 +113,7 @@ def summarize_patient_history_report(
 
     result = []
     for (beginning, ending, patient_id), item in sorted(
-        groups.items(), key=lambda pair: (pair[0][0], pair[0][2].casefold())
+        groups.items(), key=lambda pair: (pair[0][0], _patient_sort_key(pair[0][2]))
     ):
         # For overall, report actual observed date span, not date.min/date.max.
         if mode == "overall":
