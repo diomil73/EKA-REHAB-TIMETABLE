@@ -10,6 +10,7 @@ def test_in_session_preparation_reuses_authoritative_amendment_plan():
     assert "actor_or_source=actor_or_source" in source
     assert 'data["superseded_snapshot"]' in source
     assert 'data["replacement_snapshot"]' in source
+    assert 'data["patient_rows"]' in source
     assert 'data["therapist_rows"]' in source
     assert 'data["started_event"]' in source
     assert 'data["finalized_event"]' in source
@@ -20,10 +21,30 @@ def test_in_session_payload_is_tsv_for_vba_and_contains_full_transition():
 
     assert '_record("SUPERSEDE"' in source
     assert '_record("SNAPSHOT"' in source
+    assert '_record("PATIENT"' in source
     assert '_record("THERAPIST"' in source
     assert '_record("EVENT"' in source
-    assert '"payload_format": "day-amendment-in-session-tsv-v1"' in source
+    assert '"payload_format": "day-amendment-in-session-tsv-v2"' in source
     assert '"event_rows": 2' in source
+
+
+def test_in_session_patient_payload_field_contract_is_stable():
+    assert module.PATIENT_FIELDS == (
+        "snapshot_id",
+        "service_date",
+        "snapshot_version",
+        "session_id",
+        "patient_id",
+        "status",
+        "original_therapist_id",
+        "original_time",
+        "effective_therapist_id",
+        "effective_time",
+        "replacement_id",
+        "cancellation_id",
+        "cancellation_kind",
+        "reason",
+    )
 
 
 def test_in_session_payload_rejects_control_characters():
