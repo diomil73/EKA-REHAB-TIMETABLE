@@ -1,11 +1,13 @@
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 import inspect
 
 import pytest
 
 from rehab_core.day_amendment import build_day_amendment_plan
 from rehab_core.day_finalization import build_finalized_day_snapshot
+from rehab_core.daily_state import DailySessionStatus
+from rehab_core.patient_session_history import PatientSessionHistoryRow
 from rehab_core.therapist_day_history import TherapistDayHistoryRow
 from rehab_excel import day_amendment_store as module
 
@@ -58,6 +60,25 @@ def _therapist_row(snapshot_id: str = "finalized:2026-10-30:v2"):
     )
 
 
+def _patient_row(snapshot_id: str = "finalized:2026-10-30:v2", version: int = 2):
+    return PatientSessionHistoryRow(
+        snapshot_id=snapshot_id,
+        service_date=DAY,
+        snapshot_version=version,
+        session_id="S1",
+        patient_id="P1",
+        status=DailySessionStatus.ACTIVE,
+        original_therapist_id="T1",
+        original_time=time(9, 0),
+        effective_therapist_id="T1",
+        effective_time=time(9, 0),
+        replacement_id=None,
+        cancellation_id=None,
+        cancellation_kind=None,
+        reason=None,
+    )
+
+
 def test_amendment_store_validates_version_chain_and_therapist_rows_before_com():
     rows = module._validate_plan_for_persistence(_plan(), [_therapist_row()])
     assert len(rows) == 1
@@ -65,6 +86,16 @@ def test_amendment_store_validates_version_chain_and_therapist_rows_before_com()
     bad = _therapist_row("wrong-snapshot")
     with pytest.raises(module.DayAmendmentStoreError, match="replacement snapshot"):
         module._validate_plan_for_persistence(_plan(), [bad])
+
+
+def test_amendment_store_validates_patient_rows_against_replacement_snapshot():
+    rows = module._validate_patient_rows(_plan(), [_patient_row()])
+    assert len(rows) == 1
+
+    with pytest.raises(module.DayAmendmentStoreError, match="replacement snapshot"):
+        module._validate_patient_rows(_plan(), [_patient_row("wrong-snapshot")])
+    with pytest.raises(module.DayAmendmentStoreError, match="snapshot version"):
+        module._validate_patient_rows(_plan(), [_patient_row(version=3)])
 
 
 def test_amendment_store_rejects_broken_supersedes_link():
@@ -89,11 +120,19 @@ def test_amendment_store_is_one_excel_transaction_with_single_save_boundary():
     assert "Mutation begins only after every preflight has passed" in source
     assert "SaveChanges=False" in source
 
-    # Never compose the transaction by invoking the three independent stores,
-    # because each of those saves separately and would destroy atomicity.
     assert "append_finalized_day_snapshot(" not in source
+    assert "append_patient_session_history_rows(" not in source
     assert "append_therapist_day_history_rows(" not in source
     assert "append_day_history_events(" not in source
+
+
+def test_amendment_store_keeps_patient_history_optional_for_legacy_v1():
+    signature = inspect.signature(module.persist_day_amendment)
+    source = inspect.getsource(module.persist_day_amendment)
+
+    assert signature.parameters["patient_rows"].default is None
+    assert "patient_history_enabled = patient_rows is not None" in source
+    assert "if patient_history_enabled and patient_ws is None:" in source
 
 
 def test_amendment_store_rejects_read_only_open_before_any_mutation():
@@ -114,13 +153,16 @@ def test_amendment_store_preflights_all_history_sheets_before_mutation():
     suffix = source[mutation_marker:]
 
     assert "SNAPSHOT_SHEET" in prefix
+    assert "PATIENT_SHEET" in prefix
     assert "THERAPIST_SHEET" in prefix
     assert "EVENT_SHEET" in prefix
     assert "Replacement SnapshotId already exists" in prefix
+    assert "Replacement patient/session rows already exist" in prefix
     assert "Replacement therapist/day rows already exist" in prefix
     assert "amendment EventIds already exist" in prefix
 
     assert "FinalizedSnapshotStatus.SUPERSEDED.value" in suffix
     assert "snapshot_values_for_com(plan.replacement_snapshot)" in suffix
+    assert "patient_values_for_com(row)" in suffix
     assert "therapist_values_for_com(row)" in suffix
     assert "event_values_for_com(event)" in suffix
