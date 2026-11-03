@@ -149,12 +149,18 @@ def read_patient_history_report(
 def include_registered_patients_without_sessions(
     reports: tuple[PatientHistoryReportRow, ...],
     registry_ids: tuple[str, ...],
+    *,
+    mode: str,
 ) -> tuple[PatientHistoryReportRow, ...]:
-    """Optional complete-current-registry view for periods with finalized sessions.
+    """Explicitly include current-registry members without finalized activity.
 
-    A zero row is a *presentation placeholder*, not a finalized history record.
-    Current PATIENTS membership is not proof of membership on a historic date.
+    These zero rows are presentation-only, not historical records. This is a
+    present-day registry overlay and cannot reconstruct prior registry rosters.
     """
+    mode = mode.strip().casefold()
+    if mode not in {"daily", "weekly", "monthly", "overall"}:
+        raise PatientHistoryReportError(f"Unsupported report mode: {mode!r}")
+
     def identity(value: str) -> tuple[str, str | int]:
         clean = str(value).strip()
         if not clean:
@@ -170,9 +176,17 @@ def include_registered_patients_without_sessions(
             raise PatientHistoryReportError("Duplicate patient ID in registry")
         registry[key] = str(original).strip()
 
-    periods = {(row.period_start, row.period_end) for row in reports}
-    if not periods:
-        return reports
+    if not reports:
+        return reports  # No finalized period: never invent a reporting period.
+
+    if mode == "overall":
+        overall_period = (
+            min(row.period_start for row in reports),
+            max(row.period_end for row in reports),
+        )
+        periods = {overall_period}
+    else:
+        periods = {(row.period_start, row.period_end) for row in reports}
 
     existing: dict[tuple[date, date], set[tuple[str, str | int]]] = {
         period: set() for period in periods
@@ -183,7 +197,9 @@ def include_registered_patients_without_sessions(
             raise PatientHistoryReportError(
                 "CURRENT_FINAL patient is absent from current registry"
             )
-        period = (row.period_start, row.period_end)
+        period = overall_period if mode == "overall" else (
+            row.period_start, row.period_end
+        )
         if patient_key in existing[period]:
             raise PatientHistoryReportError("Duplicate patient period row")
         existing[period].add(patient_key)
@@ -207,6 +223,8 @@ def include_registered_patients_without_sessions(
     return tuple(sorted(
         extended,
         key=lambda row: (
-            row.period_start, row.period_end, _patient_sort_key(row.patient_id)
+            row.period_start if mode != "overall" else date.min,
+            row.period_end if mode != "overall" else date.min,
+            _patient_sort_key(row.patient_id),
         ),
     ))
