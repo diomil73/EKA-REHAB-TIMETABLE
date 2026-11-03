@@ -148,7 +148,7 @@ Private Sub EnsurePatientButtons(ByVal ws As Worksheet)
     EnsurePatientButton ws, "Weekly", "Εβδομαδιαία", "ShowPatientHistoryWeekly", 110#
     EnsurePatientButton ws, "Monthly", "Μηνιαία", "ShowPatientHistoryMonthly", 98#
     EnsurePatientButton ws, "Overall", "Συνολικά", "ShowPatientHistoryOverall", 90#
-    EnsurePatientButton ws, "Back", "← MASTER", "GoToMaster", 86#
+    EnsurePatientButton ws, "Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
     PositionPatientButtons ws
 End Sub
 
