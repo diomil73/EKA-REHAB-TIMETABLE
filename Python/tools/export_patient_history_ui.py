@@ -49,7 +49,7 @@ def export_patient_history_ui(
     if include_registered_zero:
         registered = read_patient_registry(workbook_path)
         rows = include_registered_patients_without_sessions(
-            rows, tuple(str(patient.patient_id) for patient in registered)
+            rows, tuple(str(patient.patient_id) for patient in registered), mode=mode
         )
     lines = ["\t".join(HEADERS)]
     for row in rows:
