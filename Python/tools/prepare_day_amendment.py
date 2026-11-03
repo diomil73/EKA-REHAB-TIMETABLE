@@ -16,6 +16,7 @@ if str(PYTHON_ROOT) not in sys.path:
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.day_amendment import build_day_amendment_plan  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
+from rehab_core.patient_session_history import build_patient_session_history_rows  # noqa: E402
 from rehab_core.therapist_day_history import build_therapist_day_history_rows  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
@@ -25,6 +26,7 @@ from rehab_excel.day_history_event_store import read_day_history_events  # noqa:
 from rehab_excel.finalized_day_snapshots import read_finalized_day_snapshots  # noqa: E402
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
+from rehab_excel.patient_session_history_store import read_patient_session_history_rows  # noqa: E402
 from rehab_excel.reader import read_settings  # noqa: E402
 from rehab_excel.therapist_day_history_store import read_therapist_day_history_rows  # noqa: E402
 
@@ -122,6 +124,29 @@ def _therapist_row_dict(row) -> dict[str, object]:
     }
 
 
+def _patient_row_dict(row) -> dict[str, object]:
+    return {
+        "snapshot_id": row.snapshot_id,
+        "service_date": row.service_date.isoformat(),
+        "snapshot_version": row.snapshot_version,
+        "session_id": row.session_id,
+        "patient_id": row.patient_id,
+        "status": row.status.value,
+        "original_therapist_id": row.original_therapist_id,
+        "original_time": row.original_time.strftime("%H:%M:%S"),
+        "effective_therapist_id": row.effective_therapist_id,
+        "effective_time": (
+            row.effective_time.strftime("%H:%M:%S")
+            if row.effective_time is not None
+            else None
+        ),
+        "replacement_id": row.replacement_id,
+        "cancellation_id": row.cancellation_id,
+        "cancellation_kind": row.cancellation_kind,
+        "reason": row.reason,
+    }
+
+
 def prepare_day_amendment(
     workbook_path: str | Path,
     payload_path: str | Path,
@@ -211,6 +236,12 @@ def prepare_day_amendment(
         approved_exception_count=approved_exception_count,
     )
 
+    patient_rows = build_patient_session_history_rows(
+        states,
+        snapshot_id=plan.replacement_snapshot.snapshot_id,
+        service_date=service_date,
+        snapshot_version=plan.replacement_snapshot.version,
+    )
     therapist_ids = tuple(
         name
         for name in settings.therapist_names
@@ -224,6 +255,8 @@ def prepare_day_amendment(
         capacity_timeslots_by_therapist={name: 6 for name in therapist_ids},
     )
 
+    if read_patient_session_history_rows(source, snapshot_id=replacement_id):
+        raise DayAmendmentPreparationError("Replacement patient/session history already exists")
     if read_therapist_day_history_rows(source, snapshot_id=replacement_id):
         raise DayAmendmentPreparationError("Replacement therapist/day history already exists")
     existing_event_ids = {item.event_id for item in read_day_history_events(source)}
@@ -234,13 +267,14 @@ def prepare_day_amendment(
         )
 
     payload_data = {
-        "schema": "day-amendment-v1",
+        "schema": "day-amendment-v2",
         "source_path": str(source),
         "source_sha256": source_hash,
         "service_date": service_date.isoformat(),
         "previous_snapshot": _snapshot_dict(plan.previous_snapshot),
         "superseded_snapshot": _snapshot_dict(plan.superseded_snapshot),
         "replacement_snapshot": _snapshot_dict(plan.replacement_snapshot),
+        "patient_rows": [_patient_row_dict(row) for row in patient_rows],
         "therapist_rows": [_therapist_row_dict(row) for row in therapist_rows],
         "started_event": _event_dict(plan.started_event),
         "finalized_event": _event_dict(plan.finalized_event),
@@ -267,6 +301,7 @@ def prepare_day_amendment(
         "previous_version": previous.version,
         "replacement_snapshot_id": plan.replacement_snapshot.snapshot_id,
         "replacement_version": plan.replacement_snapshot.version,
+        "patient_history_rows": len(patient_rows),
         "therapist_history_rows": len(therapist_rows),
         "unresolved_sessions": plan.replacement_snapshot.unresolved_sessions,
         "application_contract_components": len(contract.component_names),
@@ -318,6 +353,7 @@ def main() -> int:
         f"Version: {result['previous_version']} -> {result['replacement_version']}"
     )
     print(f"Replacement snapshot: {result['replacement_snapshot_id']}")
+    print(f"Patient/session history rows: {result['patient_history_rows']}")
     print(f"Therapist/day history rows: {result['therapist_history_rows']}")
     print("Input unchanged: True")
     return 0
