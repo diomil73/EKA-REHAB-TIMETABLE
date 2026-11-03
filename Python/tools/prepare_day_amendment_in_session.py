@@ -36,6 +36,23 @@ SNAPSHOT_FIELDS = (
     "approved_exception_count",
 )
 
+PATIENT_FIELDS = (
+    "snapshot_id",
+    "service_date",
+    "snapshot_version",
+    "session_id",
+    "patient_id",
+    "status",
+    "original_therapist_id",
+    "original_time",
+    "effective_therapist_id",
+    "effective_time",
+    "replacement_id",
+    "cancellation_id",
+    "cancellation_kind",
+    "reason",
+)
+
 THERAPIST_FIELDS = (
     "snapshot_id",
     "service_date",
@@ -111,6 +128,10 @@ def prepare_day_amendment_in_session(
             _record("SNAPSHOT", data["replacement_snapshot"], SNAPSHOT_FIELDS),
         ]
         lines.extend(
+            _record("PATIENT", row, PATIENT_FIELDS)
+            for row in data["patient_rows"]
+        )
+        lines.extend(
             _record("THERAPIST", row, THERAPIST_FIELDS)
             for row in data["therapist_rows"]
         )
@@ -126,7 +147,7 @@ def prepare_day_amendment_in_session(
     return {
         **result,
         "payload_path": str(payload),
-        "payload_format": "day-amendment-in-session-tsv-v1",
+        "payload_format": "day-amendment-in-session-tsv-v2",
         "event_rows": 2,
     }
 
@@ -166,6 +187,7 @@ def main() -> int:
     print("DAY SAVE IN-SESSION PREPARATION VERIFIED")
     print(f"Date: {result['service_date']}")
     print(f"Version: {result['previous_version']} -> {result['replacement_version']}")
+    print(f"Patient/session history rows: {result['patient_history_rows']}")
     return 0
 
 
