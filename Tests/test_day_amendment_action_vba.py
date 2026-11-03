@@ -44,10 +44,12 @@ def test_day_save_in_session_persistence_is_preflight_readback_save_and_rollback
     assert 'Case "SUPERSEDE"' in source
     assert 'Case "SNAPSHOT"' in source
     assert 'Case "THERAPIST"' in source
+    assert 'Case "PATIENT"' in source
     assert 'Case "EVENT"' in source
     assert "oldSnapshotRow = FindRowById" in source
     assert '"CURRENT_FINAL"' in source
     assert "HistoryPairExists" in source
+    assert "PatientHistoryPairExists" in source
     assert "SupersededSnapshotMatches" in source
     assert "RowMatchesPayload" in source
     assert "CellMatchesPayload" in source
@@ -56,6 +58,22 @@ def test_day_save_in_session_persistence_is_preflight_readback_save_and_rollback
     assert "ClearContents" in source
     assert "FinalizeTechnicalSheet" in source
     assert "ThisWorkbook.Save" in source
+
+
+def test_day_save_patient_history_is_required_duplicate_safe_and_atomic():
+    source = DAY_AMENDMENT_MODULE_CODE
+
+    assert 'Private Const PATIENT_SHEET As String = "PATIENT_SESSION_HISTORY"' in source
+    assert "If UBound(parts) <> 14" in source
+    assert "Set wsPatient = ExistingSheet(PATIENT_SHEET)" in source
+    assert "wsSnapshot Is Nothing Or wsTherapist Is Nothing Or wsPatient Is Nothing Or wsEvent Is Nothing" in source
+    assert "If Not HeadersMatch(wsPatient, PatientHeaders()) Then" in source
+    assert "PatientHistoryPairExists(wsPatient, PayloadValue(parts(1)), PayloadValue(parts(4)))" in source
+    assert "patientStartRow = NextWriteRow(wsPatient)" in source
+    assert "WritePayloadFields wsPatient, patientStartRow + i - 1, parts, 1, 14" in source
+    assert "RowMatchesPayload(wsPatient, patientStartRow + i - 1, parts, 1, 14)" in source
+    assert 'wsPatient.Rows(CStr(patientStartRow) & ":" & CStr(patientStartRow + patientCount - 1)).ClearContents' in source
+    assert "FinalizeTechnicalSheet wsPatient" in source
 
 
 def test_supersede_readback_checks_identity_version_and_status_without_full_row_serialization():
@@ -69,7 +87,7 @@ def test_supersede_readback_checks_identity_version_and_status_without_full_row_
     assert "RowMatchesPayload(wsSnapshot, oldSnapshotRow, supersedeParts, 1, 15)" not in source
 
 
-def test_row_readback_normalizes_numeric_and_iso_date_excel_values():
+def test_row_readback_normalizes_numeric_iso_date_and_time_excel_values():
     source = DAY_AMENDMENT_MODULE_CODE
 
     assert "Private Function CellMatchesPayload" in source
@@ -78,7 +96,11 @@ def test_row_readback_normalizes_numeric_and_iso_date_excel_values():
     assert "If IsIsoDateText(expectedText) And IsDate(actualValue) Then" in source
     assert 'Format$(CDate(actualValue), "yyyy-mm-dd") = expectedText' in source
     assert "Private Function IsIsoDateText" in source
+    assert "If IsIsoTimeText(expectedText) And IsDate(actualValue) Then" in source
+    assert 'Format$(CDate(actualValue), "hh:nn:ss") = expectedText' in source
+    assert "Private Function IsIsoTimeText" in source
     assert "If Not CellMatchesPayload(ws.Cells(targetRow, i + 1).Value" in source
+    assert 'PatientHeaders = Array("SnapshotId", "ServiceDate", "SnapshotVersion", "SessionId", "PatientId", "Status", "OriginalTherapistId", "OriginalTime", "EffectiveTherapistId", "EffectiveTime", "ReplacementId", "CancellationId", "CancellationKind", "Reason")' in source
 
 
 def test_day_amendment_action_has_no_manual_reason_or_summary_prompts():
