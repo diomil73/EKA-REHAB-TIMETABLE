@@ -71,7 +71,8 @@ def install_close_day_persistence_diagnostic(workbook_path: str | Path) -> dict[
             "    Dim wsSnapshot As Worksheet, wsTherapist As Worksheet, wsPatient As Worksheet, wsEvent As Worksheet\r\n",
             "    Dim wsSnapshot As Worksheet, wsTherapist As Worksheet, wsPatient As Worksheet, wsEvent As Worksheet\r\n"
             "    Dim persistStage As String, errorDescription As String\r\n"
-            "    Dim errorNumber As Long\r\n",
+            "    Dim errorNumber As Long, mismatchCol As Long\r\n"
+            "    Dim expectedValue As String, actualValueText As String\r\n",
             label="diagnostic declaration",
         )
 
@@ -81,12 +82,37 @@ def install_close_day_persistence_diagnostic(workbook_path: str | Path) -> dict[
             ("    Set wsSnapshot = EnsureHistorySheet(SNAPSHOT_SHEET, SnapshotHeaders(), snapshotCreated)\r\n", "    persistStage = \"ensure-history-sheets\"\r\n    Set wsSnapshot = EnsureHistorySheet(SNAPSHOT_SHEET, SnapshotHeaders(), snapshotCreated)\r\n"),
             ("    WritePayloadFields wsSnapshot, snapshotRow, snapshotParts, 1, 15\r\n", "    persistStage = \"snapshot-write-readback\"\r\n    WritePayloadFields wsSnapshot, snapshotRow, snapshotParts, 1, 15\r\n"),
             ("    For i = 1 To therapistCount\r\n        parts = Split(therapistLines(i), vbTab)\r\n", "    persistStage = \"therapist-write-readback\"\r\n    For i = 1 To therapistCount\r\n        parts = Split(therapistLines(i), vbTab)\r\n"),
-            ("    For i = 1 To patientCount\r\n        parts = Split(patientLines(i), vbTab)\r\n", "    persistStage = \"patient-write-readback\"\r\n    For i = 1 To patientCount\r\n        parts = Split(patientLines(i), vbTab)\r\n"),
+            ("    For i = 1 To patientCount\r\n        parts = Split(patientLines(i), vbTab)\r\n", "    persistStage = \"patient-write-readback\"\r\n    For i = 1 To patientCount\r\n        persistStage = \"patient-write-readback row=\" & CStr(i)\r\n        parts = Split(patientLines(i), vbTab)\r\n"),
             ("    WritePayloadFields wsEvent, eventRow, eventParts, 1, 12\r\n", "    persistStage = \"event-write-readback\"\r\n    WritePayloadFields wsEvent, eventRow, eventParts, 1, 12\r\n"),
             ("    FinalizeTechnicalSheet wsSnapshot\r\n", "    persistStage = \"finalize-protect-save\"\r\n    FinalizeTechnicalSheet wsSnapshot\r\n"),
         )
         for old, new in replacements:
             source = _replace_once(source, old, new, label=old.strip())
+
+        old_patient_check = (
+            "        If Not RowMatchesPayload(wsPatient, patientStartRow + i - 1, parts, 1, 14) Then Err.Raise vbObjectError + 2113, , \"Patient history read-back mismatch\"\r\n"
+        )
+        new_patient_check = (
+            "        If Not RowMatchesPayload(wsPatient, patientStartRow + i - 1, parts, 1, 14) Then\r\n"
+            "            For mismatchCol = 0 To 13\r\n"
+            "                expectedValue = PayloadValue(parts(1 + mismatchCol))\r\n"
+            "                If Not CellMatchesPayload(wsPatient.Cells(patientStartRow + i - 1, mismatchCol + 1).Value, expectedValue) Then\r\n"
+            "                    actualValueText = CStr(wsPatient.Cells(patientStartRow + i - 1, mismatchCol + 1).Value)\r\n"
+            "                    Err.Raise vbObjectError + 2113, , \"Patient history read-back mismatch row=\" & CStr(i) & _\r\n"
+            "                        \" col=\" & CStr(mismatchCol + 1) & _\r\n"
+            "                        \" expected=[\" & expectedValue & \"] actual=[\" & actualValueText & \"] type=\" & _\r\n"
+            "                        TypeName(wsPatient.Cells(patientStartRow + i - 1, mismatchCol + 1).Value)\r\n"
+            "                End If\r\n"
+            "            Next mismatchCol\r\n"
+            "            Err.Raise vbObjectError + 2113, , \"Patient history read-back mismatch with no differing field identified\"\r\n"
+            "        End If\r\n"
+        )
+        source = _replace_once(
+            source,
+            old_patient_check,
+            new_patient_check,
+            label="patient mismatch detail",
+        )
 
         old_handler = (
             "PersistError:\r\n"
@@ -117,7 +143,8 @@ def install_close_day_persistence_diagnostic(workbook_path: str | Path) -> dict[
 
         installed = _module_text(code_module)
         for marker in (
-            'persistStage = "patient-write-readback"',
+            'persistStage = "patient-write-readback row=" & CStr(i)',
+            '" col=" & CStr(mismatchCol + 1)',
             '"Diagnostic stage: " & persistStage',
             "errorNumber = Err.Number",
             "errorDescription = Err.Description",
@@ -158,6 +185,7 @@ def main() -> int:
     print(f"Workbook: {result['workbook']}")
     print(f"Module: {result['module']}")
     print("Diagnostic stages: installed")
+    print("Patient mismatch detail: installed")
     print("Rollback semantics: unchanged")
     return 0
 
