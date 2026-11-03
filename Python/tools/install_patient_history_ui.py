@@ -30,6 +30,7 @@ def _audit(workbook) -> None:
     report = workbook.Worksheets(PATIENT_REPORT_SHEET)
     if int(report.Visible) != -1:
         raise PatientHistoryUiInstallError("Patient report is not visible")
+    exit_button = workbook.Worksheets("THERAPIST_DAILY").Shapes("ekaToolbar_ExitApp")
     therapist = workbook.Worksheets("THERAPIST_DAILY").Shapes("ekaToolbar_TherapistHistory")
     nav = workbook.Worksheets("THERAPIST_DAILY").Shapes(PATIENT_REPORT_NAV)
     if str(nav.OnAction).split("!")[-1].strip("'") != PATIENT_REPORT_OPEN:
@@ -40,6 +41,11 @@ def _audit(workbook) -> None:
         raise PatientHistoryUiInstallError("Patient and therapist statistics buttons misaligned")
     if float(nav.Left) < float(therapist.Left) + float(therapist.Width) + 4:
         raise PatientHistoryUiInstallError("Statistics navigation buttons overlap")
+    if abs(float(therapist.Top) - float(exit_button.Top)) > 1:
+        raise PatientHistoryUiInstallError("Statistics buttons are outside main application toolbar")
+    if float(therapist.Left) < float(exit_button.Left) + float(exit_button.Width) + 4:
+        raise PatientHistoryUiInstallError("Therapist statistics overlaps Save & Exit")
+
     try:
         workbook.Worksheets("DAILY_INPUT").Shapes(PATIENT_REPORT_NAV)
     except Exception:
