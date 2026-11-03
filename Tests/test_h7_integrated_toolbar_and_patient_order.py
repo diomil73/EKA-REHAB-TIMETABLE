@@ -43,7 +43,9 @@ def test_h7_entry_requires_h4_button_and_aligns_on_therapist_daily():
     assert 'source.Shapes("ekaToolbar_TherapistHistory")' in src
     assert 'source.Shapes(PATIENT_REPORT_NAV)' in src
     assert 'daily.Shapes(PATIENT_REPORT_NAV).Delete()' in src
-    assert "float(therapist_button.Top)" in src
+    assert 'source.Shapes("ekaToolbar_ExitApp")' in src
+    assert "base_top = float(exit_button.Top)" in src
+    assert "base_left = float(exit_button.Left) + float(exit_button.Width) + 8" in src
     assert 'shape.OnAction = PATIENT_REPORT_OPEN' in src
 
 
@@ -55,6 +57,7 @@ def test_h7_reopen_audit_checks_no_daily_entry_or_overlap():
     assert 'workbook.Worksheets("DAILY_INPUT").Shapes(PATIENT_REPORT_NAV)' in src
     assert "statistics buttons misaligned" in src
     assert "navigation buttons overlap" in src
+    assert "outside main application toolbar" in src
 
 
 def test_excel_patient_code_text_not_converted_to_number():
