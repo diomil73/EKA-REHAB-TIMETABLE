@@ -9,6 +9,7 @@ CLOSE_DAY_MODULE_CODE = r'''Option Explicit
 
 Private Const SNAPSHOT_SHEET As String = "FINALIZED_DAY_SNAPSHOTS"
 Private Const THERAPIST_SHEET As String = "THERAPIST_DAY_HISTORY"
+Private Const PATIENT_SHEET As String = "PATIENT_SESSION_HISTORY"
 Private Const EVENT_SHEET As String = "DAY_HISTORY_EVENTS"
 
 Public Sub CloseOperationalDay()
@@ -81,18 +82,19 @@ End Sub
 
 Private Function PersistCloseDayPayload(ByVal payloadPath As String) As Boolean
     Dim rawText As String, lines As Variant, parts As Variant
-    Dim i As Long, therapistCount As Long
+    Dim i As Long, therapistCount As Long, patientCount As Long
     Dim snapshotParts As Variant, eventParts As Variant
-    Dim therapistLines() As String
-    Dim snapshotCreated As Boolean, therapistCreated As Boolean, eventCreated As Boolean
-    Dim snapshotRow As Long, therapistStartRow As Long, eventRow As Long
-    Dim wsSnapshot As Worksheet, wsTherapist As Worksheet, wsEvent As Worksheet
+    Dim therapistLines() As String, patientLines() As String
+    Dim snapshotCreated As Boolean, therapistCreated As Boolean, patientCreated As Boolean, eventCreated As Boolean
+    Dim snapshotRow As Long, therapistStartRow As Long, patientStartRow As Long, eventRow As Long
+    Dim wsSnapshot As Worksheet, wsTherapist As Worksheet, wsPatient As Worksheet, wsEvent As Worksheet
 
     On Error GoTo PersistError
 
     rawText = ReadUtf8Text(payloadPath)
     lines = Split(Replace(rawText, vbCr, ""), vbLf)
     therapistCount = 0
+    patientCount = 0
 
     For i = LBound(lines) To UBound(lines)
         If Len(Trim$(CStr(lines(i)))) = 0 Then GoTo NextLine
@@ -106,6 +108,11 @@ Private Function PersistCloseDayPayload(ByVal payloadPath As String) As Boolean
                 therapistCount = therapistCount + 1
                 ReDim Preserve therapistLines(1 To therapistCount)
                 therapistLines(therapistCount) = CStr(lines(i))
+            Case "PATIENT"
+                If UBound(parts) <> 14 Then Err.Raise vbObjectError + 2106, , "Invalid patient payload"
+                patientCount = patientCount + 1
+                ReDim Preserve patientLines(1 To patientCount)
+                patientLines(patientCount) = CStr(lines(i))
             Case "EVENT"
                 If UBound(parts) <> 12 Then Err.Raise vbObjectError + 2103, , "Invalid event payload"
                 eventParts = parts
@@ -121,14 +128,17 @@ NextLine:
 
     If Not PreflightSnapshot(snapshotParts) Then Exit Function
     If Not PreflightTherapists(therapistLines, therapistCount) Then Exit Function
+    If Not PreflightPatients(patientLines, patientCount) Then Exit Function
     If Not PreflightEvent(eventParts) Then Exit Function
 
     Set wsSnapshot = EnsureHistorySheet(SNAPSHOT_SHEET, SnapshotHeaders(), snapshotCreated)
     Set wsTherapist = EnsureHistorySheet(THERAPIST_SHEET, TherapistHeaders(), therapistCreated)
+    Set wsPatient = EnsureHistorySheet(PATIENT_SHEET, PatientHeaders(), patientCreated)
     Set wsEvent = EnsureHistorySheet(EVENT_SHEET, EventHeaders(), eventCreated)
 
     snapshotRow = NextWriteRow(wsSnapshot)
     therapistStartRow = NextWriteRow(wsTherapist)
+    patientStartRow = NextWriteRow(wsPatient)
     eventRow = NextWriteRow(wsEvent)
 
     WritePayloadFields wsSnapshot, snapshotRow, snapshotParts, 1, 15
@@ -140,11 +150,18 @@ NextLine:
         If Not RowMatchesPayload(wsTherapist, therapistStartRow + i - 1, parts, 1, 12) Then Err.Raise vbObjectError + 2111, , "Therapist history read-back mismatch"
     Next i
 
+    For i = 1 To patientCount
+        parts = Split(patientLines(i), vbTab)
+        WritePayloadFields wsPatient, patientStartRow + i - 1, parts, 1, 14
+        If Not RowMatchesPayload(wsPatient, patientStartRow + i - 1, parts, 1, 14) Then Err.Raise vbObjectError + 2113, , "Patient history read-back mismatch"
+    Next i
+
     WritePayloadFields wsEvent, eventRow, eventParts, 1, 12
     If Not RowMatchesPayload(wsEvent, eventRow, eventParts, 1, 12) Then Err.Raise vbObjectError + 2112, , "Event read-back mismatch"
 
     FinalizeTechnicalSheet wsSnapshot
     FinalizeTechnicalSheet wsTherapist
+    FinalizeTechnicalSheet wsPatient
     FinalizeTechnicalSheet wsEvent
     ThisWorkbook.Save
     PersistCloseDayPayload = True
@@ -154,6 +171,7 @@ PersistError:
     On Error Resume Next
     RollbackHistoryWrite wsSnapshot, snapshotCreated, snapshotRow, IIf(snapshotRow > 0, 1, 0)
     RollbackHistoryWrite wsTherapist, therapistCreated, therapistStartRow, therapistCount
+    RollbackHistoryWrite wsPatient, patientCreated, patientStartRow, patientCount
     RollbackHistoryWrite wsEvent, eventCreated, eventRow, IIf(eventRow > 0, 1, 0)
     On Error GoTo 0
     MsgBox "Η ημέρα δεν έκλεισε. Δεν αποθηκεύτηκαν αλλαγές. Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Κλείσιμο ημέρας"
@@ -194,6 +212,27 @@ Private Function PreflightTherapists(ByRef therapistLines() As String, ByVal cou
     Exit Function
 InvalidSchema:
     MsgBox "Το ιστορικό θεραπευτών δεν είναι διαθέσιμο. Επικοινωνήστε με τον διαχειριστή.", vbCritical, "Κλείσιμο ημέρας"
+    Exit Function
+Duplicate:
+    MsgBox "Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.", vbInformation, "Κλείσιμο ημέρας"
+End Function
+
+Private Function PreflightPatients(ByRef patientLines() As String, ByVal count As Long) As Boolean
+    Dim ws As Worksheet, lastRow As Long, row As Long, i As Long, parts As Variant
+    Set ws = ExistingSheet(PATIENT_SHEET)
+    If ws Is Nothing Then PreflightPatients = True: Exit Function
+    If Not HeadersMatch(ws, PatientHeaders()) Then GoTo InvalidSchema
+    lastRow = LastDataRow(ws)
+    For i = 1 To count
+        parts = Split(patientLines(i), vbTab)
+        For row = 2 To lastRow
+            If Trim$(CStr(ws.Cells(row, 1).Value)) = PayloadValue(parts(1)) And Trim$(CStr(ws.Cells(row, 4).Value)) = PayloadValue(parts(4)) Then GoTo Duplicate
+        Next row
+    Next i
+    PreflightPatients = True
+    Exit Function
+InvalidSchema:
+    MsgBox "Το ιστορικό συνεδριών ασθενών δεν είναι διαθέσιμο. Επικοινωνήστε με τον διαχειριστή.", vbCritical, "Κλείσιμο ημέρας"
     Exit Function
 Duplicate:
     MsgBox "Η επιλεγμένη ημέρα είναι ήδη κλεισμένη.", vbInformation, "Κλείσιμο ημέρας"
@@ -258,9 +297,34 @@ End Sub
 Private Function RowMatchesPayload(ByVal ws As Worksheet, ByVal targetRow As Long, ByVal parts As Variant, ByVal firstPart As Long, ByVal fieldCount As Long) As Boolean
     Dim i As Long
     For i = 0 To fieldCount - 1
-        If NormalizedCellText(ws.Cells(targetRow, i + 1).Value) <> PayloadValue(parts(firstPart + i)) Then Exit Function
+        If Not CellMatchesPayload(ws.Cells(targetRow, i + 1).Value, PayloadValue(parts(firstPart + i))) Then Exit Function
     Next i
     RowMatchesPayload = True
+End Function
+
+Private Function CellMatchesPayload(ByVal actualValue As Variant, ByVal expectedText As String) As Boolean
+    Dim actualText As String
+    actualText = Trim$(CStr(actualValue))
+    expectedText = Trim$(expectedText)
+
+    If actualText = expectedText Then CellMatchesPayload = True: Exit Function
+    If IsNumeric(actualValue) And IsNumeric(expectedText) Then CellMatchesPayload = (CDbl(actualValue) = CDbl(expectedText)): Exit Function
+    If IsIsoDateText(expectedText) And IsDate(actualValue) Then CellMatchesPayload = (Format$(CDate(actualValue), "yyyy-mm-dd") = expectedText): Exit Function
+    If IsIsoTimeText(expectedText) And IsDate(actualValue) Then CellMatchesPayload = (Format$(CDate(actualValue), "hh:nn:ss") = expectedText): Exit Function
+End Function
+
+Private Function IsIsoDateText(ByVal value As String) As Boolean
+    If Len(value) <> 10 Then Exit Function
+    If Mid$(value, 5, 1) <> "-" Or Mid$(value, 8, 1) <> "-" Then Exit Function
+    If Not IsNumeric(Left$(value, 4)) Or Not IsNumeric(Mid$(value, 6, 2)) Or Not IsNumeric(Right$(value, 2)) Then Exit Function
+    IsIsoDateText = True
+End Function
+
+Private Function IsIsoTimeText(ByVal value As String) As Boolean
+    If Len(value) <> 8 Then Exit Function
+    If Mid$(value, 3, 1) <> ":" Or Mid$(value, 6, 1) <> ":" Then Exit Function
+    If Not IsNumeric(Left$(value, 2)) Or Not IsNumeric(Mid$(value, 4, 2)) Or Not IsNumeric(Right$(value, 2)) Then Exit Function
+    IsIsoTimeText = True
 End Function
 
 Private Function PayloadValue(ByVal raw As String) As String
@@ -284,18 +348,6 @@ Private Function PayloadValue(ByVal raw As String) As String
     Next i
     If escaped Then result = result & "\"
     PayloadValue = result
-End Function
-
-Private Function NormalizedCellText(ByVal value As Variant) As String
-    If IsEmpty(value) Or IsNull(value) Then
-        NormalizedCellText = ""
-    ElseIf IsDate(value) Then
-        NormalizedCellText = Format$(CDate(value), "yyyy-mm-dd")
-    ElseIf IsNumeric(value) Then
-        NormalizedCellText = CStr(CLng(value))
-    Else
-        NormalizedCellText = CStr(value)
-    End If
 End Function
 
 Private Function NormalizedDateText(ByVal value As Variant) As String
@@ -338,6 +390,10 @@ End Function
 
 Private Function TherapistHeaders() As Variant
     TherapistHeaders = Array("SnapshotId", "ServiceDate", "TherapistId", "CapacityTimeslots", "PlannedOccupiedTimeslots", "PlannedSessions", "FinalOccupiedTimeslots", "FinalActiveSessions", "ReplacementsReceived", "ReleasedByCancellationOrNoShow", "TreatmentSuspensionsAffectingLoad", "ApprovedSharedOrOverCapacityEvents")
+End Function
+
+Private Function PatientHeaders() As Variant
+    PatientHeaders = Array("SnapshotId", "ServiceDate", "SnapshotVersion", "SessionId", "PatientId", "Status", "OriginalTherapistId", "OriginalTime", "EffectiveTherapistId", "EffectiveTime", "ReplacementId", "CancellationId", "CancellationKind", "Reason")
 End Function
 
 Private Function EventHeaders() As Variant
