@@ -137,9 +137,15 @@ def install(path: Path) -> None:
         for name in (*OLD_BUTTONS, DAILY_BUTTON):
             _delete_if_present(daily, name)
         _delete_if_present(master, MASTER_BUTTON)
-        _add_shape(daily, DAILY_BUTTON, "Αποθήκευση ημέρας", "A4", 154)
-        # A single direct shortcut on MASTER after Apply & Continue returns there.
-        _add_shape(master, MASTER_BUTTON, "Αποθήκευση ημέρας", "G2", 154)
+        # DAILY_INPUT holds only Apply & Continue; saving happens from MASTER.
+        # Place the shortcut after Save & Exit, not on top of the toolbar.
+        exit_button = master.Shapes("ekaToolbar_ExitApp")
+        _add_shape(master, MASTER_BUTTON, "Αποθήκευση ημέρας", "A2", 154)
+        save_button = master.Shapes(MASTER_BUTTON)
+        save_button.Left = float(exit_button.Left) + float(exit_button.Width) + 8
+        save_button.Top = float(exit_button.Top)
+        if float(save_button.Left) < float(exit_button.Left) + float(exit_button.Width):
+            raise UnifiedDaySaveInstallError("Save Day overlaps Save & Exit")
         workbook.Save()
     finally:
         if workbook is not None:
@@ -160,11 +166,13 @@ def install(path: Path) -> None:
             raise UnifiedDaySaveInstallError("Persisted dispatcher source mismatch")
         daily = workbook.Worksheets("DAILY_INPUT")
         master = workbook.Worksheets("MASTER_SCHEDULE")
-        for ws, name in ((daily, DAILY_BUTTON), (master, MASTER_BUTTON)):
-            shape = ws.Shapes(name)
-            if str(shape.OnAction).split("!")[-1].strip("'") != MACRO_NAME or not bool(shape.Visible):
-                raise UnifiedDaySaveInstallError("Persisted button binding mismatch: " + name)
-        for old_name in OLD_BUTTONS:
+        shape = master.Shapes(MASTER_BUTTON)
+        if str(shape.OnAction).split("!")[-1].strip("'") != MACRO_NAME or not bool(shape.Visible):
+            raise UnifiedDaySaveInstallError("Persisted MASTER Save Day binding mismatch")
+        exit_button = master.Shapes("ekaToolbar_ExitApp")
+        if float(shape.Left) < float(exit_button.Left) + float(exit_button.Width) + 4:
+            raise UnifiedDaySaveInstallError("Persisted MASTER Save Day overlaps Save & Exit")
+        for old_name in (*OLD_BUTTONS, DAILY_BUTTON):
             try:
                 daily.Shapes(old_name)
             except Exception:
@@ -186,7 +194,9 @@ def main() -> int:
         print(f"SAFETY STOP: {exc}")
         return 2
     print("UNIFIED DAY SAVE UI INSTALL OK")
-    print("Controls: DAILY_INPUT + MASTER_SCHEDULE")
+    print("Controls: MASTER_SCHEDULE only")
+    print("DAILY_INPUT duplicate save controls: removed")
+    print("MASTER Save & Exit overlap: checked")
     print("First close: existing CloseOperationalDay")
     print("Amendment: existing StartClosedDayAmendment")
     print("Ambiguous state: safety stop")
