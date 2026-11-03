@@ -206,7 +206,7 @@ Private Sub EnsureReportButtons(ByVal ws As Worksheet)
     EnsureOneReportButton ws, "ekaHistory_Weekly", "Εβδομαδιαία", "ShowTherapistHistoryWeekly", 108#
     EnsureOneReportButton ws, "ekaHistory_Monthly", "Μηνιαία", "ShowTherapistHistoryMonthly", 98#
     EnsureOneReportButton ws, "ekaHistory_Overall", "Συνολικά", "ShowTherapistHistoryOverall", 90#
-    EnsureOneReportButton ws, "ekaHistory_Back", "← MASTER", "GoToMaster", 86#
+    EnsureOneReportButton ws, "ekaHistory_Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
     PositionReportButtons ws
 End Sub
 
@@ -245,7 +245,7 @@ Private Sub PositionReportButtons(ByVal ws As Worksheet)
         Array("ekaHistory_Weekly", 108#), _
         Array("ekaHistory_Monthly", 98#), _
         Array("ekaHistory_Overall", 90#), _
-        Array("ekaHistory_Back", 86#))
+        Array("ekaHistory_Back", 116#))
     topPos = ws.Rows(3).Top + 4
     leftPos = ws.Range("A3").Left + 4
     For i = LBound(specs) To UBound(specs)
@@ -363,11 +363,11 @@ def install_therapist_history_report(vbproject, workbook) -> None:
         ("Weekly", "Εβδομαδιαία", "ShowTherapistHistoryWeekly"),
         ("Monthly", "Μηνιαία", "ShowTherapistHistoryMonthly"),
         ("Overall", "Συνολικά", "ShowTherapistHistoryOverall"),
-        ("Back", "← MASTER", "GoToMaster"),
+        ("Back", "← Προηγούμενη", "ToolbarTherapistDaily"),
     )
     left = 4.0
     for suffix, caption, macro in button_specs:
-        width = 90.0 if suffix != "Back" else 82.0
+        width = 90.0 if suffix != "Back" else 116.0
         _add_button(report_ws, name=THERAPIST_HISTORY_BUTTON_PREFIX + suffix, caption=caption, macro=macro, left=left, top=48.0, width=width)
         left += width + 6.0
 
