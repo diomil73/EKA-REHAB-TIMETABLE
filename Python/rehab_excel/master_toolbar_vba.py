@@ -100,9 +100,15 @@ End Sub
 '''
 
 
-# Normal-user MASTER is intentionally free of operational/admin buttons.
-# A future super-user overlay, if added, must be an explicit separate mode.
-BUTTONS: tuple[tuple[str, str, str, str], ...] = ()
+# MASTER is the landing screen while workbook tabs are hidden by the application
+# shell. Keep only essential navigation here; operational/admin actions still live
+# on their dedicated screens/forms.
+BUTTONS: tuple[tuple[str, str, str, str], ...] = (
+    ("Absences", "Απουσίες / Ακυρώσεις", "ToolbarAbsences", "Μετάβαση στην κατάσταση ημέρας."),
+    ("TherapistDaily", "Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily", "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών."),
+    ("Registry", "Μητρώο", "ToolbarRegistryManagement", "Άνοιγμα κεντρικού μενού μητρώου."),
+    ("ExitApp", "Save & Exit", "ExitApplication", "Αποθήκευση και έξοδος από την εφαρμογή."),
+)
 
 
 class MasterToolbarError(RuntimeError):
@@ -237,7 +243,7 @@ def _set_shape_text_black(shape) -> None:
         pass
 
 
-def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: float, top: float, width: float) -> None:
+def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: float, top: float, width: float, description: str = "") -> None:
     try:
         ws.Shapes(name).Delete()
     except Exception:
@@ -245,6 +251,7 @@ def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: flo
     shape = ws.Shapes.AddShape(5, left, top, width, 24)
     shape.Name = name
     shape.OnAction = macro
+    shape.AlternativeText = description
     shape.Placement = 3
     shape.Fill.ForeColor.RGB = 15527148
     shape.Line.ForeColor.RGB = 10066329
@@ -256,6 +263,27 @@ def _add_navigation_button(ws, *, name: str, caption: str, macro: str, left: flo
     _set_shape_text_black(shape)
     shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
     shape.TextFrame2.VerticalAnchor = 3
+
+
+def _install_master_navigation(ws) -> None:
+    _delete_existing_toolbar_shapes(ws)
+    anchor = ws.Range("A2")
+    left = float(anchor.Left) + 4
+    top = float(anchor.Top) + 5
+    widths = (122, 122, 82, 78)
+    for index, (key, caption, macro, description) in enumerate(BUTTONS):
+        width = widths[index]
+        _add_navigation_button(
+            ws,
+            name=MASTER_TOOLBAR_PREFIX + key,
+            caption=caption,
+            macro=macro,
+            left=left,
+            top=top,
+            width=width,
+            description=description,
+        )
+        left += width + 6
 
 
 USER_FACING_SHEETS = ("DAILY_INPUT", "THERAPIST_DAILY", "REPLACEMENTS")
@@ -308,9 +336,7 @@ def install_master_toolbar(vbproject, workbook) -> None:
 
     _ensure_app_header_rows(ws)
     _ensure_master_display_schema(ws)
-    # Normal mode: MASTER is a clean read-only operational hub.
-    # Remove any legacy/master toolbar shapes and install none there.
-    _delete_existing_toolbar_shapes(ws)
+    _install_master_navigation(ws)
     _clear_master_freeze(ws, workbook)
     _install_operational_navigation(workbook)
 
@@ -337,6 +363,11 @@ def finalize_user_navigation(workbook_path) -> None:
         excel.ScreenUpdating = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
+        try:
+            master = workbook.Worksheets("MASTER_SCHEDULE")
+        except Exception as exc:
+            raise MasterToolbarError("Workbook has no MASTER_SCHEDULE sheet") from exc
+        _install_master_navigation(master)
         _install_operational_navigation(workbook)
         workbook.Save()
     except MasterToolbarError:
