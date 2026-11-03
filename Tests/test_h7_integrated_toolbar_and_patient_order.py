@@ -59,3 +59,26 @@ def test_h7_reopen_audit_checks_no_daily_entry_or_overlap():
 
 def test_excel_patient_code_text_not_converted_to_number():
     assert 'ws.Columns("C").NumberFormat = "@"' in PATIENT_REPORT_VBA
+
+
+def test_integrated_smoke_requires_all_three_installers_in_order():
+    from tools.prepare_h7_integrated_ui_smoke import INSTALLERS
+    assert INSTALLERS == (
+        "install_unified_day_save_ui.py",
+        "install_therapist_history_ui.py",
+        "install_patient_history_ui.py",
+    )
+
+
+def test_integrated_smoke_refuses_existing_destination(tmp_path):
+    import pytest
+    from tools.prepare_h7_integrated_ui_smoke import (
+        H7IntegratedPreparationError, prepare_h7_integrated_ui,
+    )
+    source = tmp_path / "source.xlsm"
+    destination = tmp_path / "frozen.xlsm"
+    source.write_bytes(b"source")
+    destination.write_bytes(b"frozen")
+    with pytest.raises(H7IntegratedPreparationError, match="Destination already exists"):
+        prepare_h7_integrated_ui(source, destination)
+    assert destination.read_bytes() == b"frozen"
