@@ -23,6 +23,27 @@ def test_amendment_outcome_inspector_requires_linked_history_and_events():
     assert "related_snapshot_id" in source
 
 
+def test_amendment_outcome_inspector_requires_patient_history_for_both_versions():
+    source = inspect.getsource(module.inspect_day_amendment_outcome)
+
+    assert "read_patient_session_history_rows" in source
+    assert "read_current_patient_session_history_rows" in source
+    assert "previous.snapshot_id" in source
+    assert "current.snapshot_id" in source
+    assert "No patient/session history rows for superseded snapshot" in source
+    assert "No patient/session history rows for current snapshot" in source
+    assert "Operational patient history is not restricted to CURRENT_FINAL" in source
+    assert "Operational patient history does not match current snapshot rows" in source
+
+
+def test_amendment_outcome_inspector_prints_patient_history_counts():
+    main_source = inspect.getsource(module.main)
+
+    assert "Previous patient/session history rows" in main_source
+    assert "Current patient/session history rows" in main_source
+    assert "Operational CURRENT_FINAL patient rows" in main_source
+
+
 def test_amendment_outcome_inspector_has_stable_success_and_failure_markers():
     main_source = inspect.getsource(module.main)
 
