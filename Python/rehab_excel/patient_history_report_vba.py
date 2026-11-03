@@ -37,6 +37,7 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     Dim priorEvents As Boolean, priorScreenUpdating As Boolean
     Dim succeeded As Boolean
     Dim previousSheet As Worksheet
+    Dim failureNumber As Long, failureDescription As String
 
     priorEvents = Application.EnableEvents
     priorScreenUpdating = Application.ScreenUpdating
@@ -70,6 +71,9 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     ws.Unprotect
+    ' Previous report modes merge title/description rows. Unmerge before clearing,
+    ' or Excel can raise 1004 while switching report modes.
+    ws.Range("A1:I2").UnMerge
     ws.Range("A1:I1048576").ClearContents
     ws.Columns("C").NumberFormat = "@"
 
@@ -117,12 +121,15 @@ RenderCleanup:
         On Error Resume Next
         If Not previousSheet Is Nothing Then previousSheet.Activate
         On Error GoTo 0
-        MsgBox "Δεν ήταν δυνατή η προβολή του ιστορικού ασθενών. Δεν τροποποιήθηκε το ιστορικό.", _
+        MsgBox "Δεν ήταν δυνατή η προβολή του ιστορικού ασθενών. Δεν τροποποιήθηκε το ιστορικό." & _
+            vbCrLf & "Κωδικός: " & CStr(failureNumber) & " / " & failureDescription, _
             vbCritical, "Ιστορικό ασθενών"
     End If
     Exit Sub
 
 RenderError:
+    failureNumber = Err.Number
+    failureDescription = Err.Description
     Resume RenderCleanup
 End Sub
 
@@ -171,6 +178,8 @@ Private Sub EnsurePatientButton(ByVal ws As Worksheet, ByVal suffix As String, _
     shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
     shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
     shape.TextFrame2.VerticalAnchor = 3
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+    shape.TextFrame2.TextRange.Font.Fill.Transparency = 0
     shape.ZOrder 0
     On Error GoTo 0
 End Sub
