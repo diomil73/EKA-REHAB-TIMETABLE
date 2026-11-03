@@ -220,6 +220,7 @@ Private Sub FormatPatientReport(ByVal ws As Worksheet, ByVal lastRow As Long)
     ws.Rows(3).RowHeight = 32
     ws.Rows(4).RowHeight = 6
     ws.Rows(5).RowHeight = 30
+    If lastRow >= 6 Then ws.Rows("6:" & CStr(lastRow)).RowHeight = 21
     If lastRow >= 5 Then ws.Range("A5:I" & CStr(lastRow)).Borders.LineStyle = 1
     ws.ScrollArea = "A1:I" & CStr(Application.Max(lastRow + 2, 13))
     On Error GoTo 0
