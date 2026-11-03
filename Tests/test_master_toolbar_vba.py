@@ -52,20 +52,33 @@ class _FakeWorksheet:
         return _Rows(self, key)
 
 
-def test_normal_user_master_has_no_operational_buttons():
+def test_master_has_basic_navigation_buttons():
     assert MASTER_TOOLBAR_MODULE_NAME == "modMasterToolbar"
     assert MASTER_TOOLBAR_PREFIX == "ekaToolbar_"
-    assert BUTTONS == ()
+    assert BUTTONS == (
+        ("Absences", "Απουσίες / Ακυρώσεις", "ToolbarAbsences", "Μετάβαση στην κατάσταση ημέρας."),
+        ("TherapistDaily", "Ημερήσιο πρόγραμμα", "ToolbarTherapistDaily", "Μετάβαση στο ημερήσιο πρόγραμμα θεραπευτών."),
+        ("Registry", "Μητρώο", "ToolbarRegistryManagement", "Άνοιγμα κεντρικού μενού μητρώου."),
+        ("ExitApp", "Save & Exit", "ExitApplication", "Αποθήκευση και έξοδος από την εφαρμογή."),
+    )
 
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba.install_master_toolbar)
-    assert "_delete_existing_toolbar_shapes(ws)" in source
-    assert "for index, (key, caption, macro, description) in enumerate(BUTTONS)" not in source
-    assert "ws.Shapes.AddShape" not in source
+    assert "_install_master_navigation(ws)" in source
 
 
-def test_master_toolbar_actions_remain_available_for_routing_from_other_surfaces():
+def test_master_navigation_uses_visible_row_two():
+    from rehab_excel import master_toolbar_vba
+
+    source = inspect.getsource(master_toolbar_vba._install_master_navigation)
+    assert 'ws.Range("A2")' in source
+    assert "for index, (key, caption, macro, description) in enumerate(BUTTONS)" in source
+    assert "MASTER_TOOLBAR_PREFIX + key" in source
+    assert "_add_navigation_button(" in source
+
+
+def test_master_toolbar_actions_remain_available_for_routing_from_master():
     assert "Public Sub ToolbarRegistryManagement()" in MASTER_TOOLBAR_MODULE_CODE
     assert "ShowRegistrationMenu" in MASTER_TOOLBAR_MODULE_CODE
     assert "Public Sub ToolbarAbsences()" in MASTER_TOOLBAR_MODULE_CODE
@@ -102,8 +115,8 @@ def test_registration_menu_installer_installs_master_toolbar_module():
     assert "MASTER toolbar module was not confirmed" in source
 
 
-def test_exit_action_remains_available_outside_master():
-    assert BUTTONS == ()
+def test_exit_action_is_bound_from_master_and_other_surfaces():
+    assert any(item[2] == "ExitApplication" for item in BUTTONS)
     assert "Public Sub ExitApplication()" in MASTER_TOOLBAR_MODULE_CODE
     assert "RestoreExcelInterface" in MASTER_TOOLBAR_MODULE_CODE
     assert "ThisWorkbook.Save" in MASTER_TOOLBAR_MODULE_CODE
@@ -126,7 +139,7 @@ def test_master_toolbar_clears_freeze_and_split():
     assert "window.SplitRow = 0" in source
 
 
-def test_operational_navigation_forces_black_button_text():
+def test_navigation_buttons_force_black_text():
     from rehab_excel import master_toolbar_vba
 
     helper = inspect.getsource(master_toolbar_vba._set_shape_text_black)
@@ -155,17 +168,18 @@ def test_operational_navigation_is_placed_below_used_rows():
     assert 'ws.Range(f"A{anchor_row}")' in source
 
 
-def test_user_facing_navigation_scope_excludes_master():
+def test_user_facing_navigation_scope_keeps_master_separate():
     from rehab_excel.master_toolbar_vba import USER_FACING_SHEETS
 
     assert USER_FACING_SHEETS == ("DAILY_INPUT", "THERAPIST_DAILY", "REPLACEMENTS")
     assert "MASTER_SCHEDULE" not in USER_FACING_SHEETS
 
 
-def test_navigation_finalizer_reapplies_after_sheet_creation():
+def test_navigation_finalizer_reapplies_master_and_operational_navigation():
     from rehab_excel import master_toolbar_vba
 
     source = inspect.getsource(master_toolbar_vba.finalize_user_navigation)
+    assert "_install_master_navigation(master)" in source
     assert "_install_operational_navigation(workbook)" in source
     assert "workbook.Save()" in source
 
