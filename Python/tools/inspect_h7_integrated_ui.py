@@ -90,6 +90,20 @@ def inspect(path: Path) -> int:
             )
             if str(refresh.OnAction).split("!")[-1].strip("'") != "RefreshAll":
                 errors.append("RefreshAll toolbar binding incorrect")
+            try:
+                caption = str(refresh.TextFrame2.TextRange.Text).strip()
+            except Exception:
+                caption = ""
+            print("THERAPIST_DAILY REFRESH CAPTION:", repr(caption))
+            if caption != "ΑΝΑΝΕΩΣΗ":
+                errors.append("RefreshAll toolbar caption incorrect")
+            refresh_matches = []
+            for shape_index in range(1, int(therapist_daily.Shapes.Count) + 1):
+                candidate = therapist_daily.Shapes(shape_index)
+                if str(candidate.OnAction).split("!")[-1].strip("'") == "RefreshAll":
+                    refresh_matches.append(str(candidate.Name))
+            if refresh_matches != ["ekaToolbar_RefreshAll"]:
+                errors.append("Duplicate or legacy RefreshAll control remains")
             if not bool(refresh.Visible):
                 errors.append("RefreshAll toolbar button not visible")
             if abs(float(refresh.Top) - float(therapist_exit.Top)) > 1:
