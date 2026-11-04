@@ -7,16 +7,16 @@ import sys
 
 
 PROCEDURE = re.compile(
-    r"^\\s*(?:(?:Public|Private|Friend|Static)\\s+)?"
-    r"(?:Sub|Function|Property\\s+(?:Get|Let|Set))\\s+([A-Za-z_][A-Za-z0-9_]*)",
+    r"^\s*(?:(?:Public|Private|Friend|Static)\s+)?"
+    r"(?:Sub|Function|Property\s+(?:Get|Let|Set))\s+([A-Za-z_][A-Za-z0-9_]*)",
     re.IGNORECASE,
 )
 WRITE_LINE = re.compile(
-    r"\\.\\s*(?:Unprotect|Protect|Value2?|Formula|ClearContents|Clear|Delete|Insert|Add|"
-    r"PasteSpecial|Copy|Locked|Visible|ScrollArea)\\b"
-    r"|\\b(?:Worksheets|Sheets)\\s*\\(\\s*[\"'][^\"']+[\"']\\s*\\)"
-    r"|\\b(?:ThisWorkbook|ActiveWorkbook)\\.(?:Save|SaveAs)\\b"
-    r"|\\bDestination\\s*:",
+    r"\.\s*(?:Unprotect|Protect|Value2?|Formula|ClearContents|Clear|Delete|Insert|Add|"
+    r"PasteSpecial|Copy|Locked|Visible|ScrollArea)\b"
+    r"|\b(?:Worksheets|Sheets)\s*\(\s*["'][^"']+["']\s*\)"
+    r"|\b(?:ThisWorkbook|ActiveWorkbook)\.(?:Save|SaveAs)\b"
+    r"|\bDestination\s*:",
     re.IGNORECASE,
 )
 MAX_MATCHES_PER_COMPONENT = 180
@@ -70,7 +70,7 @@ def audit(path: Path) -> int:
             if line_count <= 0:
                 continue
             raw = str(module.Lines(1, line_count))
-            lines = raw.replace("\\r\\n", "\\n").replace("\\r", "\\n").split("\\n")
+            lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n")
             matches = _matches(lines)
             if not matches:
                 continue
