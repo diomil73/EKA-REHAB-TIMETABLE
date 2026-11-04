@@ -133,7 +133,7 @@ def test_installer_entry_is_on_therapist_daily_not_master():
     assert 'workbook.Worksheets("MASTER_SCHEDULE")' not in source
     assert 'caption="Στατιστικά θεραπευτών"' in source
     assert "THERAPIST_HISTORY_REPORT" in source or "THERAPIST_HISTORY_SHEET_NAME" in source
-    assert "report_ws.Unprotect()" in source
+    assert 'report_ws.Unprotect("")' in source
 
 
 def test_native_installer_requires_technical_history_to_remain_very_hidden():
@@ -158,7 +158,7 @@ def test_report_cleanup_always_reprotects_sheet_after_render_failure():
 def test_therapist_report_installer_protects_blank_report_sheet_but_keeps_buttons_clickable():
     source = inspect.getsource(install_therapist_history_report)
     assert (
-        "report_ws.Protect(DrawingObjects=False, Contents=True, Scenarios=True)"
+        'report_ws.Protect("", False, True, True)'
     ) in source
 
 
