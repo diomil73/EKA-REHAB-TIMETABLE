@@ -352,3 +352,14 @@ def install_patient_report_components(vbproject, workbook) -> None:
     shape.TextFrame2.VerticalAnchor = 3
     shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
     shape.TextFrame2.TextRange.Font.Fill.Transparency = 0
+
+    # Keep the blank patient report protected immediately after installation.
+    # DrawingObjects=False preserves report-mode and previous-screen buttons.
+    report.Protect("", False, True, True)
+    protect_contents = bool(report.ProtectContents)
+    protect_objects = bool(report.ProtectDrawingObjects)
+    if not protect_contents or protect_objects:
+        raise RuntimeError(
+            "Patient-history report protection state is invalid after install "
+            f"(ProtectContents={protect_contents}, ProtectDrawingObjects={protect_objects})"
+        )
