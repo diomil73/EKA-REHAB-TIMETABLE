@@ -352,3 +352,39 @@ Important discovery: `THERAPIST_HISTORY_REPORT` is visible, blank (UsedRange A1)
 No native workbook has been changed by these source edits. BF remains frozen. Next: pull and run `python -m pytest Tests/test_therapist_history_ui.py -q`. If green, prepare a uniquely named fresh H7 protection smoke and verify blank-sheet protection, report refresh in all modes, clickable buttons, and error cleanup. Do not yet implement broad protection for the other 17 sheets; intended user-entry zones and all write paths must be reconciled first.
 
 The VBA scanner's 1,146 matching lines across 64 components are lexical candidates, not 1,146 proven writes. It includes sheet references, reads, formatting, visibility and protection properties. Use the full audit output for semantic classification, not direct unlock-range decisions.
+
+
+## Active protection slice — therapist report only (2026-11-04)
+
+BF is frozen, functionally accepted evidence. Its read-only audit showed 18 unprotected sheets, including a blank visible `THERAPIST_HISTORY_REPORT`. No blanket worksheet protection has been applied.
+
+The targeted therapist report protection fix is in source:
+- `45ed8c9`: regression tests for protection after install and on VBA error cleanup.
+- `9a1574e`: VBA cleanup always re-protects after report failure; installer protects the blank report sheet while keeping shapes clickable.
+- `5c3aaea`: installer saves, closes, then reopens in a separate `ReadOnly=True` Excel session and verifies persisted module, visible report, `ProtectContents=True`, `ProtectDrawingObjects=False`, toolbar binding, and veryHidden technical sheets.
+- `870c1db`: test requires this persisted read-only audit.
+
+The operator's first run passed 12 focused tests in 3.69s. Since then the read-only persisted verification and one regression test were added. Rerun the now-13-test gate:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest Tests/test_therapist_history_ui.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Therapist report tests failed" }
+```
+
+If green, create a fresh BG from the trusted H6 source (not BF) using the existing integrated installer:
+```powershell
+python .\Python\tools\prepare_h7_integrated_ui_smoke.py `
+  --source .\Excel\previews\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm `
+  --output .\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BG.xlsm
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BG preparation failed; freeze BG, do not retry or repair" }
+```
+
+The preparation script installs unified day-save UI, therapist history UI (now including saved read-only protection verification), and patient history UI. It refuses overwrite and verifies the source/destination SHA-256 before install. After successful BG preparation, run:
+```powershell
+python .\Python\tools\audit_workbook_protection.py .\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BG.xlsm
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BG protection audit incomplete" }
+```
+
+Expected BG protection delta: therapist report is now protected (`ProtectContents=True`) while its drawing objects remain unprotected/clickable; the other 17 unprotected worksheets are unchanged. Then manually verify therapist statistics open and daily/weekly/monthly/overall views refresh, report buttons work, and patient report/previous navigation remain unchanged. Do not protect any additional sheet until the embedded VBA inventory and human edit zones are reconciled. BF and AZ remain frozen source/evidence; never overwrite them.
