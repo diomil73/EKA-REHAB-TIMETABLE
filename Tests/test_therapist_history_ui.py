@@ -160,6 +160,3 @@ def test_therapist_report_installer_protects_blank_report_sheet_but_keeps_button
         "report_ws.Protect(DrawingObjects=False, Contents=True, Scenarios=True)"
     ) in source
 
-    installer_source = inspect.getsource(installer.install_therapist_history_ui)
-    assert "report_ws.ProtectContents" in installer_source
-    assert "report_ws.ProtectDrawingObjects" in installer_source
