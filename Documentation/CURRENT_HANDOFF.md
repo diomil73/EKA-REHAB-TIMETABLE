@@ -340,3 +340,15 @@ python .\Python\tools\audit_vba_write_surfaces.py `
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: VBA write-surface audit incomplete" }
 ```
 Expected 8 passed. Share the complete VBA inventory. BF remains frozen smoke evidence; do not patch BF or production.
+
+## 2026-11-04 — exact BF protection audit received and reviewed
+
+Operator uploaded `H7_PROTECTION_AUDIT.txt`. It reports `ReadOnly=True`, `Workbook unchanged: True`, 23 worksheets, `ProtectStructure=False`, and `ProtectWindows=False`. 18 sheets have `ProtectContents=False`; five are protected. Every sheet reports `UsedRange.Locked=True`, but Locked has no enforcement on the 18 sheets while ProtectContents=False. The exact per-sheet visibility, UsedRange and cell counts are recorded in `Documentation/WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md`.
+
+Important discovery: `THERAPIST_HISTORY_REPORT` is visible, blank (UsedRange A1), and unprotected in BF. Its report renderer also lacked guaranteed re-protection after an error occurring after `Unprotect`. This is a real, narrowly scoped gap. Test-first fix:
+- `45ed8c9`: add tests for protection after install and error cleanup.
+- `9a1574e`: therapist report VBA cleanup always re-protects with `DrawingObjects:=False, Contents:=True, Scenarios:=True`; installer protects the blank report immediately after creating buttons and verifies ProtectContents=True / ProtectDrawingObjects=False.
+
+No native workbook has been changed by these source edits. BF remains frozen. Next: pull and run `python -m pytest Tests/test_therapist_history_ui.py -q`. If green, prepare a uniquely named fresh H7 protection smoke and verify blank-sheet protection, report refresh in all modes, clickable buttons, and error cleanup. Do not yet implement broad protection for the other 17 sheets; intended user-entry zones and all write paths must be reconciled first.
+
+The VBA scanner's 1,146 matching lines across 64 components are lexical candidates, not 1,146 proven writes. It includes sheet references, reads, formatting, visibility and protection properties. Use the full audit output for semantic classification, not direct unlock-range decisions.
