@@ -10,13 +10,11 @@ Branch: `work/history-statistics-rebuild`.
 
 ## Current stage
 
-Active milestone: **statistics/history design checkpoint**.
+Active milestone: **H7 report-protection correction, followed by final worksheet edit-protection hardening**.
 
-CREATE is native green. The application-style manager is visible and usable in native Excel. The duplicate outpatient edit bug was reproduced and hardened. The therapist/time collision path and workload refresh were reworked and the latest fresh native smoke was reported by the user as behaving correctly. Workload visibility is present on MASTER and the outpatient edit/conflict/workload milestone is treated as operationally green, subject to broader regression later.
+The operational scheduling/reconstruction and H2-H7 history/statistics functional slices have substantial native green evidence. H7's integrated toolbar, RefreshAll, patient and therapist report surfaces, report modes and previous-screen navigation were manually accepted on frozen disposable BF. The remaining immediate issue is not report functionality: the later BH protection audit exposed a patient-report installer protection regression. The source correction is committed, but the 33-test gate and fresh BI native proof are still pending.
 
-The THERAPIST_DAILY presentation cleanup source gate is now green: **27 passed in 3.09s**. Neutral outpatient text and robotic-orange precedence are covered without changing scheduling truth or workload semantics.
-
-The project now enters the dedicated statistics/history design checkpoint before deep global multi-absence optimizer work. This checkpoint must lock historical facts, weekly therapist workload history, retention and dashboard semantics before implementation begins.
+CREATE is native green. The application-style outpatient manager, recurring edit/conflict handling and therapist workload visibility are treated as operationally green based on the documented native evidence. The global multi-absence assignment optimizer remains open.
 
 Restore correctness is closed green. Restore performance is deferred.
 
