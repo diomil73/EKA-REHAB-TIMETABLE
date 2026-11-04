@@ -70,3 +70,11 @@ Expected: 5 tests passed. The native audit is read-only. Share its full output.
 ## Protection implementation is NOT started
 
 Do not yet call any sheet Protect/Unprotect, lock/unlock ranges, or add protection passwords. First review the BF audit output and map intended writable ranges per sheet and all macro/form write zones. Then design focused source tests and fresh next-candidate native smoke. Preserve BF as green evidence.
+
+## Protection audit diagnostic formatting fix — 2026-11-04
+
+First operator run exposed one source-test assertion mismatch: the audit emitted the locked state through an f-string label, while the test required an explicit `"UsedRange.Locked"` literal. The audit itself already read the property. Corrected by printing `UsedRange.Locked:` as a dedicated label. Also moved protection allowance reporting before the early unprotected-sheet exit, so formatting/filter/sort/insertion allowances are inventoried for every worksheet, not only mixed-lock protected sheets.
+
+Fix commit: `1d65d90`.
+
+No Excel workbook was changed by this fix. The operator had issued the read-only audit command after the failing test but did not include its output in the report, so treat that audit result as unreviewed. Pull the fix, rerun the five focused tests, then rerun the read-only audit against BF and share the complete output. No protection changes are authorized yet.
