@@ -22,6 +22,45 @@ class TherapistHistoryUiInstallError(RuntimeError):
     pass
 
 
+def _audit_persisted(workbook) -> None:
+    if not bool(workbook.HasVBProject):
+        raise TherapistHistoryUiInstallError("Persisted workbook has no VBA project")
+    try:
+        _ = workbook.VBProject.VBComponents(THERAPIST_HISTORY_MODULE_NAME)
+    except Exception as exc:
+        raise TherapistHistoryUiInstallError("Therapist-history VBA module was not persisted") from exc
+
+    try:
+        report_ws = workbook.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
+        if int(report_ws.Visible) != -1:
+            raise TherapistHistoryUiInstallError("Therapist-history report sheet is not visible")
+        if not bool(report_ws.ProtectContents):
+            raise TherapistHistoryUiInstallError("Therapist-history report contents are not protected")
+        if bool(report_ws.ProtectDrawingObjects):
+            raise TherapistHistoryUiInstallError("Therapist-history report buttons must remain clickable")
+    except TherapistHistoryUiInstallError:
+        raise
+    except Exception as exc:
+        raise TherapistHistoryUiInstallError("Therapist-history report sheet was not confirmed") from exc
+
+    try:
+        nav = workbook.Worksheets("THERAPIST_DAILY").Shapes(THERAPIST_HISTORY_NAV_BUTTON)
+        if str(nav.OnAction) != THERAPIST_HISTORY_OPEN_MACRO or not bool(nav.Visible):
+            raise TherapistHistoryUiInstallError("Therapist-history navigation binding is invalid")
+    except TherapistHistoryUiInstallError:
+        raise
+    except Exception as exc:
+        raise TherapistHistoryUiInstallError("Therapist-history navigation button was not confirmed") from exc
+
+    for technical_name in ("FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY", "DAY_HISTORY_EVENTS"):
+        try:
+            technical = workbook.Worksheets(technical_name)
+        except Exception as exc:
+            raise TherapistHistoryUiInstallError(f"Missing technical history sheet: {technical_name}") from exc
+        if int(technical.Visible) != 2:
+            raise TherapistHistoryUiInstallError(f"Technical history sheet must remain veryHidden: {technical_name}")
+
+
 def install_therapist_history_ui(workbook_path: str | Path) -> dict[str, object]:
     if sys.platform != "win32":
         raise TherapistHistoryUiInstallError("Therapist-history UI installation requires Windows + Microsoft Excel")
@@ -36,6 +75,14 @@ def install_therapist_history_ui(workbook_path: str | Path) -> dict[str, object]
     if path.suffix.casefold() != ".xlsm":
         raise TherapistHistoryUiInstallError("Workbook must be an .xlsm file")
 
+    result = {
+        "ok": True,
+        "workbook": str(path),
+        "module": THERAPIST_HISTORY_MODULE_NAME,
+        "sheet": THERAPIST_HISTORY_SHEET_NAME,
+        "button": THERAPIST_HISTORY_NAV_BUTTON,
+    }
+
     excel = None
     workbook = None
     try:
@@ -45,50 +92,14 @@ def install_therapist_history_ui(workbook_path: str | Path) -> dict[str, object]
         excel.ScreenUpdating = False
         excel.EnableEvents = False
         workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=False)
+        if bool(workbook.ReadOnly):
+            raise TherapistHistoryUiInstallError("Workbook opened read-only")
         if not bool(workbook.HasVBProject):
             raise TherapistHistoryUiInstallError("Workbook has no VBA project")
 
         install_therapist_history_report(workbook.VBProject, workbook)
-
-        try:
-            _ = workbook.VBProject.VBComponents(THERAPIST_HISTORY_MODULE_NAME)
-        except Exception as exc:
-            raise TherapistHistoryUiInstallError("Therapist-history VBA module was not confirmed") from exc
-
-        try:
-            report_ws = workbook.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
-            if int(report_ws.Visible) != -1:
-                raise TherapistHistoryUiInstallError("Therapist-history report sheet is not visible")
-        except TherapistHistoryUiInstallError:
-            raise
-        except Exception as exc:
-            raise TherapistHistoryUiInstallError("Therapist-history report sheet was not confirmed") from exc
-
-        try:
-            nav = workbook.Worksheets("THERAPIST_DAILY").Shapes(THERAPIST_HISTORY_NAV_BUTTON)
-            if str(nav.OnAction) != THERAPIST_HISTORY_OPEN_MACRO:
-                raise TherapistHistoryUiInstallError("Therapist-history navigation binding is invalid")
-        except TherapistHistoryUiInstallError:
-            raise
-        except Exception as exc:
-            raise TherapistHistoryUiInstallError("Therapist-history navigation button was not confirmed") from exc
-
-        for technical_name in ("FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY", "DAY_HISTORY_EVENTS"):
-            try:
-                technical = workbook.Worksheets(technical_name)
-            except Exception as exc:
-                raise TherapistHistoryUiInstallError(f"Missing technical history sheet: {technical_name}") from exc
-            if int(technical.Visible) != 2:
-                raise TherapistHistoryUiInstallError(f"Technical history sheet must remain veryHidden: {technical_name}")
-
+        _audit_persisted(workbook)
         workbook.Save()
-        return {
-            "ok": True,
-            "workbook": str(path),
-            "module": THERAPIST_HISTORY_MODULE_NAME,
-            "sheet": THERAPIST_HISTORY_SHEET_NAME,
-            "button": THERAPIST_HISTORY_NAV_BUTTON,
-        }
     finally:
         if workbook is not None:
             try:
@@ -101,6 +112,31 @@ def install_therapist_history_ui(workbook_path: str | Path) -> dict[str, object]
             except Exception:
                 pass
 
+    # Verify the saved state in a separate read-only Excel session.
+    excel = None
+    workbook = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.EnableEvents = False
+        workbook = excel.Workbooks.Open(str(path), UpdateLinks=0, ReadOnly=True)
+        if not bool(workbook.ReadOnly):
+            raise TherapistHistoryUiInstallError("Persisted verification workbook is not read-only")
+        _audit_persisted(workbook)
+    finally:
+        if workbook is not None:
+            try:
+                workbook.Close(SaveChanges=False)
+            except Exception:
+                pass
+        if excel is not None:
+            try:
+                excel.Quit()
+            except Exception:
+                pass
+
+    return result
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install therapist-history report UI into an XLSM preview.")
