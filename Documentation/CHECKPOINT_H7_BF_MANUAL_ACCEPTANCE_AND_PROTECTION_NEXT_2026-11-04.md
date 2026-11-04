@@ -96,3 +96,11 @@ Key findings (23 worksheets):
 The test still failed after first formatting fix because source contract searches exact literal `"UsedRange.Locked"`; implementation printed `"UsedRange.Locked:"` with colon inside the string, so assertion remained false. Corrected to `print("UsedRange.Locked", locked_label)`. Fix commit: `e89e36f`. Need pull and rerun the five tests; no native workbook rerun is needed solely for this output-label-only source fix, but do rerun read-only inventory after tests if desired.
 
 No protection implementation has been made. Before locking, inspect all VBA/Python write paths and map sanctioned editable inputs and write targets. In particular do not infer that DAILY_INPUT can be wholly locked: its forms/macros may write cells, and manual edit zones must be explicitly mapped. Also inspect THERAPIST_DAILY controls/data writes and report regeneration. Preserve the five currently protected sheets as baseline.
+
+## Operator test confirmation and next VBA audit
+
+Operator reports `5 passed in 0.64s` for `Tests/test_workbook_protection_audit.py`. The diagnostic formatting contract is now green.
+
+Tracked source map: `Documentation/WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md`. It records known sanctioned writes and highlights unresolved workbook-only macro paths, external COM writer implications, and dynamic sheet creation. No protection implementation has been started.
+
+Next add-on diagnostic is the read-only VBA inventory. Run the combined eight tests and `audit_vba_write_surfaces.py` as specified in `Documentation/CURRENT_HANDOFF.md`. Only after this inventory is reconciled can per-sheet policy be finalized.
