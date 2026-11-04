@@ -461,3 +461,19 @@ Operator confirmed `Tests/test_therapist_history_ui.py`: **15 passed in 4.11s**.
 Next step is now authorized: create a fresh `UNIFIED_PATIENT_HISTORY_H7_20261104_BH.xlsm` from trusted `UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`, following the exact safety-checked command in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. Excel must be closed; refuse any existing BH destination. BG remains frozen failed evidence. BF remains frozen accepted evidence. AZ remains trusted and unchanged.
 
 If BH preparation succeeds, run the read-only workbook protection audit and share its complete output. Do not manually test or continue to broader worksheet protection until the audit confirms the intended narrow delta.
+
+## AUTHORITATIVE LATEST RESUME — 2026-11-04: BH failed; patient-report installer regression isolated
+
+**Do not follow the earlier instruction to manually test BH.** The complete BH read-only audit was received. Therapist report protection is correct, but `PATIENT_HISTORY_REPORT` is unexpectedly unprotected. BH is frozen failed evidence; do not repair, reuse, or overwrite it.
+
+Root cause is confirmed in source: `install_patient_report_components()` calls `report.Unprotect()` and clears the sheet, then returns without re-protecting it. The patient installer audit did not check the protection properties. The patient report renderer re-protects after a report render, which explains why BF's manually used report appeared protected.
+
+Source correction has been committed:
+- `81a8615`: two patient installer protection regression tests.
+- `0fd7435`: protect blank patient report at install with positional COM args and verify both protection flags.
+- `61ebf11`: verify patient report protection in the install audit and persisted read-only reopen.
+
+Tests have **not** yet been run after these changes. Next, with Excel closed, pull and run the combined 32-test gate specified in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. Only if all 32 pass, create a fresh `BI` from trusted `AZ`, never from BH/BG/BF. Run the complete read-only audit. The expected state is that both patient and therapist report sheets are protected with DrawingObjects=False, while the four technical history sheets remain protected and veryHidden. Do not click-test or accept BI until that audit passes.
+
+Artifact ledger: AZ trusted/frozen; BF accepted/frozen; BG failed/frozen; BH failed/frozen due patient-report protection regression; BI next candidate, gated by 32 tests.
+
