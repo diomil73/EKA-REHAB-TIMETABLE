@@ -141,3 +141,7 @@ Current focused test count is 15. The latest 15-test suite has NOT YET been run 
 `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
 
 Do not broaden protection to the other 17 sheets. Do not assume the root cause of BG until a native rerun reports the actual COM protection flags.
+
+## Operator confirmation — focused protection tests GREEN (2026-11-04)
+
+The operator reports **15 passed in 4.11s** for the latest `Tests/test_therapist_history_ui.py` suite. The source gate is green. A fresh BH native smoke is now authorized from trusted AZ only. BG remains frozen failed evidence; BF remains frozen accepted evidence. Follow the safety-checked BH creation command in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. On preparation failure, freeze BH; on success, run the read-only protection audit before any manual use.
