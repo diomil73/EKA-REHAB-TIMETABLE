@@ -305,3 +305,9 @@ The new audit is read-only. Share full output. Do not implement blanket protecti
 The first five-test run had 4 passed, 1 failed because the test expected an explicit `"UsedRange.Locked"` source literal. The audit already queried the value; diagnostic output is now a dedicated `UsedRange.Locked:` label. Protection allowance reporting now runs for every worksheet. Fix commit: `1d65d90`.
 
 Operator also issued the read-only audit command but did not paste its output. Do not infer results. Pull `1d65d90`, rerun `python -m pytest Tests/test_workbook_protection_audit.py -q`, then rerun the read-only audit on frozen BF and provide the full output. No sheet protection changes yet.
+
+## 2026-11-04 protection inventory received
+
+BF read-only audit completed successfully and is documented in `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`. 18/23 worksheets are currently unprotected; five are protected (PATIENT_HISTORY_REPORT and four technical history sheets). Workbook ProtectStructure=False. All UsedRange.Locked=True but this does not enforce editing restrictions while ProtectContents=False. Technical histories remain veryHidden. No sheet protection has been changed.
+
+A test assertion still failed because source contained `"UsedRange.Locked:"` while test requires exact `"UsedRange.Locked"`. Corrected to `print("UsedRange.Locked", locked_label)`, commit `e89e36f`. Pull and rerun `python -m pytest Tests/test_workbook_protection_audit.py -q`. After green, begin read-only source audit of sanctioned VBA/Python write ranges before designing any protection change.
