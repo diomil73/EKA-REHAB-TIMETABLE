@@ -217,3 +217,6 @@ The subsequent BH native read-only audit adds an important correction to the ear
 
 Do not use BH, BG or BF as a build source or install destination. AZ remains trusted and frozen. BF remains accepted functional evidence and frozen. This section supersedes older instructions in this file that still describe only therapist-report protection or authorize BH as the next candidate.
 
+## Operator confirmation — combined source gate GREEN (2026-11-04)
+
+The operator confirmed **33 passed in 4.13s**. Verified suite breakdown: 15 therapist UI + 7 patient UI + 8 integrated toolbar/patient-order + 3 previous-screen navigation. The 33-test source gate is complete. Next is fresh BI from AZ and complete read-only protection audit; no manual BI use before audit acceptance. Exact command and artifact safety rules are in the latest section of `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
