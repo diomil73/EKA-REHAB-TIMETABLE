@@ -138,10 +138,11 @@ def test_installer_entry_is_on_therapist_daily_not_master():
 
 def test_native_installer_requires_technical_history_to_remain_very_hidden():
     source = inspect.getsource(installer.install_therapist_history_ui)
-    assert '"FINALIZED_DAY_SNAPSHOTS"' in source
-    assert '"THERAPIST_DAY_HISTORY"' in source
-    assert '"DAY_HISTORY_EVENTS"' in source
-    assert "if int(technical.Visible) != 2" in source
+    audit = inspect.getsource(installer._audit_persisted)
+    assert '"FINALIZED_DAY_SNAPSHOTS"' in audit
+    assert '"THERAPIST_DAY_HISTORY"' in audit
+    assert '"DAY_HISTORY_EVENTS"' in audit
+    assert "if int(technical.Visible) != 2" in audit
     assert "workbook.Save()" in source
 
 
@@ -170,3 +171,18 @@ def test_therapist_report_installer_reopens_saved_workbook_read_only_and_audits_
     assert "report_ws.ProtectContents" in audit
     assert "report_ws.ProtectDrawingObjects" in audit
     assert "if int(technical.Visible) != 2" in audit
+
+
+def test_installer_uses_explicit_positional_excel_protection_arguments():
+    source = inspect.getsource(install_therapist_history_report)
+    assert 'report_ws.Protect("", False, True, True)' in source
+    assert "ProtectContents={protect_contents}" in source
+    assert "ProtectDrawingObjects={protect_objects}" in source
+
+
+def test_persisted_audit_checks_each_report_button_action_and_visibility():
+    source = inspect.getsource(installer._audit_persisted)
+    for name in ("ekaHistory_Daily", "ekaHistory_Weekly", "ekaHistory_Monthly", "ekaHistory_Overall", "ekaHistory_Back"):
+        assert name in source
+    assert "shape.OnAction" in source
+    assert "shape.Visible" in source
