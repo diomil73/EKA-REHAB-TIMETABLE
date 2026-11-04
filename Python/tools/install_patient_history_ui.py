@@ -22,6 +22,100 @@ class PatientHistoryUiInstallError(RuntimeError):
     pass
 
 
+
+REFRESH_NAV = "ekaToolbar_RefreshAll"
+REFRESH_MACRO = "RefreshAll"
+REFRESH_CAPTION = "ΑΝΑΝΕΩΣΗ"
+REFRESH_WIDTH = 92
+
+
+def _macro_name(shape) -> str:
+    try:
+        return str(shape.OnAction).split("!")[-1].strip("'")
+    except Exception:
+        return ""
+
+
+def _style_refresh_button(shape, *, left: float, top: float) -> None:
+    shape.Left = left
+    shape.Top = top
+    shape.Width = REFRESH_WIDTH
+    shape.Height = 26
+    shape.OnAction = REFRESH_MACRO
+    shape.Placement = 3
+    shape.Visible = True
+    shape.Fill.ForeColor.RGB = 15527148
+    shape.Line.ForeColor.RGB = 10066329
+    shape.TextFrame2.TextRange.Text = REFRESH_CAPTION
+    shape.TextFrame2.TextRange.Font.Name = "Calibri"
+    shape.TextFrame2.TextRange.Font.Size = 9
+    shape.TextFrame2.TextRange.Font.Bold = True
+    shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = 0
+    shape.TextFrame2.TextRange.Font.Fill.Transparency = 0
+    shape.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+    shape.TextFrame2.VerticalAnchor = 3
+    shape.ZOrder(0)
+
+
+def _normalize_statistics_toolbar(source) -> None:
+    exit_button = source.Shapes("ekaToolbar_ExitApp")
+    if not bool(exit_button.Visible):
+        raise PatientHistoryUiInstallError("THERAPIST_DAILY Save & Exit is not visible")
+
+    refresh_shapes = []
+    for index in range(1, int(source.Shapes.Count) + 1):
+        candidate = source.Shapes(index)
+        if _macro_name(candidate) == REFRESH_MACRO:
+            refresh_shapes.append(candidate)
+
+    canonical = None
+    try:
+        canonical = source.Shapes(REFRESH_NAV)
+    except Exception:
+        pass
+
+    if canonical is not None:
+        if _macro_name(canonical) != REFRESH_MACRO:
+            raise PatientHistoryUiInstallError("Canonical Refresh button has unexpected macro")
+        for candidate in refresh_shapes:
+            if str(candidate.Name) != REFRESH_NAV:
+                candidate.Delete()
+    else:
+        if len(refresh_shapes) != 1:
+            raise PatientHistoryUiInstallError(
+                "Expected exactly one legacy RefreshAll control before migration"
+            )
+        legacy = refresh_shapes[0]
+        left = float(exit_button.Left) + float(exit_button.Width) + 8
+        top = float(exit_button.Top)
+        canonical = source.Shapes.AddShape(5, left, top, REFRESH_WIDTH, 26)
+        canonical.Name = REFRESH_NAV
+        try:
+            _style_refresh_button(canonical, left=left, top=top)
+            if _macro_name(canonical) != REFRESH_MACRO:
+                raise PatientHistoryUiInstallError("New RefreshAll macro binding did not persist")
+        except Exception:
+            try:
+                canonical.Delete()
+            except Exception:
+                pass
+            raise
+        legacy.Delete()
+
+    refresh_left = float(exit_button.Left) + float(exit_button.Width) + 8
+    refresh_top = float(exit_button.Top)
+    _style_refresh_button(canonical, left=refresh_left, top=refresh_top)
+    if _macro_name(canonical) != REFRESH_MACRO or not bool(canonical.Visible):
+        raise PatientHistoryUiInstallError("RefreshAll toolbar button failed verification")
+
+    therapist = source.Shapes("ekaToolbar_TherapistHistory")
+    patient = source.Shapes(PATIENT_REPORT_NAV)
+    therapist.Left = float(canonical.Left) + float(canonical.Width) + 8
+    therapist.Top = refresh_top
+    patient.Left = float(therapist.Left) + float(therapist.Width) + 8
+    patient.Top = refresh_top
+
+
 def _audit(workbook) -> None:
     code = workbook.VBProject.VBComponents(PATIENT_REPORT_MODULE).CodeModule
     source = code.Lines(1, code.CountOfLines)
@@ -31,12 +125,22 @@ def _audit(workbook) -> None:
     if int(report.Visible) != -1:
         raise PatientHistoryUiInstallError("Patient report is not visible")
     exit_button = workbook.Worksheets("THERAPIST_DAILY").Shapes("ekaToolbar_ExitApp")
+    refresh = workbook.Worksheets("THERAPIST_DAILY").Shapes(REFRESH_NAV)
     therapist = workbook.Worksheets("THERAPIST_DAILY").Shapes("ekaToolbar_TherapistHistory")
     nav = workbook.Worksheets("THERAPIST_DAILY").Shapes(PATIENT_REPORT_NAV)
     if str(nav.OnAction).split("!")[-1].strip("'") != PATIENT_REPORT_OPEN:
         raise PatientHistoryUiInstallError("Patient report navigation mismatch")
     if not bool(nav.Visible) or not bool(therapist.Visible):
         raise PatientHistoryUiInstallError("Statistics navigation is not visible")
+    if _macro_name(refresh) != REFRESH_MACRO or not bool(refresh.Visible):
+        raise PatientHistoryUiInstallError("RefreshAll toolbar binding/visibility mismatch")
+    if abs(float(refresh.Top) - float(exit_button.Top)) > 1:
+        raise PatientHistoryUiInstallError("RefreshAll button is outside main toolbar row")
+    if float(refresh.Left) < float(exit_button.Left) + float(exit_button.Width) + 4:
+        raise PatientHistoryUiInstallError("RefreshAll overlaps Save & Exit")
+    if float(therapist.Left) < float(refresh.Left) + float(refresh.Width) + 4:
+        raise PatientHistoryUiInstallError("Therapist statistics overlaps RefreshAll")
+
     if abs(float(nav.Top) - float(therapist.Top)) > 1:
         raise PatientHistoryUiInstallError("Patient and therapist statistics buttons misaligned")
     if float(nav.Left) < float(therapist.Left) + float(therapist.Width) + 4:
@@ -80,6 +184,7 @@ def install_patient_history_ui(path: Path) -> None:
         if workbook.ReadOnly:
             raise PatientHistoryUiInstallError("Workbook opened read-only")
         install_patient_report_components(workbook.VBProject, workbook)
+        _normalize_statistics_toolbar(workbook.Worksheets("THERAPIST_DAILY"))
         _audit(workbook)
         workbook.Save()
     finally:
