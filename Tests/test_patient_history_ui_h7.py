@@ -62,3 +62,23 @@ def test_native_installer_persisted_reopen_and_history_guard():
     for sheet in ("FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY", "PATIENT_SESSION_HISTORY", "DAY_HISTORY_EVENTS"):
         assert sheet in code
     assert "int(workbook.Worksheets(sheet_name).Visible) != 2" in code
+
+def test_patient_report_installer_reprotects_blank_report_and_keeps_shapes_clickable():
+    import inspect
+
+    from rehab_excel.patient_history_report_vba import install_patient_report_components
+
+    source = inspect.getsource(install_patient_report_components)
+    assert 'report.Protect("", False, True, True)' in source
+    assert "ProtectContents={protect_contents}" in source
+    assert "ProtectDrawingObjects={protect_objects}" in source
+
+
+def test_patient_report_native_audit_checks_persisted_protection():
+    import inspect
+
+    source = inspect.getsource(installer._audit)
+    assert "report.ProtectContents" in source
+    assert "report.ProtectDrawingObjects" in source
+    assert "Patient report protection state is invalid" in source
+
