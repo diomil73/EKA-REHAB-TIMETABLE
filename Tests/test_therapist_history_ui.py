@@ -160,3 +160,13 @@ def test_therapist_report_installer_protects_blank_report_sheet_but_keeps_button
         "report_ws.Protect(DrawingObjects=False, Contents=True, Scenarios=True)"
     ) in source
 
+
+
+def test_therapist_report_installer_reopens_saved_workbook_read_only_and_audits_protection():
+    source = inspect.getsource(installer.install_therapist_history_ui)
+    audit = inspect.getsource(installer._audit_persisted)
+    assert "ReadOnly=True" in source
+    assert "_audit_persisted(workbook)" in source
+    assert "report_ws.ProtectContents" in audit
+    assert "report_ws.ProtectDrawingObjects" in audit
+    assert "if int(technical.Visible) != 2" in audit
