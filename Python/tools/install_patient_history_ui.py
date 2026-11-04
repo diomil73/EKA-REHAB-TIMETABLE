@@ -131,6 +131,12 @@ def _audit(workbook) -> None:
     report = workbook.Worksheets(PATIENT_REPORT_SHEET)
     if int(report.Visible) != -1:
         raise PatientHistoryUiInstallError("Patient report is not visible")
+    if not bool(report.ProtectContents) or bool(report.ProtectDrawingObjects):
+        raise PatientHistoryUiInstallError(
+            "Patient report protection state is invalid "
+            f"(ProtectContents={bool(report.ProtectContents)}, "
+            f"ProtectDrawingObjects={bool(report.ProtectDrawingObjects)})"
+        )
     exit_button = workbook.Worksheets("THERAPIST_DAILY").Shapes("ekaToolbar_ExitApp")
     refresh = workbook.Worksheets("THERAPIST_DAILY").Shapes(REFRESH_NAV)
     therapist = workbook.Worksheets("THERAPIST_DAILY").Shapes("ekaToolbar_TherapistHistory")
