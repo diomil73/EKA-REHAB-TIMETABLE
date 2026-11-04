@@ -203,3 +203,10 @@ Source changes now committed:
 
 Operator test result is pending. BH is frozen failed evidence; do not repair/reuse. BF accepted/frozen; AZ trusted/frozen; BG failed/frozen. Next gate is 33 focused tests across therapist UI, patient UI, integrated toolbar/order and previous-screen navigation. Only after green create fresh BI from AZ and run read-only audit. No manual testing or broader sheet protection before the audit passes.
 
+## Authoritative latest update — H7 33-test gate GREEN; BI next (2026-11-04)
+
+Operator confirmed the combined source gate: **33 passed in 4.13s**. Current test-file breakdown verified from source: therapist UI 15, patient UI 7, integrated toolbar/patient-order 8, previous-screen navigation 3.
+
+The next authorized action is a fresh BI native smoke from trusted AZ, followed immediately by the complete read-only workbook protection audit. BI must not be manually used unless that audit passes. AZ and BF remain frozen; BG and BH remain frozen failed evidence. Exact commands and acceptance criteria are in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md` and the final section of `Documentation/CURRENT_HANDOFF.md`.
+
+This supersedes the older pending-test statement above. No broad worksheet protection is authorized yet.
