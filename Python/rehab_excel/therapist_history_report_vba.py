@@ -352,10 +352,22 @@ def install_therapist_history_report(vbproject, workbook) -> None:
     except Exception:
         report_ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
         report_ws.Name = THERAPIST_HISTORY_SHEET_NAME
+    # Clear any prior worksheet protection explicitly before rebuilding the report UI.
     try:
-        report_ws.Unprotect()
-    except Exception:
-        pass
+        report_ws.Unprotect("")
+    except Exception as exc:
+        if bool(report_ws.ProtectContents) or bool(report_ws.ProtectDrawingObjects):
+            raise RuntimeError(
+                "Cannot unprotect therapist-history report before installation "
+                f"(ProtectContents={bool(report_ws.ProtectContents)}, "
+                f"ProtectDrawingObjects={bool(report_ws.ProtectDrawingObjects)})"
+            ) from exc
+    if bool(report_ws.ProtectContents) or bool(report_ws.ProtectDrawingObjects):
+        raise RuntimeError(
+            "Therapist-history report remained protected after Unprotect "
+            f"(ProtectContents={bool(report_ws.ProtectContents)}, "
+            f"ProtectDrawingObjects={bool(report_ws.ProtectDrawingObjects)})"
+        )
     report_ws.Visible = -1
     report_ws.Cells.ClearContents()
 
@@ -382,8 +394,12 @@ def install_therapist_history_report(vbproject, workbook) -> None:
 
     # Keep the blank report surface protected from direct edits immediately after install.
     # DrawingObjects=False preserves the report navigation buttons.
-    report_ws.Protect(DrawingObjects=False, Contents=True, Scenarios=True)
-    if not bool(report_ws.ProtectContents):
-        raise RuntimeError("Therapist-history report sheet protection did not persist")
-    if bool(report_ws.ProtectDrawingObjects):
-        raise RuntimeError("Therapist-history report buttons must remain clickable")
+    # Use positional COM arguments to avoid any named-argument dispatch ambiguity.
+    report_ws.Protect("", False, True, True)
+    protect_contents = bool(report_ws.ProtectContents)
+    protect_objects = bool(report_ws.ProtectDrawingObjects)
+    if not protect_contents or protect_objects:
+        raise RuntimeError(
+            "Therapist-history report protection state is invalid after Protect "
+            f"(ProtectContents={protect_contents}, ProtectDrawingObjects={protect_objects})"
+        )
