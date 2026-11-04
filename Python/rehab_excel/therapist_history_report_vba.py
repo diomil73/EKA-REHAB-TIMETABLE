@@ -112,6 +112,7 @@ NextLine:
 
 CleanUp:
     On Error Resume Next
+    If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     If Len(outputPath) > 0 And Dir$(outputPath) <> "" Then Kill outputPath
     On Error GoTo 0
     Exit Sub
@@ -378,3 +379,11 @@ def install_therapist_history_report(vbproject, workbook) -> None:
     last_row = _last_used_row(source_ws)
     anchor = source_ws.Range(f"A{last_row + 2}")
     _add_button(source_ws, name=THERAPIST_HISTORY_NAV_BUTTON, caption="Στατιστικά θεραπευτών", macro=THERAPIST_HISTORY_OPEN_MACRO, left=float(anchor.Left) + 164, top=float(anchor.Top) + 2, width=126)
+
+    # Keep the blank report surface protected from direct edits immediately after install.
+    # DrawingObjects=False preserves the report navigation buttons.
+    report_ws.Protect(DrawingObjects=False, Contents=True, Scenarios=True)
+    if not bool(report_ws.ProtectContents):
+        raise RuntimeError("Therapist-history report sheet protection did not persist")
+    if bool(report_ws.ProtectDrawingObjects):
+        raise RuntimeError("Therapist-history report buttons must remain clickable")
