@@ -453,3 +453,11 @@ Then run read-only protection audit on BH and manually verify report entry, all 
 The actual COM root cause of BG has not yet been established. The latest implementation uses positional Excel COM Protect arguments and reports observed ProtectContents / ProtectDrawingObjects values. Do not suppress the assertion or protect drawing objects to make it pass.
 
 Full recovery packet: `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
+
+## 2026-11-04 update — 15-test gate GREEN; BH native smoke authorized
+
+Operator confirmed `Tests/test_therapist_history_ui.py`: **15 passed in 4.11s**. This supersedes the preceding pending-test status.
+
+Next step is now authorized: create a fresh `UNIFIED_PATIENT_HISTORY_H7_20261104_BH.xlsm` from trusted `UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`, following the exact safety-checked command in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. Excel must be closed; refuse any existing BH destination. BG remains frozen failed evidence. BF remains frozen accepted evidence. AZ remains trusted and unchanged.
+
+If BH preparation succeeds, run the read-only workbook protection audit and share its complete output. Do not manually test or continue to broader worksheet protection until the audit confirms the intended narrow delta.
