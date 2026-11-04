@@ -125,14 +125,15 @@ Current end-user restore duration in the low-to-mid 20-second range is accepted 
 
 ## Immediate roadmap
 
-1. Hold the statistics/history design session now and lock the historical fact model before coding it.
-2. Define weekly therapist workload history, including both occupied timeslots and active-session counts.
-3. Define finalized-day snapshot/event semantics so later schedule edits do not rewrite history.
-4. Define the first user-facing statistics/dashboard views and comparison periods.
-5. Implement the smallest persistent historical slice with tests before adding broader reports.
-6. Resume broader scheduling/UI work after the history contract is stable.
-7. Implement global multi-absence optimization and persistent special-service operating hours before replacements are considered complete.
-8. Revisit restore performance near completion.
+1. Close the H7 report-protection regression: run the 33 focused tests, create fresh BI from AZ only if green, perform the persisted read-only audit, then manually verify both reports and toolbar.
+2. Finish the read-only workbook-embedded VBA write-surface audit and reconcile it with the tracked Python/VBA map.
+3. Define per-sheet protection policy and approved human input ranges; preserve controlled macro/backend writes, dynamic sheet creation, save/rollback and report buttons.
+4. Implement and natively prove final worksheet protection on fresh disposable workbooks. This is a mandatory production-release gate.
+5. Implement the global multi-therapist-absence replacement optimizer and persistent pool/robotic operating-hour configuration before calling replacement quality complete.
+6. Reconcile the broader product roadmap against current code: patient 15-day progress/evaluation, patient/therapist search and profiles, doctor assignment/history, archive/reactivation flows, quick lists, intranet links, and portable pilot/exhibition packaging.
+7. Complete integrated regression, release packaging, backup/versioning and second-machine pilot validation.
+
+The H2-H7 history/statistics core is not waiting to be designed; it is implemented and functionally accepted. The active work is the H7 protection correction and then broader worksheet hardening. Restore performance remains deferred unless it regresses or final release polish requires it.
 
 ## Locked daily rules
 
