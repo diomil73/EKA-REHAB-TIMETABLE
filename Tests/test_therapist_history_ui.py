@@ -143,3 +143,23 @@ def test_native_installer_requires_technical_history_to_remain_very_hidden():
     assert '"DAY_HISTORY_EVENTS"' in source
     assert "if int(technical.Visible) != 2" in source
     assert "workbook.Save()" in source
+
+
+def test_report_cleanup_always_reprotects_sheet_after_render_failure():
+    source = THERAPIST_HISTORY_MODULE_CODE
+    cleanup = source.split("CleanUp:", 1)[1].split("ReportError:", 1)[0]
+    assert (
+        "If Not ws Is Nothing Then ws.Protect "
+        "DrawingObjects:=False, Contents:=True, Scenarios:=True"
+    ) in cleanup
+
+
+def test_therapist_report_installer_protects_blank_report_sheet_but_keeps_buttons_clickable():
+    source = inspect.getsource(install_therapist_history_report)
+    assert (
+        "report_ws.Protect(DrawingObjects=False, Contents=True, Scenarios=True)"
+    ) in source
+
+    installer_source = inspect.getsource(installer.install_therapist_history_ui)
+    assert "report_ws.ProtectContents" in installer_source
+    assert "report_ws.ProtectDrawingObjects" in installer_source
