@@ -1,6 +1,6 @@
 # Project Onboarding
 
-Last updated: 2026-10-20
+Last updated: 2026-11-04
 
 ## Purpose of this file
 
@@ -178,3 +178,10 @@ This means a newcomer no longer needs to read seven large files in sequence befo
 Documentation is part of implementation. In the same work cycle as a meaningful change, update the appropriate specialist source and, when the change affects the project-wide mental model, update this onboarding file too.
 
 Chat history is never the sole source of truth.
+
+
+## Current milestone update — 2026-11-04
+
+H7 patient/therapist history and statistics is now source-green and user-confirmed in fresh disposable BF. The integrated toolbar, retained RefreshAll action, both report surfaces and direct previous-screen navigation passed native manual use. See `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`.
+
+The next active hardening milestone is worksheet edit protection. Begin with the read-only BF protection inventory. Do not blanket-lock sheets until sanctioned input ranges and VBA/Python write paths are mapped. BF is frozen green smoke evidence, not production. Exact resume commands live in `Documentation/CURRENT_HANDOFF.md`.
