@@ -70,3 +70,45 @@ Native acceptance:
 - Test both statistics entry buttons, daily/weekly/monthly/overall and "← Προηγούμενη" direct return to THERAPIST_DAILY.
 - Verify registry 93 overlay, 16 zero rows and preserved 80 scheduled / 77 performed / 3 absences.
 - Final worksheet protection gate remains outstanding. BE and previous smokes remain untouched.
+
+## Operator verification update
+
+Operator ran the complete source gate and reported: `26 passed in 4.87s`.
+This confirms all 8 integrated toolbar tests, 3 previous-screen navigation tests, 10 therapist-history UI tests, and 5 patient-history UI tests passed on the current branch.
+
+## Immediate next operator step: create BF
+
+Excel must be fully closed. From repository root, run:
+```powershell
+python .\Python\tools\prepare_h7_integrated_ui_smoke.py `
+  --source ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm" `
+  --output ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BF preparation failed; freeze BF and do not retry/repair" }
+```
+
+The script SHA-256 verifies a fresh copy and runs, in order:
+1. `install_unified_day_save_ui.py`
+2. `install_therapist_history_ui.py`
+3. `install_patient_history_ui.py` (includes the RefreshAll migration)
+
+Expected installer evidence:
+- H6 day-save install succeeds and persisted reopen verifies.
+- H4 therapist history install succeeds and persisted reopen verifies.
+- H7 patient history install succeeds; RefreshAll is preserved, styled and placed on the main toolbar; both statistics buttons align after it; persisted reopen verifies.
+- Final message: `H7 INTEGRATED UI INSTALL OK`.
+
+**Critical stop rule:** If any installer fails, preserve BF as diagnostic and do not rerun an installer or overwrite BF. Report the full output.
+
+## After successful preparation
+
+Run independent read-only audit:
+```powershell
+python .\Python\tools\inspect_h7_integrated_ui.py `
+  ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BF integrated audit failed" }
+```
+Expected: `H7 INTEGRATED AUDIT OK; workbook not changed`, with toolbar order Back, Save & Exit, RefreshAll, therapist statistics, patient statistics. The audit also verifies Module3.RefreshAll and one canonical visible refresh control.
+
+Do not click RefreshAll until the read-only audit passes. Then test it once and inspect all six effects from Module3: RefreshTherapistDaily, RefreshTherapistAttendanceAndConflicts, BuildReplacementSuggestions_V4, ColorInfectiousInMaster, ColorReplacementMarks, RestoreReturnedTherapists. Verify no duplicate writes or unintended changes before further interaction.
+
+AZ and BE remain untouched. BF is a disposable smoke only, not production.
