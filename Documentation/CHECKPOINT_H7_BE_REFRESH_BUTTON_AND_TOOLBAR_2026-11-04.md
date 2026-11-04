@@ -65,3 +65,34 @@ Expect 18 passed, pending actual operator result. Refresh audit should show VBA 
 
 - Follow-up hardening: `Python/tools/audit_h7_refresh_control.py` commit `92dc866` safely handles shapes that do not expose a text frame; commit `8b85b3f` reads the nested caption property correctly. Use the latest pull before running.
 - Latest checkpoint update commit: this document update follows `8b85b3f`.
+
+## Operator RefreshAll audit result
+
+Operator ran the read-only audit on BE and reported:
+- Shape Button 1, macro RefreshAll.
+- VBA components: 64.
+- Exactly one source reference to RefreshAll (the procedure declaration).
+- Procedure exists in Module3.
+- Workbook connections 0, pivot caches 0, query tables 0, pivot tables 0.
+- Workbook unchanged; audit complete.
+
+**Interpretation:** no external query/pivot refresh dependency is visible. However, this is insufficient to classify the macro as unused: its body may call calculation, sheet refresh, rendering, or other helper procedures. Do not remove it based on connection counts.
+
+## Next read-only inspection
+
+Python/tools/audit_h7_refresh_control.py updated in commit 20b7510 to print the full Public Sub RefreshAll() body from Module3. Run with Excel closed after pull:
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+python .\Python\tools\audit_h7_refresh_control.py ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BE.xlsm"
+```
+
+Inspect full procedure before deciding retain/remove/relocate. Do not click RefreshAll. Do not alter BE.
+
+## Navigation test status
+
+The previous-screen test command was issued before the refresh audit. Operator shared the refresh audit output but not the pytest summary; because the PowerShell block included an exit guard, the subsequent audit running suggests the tests passed, but record the exact pytest output before claiming a confirmed pass count.
+
+## Future smoke
+
+Once source tests are confirmed and RefreshAll disposition decided, create a unique fresh BF from AZ using ordered H6+H4+H7 installers. H4/H7 buttons must be in same row as Save & Exit on THERAPIST_DAILY; both reports return directly to THERAPIST_DAILY. If legacy RefreshAll is retained, position/label it deliberately and prove its effect; if removed, delete only that exact orphan shape in the new fresh installer. Keep BE diagnostic and untouched.
