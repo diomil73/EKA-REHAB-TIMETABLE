@@ -473,7 +473,7 @@ Source correction has been committed:
 - `0fd7435`: protect blank patient report at install with positional COM args and verify both protection flags.
 - `61ebf11`: verify patient report protection in the install audit and persisted read-only reopen.
 
-Tests have **not** yet been run after these changes. Next, with Excel closed, pull and run the combined 33-test gate specified in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. Only if all 32 pass, create a fresh `BI` from trusted `AZ`, never from BH/BG/BF. Run the complete read-only audit. The expected state is that both patient and therapist report sheets are protected with DrawingObjects=False, while the four technical history sheets remain protected and veryHidden. Do not click-test or accept BI until that audit passes.
+Tests have **not** yet been run after these changes. Next, with Excel closed, pull and run the combined 33-test gate specified in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. Only if all 33 pass, create a fresh `BI` from trusted `AZ`, never from BH/BG/BF. Run the complete read-only audit. The expected state is that both patient and therapist report sheets are protected with DrawingObjects=False, while the four technical history sheets remain protected and veryHidden. Do not click-test or accept BI until that audit passes.
 
 Artifact ledger: AZ trusted/frozen; BF accepted/frozen; BG failed/frozen; BH failed/frozen due patient-report protection regression; BI next candidate, gated by 33 tests.
 
