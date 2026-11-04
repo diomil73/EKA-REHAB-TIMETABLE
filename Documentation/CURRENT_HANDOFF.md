@@ -271,3 +271,31 @@ Normal builds use only:
 ## User working preference
 
 Continue proactively without waiting for repeated `ok`. Ask for user action only when a genuinely local/native result is required. Keep detailed checkpoint notes for every meaningful outcome so a future conversation never needs to rediscover the same ground.
+
+
+## Latest checkpoint — 2026-11-04: H7 accepted, protection audit next
+
+H7 patient/therapist statistics and integrated toolbar are now **user-confirmed functional** on disposable BF:
+`Excel/previews/UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm`.
+
+Evidence:
+- 26 focused source tests passed in 4.87s.
+- BF independent read-only integrated audit passed.
+- User manually confirmed all functions worked correctly: toolbar placement, RefreshAll, both statistics reports, and direct return to THERAPIST_DAILY.
+- RefreshAll is retained; it invokes six operational procedures.
+- Both history report sheets are visible; technical history sheets remain veryHidden.
+
+Do not patch or reuse BF; it is frozen green smoke evidence, not production.
+
+**Current active task: final worksheet edit-protection hardening.**
+Read:
+- `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`
+- `Documentation/BACKLOG_FINAL_WORKSHEET_PROTECTION_2026-11-03.md`
+
+Next exact command after pull and with Excel closed:
+```powershell
+python -m pytest Tests/test_workbook_protection_audit.py -q
+python .\Python\tools\audit_workbook_protection.py `
+  ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm"
+```
+The new audit is read-only. Share full output. Do not implement blanket protection until each sheet's intended edit zones and macro/form write zones are mapped. Protecting sheets is the next milestone, but no Protect/Unprotect changes have yet been made.
