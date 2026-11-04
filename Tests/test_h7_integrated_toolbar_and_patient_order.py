@@ -47,6 +47,13 @@ def test_h7_entry_requires_h4_button_and_aligns_on_therapist_daily():
     assert "base_top = float(exit_button.Top)" in src
     assert "base_left = float(exit_button.Left) + float(exit_button.Width) + 8" in src
     assert 'shape.OnAction = PATIENT_REPORT_OPEN' in src
+    toolbar = inspect.getsource(install_patient_history_ui._normalize_statistics_toolbar)
+    assert 'REFRESH_NAV = "ekaToolbar_RefreshAll"' not in toolbar
+    assert 'source.Shapes.AddShape(5, left, top, REFRESH_WIDTH, 26)' in toolbar
+    assert 'legacy.Delete()' in toolbar
+    assert 'therapist.Left = float(canonical.Left) + float(canonical.Width) + 8' in toolbar
+    assert 'patient.Left = float(therapist.Left) + float(therapist.Width) + 8' in toolbar
+    assert 'shape.OnAction = REFRESH_MACRO' in inspect.getsource(install_patient_history_ui._style_refresh_button)
 
 
 def test_h7_reopen_audit_checks_no_daily_entry_or_overlap():
@@ -58,6 +65,9 @@ def test_h7_reopen_audit_checks_no_daily_entry_or_overlap():
     assert "statistics buttons misaligned" in src
     assert "navigation buttons overlap" in src
     assert "outside main application toolbar" in src
+    assert "RefreshAll toolbar binding/visibility mismatch" in src
+    assert "RefreshAll button is outside main toolbar row" in src
+    assert "Therapist statistics overlaps RefreshAll" in src
 
 
 def test_excel_patient_code_text_not_converted_to_number():
