@@ -8,7 +8,9 @@ import sys
 
 def _safe_shape_value(shape, attribute: str) -> str:
     try:
-        value = getattr(shape, attribute)
+        value = shape
+        for part in attribute.split("."):
+            value = getattr(value, part)
         return "" if value is None else str(value)
     except Exception:
         return ""
@@ -43,7 +45,7 @@ def audit(path: Path) -> int:
         for index in range(1, int(ws.Shapes.Count) + 1):
             shape = ws.Shapes(index)
             action = _safe_shape_value(shape, "OnAction")
-            caption = _safe_shape_value(shape, "TextFrame2")
+            caption = _safe_shape_value(shape, "TextFrame2.TextRange.Text")
             if "RefreshAll" in action or "ΑΝΑΝΕΩΣΗ" in caption:
                 print(
                     "REFRESH SHAPE:",
