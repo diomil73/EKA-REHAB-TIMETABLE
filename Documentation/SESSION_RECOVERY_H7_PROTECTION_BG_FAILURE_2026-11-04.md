@@ -166,3 +166,85 @@ The operator has already received the PowerShell safety-stop after BG failure. N
 The operator has now run the current focused suite and confirmed: **15 passed in 4.11s**. This supersedes the earlier statement in Section 3 that the latest 15-test result was pending. The source test gate is GREEN and the next native smoke is now authorized.
 
 Next action: create a fresh `BH` from trusted `AZ` using the command in Section 4. Excel must be closed. Confirm the destination does not already exist. Do not use BG or BF as a source/destination. If BH preparation fails for any reason, freeze BH and stop. If it succeeds, run the read-only protection audit on BH and return its complete output before manual interaction.
+
+## 9. Latest native result — BH frozen due patient-report protection regression (2026-11-04)
+
+Operator supplied the complete read-only audit for:
+`Excel/previews/UNIFIED_PATIENT_HISTORY_H7_20261104_BH.xlsm`.
+
+Audit facts:
+- ReadOnly=True; 23 worksheets; ProtectStructure=False; ProtectWindows=False.
+- Workbook unchanged=True; audit completed.
+- `THERAPIST_HISTORY_REPORT`: ProtectContents=True, ProtectDrawingObjects=False. This resolves the narrow BG failure at the persisted protection-state level; button visibility/OnAction was also checked by the installer, but native manual clicks have not yet been tested.
+- Four technical history sheets remain protected and Visible=2 (veryHidden).
+- **Regression:** `PATIENT_HISTORY_REPORT` reports ProtectContents=False and ProtectDrawingObjects=False. BF's accepted audit baseline had PATIENT_HISTORY_REPORT protected.
+- Therefore BH fails the expected narrow-delta acceptance. Do not manually use, repair, or overwrite BH. Freeze it as failed evidence. Do not touch BF or AZ.
+
+### Proven source-level cause
+
+The regression is in the patient report installer, not in the therapist report protection code:
+
+1. `Python/rehab_excel/patient_history_report_vba.py`, function `install_patient_report_components`, calls `report.Unprotect()`.
+2. It clears the report and installs/positions the navigation UI.
+3. It returns without re-protecting the blank report sheet.
+4. `Python/tools/install_patient_history_ui.py`, function `_audit`, checked report visibility and toolbar wiring but did not check `ProtectContents` or `ProtectDrawingObjects`.
+
+The patient report VBA renderer does protect the sheet after rendering and in its cleanup path. That does not protect the blank report immediately after a fresh install. BF's earlier manual report use caused the renderer to re-protect the sheet, masking this installer gap.
+
+### Source correction committed after BH audit
+
+- `81a8615`: added two regression tests in `Tests/test_patient_history_ui_h7.py` requiring installer-time protection and persisted-audit verification.
+- `0fd7435`: `install_patient_report_components` now calls `report.Protect("", False, True, True)` after UI setup and verifies `ProtectContents=True`, `ProtectDrawingObjects=False`.
+- `61ebf11`: `install_patient_history_ui._audit` now verifies the patient report protection state on both the writable pre-save audit and the separate read-only persisted reopen.
+
+These are source changes only. **The tests have not yet been run by the operator.** Do not create another workbook until the combined source gate is green.
+
+### Next source gate
+
+With Excel closed, pull the branch and run:
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest Tests/test_therapist_history_ui.py Tests/test_patient_history_ui_h7.py Tests/test_h7_integrated_toolbar_and_patient_order.py Tests/test_h7_history_previous_screen_navigation.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H7 report protection regression tests failed" }
+```
+
+Expected: **32 passed** (15 therapist UI + 6 patient UI + 8 integrated toolbar/patient-order + 3 previous-screen navigation tests). If the count differs or any test fails, stop and diagnose; do not prepare a workbook.
+
+### Next native smoke after green source gate
+
+Use trusted AZ as the source and a new unique destination **BI**, never BH/BG/BF:
+
+```powershell
+$source = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$output = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H7_20261104_BI.xlsm"
+
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $output) { throw "SAFETY STOP: BI already exists; do not overwrite" }
+
+python .\\Python\\tools\\prepare_h7_integrated_ui_smoke.py --source $source --output $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BI preparation failed; freeze BI" }
+
+python .\\Python\\tools\\audit_workbook_protection.py $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BI read-only audit failed" }
+```
+
+Expected audit:
+- `THERAPIST_HISTORY_REPORT`: ProtectContents=True; ProtectDrawingObjects=False.
+- `PATIENT_HISTORY_REPORT`: ProtectContents=True; ProtectDrawingObjects=False.
+- All five report sheets/buttons and navigation remain visible/bound as applicable.
+- Four technical history sheets remain protected and veryHidden.
+- All other worksheet protection states match the AZ/BF intended baseline; no unrelated changes.
+- Workbook unchanged=True.
+
+Only after this complete read-only audit passes may native manual clicks begin. Verify both report entry points, all four modes for each report, all mode buttons, previous-screen navigation, RefreshAll and existing application toolbar. Do not begin broad protection of the other sheets until this integrated H7 slice is accepted and the full write-path map is reconciled.
+
+### Current artifact ledger
+- AZ: trusted source, frozen, untouched.
+- BF: accepted green native evidence, frozen, untouched.
+- BG: failed therapist-report protection smoke, frozen.
+- BH: therapist report protection now correct, but patient report protection regressed; frozen failed evidence.
+- BI: next candidate only after the 32-test source gate passes.
+
