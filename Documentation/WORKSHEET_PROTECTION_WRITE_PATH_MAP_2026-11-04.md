@@ -165,3 +165,40 @@ After the operator's initial 12 focused tests passed, the native therapist-histo
 - `870c1db`: regression test requires the separate read-only reopen and persisted protection audit.
 
 This closes the gap between checking COM properties before save and proving the protection state survived persistence. It still does not protect any of the other 17 unprotected worksheets.
+
+## BG failure and second implementation correction — 2026-11-04
+
+The first BG attempt is frozen as failed evidence:
+`Excel/previews/UNIFIED_PATIENT_HISTORY_H7_20261104_BG.xlsm`.
+The integrated preparation stopped at therapist report installation with `Therapist-history report buttons must remain clickable`. Do not reopen for editing, repair, overwrite, or reuse BG. AZ and BF remain unchanged.
+
+The focused test run was `12 passed, 1 failed`. The sole failure was a stale source-inspection assertion: it expected technical sheet names directly inside `install_therapist_history_ui`, although that function delegates to `_audit_persisted`. Corrected the test to inspect the helper, rather than moving the verification back into the entry point.
+
+New source changes:
+- `03f6afb`: use explicit positional Excel COM arguments `report_ws.Protect("", False, True, True)` rather than keyword arguments, explicitly unprotect with empty password, verify the sheet is unprotected before rebuilding, and include observed `ProtectContents` / `ProtectDrawingObjects` values in any failure.
+- `d8e8418`: persisted audit reports the exact two protection flags and verifies all five report buttons are visible and have an OnAction binding.
+- `27339cf`, `5beda80`: update regression tests for helper placement and positional COM protection.
+- `fd551a3`, `5c766ff`: verify all four technical history sheets remain veryHidden, including `PATIENT_SESSION_HISTORY`.
+
+The positional COM call is a targeted attempt to eliminate any named-argument dispatch ambiguity. The next native smoke is not authorized until all 15 focused tests pass. If the native installer still reports a bad protection state, its new error message will disclose the exact observed property values. Do not proceed by suppressing the check or by protecting drawing objects just to make the installer pass.
+
+Next gate:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest Tests/test_therapist_history_ui.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Therapist report tests failed" }
+```
+Expected: `15 passed`.
+
+Only if green, create a new `BH` from trusted `UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`, never from BG:
+```powershell
+$source = ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$output = ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BH.xlsm"
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $output) { throw "SAFETY STOP: BH exists; do not overwrite" }
+python .\Python\tools\prepare_h7_integrated_ui_smoke.py --source $source --output $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BH preparation failed; freeze BH" }
+```
+If BH preparation succeeds, run the read-only protection audit on BH. Expected delta remains limited to therapist report sheet: `ProtectContents=True`, `ProtectDrawingObjects=False`; all four technical sheets veryHidden; all five report buttons visible and bound. Then manual-click tests. No broad sheet protection yet.
