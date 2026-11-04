@@ -12,15 +12,16 @@ PROCEDURE = re.compile(
     re.IGNORECASE,
 )
 WRITE_LINE = re.compile(
-    r"\.\s*(?:Unprotect|Protect|Value2?|Formula|ClearContents|Clear|Delete|Insert|Add|"
-    r"PasteSpecial|Copy|Locked|Visible|ScrollArea)\b"
-    r'|\b(?:Worksheets|Sheets)\s*\('
+    r"\.\s*(?:Unprotect|Protect|Value2?|Formula|NumberFormat|Font|Interior|Borders|"
+    r"FormatConditions|Validation|ClearContents|Clear|Delete|Insert|Add|PasteSpecial|Copy|"
+    r"Locked|Visible|Hidden|ScrollArea|EnableSelection|ColumnWidth|RowHeight|Name|OnAction)\b"
+    r"|\b(?:Worksheets|Sheets)\s*\("
     r"|\b(?:ThisWorkbook|ActiveWorkbook)\.(?:Save|SaveAs)\b"
     r"|\bDestination\s*:",
     re.IGNORECASE,
 )
-MAX_MATCHES_PER_COMPONENT = 180
-MAX_TOTAL_MATCHES = 2400
+MAX_MATCHES_PER_COMPONENT = 200
+MAX_TOTAL_MATCHES = 3000
 
 
 def _matches(lines: list[str]) -> list[tuple[int, str, str]]:
