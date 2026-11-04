@@ -34,10 +34,19 @@ def _audit_persisted(workbook) -> None:
         report_ws = workbook.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
         if int(report_ws.Visible) != -1:
             raise TherapistHistoryUiInstallError("Therapist-history report sheet is not visible")
-        if not bool(report_ws.ProtectContents):
-            raise TherapistHistoryUiInstallError("Therapist-history report contents are not protected")
-        if bool(report_ws.ProtectDrawingObjects):
-            raise TherapistHistoryUiInstallError("Therapist-history report buttons must remain clickable")
+        protect_contents = bool(report_ws.ProtectContents)
+        protect_objects = bool(report_ws.ProtectDrawingObjects)
+        if not protect_contents or protect_objects:
+            raise TherapistHistoryUiInstallError(
+                "Persisted therapist-history report protection state is invalid "
+                f"(ProtectContents={protect_contents}, ProtectDrawingObjects={protect_objects})"
+            )
+        for button_name in ("ekaHistory_Daily", "ekaHistory_Weekly", "ekaHistory_Monthly", "ekaHistory_Overall", "ekaHistory_Back"):
+            shape = report_ws.Shapes(button_name)
+            if not bool(shape.Visible) or not str(shape.OnAction).strip():
+                raise TherapistHistoryUiInstallError(
+                    f"Therapist-history report button is not available: {button_name}"
+                )
     except TherapistHistoryUiInstallError:
         raise
     except Exception as exc:
