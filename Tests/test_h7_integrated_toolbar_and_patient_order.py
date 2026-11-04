@@ -77,6 +77,7 @@ def test_integrated_read_only_audit_requires_refresh_button_before_statistics():
     from tools import inspect_h7_integrated_ui
 
     src = inspect.getsource(inspect_h7_integrated_ui.inspect)
+    assert '"Module3", "Public Sub RefreshAll()"' in src
     assert '"ekaToolbar_RefreshAll"' in src
     assert '"RefreshAll"' in src
     assert '"ΑΝΑΝΕΩΣΗ"' in src
