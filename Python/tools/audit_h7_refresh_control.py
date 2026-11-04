@@ -6,6 +6,14 @@ import re
 import sys
 
 
+def _safe_shape_value(shape, attribute: str) -> str:
+    try:
+        value = getattr(shape, attribute)
+        return "" if value is None else str(value)
+    except Exception:
+        return ""
+
+
 def audit(path: Path) -> int:
     """Read-only inspection of RefreshAll assignment, VBA source and refresh dependencies."""
     if sys.platform != "win32" or not path.is_file() or path.suffix.lower() != ".xlsm":
@@ -34,12 +42,13 @@ def audit(path: Path) -> int:
         matches = []
         for index in range(1, int(ws.Shapes.Count) + 1):
             shape = ws.Shapes(index)
-            action = str(shape.OnAction or "")
-            if "RefreshAll" in action or "ΑΝΑΝΕΩΣΗ" in str(shape.TextFrame2.TextRange.Text):
+            action = _safe_shape_value(shape, "OnAction")
+            caption = _safe_shape_value(shape, "TextFrame2")
+            if "RefreshAll" in action or "ΑΝΑΝΕΩΣΗ" in caption:
                 print(
                     "REFRESH SHAPE:",
                     f"name={shape.Name!s}",
-                    f"caption={str(shape.TextFrame2.TextRange.Text)!r}",
+                    f"caption={caption!r}",
                     f"type={int(shape.Type)}",
                     f"macro={action!r}",
                 )
