@@ -189,6 +189,6 @@ The active hardening milestone is H7 report-protection correction followed by wo
 
 ## Current exact recovery pointer — 2026-11-04
 
-The latest active work is the integrated H7 report-protection correction after BG and BH failed native smokes. BF is accepted/frozen; AZ is the trusted source; BG and BH are frozen failed evidence. The patient report installer regression has been isolated and source changes are committed, but the combined 33-test gate is still pending. Do not create another smoke until it passes. For exact commands, commit context, artifact handling and read order, start with:
+The latest active work is the integrated H7 report-protection correction after BG and BH failed native smokes. BF is accepted/frozen; AZ is the trusted source; BG and BH are frozen failed evidence. The patient report installer regression has been corrected in source and the combined 33-test gate is green (33 passed in 4.13s). The next authorized native candidate is BI from AZ, followed by a complete read-only audit before any manual use. For exact commands, commit context, artifact handling and read order, start with:
 `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`
 then read `Documentation/CURRENT_HANDOFF.md`. Do not rely on chat history to reconstruct this state.
