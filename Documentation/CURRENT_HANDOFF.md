@@ -1,15 +1,17 @@
 # Current Handoff
 
-Last updated: 2026-11-01
+Last updated: 2026-11-04
 
 ## Mandatory read order for any new conversation or developer
 
 1. `Documentation/ONBOARDING.md`
-2. `Documentation/PROJECT_CONTINUITY_MASTER_2026-11-01.md`
-3. this file
-4. the newest dated recovery checkpoint from 2026-11-01
+2. `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md` for the latest exact gate and frozen-artifact ledger
+3. this file, especially the final **AUTHORITATIVE LATEST RESUME** section
+4. `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`
+5. `Documentation/WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md`
+6. `Documentation/PROJECT_STATUS.md` for the current milestone and remaining roadmap
 
-The master continuity document is authoritative for product goals, safety rules, architecture, recovery history, failed approaches, proven behavior, and exact resume procedure.
+The dated H7 recovery packet and final authoritative resume section supersede older historical instructions earlier in this long handoff. Older sections remain as chronology, not as current commands.
 
 ## Current branch
 
