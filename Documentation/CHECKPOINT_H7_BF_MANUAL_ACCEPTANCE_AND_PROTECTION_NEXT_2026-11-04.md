@@ -124,3 +124,20 @@ The initial focused suite passed (12 passed in 3.69s). Before the next native sm
 - `870c1db`: regression test for the persisted read-only audit.
 
 Because this is a new source change, rerun the focused test suite after pulling; expected count is now 13. If green, prepare a new `BG` from the trusted `H6_20261103_AZ` source with `prepare_h7_integrated_ui_smoke.py`. Do not use BF as input or output and do not overwrite any existing artifact. Then run the read-only protection inventory on BG and manually verify therapist report navigation and all four report modes. BF remains frozen green acceptance evidence.
+
+
+## Latest authoritative continuation — BG failed; BH not yet authorized (2026-11-04)
+
+The first BG attempt is frozen failed evidence. Its preparation stopped with `Therapist-history report buttons must remain clickable`. Do not edit, repair, reuse, reopen for modification, or overwrite BG. BF remains accepted frozen evidence; AZ remains trusted source. Neither may be modified.
+
+After that failure:
+- Updated installer to use explicit positional COM arguments: `Protect("", False, True, True)`.
+- Added explicit Unprotect state checks and diagnostic output showing actual ProtectContents / ProtectDrawingObjects values.
+- Persisted audit now verifies each of five report buttons is visible and has a non-empty OnAction binding.
+- Persisted audit checks all four technical history sheets remain veryHidden.
+- Corrected source tests to inspect the persisted-audit helper rather than assuming implementation details remain in the installer entry point.
+
+Current focused test count is 15. The latest 15-test suite has NOT YET been run by the operator. Pull and run it before any new workbook preparation. Only after 15 passed may a new BH be created from AZ. The exact commands and complete safety rules are in:
+`Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
+
+Do not broaden protection to the other 17 sheets. Do not assume the root cause of BG until a native rerun reports the actual COM protection flags.
