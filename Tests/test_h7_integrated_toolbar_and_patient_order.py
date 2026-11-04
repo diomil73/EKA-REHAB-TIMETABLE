@@ -48,7 +48,8 @@ def test_h7_entry_requires_h4_button_and_aligns_on_therapist_daily():
     assert "base_left = float(exit_button.Left) + float(exit_button.Width) + 8" in src
     assert 'shape.OnAction = PATIENT_REPORT_OPEN' in src
     toolbar = inspect.getsource(install_patient_history_ui._normalize_statistics_toolbar)
-    assert 'REFRESH_NAV = "ekaToolbar_RefreshAll"' not in toolbar
+    assert "REFRESH_NAV" in toolbar
+    assert "Expected exactly one legacy RefreshAll control" in toolbar
     assert 'source.Shapes.AddShape(5, left, top, REFRESH_WIDTH, 26)' in toolbar
     assert 'legacy.Delete()' in toolbar
     assert 'therapist.Left = float(canonical.Left) + float(canonical.Width) + 8' in toolbar
@@ -69,6 +70,18 @@ def test_h7_reopen_audit_checks_no_daily_entry_or_overlap():
     assert "RefreshAll button is outside main toolbar row" in src
     assert "Therapist statistics overlaps RefreshAll" in src
 
+
+
+def test_integrated_read_only_audit_requires_refresh_button_before_statistics():
+    import inspect
+    from tools import inspect_h7_integrated_ui
+
+    src = inspect.getsource(inspect_h7_integrated_ui.inspect)
+    assert '"ekaToolbar_RefreshAll"' in src
+    assert '"RefreshAll"' in src
+    assert '"ΑΝΑΝΕΩΣΗ"' in src
+    assert '"Duplicate or legacy RefreshAll control remains"' in src
+    assert '"Therapist statistics overlaps RefreshAll"' in src
 
 def test_excel_patient_code_text_not_converted_to_number():
     assert 'ws.Columns("C").NumberFormat = "@"' in PATIENT_REPORT_VBA
