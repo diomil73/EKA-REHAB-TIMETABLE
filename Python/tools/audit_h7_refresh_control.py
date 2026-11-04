@@ -30,6 +30,7 @@ def audit(path: Path) -> int:
     excel = None
     workbook = None
     errors = []
+    procedure_found = False
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
@@ -58,7 +59,6 @@ def audit(path: Path) -> int:
         try:
             components = workbook.VBProject.VBComponents
             print("VBA component count:", int(components.Count))
-            procedure_found = False
             for index in range(1, int(components.Count) + 1):
                 component = components.Item(index)
                 module = component.CodeModule
