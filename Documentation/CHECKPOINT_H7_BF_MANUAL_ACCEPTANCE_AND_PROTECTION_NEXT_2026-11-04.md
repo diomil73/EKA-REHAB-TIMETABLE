@@ -116,3 +116,11 @@ Important discovery: `THERAPIST_HISTORY_REPORT` is visible, blank (UsedRange A1)
 No native workbook has been changed by these source edits. BF remains frozen. Next: pull and run `python -m pytest Tests/test_therapist_history_ui.py -q`. If green, prepare a uniquely named fresh H7 protection smoke and verify blank-sheet protection, report refresh in all modes, clickable buttons, and error cleanup. Do not yet implement broad protection for the other 17 sheets; intended user-entry zones and all write paths must be reconciled first.
 
 The VBA scanner's 1,146 matching lines across 64 components are lexical candidates, not 1,146 proven writes. It includes sheet references, reads, formatting, visibility and protection properties. Use the full audit output for semantic classification, not direct unlock-range decisions.
+
+## Therapist report installer persisted-state verification — 2026-11-04
+
+The initial focused suite passed (12 passed in 3.69s). Before the next native smoke, strengthened the installer:
+- `5c3aaea`: after installation and save, close Excel and reopen the workbook in a separate `ReadOnly=True` session; verify the VBA module, visible report sheet, `ProtectContents=True`, `ProtectDrawingObjects=False`, navigation binding/visibility, and veryHidden technical sheets.
+- `870c1db`: regression test for the persisted read-only audit.
+
+Because this is a new source change, rerun the focused test suite after pulling; expected count is now 13. If green, prepare a new `BG` from the trusted `H6_20261103_AZ` source with `prepare_h7_integrated_ui_smoke.py`. Do not use BF as input or output and do not overwrite any existing artifact. Then run the read-only protection inventory on BG and manually verify therapist report navigation and all four report modes. BF remains frozen green acceptance evidence.
