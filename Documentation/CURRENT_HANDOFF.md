@@ -409,3 +409,47 @@ python -m pytest Tests/test_therapist_history_ui.py -q
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Therapist report tests failed" }
 ```
 Expected 15 passed. Only then create new `BH` from AZ (not BG), with unique destination `UNIFIED_PATIENT_HISTORY_H7_20261104_BH.xlsm`. Freeze BH on any failure. Do not suppress the button/protection assertion. New error text will include actual ProtectContents and ProtectDrawingObjects values. No broad protection implementation until this targeted report protection passes.
+
+
+## AUTHORITATIVE LATEST RESUME — 2026-11-04: BG failed, 15-test gate pending
+
+For a new conversation, first read:
+1. `Documentation/ONBOARDING.md`
+2. `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md` (exact state, safety rules, commands)
+3. This file
+4. `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`
+5. `Documentation/WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md`
+
+This dated checkpoint supersedes earlier sections above wherever they still say BG is the next smoke or that only a 13-test gate is required.
+
+Current state:
+- BF is accepted, green, frozen evidence. Do not patch/reuse.
+- AZ is the trusted source workbook. Do not modify.
+- BG is a failed, frozen smoke. Preparation stopped at therapist report protection verification. Do not reopen, repair, reuse, or overwrite.
+- Only the blank visible THERAPIST_HISTORY_REPORT protection slice is in scope. No broad worksheet protection.
+- Latest source gate contains 15 tests and has NOT YET BEEN rerun after the latest COM/test corrections.
+
+Immediate next operator action, with Excel closed:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest Tests/test_therapist_history_ui.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Therapist history tests failed" }
+```
+Expected 15 passed. Do not prepare any workbook unless all 15 pass.
+
+Only after green, create a new BH from AZ (never from BG, never over BF):
+```powershell
+$source = ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$output = ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BH.xlsm"
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $output) { throw "SAFETY STOP: BH exists; do not overwrite" }
+python .\Python\tools\prepare_h7_integrated_ui_smoke.py --source $source --output $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BH preparation failed; freeze BH" }
+```
+Then run read-only protection audit on BH and manually verify report entry, all four modes, five report buttons and return navigation. Expected therapist report state: ProtectContents=True and ProtectDrawingObjects=False. All four technical history sheets must remain veryHidden. If BH fails, freeze it and stop.
+
+The actual COM root cause of BG has not yet been established. The latest implementation uses positional Excel COM Protect arguments and reports observed ProtectContents / ProtectDrawingObjects values. Do not suppress the assertion or protect drawing objects to make it pass.
+
+Full recovery packet: `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
