@@ -147,9 +147,21 @@ def audit(path: Path) -> int:
                 f"ProtectScenarios={scenarios}",
                 f"EnableSelection={selection_label(int(enable_selection)) if enable_selection is not None else 'UNKNOWN'}",
                 f"UsedRange={str(used.Address)}",
-                f"UsedRange.Locked={locked_label}",
                 f"UsedCells={count}",
             )
+            print("UsedRange.Locked:", locked_label)
+
+            protection = _safe_value(ws, "Protection")
+            if protection is not None:
+                for option in (
+                    "AllowFormattingCells", "AllowFormattingColumns", "AllowFormattingRows",
+                    "AllowInsertingColumns", "AllowInsertingRows", "AllowInsertingHyperlinks",
+                    "AllowDeletingColumns", "AllowDeletingRows", "AllowSorting",
+                    "AllowFiltering", "AllowUsingPivotTables",
+                ):
+                    value = _safe_value(protection, option)
+                    if value is not None:
+                        print(f"  {option}={bool(value)}")
 
             if contents is not True:
                 print(f"  SAFETY FINDING: worksheet cell contents are not protected ({name})")
@@ -171,18 +183,6 @@ def audit(path: Path) -> int:
             if not complete:
                 incomplete.append(name)
                 print(f"  SCAN INCOMPLETE: {name}")
-
-            protection = _safe_value(ws, "Protection")
-            if protection is not None:
-                for option in (
-                    "AllowFormattingCells", "AllowFormattingColumns", "AllowFormattingRows",
-                    "AllowInsertingColumns", "AllowInsertingRows", "AllowInsertingHyperlinks",
-                    "AllowDeletingColumns", "AllowDeletingRows", "AllowSorting",
-                    "AllowFiltering", "AllowUsingPivotTables",
-                ):
-                    value = _safe_value(protection, option)
-                    if value is not None:
-                        print(f"  {option}={bool(value)}")
 
         print("Workbook unchanged: True")
         if incomplete:
