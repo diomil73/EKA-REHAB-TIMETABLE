@@ -10,6 +10,7 @@ def test_vba_write_surface_scan_finds_sheet_references_and_mutations():
         "ws.Cells(rowIndex, 3).Value = displayName",
         "ws.Unprotect",
         "ws.Protect",
+        'ws.Range("A1").ClearContents',
         "End Sub",
     ]
     matches = module._matches(lines)
