@@ -299,3 +299,9 @@ python .\Python\tools\audit_workbook_protection.py `
   ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm"
 ```
 The new audit is read-only. Share full output. Do not implement blanket protection until each sheet's intended edit zones and macro/form write zones are mapped. Protecting sheets is the next milestone, but no Protect/Unprotect changes have yet been made.
+
+## Protection audit follow-up — 2026-11-04
+
+The first five-test run had 4 passed, 1 failed because the test expected an explicit `"UsedRange.Locked"` source literal. The audit already queried the value; diagnostic output is now a dedicated `UsedRange.Locked:` label. Protection allowance reporting now runs for every worksheet. Fix commit: `1d65d90`.
+
+Operator also issued the read-only audit command but did not paste its output. Do not infer results. Pull `1d65d90`, rerun `python -m pytest Tests/test_workbook_protection_audit.py -q`, then rerun the read-only audit on frozen BF and provide the full output. No sheet protection changes yet.
