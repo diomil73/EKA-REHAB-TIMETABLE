@@ -479,3 +479,38 @@ Tests have **not** yet been run after these changes. Next, with Excel closed, pu
 
 Artifact ledger: AZ trusted/frozen; BF accepted/frozen; BG failed/frozen; BH failed/frozen due patient-report protection regression; BI next candidate, gated by 33 tests.
 
+## AUTHORITATIVE LATEST RESUME — 2026-11-04: 33-test gate GREEN; BI next
+
+Operator confirmed the combined H7 protection regression gate: **33 passed in 4.13s**.
+
+The verified breakdown from the four current test files is 15 therapist UI + 7 patient UI + 8 integrated toolbar/patient-order + 3 previous-screen navigation = 33. This corrects the stale 32-test breakdown in the recovery packet's earlier section; the latest exact test result is authoritative.
+
+Next, with Excel closed:
+1. Pull the latest `work/history-statistics-rebuild` branch.
+2. Create fresh `UNIFIED_PATIENT_HISTORY_H7_20261104_BI.xlsm` from trusted `UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`.
+3. Refuse an existing BI destination. Do not use BG/BH/BF.
+4. Run the complete read-only protection audit against BI.
+5. Do not manually interact with BI unless the entire audit passes.
+
+Exact PowerShell commands:
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+$source = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$output = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H7_20261104_BI.xlsm"
+
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $output) { throw "SAFETY STOP: BI already exists; do not overwrite" }
+
+python .\\Python\\tools\\prepare_h7_integrated_ui_smoke.py --source $source --output $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BI preparation failed; freeze BI" }
+
+python .\\Python\\tools\\audit_workbook_protection.py $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BI read-only audit failed; freeze BI" }
+```
+
+Expected: both `THERAPIST_HISTORY_REPORT` and `PATIENT_HISTORY_REPORT` have `ProtectContents=True` and `ProtectDrawingObjects=False`; all four technical history sheets remain protected and veryHidden; no unrelated worksheet protection changes; audit reports `ReadOnly: True` and `Workbook unchanged: True`.
+
+If BI preparation or audit fails, freeze BI and share the complete output. If the read-only audit passes, then perform the manual integrated report/toolbar acceptance. No broad protection of other worksheets is authorized yet.
