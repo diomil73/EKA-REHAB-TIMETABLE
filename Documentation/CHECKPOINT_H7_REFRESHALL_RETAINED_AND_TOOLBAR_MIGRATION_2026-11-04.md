@@ -112,3 +112,36 @@ Expected: `H7 INTEGRATED AUDIT OK; workbook not changed`, with toolbar order Bac
 Do not click RefreshAll until the read-only audit passes. Then test it once and inspect all six effects from Module3: RefreshTherapistDaily, RefreshTherapistAttendanceAndConflicts, BuildReplacementSuggestions_V4, ColorInfectiousInMaster, ColorReplacementMarks, RestoreReturnedTherapists. Verify no duplicate writes or unintended changes before further interaction.
 
 AZ and BE remain untouched. BF is a disposable smoke only, not production.
+
+## Operator native BF audit result
+
+Operator ran the independent read-only audit on:
+`Excel/previews/UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm`
+
+Exact reported outcome:
+- ReadOnly=True; `H7 INTEGRATED AUDIT OK; workbook not changed`.
+- MASTER SaveDay macro remains `SaveOperationalDay`, at left=434, top=11; ExitRight=426.
+- THERAPIST_DAILY RefreshAll macro binding is `RefreshAll`, left=170, top=563.6, width=92; caption exactly `ΑΝΑΝΕΩΣΗ`.
+- Therapist report macro `OpenTherapistHistoryReport`, left=270, top=563.6.
+- Patient report macro `OpenPatientHistoryReport`, left=424, top=563.6.
+- VBA components Module3, modUnifiedDaySave, modTherapistHistoryReport, modPatientHistoryReport all present.
+- Both report sheets visible; all technical history sheets veryHidden.
+- No audit failure.
+
+**BF integrated installation and read-only audit are GREEN.** This is still a disposable smoke workbook, not production and not a release freeze.
+
+## Next native manual test sequence (BF only)
+
+Open `UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm` in Excel. Do not use production workbook.
+
+1. Visually confirm same-row toolbar order: `← MASTER`, `Save & Exit`, `ΑΝΑΝΕΩΣΗ`, `Στατιστικά θεραπευτών`, `Στατιστικά ασθενών`.
+2. Click patient statistics. Confirm report opens, review all four modes (daily, weekly, monthly, overall), and confirm the new `← Προηγούμενη` button returns directly to THERAPIST_DAILY.
+3. Click therapist statistics. Confirm report opens and `← Προηγούμενη` returns directly to THERAPIST_DAILY.
+4. Only after report navigation succeeds, click `ΑΝΑΝΕΩΣΗ` once. Expect the original `RefreshAll` six calls and completion message `Όλα ενημερώθηκαν.`. Record any error or unexpected change; do not repeatedly click if any effect is unclear.
+5. Verify the daily therapist sheet remains usable and the two statistics buttons remain visible/aligned after refresh.
+
+Do not click `Save & Exit` or `SaveOperationalDay` as part of this H7 toolbar test. Do not finalize/amend a day. The refresh test is isolated from day finalization.
+
+If any error occurs, close BF without saving if safe, preserve the file as diagnostic, and report exact message/screenshot. Do not rerun installers on BF.
+
+After manual pass, next gates: rerun read-only integrated audit after Excel is closed; then focused historical coverage/report-mode checks; final protection/editability audit remains a release gate.
