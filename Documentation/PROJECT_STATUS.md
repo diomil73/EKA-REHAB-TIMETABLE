@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-10-20
+Last updated: 2026-11-04
 
 ## Entry point
 
@@ -151,3 +151,12 @@ Capacity is timeslot-based. Existing displaced patients precede new patients. MA
 ## Documentation discipline
 
 `Documentation/ONBOARDING.md` is the single front door. Specialist files keep their own source-of-truth roles. Meaningful changes must update the relevant specialist document in the same cycle, and ONBOARDING when the project-wide mental model changes.
+
+
+## Latest milestone update — 2026-11-04
+
+- H7 patient/therapist history/statistics: **source GREEN and native manual acceptance confirmed** on disposable BF.
+- Integrated toolbar includes retained RefreshAll, therapist statistics, patient statistics, with direct return navigation from both reports.
+- BF independent read-only integrated audit passed; BF remains frozen smoke evidence, not production.
+- Next active milestone: final worksheet edit-protection hardening, beginning with a read-only protection inventory. No new sheet protection has yet been applied.
+- Exact status and resume path: `Documentation/CURRENT_HANDOFF.md` and `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`.
