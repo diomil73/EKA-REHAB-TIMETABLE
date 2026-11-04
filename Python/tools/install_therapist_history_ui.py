@@ -61,7 +61,7 @@ def _audit_persisted(workbook) -> None:
     except Exception as exc:
         raise TherapistHistoryUiInstallError("Therapist-history navigation button was not confirmed") from exc
 
-    for technical_name in ("FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY", "DAY_HISTORY_EVENTS"):
+    for technical_name in ("FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY", "PATIENT_SESSION_HISTORY", "DAY_HISTORY_EVENTS"):
         try:
             technical = workbook.Worksheets(technical_name)
         except Exception as exc:
