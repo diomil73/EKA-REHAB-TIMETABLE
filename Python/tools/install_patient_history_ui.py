@@ -121,6 +121,13 @@ def _audit(workbook) -> None:
     source = code.Lines(1, code.CountOfLines)
     if "Public Sub OpenPatientHistoryReport()" not in source:
         raise PatientHistoryUiInstallError("Persisted patient report VBA missing")
+    try:
+        refresh_code = workbook.VBProject.VBComponents("Module3").CodeModule
+        refresh_source = str(refresh_code.Lines(1, refresh_code.CountOfLines))
+    except Exception as exc:
+        raise PatientHistoryUiInstallError("RefreshAll VBA module is unavailable") from exc
+    if "Public Sub RefreshAll()" not in refresh_source:
+        raise PatientHistoryUiInstallError("RefreshAll VBA procedure is missing")
     report = workbook.Worksheets(PATIENT_REPORT_SHEET)
     if int(report.Visible) != -1:
         raise PatientHistoryUiInstallError("Patient report is not visible")
