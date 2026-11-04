@@ -248,3 +248,43 @@ Only after this complete read-only audit passes may native manual clicks begin. 
 - BH: therapist report protection now correct, but patient report protection regressed; frozen failed evidence.
 - BI: next candidate only after the 33-test source gate passes.
 
+## 10. Latest operator confirmation — 33-test gate GREEN; BI authorized (2026-11-04)
+
+The operator has now confirmed the exact combined command completed with **33 passed in 4.13s**. This supersedes the earlier pending-test statements and the stale expected count of 32 above.
+
+The current test-file breakdown, verified from tracked source, is:
+- `Tests/test_therapist_history_ui.py`: 15 tests
+- `Tests/test_patient_history_ui_h7.py`: 7 tests
+- `Tests/test_h7_integrated_toolbar_and_patient_order.py`: 8 tests
+- `Tests/test_h7_history_previous_screen_navigation.py`: 3 tests
+- **Total: 33 tests**
+
+The source gate is GREEN. With Excel closed and after pulling the latest branch, the next native action is authorized: create a fresh **BI** from trusted AZ. Use the exact PowerShell command below. Do not use BG, BH or BF as source or destination.
+
+```powershell
+$source = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$output = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H7_20261104_BI.xlsm"
+
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $output) { throw "SAFETY STOP: BI already exists; do not overwrite" }
+
+python .\\Python\\tools\\prepare_h7_integrated_ui_smoke.py --source $source --output $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BI preparation failed; freeze BI and stop" }
+
+python .\\Python\\tools\\audit_workbook_protection.py $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BI read-only audit failed or was incomplete; freeze BI and stop" }
+```
+
+The preparation tool itself refuses an existing destination, makes a fresh byte-for-byte copy of AZ, verifies source/destination SHA-256 equality before installation, and invokes the three installers in order. If any installer fails, the destination is frozen; do not retry or repair it.
+
+Expected complete read-only audit:
+- `THERAPIST_HISTORY_REPORT`: ProtectContents=True; ProtectDrawingObjects=False.
+- `PATIENT_HISTORY_REPORT`: ProtectContents=True; ProtectDrawingObjects=False.
+- All four technical history sheets remain protected and veryHidden.
+- No unrelated worksheet protection state changes.
+- `ReadOnly: True` and `Workbook unchanged: True`.
+- All report/navigation controls remain visible and correctly bound as verified by installers.
+
+**Do not manually click anything until the complete BI read-only audit passes.** If it passes, then manually verify both report entry points, all four report modes for each, mode buttons, previous-screen navigation, RefreshAll and the existing application toolbar. If preparation or audit fails, freeze BI and return the complete output. Do not proceed to broad worksheet protection yet.
+
+Artifact ledger remains: AZ trusted/frozen; BF accepted/frozen; BG failed/frozen; BH failed/frozen; BI is the only authorized next candidate.
