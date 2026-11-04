@@ -202,3 +202,18 @@ python .\Python\tools\prepare_h7_integrated_ui_smoke.py --source $source --outpu
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BH preparation failed; freeze BH" }
 ```
 If BH preparation succeeds, run the read-only protection audit on BH. Expected delta remains limited to therapist report sheet: `ProtectContents=True`, `ProtectDrawingObjects=False`; all four technical sheets veryHidden; all five report buttons visible and bound. Then manual-click tests. No broad sheet protection yet.
+
+## Latest native regression and patient-report installer correction — 2026-11-04
+
+The subsequent BH native read-only audit adds an important correction to the earlier BF inventory narrative:
+
+- BH is failed/frozen evidence. It is not an accepted workbook and must not be repaired or reused.
+- In BH, `THERAPIST_HISTORY_REPORT` persisted as `ProtectContents=True`, `ProtectDrawingObjects=False`.
+- In the same BH, `PATIENT_HISTORY_REPORT` unexpectedly persisted as `ProtectContents=False`, `ProtectDrawingObjects=False`, despite being protected in the accepted BF baseline.
+- Root cause was confirmed in tracked source: `install_patient_report_components()` unprotected and cleared the patient report, then failed to re-protect it before returning. The renderer re-protected only after a report render, which had masked the blank-installer gap in BF.
+- Commits `81a8615`, `0fd7435`, `61ebf11` add installer-time protection, assert `ProtectContents=True` / `ProtectDrawingObjects=False`, and require the patient report protection state in the installer audit and persisted read-only reopen.
+- The new patient UI suite has seven tests; combined with therapist UI (15), integrated toolbar/patient-order (8) and previous-screen navigation (3), the exact next source gate is **33 tests**. This count was verified from current test definitions. The operator has not yet supplied a run result after these source changes.
+- Next native candidate is a fresh **BI from trusted AZ**, only after all 33 tests pass. Run the complete read-only protection audit before any manual interaction. Expected both report sheets protected with drawing objects unprotected; all four technical history sheets protected and veryHidden; no unrelated sheet-state changes.
+
+Do not use BH, BG or BF as a build source or install destination. AZ remains trusted and frozen. BF remains accepted functional evidence and frozen. This section supersedes older instructions in this file that still describe only therapist-report protection or authorize BH as the next candidate.
+
