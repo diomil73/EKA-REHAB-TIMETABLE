@@ -246,5 +246,5 @@ Only after this complete read-only audit passes may native manual clicks begin. 
 - BF: accepted green native evidence, frozen, untouched.
 - BG: failed therapist-report protection smoke, frozen.
 - BH: therapist report protection now correct, but patient report protection regressed; frozen failed evidence.
-- BI: next candidate only after the 32-test source gate passes.
+- BI: next candidate only after the 33-test source gate passes.
 
