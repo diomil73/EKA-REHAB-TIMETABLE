@@ -74,19 +74,28 @@ Outpatient text no longer relies on a special font color for identity. The prese
 
 This cleanup is presentation-only and does not alter recurring storage, daily truth, row identity or workload counts.
 
-## Active: statistics/history design checkpoint
+## H2-H7 history/statistics functional slice — functionally accepted; protection hardening active
 
-Before implementing long-term reporting, explicitly decide what historical facts are persisted and what is only a derived view. At minimum the design must cover:
+The core historical truth and the first user-facing reporting slice are implemented and operator-confirmed on frozen disposable native workbooks:
 
-- weekly workload history per therapist,
-- daily occupied-timeslot and active-session facts,
-- cancellations/no-shows/replacements/suspensions,
-- historical changes of therapist assignment,
-- finalized-day snapshot semantics,
-- retention and comparison periods,
-- dashboards and user-facing reports.
+- **H2 close-day history:** native Z proof; finalized snapshot, therapist/day rows and append-only day event.
+- **H3 day amendment:** native AB proof; v1 preserved as SUPERSEDED, v2 CURRENT_FINAL, linked version chain and atomic validation/readback.
+- **H4 therapist history:** native AQ proof; daily, weekly, monthly and overall reports, based on CURRENT_FINAL history.
+- **H5 patient history:** native AX/AY proofs; first close and v1→v2 amendment with patient-session history.
+- **H6 contextual day-save UX:** native AZ/BB proofs; one contextual Save Day action routes first close vs amendment and is exposed on MASTER.
+- **H7 combined reporting UI:** native BF manually accepted; integrated RefreshAll + therapist statistics + patient statistics toolbar, report modes and direct previous-screen navigation.
 
-Historical metrics must derive from persisted historical facts/events, not from today's mutable projection.
+These artifacts are evidence, not production workbooks. Preserve them frozen. The current H7 protection follow-up is NOT yet accepted: BG and BH are failed/frozen; BH protected the therapist report but exposed that the patient-report installer left PATIENT_HISTORY_REPORT unprotected. Source corrections are committed, but the combined **33-test** gate has not yet been operator-run. The next candidate is a fresh **BI from trusted AZ**, only after all 33 tests pass and Excel is closed. Then perform a complete read-only audit before any manual clicks.
+
+See `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md` for the exact gate and artifact rules.
+
+## Active: final worksheet edit-protection hardening
+
+The accepted BF audit found 23 worksheets: 18 with `ProtectContents=False` and five protected. Four technical history sheets are already protected and veryHidden; PATIENT_HISTORY_REPORT is protected in BF; THERAPIST_HISTORY_REPORT was not. The targeted therapist and patient report installation gaps are being corrected first.
+
+No broad worksheet protection has been implemented. The full embedded VBA write-surface inventory has not yet been supplied/reconciled, and the intended human-edit zones are not yet established for every sheet. Do not blanket-protect or lock workbook structure until dynamic sheet creation, sanctioned form writes, external COM writers, macros, rollback and error paths are classified.
+
+The source-derived partial map is `Documentation/WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md`. Its remaining read-only VBA inventory command and the exact 33-test / BI gate are in the H7 recovery packet.
 
 ## Open: replacement quality under multiple therapist absences
 
