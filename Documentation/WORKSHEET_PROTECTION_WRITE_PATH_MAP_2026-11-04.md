@@ -78,3 +78,82 @@ Expected: 8 passed (5 protection audit + 3 VBA inventory). Share the complete VB
 ## No protection implementation yet
 
 No worksheet cells have been unlocked/locked and no new Protect/Unprotect calls have been installed. The next step is to reconcile the full workbook-VBA inventory with the tracked source map, decide user input ranges, then create focused tests and a new uniquely named disposable workbook candidate. BF remains frozen evidence; do not patch it or production.
+
+
+## Exact operator audit received: BF inventory — 2026-11-04
+
+The complete operator file `H7_PROTECTION_AUDIT.txt` was received and reviewed. It reports:
+- `ReadOnly=True`
+- `ProtectStructure=False`, `ProtectWindows=False`
+- 23 worksheets
+- `Workbook unchanged: True`
+- Audit completed without truncation or COM error.
+
+### Exact protection state
+
+18 worksheets have `ProtectContents=False`:
+| Sheet | Visible enum | UsedRange | UsedCells |
+|---|---:|---|---:|
+| `_PY_LISTS` | 2 (veryHidden) | A1:E93 | 465 |
+| `DAILY_INPUT` | -1 | A1:F40 | 240 |
+| `PATIENT_PLANNER` | -1 | A1:W550 | 12,650 |
+| `DAILY_CHANGE_LEDGER` | 2 (veryHidden) | A1:L3 | 36 |
+| `OUTPATIENT_SCHEDULE` | -1 | A1:F1 | 6 |
+| `MASTER_SCHEDULE` | -1 | A1:M553 | 7,189 |
+| `THERAPIST_ATTENDANCE` | -1 | A1:F18 | 108 |
+| `REPLACEMENTS` | -1 | A1:A25 | 25 |
+| `REPLACEMENT_LOG` | -1 | A1:H3 | 24 |
+| `DAILY_LOG` | -1 | A1:G1 | 7 |
+| `STATISTICS` | -1 | A1:E37 | 185 |
+| `PATIENTS` | -1 | A1:E550 | 2,750 |
+| `NEW_PATIENT` | -1 | A1:D6 | 24 |
+| `SETTINGS` | -1 | A1:H32 | 256 |
+| `SESSIONS` | 0 (hidden) | A1:H180 | 1,440 |
+| `CONFLICT_LOG` | -1 | A1:A2 | 2 |
+| `THERAPIST_HISTORY_REPORT` | -1 | A1 | 1 |
+| `THERAPIST_DAILY` | -1 | A1:J25 | 250 |
+
+Five worksheets have `ProtectContents=True`:
+- `PATIENT_HISTORY_REPORT` — visible; `ProtectDrawingObjects=False`, `ProtectScenarios=True`; no unlocked cells in UsedRange.
+- `FINALIZED_DAY_SNAPSHOTS`, `THERAPIST_DAY_HISTORY`, `PATIENT_SESSION_HISTORY`, `DAY_HISTORY_EVENTS` — all veryHidden; `ProtectDrawingObjects=True`, `ProtectScenarios=True`; no unlocked cells in UsedRange.
+
+Every sheet's reported `UsedRange.Locked` property is True. For the 18 unprotected sheets this is not effective edit protection because `ProtectContents=False`. Every sheet reports `EnableSelection=xlNoRestrictions`. All displayed formatting/insertion/deletion/filter/sort allowances are False.
+
+### Interpretation and scope correction
+
+- The exact audit confirms the prior 18/5 count and adds each UsedRange, visibility enum, and cell count. It does not identify intended user-entry cells.
+- The workbook's structure/windows remain unprotected. Keep this so for now: tracked flows create/hide sheets dynamically.
+- `THERAPIST_HISTORY_REPORT` is visible but currently blank (UsedRange A1) and unprotected. The report renderer protects it only after a successful render; the installer also left the blank sheet unprotected. This is a genuine gap because users can type into the blank report sheet before opening the report.
+- The tracked therapist report renderer also had an error-path gap: after `ws.Unprotect`, an exception before its normal final Protect could leave the report sheet unprotected. This is now fixed in code as described below.
+- `SESSIONS` is hidden (Visible=0), not veryHidden. Do not silently change its visibility in this protection slice.
+- Do not assume the other 17 unprotected sheets are all data-entry surfaces. The intended human edit zones remain unresolved except DAILY_INPUT.
+
+## Targeted therapist-report protection fix
+
+Test-first changes:
+- `45ed8c9` adds regression assertions that the therapist report is protected after install and in the VBA error cleanup path.
+- `9a1574e` updates `THERAPIST_HISTORY_MODULE_CODE` so its `CleanUp` label always re-applies `Protect(DrawingObjects:=False, Contents:=True, Scenarios:=True)`, including errors after unprotect.
+- The same `9a1574e` update makes `install_therapist_history_report` protect the blank report sheet immediately after creating its buttons and verifies `ProtectContents=True` and `ProtectDrawingObjects=False`.
+
+This is deliberately limited to `THERAPIST_HISTORY_REPORT`; it does not implement broad protection on the other 17 unprotected sheets. The user-facing report buttons remain clickable because DrawingObjects protection stays False. Native smoke verification is still required on a fresh workbook after focused tests pass.
+
+## VBA audit count interpretation
+
+The earlier VBA scanner reported 1,146 matching source lines across 64 components. Treat 1,146 as **lexical candidate lines**, not 1,146 proven writes: the scanner intentionally also reports sheet references, formatting properties, reads, visibility and protection calls. A line-level semantic classification and procedure-to-sheet mapping is still required. The scanner output alone is not authority to choose unlock ranges.
+
+## Next exact gate
+
+After pull:
+```powershell
+python -m pytest Tests/test_therapist_history_ui.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Therapist report protection tests failed" }
+```
+
+If green, prepare a new uniquely named H7 protection smoke from the trusted build path (never reuse BF), install H7 UI, run read-only audit and manually verify:
+1. blank therapist report sheet is protected immediately after install;
+2. therapist report button still opens and refreshes daily/weekly/monthly/overall;
+3. report buttons remain clickable;
+4. force a controlled report-render failure after Unprotect in a disposable test and verify the sheet is re-protected;
+5. patient report behavior and previous-screen navigation remain unchanged.
+
+Do not begin locking other sheets until all 18 unprotected sheet ownership paths are classified and intended manual edit ranges are approved by evidence.
