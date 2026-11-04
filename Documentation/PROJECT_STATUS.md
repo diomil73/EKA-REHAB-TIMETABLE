@@ -193,5 +193,5 @@ Source changes now committed:
 - `0fd7435`: protect blank patient report with `Protect("", False, True, True)`; verify contents protected and drawing objects unprotected.
 - `61ebf11`: persisted patient report protection check in patient installer audit.
 
-Operator test result is pending. BH is frozen failed evidence; do not repair/reuse. BF accepted/frozen; AZ trusted/frozen; BG failed/frozen. Next gate is 32 focused tests across therapist UI, patient UI, integrated toolbar/order and previous-screen navigation. Only after green create fresh BI from AZ and run read-only audit. No manual testing or broader sheet protection before the audit passes.
+Operator test result is pending. BH is frozen failed evidence; do not repair/reuse. BF accepted/frozen; AZ trusted/frozen; BG failed/frozen. Next gate is 33 focused tests across therapist UI, patient UI, integrated toolbar/order and previous-screen navigation. Only after green create fresh BI from AZ and run read-only audit. No manual testing or broader sheet protection before the audit passes.
 
