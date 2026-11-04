@@ -160,3 +160,9 @@ Do not use old chat history to override these repository records. If this file a
 ## 8. Operator's immediate state
 
 The operator has already received the PowerShell safety-stop after BG failure. No further local command should be run until the latest branch is pulled and the 15-test focused gate is green.
+
+## Operator confirmation — focused test gate GREEN (2026-11-04)
+
+The operator has now run the current focused suite and confirmed: **15 passed in 4.11s**. This supersedes the earlier statement in Section 3 that the latest 15-test result was pending. The source test gate is GREEN and the next native smoke is now authorized.
+
+Next action: create a fresh `BH` from trusted `AZ` using the command in Section 4. Excel must be closed. Confirm the destination does not already exist. Do not use BG or BF as a source/destination. If BH preparation fails for any reason, freeze BH and stop. If it succeeds, run the read-only protection audit on BH and return its complete output before manual interaction.
