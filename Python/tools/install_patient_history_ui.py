@@ -134,6 +134,16 @@ def _audit(workbook) -> None:
         raise PatientHistoryUiInstallError("Statistics navigation is not visible")
     if _macro_name(refresh) != REFRESH_MACRO or not bool(refresh.Visible):
         raise PatientHistoryUiInstallError("RefreshAll toolbar binding/visibility mismatch")
+    refresh_matches = []
+    source = workbook.Worksheets("THERAPIST_DAILY")
+    for index in range(1, int(source.Shapes.Count) + 1):
+        candidate = source.Shapes(index)
+        if _macro_name(candidate) == REFRESH_MACRO:
+            refresh_matches.append(candidate)
+    if len(refresh_matches) != 1 or str(refresh_matches[0].Name) != REFRESH_NAV:
+        raise PatientHistoryUiInstallError("Duplicate or legacy RefreshAll control remains")
+    if str(refresh.TextFrame2.TextRange.Text).strip() != REFRESH_CAPTION:
+        raise PatientHistoryUiInstallError("RefreshAll caption is not readable")
     if abs(float(refresh.Top) - float(exit_button.Top)) > 1:
         raise PatientHistoryUiInstallError("RefreshAll button is outside main toolbar row")
     if float(refresh.Left) < float(exit_button.Left) + float(exit_button.Width) + 4:
@@ -217,7 +227,8 @@ def main() -> int:
         return 2
     print("H7 PATIENT HISTORY UI INSTALL OK")
     print("Entry: THERAPIST_DAILY -> Στατιστικά θεραπευτών + Στατιστικά ασθενών")
-    print("Statistics buttons: aligned and non-overlapping")
+    print("RefreshAll: preserved, styled, and placed on main toolbar")
+    print("Statistics buttons: aligned after RefreshAll and non-overlapping")
     print("DAILY_INPUT patient button: absent")
     print("Technical history sheets: veryHidden")
     print("Persisted VBA reopen verification: OK")
