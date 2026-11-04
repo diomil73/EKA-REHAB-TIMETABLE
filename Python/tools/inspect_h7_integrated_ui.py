@@ -73,8 +73,30 @@ def inspect(path: Path) -> int:
                 errors.append(f"DAILY_INPUT forbidden button: {name}")
 
         therapist_exit = _shape(therapist_daily, "ekaToolbar_ExitApp")
+        refresh = _shape(therapist_daily, "ekaToolbar_RefreshAll")
         t = _shape(therapist_daily, "ekaToolbar_TherapistHistory")
         p = _shape(therapist_daily, "ekaToolbar_PatientHistory")
+        if refresh is None:
+            errors.append("THERAPIST_DAILY RefreshAll toolbar button missing")
+        elif therapist_exit is None:
+            errors.append("THERAPIST_DAILY Save & Exit missing")
+        else:
+            print(
+                "THERAPIST_DAILY REFRESH:",
+                str(refresh.OnAction),
+                "left", round(float(refresh.Left), 1),
+                "top", round(float(refresh.Top), 1),
+                "width", round(float(refresh.Width), 1),
+            )
+            if str(refresh.OnAction).split("!")[-1].strip("'") != "RefreshAll":
+                errors.append("RefreshAll toolbar binding incorrect")
+            if not bool(refresh.Visible):
+                errors.append("RefreshAll toolbar button not visible")
+            if abs(float(refresh.Top) - float(therapist_exit.Top)) > 1:
+                errors.append("RefreshAll not on main toolbar row")
+            if float(refresh.Left) < float(therapist_exit.Left) + float(therapist_exit.Width) + 4:
+                errors.append("RefreshAll overlaps Save & Exit")
+
         if t is None or p is None:
             errors.append("THERAPIST_DAILY requires both statistics buttons")
         else:
@@ -98,6 +120,8 @@ def inspect(path: Path) -> int:
             elif (abs(float(t.Top) - float(therapist_exit.Top)) > 1 or
                   float(t.Left) < float(therapist_exit.Left) + float(therapist_exit.Width) + 4):
                 errors.append("Statistics buttons not on main navigation row after Save & Exit")
+            if refresh is not None and float(t.Left) < float(refresh.Left) + float(refresh.Width) + 4:
+                errors.append("Therapist statistics overlaps RefreshAll")
             if float(p.Left) < float(t.Left) + float(t.Width) + 4:
                 errors.append("Statistics buttons overlap")
 
