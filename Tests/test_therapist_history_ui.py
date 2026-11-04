@@ -141,6 +141,7 @@ def test_native_installer_requires_technical_history_to_remain_very_hidden():
     audit = inspect.getsource(installer._audit_persisted)
     assert '"FINALIZED_DAY_SNAPSHOTS"' in audit
     assert '"THERAPIST_DAY_HISTORY"' in audit
+    assert '"PATIENT_SESSION_HISTORY"' in audit
     assert '"DAY_HISTORY_EVENTS"' in audit
     assert "if int(technical.Visible) != 2" in audit
     assert "workbook.Save()" in source
