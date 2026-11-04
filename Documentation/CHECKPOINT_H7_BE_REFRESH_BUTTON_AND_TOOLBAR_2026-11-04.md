@@ -62,3 +62,6 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Navigation tests failed" }
 python .\Python\tools\audit_h7_refresh_control.py ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BE.xlsm"
 ```
 Expect 18 passed, pending actual operator result. Refresh audit should show VBA procedure source and refresh dependencies. If VBA project access is denied, use Excel Trust Access settings only if already authorized; do not modify workbook. Based on audit, retain or remove legacy RefreshAll in a future fresh BF. Never infer safety from its visual appearance alone.
+
+- Follow-up hardening: `Python/tools/audit_h7_refresh_control.py` commit `92dc866` safely handles shapes that do not expose a text frame; commit `8b85b3f` reads the nested caption property correctly. Use the latest pull before running.
+- Latest checkpoint update commit: this document update follows `8b85b3f`.
