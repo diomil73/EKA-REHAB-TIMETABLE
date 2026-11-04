@@ -78,3 +78,21 @@ First operator run exposed one source-test assertion mismatch: the audit emitted
 Fix commit: `1d65d90`.
 
 No Excel workbook was changed by this fix. The operator had issued the read-only audit command after the failing test but did not include its output in the report, so treat that audit result as unreviewed. Pull the fix, rerun the five focused tests, then rerun the read-only audit against BF and share the complete output. No protection changes are authorized yet.
+
+## Operator protection inventory received — 2026-11-04
+
+The user supplied two complete read-only audits of BF. Both report `WORKBOOK PROTECTION AUDIT COMPLETE`, `ReadOnly: True`, and `Workbook unchanged: True`.
+
+Key findings (23 worksheets):
+- Workbook structure and windows are not protected: ProtectStructure=False, ProtectWindows=False.
+- Unprotected worksheets: `_PY_LISTS`, `DAILY_INPUT`, `PATIENT_PLANNER`, `DAILY_CHANGE_LEDGER`, `OUTPATIENT_SCHEDULE`, `MASTER_SCHEDULE`, `THERAPIST_ATTENDANCE`, `REPLACEMENTS`, `REPLACEMENT_LOG`, `DAILY_LOG`, `STATISTICS`, `PATIENTS`, `NEW_PATIENT`, `SETTINGS`, `SESSIONS`, `CONFLICT_LOG`, `THERAPIST_HISTORY_REPORT`, `THERAPIST_DAILY`.
+- Already protected: `PATIENT_HISTORY_REPORT`, `FINALIZED_DAY_SNAPSHOTS`, `THERAPIST_DAY_HISTORY`, `PATIENT_SESSION_HISTORY`, `DAY_HISTORY_EVENTS`.
+- The four technical history sheets are veryHidden and protected. Patient history report is visible and protected. Therapist history report is visible but unprotected.
+- All reported UsedRange.Locked values are True. This does NOT prevent editing when ProtectContents=False; worksheet protection is the missing enforcement layer.
+- EnableSelection is xlNoRestrictions on every worksheet, including protected sheets. This is not by itself an edit vulnerability if protection is active, but should be reviewed for technical sheets.
+- All displayed protection allowances are False on protected sheets.
+- The read-only scan completed; no scan errors/truncation.
+
+The test still failed after first formatting fix because source contract searches exact literal `"UsedRange.Locked"`; implementation printed `"UsedRange.Locked:"` with colon inside the string, so assertion remained false. Corrected to `print("UsedRange.Locked", locked_label)`. Fix commit: `e89e36f`. Need pull and rerun the five tests; no native workbook rerun is needed solely for this output-label-only source fix, but do rerun read-only inventory after tests if desired.
+
+No protection implementation has been made. Before locking, inspect all VBA/Python write paths and map sanctioned editable inputs and write targets. In particular do not infer that DAILY_INPUT can be wholly locked: its forms/macros may write cells, and manual edit zones must be explicitly mapped. Also inspect THERAPIST_DAILY controls/data writes and report regeneration. Preserve the five currently protected sheets as baseline.
