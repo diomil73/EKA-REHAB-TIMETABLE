@@ -58,6 +58,7 @@ def audit(path: Path) -> int:
         try:
             components = workbook.VBProject.VBComponents
             print("VBA component count:", int(components.Count))
+            procedure_found = False
             for index in range(1, int(components.Count) + 1):
                 component = components.Item(index)
                 module = component.CodeModule
@@ -69,6 +70,16 @@ def audit(path: Path) -> int:
                 for line_no, line in enumerate(lines):
                     if re.search(r"\bRefreshAll\b", line, flags=re.IGNORECASE):
                         matches.append((str(component.Name), line_no + 1, lines[max(0, line_no - 3):line_no + 5]))
+                    if re.match(r"\s*Public\s+Sub\s+RefreshAll\s*\(", line, flags=re.IGNORECASE):
+                        procedure_found = True
+                        end_line = line_no + 1
+                        while end_line < len(lines) and not re.match(
+                            r"\s*End\s+Sub\b", lines[end_line], flags=re.IGNORECASE
+                        ):
+                            end_line += 1
+                        print(f"FULL RefreshAll PROCEDURE {component.Name}:{line_no + 1}-{end_line + 1}")
+                        for procedure_line in lines[line_no:end_line + 1]:
+                            print("  " + procedure_line)
             print("RefreshAll source references:", len(matches))
             for component, line_no, excerpt in matches:
                 print(f"VBA MATCH {component}:{line_no}")
@@ -102,10 +113,7 @@ def audit(path: Path) -> int:
         print("Pivot caches:", pivot_caches)
         print("Worksheet query tables:", query_tables)
         print("Pivot tables:", pivot_tables)
-        print("VBA RefreshAll procedure found:", any(
-            re.search(r"\b(Sub|Function)\s+RefreshAll\b", "\n".join(lines), re.IGNORECASE)
-            for _, _, lines in matches
-        ))
+        print("VBA RefreshAll procedure found:", procedure_found)
         print("Workbook unchanged: True")
         if errors:
             print("H7 REFRESH AUDIT INCOMPLETE")
