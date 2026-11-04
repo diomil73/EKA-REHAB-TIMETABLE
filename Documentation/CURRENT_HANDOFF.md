@@ -311,3 +311,32 @@ Operator also issued the read-only audit command but did not paste its output. D
 BF read-only audit completed successfully and is documented in `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`. 18/23 worksheets are currently unprotected; five are protected (PATIENT_HISTORY_REPORT and four technical history sheets). Workbook ProtectStructure=False. All UsedRange.Locked=True but this does not enforce editing restrictions while ProtectContents=False. Technical histories remain veryHidden. No sheet protection has been changed.
 
 A test assertion still failed because source contained `"UsedRange.Locked:"` while test requires exact `"UsedRange.Locked"`. Corrected to `print("UsedRange.Locked", locked_label)`, commit `e89e36f`. Pull and rerun `python -m pytest Tests/test_workbook_protection_audit.py -q`. After green, begin read-only source audit of sanctioned VBA/Python write ranges before designing any protection change.
+
+## 2026-11-04 update — protection audit tests GREEN, VBA write map underway
+
+Operator reran `Tests/test_workbook_protection_audit.py` and reported **5 passed in 0.64s**. This validates the read-only sheet protection inventory helper.
+
+Full tracked-source write map is documented in:
+`Documentation/WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md`.
+
+Key confirmed details:
+- DAILY_INPUT manual entry zones are dynamic but current BF spec resolves to therapist A7:F16 and patient A21:E40; B2 is a generated date.
+- MASTER_SCHEDULE, THERAPIST_DAILY, PATIENTS, PATIENT_PLANNER, OUTPATIENT_SCHEDULE, SETTINGS, and history/ledger sheets have known macro/backend write paths.
+- Python COM backends use separate Excel instances, so session UserInterfaceOnly does not authorize them automatically.
+- workbook structure protection cannot be enabled blindly because multiple workflows create sheets dynamically.
+- several sheets remain unresolved because RefreshAll calls workbook-embedded macros not fully represented by tracked source.
+
+A new read-only VBA source inventory was added:
+`Python/tools/audit_vba_write_surfaces.py` and `Tests/test_audit_vba_write_surfaces.py`.
+The inventory reads all VBA components in BF read-only and reports sheet references, content/format writes, visibility, protection, and workbook state changes. No protection implementation has been applied.
+
+Next command after pull:
+```powershell
+python -m pytest Tests/test_workbook_protection_audit.py Tests/test_audit_vba_write_surfaces.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Protection diagnostics tests failed" }
+
+python .\Python\tools\audit_vba_write_surfaces.py `
+  ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: VBA write-surface audit incomplete" }
+```
+Expected 8 passed. Share the complete VBA inventory. BF remains frozen smoke evidence; do not patch BF or production.
