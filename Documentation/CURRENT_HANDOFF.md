@@ -388,3 +388,24 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BG protection audit incomplete" }
 ```
 
 Expected BG protection delta: therapist report is now protected (`ProtectContents=True`) while its drawing objects remain unprotected/clickable; the other 17 unprotected worksheets are unchanged. Then manually verify therapist statistics open and daily/weekly/monthly/overall views refresh, report buttons work, and patient report/previous navigation remain unchanged. Do not protect any additional sheet until the embedded VBA inventory and human edit zones are reconciled. BF and AZ remain frozen source/evidence; never overwrite them.
+
+## BG native smoke failed; positional COM protection correction in progress — 2026-11-04
+
+The operator ran the new 13-test gate. Result: `12 passed, 1 failed`. The only failing test was stale: it searched for the technical sheet list inside `install_therapist_history_ui`, while implementation correctly moved it into `_audit_persisted`. Test corrected to inspect the helper.
+
+The subsequent BG preparation reached therapist report install and failed with `Therapist-history report buttons must remain clickable`. BG is frozen, failed evidence: do not reopen/edit/repair/reuse/overwrite. AZ and BF remain unchanged.
+
+Source corrections:
+- `03f6afb`: explicit positional COM call `Protect("", False, True, True)`, explicit empty-password Unprotect, precondition checks, and detailed state error.
+- `d8e8418`: persisted audit now reports ProtectContents/ProtectDrawingObjects values and verifies all five report buttons are visible and have OnAction.
+- `27339cf`, `5beda80`: test corrections and new assertions.
+- `fd551a3`, `5c766ff`: include all four technical history sheets in veryHidden verification.
+
+The focused suite now contains 15 tests. Next:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_therapist_history_ui.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Therapist report tests failed" }
+```
+Expected 15 passed. Only then create new `BH` from AZ (not BG), with unique destination `UNIFIED_PATIENT_HISTORY_H7_20261104_BH.xlsm`. Freeze BH on any failure. Do not suppress the button/protection assertion. New error text will include actual ProtectContents and ProtectDrawingObjects values. No broad protection implementation until this targeted report protection passes.
