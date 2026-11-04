@@ -149,7 +149,7 @@ def audit(path: Path) -> int:
                 f"UsedRange={str(used.Address)}",
                 f"UsedCells={count}",
             )
-            print("UsedRange.Locked:", locked_label)
+            print("UsedRange.Locked", locked_label)
 
             protection = _safe_value(ws, "Protection")
             if protection is not None:
