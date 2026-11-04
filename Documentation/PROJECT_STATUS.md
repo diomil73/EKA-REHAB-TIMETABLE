@@ -176,3 +176,8 @@ Capacity is timeslot-based. Existing displaced patients precede new patients. MA
 Recovery entry point for the failed BG / pending BH therapist-report protection work:
 `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
 It records frozen artifacts, commit trail, the exact 15-test gate, next BH command, and cross-session read order. BF remains accepted/frozen, AZ trusted/frozen, BG failed/frozen. Do not create BH until all 15 focused tests pass.
+
+
+## 2026-11-04 — therapist report protection test gate GREEN
+
+Operator confirmed the latest focused suite: `15 passed in 4.11s`. The native BH smoke is now authorized from trusted AZ. BF remains frozen accepted evidence; BG remains frozen failed evidence; AZ remains unchanged. Follow the exact safety-checked commands and audit expectations in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. Do not proceed to manual use or broader worksheet protection until BH's read-only audit confirms the narrow protection delta.
