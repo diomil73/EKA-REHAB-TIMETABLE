@@ -160,3 +160,14 @@ Capacity is timeslot-based. Existing displaced patients precede new patients. MA
 - BF independent read-only integrated audit passed; BF remains frozen smoke evidence, not production.
 - Next active milestone: final worksheet edit-protection hardening, beginning with a read-only protection inventory. No new sheet protection has yet been applied.
 - Exact status and resume path: `Documentation/CURRENT_HANDOFF.md` and `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`.
+
+
+## Protection milestone update — 2026-11-04 (BG failed; retry gated)
+
+- BF remains accepted, frozen native smoke evidence. AZ remains trusted source. Neither was modified.
+- Full BF protection audit completed read-only: 23 sheets; 18 unprotected, five protected; workbook unchanged.
+- Targeted therapist report protection was added because the blank visible report sheet was unprotected in BF.
+- BG integrated preparation failed at therapist report installation with a drawing-object protection verification failure. BG is frozen failed evidence and must not be repaired, reused or overwritten.
+- A stale source-inspection test was corrected to inspect the persisted-audit helper. COM protection call was changed to explicit positional arguments, and failure output now reports actual `ProtectContents` / `ProtectDrawingObjects` state. Installer also verifies each report button binding and all four technical history sheets remain veryHidden.
+- Current focused suite: 15 tests, not yet rerun after the latest corrections. Next gate is documented in `Documentation/CURRENT_HANDOFF.md`: pull, run `Tests/test_therapist_history_ui.py`, expect 15 passed. Only then create a new BH from AZ. Freeze BH on any error.
+- No broad protection has been applied to the other 17 unprotected sheets. Do not expand protection until this targeted report path is native-green and all manual edit zones are classified.
