@@ -171,3 +171,8 @@ Capacity is timeslot-based. Existing displaced patients precede new patients. MA
 - A stale source-inspection test was corrected to inspect the persisted-audit helper. COM protection call was changed to explicit positional arguments, and failure output now reports actual `ProtectContents` / `ProtectDrawingObjects` state. Installer also verifies each report button binding and all four technical history sheets remain veryHidden.
 - Current focused suite: 15 tests, not yet rerun after the latest corrections. Next gate is documented in `Documentation/CURRENT_HANDOFF.md`: pull, run `Tests/test_therapist_history_ui.py`, expect 15 passed. Only then create a new BH from AZ. Freeze BH on any error.
 - No broad protection has been applied to the other 17 unprotected sheets. Do not expand protection until this targeted report path is native-green and all manual edit zones are classified.
+
+
+Recovery entry point for the failed BG / pending BH therapist-report protection work:
+`Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
+It records frozen artifacts, commit trail, the exact 15-test gate, next BH command, and cross-session read order. BF remains accepted/frozen, AZ trusted/frozen, BG failed/frozen. Do not create BH until all 15 focused tests pass.
