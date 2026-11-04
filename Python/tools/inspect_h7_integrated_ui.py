@@ -140,6 +140,7 @@ def inspect(path: Path) -> int:
                 errors.append("Statistics buttons overlap")
 
         for module, macro in (
+            ("Module3", "Public Sub RefreshAll()"),
             ("modUnifiedDaySave", "Public Sub SaveOperationalDay()"),
             ("modTherapistHistoryReport", "Public Sub OpenTherapistHistoryReport()"),
             ("modPatientHistoryReport", "Public Sub OpenPatientHistoryReport()"),
