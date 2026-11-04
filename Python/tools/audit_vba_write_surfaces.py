@@ -14,7 +14,7 @@ PROCEDURE = re.compile(
 WRITE_LINE = re.compile(
     r"\.\s*(?:Unprotect|Protect|Value2?|Formula|ClearContents|Clear|Delete|Insert|Add|"
     r"PasteSpecial|Copy|Locked|Visible|ScrollArea)\b"
-    r"|\b(?:Worksheets|Sheets)\s*\(\s*["'][^"']+["']\s*\)"
+    r'|\b(?:Worksheets|Sheets)\s*\('
     r"|\b(?:ThisWorkbook|ActiveWorkbook)\.(?:Save|SaveAs)\b"
     r"|\bDestination\s*:",
     re.IGNORECASE,
