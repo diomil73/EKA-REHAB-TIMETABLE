@@ -157,3 +157,11 @@ If green, prepare a new uniquely named H7 protection smoke from the trusted buil
 5. patient report behavior and previous-screen navigation remain unchanged.
 
 Do not begin locking other sheets until all 18 unprotected sheet ownership paths are classified and intended manual edit ranges are approved by evidence.
+
+## Persisted-install verification hardening — 2026-11-04
+
+After the operator's initial 12 focused tests passed, the native therapist-history installer was strengthened before creating the next smoke:
+- `5c3aaea`: installer now saves the disposable workbook, closes it, reopens it in a separate Excel session with `ReadOnly=True`, and audits persisted module presence, report visibility, `ProtectContents=True`, `ProtectDrawingObjects=False`, navigation binding/visibility, and technical-sheet `veryHidden` state.
+- `870c1db`: regression test requires the separate read-only reopen and persisted protection audit.
+
+This closes the gap between checking COM properties before save and proving the protection state survived persistence. It still does not protect any of the other 17 unprotected worksheets.
