@@ -184,7 +184,7 @@ Chat history is never the sole source of truth.
 
 H7 patient/therapist history and statistics is now source-green and user-confirmed in fresh disposable BF. The integrated toolbar, retained RefreshAll action, both report surfaces and direct previous-screen navigation passed native manual use. See `Documentation/CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md`.
 
-The next active hardening milestone is worksheet edit protection. Begin with the read-only BF protection inventory. Do not blanket-lock sheets until sanctioned input ranges and VBA/Python write paths are mapped. BF is frozen green smoke evidence, not production. Exact resume commands live in `Documentation/CURRENT_HANDOFF.md`.
+The active hardening milestone is H7 report-protection correction followed by worksheet edit protection. The combined 33-test source gate is now green (33 passed in 4.13s); the next authorized native candidate is a fresh BI from trusted AZ, followed by a complete read-only audit before manual acceptance. Do not blanket-lock sheets until sanctioned input ranges and VBA/Python write paths are mapped. BF is frozen green smoke evidence, not production. Exact resume commands live in `Documentation/CURRENT_HANDOFF.md` and `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`.
 
 
 ## Current exact recovery pointer — 2026-11-04
