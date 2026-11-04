@@ -6,7 +6,7 @@ Last updated: 2026-11-04
 
 New developers and new contexts start from `Documentation/ONBOARDING.md`. This file tracks milestone state, risks and immediate roadmap only.
 
-Branch: `feature/outpatient-scheduling`.
+Branch: `work/history-statistics-rebuild`.
 
 ## Current stage
 
@@ -181,3 +181,17 @@ It records frozen artifacts, commit trail, the exact 15-test gate, next BH comma
 ## 2026-11-04 — therapist report protection test gate GREEN
 
 Operator confirmed the latest focused suite: `15 passed in 4.11s`. The native BH smoke is now authorized from trusted AZ. BF remains frozen accepted evidence; BG remains frozen failed evidence; AZ remains unchanged. Follow the exact safety-checked commands and audit expectations in `Documentation/SESSION_RECOVERY_H7_PROTECTION_BG_FAILURE_2026-11-04.md`. Do not proceed to manual use or broader worksheet protection until BH's read-only audit confirms the narrow protection delta.
+
+## 2026-11-04 — BH failed; patient-report installer regression isolated
+
+The new BH native workbook was created from trusted AZ after the therapist-only 15-test gate passed. Its read-only protection audit confirmed therapist report protection (`ProtectContents=True`, `ProtectDrawingObjects=False`) and all four technical history sheets protected/veryHidden, but exposed an unintended regression: `PATIENT_HISTORY_REPORT` was unprotected. The accepted BF baseline had this report protected.
+
+Root cause confirmed from source: `install_patient_report_components()` calls `report.Unprotect()` and clears the sheet, but does not re-protect the blank report before returning. The patient installer audit did not check this persisted state. The report VBA renderer only restores protection after a render, so previous manual use in BF masked the gap.
+
+Source changes now committed:
+- `81a8615`: two regression tests for patient report installer-time and persisted protection.
+- `0fd7435`: protect blank patient report with `Protect("", False, True, True)`; verify contents protected and drawing objects unprotected.
+- `61ebf11`: persisted patient report protection check in patient installer audit.
+
+Operator test result is pending. BH is frozen failed evidence; do not repair/reuse. BF accepted/frozen; AZ trusted/frozen; BG failed/frozen. Next gate is 32 focused tests across therapist UI, patient UI, integrated toolbar/order and previous-screen navigation. Only after green create fresh BI from AZ and run read-only audit. No manual testing or broader sheet protection before the audit passes.
+
