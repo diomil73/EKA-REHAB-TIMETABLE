@@ -80,12 +80,13 @@ def test_export_stable_tsv_and_refuses_overwrite(monkeypatch, tmp_path):
     rows = (_row("2026-10-30", "s1", "p1", Status.ACTIVE),)
     result = summarize_patient_history_report(rows, mode="monthly")
     monkeypatch.setattr(exporter, "read_patient_history_report", lambda *a, **kw: result)
+    monkeypatch.setattr(exporter, "read_patient_registry", lambda *a, **kw: (SimpleNamespace(patient_id="p1", display_name="ΜΑΡΙΑ"),))
     output = tmp_path / "patients.tsv"
     proof = exporter.export_patient_history_ui("ignored.xlsm", output, mode="monthly")
     assert proof["rows"] == 1
     lines = output.read_text(encoding="utf-8-sig").splitlines()
     assert lines[0].split("\t") == list(exporter.HEADERS)
-    assert lines[1].split("\t") == ["2026-10-01", "2026-10-31", "p1", "1", "1", "1", "0", "0", "0"]
+    assert lines[1].split("\t") == ["2026-10-01", "2026-10-31", "p1", "ΜΑΡΙΑ", "1", "1", "1", "0", "0", "0", "100.0"]
     with pytest.raises(ValueError, match="already exists"):
         exporter.export_patient_history_ui("ignored.xlsm", output, mode="monthly")
 
@@ -95,6 +96,7 @@ def test_export_rejects_unsafe_tsv_patient_value(monkeypatch, tmp_path):
         (_row("2026-10-30", "s1", "p\t1", Status.ACTIVE),), mode="daily"
     )
     monkeypatch.setattr(exporter, "read_patient_history_report", lambda *a, **kw: rows)
+    monkeypatch.setattr(exporter, "read_patient_registry", lambda *a, **kw: ())
     with pytest.raises(ValueError, match="control character"):
         exporter.export_patient_history_ui("ignored.xlsm", tmp_path / "unsafe.tsv")
     assert not (tmp_path / "unsafe.tsv").exists()
