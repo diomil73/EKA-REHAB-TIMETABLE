@@ -259,7 +259,13 @@ def write_rows_verified(
         # hidden by apparently populated UsedRange or a successful Save().
         for column, expected in enumerate(record, start=1):
             actual = ws.Cells(row_index, column).Value2
-            if actual is None or str(actual) != str(expected):
+            # Excel COM represents an assigned empty string as an empty
+            # cell (Value2=None). Both are semantically the same optional
+            # field; every nonempty value must still round-trip exactly.
+            blank_expected = expected is None or expected == ""
+            if (not blank_expected and (actual is None or str(actual) != str(expected))) or (
+                blank_expected and actual not in (None, "")
+            ):
                 raise DemoHistoryError(
                     f"{sheet_name}: COM readback mismatch at "
                     f"row {row_index} col {column}: {actual!r} != {expected!r}"
