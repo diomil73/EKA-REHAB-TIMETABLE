@@ -553,3 +553,9 @@ python -m pytest Tests/test_therapist_attendance_history_contract.py -q
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H9 attendance-domain source gate failed" }
 ```
 Next implementation step only after source green and explicit business rules for scheduled working days, holiday and leave handling, provenance, versioned persistence and amendment. No H9 native workbook is authorized by the domain test alone.
+
+## 2026-11-08 — H9 attendance contract source gate GREEN
+
+Operator ran the first focused H9 pure-domain source gate after commit `a0ac130` and reported **7 passed in 0.98s**. This validates only the model/contract: explicit attendance and expected-working-date facts, provenance, absence reasons, duplicate and missing dates, superseded versions and nonworking-day safeguards.
+
+**Current authorized next development:** Implement a strictly read-only workbook attendance history schema reader that rejects missing/malformed source data (never treats absent sheet as zero absences) and validates links against CURRENT_FINAL snapshot IDs. Do not modify Excel files or create a new H9 preview. Storage writes, actual roster-calendar provenance, holiday/leave policy and close-day integration remain separately gated. The accepted BL remains frozen. Next check must cover both the seven green contract tests and any new read-only-store tests, with no claim of native Excel proof.
