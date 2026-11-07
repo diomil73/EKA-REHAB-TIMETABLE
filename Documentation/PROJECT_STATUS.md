@@ -575,3 +575,26 @@ python -m pytest Tests/test_therapist_attendance_history_contract.py Tests/test_
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H9 attendance history read-only gate failed" }
 ```
 No H9 native Excel workbook, sheet writer, chart data, or generalized protection changes yet. The accepted BL stays frozen. If the gate fails, fix source and rerun; never patch a frozen workbook. If green, next task is explicit finalized working-day roster and attendance provenance/write-path design, with calendar/leave business rules, before any UI figures can be trusted.
+
+## 2026-11-08 — H9 read-only gate GREEN, fresh H8 illustrative history generator staged
+
+Operator confirmed **13 passed in 8.33s** for \`Tests/test_therapist_attendance_history_contract.py\` + \`Tests/test_therapist_attendance_history_store.py\`. This supersedes their previous pending gate. H9 domain/read-only source gate is GREEN, **not** real Excel attendance capture.
+
+New request: populate the entirely synthetic/random-name Excel test environment with varied **multiweek historical data** for compelling end-to-end daily/weekly/monthly/overall chart tests, without modifying any accepted frozen Excel.
+
+Commits:
+- \`b415d25\`, \`7174b19\`: \`Python/tools/seed_h8_synthetic_history.py\`, deterministic synthetic history for 2026-09-21..2026-10-23 weekdays; existing patient/therapist IDs; internally consistent CURRENT_FINAL snapshots, per-session outcomes, therapist workload, append-only finalization events and H9 synthetic roster facts. Excel COM bulk write to fresh \`_DEMO_\` workbook, read-only reopen verification, stop-on-mismatch.
+- \`41097f9\`: \`Python/tools/prepare_h8_synthetic_demo.py\` one-shot wrapper using existing H8 native installer then seed, output refusal/no retry.
+- \`53ec37e\`: \`Tests/test_h8_synthetic_demo_history.py\`, source-only deterministic/multiperoid reconciliation, absence and identifier integrity and filename safety tests.
+- \`8752118\`: \`Documentation/H8_SYNTHETIC_HISTORY_DEMO_PLAN.md\`, complete command procedures/contingencies and explicit demo-only data semantics.
+
+**Current state:** Generator/source tests committed but **NOT YET EXECUTED**, and **no BM workbook created**. BL/BK/BJ/AZ untouched and frozen. Seeded H9 staff attendance is expressly illustrative; third H8 therapist graph remains an unavailable-source placeholder and is not quietly populated from a demo sheet.
+
+The prescribed next source-only gate (Excel closed):
+\`\`\`powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_attendance_history_contract.py Tests/test_therapist_attendance_history_store.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Synthetic demo source tests failed" }
+\`\`\`
+After source GREEN only, create a **single** fresh \`Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BM.xlsm\` from trusted AZ using \`prepare_h8_synthetic_demo.py\`; do not rerun/reinstall/overwrite on any failure, freeze that output and pick a different unused suffix after code-level correction. Follow with read-only \`audit_workbook_protection.py\` and \`inspect_h7_integrated_ui.py\`, then manually test multi-period visualization. Complete operator recipe and expected 24-sheet audit in the specific plan. Do not infer native success from source tests.
