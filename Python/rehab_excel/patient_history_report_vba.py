@@ -330,8 +330,8 @@ Private Sub ResetPatientReportWindow(ByVal ws As Worksheet)
         ActiveWindow.SplitColumn = 0
         ActiveWindow.ScrollRow = 1
         ActiveWindow.ScrollColumn = 1
-        ws.Range("A23").Select
-        ActiveWindow.SplitRow = 22
+        ws.Range("A5").Select
+        ActiveWindow.SplitRow = 4
         ActiveWindow.FreezePanes = True
         ActiveWindow.ScrollRow = 1
         ActiveWindow.ScrollColumn = 1
