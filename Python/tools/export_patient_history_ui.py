@@ -18,14 +18,53 @@ from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E
 
 
 HEADERS = (
-    "PeriodStart", "PeriodEnd", "PatientId", "FinalizedDays",
+    "PeriodStart", "PeriodEnd", "PatientId", "PatientName", "FinalizedDays",
     "Scheduled", "Performed", "PatientAbsences", "Cancellations", "Replacements",
+    "CompletionPct",
 )
 
 
 def _display_patient_id(value: str) -> str:
     """Pad one-digit numeric identifiers only for display; keep stored IDs intact."""
     return value.zfill(2) if value.isascii() and value.isdecimal() and len(value) == 1 else value
+
+
+def _identity(patient_id: object) -> tuple[str, str | int]:
+    """Match stable workbook IDs without conflating arbitrary text identifiers."""
+    clean = str(patient_id).strip()
+    if not clean:
+        raise ValueError("Blank patient identifier")
+    if clean.isascii() and clean.isdecimal():
+        return ("numeric", int(clean))
+    return ("text", clean.casefold())
+
+
+def _patient_names(registered: list) -> dict[tuple[str, str | int], str]:
+    """Only current verified registry names; never infer historical names."""
+    names: dict[tuple[str, str | int], str] = {}
+    for patient in registered:
+        key = _identity(patient.patient_id)
+        if key in names:
+            raise ValueError(f"Duplicate patient identifier in registry: {patient.patient_id}")
+        label = str(patient.display_name or "").strip()
+        if not label:
+            raise ValueError(f"Patient is missing display name: {patient.patient_id}")
+        names[key] = label
+    return names
+
+
+def _completion_pct(performed: int, scheduled: int) -> str:
+    """Delivered / all scheduled finalized sessions, including cancellations.
+
+    This is a completion/participation-on-scheduled measure, not attendance
+    against an adjusted eligible denominator. The cancellation-policy KPI is
+    a separate future metric and must not be silently substituted here.
+    """
+    if scheduled < 0 or performed < 0 or performed > scheduled:
+        raise ValueError("Invalid scheduled/performed values for completion percentage")
+    if scheduled == 0:
+        return ""
+    return f"{performed * 100 / scheduled:.1f}"
 
 
 def _field(value: object) -> str:
@@ -46,8 +85,9 @@ def export_patient_history_ui(
 ) -> dict[str, object]:
     """Emit report TSV without opening or changing Excel."""
     rows = read_patient_history_report(workbook_path, mode=mode, start=start, end=end)
+    registered = read_patient_registry(workbook_path)
+    patient_names = _patient_names(registered)
     if include_registered_zero:
-        registered = read_patient_registry(workbook_path)
         rows = include_registered_patients_without_sessions(
             rows, tuple(str(patient.patient_id) for patient in registered), mode=mode
         )
@@ -55,8 +95,14 @@ def export_patient_history_ui(
     for row in rows:
         fields = (
             row.period_start.isoformat(), row.period_end.isoformat(),
-            _display_patient_id(row.patient_id), row.finalized_days, row.scheduled, row.performed,
+            _display_patient_id(row.patient_id),
+            patient_names.get(
+                _identity(row.patient_id),
+                f"Άγνωστο όνομα (κωδικός {_display_patient_id(row.patient_id)})",
+            ),
+            row.finalized_days, row.scheduled, row.performed,
             row.patient_absences, row.cancellations, row.replacements,
+            _completion_pct(row.performed, row.scheduled),
         )
         lines.append("\t".join(_field(item) for item in fields))
     output = Path(output_path).resolve()
