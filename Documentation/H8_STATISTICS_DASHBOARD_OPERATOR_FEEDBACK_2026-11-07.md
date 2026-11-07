@@ -228,3 +228,51 @@ Expected native build: H7 copy and installation sequence verified; `H8 REFRESH O
 If any step fails, do not re-run against the same BJ; report full terminal output. If BJ existed before this command, stop at the safety gate and preserve it. After audit GREEN, manually smoke test native charts, report modes and one terminal RefreshAll success only (failure messages retained). Charts and success-dialog behavior have **not** yet passed native proof.
 
 Open H8 scope remains genuine therapist absence provenance, clinical denominator policy, and longitudinal individual trends, as well as broad worksheet protection. Do not conflate source green with delivery acceptance.
+
+## 2026-11-07 — BJ manual acceptance GREEN; H8 visual refinement source staged
+
+The operator explicitly reported **«όλα λειτουργούν»** after native manual checks of BJ `UNIFIED_PATIENT_HISTORY_H8_20261107_BJ.xlsm`. This is the affirmative operator result for the previously requested BJ report/chart/mode/navigation/RefreshAll smoke. Together with prior BJ native install/read-only protection/integrated UI audits, freeze **BJ as native manually accepted baseline**. Do not edit, overwrite or reinstall BJ. This acceptance applies to the BJ functionality that was actually tested; it does not mean future refinements or all outstanding analytics scope are finished.
+
+The operator then specified a new follow-up slice:
+
+- Daily/weekly/monthly/overall report buttons must show a clearly distinct **selected active mode** color.
+- Therapist patient-count scale: **6 red, 5 orange, 3–4 yellow, 1–2 green**, and 0 neutral gray; other than daily, use average **distinct patients per finalized therapist-day** with clear non-integer thresholds (>=5.5 red, >=4.5 orange, >=2.5 yellow, >0 green). Do not confuse delivered sessions with distinct patients or occupied time slots. Report remains version-safe CURRENT_FINAL only.
+- **Three compact same-row therapist panels**: actual patients/day on a 0–6 reference scale; scheduled-vs-completed treatment sessions; and therapist absences vs working days. All should be clearly visible near the top.
+- Patient overview/selected-person chart should stay visible when scrolling to rows near the end of the long patient list.
+
+Tracked source implementation since BJ acceptance:
+- `c7ec124`: patient active-mode button colors (dark-blue selected, light inactive) and freeze top 22 rows so chart remains visible while patient table scrolls.
+- `873e55e`, `26c4d6b`: therapist active-mode colors, 3 native compact dashboard panels in columns A:D / E:H / I:M, load traffic light, 0–6 reference axis, one named chart each, refresh without chart stacking, chart captions legible.
+- `e18d020`: therapist TSV exporter now derives distinct delivered patient IDs per therapist/date from `read_current_patient_session_history_rows` (CURRENT_FINAL), protects against duplicate current-final session keys, calculates average across therapist finalized reported days; adds `UniquePatientsPerDay` column. This deliberately distinguishes unique patients from sessions and occupied slots.
+- `55e6a84`, `685deed`: workbook renderer displays and traffic-colors `Ασθενείς/ημέρα` in column N and uses this derived KPI for the 0–6 first plot.
+- `f4c8ade`, `bed39a2`, `e71c431`: aligned affected existing regression source tests with new 15-column TSV and sticky chart.
+- `06061b1`, `17346ed`: new focused source tests for mode selection, sticky chart, 3-panel layout, distinct patient counts, failure safety.
+
+**Important limitation:** The current finalized therapist/day workload schema does not persist authentic dated therapist absence/working-day facts. The append-only `DAY_HISTORY_EVENTS` currently enumerates only finalization/amendment event types, not daily staff attendance. The **third chart is deliberately an empty-data panel titled «Παρουσίες / απουσίες» with an explicit visible label «Μη διαθέσιμο ιστορικό απουσιών / εργασίμων»**. Never show missing data as 0 absences, never infer days absent from gaps in snapshots or from current editable `THERAPIST_ATTENDANCE`. Authentic absence days / expected-working-day history require a separate durable finalized source and agreed holiday/leave policy. Do not describe third panel as a populated quantitative chart until that source exists.
+
+**Status:** BJ manually GREEN and frozen; new visual-refinement source changes committed but **NOT TESTED OR NATIVE INSTALLED**. New one-shot workbook must use a fresh suffix (e.g. BK) from trusted AZ using existing H8 builder; must not overwrite BJ. Broad worksheet protection remains unauthorized.
+
+### Next source gate (Excel closed)
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest `
+  Tests/test_h8_dashboard_visual_navigation.py `
+  Tests/test_h8_unique_patient_workload.py `
+  Tests/test_h8_single_message_refresh.py `
+  Tests/test_h8_dashboard_smoke_builder.py `
+  Tests/test_h8_refresh_dialog_audit.py `
+  Tests/test_h8_patient_names_and_participation.py `
+  Tests/test_patient_history_ui_h7.py `
+  Tests/test_patient_history_reports_h7.py `
+  Tests/test_h7_patient_mode_switch_and_toolbar_fix.py `
+  Tests/test_therapist_history_ui.py `
+  Tests/test_h7_integrated_toolbar_and_patient_order.py `
+  Tests/test_h7_history_previous_screen_navigation.py -q
+
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 visual-refinement source gate failed" }
+```
+
+If source gate fails, fix source/tests before building anything. On green, create one fresh BK from AZ via `Python/tools/prepare_h8_dashboard_smoke.py`, full read-only protection and H7 integrated UI audits before opening, then one native manual smoke of active-mode colors, chart placements/sticky scrolling, unique patient workload/color thresholds, selected person chart, report protection and RefreshAll. Freeze any failed BK without repeat/repair. Source tests do not prove VBA chart COM or Excel freeze-pane behavior.
