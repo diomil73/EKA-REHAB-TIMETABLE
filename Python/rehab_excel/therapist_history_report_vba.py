@@ -146,6 +146,10 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         If Len(parts(13)) > 0 Then ws.Cells(rowIndex, 13).Value2 = parts(13) & "%"
         If Len(parts(14)) > 0 Then
             ws.Cells(rowIndex, 14).Value2 = CDbl(Replace(parts(14), ".", Application.DecimalSeparator))
+            ws.Cells(rowIndex, 14).Interior.Color = _
+                WorkloadTrafficColor(CDbl(ws.Cells(rowIndex, 14).Value2))
+            ws.Cells(rowIndex, 14).Font.Bold = True
+            ws.Cells(rowIndex, 14).NumberFormat = "0.00"
         End If
         totalDistinctPatientDayLoad = totalDistinctPatientDayLoad + _
             CDbl(ws.Cells(rowIndex, 14).Value2) * CLng(parts(4))
