@@ -86,7 +86,7 @@ def test_report_buttons_have_dedicated_visible_row_and_are_brought_to_front():
     source = THERAPIST_HISTORY_MODULE_CODE
     assert "ws.Rows(3).RowHeight = 32" in source
     assert "ws.Rows(4).RowHeight = 6" in source
-    assert "ws.Rows(5).RowHeight = 30" in source
+    assert "ws.Rows(22).RowHeight = 30" in source
     assert "PositionReportButtons ws" in source
     assert "shape.Top = topPos" in source
     assert "shape.Height = 24" in source
@@ -113,8 +113,8 @@ def test_each_mode_resets_window_to_top_and_refreezes_after_render():
     assert "ActiveWindow.SplitRow = 0" in source
     assert "ActiveWindow.ScrollColumn = 1" in source
     assert "ActiveWindow.ScrollRow = 1" in source
-    assert 'ws.Range("A6").Select' in source
-    assert "ActiveWindow.SplitRow = 5" in source
+    assert 'ws.Range("A23").Select' in source
+    assert "ActiveWindow.SplitRow = 22" in source
     assert "ActiveWindow.FreezePanes = True" in source
 
 
@@ -187,3 +187,14 @@ def test_persisted_audit_checks_each_report_button_action_and_visibility():
         assert name in source
     assert "shape.OnAction" in source
     assert "shape.Visible" in source
+
+
+def test_therapist_report_has_idempotent_workload_chart_above_history_table():
+    source = THERAPIST_HISTORY_MODULE_CODE
+    assert 'ws.ChartObjects("ekaTherapistLoadChart").Delete' in source
+    assert 'ws.ChartObjects.Add' in source
+    assert 'series.Values = Array(plannedSlots, actualSlots)' in source
+    assert 'ws.Cells(22, col + 1).Value2 = headers(col)' in source
+    assert 'rowIndex = 23' in source
+    assert 'ws.Rows(22).RowHeight = 30' in source
+    assert '"Οριστ. ημέρες"' in source
