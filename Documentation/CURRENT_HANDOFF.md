@@ -514,3 +514,36 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BI read-only audit failed; freeze
 Expected: both `THERAPIST_HISTORY_REPORT` and `PATIENT_HISTORY_REPORT` have `ProtectContents=True` and `ProtectDrawingObjects=False`; all four technical history sheets remain protected and veryHidden; no unrelated worksheet protection changes; audit reports `ReadOnly: True` and `Workbook unchanged: True`.
 
 If BI preparation or audit fails, freeze BI and share the complete output. If the read-only audit passes, then perform the manual integrated report/toolbar acceptance. No broad protection of other worksheets is authorized yet.
+
+
+## Latest operator evidence — BI integrated install and protection audit GREEN (2026-11-07)
+
+The operator supplied the actual PowerShell output for fresh `Excel/previews/UNIFIED_PATIENT_HISTORY_H7_20261104_BI.xlsm`, built from trusted `UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm` after the `33 passed in 4.13s` gate. The output is chronological: an older BH audit is followed by the new BI build and audit; do not confuse the BH failure with the current BI result.
+
+BI preparation reported:
+- `H7 INTEGRATED COPY VERIFIED`
+- `UNIFIED DAY SAVE UI INSTALL OK`; persisted VBA reopen verification OK
+- `THERAPIST HISTORY UI INSTALL OK`
+- `H7 PATIENT HISTORY UI INSTALL OK`; retained/styled RefreshAll and aligned two statistics buttons
+- `Persisted VBA reopen verification: OK`
+- `H7 INTEGRATED UI INSTALL OK`
+- `Source unchanged; fresh destination installed`
+
+The complete separate BI read-only audit reported:
+- `ReadOnly: True`; `Worksheet count: 23`; `ProtectStructure: False`; `ProtectWindows: False`
+- `PATIENT_HISTORY_REPORT`: Visible=-1, ProtectContents=True, ProtectDrawingObjects=False, ProtectScenarios=True
+- `THERAPIST_HISTORY_REPORT`: Visible=-1, ProtectContents=True, ProtectDrawingObjects=False, ProtectScenarios=True
+- `FINALIZED_DAY_SNAPSHOTS`, `THERAPIST_DAY_HISTORY`, `PATIENT_SESSION_HISTORY`, `DAY_HISTORY_EVENTS`: Visible=2 (veryHidden), ProtectContents=True, ProtectDrawingObjects=True
+- The remaining 17 sheets preserve their expected unprotected baseline; no broad protection was attempted
+- `Workbook unchanged: True`
+- `WORKBOOK PROTECTION AUDIT COMPLETE`
+
+**Disposition:** BI source gate + native install/persisted-state + read-only worksheet protection audit **GREEN**. The BH patient report regression is resolved at persisted worksheet-state level. This does NOT yet prove that the protected report buttons work when actually clicked, or that a report-mode refresh under protection succeeds. Native manual acceptance is the next and only current H7 step; BI is the accepted audit candidate, not yet overall H7 hardening completion.
+
+### Next manual acceptance, BI only
+
+Open the already-built BI in Excel, macros enabled. Verify the existing application/THERAPIST_DAILY toolbar and RefreshAll. From THERAPIST_DAILY open therapist statistics and check daily, weekly, monthly, overall and the previous-screen button back to THERAPIST_DAILY. Repeat for patient statistics. Confirm both protected reports remain read-only to manual cell edits, buttons remain clickable and four technical history sheets remain hidden. Use the normal report UI only; no production data edit, day-close, amendment or unrelated workflow in this smoke.
+
+If any button/mode fails, stop immediately, record exact visible error, affected report/mode and workbook state; freeze BI as failed evidence, do not patch/retry on BI. If all pass, record the operator's actual manual results and freeze BI as green accepted evidence. Move next to the broad worksheet protection write-path classification; do not lock other 17 sheets until the full VBA inventory is reconciled.
+
+Artifact ledger: AZ trusted/frozen; BF functionally accepted/frozen; BG and BH failed/frozen; BI install/audit GREEN, manual acceptance PENDING.
