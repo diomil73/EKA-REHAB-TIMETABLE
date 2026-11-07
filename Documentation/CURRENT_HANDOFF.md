@@ -1094,3 +1094,30 @@ Expected native success lines: `H8 SYNTHETIC HISTORY SEED OK`, `Persisted curren
 Operator reported **34 passed in 3.14s** following the prior **34 passed in 5.02s** source gate. This is an additional green source regression run, **not evidence of native BN creation**. No `H8 SYNTHETIC HISTORY SEED OK`, `Persisted current-final readback: OK`, or independent BN native audits have been reported. Do not mark BN accepted or built.
 
 Next action, once all Excel windows are closed: use previously authorized one-shot source AZ -> new nonexisting `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BN.xlsm` via `Python/tools/prepare_h8_synthetic_demo.py`, with strict `$LASTEXITCODE` checks; only if seed succeeds run `audit_workbook_protection.py` and `inspect_h7_integrated_ui.py`. Freeze BN on any error, no retry/overwrite. Source tests need not be rerun unless code changes. BM stays frozen failed diagnostic and BL stays accepted.
+
+## 2026-11-08 — BN native seed SAFETY STOP, Excel date serial coercion; no native success
+
+Operator provided an extended console transcript. Confirmed source tests `34 passed in 3.14s`, then one-shot fresh `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BN.xlsm` build. H8 VBA/UI installation succeeded, but native history seed **failed fast at the first synthetic service date**:
+
+```
+SAFETY STOP: DemoHistoryError:
+FINALIZED_DAY_SNAPSHOTS: COM readback mismatch at row 4 col 2:
+46286.0 != '2026-09-21'
+Freeze candidate; never repeat or repair seed in same XLSM.
+SAFETY STOP: DemoPreparationError: Synthetic finalized historyseed failed with exit 2.
+```
+
+Excel coerced ISO 2026-09-21 into native numeric date serial 46286.0 during `Value2` storage. The subsequent independent read-only audits still showed successful protection/toolbar state, but worksheet count **23**, original four history tables unchanged at pre-seed max rows (snapshot 3, therapist 33, patient 161, events 4), and `H7 INTEGRATED AUDIT OK`. No H9 attendance demo sheet. This explicitly proves the **native demo is NOT complete**; protection/toolbar audits cannot overrule fatal seed safety-stop. User rightly flagged the red failure output. **BN now frozen diagnostic**, just like BM; never retry or repair BN, and never open it as a demo. Trusted AZ and approved BJ/BK/BL unchanged.
+
+Source-only remediation (native outcome still untested):
+- `450588a`: in `write_rows_verified`, set each new string cell `NumberFormat = "@"` **before** writing ISO dates/times, snapshot IDs, codes, patient IDs, timestamps via scalar Excel COM `Value2`. This avoids native automatic numeric/date inference. Preserve true numeric fields.
+- `fd6fe03`: regression for coercing `2026-09-21` into 46286.0 and for preserving zero-padded IDs as exact text.
+- `6a7a32b`: Excel COM numeric Value2 often returns integer values as double (1.0 rather than 1). Compare expected numeric fields numerically while keeping string fields strict, and accept `None` only for expected empty optional fields.
+- `4020f59`: regression for double numeric readback and for rejection of a coerced date serial when an ISO string is expected.
+
+**New source gate pending**; no BO created. After `git pull --ff-only origin work/history-statistics-rebuild`, run:
+```powershell
+python -m pytest Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_attendance_history_contract.py Tests/test_therapist_attendance_history_store.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO regression source tests failed" }
+```
+Expected **38** if previous 34 tests plus four additional targeted regression tests pass. Do not infer the new tests passed. Only once green create a fresh previously absent `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm` from immutable AZ via the same guarded `prepare_h8_synthetic_demo.py`, then independent protection and toolbar audits, stopping and freezing BO on any error. BM/BN are never reused. No real production attendance integration/chart enabled. Record and prioritize the native seed result before any downstream read-only audit output.
