@@ -270,9 +270,19 @@ def write_rows_verified(
             # cell (Value2=None). Both are semantically the same optional
             # field; every nonempty value must still round-trip exactly.
             blank_expected = expected is None or expected == ""
-            if (not blank_expected and (actual is None or str(actual) != str(expected))) or (
-                blank_expected and actual not in (None, "")
-            ):
+            if blank_expected:
+                matching = actual is None or actual == ""
+            elif isinstance(expected, (int, float)) and not isinstance(expected, bool):
+                # COM commonly exposes numeric Excel values as doubles (1.0
+                # rather than integer 1). Equality must be numeric, not repr.
+                matching = (
+                    isinstance(actual, (int, float))
+                    and not isinstance(actual, bool)
+                    and float(actual) == float(expected)
+                )
+            else:
+                matching = isinstance(actual, str) and actual == expected
+            if not matching:
                 raise DemoHistoryError(
                     f"{sheet_name}: COM readback mismatch at "
                     f"row {row_index} col {column}: {actual!r} != {expected!r}"
