@@ -987,3 +987,31 @@ python -m pytest Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_at
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Synthetic demo source tests failed" }
 \`\`\`
 After source GREEN only, create a **single** fresh \`Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BM.xlsm\` from trusted AZ using \`prepare_h8_synthetic_demo.py\`; do not rerun/reinstall/overwrite on any failure, freeze that output and pick a different unused suffix after code-level correction. Follow with read-only \`audit_workbook_protection.py\` and \`inspect_h7_integrated_ui.py\`, then manually test multi-period visualization. Complete operator recipe and expected 24-sheet audit in the specific plan. Do not infer native success from source tests.
+
+## 2026-11-08 — synthetic multiweek history source gate GREEN
+
+The operator ran the prescribed five-file synthetic-history/H9/H8 source regression gate after commits `b415d25`, `7174b19`, `41097f9`, `53ec37e`, and confirmed **30 passed in 3.70s**. Thus the deterministic cross-month fixture, in-memory history integrity checks, guarded builder and H9 pure/read-only contracts pass the requested source test selection. **This is not native Excel proof** and there has not yet been a native BM workbook build or chart/manual review.
+
+**Authorize ONE fresh candidate:** `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BM.xlsm` based on trusted frozen `Excel/previews/UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`, with all Excel windows closed. The one-shot `Python/tools/prepare_h8_synthetic_demo.py` builds existing H8 native UI then seeds synthetic CURRENT_FINAL days plus H9 demo attendance data. Never overwrite or retry on a failed BM, and never change AZ/BJ/BK/BL or production.
+
+Native sequence:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+$source = ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$demo = ".\Excel\previews\UNIFIED_H8_DEMO_HISTORY_20261108_BM.xlsm"
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $demo) { throw "SAFETY STOP: BM already exists; no overwrite" }
+
+python .\Python\tools\prepare_h8_synthetic_demo.py --source $source --output $demo
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BM native seed failed; freeze BM and do not retry" }
+
+python .\Python\tools\audit_workbook_protection.py $demo
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BM protection audit failed; freeze BM" }
+
+python .\Python\tools\inspect_h7_integrated_ui.py $demo
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BM toolbar audit failed; freeze BM" }
+```
+
+Expected additional `THERAPIST_ATTENDANCE_HISTORY` demo technical sheet means 24 sheets, not BL's 23. The H8 third therapist absence/working-day chart is **not integrated**; its honest unavailable-state remains. For BM native build SUCCESS expect `H8 SYNTHETIC HISTORY SEED OK`, `Persisted current-final readback: OK`, `H8 SYNTHETIC DEMO PREPARATION OK`; if any check fails, freeze with full logs and do not repeat on same BM. Only once both independent read-only audits pass may operator open the demo and verify distinct periods and visual charts. The seed is DEMO ONLY and must never be transferred to production.
