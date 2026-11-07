@@ -30,6 +30,45 @@ Public Sub ShowTherapistHistoryOverall()
     RenderTherapistHistoryReport "overall"
 End Sub
 
+Public Sub ShowSelectedTherapistChart()
+    Dim ws As Worksheet, selectedRow As Long, finalRow As Long
+    Dim priorEvents As Boolean, priorScreenUpdating As Boolean
+    Dim failureNumber As Long, failureText As String
+    priorEvents = Application.EnableEvents
+    priorScreenUpdating = Application.ScreenUpdating
+    On Error GoTo ChartError
+    Set ws = ThisWorkbook.Worksheets(REPORT_SHEET)
+    If Not ActiveSheet Is ws Then
+        MsgBox "Ανοίξτε πρώτα τα στατιστικά θεραπευτών.", vbExclamation
+        Exit Sub
+    End If
+    selectedRow = ActiveCell.Row
+    finalRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    If selectedRow < 23 Or selectedRow > finalRow Then
+        MsgBox "Επιλέξτε πρώτα τη γραμμή του θεραπευτή στον πίνακα.", vbInformation
+        Exit Sub
+    End If
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
+    ws.Unprotect ""
+    BuildTherapistLoadChart ws, CLng(ws.Cells(selectedRow, 5).Value2), _
+        CLng(ws.Cells(selectedRow, 6).Value2), CStr(ws.Cells(selectedRow, 3).Value2)
+    ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
+    Application.EnableEvents = priorEvents
+    Application.ScreenUpdating = priorScreenUpdating
+    Exit Sub
+ChartError:
+    failureNumber = Err.Number
+    failureText = Err.Description
+    On Error Resume Next
+    If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
+    Application.EnableEvents = priorEvents
+    Application.ScreenUpdating = priorScreenUpdating
+    On Error GoTo 0
+    MsgBox "Το ατομικό γράφημα δεν ενημερώθηκε (" & CStr(failureNumber) & _
+        "): " & failureText, vbCritical, "Στατιστικά θεραπευτών"
+End Sub
+
 Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     Dim exportScript As String, outputPath As String, commandLine As String
     Dim exitCode As Long, rawText As String, lines As Variant, parts As Variant
@@ -163,7 +202,8 @@ Private Function DisplayPeriodEnd(ByVal reportMode As String, ByVal startText As
 End Function
 
 Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
-        ByVal plannedSlots As Long, ByVal actualSlots As Long)
+        ByVal plannedSlots As Long, ByVal actualSlots As Long, _
+        Optional ByVal therapistName As String = "")
     Dim plot As ChartObject, series As Series, width As Double
 
     ' One overview chart per report render, with no overlap with buttons or
@@ -187,7 +227,11 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     series.XValues = Array("Προγραμματισμένες", "Πραγματικές")
     series.Values = Array(plannedSlots, actualSlots)
     plot.Chart.HasTitle = True
-    plot.Chart.ChartTitle.Text = "Φόρτος θεραπευτών | μόνο οριστικοποιημένες ημέρες"
+    If Len(therapistName) > 0 Then
+        plot.Chart.ChartTitle.Text = "Προγραμματισμένος / πραγματικός φόρτος: " & therapistName
+    Else
+        plot.Chart.ChartTitle.Text = "Φόρτος θεραπευτών | μόνο οριστικοποιημένες ημέρες"
+    End If
     plot.Chart.HasLegend = False
 End Sub
 
@@ -242,6 +286,7 @@ Private Sub EnsureReportButtons(ByVal ws As Worksheet)
     EnsureOneReportButton ws, "ekaHistory_Monthly", "Μηνιαία", "ShowTherapistHistoryMonthly", 98#
     EnsureOneReportButton ws, "ekaHistory_Overall", "Συνολικά", "ShowTherapistHistoryOverall", 90#
     EnsureOneReportButton ws, "ekaHistory_Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
+    EnsureOneReportButton ws, "ekaHistory_PersonChart", "Γράφημα θεραπευτή", "ShowSelectedTherapistChart", 160#
     PositionReportButtons ws
 End Sub
 
@@ -280,7 +325,8 @@ Private Sub PositionReportButtons(ByVal ws As Worksheet)
         Array("ekaHistory_Weekly", 108#), _
         Array("ekaHistory_Monthly", 98#), _
         Array("ekaHistory_Overall", 90#), _
-        Array("ekaHistory_Back", 116#))
+        Array("ekaHistory_Back", 116#), _
+        Array("ekaHistory_PersonChart", 160#))
     topPos = ws.Rows(3).Top + 4
     leftPos = ws.Range("A3").Left + 4
     For i = LBound(specs) To UBound(specs)
