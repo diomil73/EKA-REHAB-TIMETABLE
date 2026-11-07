@@ -948,3 +948,19 @@ Next implementation step only after source green and explicit business rules for
 Operator ran the first focused H9 pure-domain source gate after commit `a0ac130` and reported **7 passed in 0.98s**. This validates only the model/contract: explicit attendance and expected-working-date facts, provenance, absence reasons, duplicate and missing dates, superseded versions and nonworking-day safeguards.
 
 **Current authorized next development:** Implement a strictly read-only workbook attendance history schema reader that rejects missing/malformed source data (never treats absent sheet as zero absences) and validates links against CURRENT_FINAL snapshot IDs. Do not modify Excel files or create a new H9 preview. Storage writes, actual roster-calendar provenance, holiday/leave policy and close-day integration remain separately gated. The accepted BL remains frozen. Next check must cover both the seven green contract tests and any new read-only-store tests, with no claim of native Excel proof.
+
+## 2026-11-08 — H9 source-only read-only historical attendance layer, operator tests pending
+
+Operator confirmed initial H9 domain gate **7 passed in 0.98s**. Continuing autonomously, added:
+- `cb3c652`: read-only `Python/rehab_excel/therapist_attendance_history_store.py` for future version-linked `THERAPIST_ATTENDANCE_HISTORY` schema, with strict missing-source safety, CURRENT_FINAL selection, mandatory independent expected-working-date calendar, and no workbook writes.
+- `11b392b`: six synthetic-workbook regression tests for source absence, immutable reads, superseded corrections, missing evidence, invalid source and duplicates.
+- `c5b7d85`: expanded `Documentation/H9_THERAPIST_ATTENDANCE_HISTORY_CONTRACT.md`.
+
+**Status:** New source files committed, **new six tests have not been executed by the operator**. Run:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_therapist_attendance_history_contract.py Tests/test_therapist_attendance_history_store.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H9 attendance history read-only gate failed" }
+```
+No H9 native Excel workbook, sheet writer, chart data, or generalized protection changes yet. The accepted BL stays frozen. If the gate fails, fix source and rerun; never patch a frozen workbook. If green, next task is explicit finalized working-day roster and attendance provenance/write-path design, with calendar/leave business rules, before any UI figures can be trusted.
