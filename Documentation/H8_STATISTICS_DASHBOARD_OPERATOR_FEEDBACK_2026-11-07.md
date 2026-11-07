@@ -122,3 +122,27 @@ This gate is expected to exercise 6 new H8 tests plus existing H7 suites. Do **n
 ## Operator proof — 2026-11-07, H8 per-person chart source gate GREEN
 
 The operator confirmed the **seven-file targeted regression suite completed: `52 passed in 5.51s`**. This result is later than the per-person chart source commits `57d7220`, `2dca8ac`, `fbde9a1`, `a3ecbcc`, `186ce00`, and `5531c28`. Thus the current committed patient/therapist native chart source contracts and H7 report regressions passed source tests. It does **not** prove chart behavior in live Excel, VBA procedure interactions, read-only protection after chart interaction, single-message RefreshAll behavior or genuine therapist-absence KPIs. No H8 native workbook has been created or accepted. Preserve AZ/BF/BG/BH/BI frozen. Priority is remaining source audit / targeted remediation and then a fresh uniquely named native workbook with complete persisted state audit before manual tests.
+
+## H8 RefreshAll diagnostic bridge staged after 52 GREEN (2026-11-07)
+
+The operator's previous seven-file gate returned **52 passed in 5.51s**. Since then, source commits `00eb3d4` and `012a936` added `Python/tools/audit_h8_refresh_dialogs.py` plus three focused tests. This is a new **read-only** VBA dependency/dialog candidate audit. It does not execute macros, change Excel, patch Module3 or claim that lexical MsgBox sites necessarily appeared at runtime. It recursively inspects `RefreshAll` and its six known operational delegates; missing/ambiguous VBA definitions fail closed. Every exit closes the workbook `SaveChanges=False`.
+
+**Next exact gate with Excel completely closed** (new tests were not part of the operator's 52-pass confirmation):
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest Tests/test_h8_refresh_dialog_audit.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 refresh audit source tests failed" }
+
+$proof = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H7_20261104_BI.xlsm"
+if (!(Test-Path -LiteralPath $proof)) { throw "SAFETY STOP: frozen BI not found" }
+
+python .\\Python\\tools\\audit_h8_refresh_dialogs.py $proof
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 RefreshAll audit incomplete or failed" }
+```
+
+Return the full diagnostic output, particularly each `DIALOG CANDIDATE` and `MISSING PROCEDURE` line. This is non-mutating inspection of **frozen BI**; do not click any refresh buttons, save BI, run installers or create the next H8 workbook. Once authoritative call sites are established, make targeted source-safe dialog cleanup while preserving all six operational effects and failure notifications. Analyst must not blindly suppress intermediate error or confirmation prompts.
+
+**Other pending H8 work:** therapist absence history provenance/definitions, full individual trend charts across multiple finalized periods, new source and Excel COM native chart proof, patient metric cancellation-policy semantics. Current source status is 52-pass gate for previous per-person chart slice; **the new refresh diagnostic source tests are still pending**.
