@@ -276,3 +276,13 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 visual-refinement source gate 
 ```
 
 If source gate fails, fix source/tests before building anything. On green, create one fresh BK from AZ via `Python/tools/prepare_h8_dashboard_smoke.py`, full read-only protection and H7 integrated UI audits before opening, then one native manual smoke of active-mode colors, chart placements/sticky scrolling, unique patient workload/color thresholds, selected person chart, report protection and RefreshAll. Freeze any failed BK without repeat/repair. Source tests do not prove VBA chart COM or Excel freeze-pane behavior.
+
+## 2026-11-08 — BL manual operator acceptance GREEN
+
+The operator explicitly confirmed **«όλα καλά»** after being asked to manually verify `Excel/previews/UNIFIED_PATIENT_HISTORY_H8_20261107_BL.xlsm` in native Excel. This confirms the previously pending BL manual smoke, in addition to its earlier successful build/persisted VBA and independent read-only protection and integrated-toolbar audits, and the 74 passed in 4.55s source regression gate.
+
+**Disposition: BL ACCEPTED for the tested H8 dashboard UI scope and FROZEN.** The accepted scope includes the new patient chart categories **Προγραμματισμένες / Πραγματοποιημένες / Απουσίες** in overview and selected-patient views, cleaned therapist chart title **Ασθενείς ανά ημέρα**, active period-button styling, sticky patient chart scrolling, side-by-side therapist panels, navigation, report protection and single terminal refresh success. This is the operator's concise acceptance, not an independently captured click-by-click replay; do not overstate deeper longitudinal data validation.
+
+**Do not modify/rebuild/reinstall BL, BK or BJ.** Trusted AZ remains immutable. No new workbook or broad worksheet-protection roll-out is authorized by this acceptance alone. Any future change requires new suffix, source tests, fresh one-shot build, independent audits and operator acceptance.
+
+**Open follow-up (not included in BL completion):** historical therapist presence/absence against valid working days remains unavailable from the current finalized therapist/day schema. Third chart intentionally identifies missing data instead of inventing zero absences. Future work must first design and persist authentic therapist-day availability/absence facts, working-day/holiday policies, reason provenance, correction/amendment behavior, and tests before drawing quantitative attendance ratios. Current reports should be revisited as more real finalized-day data accumulate; no new requirements have yet been confirmed.
