@@ -54,7 +54,7 @@ Public Sub ShowSelectedTherapistChart()
     BuildTherapistLoadChart ws, CLng(ws.Cells(selectedRow, 5).Value2), _
         CLng(ws.Cells(selectedRow, 6).Value2), CStr(ws.Cells(selectedRow, 3).Value2), _
         CLng(ws.Cells(selectedRow, 7).Value2), CLng(ws.Cells(selectedRow, 8).Value2), _
-        CLng(ws.Cells(selectedRow, 4).Value2)
+        CLng(ws.Cells(selectedRow, 4).Value2), CDbl(ws.Cells(selectedRow, 14).Value2)
     ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     Application.EnableEvents = priorEvents
     Application.ScreenUpdating = priorScreenUpdating
@@ -79,6 +79,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     Dim totalPlannedSlots As Long, totalActualSlots As Long
     Dim totalPlannedSessions As Long, totalActualSessions As Long
     Dim totalFinalizedTherapistDays As Long
+    Dim totalDistinctPatientDayLoad As Double
 
     On Error GoTo ReportError
 
@@ -120,7 +121,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     On Error Resume Next
     ws.Range("A1:N2").UnMerge
     On Error GoTo ReportError
-    ws.Range("A1:M1048576").ClearContents
+    ws.Range("A1:N1048576").ClearContents
     EnsureReportButtons ws
     ws.Cells(1, 1).Value2 = "Ιστορικό / Στατιστικά Θεραπευτών"
     ws.Cells(2, 1).Value2 = ReportModeDescription(reportMode) & _
@@ -133,7 +134,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     For sourceLine = 1 To UBound(lines)
         If Len(Trim$(CStr(lines(sourceLine)))) = 0 Then GoTo NextLine
         parts = Split(CStr(lines(sourceLine)), vbTab)
-        If UBound(parts) <> 13 Then Err.Raise vbObjectError + 7601, , "Invalid therapist-history UI row"
+        If UBound(parts) <> 14 Then Err.Raise vbObjectError + 7601, , "Invalid therapist-history UI row"
         ws.Cells(rowIndex, 1).Value2 = DisplayPeriodStart(reportMode, parts(0), parts(1))
         ws.Cells(rowIndex, 2).Value2 = DisplayPeriodEnd(reportMode, parts(0), parts(1))
         ws.Cells(rowIndex, 3).Value2 = parts(3)
@@ -143,6 +144,11 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         Next col
         If Len(parts(12)) > 0 Then ws.Cells(rowIndex, 12).Value2 = parts(12) & "%"
         If Len(parts(13)) > 0 Then ws.Cells(rowIndex, 13).Value2 = parts(13) & "%"
+        If Len(parts(14)) > 0 Then
+            ws.Cells(rowIndex, 14).Value2 = CDbl(Replace(parts(14), ".", Application.DecimalSeparator))
+        End If
+        totalDistinctPatientDayLoad = totalDistinctPatientDayLoad + _
+            CDbl(ws.Cells(rowIndex, 14).Value2) * CLng(parts(4))
         totalPlannedSlots = totalPlannedSlots + CLng(parts(5))
         totalActualSlots = totalActualSlots + CLng(parts(6))
         totalPlannedSessions = totalPlannedSessions + CLng(parts(7))
@@ -154,7 +160,8 @@ NextLine:
 
     FormatReportSheet ws, rowIndex - 1
     BuildTherapistLoadChart ws, totalPlannedSlots, totalActualSlots, "", _
-        totalPlannedSessions, totalActualSessions, totalFinalizedTherapistDays
+        totalPlannedSessions, totalActualSessions, totalFinalizedTherapistDays, _
+        totalDistinctPatientDayLoad / Application.Max(1, totalFinalizedTherapistDays)
     EnsureReportButtons ws
     HighlightTherapistReportMode ws, reportMode
     ws.Activate
@@ -179,7 +186,7 @@ End Sub
 Private Function ReportHeaders(ByVal reportMode As String) As Variant
     Select Case LCase$(Trim$(reportMode))
         Case "daily"
-            ReportHeaders = Array("Ημερομηνία", "", "Θεραπευτής", "Οριστ. ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος")
+            ReportHeaders = Array("Ημερομηνία", "", "Θεραπευτής", "Οριστ. ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος", "Ασθενείς/ημέρα")
         Case "monthly"
             ReportHeaders = Array("Μήνας", "", "Θεραπευτής", "Οριστ. ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος")
         Case Else
@@ -212,8 +219,8 @@ Private Function DisplayPeriodEnd(ByVal reportMode As String, ByVal startText As
 End Function
 
 Private Function WorkloadTrafficColor(ByVal loadPerDay As Double) As Long
-    ' Classification applies to delivered treatment count per finalized
-    ' therapist-day. Slot capacity and distinct patient IDs are separate KPIs.
+    ' Classification applies to distinct patients treated per finalized
+    ' therapist-day. Session count and occupied slots are separate KPIs.
     If loadPerDay >= 5.5 Then
         WorkloadTrafficColor = RGB(205, 50, 55)       ' six or more: red
     ElseIf loadPerDay >= 4.5 Then
@@ -248,7 +255,8 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         Optional ByVal therapistName As String = "", _
         Optional ByVal plannedSessions As Long = 0, _
         Optional ByVal actualSessions As Long = 0, _
-        Optional ByVal finalizedDays As Long = 0)
+        Optional ByVal finalizedDays As Long = 0, _
+        Optional ByVal uniquePatientsPerDay As Double = 0)
     Dim plot As ChartObject, series As Series
     Dim loadPerDay As Double
 
@@ -267,10 +275,10 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
 
     ' Chart one: 0-6 delivered treatments per finalized therapist-day,
     ' with explicit traffic colors; greater than six is still red.
-    loadPerDay = CDbl(actualSessions) / CDbl(finalizedDays)
+    loadPerDay = uniquePatientsPerDay
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistLoadChart", "A", "D")
     Set series = plot.Chart.SeriesCollection.NewSeries
-    series.Name = "Πραγμ. θεραπείες/ημέρα"
+    series.Name = "Διαφορετικοί ασθενείς/ημέρα"
     series.XValues = Array("Ανά ημέρα")
     series.Values = Array(loadPerDay)
     series.Format.Fill.ForeColor.RGB = WorkloadTrafficColor(loadPerDay)
@@ -278,7 +286,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
         WorksheetFunction.RoundUp(loadPerDay, 0))
     plot.Chart.HasTitle = True
-    plot.Chart.ChartTitle.Text = "Φόρτος 0-6" & IIf( _
+    plot.Chart.ChartTitle.Text = "Ασθενείς / ημέρα (0-6)" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
 
     ' Chart two: planned/delivered treatment sessions per reporting period.
@@ -310,19 +318,19 @@ Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
     ws.Range("A1").Font.Bold = True
     ws.Range("A2:M2").Merge
     ws.Range("A2").Font.Bold = True
-    ws.Range("A22:M22").Font.Bold = True
-    ws.Range("A22:M22").WrapText = True
+    ws.Range("A22:N22").Font.Bold = True
+    ws.Range("A22:N22").WrapText = True
     ws.Columns("A:B").ColumnWidth = 13
     ws.Columns("C").ColumnWidth = 19
-    ws.Columns("D:M").ColumnWidth = 13
-    If lastRow >= 22 Then ws.Range("A22:M" & CStr(lastRow)).Borders.LineStyle = 1
+    ws.Columns("D:N").ColumnWidth = 13
+    If lastRow >= 22 Then ws.Range("A22:N" & CStr(lastRow)).Borders.LineStyle = 1
     ws.Rows(1).RowHeight = 28
     ws.Rows(2).RowHeight = 22
     ws.Rows(3).RowHeight = 32
     ws.Rows(4).RowHeight = 6
     ws.Rows(22).RowHeight = 30
     PositionReportButtons ws
-    ws.ScrollArea = "A1:M" & CStr(Application.Max(lastRow + 2, 25))
+    ws.ScrollArea = "A1:N" & CStr(Application.Max(lastRow + 2, 25))
     On Error GoTo 0
 End Sub
 
