@@ -280,9 +280,13 @@ def seed_native(path: Path) -> None:
             start = max(2, int(ws.Cells(ws.Rows.Count, 1).End(-4162).Row) + 1)
             if start == 2 and name != ATTENDANCE_SHEET:
                 raise DemoHistoryError(f"Unexpected empty historical sheet: {name}")
-            for offset, record in enumerate(rows[name]):
-                for col, value in enumerate(record, 1):
-                    ws.Cells(start + offset, col).Value2 = value
+            # A single 2-D native Excel write avoids thousands of per-cell
+            # COM calls while preserving the existing rows and header.
+            values = rows[name]
+            if values:
+                ws.Cells(start, 1).Resize(len(values), len(headers)).Value = tuple(
+                    tuple(record) for record in values
+                )
             ws.Visible = 2
             ws.Protect("", True, True, True)
         book.Save()
@@ -294,7 +298,8 @@ def seed_native(path: Path) -> None:
     # Independent read-only reload. Never repair the destination if it fails.
     current = read_finalized_day_snapshots(path, current_only=True)
     after_days = {s.service_date for s in current}
-    if not set(days).issubset(after_days) or len(current) < len(original_snapshots) + len(days):
+    original_current_count = sum(s.status.value == "CURRENT_FINAL" for s in original_snapshots)
+    if not set(days).issubset(after_days) or len(current) != original_current_count + len(days):
         raise DemoHistoryError("Persisted demo snapshot history mismatch")
     p_rows = read_current_patient_session_history_rows(path)
     t_rows = read_therapist_day_history_rows(path)
