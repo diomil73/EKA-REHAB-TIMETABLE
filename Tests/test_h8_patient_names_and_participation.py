@@ -87,4 +87,4 @@ def test_patient_selection_drilldown_preserves_protected_report():
     assert 'selectedRow < 23 Or selectedRow > finalRow' in PATIENT_REPORT_VBA
     assert 'BuildPatientOverviewChart ws, CLng(ws.Cells(selectedRow, 6).Value2)' in PATIENT_REPORT_VBA
     assert 'If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True' in PATIENT_REPORT_VBA
-    assert 'ActiveWindow.SplitRow = 4' in PATIENT_REPORT_VBA
+    assert 'ActiveWindow.SplitRow = 22' in PATIENT_REPORT_VBA
