@@ -231,6 +231,41 @@ def _load_roster(path: Path):
     return generate_demo_rows(dates, therapist_ids[:6], patient_ids), dates, existing
 
 
+def write_rows_verified(
+    ws: object,
+    start_row: int,
+    headers: tuple[str, ...],
+    records: tuple[tuple[object, ...], ...],
+    *,
+    sheet_name: str,
+) -> None:
+    """Write scalar COM values only, verify every row's identity and contents.
+
+    Do NOT optimize this into a 2-D Range.Value assignment without a separate
+    real-Excel marshaling proof. The BM native safety stop demonstrated that
+    a Python tuple-of-tuples was not reliably written as a rectangular grid.
+    """
+    if start_row < 2 or not headers:
+        raise DemoHistoryError(f"{sheet_name}: unsafe append starting row")
+    for offset, record in enumerate(records):
+        if len(record) != len(headers):
+            raise DemoHistoryError(f"{sheet_name}: inconsistent record width")
+        row_index = start_row + offset
+        if not str(record[0] or "").strip():
+            raise DemoHistoryError(f"{sheet_name}: blank SnapshotId before write")
+        for column, value in enumerate(record, start=1):
+            ws.Cells(row_index, column).Value2 = value
+        # Read all columns immediately, so a COM assignment error cannot be
+        # hidden by apparently populated UsedRange or a successful Save().
+        for column, expected in enumerate(record, start=1):
+            actual = ws.Cells(row_index, column).Value2
+            if actual is None or str(actual) != str(expected):
+                raise DemoHistoryError(
+                    f"{sheet_name}: COM readback mismatch at "
+                    f"row {row_index} col {column}: {actual!r} != {expected!r}"
+                )
+
+
 def seed_native(path: Path) -> None:
     """May write ONLY an explicitly named fresh demo workbook once."""
     if sys.platform != "win32":
@@ -280,13 +315,12 @@ def seed_native(path: Path) -> None:
             start = max(2, int(ws.Cells(ws.Rows.Count, 1).End(-4162).Row) + 1)
             if start == 2 and name != ATTENDANCE_SHEET:
                 raise DemoHistoryError(f"Unexpected empty historical sheet: {name}")
-            # A single 2-D native Excel write avoids thousands of per-cell
-            # COM calls while preserving the existing rows and header.
-            values = rows[name]
-            if values:
-                ws.Cells(start, 1).Resize(len(values), len(headers)).Value = tuple(
-                    tuple(record) for record in values
-                )
+            # On native Excel, the previous nested tuple/Range.Value COM
+            # assignment was mis-marshalled: it expanded the UsedRange but
+            # populated no historical rows (and displaced one value to the
+            # bottom-right cell). Write scalars to exact cells, then read
+            # critical fields back before allowing Save().
+            write_rows_verified(ws, start, headers, rows[name], sheet_name=name)
             ws.Visible = 2
             ws.Protect("", True, True, True)
         book.Save()
