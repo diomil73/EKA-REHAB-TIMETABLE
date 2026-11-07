@@ -31,7 +31,7 @@ def test_patient_report_read_only_history_and_hidden_snapshot_version():
     assert "PATIENT_SESSION_HISTORY" not in src
     assert '"Έκδοση"' not in src
     assert 'ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True' in src
-    assert 'If UBound(fields) <> 8' in src
+    assert 'If UBound(fields) <> 10' in src
 
 
 def test_report_buttons_persist_through_mode_switches():
