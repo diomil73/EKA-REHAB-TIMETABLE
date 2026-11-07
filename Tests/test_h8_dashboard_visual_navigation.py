@@ -55,3 +55,19 @@ def test_absence_panel_marks_data_unavailable_instead_of_fabricating_zeros():
     assert 'plot.Chart.ChartTitle.Text = "Παρουσίες / απουσίες"' in src
     assert "If finalizedDays <= 0 Then" in src
     assert "plot.Chart.SeriesCollection.NewSeries" in src
+
+
+def test_patient_three_categories_are_planned_performed_absent_only():
+    src = PATIENT_REPORT_VBA
+    assert 'series.XValues = Array("Προγραμματισμένες", "Πραγματοποιημένες", "Απουσίες")' in src
+    assert "series.Values = Array(scheduled, delivered, absent)" in src
+    assert "totalScheduled = totalScheduled + CLng(fields(5))" in src
+    assert "BuildPatientOverviewChart ws, totalScheduled, totalDelivered, totalAbsent" in src
+
+
+def test_therapist_load_title_omits_numeric_scale_without_removing_axis():
+    src = THERAPIST_HISTORY_MODULE_CODE
+    assert 'plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα"' in src
+    assert '"Ασθενείς / ημέρα (0-6)"' not in src
+    assert "plot.Chart.Axes(xlValue).MinimumScale = 0" in src
+    assert "Application.Max(6" in src
