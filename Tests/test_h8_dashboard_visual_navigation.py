@@ -45,7 +45,8 @@ def test_workload_traffic_light_contract_is_explicit_and_never_looks_up_from_liv
     assert "RGB(238, 207, 72)" in src
     assert "RGB(79, 166, 93)" in src
     assert "RGB(160, 169, 177)" in src
-    assert "CDbl(actualSessions) / CDbl(finalizedDays)" in src
+    assert "loadPerDay = uniquePatientsPerDay" in src
+    assert 'ws.Cells(rowIndex, 14).Value2' in src
 
 
 def test_absence_panel_marks_data_unavailable_instead_of_fabricating_zeros():
