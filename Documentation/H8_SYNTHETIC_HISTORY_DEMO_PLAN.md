@@ -195,3 +195,26 @@ python -m pytest Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_at
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO regression source tests failed" }
 ```
 Expected **38** if previous 34 tests plus four additional targeted regression tests pass. Do not infer the new tests passed. Only once green create a fresh previously absent `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm` from immutable AZ via the same guarded `prepare_h8_synthetic_demo.py`, then independent protection and toolbar audits, stopping and freezing BO on any error. BM/BN are never reused. No real production attendance integration/chart enabled. Record and prioritize the native seed result before any downstream read-only audit output.
+
+## 2026-11-08 — BO corrected source gate GREEN (operator 38 passed in 5.11s)
+
+Operator ran the exact five-file demo source suite after BN coercion fixes (`450588a`, `fd6fe03`, `6a7a32b`, `4020f59`) and confirmed **38 passed in 5.11s**. This verifies source-only regression coverage, including strict text formatting for ISO dates/identifiers, numeric COM double readback, and prevention of malformed BM-style matrix writes. **No BO native build has yet been reported; do not mark native success.**
+
+**Authorize precisely one new candidate:** `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm` from immutable trusted `Excel/previews/UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`, with all Excel windows closed. Fail if output already exists; build and seed only once via `Python/tools/prepare_h8_synthetic_demo.py`; **only after `H8 SYNTHETIC HISTORY SEED OK`, `Persisted current-final readback: OK` and `H8 SYNTHETIC DEMO PREPARATION OK`** run independent read-only protection and integrated UI audits. If any command fails freeze BO and do not retry, repair or overwrite. A successful VBA/protection/toolbar audit does not override missing seeded-history success. Expect 24 sheets if successful. Then operator manually verifies diverse time periods and charts in this disposable test-only workbook; synthetic H9 staff attendance remains not connected to third H8 graph.
+
+Run from repository root:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$source = ".\Excel\previews\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$demo = ".\Excel\previews\UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm"
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $demo) { throw "SAFETY STOP: BO exists; never overwrite" }
+python .\Python\tools\prepare_h8_synthetic_demo.py --source $source --output $demo
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO native seed failed. Freeze BO; no retry." }
+python .\Python\tools\audit_workbook_protection.py $demo
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO protection audit failed. Freeze BO." }
+python .\Python\tools\inspect_h7_integrated_ui.py $demo
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO toolbar audit failed. Freeze BO." }
+```
+Diagnostics on previously failed BN and BM are already recorded. Both remain frozen, and accepted BL/BK/BJ and AZ must remain untouched.
