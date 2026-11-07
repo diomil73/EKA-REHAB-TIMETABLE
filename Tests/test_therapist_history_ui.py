@@ -195,7 +195,13 @@ def test_therapist_report_has_idempotent_workload_chart_above_history_table():
     source = THERAPIST_HISTORY_MODULE_CODE
     assert 'ws.ChartObjects("ekaTherapistLoadChart").Delete' in source
     assert 'ws.ChartObjects.Add' in source
-    assert 'series.Values = Array(plannedSlots, actualSlots)' in source
+    # H8: workload is unique patients/day; planned vs completed sessions
+    # belong to a separate native chart rather than the original slot chart.
+    assert 'series.Values = Array(loadPerDay)' in source
+    assert 'series.Format.Fill.ForeColor.RGB = WorkloadTrafficColor(loadPerDay)' in source
+    assert 'ws.ChartObjects("ekaTherapistSessionChart").Delete' in source
+    assert 'series.Values = Array(plannedSessions, actualSessions)' in source
+    assert 'ws.ChartObjects("ekaTherapistAttendanceChart").Delete' in source
     assert 'ws.Cells(22, col + 1).Value2 = headers(col)' in source
     assert 'rowIndex = 23' in source
     assert 'ws.Rows(22).RowHeight = 30' in source
