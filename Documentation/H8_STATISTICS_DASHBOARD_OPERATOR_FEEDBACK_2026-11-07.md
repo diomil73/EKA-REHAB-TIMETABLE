@@ -70,3 +70,51 @@ BI H7 source tests (33/33), integrated native install, persisted audits and work
 6. **Operator manual acceptance** across daily, weekly, monthly, overall for both populations, chart accuracy and clickability, missing data and update feedback. Only then resume general worksheet protection write-path audit.
 
 No new H8 smoke, acceptance claim, or production workbook edit is authorized by this document. This is a specification / root-cause investigation checkpoint, not a code fix.
+
+## Implementation checkpoint — first H8 code slice committed (2026-11-07)
+
+The operator explicitly requested immediate implementation. These **source-only** commits exist on `work/history-statistics-rebuild`:
+- `e355075`: patient TSV exporter obtains stable current-registry `display_name`, refuses duplicate normalized registry identifiers, preserves unknown-name fallback for absent historical IDs, and adds `CompletionPct`.
+- `bfa257b`: patient VBA report now renders names and `Συμμετοχή %` in a 10-column table; it does not display patient codes as the primary label.
+- `70f0c30`: H7 patient VBA schema test adjusted from 9 to 11 TSV fields.
+- `8578ce1`: new H8 unit tests for identity matching, collision stop, completion edge cases, unknown names, workbook-byte immutability.
+- `38c6f3d`: therapist report explicitly labels recorded finalized days and notes single-day period equality.
+- `b894097`: first native patient overview chart (completed/absent/cancelled), idempotent one-chart pattern, above 10-column table in protected report.
+- `e8faa2f`: patient chart source contract test.
+- `38cc657`: first native therapist load overview chart (planned/actual occupied slots), idempotent and above history table.
+- `b929cc9`: therapist layout regression tests adjusted, first chart test.
+- `7ac784e`: existing patient mode-switch tests updated for 10 columns.
+- `a72a448`: existing H7 patient exporter tests updated for name join and completion metric.
+
+**Status:** source changes staged/committed, **no operator source-test result yet**, **no native H8 XLSM yet**. Never apply to BI or alter frozen proof. Chart work here is overview-only, not complete per-person drilldown; abstain from claiming the full dashboard accepted. Genuine therapist absence metrics and per-person charts still require source evidence and implementation.
+
+### Accuracy note for first KPI
+
+`CompletionPct = 100 × performed / scheduled`, with zero scheduled -> empty/undefined, counting cancellations within scheduled. It is explicitly a *completed versus originally scheduled* metric, not an adjusted-eligible attendance KPI. The final product may need a second clinically agreed patient participation metric after cancellation classifications are verified. Never label missing denominator as 0%.
+
+### Known existing RefreshAll implementation
+
+`Documentation/CHECKPOINT_H7_REFRESHALL_RETAINED_AND_TOOLBAR_MIGRATION_2026-11-04.md` contains the read-only VBA procedure from a frozen workbook:
+`Module3.RefreshAll` calls six operational routines: `RefreshTherapistDaily`, `RefreshTherapistAttendanceAndConflicts`, `BuildReplacementSuggestions_V4`, `ColorInfectiousInMaster`, `ColorReplacementMarks`, `RestoreReturnedTherapists`, then gives a terminal `MsgBox "Όλα ενημερώθηκαν."`. It is therefore not redundant and must not be removed. Repeated intervening dialogs most likely arise in delegated routines; the exact call chain needs native VBA source inspection before suppressing intermediate prompts. Do not blindly remove dialogs from operational macros that also run independently, or misreport success on errors.
+
+### Next safety gate (Excel fully closed)
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest `
+  Tests/test_h8_patient_names_and_participation.py `
+  Tests/test_patient_history_ui_h7.py `
+  Tests/test_patient_history_reports_h7.py `
+  Tests/test_h7_patient_mode_switch_and_toolbar_fix.py `
+  Tests/test_therapist_history_ui.py `
+  Tests/test_h7_integrated_toolbar_and_patient_order.py `
+  Tests/test_h7_history_previous_screen_navigation.py -q
+
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8/H7 source regression tests failed" }
+```
+
+This gate is expected to exercise 6 new H8 tests plus existing H7 suites. Do **not** create a native workbook if any test fails. Send complete failing traceback; correct source and retry source gate. If green, then verify additional relevant history tests before a new H8 smoke, and run full read-only audit before any native manual click.
+
+**Open work:** exact RefreshAll suppression strategy; absence provenance; full patient/therapist individual chart and KPI drilldowns; clear multi-period data-coverage display; native COM chart render proof. This first code slice is not a release-ready implementation.
