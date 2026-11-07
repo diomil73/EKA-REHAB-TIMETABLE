@@ -30,6 +30,46 @@ Public Sub ShowPatientHistoryOverall()
     RenderPatientHistory "overall"
 End Sub
 
+Public Sub ShowSelectedPatientChart()
+    Dim ws As Worksheet, selectedRow As Long, finalRow As Long
+    Dim priorEvents As Boolean, priorScreenUpdating As Boolean
+    Dim failureNumber As Long, failureText As String
+    priorEvents = Application.EnableEvents
+    priorScreenUpdating = Application.ScreenUpdating
+    On Error GoTo ChartError
+    Set ws = ThisWorkbook.Worksheets(REPORT_SHEET)
+    If Not ActiveSheet Is ws Then
+        MsgBox "Ανοίξτε πρώτα τα στατιστικά ασθενών.", vbExclamation
+        Exit Sub
+    End If
+    selectedRow = ActiveCell.Row
+    finalRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    If selectedRow < 23 Or selectedRow > finalRow Then
+        MsgBox "Επιλέξτε πρώτα τη γραμμή του ασθενή στον πίνακα.", vbInformation
+        Exit Sub
+    End If
+    Application.EnableEvents = False
+    Application.ScreenUpdating = False
+    ws.Unprotect ""
+    BuildPatientOverviewChart ws, CLng(ws.Cells(selectedRow, 6).Value2), _
+        CLng(ws.Cells(selectedRow, 7).Value2), CLng(ws.Cells(selectedRow, 8).Value2), _
+        CStr(ws.Cells(selectedRow, 3).Value2)
+    ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
+    Application.EnableEvents = priorEvents
+    Application.ScreenUpdating = priorScreenUpdating
+    Exit Sub
+ChartError:
+    failureNumber = Err.Number
+    failureText = Err.Description
+    On Error Resume Next
+    If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
+    Application.EnableEvents = priorEvents
+    Application.ScreenUpdating = priorScreenUpdating
+    On Error GoTo 0
+    MsgBox "Το ατομικό γράφημα δεν ενημερώθηκε (" & CStr(failureNumber) & _
+        "): " & failureText, vbCritical, "Στατιστικά ασθενών"
+End Sub
+
 Private Sub RenderPatientHistory(ByVal reportMode As String)
     Dim scriptPath As String, outputPath As String, commandLine As String
     Dim ws As Worksheet, exitCode As Long, rawText As String
@@ -81,7 +121,7 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
 
     ws.Range("A1").Value2 = "Ιστορικό / Στατιστικά Ασθενών"
     ws.Range("A2").Value2 = ModeDescription(reportMode) & _
-        " | Συμμετοχή = πραγματοποιημένες / προγραμματισμένες | κενό = χωρίς συνεδρίες"
+        " | Συμμετοχή = πραγματοποιημένες / προγραμματισμένες | επιλέξτε γραμμή για ατομικό γράφημα"
     ws.Range("A22:J22").Value = Array( _
         "Από", "Έως", "Ονοματεπώνυμο", "Οριστ. ημέρες", "Προγρ. συνεδρίες", _
         "Πραγμ. συνεδρίες", "Απουσίες", "Ακυρώσεις", "Αναπληρώσεις", "Συμμετοχή %")
@@ -165,6 +205,7 @@ Private Sub EnsurePatientButtons(ByVal ws As Worksheet)
     EnsurePatientButton ws, "Monthly", "Μηνιαία", "ShowPatientHistoryMonthly", 98#
     EnsurePatientButton ws, "Overall", "Συνολικά", "ShowPatientHistoryOverall", 90#
     EnsurePatientButton ws, "Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
+    EnsurePatientButton ws, "PersonChart", "Γράφημα ασθενή", "ShowSelectedPatientChart", 150#
     PositionPatientButtons ws
 End Sub
 
@@ -203,7 +244,7 @@ End Sub
 Private Sub PositionPatientButtons(ByVal ws As Worksheet)
     Dim specs As Variant, i As Long, shape As Shape
     Dim leftPos As Double, topPos As Double
-    specs = Array("Daily", "Weekly", "Monthly", "Overall", "Back")
+    specs = Array("Daily", "Weekly", "Monthly", "Overall", "Back", "PersonChart")
     leftPos = ws.Range("A3").Left + 4
     topPos = ws.Rows(3).Top + 4
     For i = LBound(specs) To UBound(specs)
@@ -216,7 +257,8 @@ Private Sub PositionPatientButtons(ByVal ws As Worksheet)
 End Sub
 
 Private Sub BuildPatientOverviewChart(ByVal ws As Worksheet, _
-        ByVal delivered As Long, ByVal absent As Long, ByVal cancelled As Long)
+        ByVal delivered As Long, ByVal absent As Long, ByVal cancelled As Long, _
+        Optional ByVal patientName As String = "")
     Dim plot As ChartObject, series As Series
     Dim width As Double
 
@@ -243,8 +285,12 @@ Private Sub BuildPatientOverviewChart(ByVal ws As Worksheet, _
     series.XValues = Array("Πραγματοποιημένες", "Απουσίες", "Ακυρώσεις")
     series.Values = Array(delivered, absent, cancelled)
     plot.Chart.HasTitle = True
-    plot.Chart.ChartTitle.Text = "Αποτέλεσμα συνεδριών | " & _
-        "μόνο οριστικοποιημένο ιστορικό"
+    If Len(patientName) > 0 Then
+        plot.Chart.ChartTitle.Text = "Συνεδρίες: " & patientName
+    Else
+        plot.Chart.ChartTitle.Text = "Αποτέλεσμα συνεδριών | " & _
+            "μόνο οριστικοποιημένο ιστορικό"
+    End If
     plot.Chart.HasLegend = False
 End Sub
 
