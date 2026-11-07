@@ -205,3 +205,84 @@ def test_excel_com_empty_string_round_trips_as_none():
     )
     assert ws.cells[(2, 1)] == "DEMO-H8-20260921-V1"
     assert ws.cells[(2, 2)] == ""
+
+
+
+def test_bn_date_serial_regression_formats_iso_dates_as_text_before_write():
+    """Native Excel must not turn 2026-09-21 into numeric serial 46286.0."""
+    class _DateCoercingCell:
+        def __init__(self, backing, key):
+            self.backing, self.key = backing, key
+            self.NumberFormat = "General"
+
+        @property
+        def Value2(self):
+            return self.backing.get(self.key)
+
+        @Value2.setter
+        def Value2(self, value):
+            if value == "2026-09-21" and self.NumberFormat != "@":
+                self.backing[self.key] = 46286.0
+            else:
+                self.backing[self.key] = value
+
+    class _DateCoercingWorksheet:
+        def __init__(self):
+            self.backing = {}
+            self.cells = {}
+
+        def Cells(self, row, col):
+            key = (row, col)
+            if key not in self.cells:
+                self.cells[key] = _DateCoercingCell(self.backing, key)
+            return self.cells[key]
+
+    ws = _DateCoercingWorksheet()
+    write_rows_verified(
+        ws, 4, ("SnapshotId", "ServiceDate", "Version"),
+        (("DEMO-H8-20260921-V1", "2026-09-21", 1),),
+        sheet_name="FINALIZED_DAY_SNAPSHOTS",
+    )
+    assert ws.Cells(4, 2).NumberFormat == "@"
+    assert ws.Cells(4, 2).Value2 == "2026-09-21"
+    assert ws.Cells(4, 1).NumberFormat == "@"
+    assert ws.Cells(4, 3).NumberFormat == "General"
+
+
+def test_bn_patient_numeric_identifier_is_stored_as_text_not_excel_number():
+    class _CoercingCell:
+        def __init__(self, backing, key):
+            self.backing, self.key = backing, key
+            self.NumberFormat = "General"
+
+        @property
+        def Value2(self):
+            return self.backing.get(self.key)
+
+        @Value2.setter
+        def Value2(self, value):
+            if isinstance(value, str) and value.isdecimal() and self.NumberFormat != "@":
+                self.backing[self.key] = float(value)
+            else:
+                self.backing[self.key] = value
+
+    class _CoercingWorksheet:
+        def __init__(self):
+            self.backing = {}
+            self.cells = {}
+
+        def Cells(self, row, col):
+            key = (row, col)
+            if key not in self.cells:
+                self.cells[key] = _CoercingCell(self.backing, key)
+            return self.cells[key]
+
+    ws = _CoercingWorksheet()
+    write_rows_verified(
+        ws, 2, ("SnapshotId", "PatientId", "Scheduled"),
+        (("DEMO-1", "0007", 3),),
+        sheet_name="PATIENT_SESSION_HISTORY",
+    )
+    assert ws.Cells(2, 2).Value2 == "0007"
+    assert ws.Cells(2, 2).NumberFormat == "@"
+    assert ws.Cells(2, 3).Value2 == 3
