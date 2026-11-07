@@ -290,7 +290,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
         WorksheetFunction.RoundUp(loadPerDay, 0))
     plot.Chart.HasTitle = True
-    plot.Chart.ChartTitle.Text = "Ασθενείς / ημέρα (0-6)" & IIf( _
+    plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
 
     ' Chart two: planned/delivered treatment sessions per reporting period.
