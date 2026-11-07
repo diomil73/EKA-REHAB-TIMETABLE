@@ -602,3 +602,7 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 drilldown regression tests fai
 ```
 
 After source green, continue trusted source inventory and single-message RefreshAll remediation before a fresh uniquely named H8 native smoke. This is a source checkpoint, not release authorization.
+
+## Operator proof — 2026-11-07, H8 per-person chart source gate GREEN
+
+The operator confirmed the **seven-file targeted regression suite completed: `52 passed in 5.51s`**. This result is later than the per-person chart source commits `57d7220`, `2dca8ac`, `fbde9a1`, `a3ecbcc`, `186ce00`, and `5531c28`. Thus the current committed patient/therapist native chart source contracts and H7 report regressions passed source tests. It does **not** prove chart behavior in live Excel, VBA procedure interactions, read-only protection after chart interaction, single-message RefreshAll behavior or genuine therapist-absence KPIs. No H8 native workbook has been created or accepted. Preserve AZ/BF/BG/BH/BI frozen. Priority is remaining source audit / targeted remediation and then a fresh uniquely named native workbook with complete persisted state audit before manual tests.
