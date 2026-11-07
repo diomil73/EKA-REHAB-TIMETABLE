@@ -95,3 +95,27 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BM toolbar audit failed; freeze B
 ```
 
 Expected additional `THERAPIST_ATTENDANCE_HISTORY` demo technical sheet means 24 sheets, not BL's 23. The H8 third therapist absence/working-day chart is **not integrated**; its honest unavailable-state remains. For BM native build SUCCESS expect `H8 SYNTHETIC HISTORY SEED OK`, `Persisted current-final readback: OK`, `H8 SYNTHETIC DEMO PREPARATION OK`; if any check fails, freeze with full logs and do not repeat on same BM. Only once both independent read-only audits pass may operator open the demo and verify distinct periods and visual charts. The seed is DEMO ONLY and must never be transferred to production.
+
+## 2026-11-08 — BM synthetic seed native SAFETY STOP (operator transcript)
+
+The operator executed the one-shot BM build after the **30 passed in 3.70s** source gate. H8 native UI build completed successfully, but **synthetic history seed failed and BM is permanently frozen diagnostic evidence**:
+
+```
+SAFETY STOP: FinalizedDaySnapshotStoreError:
+FINALIZED_DAY_SNAPSHOTS row 28: SnapshotId is blank
+Freeze candidate; never repeat or repair seed in same XLSM.
+SAFETY STOP: DemoPreparationError: Synthetic finalized history seed failed with exit 2.
+```
+
+The operator's subsequent, independent read-only audits still returned `WORKBOOK PROTECTION AUDIT COMPLETE` and `H7 INTEGRATED AUDIT OK; workbook not changed`. They reported 24 worksheets and protected/veryHidden technical sheets, including `THERAPIST_ATTENDANCE_HISTORY` and partially added synthetic records in `FINALIZED_DAY_SNAPSHOTS` through used row 28, `THERAPIST_DAY_HISTORY` through row 183, `PATIENT_SESSION_HISTORY` through row 683, `DAY_HISTORY_EVENTS` through row 29. **These audits do NOT establish semantic validity or native demo success.** `H8 SYNTHETIC HISTORY SEED OK` and persisted-history readback did not occur. The builder must not be rerun on BM; never use BM for manual chart acceptance or production. The exact cause of partial blank ID on row 28 is **not yet verified** (possible COM range write shape / last-row offset / malformed trailing row). Avoid attributing cause without read-only evidence.
+
+To diagnose instead of blind patching, added `Python/tools/inspect_h8_synthetic_seed_failure.py` via `bc998660`: read-only openpyxl report of actual data-row counts, missing SnapshotId rows, last six snapshot rows, and SHA256 unchanged check. It never writes or repairs the workbook and accepts only `_DEMO_` filename.
+
+**Next operator step with all Excel windows closed:**
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python .\Python\tools\inspect_h8_synthetic_seed_failure.py --workbook ".\Excel\previews\UNIFIED_H8_DEMO_HISTORY_20261108_BM.xlsm"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BM read-only diagnosis failed" }
+```
+Report exact diagnostic output. Then fix and regression-test generator; build **fresh previously-unused BN** only after test gate green. AZ/BJ/BK/BL remain unchanged. No retry, repair, or overwrite of BM.
