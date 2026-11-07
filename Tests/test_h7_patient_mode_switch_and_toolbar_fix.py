@@ -4,10 +4,10 @@ import inspect
 
 def test_patient_history_unmerges_before_clear_on_mode_changes():
     source = PATIENT_REPORT_VBA
-    assert source.index('ws.Range("A1:I2").UnMerge') < source.index('ws.Range("A1:I1048576").ClearContents')
-    assert source.index('ws.Unprotect') < source.index('ws.Range("A1:I2").UnMerge')
-    assert 'ws.Range("A1:I1").Merge' in source
-    assert 'ws.Range("A2:I2").Merge' in source
+    assert source.index('ws.Range("A1:J2").UnMerge') < source.index('ws.Range("A1:J1048576").ClearContents')
+    assert source.index('ws.Unprotect') < source.index('ws.Range("A1:J2").UnMerge')
+    assert 'ws.Range("A1:J1").Merge' in source
+    assert 'ws.Range("A2:J2").Merge' in source
 
 
 def test_patient_history_report_error_contains_vba_number_and_description():
