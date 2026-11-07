@@ -254,7 +254,14 @@ def write_rows_verified(
         if not str(record[0] or "").strip():
             raise DemoHistoryError(f"{sheet_name}: blank SnapshotId before write")
         for column, value in enumerate(record, start=1):
-            ws.Cells(row_index, column).Value2 = value
+            cell = ws.Cells(row_index, column)
+            # Excel coerced the ISO date '2026-09-21' into date serial
+            # 46286.0 in failed BN. All strings (IDs, ISO dates/times,
+            # timestamps and codes) are explicitly text before assignment.
+            # This also avoids lossy numeric patient identifiers.
+            if isinstance(value, str):
+                cell.NumberFormat = "@"
+            cell.Value2 = value
         # Read all columns immediately, so a COM assignment error cannot be
         # hidden by apparently populated UsedRange or a successful Save().
         for column, expected in enumerate(record, start=1):
