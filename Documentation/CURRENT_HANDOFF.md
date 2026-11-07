@@ -630,3 +630,52 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 RefreshAll audit incomplete or
 Return the full diagnostic output, particularly each `DIALOG CANDIDATE` and `MISSING PROCEDURE` line. This is non-mutating inspection of **frozen BI**; do not click any refresh buttons, save BI, run installers or create the next H8 workbook. Once authoritative call sites are established, make targeted source-safe dialog cleanup while preserving all six operational effects and failure notifications. Analyst must not blindly suppress intermediate error or confirmation prompts.
 
 **Other pending H8 work:** therapist absence history provenance/definitions, full individual trend charts across multiple finalized periods, new source and Excel COM native chart proof, patient metric cancellation-policy semantics. Current source status is 52-pass gate for previous per-person chart slice; **the new refresh diagnostic source tests are still pending**.
+
+## Operator's authoritative native RefreshAll dialog audit (2026-11-07)
+
+The operator ran `Tests/test_h8_refresh_dialog_audit.py`: **3 passed in 0.68s**. Then the read-only tool inspected frozen BI and reported `ReadOnly: True`, `Workbook unchanged: True`, `H8 REFRESH DIALOG AUDIT COMPLETE`. The exact candidate success dialogs:
+- Module3:17 `RefreshAll`: `MsgBox "Όλα ενημερώθηκαν.", vbInformation` (the only desired terminal success).
+- Module1:380 `RefreshTherapistDaily`: `MsgBox "Το THERAPIST_DAILY ανανεώθηκε.", vbInformation`.
+- Module2:229 `RefreshTherapistAttendanceAndConflicts`: `MsgBox "THERAPIST_ATTENDANCE και CONFLICT_LOG ανανεώθηκαν.", vbInformation`.
+- Module4:217 `BuildReplacementSuggestions_V4`: `MsgBox "Οι προτάσεις αναπλήρωσης v4 δημιουργήθηκαν.", vbInformation`.
+- Module4:336 nested `AddReplacementButtonsV4`: `MsgBox "Κουμπιά που δημιουργήθηκαν: " & createdCount, vbInformation`.
+- Module10:68 `RestoreReturnedTherapists`: `MsgBox "Ολοκληρώθηκε ο έλεγχος επαναφοράς.", vbInformation`.
+
+All six expected operational refresh procedures and nested call candidates were found; these are **candidate sites**, not proof each one triggers in every execution. The remaining non-message delegates `ColorInfectiousInMaster` and `ColorReplacementMarks` were found. Frozen BI was not edited.
+
+## Source-only RefreshAll remediation checkpoint
+
+New commits:
+- `8b1f148` `Python/tools/install_h8_single_message_refresh.py`: pure preflight exact contract validation of original six-call `Module3.RefreshAll`; adds a public scoped flag `EKA_SilentRefreshSuccess`, one terminal success, one error handler with Excel session state restoration; wraps the five exact delegate-success dialogs only while the total refresh is underway, preserving independent success messages and other `vbCritical` messages. Fails closed if VBA procedure text or exact dialog occurrences differ. Installs only into a fresh disposable destination, followed by read-only persisted VBA source equality verification.
+- `b4828fd` `Tests/test_h8_single_message_refresh.py`: source contracts and fail-on-drift, duplicate messages and reinjection.
+- `46cbd0e`, `6debc43` `Python/tools/prepare_h8_dashboard_smoke.py`: one-shot fresh XLSM builder using trusted AZ via the existing H7 installer chain and then the H8 refresh installer. Does not patch frozen BI.
+- `c496c82` `Tests/test_h8_dashboard_smoke_builder.py`: sequencing / refuse-overwrite / freeze-on-failure tests.
+
+**Important:** These code changes have NOT passed a new operator test gate. None has been run in native Excel yet, and the H8 workbook has NOT been created. The existing 52-pass gate occurred before these commits. Do not claim verified single-dialog UX or broader dashboard acceptance before a new source test and native smoke. No change to historical store, clinic data, or frozen files was made.
+
+### Next source gate
+
+With Excel fully closed, from repo root:
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest `
+  Tests/test_h8_single_message_refresh.py `
+  Tests/test_h8_dashboard_smoke_builder.py `
+  Tests/test_h8_refresh_dialog_audit.py `
+  Tests/test_h8_patient_names_and_participation.py `
+  Tests/test_patient_history_ui_h7.py `
+  Tests/test_patient_history_reports_h7.py `
+  Tests/test_h7_patient_mode_switch_and_toolbar_fix.py `
+  Tests/test_therapist_history_ui.py `
+  Tests/test_h7_integrated_toolbar_and_patient_order.py `
+  Tests/test_h7_history_previous_screen_navigation.py -q
+
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 source regression tests failed" }
+```
+
+Only after this gate is green may a **fresh one-shot** candidate be created as `Excel/previews/UNIFIED_PATIENT_HISTORY_H8_20261107_BJ.xlsm` from frozen trusted `Excel/previews/UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`, provided `BJ` does not already exist. The new builder is `python Python/tools/prepare_h8_dashboard_smoke.py --source ... --output ...`. After new build, repeat full independent `audit_workbook_protection.py`, `inspect_h7_integrated_ui.py`, and new `audit_h8_refresh_dialogs.py` (the latter lists lexical dialog candidates still present, intentionally under scoped flags). Freeze BJ on any failure; do not retry/patch an existing BJ. No manual interaction until audit passes. During native manual smoke, test RefreshAll **once** (six functions must execute), both reports across all four modes, names, KPI, aggregated and selected-person chart, mode switching, button placement, protection and return.
+
+**Open H8 acceptance gaps**: final therapist absence provenance KPI and full longitudinal individual trend visualization remain to be built. First H8 chart release is still a trial, not full product acceptance. Full worksheet protection of the other 17 sheets remains unauthorized.
