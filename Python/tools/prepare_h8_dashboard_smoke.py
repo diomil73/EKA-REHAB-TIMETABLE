@@ -7,6 +7,10 @@ from pathlib import Path
 import subprocess
 import sys
 
+PYTHON_ROOT = Path(__file__).resolve().parents[1]
+if str(PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(PYTHON_ROOT))
+
 from tools.prepare_h7_integrated_ui_smoke import (
     DEFAULT_SOURCE,
     H7IntegratedPreparationError,
