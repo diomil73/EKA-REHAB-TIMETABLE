@@ -755,3 +755,9 @@ python .\Python\tools\inspect_h7_integrated_ui.py $demo
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO toolbar audit failed. Freeze BO." }
 ```
 Diagnostics on previously failed BN and BM are already recorded. Both remain frozen, and accepted BL/BK/BJ and AZ must remain untouched.
+
+## 2026-11-08 — operator end-of-session BO preliminary positive
+
+After the operator reported **38 passed in 5.11s** and received the guarded one-shot BO instructions, operator said **«δείχνει οκ. αλλά κλείνουμε...»** ("looks OK, but stopping"). Record this only as **informal preliminary positive feedback**, not complete native seed proof, independent audit success, or manual report/chart acceptance: no exact BO stdout, persisted-history readback, sheet count or audit log was supplied in this turn. Do **not** claim that BO passed any unreported native gate.
+
+Session ends here. **Do not trigger extra workbook operations or ask user to run another command now.** When work resumes, request/review any already-generated BO build/read-only audit outputs (avoid rerunning or overwriting BO), then verify multi-period patient/therapist report behavior in existing BO if all native gates are actually green. If BO native seed had failed, freeze it immediately even if interface appears correct. Immutable AZ/BJ/BK/BL remain untouched; BM/BN remain frozen failed diagnostic evidence. H9 real staff attendance source/chart integration still unfinished.
