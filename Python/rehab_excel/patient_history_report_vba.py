@@ -51,8 +51,8 @@ Public Sub ShowSelectedPatientChart()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     ws.Unprotect ""
-    BuildPatientOverviewChart ws, CLng(ws.Cells(selectedRow, 6).Value2), _
-        CLng(ws.Cells(selectedRow, 7).Value2), CLng(ws.Cells(selectedRow, 8).Value2), _
+    BuildPatientOverviewChart ws, CLng(ws.Cells(selectedRow, 5).Value2), _
+        CLng(ws.Cells(selectedRow, 6).Value2), CLng(ws.Cells(selectedRow, 7).Value2), _
         CStr(ws.Cells(selectedRow, 3).Value2)
     ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     Application.EnableEvents = priorEvents
@@ -78,7 +78,7 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     Dim succeeded As Boolean
     Dim previousSheet As Worksheet
     Dim failureNumber As Long, failureDescription As String
-    Dim totalDelivered As Long, totalAbsent As Long, totalCancelled As Long
+    Dim totalScheduled As Long, totalDelivered As Long, totalAbsent As Long
 
     priorEvents = Application.EnableEvents
     priorScreenUpdating = Application.ScreenUpdating
@@ -149,15 +149,15 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
         ElseIf reportMode = "daily" Then
             ws.Cells(rowIndex, 2).Value2 = ""
         End If
+        totalScheduled = totalScheduled + CLng(fields(5))
         totalDelivered = totalDelivered + CLng(fields(6))
         totalAbsent = totalAbsent + CLng(fields(7))
-        totalCancelled = totalCancelled + CLng(fields(8))
         rowIndex = rowIndex + 1
 NextIndex:
     Next index
 
     FormatPatientReport ws, rowIndex - 1
-    BuildPatientOverviewChart ws, totalDelivered, totalAbsent, totalCancelled
+    BuildPatientOverviewChart ws, totalScheduled, totalDelivered, totalAbsent
     EnsurePatientButtons ws
     HighlightPatientReportMode ws, reportMode
     ws.Activate
@@ -285,7 +285,7 @@ Private Sub PositionPatientButtons(ByVal ws As Worksheet)
 End Sub
 
 Private Sub BuildPatientOverviewChart(ByVal ws As Worksheet, _
-        ByVal delivered As Long, ByVal absent As Long, ByVal cancelled As Long, _
+        ByVal scheduled As Long, ByVal delivered As Long, ByVal absent As Long, _
         Optional ByVal patientName As String = "")
     Dim plot As ChartObject, series As Series
     Dim width As Double
@@ -297,7 +297,7 @@ Private Sub BuildPatientOverviewChart(ByVal ws As Worksheet, _
     On Error GoTo 0
 
     ws.Range("A5:J20").ClearContents
-    If delivered + absent + cancelled = 0 Then
+    If scheduled + delivered + absent = 0 Then
         ws.Range("A6").Value2 = "Δεν υπάρχουν οριστικοποιημένες συνεδρίες για γράφημα."
         ws.Range("A6").Font.Bold = True
         Exit Sub
@@ -310,8 +310,8 @@ Private Sub BuildPatientOverviewChart(ByVal ws As Worksheet, _
     plot.Chart.ChartType = xlColumnClustered
     Set series = plot.Chart.SeriesCollection.NewSeries
     series.Name = "Συνεδρίες"
-    series.XValues = Array("Πραγματοποιημένες", "Απουσίες", "Ακυρώσεις")
-    series.Values = Array(delivered, absent, cancelled)
+    series.XValues = Array("Προγραμματισμένες", "Πραγματοποιημένες", "Απουσίες")
+    series.Values = Array(scheduled, delivered, absent)
     plot.Chart.HasTitle = True
     If Len(patientName) > 0 Then
         plot.Chart.ChartTitle.Text = "Συνεδρίες: " & patientName
