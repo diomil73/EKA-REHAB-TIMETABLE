@@ -535,3 +535,21 @@ The operator explicitly confirmed **«όλα καλά»** after being asked to m
 **Do not modify/rebuild/reinstall BL, BK or BJ.** Trusted AZ remains immutable. No new workbook or broad worksheet-protection roll-out is authorized by this acceptance alone. Any future change requires new suffix, source tests, fresh one-shot build, independent audits and operator acceptance.
 
 **Open follow-up (not included in BL completion):** historical therapist presence/absence against valid working days remains unavailable from the current finalized therapist/day schema. Third chart intentionally identifies missing data instead of inventing zero absences. Future work must first design and persist authentic therapist-day availability/absence facts, working-day/holiday policies, reason provenance, correction/amendment behavior, and tests before drawing quantitative attendance ratios. Current reports should be revisited as more real finalized-day data accumulate; no new requirements have yet been confirmed.
+
+## 2026-11-08 — H9 historical therapist attendance domain contract started
+
+After operator accepted and froze H8 BL and agreed to continue, a read-only review confirmed that existing `THERAPIST_DAY_HISTORY`, `FINALIZED_DAY_SNAPSHOTS` and `DAY_HISTORY_EVENTS` do not store proven therapist presence/absence facts with valid expected-working-day denominators. The live `THERAPIST_ATTENDANCE` projection must not be treated as immutable history, and missing sessions are not equivalent to a staff absence.
+
+New source-only commits:
+- `0a77e13`: `Python/rehab_core/therapist_attendance_history.py` pure validated attendance facts and fail-closed summary requiring explicit verified calendar, presence/absence evidence, reason, source provenance and current-final snapshot link.
+- `a0ac130`: seven focused pure-domain unit tests covering valid numerator/denominator, missing dates, superseded versions, duplicate days, missing provenance/reason, nonworking-day exclusion, no-data ratio.
+- `f98ddad`: `Documentation/H9_THERAPIST_ATTENDANCE_HISTORY_CONTRACT.md` explains audited limitations, completion dependencies and the next source gate.
+
+**Status:** contract committed but **NOT TESTED by operator**; no runtime Excel changes, no H9 installer, no new native preview. BL/BK/BJ and trusted AZ remain frozen/unchanged. Attendance chart still honestly shows missing data. Operator next:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_therapist_attendance_history_contract.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H9 attendance-domain source gate failed" }
+```
+Next implementation step only after source green and explicit business rules for scheduled working days, holiday and leave handling, provenance, versioned persistence and amendment. No H9 native workbook is authorized by the domain test alone.
