@@ -15,6 +15,10 @@ from rehab_core.therapist_history_reports import (  # noqa: E402
     build_therapist_weekly_reports,
 )
 from tools.report_therapist_history import report_therapist_history  # noqa: E402
+from rehab_excel.patient_session_history_store import (  # noqa: E402
+    read_current_patient_session_history_rows,
+)
+from rehab_core.daily_state import DailySessionStatus  # noqa: E402
 
 
 HEADERS = (
@@ -32,6 +36,7 @@ HEADERS = (
     "Suspensions",
     "PlannedUtilPct",
     "ActualUtilPct",
+    "UniquePatientsPerDay",
 )
 
 
@@ -111,6 +116,44 @@ def _period_values(report) -> tuple[object, ...]:
     )
 
 
+def _unique_patient_days(rows: tuple) -> dict[tuple[object, str], int]:
+    """COUNT DISTINCT patient IDs per therapist/day in CURRENT_FINAL sessions."""
+    unique: dict[tuple[object, str], set[str]] = {}
+    seen: set[tuple[object, str]] = set()
+    for row in rows:
+        key = (row.service_date, row.session_id.casefold())
+        if key in seen:
+            raise TherapistHistoryUiExportError("Duplicate CURRENT_FINAL session")
+        seen.add(key)
+        if row.status not in (DailySessionStatus.ACTIVE, DailySessionStatus.REPLACED):
+            continue
+        therapist = str(row.effective_therapist_id or "").strip()
+        patient = str(row.patient_id or "").strip()
+        if not therapist or not patient:
+            raise TherapistHistoryUiExportError("Delivered session lacks effective therapist/patient")
+        unique.setdefault((row.service_date, therapist.casefold()), set()).add(patient.casefold())
+    return {key: len(values) for key, values in unique.items()}
+
+
+def _patient_average(report, daily_counts: dict, mode: str) -> str:
+    if mode == "daily":
+        start = end = report.service_date
+        days = 1
+    elif mode == "weekly":
+        start, end = report.week_start, report.week_end
+        days = report.reported_days
+    else:
+        start, end = report.period_start, report.period_end
+        days = report.reported_days
+    if days <= 0:
+        return ""
+    count = sum(
+        patients for (day, therapist), patients in daily_counts.items()
+        if start <= day <= end and therapist == report.therapist_id.casefold()
+    )
+    return f"{count / days:.2f}"
+
+
 def export_therapist_history_ui(
     workbook_path: str | Path,
     output_path: str | Path,
@@ -122,14 +165,25 @@ def export_therapist_history_ui(
         raise TherapistHistoryUiExportError(f"Unsupported report mode: {mode!r}")
 
     daily = report_therapist_history(workbook_path)
+    daily_counts = _unique_patient_days(
+        read_current_patient_session_history_rows(workbook_path)
+    )
     if mode == "daily":
-        rows = tuple(_daily_values(row) for row in daily)
+        reports = daily
+        values = _daily_values
     elif mode == "weekly":
-        rows = tuple(_weekly_values(row) for row in build_therapist_weekly_reports(daily))
+        reports = build_therapist_weekly_reports(daily)
+        values = _weekly_values
     elif mode == "monthly":
-        rows = tuple(_period_values(row) for row in build_therapist_monthly_reports(daily))
+        reports = build_therapist_monthly_reports(daily)
+        values = _period_values
     else:
-        rows = tuple(_period_values(row) for row in build_therapist_overall_reports(daily))
+        reports = build_therapist_overall_reports(daily)
+        values = _period_values
+    rows = tuple(
+        (*values(report), _patient_average(report, daily_counts, mode))
+        for report in reports
+    )
 
     output = Path(output_path).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
