@@ -776,3 +776,38 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 visual-refinement source gate 
 ```
 
 If source gate fails, fix source/tests before building anything. On green, create one fresh BK from AZ via `Python/tools/prepare_h8_dashboard_smoke.py`, full read-only protection and H7 integrated UI audits before opening, then one native manual smoke of active-mode colors, chart placements/sticky scrolling, unique patient workload/color thresholds, selected person chart, report protection and RefreshAll. Freeze any failed BK without repeat/repair. Source tests do not prove VBA chart COM or Excel freeze-pane behavior.
+
+## H8 visual source-test regression failure and fix — 2026-11-07 late evening
+
+Operator ran the prescribed 12-file visual regression suite and reported **71 passed, 1 failed in 7.17s**. The failing assertion in `Tests/test_therapist_history_ui.py::test_therapist_report_has_idempotent_workload_chart_above_history_table` expected the old single-chart text `series.Values = Array(plannedSlots, actualSlots)`. That expression was intentionally replaced in H8: the first of three native charts now uses `series.Values = Array(loadPerDay)` based on unique patients/day and a traffic-light color, while the second uses `series.Values = Array(plannedSessions, actualSessions)`; the third is absence history explicitly unavailable. **No evidence of a runtime failure, source-code failure or native Excel failure from this assertion.** PowerShell subsequently threw the expected `SAFETY STOP: H8 visual tests failed`. This stop is required and prevents creating BK.
+
+Source fix commit **`61c3c99`** updates only the stale test assertion to check both new chart payloads, color mapping and third panel removal contract; it does not change VBA or the frozen BJ.
+
+**Current status:** FIX COMMITTED, **green rerun pending**. Do not claim 72 pass or build BK until a fresh operator gate succeeds.
+
+Next, Excel closed, run:
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: git pull failed" }
+
+python -m pytest Tests/test_therapist_history_ui.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: therapist regression still failed" }
+
+python -m pytest `
+  Tests/test_h8_dashboard_visual_navigation.py `
+  Tests/test_h8_unique_patient_workload.py `
+  Tests/test_h8_single_message_refresh.py `
+  Tests/test_h8_dashboard_smoke_builder.py `
+  Tests/test_h8_refresh_dialog_audit.py `
+  Tests/test_h8_patient_names_and_participation.py `
+  Tests/test_patient_history_ui_h7.py `
+  Tests/test_patient_history_reports_h7.py `
+  Tests/test_h7_patient_mode_switch_and_toolbar_fix.py `
+  Tests/test_therapist_history_ui.py `
+  Tests/test_h7_integrated_toolbar_and_patient_order.py `
+  Tests/test_h7_history_previous_screen_navigation.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 visual source regression still failed" }
+```
+
+If any failure persists, freeze the next native step and investigate the new traceback, without retrying or overwriting existing frozen XLSM. Only a green source gate authorizes fresh uniquely named BK native smoke and independent protection/integrated audits. Previous BJ manual pass remains valid and frozen.
