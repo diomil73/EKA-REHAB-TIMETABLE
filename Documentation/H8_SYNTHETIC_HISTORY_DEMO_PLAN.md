@@ -119,3 +119,27 @@ python .\Python\tools\inspect_h8_synthetic_seed_failure.py --workbook ".\Excel\p
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BM read-only diagnosis failed" }
 ```
 Report exact diagnostic output. Then fix and regression-test generator; build **fresh previously-unused BN** only after test gate green. AZ/BJ/BK/BL remain unchanged. No retry, repair, or overwrite of BM.
+
+## 2026-11-08 — BM read-only diagnosis confirms malformed native COM matrix write; source fix staged
+
+Operator ran `inspect_h8_synthetic_seed_failure.py` on frozen BM, with `Workbook unchanged: True`. Exact diagnostic:
+- `FINALIZED_DAY_SNAPSHOTS`: max_row 28, nonempty_rows 3 (baseline only), row 28 all six displayed cells None, missing SnapshotId.
+- `THERAPIST_DAY_HISTORY`: max_row 183, nonempty_rows 33, row 183 blank SnapshotId.
+- `PATIENT_SESSION_HISTORY`: max_row 683, nonempty_rows 161, row 683 blank SnapshotId.
+- `DAY_HISTORY_EVENTS`: max_row 29, nonempty_rows 4, row 29 blank EventId.
+- `THERAPIST_ATTENDANCE_HISTORY`: max_row 151, nonempty_rows 1, row 151 first five cells None, **sixth cell contains DEMO-H8-20260921-V1**.
+
+These observations demonstrate that the previous nested Python tuple-of-tuples `Range.Value` COM assignment *did not produce a rectangular table*, and apparently displaced a value into a bottom-right cell while expanding UsedRange. The exact COM marshaler internals are not independently proven, but the write method is demonstrably unsafe. BM remains permanently frozen and ineligible for chart smoke; a protection/toolbar audit succeeding earlier does not overrule this fatal data-integrity finding.
+
+Source mitigation commits:
+- `ddbec123`: `Python/tools/seed_h8_synthetic_history.py` now calls `write_rows_verified()` to write **each scalar via Cells(row,col).Value2**, with record-width and nonblank identity validation, and **every cell read back immediately** before Save. Deliberately favors correctness over bulk COM speed.
+- `dc41a4a`: three regression tests: exact scalar-row/column placement, dropped COM write triggers fail-fast mismatch, blank snapshot ID rejected before write. These tests replace the earlier untested bulk-write optimization; do not re-enable bulk COM without explicit native proof.
+
+**New source gate not yet run**, no BN created. With all Excel windows closed:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_attendance_history_contract.py Tests/test_therapist_attendance_history_store.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: fixed demo source tests failed" }
+```
+Expect 33 passes if the original 30 and three new tests all pass. Only after GREEN build a **new unused BN**, e.g. `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BN.xlsm`, from trusted AZ using `prepare_h8_synthetic_demo.py` and independent protection + integrated UI audits; never reuse/overwrite BM and never mutate BL/BK/BJ/AZ. If any step fails, freeze BN and diagnose read-only. The eventual `H8 SYNTHETIC HISTORY SEED OK` must be backed by successful persisted readback, not just VBA/protection audit.
