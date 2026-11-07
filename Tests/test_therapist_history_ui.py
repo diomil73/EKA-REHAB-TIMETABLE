@@ -34,6 +34,7 @@ def _daily(therapist: str = "T1") -> TherapistDailyReport:
 
 def test_ui_export_writes_stable_tsv_schema(monkeypatch, tmp_path):
     monkeypatch.setattr(exporter, "report_therapist_history", lambda *args, **kwargs: (_daily(),))
+    monkeypatch.setattr(exporter, "read_current_patient_session_history_rows", lambda *args, **kwargs: ())
     output = tmp_path / "report.tsv"
     result = exporter.export_therapist_history_ui("ignored.xlsm", output, mode="daily")
     assert result["rows"] == 1
@@ -42,11 +43,12 @@ def test_ui_export_writes_stable_tsv_schema(monkeypatch, tmp_path):
     fields = lines[1].split("\t")
     assert fields[0:5] == ["2026-10-30", "2026-10-30", "2", "T1", "1"]
     assert fields[5:12] == ["5", "4", "6", "5", "1", "1", "0"]
-    assert fields[12:] == ["83.3", "66.7"]
+    assert fields[12:] == ["83.3", "66.7", "0.00"]
 
 
 def test_ui_export_supports_weekly_monthly_and_overall(monkeypatch, tmp_path):
     monkeypatch.setattr(exporter, "report_therapist_history", lambda *args, **kwargs: (_daily(),))
+    monkeypatch.setattr(exporter, "read_current_patient_session_history_rows", lambda *args, **kwargs: ())
     for mode in ("weekly", "monthly", "overall"):
         output = tmp_path / f"{mode}.tsv"
         result = exporter.export_therapist_history_ui("ignored.xlsm", output, mode=mode)
