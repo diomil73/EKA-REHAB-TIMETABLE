@@ -547,3 +547,20 @@ Open the already-built BI in Excel, macros enabled. Verify the existing applicat
 If any button/mode fails, stop immediately, record exact visible error, affected report/mode and workbook state; freeze BI as failed evidence, do not patch/retry on BI. If all pass, record the operator's actual manual results and freeze BI as green accepted evidence. Move next to the broad worksheet protection write-path classification; do not lock other 17 sheets until the full VBA inventory is reconciled.
 
 Artifact ledger: AZ trusted/frozen; BF functionally accepted/frozen; BG and BH failed/frozen; BI install/audit GREEN, manual acceptance PENDING.
+
+## AUTHORITATIVE LATEST RESUME — 2026-11-07: BI functional UX feedback; H8 analytics dashboard now priority
+
+The operator has reviewed the BI manual UI and supplied substantive changes required before H7/H8 product acceptance:
+- RefreshAll asks for multiple OK dialogs; button's need is questioned. If retained, one terminal success message only, never false success on error.
+- Patient statistics must show **patient names**, not codes.
+- Therapist four period views look identical and «Ημέρες» shows 1. Confirm history coverage and make finalized-day count and period boundaries explicit; do not assume a period aggregation bug without multi-day evidence.
+- Therapist workload, genuine therapist absence facts, replacements and other core KPIs must be clearly and comprehensively shown. Existing workload percentages are in source but hidden in a wide table; the therapist historical schema has no independently proven absence-count field.
+- Patient participation rate and meaningful derived outcome percentages are missing.
+- Both overall and per-patient/per-therapist views require prominent, legible charts with correct period, denominator, trend and missing-data handling.
+
+**Acceptance disposition changed:** BI source gate + install + protection audit GREEN, but BI **not UX/product accepted**. Do not label H7 complete, do not perform broad protection of remaining 17 sheets, and do not patch or overwrite BI. Freeze BI as source of operator findings; AZ/BF remain frozen; BG/BH failed frozen.
+
+The authoritative specification, source-grounded observations, acceptance rules, order, unresolved policy decisions and test gates are in:
+`Documentation/H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md`.
+
+Work continues in source with priority: RefreshAll call-chain audit, patient-name join, period coverage banner and KPI definitions, then native Excel dashboard charts with per-person drilldowns. Do not invent an absence KPI or attendance denominator before source contracts are validated. The next native smoke must use a new suffix and follow source test and read-only audit gates. No new workbook has been produced for this feedback yet.
