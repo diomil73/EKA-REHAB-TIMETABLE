@@ -64,33 +64,44 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
     lines = Split(Replace(rawText, vbCr, ""), vbLf)
     If UBound(lines) < 0 Then Err.Raise vbObjectError + 7903, , "Empty patient report"
     If CStr(lines(0)) <> "PeriodStart" & vbTab & "PeriodEnd" & vbTab & _
-        "PatientId" & vbTab & "FinalizedDays" & vbTab & "Scheduled" & vbTab & _
-        "Performed" & vbTab & "PatientAbsences" & vbTab & "Cancellations" & vbTab & _
-        "Replacements" Then Err.Raise vbObjectError + 7904, , "Patient report header mismatch"
+        "PatientId" & vbTab & "PatientName" & vbTab & "FinalizedDays" & vbTab & _
+        "Scheduled" & vbTab & "Performed" & vbTab & "PatientAbsences" & vbTab & _
+        "Cancellations" & vbTab & "Replacements" & vbTab & "CompletionPct" Then _
+        Err.Raise vbObjectError + 7904, , "Patient report header mismatch"
 
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     ws.Unprotect
     ' Previous report modes merge title/description rows. Unmerge before clearing,
     ' or Excel can raise 1004 while switching report modes.
-    ws.Range("A1:I2").UnMerge
-    ws.Range("A1:I1048576").ClearContents
+    ws.Range("A1:J2").UnMerge
+    ws.Range("A1:J1048576").ClearContents
     ws.Columns("C").NumberFormat = "@"
 
     ws.Range("A1").Value2 = "Ιστορικό / Στατιστικά Ασθενών"
-    ws.Range("A2").Value2 = ModeDescription(reportMode) & " | Τρέχον μητρώο: χωρίς συνεδρία = 0"
-    ws.Range("A5:I5").Value = Array( _
-        "Από", "Έως", "Ασθενής", "Ημέρες", "Προγρ. συνεδρίες", _
-        "Πραγμ. συνεδρίες", "Απουσίες", "Ακυρώσεις", "Αναπληρώσεις")
+    ws.Range("A2").Value2 = ModeDescription(reportMode) & _
+        " | Συμμετοχή = πραγματοποιημένες / προγραμματισμένες | κενό = χωρίς συνεδρίες"
+    ws.Range("A5:J5").Value = Array( _
+        "Από", "Έως", "Ονοματεπώνυμο", "Οριστ. ημέρες", "Προγρ. συνεδρίες", _
+        "Πραγμ. συνεδρίες", "Απουσίες", "Ακυρώσεις", "Αναπληρώσεις", "Συμμετοχή %")
 
     rowIndex = 6
     For index = 1 To UBound(lines)
         If Len(Trim$(CStr(lines(index)))) = 0 Then GoTo NextIndex
         fields = Split(CStr(lines(index)), vbTab)
-        If UBound(fields) <> 8 Then Err.Raise vbObjectError + 7905, , "Invalid patient report row"
-        For col = 0 To 8
-            ws.Cells(rowIndex, col + 1).Value2 = fields(col)
+        If UBound(fields) <> 10 Then Err.Raise vbObjectError + 7905, , "Invalid patient report row"
+        ws.Cells(rowIndex, 1).Value2 = fields(0)
+        ws.Cells(rowIndex, 2).Value2 = fields(1)
+        ws.Cells(rowIndex, 3).Value2 = fields(3)
+        For col = 4 To 9
+            ws.Cells(rowIndex, col).Value2 = fields(col)
         Next col
+        If Len(fields(10)) > 0 Then
+            ws.Cells(rowIndex, 10).Value2 = CDbl(Replace(fields(10), ".", Application.DecimalSeparator)) / 100#
+            ws.Cells(rowIndex, 10).NumberFormat = "0.0%"
+        Else
+            ws.Cells(rowIndex, 10).Value2 = "—"
+        End If
         If reportMode = "monthly" Then
             ws.Cells(rowIndex, 1).Value2 = Left$(fields(0), 7)
             ws.Cells(rowIndex, 2).Value2 = ""
@@ -203,26 +214,26 @@ Private Sub FormatPatientReport(ByVal ws As Worksheet, ByVal lastRow As Long)
     On Error Resume Next
     ws.Cells.Font.Name = "Calibri"
     ws.Cells.Font.Size = 10
-    ws.Range("A1:I1").UnMerge
-    ws.Range("A2:I2").UnMerge
-    ws.Range("A1:I1").Merge
-    ws.Range("A2:I2").Merge
+    ws.Range("A1:J1").UnMerge
+    ws.Range("A2:J2").UnMerge
+    ws.Range("A1:J1").Merge
+    ws.Range("A2:J2").Merge
     ws.Range("A1").Font.Size = 16
     ws.Range("A1").Font.Bold = True
     ws.Range("A2").Font.Bold = True
-    ws.Range("A5:I5").Font.Bold = True
-    ws.Range("A5:I5").WrapText = True
+    ws.Range("A5:J5").Font.Bold = True
+    ws.Range("A5:J5").WrapText = True
     ws.Columns("A:B").ColumnWidth = 13
-    ws.Columns("C").ColumnWidth = 21
-    ws.Columns("D:I").ColumnWidth = 17
+    ws.Columns("C").ColumnWidth = 30
+    ws.Columns("D:J").ColumnWidth = 17
     ws.Rows(1).RowHeight = 28
     ws.Rows(2).RowHeight = 22
     ws.Rows(3).RowHeight = 32
     ws.Rows(4).RowHeight = 6
     ws.Rows(5).RowHeight = 30
     If lastRow >= 6 Then ws.Rows("6:" & CStr(lastRow)).RowHeight = 21
-    If lastRow >= 5 Then ws.Range("A5:I" & CStr(lastRow)).Borders.LineStyle = 1
-    ws.ScrollArea = "A1:I" & CStr(Application.Max(lastRow + 2, 13))
+    If lastRow >= 5 Then ws.Range("A5:J" & CStr(lastRow)).Borders.LineStyle = 1
+    ws.ScrollArea = "A1:J" & CStr(Application.Max(lastRow + 2, 13))
     On Error GoTo 0
 End Sub
 
