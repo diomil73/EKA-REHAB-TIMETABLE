@@ -35,6 +35,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     Dim exitCode As Long, rawText As String, lines As Variant, parts As Variant
     Dim ws As Worksheet, rowIndex As Long, sourceLine As Long, col As Long
     Dim headers As Variant
+    Dim totalPlannedSlots As Long, totalActualSlots As Long
 
     On Error GoTo ReportError
 
@@ -82,10 +83,10 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     ws.Cells(2, 1).Value2 = ReportModeDescription(reportMode) & _
         " | Μόνο οριστικοποιημένες ημέρες | αν υπάρχει 1 ημέρα, οι περίοδοι μπορεί να συμπίπτουν"
     For col = 0 To UBound(headers)
-        ws.Cells(5, col + 1).Value2 = headers(col)
+        ws.Cells(22, col + 1).Value2 = headers(col)
     Next col
 
-    rowIndex = 6
+    rowIndex = 23
     For sourceLine = 1 To UBound(lines)
         If Len(Trim$(CStr(lines(sourceLine)))) = 0 Then GoTo NextLine
         parts = Split(CStr(lines(sourceLine)), vbTab)
@@ -99,11 +100,14 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         Next col
         If Len(parts(12)) > 0 Then ws.Cells(rowIndex, 12).Value2 = parts(12) & "%"
         If Len(parts(13)) > 0 Then ws.Cells(rowIndex, 13).Value2 = parts(13) & "%"
+        totalPlannedSlots = totalPlannedSlots + CLng(parts(5))
+        totalActualSlots = totalActualSlots + CLng(parts(6))
         rowIndex = rowIndex + 1
 NextLine:
     Next sourceLine
 
     FormatReportSheet ws, rowIndex - 1
+    BuildTherapistLoadChart ws, totalPlannedSlots, totalActualSlots
     EnsureReportButtons ws
     ws.Activate
     KeepApplicationShell
@@ -158,6 +162,35 @@ Private Function DisplayPeriodEnd(ByVal reportMode As String, ByVal startText As
     End Select
 End Function
 
+Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
+        ByVal plannedSlots As Long, ByVal actualSlots As Long)
+    Dim plot As ChartObject, series As Series, width As Double
+
+    ' One overview chart per report render, with no overlap with buttons or
+    ' the row-22 table. Future profile charts will be a separate H8 slice.
+    On Error Resume Next
+    ws.ChartObjects("ekaTherapistLoadChart").Delete
+    On Error GoTo 0
+    ws.Range("A5:M20").ClearContents
+    If plannedSlots + actualSlots = 0 Then
+        ws.Range("A6").Value2 = "Δεν υπάρχουν καταγεγραμμένες θέσεις φόρτου για γράφημα."
+        ws.Range("A6").Font.Bold = True
+        Exit Sub
+    End If
+    width = ws.Range("M5").Left + ws.Range("M5").Width - ws.Range("A5").Left
+    Set plot = ws.ChartObjects.Add(ws.Range("A5").Left, ws.Range("A5").Top, width, 210)
+    plot.Name = "ekaTherapistLoadChart"
+    plot.Placement = xlFreeFloating
+    plot.Chart.ChartType = xlColumnClustered
+    Set series = plot.Chart.SeriesCollection.NewSeries
+    series.Name = "Κατειλημμένες θέσεις"
+    series.XValues = Array("Προγραμματισμένες", "Πραγματικές")
+    series.Values = Array(plannedSlots, actualSlots)
+    plot.Chart.HasTitle = True
+    plot.Chart.ChartTitle.Text = "Φόρτος θεραπευτών | μόνο οριστικοποιημένες ημέρες"
+    plot.Chart.HasLegend = False
+End Sub
+
 Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
     On Error Resume Next
     ws.Cells.Font.Name = "Calibri"
@@ -167,19 +200,19 @@ Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
     ws.Range("A1").Font.Bold = True
     ws.Range("A2:M2").Merge
     ws.Range("A2").Font.Bold = True
-    ws.Range("A5:M5").Font.Bold = True
-    ws.Range("A5:M5").WrapText = True
+    ws.Range("A22:M22").Font.Bold = True
+    ws.Range("A22:M22").WrapText = True
     ws.Columns("A:B").ColumnWidth = 13
     ws.Columns("C").ColumnWidth = 19
     ws.Columns("D:M").ColumnWidth = 13
-    If lastRow >= 5 Then ws.Range("A5:M" & CStr(lastRow)).Borders.LineStyle = 1
+    If lastRow >= 22 Then ws.Range("A22:M" & CStr(lastRow)).Borders.LineStyle = 1
     ws.Rows(1).RowHeight = 28
     ws.Rows(2).RowHeight = 22
     ws.Rows(3).RowHeight = 32
     ws.Rows(4).RowHeight = 6
-    ws.Rows(5).RowHeight = 30
+    ws.Rows(22).RowHeight = 30
     PositionReportButtons ws
-    ws.ScrollArea = "A1:M" & CStr(Application.Max(lastRow + 2, 13))
+    ws.ScrollArea = "A1:M" & CStr(Application.Max(lastRow + 2, 25))
     On Error GoTo 0
 End Sub
 
@@ -193,8 +226,8 @@ Private Sub ResetReportWindow(ByVal ws As Worksheet)
         ActiveWindow.SplitRow = 0
         ActiveWindow.ScrollColumn = 1
         ActiveWindow.ScrollRow = 1
-        ws.Range("A6").Select
-        ActiveWindow.SplitRow = 5
+        ws.Range("A23").Select
+        ActiveWindow.SplitRow = 22
         ActiveWindow.FreezePanes = True
         ActiveWindow.ScrollColumn = 1
         ActiveWindow.ScrollRow = 1
