@@ -286,3 +286,61 @@ def test_bn_patient_numeric_identifier_is_stored_as_text_not_excel_number():
     assert ws.Cells(2, 2).Value2 == "0007"
     assert ws.Cells(2, 2).NumberFormat == "@"
     assert ws.Cells(2, 3).Value2 == 3
+
+
+def test_bn_excel_com_numeric_integer_readback_is_double():
+    class _DoubleValueCell:
+        def __init__(self, storage, key):
+            self.storage = storage
+            self.key = key
+            self.NumberFormat = "General"
+
+        @property
+        def Value2(self):
+            return self.storage.get(self.key)
+
+        @Value2.setter
+        def Value2(self, value):
+            self.storage[self.key] = float(value) if isinstance(value, int) else value
+
+    class _DoubleValueWorksheet:
+        def __init__(self):
+            self.storage = {}
+
+        def Cells(self, row, col):
+            return _DoubleValueCell(self.storage, (row, col))
+
+    ws = _DoubleValueWorksheet()
+    write_rows_verified(
+        ws, 3, ("SnapshotId", "Version", "FinalSessionCount"),
+        (("DEMO-H8-20260921-V1", 1, 17),),
+        sheet_name="FINALIZED_DAY_SNAPSHOTS",
+    )
+    assert ws.storage[(3, 2)] == 1.0
+    assert ws.storage[(3, 3)] == 17.0
+
+
+def test_readback_rejects_numeric_serial_when_text_was_expected():
+    ws = _ScalarOnlyWorksheet()
+    ws.Cells(4, 2).Value2 = 46286.0
+
+    class _ConversionCell(_FakeCell):
+        @property
+        def Value2(self):
+            return 46286.0 if self._key == (4, 2) else self._storage.get(self._key)
+
+        @Value2.setter
+        def Value2(self, value):
+            self._storage[self._key] = value
+
+    class _ConversionWorksheet(_ScalarOnlyWorksheet):
+        def Cells(self, row, col):
+            return _ConversionCell(self.cells, (row, col))
+
+    broken = _ConversionWorksheet()
+    with pytest.raises(DemoHistoryError, match="COM readback mismatch at row 4 col 2"):
+        write_rows_verified(
+            broken, 4, ("SnapshotId", "ServiceDate"),
+            (("DEMO-1", "2026-09-21"),),
+            sheet_name="FINALIZED_DAY_SNAPSHOTS",
+        )
