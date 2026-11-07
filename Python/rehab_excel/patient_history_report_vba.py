@@ -159,10 +159,12 @@ NextIndex:
     FormatPatientReport ws, rowIndex - 1
     BuildPatientOverviewChart ws, totalDelivered, totalAbsent, totalCancelled
     EnsurePatientButtons ws
+    HighlightPatientReportMode ws, reportMode
     ws.Activate
     KeepApplicationShell
     ResetPatientReportWindow ws
     EnsurePatientButtons ws
+    HighlightPatientReportMode ws, reportMode
     ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     succeeded = True
 
@@ -198,6 +200,32 @@ Private Function ModeDescription(ByVal mode As String) As String
         Case Else: ModeDescription = mode
     End Select
 End Function
+
+Private Sub HighlightPatientReportMode(ByVal ws As Worksheet, ByVal reportMode As String)
+    Dim modes As Variant, i As Long, shape As Shape, activeName As String
+    modes = Array("Daily", "Weekly", "Monthly", "Overall")
+    Select Case LCase$(Trim$(reportMode))
+        Case "daily": activeName = "Daily"
+        Case "weekly": activeName = "Weekly"
+        Case "monthly": activeName = "Monthly"
+        Case "overall": activeName = "Overall"
+        Case Else: Err.Raise vbObjectError + 7950, , "Unknown patient mode"
+    End Select
+    For i = LBound(modes) To UBound(modes)
+        Set shape = ws.Shapes("ekaPatientHistory_" & CStr(modes(i)))
+        If CStr(modes(i)) = activeName Then
+            shape.Fill.ForeColor.RGB = RGB(37, 99, 170)
+            shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
+            shape.Line.ForeColor.RGB = RGB(18, 60, 115)
+            shape.Line.Weight = 2
+        Else
+            shape.Fill.ForeColor.RGB = RGB(236, 241, 247)
+            shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
+            shape.Line.ForeColor.RGB = RGB(170, 185, 205)
+            shape.Line.Weight = 1
+        End If
+    Next i
+End Sub
 
 Private Sub EnsurePatientButtons(ByVal ws As Worksheet)
     EnsurePatientButton ws, "Daily", "Ημερήσια", "ShowPatientHistoryDaily", 98#
@@ -330,8 +358,8 @@ Private Sub ResetPatientReportWindow(ByVal ws As Worksheet)
         ActiveWindow.SplitColumn = 0
         ActiveWindow.ScrollRow = 1
         ActiveWindow.ScrollColumn = 1
-        ws.Range("A5").Select
-        ActiveWindow.SplitRow = 4
+        ws.Range("A23").Select
+        ActiveWindow.SplitRow = 22
         ActiveWindow.FreezePanes = True
         ActiveWindow.ScrollRow = 1
         ActiveWindow.ScrollColumn = 1
