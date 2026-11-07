@@ -270,8 +270,8 @@ Private Sub ResetReportWindow(ByVal ws As Worksheet)
         ActiveWindow.SplitRow = 0
         ActiveWindow.ScrollColumn = 1
         ActiveWindow.ScrollRow = 1
-        ws.Range("A23").Select
-        ActiveWindow.SplitRow = 22
+        ws.Range("A5").Select
+        ActiveWindow.SplitRow = 4
         ActiveWindow.FreezePanes = True
         ActiveWindow.ScrollColumn = 1
         ActiveWindow.ScrollRow = 1
