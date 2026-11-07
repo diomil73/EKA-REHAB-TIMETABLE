@@ -574,3 +574,31 @@ The source checkpoint and exact next PowerShell source-test gate are in `Documen
 ## Operator source regression result — 2026-11-07: 50 GREEN
 
 The operator ran the exact combined 7-file H8/H7 gate specified in `Documentation/H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md` and confirmed **50 passed in 3.71s**. This supersedes the previous status saying no source tests had been reported for the first H8 slice. The first H8 names/completion/overview-chart source gate is GREEN. This is **not native Excel verification** and does not accept BI's UX or finish H8. Continue next H8 source slices and rerun their tests before a new, unique native workbook; never alter frozen AZ/BF/BG/BH/BI.
+
+## H8 next code slice — 2026-11-07: per-person chart drilldown source staged
+
+After the operator's `50 passed in 3.71s` H8/H7 source gate, source commits added:
+- `57d7220`: patient `ShowSelectedPatientChart` to redraw one native chart for the selected patient row. Mode/Back buttons remain; worksheet protected again on success/error. Selecting outside a data row produces an informational message without mutating content.
+- `2dca8ac`: therapist `ShowSelectedTherapistChart` with the same selection and protection contract.
+- `fbde9a1` and `a3ecbcc`: report windows freeze only top controls (row 4), allowing scrolling to charts and detailed data.
+- `186ce00`, `5531c28`: corresponding source regression tests.
+
+**Critical state:** those per-person chart changes were committed **after** the reported 50-test green run. They are **not yet tested by the operator**, and no native H8 workbook exists. They do not prove the Excel COM rendering or charts are correct. The remaining user requirements include genuine therapist absences with source provenance, clean RefreshAll single-message flow, robust multi-day/multi-period coverage and final individual trends, plus native acceptance. Frozen BI remains unmodified. Do not create new smoke until fresh source regression tests pass.
+
+Next targeted command (Excel closed):
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest `
+  Tests/test_h8_patient_names_and_participation.py `
+  Tests/test_patient_history_ui_h7.py `
+  Tests/test_patient_history_reports_h7.py `
+  Tests/test_h7_patient_mode_switch_and_toolbar_fix.py `
+  Tests/test_therapist_history_ui.py `
+  Tests/test_h7_integrated_toolbar_and_patient_order.py `
+  Tests/test_h7_history_previous_screen_navigation.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 drilldown regression tests failed" }
+```
+
+After source green, continue trusted source inventory and single-message RefreshAll remediation before a fresh uniquely named H8 native smoke. This is a source checkpoint, not release authorization.
