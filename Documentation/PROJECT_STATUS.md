@@ -467,3 +467,39 @@ Independent integration audit: `ReadOnly=True`, `MASTER SaveOperationalDay` pres
 **Disposition:** BK native creation/installation/persisted verification/protection/toolbar audits GREEN, **manual Excel functional UI acceptance pending**. BJ stays separately frozen and accepted. Do not re-run installer or overwrite BK.
 
 Next authorized native manual test: open BK only with macros enabled, check selected-mode color across all four modes in both reports; patient overview remains visible while scrolling to bottom, individual selected-row graph; therapist three compact side-by-side panels, distinct-patient/day color thresholds (1–2 green, 3–4 yellow, 5 orange, 6+ red) on report samples, planned vs actually performed therapies; third absence panel must explicitly report missing historical attendance/working-day data, not falsely display zero; back navigation; protected report buttons still clickable; RefreshAll once and terminal message only. Do not finalize/amend day or change production. Stop and freeze BK diagnostic on any error/unexpected metric, save output/screenshot, no reinstall/retry. Missing therapist-absence historical source is a known incomplete functional requirement, not a failure of BK installation.
+
+## 2026-11-07 — BK operator manual feedback and follow-up source fix
+
+Operator reported BK **«κατά τα υπόλοιπα όλα δείχνουν σωστά»**, with two precise visual changes requested:
+1. Patient charts (both overall and selected patient) must show exactly **Προγραμματισμένες, Πραγματοποιημένες, Απουσίες**. Prior version instead showed completed, absences, cancellations. Cancellations remain in the patient history table and denominator; they are not erased or confused with patient absences.
+2. The therapist load chart title should not contain **«(0-6)»**. Keep the numeric axis scale and traffic-light thresholds unchanged; use **«Ασθενείς ανά ημέρα»**.
+
+Changes committed after BK:
+- `273396a`: patient VBA aggregates scheduled=TSV fields(5), performed=fields(6), absences=fields(7), and renders all three categories for the overview. Selected-row chart maps columns E/F/G to the same categories. Does not alter underlying history or cancellation data.
+- `4ae2882`: therapist chart title `Ασθενείς ανά ημέρα`; actual scale remains.
+- `fb85c82`, `bc6177c`: regression source contracts updated and two focused expectations added.
+
+**Status**: BK native install/protection/navigation audits GREEN; operator manual feedback is *generally positive*, but BK does not satisfy the two revised visualization labels/data. Preserve BK as frozen manual feedback artifact and BJ as previously accepted frozen baseline. **No new source-test results since these changes**, no next native workbook built. Future real data may reveal the need for further adjustment. Third therapist attendance panel remains marked unavailable, until trustworthy working-day/absence history exists. Do not label it as populated.
+
+Next, with Excel closed:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+python -m pytest `
+  Tests/test_h8_dashboard_visual_navigation.py `
+  Tests/test_h8_unique_patient_workload.py `
+  Tests/test_h8_single_message_refresh.py `
+  Tests/test_h8_dashboard_smoke_builder.py `
+  Tests/test_h8_refresh_dialog_audit.py `
+  Tests/test_h8_patient_names_and_participation.py `
+  Tests/test_patient_history_ui_h7.py `
+  Tests/test_patient_history_reports_h7.py `
+  Tests/test_h7_patient_mode_switch_and_toolbar_fix.py `
+  Tests/test_therapist_history_ui.py `
+  Tests/test_h7_integrated_toolbar_and_patient_order.py `
+  Tests/test_h7_history_previous_screen_navigation.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 patient visualization regression failed" }
+```
+
+Only if this gate passes, build one fresh new native preview with a previously unused suffix (e.g. `BL`) from immutable trusted AZ using the one-shot H8 builder. Run read-only protection and integrated UI audit on BL before manual functional use. On any failure freeze BL, do not reinstall or overwrite. Preserve all historic proofs.
