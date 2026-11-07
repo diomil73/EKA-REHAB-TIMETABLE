@@ -179,3 +179,29 @@ def test_blank_snapshot_rejected_before_mutating_com_cells():
             sheet_name="PATIENT_SESSION_HISTORY",
         )
     assert not ws.cells
+
+
+def test_excel_com_empty_string_round_trips_as_none():
+    class _ExcelBlankCell(_FakeCell):
+        @property
+        def Value2(self):
+            val = self._storage.get(self._key)
+            return None if val == "" else val
+
+        @Value2.setter
+        def Value2(self, value):
+            self._storage[self._key] = value
+
+    class _ExcelBlankWorksheet(_ScalarOnlyWorksheet):
+        def Cells(self, row, col):
+            self.calls.append((row, col))
+            return _ExcelBlankCell(self.cells, (row, col))
+
+    ws = _ExcelBlankWorksheet()
+    write_rows_verified(
+        ws, 2, ("SnapshotId", "ReasonCode"),
+        (("DEMO-H8-20260921-V1", ""),),
+        sheet_name="THERAPIST_ATTENDANCE_HISTORY",
+    )
+    assert ws.cells[(2, 1)] == "DEMO-H8-20260921-V1"
+    assert ws.cells[(2, 2)] == ""
