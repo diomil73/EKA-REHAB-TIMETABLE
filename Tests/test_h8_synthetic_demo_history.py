@@ -7,7 +7,7 @@ import pytest
 from rehab_core.daily_state import DailySessionStatus
 from tools.seed_h8_synthetic_history import (
     ATTENDANCE_SHEET, DEMO_SOURCE, DemoHistoryError,
-    _days, generate_demo_rows,
+    _days, generate_demo_rows, write_rows_verified,
 )
 from tools.prepare_h8_synthetic_demo import DemoPreparationError, prepare_demo
 
@@ -115,3 +115,67 @@ def test_native_builder_fails_closed_with_bad_destination(tmp_path):
     source.write_bytes(b"sentinel")
     with pytest.raises(DemoPreparationError, match="_DEMO_"):
         prepare_demo(source, tmp_path / "existing_BL.xlsm")
+
+
+class _FakeCell:
+    def __init__(self, storage, key, *, discard=False):
+        self._storage = storage
+        self._key = key
+        self._discard = discard
+
+    @property
+    def Value2(self):
+        return self._storage.get(self._key)
+
+    @Value2.setter
+    def Value2(self, value):
+        if not self._discard:
+            self._storage[self._key] = value
+
+
+class _ScalarOnlyWorksheet:
+    def __init__(self, *, discard=False):
+        self.cells = {}
+        self.discard = discard
+        self.calls = []
+
+    def Cells(self, row, col):
+        self.calls.append((row, col))
+        return _FakeCell(self.cells, (row, col), discard=self.discard)
+
+
+def test_bm_corruption_regression_uses_scalar_com_cells_and_verifies_rows():
+    ws = _ScalarOnlyWorksheet()
+    rows = (
+        ("DEMO-H8-20260921-V1", "2026-09-21", "CURRENT_FINAL"),
+        ("DEMO-H8-20260922-V1", "2026-09-22", "CURRENT_FINAL"),
+    )
+    write_rows_verified(
+        ws, 4, ("SnapshotId", "ServiceDate", "Status"), rows,
+        sheet_name="FINALIZED_DAY_SNAPSHOTS",
+    )
+    assert ws.cells[(4, 1)] == rows[0][0]
+    assert ws.cells[(5, 1)] == rows[1][0]
+    assert ws.cells[(5, 3)] == "CURRENT_FINAL"
+    assert len(ws.calls) == 12
+    assert set(ws.cells) == {(row, col) for row in (4, 5) for col in (1, 2, 3)}
+
+
+def test_corrupt_com_write_is_caught_at_first_row_and_not_silently_saved():
+    ws = _ScalarOnlyWorksheet(discard=True)
+    with pytest.raises(DemoHistoryError, match="COM readback mismatch at row 2 col 1"):
+        write_rows_verified(
+            ws, 2, ("SnapshotId", "ServiceDate"),
+            (("DEMO-1", "2026-09-21"),),
+            sheet_name="FINALIZED_DAY_SNAPSHOTS",
+        )
+
+
+def test_blank_snapshot_rejected_before_mutating_com_cells():
+    ws = _ScalarOnlyWorksheet()
+    with pytest.raises(DemoHistoryError, match="blank SnapshotId"):
+        write_rows_verified(
+            ws, 2, ("SnapshotId",), (("",),),
+            sheet_name="PATIENT_SESSION_HISTORY",
+        )
+    assert not ws.cells
