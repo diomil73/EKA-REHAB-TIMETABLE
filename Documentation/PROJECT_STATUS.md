@@ -503,3 +503,13 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 patient visualization regressi
 ```
 
 Only if this gate passes, build one fresh new native preview with a previously unused suffix (e.g. `BL`) from immutable trusted AZ using the one-shot H8 builder. Run read-only protection and integrated UI audit on BL before manual functional use. On any failure freeze BL, do not reinstall or overwrite. Preserve all historic proofs.
+
+## 2026-11-07 — operator source gate 74 GREEN; one-shot BL native smoke next
+
+The operator reported **74 passed in 4.55s** from the 12-file H8/H7 regression gate run after commits `273396a` (patient charts now scheduled/performed/absences), `4ae2882` (therapist load title omits "(0-6)"), `fb85c82` and `bc6177c` (updated regression tests). Thus this specific source gate is GREEN, not native chart/UX proof.
+
+Preserve frozen BJ (previously manually accepted) and BK (native audits and mostly positive UX feedback, two subsequent visual changes requested). Neither should be rebuilt, repaired, or overwritten.
+
+Authorize exactly one new native preview **`Excel/previews/UNIFIED_PATIENT_HISTORY_H8_20261107_BL.xlsm`**, from trusted frozen `Excel/previews/UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm` using `Python/tools/prepare_h8_dashboard_smoke.py`, with Excel fully closed. Stop if source missing or BL already exists. After one successful creation, independently audit with `audit_workbook_protection.py` and `inspect_h7_integrated_ui.py`, both read-only. On *any* failure, freeze BL and do not retry/reinstall it; no manual Excel interaction before audits green.
+
+Expected native state mirrors BK: both report sheets contents-protected with drawing objects unlocked; all four finalized-history technical sheets protected and veryHidden; only existing 17 sheets remain outside broad protection; read-only reports and integrated toolbar present. Once native green, manually test patient chart triple values in both overall and selected patient, new therapist title with unchanged scale and color bands, active period buttons, 3 compact therapist panels with absence history explicitly unavailable, sticky patient chart while scrolling, navigation and one terminal RefreshAll success. Do not falsify working-day or absence metrics. Preserve clinical history and source of truth; mark BL manually accepted only on actual operator observation.
