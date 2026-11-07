@@ -75,7 +75,8 @@ def test_patient_vba_renders_name_not_identifier_and_formats_percentage():
 def test_patient_chart_is_native_idempotent_and_stays_above_detail_table():
     assert 'ws.ChartObjects("ekaPatientOverviewChart").Delete' in PATIENT_REPORT_VBA
     assert 'ws.ChartObjects.Add' in PATIENT_REPORT_VBA
-    assert 'series.Values = Array(delivered, absent, cancelled)' in PATIENT_REPORT_VBA
+    assert 'series.Values = Array(scheduled, delivered, absent)' in PATIENT_REPORT_VBA
+    assert 'series.XValues = Array("Προγραμματισμένες", "Πραγματοποιημένες", "Απουσίες")' in PATIENT_REPORT_VBA
     assert 'ws.Range("A22:J22").Value = Array(' in PATIENT_REPORT_VBA
     assert 'rowIndex = 23' in PATIENT_REPORT_VBA
     assert 'ws.Range("A6").Value2 = "Δεν υπάρχουν οριστικοποιημένες συνεδρίες για γράφημα."' in PATIENT_REPORT_VBA
@@ -85,6 +86,6 @@ def test_patient_selection_drilldown_preserves_protected_report():
     assert "Public Sub ShowSelectedPatientChart()" in PATIENT_REPORT_VBA
     assert '"PersonChart", "Γράφημα ασθενή", "ShowSelectedPatientChart"' in PATIENT_REPORT_VBA
     assert 'selectedRow < 23 Or selectedRow > finalRow' in PATIENT_REPORT_VBA
-    assert 'BuildPatientOverviewChart ws, CLng(ws.Cells(selectedRow, 6).Value2)' in PATIENT_REPORT_VBA
+    assert 'BuildPatientOverviewChart ws, CLng(ws.Cells(selectedRow, 5).Value2)' in PATIENT_REPORT_VBA
     assert 'If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True' in PATIENT_REPORT_VBA
     assert 'ActiveWindow.SplitRow = 22' in PATIENT_REPORT_VBA
