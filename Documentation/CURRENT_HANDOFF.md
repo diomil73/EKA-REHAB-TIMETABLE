@@ -679,3 +679,36 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 source regression tests failed
 Only after this gate is green may a **fresh one-shot** candidate be created as `Excel/previews/UNIFIED_PATIENT_HISTORY_H8_20261107_BJ.xlsm` from frozen trusted `Excel/previews/UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm`, provided `BJ` does not already exist. The new builder is `python Python/tools/prepare_h8_dashboard_smoke.py --source ... --output ...`. After new build, repeat full independent `audit_workbook_protection.py`, `inspect_h7_integrated_ui.py`, and new `audit_h8_refresh_dialogs.py` (the latter lists lexical dialog candidates still present, intentionally under scoped flags). Freeze BJ on any failure; do not retry/patch an existing BJ. No manual interaction until audit passes. During native manual smoke, test RefreshAll **once** (six functions must execute), both reports across all four modes, names, KPI, aggregated and selected-person chart, mode switching, button placement, protection and return.
 
 **Open H8 acceptance gaps**: final therapist absence provenance KPI and full longitudinal individual trend visualization remain to be built. First H8 chart release is still a trial, not full product acceptance. Full worksheet protection of the other 17 sheets remains unauthorized.
+
+## Operator source gate GREEN — 2026-11-07; BJ native proof authorized
+
+The operator confirmed the exact combined H8/H7 test command after the guarded RefreshAll installer and one-shot builder commits: **63 passed in 5.63s**. This supersedes the previous pending-test status for that source gate.
+
+**Disposition:** H8 source regression gate GREEN. Authorize one fresh native candidate `Excel/previews/UNIFIED_PATIENT_HISTORY_H8_20261107_BJ.xlsm`, created only once from trusted frozen AZ using `Python/tools/prepare_h8_dashboard_smoke.py`. BI and earlier evidence remain untouched. This is **not** native VBA or chart success and not final H8 acceptance.
+
+Exact one-shot PowerShell command (close Excel first):
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+$source = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$output = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H8_20261107_BJ.xlsm"
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $output) { throw "SAFETY STOP: BJ already exists; do not overwrite or reuse" }
+
+python .\\Python\\tools\\prepare_h8_dashboard_smoke.py --source $source --output $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BJ build failed; freeze BJ and do not retry" }
+
+python .\\Python\\tools\\audit_workbook_protection.py $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BJ protection audit failed; freeze BJ" }
+
+python .\\Python\\tools\\inspect_h7_integrated_ui.py $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BJ integrated toolbar audit failed; freeze BJ" }
+```
+
+Expected native build: H7 copy and installation sequence verified; `H8 REFRESH ONE-MESSAGE INSTALL OK`, `Persisted VBA reopen verification: OK`, `H8 DASHBOARD PREPARATION OK`. Protection audit must report both patient and therapist report `ProtectContents=True`, `ProtectDrawingObjects=False`; all four technical history sheets protected/veryHidden; `ReadOnly=True` and `Workbook unchanged: True`. Toolbar audit should confirm canonical RefreshAll and two statistics buttons, no overlaps or missing macros. No manual button clicks or Save/Exit until the complete read-only output is reviewed.
+
+If any step fails, do not re-run against the same BJ; report full terminal output. If BJ existed before this command, stop at the safety gate and preserve it. After audit GREEN, manually smoke test native charts, report modes and one terminal RefreshAll success only (failure messages retained). Charts and success-dialog behavior have **not** yet passed native proof.
+
+Open H8 scope remains genuine therapist absence provenance, clinical denominator policy, and longitudinal individual trends, as well as broad worksheet protection. Do not conflate source green with delivery acceptance.
