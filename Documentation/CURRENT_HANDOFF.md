@@ -1063,3 +1063,20 @@ python -m pytest Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_at
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: fixed demo source tests failed" }
 ```
 Expect 33 passes if the original 30 and three new tests all pass. Only after GREEN build a **new unused BN**, e.g. `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BN.xlsm`, from trusted AZ using `prepare_h8_synthetic_demo.py` and independent protection + integrated UI audits; never reuse/overwrite BM and never mutate BL/BK/BJ/AZ. If any step fails, freeze BN and diagnose read-only. The eventual `H8 SYNTHETIC HISTORY SEED OK` must be backed by successful persisted readback, not just VBA/protection audit.
+
+## 2026-11-08 — operator BM fix gate GREEN; pre-BN empty-COM safety enhancement
+
+Operator reported **33 passed in 5.29s** on the five-file source regression gate after the BM scalar-COM-write mitigation, including its three new regression tests. This confirms the source gate, **not** native Excel seeding.
+
+A final pre-native review identified one additional fail-closed mismatch: Excel `Range.Value2` can read an assigned empty string as `None`. Historical event/session rows include legitimate empty optional columns, and the earlier strict readback would incorrectly stop on the first such field. New commits:
+- `3c71f01`: `write_rows_verified` permits only `None` or `""` for *explicitly expected blank optional fields*, while every nonblank value remains exactly verified after a scalar cell write.
+- `d83e758`: one focused mock regression reproducing native Excel's empty-string-to-None readback behavior.
+
+Because code changed after the **33-pass** report, do **not** infer the new test passes. **Run the source gate again before creating BN**:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_attendance_history_contract.py Tests/test_therapist_attendance_history_store.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BN demo source gate failed" }
+```
+Expected **34 passed** if the 33 existing and one new case all pass. Only when GREEN, authorize **one fresh** `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BN.xlsm` from trusted AZ with `Python/tools/prepare_h8_synthetic_demo.py`, then independent `audit_workbook_protection.py` and `inspect_h7_integrated_ui.py`. If any step fails, freeze BN and diagnose read-only; do not retry/overwrite BN. BM remains permanently frozen malformed COM-write diagnostic; BL remains accepted H8. This enhancement is source-only, no workbook was changed.
