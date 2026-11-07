@@ -564,3 +564,9 @@ The authoritative specification, source-grounded observations, acceptance rules,
 `Documentation/H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md`.
 
 Work continues in source with priority: RefreshAll call-chain audit, patient-name join, period coverage banner and KPI definitions, then native Excel dashboard charts with per-person drilldowns. Do not invent an absence KPI or attendance denominator before source contracts are validated. The next native smoke must use a new suffix and follow source test and read-only audit gates. No new workbook has been produced for this feedback yet.
+
+## Source checkpoint — 2026-11-07 H8 implementation (native gate pending)
+
+Operator requested implementation without further approval. Tracked source commits have now changed the patient TSV and VBA renderer to show registry names and `Συμμετοχή %` (performed/scheduled), with strict duplicate-ID rejection, safe unknown-name fallback and zero denominator as empty; both patient outcome and therapist planned/actual slot overview native charts have been added to report VBA with single named chart deletion/rebuild on mode switch. Therapist report explains its finalized-day coverage. Existing related tests have been aligned to the changed schema/layout, and a new `Tests/test_h8_patient_names_and_participation.py` covers these source contracts.
+
+The source checkpoint and exact next PowerShell source-test gate are in `Documentation/H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md` (latest section). **No tests have been reported after this source edit and no native H8 workbook exists.** BI is frozen diagnostic evidence, not an installation target. Further requirements still open: RefreshAll subordinate dialog diagnosis/remediation, full patient/therapist per-person charts, absence source/provenance, multi-period tests and acceptance. Do not claim H8 complete or authorize general protection.
