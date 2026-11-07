@@ -70,3 +70,12 @@ def test_patient_vba_renders_name_not_identifier_and_formats_percentage():
     assert '"Συμμετοχή %"' in PATIENT_REPORT_VBA
     assert 'ws.Cells(rowIndex, 10).NumberFormat = "0.0%"' in PATIENT_REPORT_VBA
     assert 'ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True' in PATIENT_REPORT_VBA
+
+
+def test_patient_chart_is_native_idempotent_and_stays_above_detail_table():
+    assert 'ws.ChartObjects("ekaPatientOverviewChart").Delete' in PATIENT_REPORT_VBA
+    assert 'ws.ChartObjects.Add' in PATIENT_REPORT_VBA
+    assert 'series.Values = Array(delivered, absent, cancelled)' in PATIENT_REPORT_VBA
+    assert 'ws.Range("A22:J22").Value = Array(' in PATIENT_REPORT_VBA
+    assert 'rowIndex = 23' in PATIENT_REPORT_VBA
+    assert 'ws.Range("A6").Value2 = "Δεν υπάρχουν οριστικοποιημένες συνεδρίες για γράφημα."' in PATIENT_REPORT_VBA
