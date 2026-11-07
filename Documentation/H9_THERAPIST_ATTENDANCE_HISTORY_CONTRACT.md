@@ -38,3 +38,26 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: attendance contract source gate f
 ```
 
 If this source gate passes, the model is validated **only at the pure-domain level**. No H9 native workbook is authorized by this test alone. No new output XLSM has been created.
+
+## Read-only workbook evidence gate after operator contract GREEN
+
+Operator confirmed **7 passed in 0.98s** for the pure-domain contract.
+
+Follow-up source additions:
+- `cb3c652` adds `Python/rehab_excel/therapist_attendance_history_store.py`, requiring an explicitly present future technical `THERAPIST_ATTENDANCE_HISTORY` worksheet. Its exact six-column schema is `SnapshotId`, `ServiceDate`, `TherapistId`, `Outcome`, `Source`, `ReasonCode`. The reader uses read-only workbook access; it neither creates the sheet nor writes to the workbook. A missing sheet is **unavailable**, not zero absences. Duplicate, malformed or unsupported facts stop.
+- `11b392b` adds six tests, including missing sheet with byte-identical workbook before/after, superseded vs CURRENT_FINAL correction, missing valid version, expected day without snapshot, invalid reason/duplicate, and missing day evidence.
+
+The read-only `read_verified_therapist_attendance` filters on `CURRENT_FINAL` snapshot IDs from existing finalized history, requires the caller to supply independently verified expected-working dates, and refuses missing coverage. Old superseded facts are retained in the file for audit but not included in operational statistics.
+
+**Still not implemented**: a live finalized attendance writer, automatic roster/calendar derivation, holiday and leave policy, actual chart export or native XLSM install. BL remains frozen and accepted. The proposed sheet is a future schema contract and does not yet exist in BL or other evidence. Tests for the new reader have **not** yet been run.
+
+Next source-only gate, Excel closed:
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_therapist_attendance_history_contract.py Tests/test_therapist_attendance_history_store.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H9 read-only attendance tests failed" }
+```
+
+On failure investigate traceback and fix the source, without creating or modifying any XLSM. On success treat as *read-only Python source gate*, not end-to-end attendance capture, calendar proof, or chart acceptance.
