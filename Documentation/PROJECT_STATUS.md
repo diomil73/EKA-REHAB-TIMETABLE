@@ -453,3 +453,17 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BK protection audit failed. Freez
 python .\\Python\\tools\\inspect_h7_integrated_ui.py $output
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BK toolbar audit failed. Freeze BK" }
 ```
+
+## Operator BK native build and audits GREEN — 2026-11-07
+
+The operator pasted the full native PowerShell transcript for `Excel/previews/UNIFIED_PATIENT_HISTORY_H8_20261107_BK.xlsm`, fresh from trusted frozen AZ and after prior **17 passed / 72 passed** regression gates. The transcript was provided as an attachment when the UI did not display the preceding response.
+
+Native one-shot installation all successful: `H7 INTEGRATED COPY VERIFIED`, `UNIFIED DAY SAVE UI INSTALL OK`, `THERAPIST HISTORY UI INSTALL OK`, `H7 PATIENT HISTORY UI INSTALL OK`, `H7 INTEGRATED UI INSTALL OK`, `H8 REFRESH ONE-MESSAGE INSTALL OK`, `H8 DASHBOARD PREPARATION OK`, and `Persisted VBA reopen verification: OK`. No source or frozen evidence was changed.
+
+Independent read-only protection audit reports **23 worksheets**, both `PATIENT_HISTORY_REPORT` and `THERAPIST_HISTORY_REPORT` `ProtectContents=True`, `ProtectDrawingObjects=False`, `ProtectScenarios=True`; four finalized-history technical sheets `Visible=2` and fully protected; 17 baseline sheets remain unprotected (expected, general protection gate paused), `ReadOnly=True`, `Workbook unchanged: True`, `WORKBOOK PROTECTION AUDIT COMPLETE`.
+
+Independent integration audit: `ReadOnly=True`, `MASTER SaveOperationalDay` present, canonical `RefreshAll` button left=170, top=563.6, caption `ΑΝΑΝΕΩΣΗ`; both statistics buttons at left=270 and 424 on same row, correct macro bindings, all four expected VBA modules present, both reports visible, technical history veryHidden; `H7 INTEGRATED AUDIT OK; workbook not changed`. No audit failure or `SAFETY STOP`.
+
+**Disposition:** BK native creation/installation/persisted verification/protection/toolbar audits GREEN, **manual Excel functional UI acceptance pending**. BJ stays separately frozen and accepted. Do not re-run installer or overwrite BK.
+
+Next authorized native manual test: open BK only with macros enabled, check selected-mode color across all four modes in both reports; patient overview remains visible while scrolling to bottom, individual selected-row graph; therapist three compact side-by-side panels, distinct-patient/day color thresholds (1–2 green, 3–4 yellow, 5 orange, 6+ red) on report samples, planned vs actually performed therapies; third absence panel must explicitly report missing historical attendance/working-day data, not falsely display zero; back navigation; protected report buttons still clickable; RefreshAll once and terminal message only. Do not finalize/amend day or change production. Stop and freeze BK diagnostic on any error/unexpected metric, save output/screenshot, no reinstall/retry. Missing therapist-absence historical source is a known incomplete functional requirement, not a failure of BK installation.
