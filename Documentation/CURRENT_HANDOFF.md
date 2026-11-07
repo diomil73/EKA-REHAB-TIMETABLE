@@ -811,3 +811,34 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8 visual source regression still
 ```
 
 If any failure persists, freeze the next native step and investigate the new traceback, without retrying or overwriting existing frozen XLSM. Only a green source gate authorizes fresh uniquely named BK native smoke and independent protection/integrated audits. Previous BJ manual pass remains valid and frozen.
+
+## Operator H8 visual-regression source gate GREEN — 2026-11-07
+
+The operator reran tests after commit `61c3c99` fixed the obsolete single-chart assertion:
+- Focused `Tests/test_therapist_history_ui.py`: **17 passed in 2.76s**.
+- Complete H8 visual/H7 12-file regression suite: **72 passed in 5.03s**.
+
+This resolves the preceding **71 passed, 1 failed** source-only gate. The active-mode colors, CURRENT_FINAL distinct-patient/day color bands, therapist 3-panel renderer, sticky patient chart and earlier H8 source regressions now pass the specified tests. **This is source-test evidence, not native Excel behavior.** The old BJ remains frozen and manually accepted. No BK build result is reported yet.
+
+**Authorized next native step:** from trusted frozen `Excel/previews/UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm` create exactly one fresh `Excel/previews/UNIFIED_PATIENT_HISTORY_H8_20261107_BK.xlsm` via `Python/tools/prepare_h8_dashboard_smoke.py` with Excel closed, refusal if BK already exists, no retries on any failed native install. After success: `audit_workbook_protection.py` and `inspect_h7_integrated_ui.py` read-only gates. If all green, operator tests four active-mode colors, 1–2 green / 3–4 yellow / 5 orange / 6+ red using distinct patient counts and period coverage, three side-by-side panels (absence panel must state unavailable, not invent zero), sticky patient overview when selecting final rows, selected-person charts, clickability/protection and one-message RefreshAll. If any check fails, freeze BK as diagnostic and report exact step/message. Do not overwrite AZ/BJ/BK or modify production. Authentic therapist working-days/absence metrics require a new durable source and are not silently inferred.
+
+Exact next build with Excel closed:
+
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+
+$source = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm"
+$output = ".\\Excel\\previews\\UNIFIED_PATIENT_HISTORY_H8_20261107_BK.xlsm"
+if (!(Test-Path -LiteralPath $source)) { throw "SAFETY STOP: AZ source missing" }
+if (Test-Path -LiteralPath $output) { throw "SAFETY STOP: BK already exists; do not overwrite" }
+
+python .\\Python\\tools\\prepare_h8_dashboard_smoke.py --source $source --output $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BK build failed. Freeze BK and do not retry" }
+
+python .\\Python\\tools\\audit_workbook_protection.py $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BK protection audit failed. Freeze BK" }
+
+python .\\Python\\tools\\inspect_h7_integrated_ui.py $output
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BK toolbar audit failed. Freeze BK" }
+```
