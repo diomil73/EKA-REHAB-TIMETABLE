@@ -52,7 +52,9 @@ Public Sub ShowSelectedTherapistChart()
     Application.ScreenUpdating = False
     ws.Unprotect ""
     BuildTherapistLoadChart ws, CLng(ws.Cells(selectedRow, 5).Value2), _
-        CLng(ws.Cells(selectedRow, 6).Value2), CStr(ws.Cells(selectedRow, 3).Value2)
+        CLng(ws.Cells(selectedRow, 6).Value2), CStr(ws.Cells(selectedRow, 3).Value2), _
+        CLng(ws.Cells(selectedRow, 7).Value2), CLng(ws.Cells(selectedRow, 8).Value2), _
+        CLng(ws.Cells(selectedRow, 4).Value2)
     ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     Application.EnableEvents = priorEvents
     Application.ScreenUpdating = priorScreenUpdating
@@ -75,6 +77,8 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     Dim ws As Worksheet, rowIndex As Long, sourceLine As Long, col As Long
     Dim headers As Variant
     Dim totalPlannedSlots As Long, totalActualSlots As Long
+    Dim totalPlannedSessions As Long, totalActualSessions As Long
+    Dim totalFinalizedTherapistDays As Long
 
     On Error GoTo ReportError
 
@@ -141,17 +145,23 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         If Len(parts(13)) > 0 Then ws.Cells(rowIndex, 13).Value2 = parts(13) & "%"
         totalPlannedSlots = totalPlannedSlots + CLng(parts(5))
         totalActualSlots = totalActualSlots + CLng(parts(6))
+        totalPlannedSessions = totalPlannedSessions + CLng(parts(7))
+        totalActualSessions = totalActualSessions + CLng(parts(8))
+        totalFinalizedTherapistDays = totalFinalizedTherapistDays + CLng(parts(4))
         rowIndex = rowIndex + 1
 NextLine:
     Next sourceLine
 
     FormatReportSheet ws, rowIndex - 1
-    BuildTherapistLoadChart ws, totalPlannedSlots, totalActualSlots
+    BuildTherapistLoadChart ws, totalPlannedSlots, totalActualSlots, "", _
+        totalPlannedSessions, totalActualSessions, totalFinalizedTherapistDays
     EnsureReportButtons ws
+    HighlightTherapistReportMode ws, reportMode
     ws.Activate
     KeepApplicationShell
     ResetReportWindow ws
     EnsureReportButtons ws
+    HighlightTherapistReportMode ws, reportMode
     ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
 
 CleanUp:
@@ -201,38 +211,94 @@ Private Function DisplayPeriodEnd(ByVal reportMode As String, ByVal startText As
     End Select
 End Function
 
-Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
-        ByVal plannedSlots As Long, ByVal actualSlots As Long, _
-        Optional ByVal therapistName As String = "")
-    Dim plot As ChartObject, series As Series, width As Double
-
-    ' One overview chart per report render, with no overlap with buttons or
-    ' the row-22 table. Future profile charts will be a separate H8 slice.
-    On Error Resume Next
-    ws.ChartObjects("ekaTherapistLoadChart").Delete
-    On Error GoTo 0
-    ws.Range("A5:M20").ClearContents
-    If plannedSlots + actualSlots = 0 Then
-        ws.Range("A6").Value2 = "Δεν υπάρχουν καταγεγραμμένες θέσεις φόρτου για γράφημα."
-        ws.Range("A6").Font.Bold = True
-        Exit Sub
+Private Function WorkloadTrafficColor(ByVal loadPerDay As Double) As Long
+    ' Classification applies to delivered treatment count per finalized
+    ' therapist-day. Slot capacity and distinct patient IDs are separate KPIs.
+    If loadPerDay >= 5.5 Then
+        WorkloadTrafficColor = RGB(205, 50, 55)       ' six or more: red
+    ElseIf loadPerDay >= 4.5 Then
+        WorkloadTrafficColor = RGB(235, 138, 45)      ' five: orange
+    ElseIf loadPerDay >= 2.5 Then
+        WorkloadTrafficColor = RGB(238, 207, 72)      ' three/four: yellow
+    ElseIf loadPerDay > 0 Then
+        WorkloadTrafficColor = RGB(79, 166, 93)       ' one/two: green
+    Else
+        WorkloadTrafficColor = RGB(160, 169, 177)     ' zero: no treatment
     End If
-    width = ws.Range("M5").Left + ws.Range("M5").Width - ws.Range("A5").Left
-    Set plot = ws.ChartObjects.Add(ws.Range("A5").Left, ws.Range("A5").Top, width, 210)
-    plot.Name = "ekaTherapistLoadChart"
+End Function
+
+Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
+        ByVal chartName As String, ByVal firstColumn As String, _
+        ByVal lastColumn As String) As ChartObject
+    Dim plot As ChartObject, chartWidth As Double
+    chartWidth = ws.Range(lastColumn & "5").Left + _
+        ws.Range(lastColumn & "5").Width - ws.Range(firstColumn & "5").Left
+    Set plot = ws.ChartObjects.Add( _
+        ws.Range(firstColumn & "5").Left, ws.Range(firstColumn & "5").Top, _
+        chartWidth - 4, 207)
+    plot.Name = chartName
     plot.Placement = xlFreeFloating
     plot.Chart.ChartType = xlColumnClustered
-    Set series = plot.Chart.SeriesCollection.NewSeries
-    series.Name = "Κατειλημμένες θέσεις"
-    series.XValues = Array("Προγραμματισμένες", "Πραγματικές")
-    series.Values = Array(plannedSlots, actualSlots)
-    plot.Chart.HasTitle = True
-    If Len(therapistName) > 0 Then
-        plot.Chart.ChartTitle.Text = "Προγραμματισμένος / πραγματικός φόρτος: " & therapistName
-    Else
-        plot.Chart.ChartTitle.Text = "Φόρτος θεραπευτών | μόνο οριστικοποιημένες ημέρες"
-    End If
     plot.Chart.HasLegend = False
+    Set NewTherapistMiniChart = plot
+End Function
+
+Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
+        ByVal plannedSlots As Long, ByVal actualSlots As Long, _
+        Optional ByVal therapistName As String = "", _
+        Optional ByVal plannedSessions As Long = 0, _
+        Optional ByVal actualSessions As Long = 0, _
+        Optional ByVal finalizedDays As Long = 0)
+    Dim plot As ChartObject, series As Series
+    Dim loadPerDay As Double, prior As Double, current As Double
+
+    ' Always remove all old charts, including when there are no rows.
+    On Error Resume Next
+    ws.ChartObjects("ekaTherapistLoadChart").Delete
+    ws.ChartObjects("ekaTherapistSessionChart").Delete
+    ws.ChartObjects("ekaTherapistAttendanceChart").Delete
+    On Error GoTo 0
+    ws.Range("A5:M20").ClearContents
+
+    If finalizedDays <= 0 Then
+        ws.Range("A6").Value2 = "Δεν υπάρχουν οριστικοποιημένες ημέρες για γράφημα."
+        Exit Sub
+    End If
+
+    ' Chart one: 0-6 delivered treatments per finalized therapist-day,
+    ' with explicit traffic colors; greater than six is still red.
+    loadPerDay = CDbl(actualSessions) / CDbl(finalizedDays)
+    Set plot = NewTherapistMiniChart(ws, "ekaTherapistLoadChart", "A", "D")
+    Set series = plot.Chart.SeriesCollection.NewSeries
+    series.Name = "Πραγμ. θεραπείες/ημέρα"
+    series.XValues = Array("Ανά ημέρα")
+    series.Values = Array(loadPerDay)
+    series.Format.Fill.ForeColor.RGB = WorkloadTrafficColor(loadPerDay)
+    plot.Chart.Axes(xlValue).MinimumScale = 0
+    plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
+        WorksheetFunction.RoundUp(loadPerDay, 0))
+    plot.Chart.HasTitle = True
+    plot.Chart.ChartTitle.Text = "Φόρτος 0-6" & IIf( _
+        Len(therapistName) > 0, " | " & therapistName, "")
+
+    ' Chart two: planned/delivered treatment sessions per reporting period.
+    Set plot = NewTherapistMiniChart(ws, "ekaTherapistSessionChart", "E", "H")
+    Set series = plot.Chart.SeriesCollection.NewSeries
+    series.Name = "Συνεδρίες"
+    series.XValues = Array("Προγραμ.", "Πραγματ.")
+    series.Values = Array(plannedSessions, actualSessions)
+    plot.Chart.HasTitle = True
+    plot.Chart.ChartTitle.Text = "Θεραπείες" & IIf( _
+        Len(therapistName) > 0, " | " & therapistName, "")
+
+    ' Chart three: not a zero-absence chart. Historical therapist attendance
+    ' and a reliable working-day denominator are NOT persisted in the current
+    ' finalized therapist/day history schema. Do not manufacture that count.
+    Set plot = NewTherapistMiniChart(ws, "ekaTherapistAttendanceChart", "I", "M")
+    plot.Chart.HasTitle = True
+    plot.Chart.ChartTitle.Text = "Παρουσίες / απουσίες"
+    ws.Range("I19").Value2 = "Μη διαθέσιμο ιστορικό απουσιών / εργασίμων"
+    ws.Range("I19").Font.Bold = True
 End Sub
 
 Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
@@ -278,6 +344,32 @@ Private Sub ResetReportWindow(ByVal ws As Worksheet)
     End If
     ws.Range("A1").Select
     On Error GoTo 0
+End Sub
+
+Private Sub HighlightTherapistReportMode(ByVal ws As Worksheet, ByVal reportMode As String)
+    Dim modes As Variant, i As Long, shape As Shape, selected As String
+    modes = Array("Daily", "Weekly", "Monthly", "Overall")
+    Select Case LCase$(Trim$(reportMode))
+        Case "daily": selected = "Daily"
+        Case "weekly": selected = "Weekly"
+        Case "monthly": selected = "Monthly"
+        Case "overall": selected = "Overall"
+        Case Else: Err.Raise vbObjectError + 7650, , "Unknown therapist mode"
+    End Select
+    For i = LBound(modes) To UBound(modes)
+        Set shape = ws.Shapes("ekaHistory_" & CStr(modes(i)))
+        If CStr(modes(i)) = selected Then
+            shape.Fill.ForeColor.RGB = RGB(37, 99, 170)
+            shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
+            shape.Line.ForeColor.RGB = RGB(18, 60, 115)
+            shape.Line.Weight = 2
+        Else
+            shape.Fill.ForeColor.RGB = RGB(236, 241, 247)
+            shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 0, 0)
+            shape.Line.ForeColor.RGB = RGB(170, 185, 205)
+            shape.Line.Weight = 1
+        End If
+    Next i
 End Sub
 
 Private Sub EnsureReportButtons(ByVal ws As Worksheet)
