@@ -235,7 +235,7 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
         ws.Range(lastColumn & "5").Width - ws.Range(firstColumn & "5").Left
     Set plot = ws.ChartObjects.Add( _
         ws.Range(firstColumn & "5").Left, ws.Range(firstColumn & "5").Top, _
-        chartWidth - 4, 207)
+        chartWidth - 4, 175)
     plot.Name = chartName
     plot.Placement = xlFreeFloating
     plot.Chart.ChartType = xlColumnClustered
@@ -250,7 +250,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         Optional ByVal actualSessions As Long = 0, _
         Optional ByVal finalizedDays As Long = 0)
     Dim plot As ChartObject, series As Series
-    Dim loadPerDay As Double, prior As Double, current As Double
+    Dim loadPerDay As Double
 
     ' Always remove all old charts, including when there are no rows.
     On Error Resume Next
