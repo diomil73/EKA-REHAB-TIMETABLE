@@ -118,3 +118,7 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H8/H7 source regression tests fai
 This gate is expected to exercise 6 new H8 tests plus existing H7 suites. Do **not** create a native workbook if any test fails. Send complete failing traceback; correct source and retry source gate. If green, then verify additional relevant history tests before a new H8 smoke, and run full read-only audit before any native manual click.
 
 **Open work:** exact RefreshAll suppression strategy; absence provenance; full patient/therapist individual chart and KPI drilldowns; clear multi-period data-coverage display; native COM chart render proof. This first code slice is not a release-ready implementation.
+
+## Operator proof — 2026-11-07, H8 per-person chart source gate GREEN
+
+The operator confirmed the **seven-file targeted regression suite completed: `52 passed in 5.51s`**. This result is later than the per-person chart source commits `57d7220`, `2dca8ac`, `fbde9a1`, `a3ecbcc`, `186ce00`, and `5531c28`. Thus the current committed patient/therapist native chart source contracts and H7 report regressions passed source tests. It does **not** prove chart behavior in live Excel, VBA procedure interactions, read-only protection after chart interaction, single-message RefreshAll behavior or genuine therapist-absence KPIs. No H8 native workbook has been created or accepted. Preserve AZ/BF/BG/BH/BI frozen. Priority is remaining source audit / targeted remediation and then a fresh uniquely named native workbook with complete persisted state audit before manual tests.
