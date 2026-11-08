@@ -1172,3 +1172,31 @@ python .\Python\tools\verify_h8_synthetic_history.py --workbook ".\Excel\preview
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO synthetic history verification failed; do not modify BO" }
 ```
 If read-only verification fails, inspect exact message before creating any new workbook; keep BO unchanged and do not rerun native seed. If green, complete already-built BO report/chart manual comparisons (daily/weekly/monthly/overall) and distinguish demo data from real attendance. Continue work autonomously without waiting for OK; native operator-only validation is necessary only when source is green. Legacy AZ/BJ/BK/BL immutable, BM/BN frozen failures.
+
+## 2026-11-08 — BO strict read-only cross-sheet verification GREEN
+
+Operator provided exact result from `Python/tools/verify_h8_synthetic_history.py` on BO:
+
+```
+H8 SYNTHETIC HISTORY CROSS-SHEET VERIFICATION OK
+days: 25
+patients: 522
+therapist_days: 150
+attendance_facts: 150
+finalization_events: 25
+Workbook unchanged: True
+Source: SYNTHETIC DEMO ONLY, not real attendance history
+```
+
+**Meaning:** BO successfully passed the independent read-only semantic cross-sheet proof. Its synthetic CURRENT_FINAL snapshots, patient-session outcomes, therapist-day workload, demo staff attendance and finalized-event history reconcile, and the verification made no workbook changes. BO is **suitable for manual historical-report demonstration**, but this alone does not validate chart rendering/period selectors or a real staff-attendance capture feature. Previous operator feedback was informal `δείχνει οκ`; formal chart UI smoke still pending. Do not classify BO as fully end-to-end accepted yet.
+
+The operator did **not** provide the six-file pytest count from the preceding source-only gate in this reply; do not invent `44 passed`. The independent BO verification green is authoritative only for its stated scope.
+
+Next user-facing manual UI smoke on existing BO only (no rebuild/seed/reinstall):
+1. Open BO with macros enabled and navigate to patient and therapist statistics.
+2. Compare daily, weekly, monthly, overall periods; verify distinct charts/summary counts, patient scheduled/performed/absences, therapist varying workload and selection changes, buttons stable.
+3. H8 therapist attendance third panel should still say no trustworthy historical absence/working-day KPI; the H9 attendance ledger is synthetic and **not wired to H8 third panel**.
+4. On any discrepancy, report exact sheet, filter, selection, and symptoms without editing history or frozen files.
+5. If all good, record BO as accepted **synthetic demo UI** while preserving BL as the established H8 reference, AZ immutable source, BM/BN frozen failed diagnostics.
+
+No new native file or changes to BO authorized by this checkpoint.
