@@ -344,3 +344,34 @@ def test_readback_rejects_numeric_serial_when_text_was_expected():
             (("DEMO-1", "2026-09-21"),),
             sheet_name="FINALIZED_DAY_SNAPSHOTS",
         )
+
+
+def test_synthetic_replacements_never_create_seventh_eighth_or_ninth_clock_slot():
+    days, therapists, patients = cohort()
+    data = generate_demo_rows(days, therapists, patients)
+    rows = data["THERAPIST_DAY_HISTORY"]
+    assert any(row[8] > 0 for row in rows), "Must actually exercise replacements"
+    for row in rows:
+        assert row[3] == 6
+        assert row[6] <= row[3]
+        assert row[7] <= row[3]
+        assert row[11] == 0
+    clock_by_therapist_day = {}
+    for row in data["PATIENT_SESSION_HISTORY"]:
+        if row[5] not in ("active", "replaced"):
+            continue
+        key = (row[1], row[8])
+        time = row[9]
+        clock_by_therapist_day.setdefault(key, set())
+        assert time not in clock_by_therapist_day[key]
+        clock_by_therapist_day[key].add(time)
+        assert time in {f"{hour:02d}:00:00" for hour in range(8, 14)}
+
+
+def test_known_synthetic_replacement_peak_days_stay_within_capacity():
+    days, therapists, patients = cohort()
+    data = generate_demo_rows(days, therapists, patients)
+    for target in ("2026-10-05", "2026-10-12"):
+        rows = [r for r in data["THERAPIST_DAY_HISTORY"] if r[1] == target]
+        assert len(rows) == 6
+        assert all(r[6] <= 6 for r in rows)
