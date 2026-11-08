@@ -187,6 +187,8 @@ def export_therapist_history_ui(
     )
 
     output = Path(output_path).resolve()
+    if trend_output_path is not None and Path(trend_output_path).resolve() == output:
+        raise TherapistHistoryUiExportError("Trend output collides with report output")
     output.parent.mkdir(parents=True, exist_ok=True)
     lines = ["\t".join(HEADERS)]
     lines.extend("\t".join(_field(value) for value in row) for row in rows)
@@ -198,8 +200,6 @@ def export_therapist_history_ui(
         # future dates, or invented attendance. It is used for the two tiny
         # historical charts beneath the main therapist charts.
         trend_path = Path(trend_output_path).resolve()
-        if trend_path == output:
-            raise TherapistHistoryUiExportError("Trend output collides with report output")
         trend_path.parent.mkdir(parents=True, exist_ok=True)
         trend_headers = ("Date", "Therapist", "Planned", "Delivered", "UniquePatients")
         trend_rows = sorted(
