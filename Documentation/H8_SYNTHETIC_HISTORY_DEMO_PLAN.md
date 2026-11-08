@@ -218,3 +218,25 @@ python .\Python\tools\inspect_h7_integrated_ui.py $demo
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO toolbar audit failed. Freeze BO." }
 ```
 Diagnostics on previously failed BN and BM are already recorded. Both remain frozen, and accepted BL/BK/BJ and AZ must remain untouched.
+
+## 2026-11-08 — resumed without operator OK; strict BO historical-data verifier staged
+
+Operator resumed work and specifically instructed autonomous progress, requesting consultation only when a substantive choice is required. Previously BO was described as **«δείχνει οκ»** (preliminary user impression), but no exact native stdout or full chart acceptance was supplied. Do not promote BO to fully accepted solely from this.
+
+Proactive source-level work completed:
+- `51facf4`: new `Python/tools/verify_h8_synthetic_history.py` accepts only an existing `_DEMO_*.xlsm` workbook. It reads snapshot headers, patient-session history, therapist-day workload, H9 synthetic attendance, finalization events and current patient registry. Verifies September/October demo days, exactly six therapist and attendance facts per date, matching current-final snapshot keys, snapshot totals vs per-session outcomes, original/effective therapist workload counts, released/suspended/replacement totals, unique day session and patient IDs, valid registry IDs, no unresolved therapist absence, explicit synthetic staff absence vs delivered treatment, event/source provenance, and stable cohort. Asserts SHA256 unchanged in finally even if verification fails; prints `H8 SYNTHETIC HISTORY CROSS-SHEET VERIFICATION OK` only after all checks. Neither runs COM/Excel, installs VBA, seeds history nor touches the workbook.
+- `0f41a5f`: new `Tests/test_h8_synthetic_history_verifier.py`, six tests based on synthetic openpyxl temporary workbooks, including successful unchanged verification, corrupted finalized counts, missing staff fact, wrong therapist delivered count, orphaned finalization event, and refusal of non-demo workbook.
+
+**New tests not yet run.** Strict next local source gate:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h8_synthetic_history_verifier.py Tests/test_h8_synthetic_demo_history.py Tests/test_therapist_attendance_history_contract.py Tests/test_therapist_attendance_history_store.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO verifier source gate failed" }
+```
+Expected **44** if earlier 38 and six new tests all pass. If this gate succeeds, run ONE **read-only** proof on existing `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm`:
+```powershell
+python .\Python\tools\verify_h8_synthetic_history.py --workbook ".\Excel\previews\UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BO synthetic history verification failed; do not modify BO" }
+```
+If read-only verification fails, inspect exact message before creating any new workbook; keep BO unchanged and do not rerun native seed. If green, complete already-built BO report/chart manual comparisons (daily/weekly/monthly/overall) and distinguish demo data from real attendance. Continue work autonomously without waiting for OK; native operator-only validation is necessary only when source is green. Legacy AZ/BJ/BK/BL immutable, BM/BN frozen failures.
