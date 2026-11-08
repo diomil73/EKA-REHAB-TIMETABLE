@@ -127,3 +127,27 @@ def test_share_export_requires_independent_numeric_reopen_and_source_hash():
     assert "abs_tol=1e-12" in check
     assert "book.Close(SaveChanges=False)" in check
     assert "hashlib.sha256(file.read_bytes()).hexdigest() != before_hash" in check
+
+
+def test_shareable_executive_layout_uses_native_buttons_and_hides_excel_chrome():
+    import inspect
+    from tools import export_management_therapist_summary as mod
+    render = inspect.getsource(mod._write_mode_sheet)
+    export = inspect.getsource(mod.export_shareable)
+    verifier = inspect.getsource(mod.verify_management_native)
+    assert "Shapes.AddShape" in render
+    assert "ekaExecutiveMode_" in render
+    assert 'SubAddress=f"\'{name}\'!A1"' in render
+    assert 'ws.Application.ActiveWindow.DisplayHeadings = False' in render
+    assert 'ws.Application.ActiveWindow.DisplayGridlines = False' in render
+    assert "excel.ActiveWindow.DisplayWorkbookTabs = False" in export
+    assert 'ws.Range("A1:J3").Merge()' in render
+    assert "ΑΡΧΙΚΑ ΠΡΟΓΡΑΜΜΑΤΙΣΜΕΝΕΣ" in render
+    assert "ΤΕΛΙΚΑ ΠΡΑΓΜΑΤΟΠΟΙΗΜΕΝΕΣ" in render
+    assert "ΠΟΣΟΣΤΟ ΥΛΟΠΟΙΗΣΗΣ" in render
+    assert 'ws.Range("F15").Left' in render
+    assert "row = 16 + offset" in verifier
+    assert "total_row = 16 + len(expected_rows)" in verifier
+    assert "navigation buttons missing" in verifier
+    assert "navigation target mismatch" in verifier
+    assert "DisplayWorkbookTabs" in verifier
