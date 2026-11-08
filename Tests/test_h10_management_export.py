@@ -112,3 +112,18 @@ def test_export_package_rejects_embedded_objects_and_extra_sheets(tmp_path):
             z.writestr(f"xl/worksheets/sheet{i}.xml", "<worksheet/>")
     with pytest.raises(ValueError, match="exactly four"):
         inspect_share_package(extra)
+
+
+def test_share_export_requires_independent_numeric_reopen_and_source_hash():
+    import inspect
+    from tools import export_management_therapist_summary as mod
+    code = inspect.getsource(mod.export_shareable)
+    check = inspect.getsource(mod.verify_management_native)
+    assert "source_hash = hashlib.sha256(source.read_bytes()).hexdigest()" in code
+    assert "verify_management_native(output, periods)" in code
+    assert "inspect_share_package(output)" in code
+    assert 'int(book.Worksheets.Count) != 4' in check
+    assert "int(ws.ChartObjects().Count)" in check
+    assert "abs_tol=1e-12" in check
+    assert "book.Close(SaveChanges=False)" in check
+    assert "hashlib.sha256(file.read_bytes()).hexdigest() != before_hash" in check
