@@ -43,7 +43,7 @@ Public Sub ShowSelectedTherapistChart()
         Exit Sub
     End If
     selectedRow = ActiveCell.Row
-    finalRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    finalRow = CLng(ws.Range("P3").Value2)
     If selectedRow < 23 Or selectedRow > finalRow Then
         MsgBox "Επιλέξτε πρώτα τη γραμμή του θεραπευτή στον πίνακα.", vbInformation
         Exit Sub
@@ -75,7 +75,7 @@ End Sub
 Public Sub HighlightSelectedTherapistRow(ByVal selectedRow As Long)
     Dim ws As Worksheet, finalRow As Long
     Set ws = ThisWorkbook.Worksheets(REPORT_SHEET)
-    finalRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    finalRow = CLng(ws.Range("P3").Value2)
     If selectedRow < 23 Or selectedRow > finalRow Then Exit Sub
     ws.Unprotect ""
     ws.Range("P1").Value2 = selectedRow
@@ -135,6 +135,9 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     On Error Resume Next
     ws.Range("A1:N2").UnMerge
     On Error GoTo ReportError
+    On Error Resume Next
+    ws.ChartObjects("ekaDepartmentHistoryChart").Delete
+    On Error GoTo ReportError
     ws.Range("A1:P1048576").ClearContents
     ' Clear the prior hidden daily cache before loading a new mode/period;
     ' otherwise old trailing rows could silently enter today's chart.
@@ -142,6 +145,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         ws.Cells(ws.Rows.Count, 17).End(xlUp).Row))).ClearContents
     ws.Range("P1").Value2 = 0
     ws.Range("P2").Value2 = reportMode
+    ws.Range("P3").Value2 = 22
     ws.Columns("Q").NumberFormat = "@"  ' preserve ISO dates as text, not Excel serial
     EnsureReportButtons ws
     ws.Cells(1, 1).Value2 = "Ιστορικό / Στατιστικά Θεραπευτών"
@@ -207,10 +211,12 @@ NextLine:
 NextTrendLine:
     Next trendLine
 
+    ws.Range("P3").Value2 = rowIndex - 1
     FormatReportSheet ws, rowIndex - 1
     BuildTherapistLoadChart ws, totalPlannedSlots, totalActualSlots, "", _
         totalPlannedSessions, totalActualSessions, totalFinalizedTherapistDays, _
         totalDistinctPatientDayLoad / Application.Max(1, totalFinalizedTherapistDays), 0
+    BuildDepartmentAppendix ws, rowIndex - 1, reportMode
     EnsureReportButtons ws
     HighlightTherapistReportMode ws, reportMode
     ws.Activate
@@ -299,6 +305,106 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
     plot.Chart.HasLegend = False
     Set NewTherapistMiniChart = plot
 End Function
+
+Private Sub BuildDepartmentAppendix(ByVal ws As Worksheet, _
+        ByVal finalTherapistRow As Long, ByVal reportMode As String)
+    ' Chart follows the last therapist automatically, regardless of count.
+    ' Only cohort-level counts are copied, never therapist identifiers.
+    Dim groups As Object, groupKeys As Collection, totals As Variant
+    Dim r As Long, i As Long, startRow As Long, lastGroup As Long
+    Dim groupKey As String, headerRow As Long
+    Dim allPlanned As Double, allDelivered As Double, maxValue As Double
+    Dim chart As ChartObject, series As Series
+
+    If finalTherapistRow < 23 Then Exit Sub
+    Set groups = CreateObject("Scripting.Dictionary")
+    groups.CompareMode = vbTextCompare
+    Set groupKeys = New Collection
+    For r = 23 To finalTherapistRow
+        If LCase$(reportMode) = "overall" Then
+            groupKey = "Όλο το ιστορικό"
+        Else
+            groupKey = CStr(ws.Cells(r, 1).Value2)
+            If Len(CStr(ws.Cells(r, 2).Value2)) > 0 Then
+                groupKey = groupKey & " έως " & CStr(ws.Cells(r, 2).Value2)
+            End If
+        End If
+        If Not groups.Exists(groupKey) Then
+            groups.Add groupKey, Array(0#, 0#)
+            groupKeys.Add groupKey
+        End If
+        totals = groups(groupKey)
+        totals(0) = CDbl(totals(0)) + CDbl(ws.Cells(r, 7).Value2)
+        totals(1) = CDbl(totals(1)) + CDbl(ws.Cells(r, 8).Value2)
+        groups(groupKey) = totals
+    Next r
+
+    headerRow = finalTherapistRow + 3
+    startRow = headerRow + 2
+    ws.Cells(headerRow, 1).Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | " & _
+        ReportModeDescription(reportMode)
+    ws.Cells(headerRow, 1).Font.Bold = True
+    ws.Cells(headerRow, 1).Font.Color = RGB(37, 99, 170)
+    ws.Cells(startRow - 1, 1).Value2 = "Περίοδος"
+    ws.Cells(startRow - 1, 2).Value2 = "Αρχικά προγρ."
+    ws.Cells(startRow - 1, 3).Value2 = "Τελικά πραγματ."
+    ws.Cells(startRow - 1, 4).Value2 = "Υλοποίηση"
+    ws.Range(ws.Cells(startRow - 1, 1), ws.Cells(startRow - 1, 4)).Font.Bold = True
+
+    For i = 1 To groupKeys.Count
+        groupKey = CStr(groupKeys(i))
+        totals = groups(groupKey)
+        r = startRow + i - 1
+        ws.Cells(r, 1).Value2 = groupKey
+        ws.Cells(r, 2).Value2 = CDbl(totals(0))
+        ws.Cells(r, 3).Value2 = CDbl(totals(1))
+        If CDbl(totals(0)) > 0 Then
+            ws.Cells(r, 4).Value2 = CDbl(totals(1)) / CDbl(totals(0))
+            ws.Cells(r, 4).NumberFormat = "0.0%"
+        Else
+            ws.Cells(r, 4).Value2 = "Μη διαθέσιμο"
+        End If
+        allPlanned = allPlanned + CDbl(totals(0))
+        allDelivered = allDelivered + CDbl(totals(1))
+        maxValue = Application.Max(maxValue, CDbl(totals(0)), CDbl(totals(1)))
+    Next i
+    lastGroup = startRow + groupKeys.Count - 1
+    ws.Cells(lastGroup + 1, 1).Value2 = "ΣΥΝΟΛΟ"
+    ws.Cells(lastGroup + 1, 2).Value2 = allPlanned
+    ws.Cells(lastGroup + 1, 3).Value2 = allDelivered
+    If allPlanned > 0 Then
+        ws.Cells(lastGroup + 1, 4).Value2 = allDelivered / allPlanned
+        ws.Cells(lastGroup + 1, 4).NumberFormat = "0.0%"
+    Else
+        ws.Cells(lastGroup + 1, 4).Value2 = "Μη διαθέσιμο"
+    End If
+    ws.Range(ws.Cells(lastGroup + 1, 1), ws.Cells(lastGroup + 1, 4)).Font.Bold = True
+
+    Set chart = ws.ChartObjects.Add(ws.Cells(startRow - 1, 6).Left, _
+        ws.Cells(startRow - 1, 6).Top, ws.Range("F1:M1").Width, 240)
+    chart.Name = "ekaDepartmentHistoryChart"
+    chart.Placement = xlFreeFloating
+    chart.Chart.ChartType = xlColumnClustered
+    Set series = chart.Chart.SeriesCollection.NewSeries
+    series.Name = "Αρχικά προγραμματισμένες"
+    series.XValues = ws.Range(ws.Cells(startRow, 1), ws.Cells(lastGroup, 1))
+    series.Values = ws.Range(ws.Cells(startRow, 2), ws.Cells(lastGroup, 2))
+    series.Format.Fill.ForeColor.RGB = RGB(63, 168, 245)
+    Set series = chart.Chart.SeriesCollection.NewSeries
+    series.Name = "Τελικά πραγματοποιημένες"
+    series.XValues = ws.Range(ws.Cells(startRow, 1), ws.Cells(lastGroup, 1))
+    series.Values = ws.Range(ws.Cells(startRow, 3), ws.Cells(lastGroup, 3))
+    series.Format.Fill.ForeColor.RGB = RGB(255, 3, 3)
+    chart.Chart.HasTitle = True
+    chart.Chart.ChartTitle.Text = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ"
+    chart.Chart.HasLegend = True
+    chart.Chart.Legend.Position = xlLegendPositionBottom
+    chart.Chart.Axes(xlValue).MinimumScale = 0
+    chart.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
+        WorksheetFunction.RoundUp(maxValue, -1))
+    chart.Chart.Axes(xlValue).HasMajorGridlines = True
+    ws.ScrollArea = "A1:N" & CStr(Application.Max(lastGroup + 3, startRow + 17))
+End Sub
 
 Private Function TrendDateWithinReport(ByVal dateText As String, _
         ByVal ws As Worksheet, ByVal reportMode As String, _
@@ -530,6 +636,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ws.ChartObjects("ekaTherapistAttendanceChart").Delete
     ws.ChartObjects("ekaTherapistLoadTrend").Delete
     ws.ChartObjects("ekaTherapistSessionTrend").Delete
+    ws.ChartObjects("ekaDepartmentHistoryChart").Delete
     On Error GoTo 0
     ws.Range("A5:M20").ClearContents
 
@@ -541,7 +648,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' Comparable, period-specific benchmark. Do not compare September's
     ' therapist against October's or mix weekly and monthly rows.
     ' One row is one therapist-period; load is weighted by finalized days.
-    lastRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    lastRow = CLng(ws.Range("P3").Value2)
     reportMode = CStr(ws.Range("P2").Value2)
     If selectedRow >= 23 And selectedRow <= lastRow Then
         selectedPeriod = CStr(ws.Cells(selectedRow, 1).Value2) & "|" & _
