@@ -50,18 +50,18 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
 def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bq = tmp_path / "H10_DEMO_BT.xlsm"
+    bq = tmp_path / "H10_DEMO_BU.xlsm"
     check_candidate(bo, bq)
     bq.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
         check_candidate(bo, bq)
     assert bq.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BT"):
-        check_candidate(bo, tmp_path / "H10_DEMO_BU.xlsm")
+    with pytest.raises(H10DemoError, match="BU"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BV.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BT2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BU2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -149,7 +149,7 @@ def test_mean_markers_are_thin_short_chart_overlays_not_extra_bar_or_line_series
 def test_mean_marker_changes_to_fluorescent_green_only_on_red_load_bar():
     code = THERAPIST_HISTORY_MODULE_CODE
     assert "referenceColor = RGB(225, 0, 30)" in code
-    assert "If WorkloadTrafficColor(loadPerDay) = RGB(205, 50, 55) Then" in code
+    assert "If WorkloadTrafficColor(loadPerDay) = RGB(255, 3, 3) Then" in code
     assert "referenceColor = RGB(57, 255, 20)" in code
 
 
@@ -171,3 +171,30 @@ def test_department_delivery_percent_is_count_weighted_and_zero_safe():
     assert '"0.0") & "%"' in code
     assert '"—"' in code
     assert round(359 / 434 * 100, 1) == 82.7
+
+
+def test_all_therapists_share_cohort_scale_independent_of_selection():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert 'periodKey = CStr(ws.Cells(r, 1).Value2)' in vba
+    assert 'If selectedRow = 0 Or periodKey = selectedPeriod Then' in vba
+    assert 'cohortMaxPatients = Application.Max(cohortMaxPatients' in vba
+    assert 'cohortMaxSessions = Application.Max(cohortMaxSessions' in vba
+    assert 'CDbl(ws.Cells(r, 7).Value2), CDbl(ws.Cells(r, 8).Value2)' in vba
+    assert 'plot.Chart.Axes(xlValue).MaximumScale = cohortAxisPatients' in vba
+    assert 'plot.Chart.Axes(xlValue).MaximumScale = cohortAxisSessions' in vba
+    assert 'Application.Max(plannedSessions, actualSessions' not in vba
+
+
+def test_five_exact_user_hex_colors_are_trial_only():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert 'TRIAL #FF0303' in vba
+    assert 'TRIAL #FFB400' in vba
+    assert 'TRIAL #FFF200' in vba
+    assert 'TRIAL #5BFA74' in vba
+    assert 'TRIAL #3FA8F5' in vba
+    for rgb in ['RGB(255, 3, 3)', 'RGB(255, 180, 0)',
+                'RGB(255, 242, 0)', 'RGB(91, 250, 116)',
+                'RGB(63, 168, 245)']:
+        assert rgb in vba
+    assert 'series.Points(1).Format.Fill.ForeColor.RGB = RGB(63, 168, 245)' in vba
+    assert 'series.Points(2).Format.Fill.ForeColor.RGB = RGB(91, 250, 116)' in vba
