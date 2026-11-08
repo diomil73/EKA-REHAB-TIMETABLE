@@ -23,7 +23,7 @@ def item(*, capacity=6, slots=6, sessions=8, planned=6,
 
 def test_eight_patients_do_not_automatically_mean_eight_occupied_slots():
     row = item(slots=6, sessions=8)
-    result = capacity_anomalies([row], {(row.service_date, "κοσμίδης"): 8})
+    result = capacity_anomalies([row], {(row.service_date, row.therapist_id.casefold()): 8})
     assert len(result) == 1
     assert result[0]["capacity_slots"] == 6
     assert result[0]["final_occupied_slots"] == 6
@@ -36,9 +36,16 @@ def test_eight_patients_do_not_automatically_mean_eight_occupied_slots():
 
 def test_exceeding_real_slot_capacity_remains_explicit():
     row = item(slots=8, sessions=8, shared=0)
-    result = capacity_anomalies([row], {(row.service_date, "κοσμίδης"): 8})
+    result = capacity_anomalies([row], {(row.service_date, row.therapist_id.casefold()): 8})
     assert "OCCUPIED_SLOTS_EXCEED_CAPACITY" in result[0]["flags"]
     assert "MULTIPLE_SESSIONS_PER_SLOT" not in result[0]["flags"]
+
+
+def test_unique_patient_key_matches_production_casefold_contract():
+    row = item(slots=6, sessions=8)
+    counts = {(row.service_date, row.therapist_id.casefold()): 8}
+    assert counts[(row.service_date, "κοσμίδης".casefold())] == 8
+    assert capacity_anomalies([row], counts)[0]["unique_patients"] == 8
 
 
 def test_missing_capacity_is_unverified_not_six_by_assumption():
