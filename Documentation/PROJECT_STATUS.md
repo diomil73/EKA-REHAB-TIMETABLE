@@ -921,3 +921,24 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BR toolbar audit failed" }
 Expected history 25 dates, 522 patient sessions, 150 therapist days, 150 synthetic attendance facts, 25 finalization events and `Workbook unchanged: True`. Protection audit should show 24 worksheets; audit may contain expected `SAFETY FINDING` for deliberately unprotected operational sheets: do not treat its final COMPLETE as blanket proof of all sheets protected. H7 integrated toolbar audit should end `H7 INTEGRATED AUDIT OK; workbook not changed`. If any independent audit fails, stop and freeze BR, no repairing it. If green, manually launch BR and examine therapist statistics daily/weekly/monthly/overall; frozen 22-row graph pane, selected-row blue highlight, same-period benchmark bar labels, and actual chart redraw. Staff-attendance third chart remains **unavailable**, not synthetic operational data. User requested clear manager-friendly presentation and reserves approval until they see live UI.
 
 No further native edits or new candidate needed while awaiting read-only audits and visual smoke.
+
+## 2026-11-08 — BR visual feedback: averages as lines, combined therapist statistics
+
+Operator opened BR and reported generally working behavior, with two manager-facing requests: (1) mean comparisons MUST be **distinctive horizontal reference lines**, never extra column bars; prefer a hue absent from red/yellow/orange/green workload colors; (2) wants an easily visible statistic for **all therapists combined**, distinct from `Συνολικά` which aggregates the full historical period *per therapist*. No complete chart visual acceptance claimed.
+
+H10 source-only revisions:
+- `e0da523`: each therapist bar chart now overlays purple (RGB 112,48,160) mean references using Excel combo chart `xlLine` series on the original categories, with zero marker and dashed lines; first patient/day chart has one horizontal benchmark, second chart has separate planned/actual horizontal benchmarks with differing dash styles. Removes mean columns; actual therapist values remain column bars, third attendance panel remains an explicit unavailable-source placeholder.
+- `4a03e61`: concise `ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | Προγραμματισμένες: N | Πραγματοποιημένες: N` line on report row 20. The values sum current selected same-period cohort; without a selected therapist, sums the currently visible mode's reporting rows. `Συνολικά` still means the full available time span **per therapist**; in overall mode, combined line is a whole-team all-history total. No unproven `vacant slots` count is shown, and therapist percentage rates are not added as though additive.
+- `89bf31e`: one-shot installer `Python/tools/prepare_h10_therapist_simple_demo.py` now strictly accepts a previously absent **BS** `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BS.xlsm` from verified BO (not accepted BR), and adds new line markers to native persisted VBA validation.
+- `c5321ca`/`685e3d8`: corresponding regressions for chart benchmarks as line series, strict BS output guard, simple combined dept totals.
+
+**SOURCE TESTS NOT YET RUN** on this revision. Native **BS NOT CREATED**. BR remains operator-tested reference; do not overwrite it. BO verified immutable source; BP/BQ failures frozen. Stage tests:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h10_therapist_simple_demo.py Tests/test_h8_synthetic_demo_history.py Tests/test_h8_synthetic_history_verifier.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BS source gate failed" }
+```
+Then with Excel closed confirm BS absent, read-only history verify BO, one-shot native BS from BO using `prepare_h10_therapist_simple_demo.py --source ...BO.xlsm --output ...BS.xlsm`. On **native success only** independently verify BS cross-sheet history/protection/H7 toolbar, and manually inspect actual mean horizontal lines plus department summary across daily/weekly/monthly/overall and selected therapist. On any fatal stop freeze BS, no retry or overwrite. Distinguish source/new VBA from proven native chart behavior.
+
+**Product scope**: The prototype's new combined line is a brief same-period total, not yet a full department dashboard with unique patient counts, date breakdown and department utilization policies. Do not invent denominator or imply that group distinct patients = sum of individual patient counts. Manager-friendly output should remain uncomplicated.
