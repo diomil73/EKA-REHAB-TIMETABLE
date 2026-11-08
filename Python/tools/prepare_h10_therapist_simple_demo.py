@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """One-shot native H10 therapist UI refinement on a fresh copy of H8 BO.
 
-Copies already verified synthetic history intact. Does not rebuild seed data,
+Copies freshly verified corrected synthetic CA history intact. Does not rebuild seed data,
 rewrite the snapshot stores or modify BO. All native edits take place in a
 previously nonexistent candidate only.
 """
@@ -17,6 +17,9 @@ PYTHON_ROOT = Path(__file__).resolve().parents[1]
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
+from tools.verify_h8_synthetic_history import verify_demo_history
+from tools.report_therapist_history import report_therapist_history
+from tools.audit_therapist_daily_capacity import capacity_anomalies
 from rehab_excel.therapist_history_report_vba import (
     THERAPIST_HISTORY_MODULE_NAME,
     THERAPIST_HISTORY_MODULE_CODE,
@@ -85,9 +88,9 @@ def digest(path: Path) -> str:
 
 def check_candidate(source: Path, output: Path) -> None:
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
-        raise H10DemoError("Existing verified BO .xlsm source required")
-    if "_DEMO_" not in source.name.upper() or not source.name.upper().endswith("_BO.XLSM"):
-        raise H10DemoError("Source must be frozen verified BO demo")
+        raise H10DemoError("Existing corrected CA .xlsm source required")
+    if "_DEMO_" not in source.name.upper() or not source.name.upper().endswith("_CA.XLSM"):
+        raise H10DemoError("Source must be a new corrected CA demo, not frozen BO")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
     if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BZ.XLSM"):
@@ -190,12 +193,25 @@ def install_native(source: Path, output: Path) -> None:
     except ImportError as exc:
         raise H10DemoError("pywin32 required") from exc
 
+    # Fail closed BEFORE creating the destination. The old frozen BO has
+    # known synthetic 8/9 occupied-slot errors and must never feed BZ.
+    verify_demo_history(source)
+    anomalies = capacity_anomalies(report_therapist_history(source), {})
+    blocking = [
+        row for row in anomalies if
+        "OCCUPIED_SLOTS_EXCEED_CAPACITY" in row["flags"]
+        or "CAPACITY_NOT_CONFIGURED" in row["flags"]
+    ]
+    if blocking:
+        raise H10DemoError(
+            f"Corrected CA capacity gate failed: {len(blocking)} therapist-days"
+        )
     source_hash = digest(source)
     output.parent.mkdir(parents=True, exist_ok=True)
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh BO -> BZ copy SHA256 mismatch")
+        raise H10DemoError("Fresh CA -> BZ copy SHA256 mismatch")
 
     excel = None
     book = None
@@ -290,9 +306,9 @@ def install_native(source: Path, output: Path) -> None:
             excel.Quit()
 
     if digest(source) != source_hash:
-        raise H10DemoError("Frozen BO source hash changed")
+        raise H10DemoError("Corrected CA source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BZ only; BO and archived previews unchanged")
+    print("Fresh BZ only; corrected CA and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
