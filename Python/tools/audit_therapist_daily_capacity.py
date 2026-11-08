@@ -83,6 +83,10 @@ def main() -> int:
     )
     parser.add_argument("--workbook", type=Path, required=True)
     parser.add_argument("--therapist", help="Exact therapist label, optional", default=None)
+    parser.add_argument(
+        "--strict-capacity", action="store_true",
+        help="Fail when occupied slots exceed capacity or capacity is missing",
+    )
     args = parser.parse_args()
     if not args.workbook.is_file() or args.workbook.suffix.casefold() != ".xlsm":
         print("SAFETY STOP: .xlsm source required")
@@ -113,6 +117,16 @@ def main() -> int:
             f" | flags={','.join(row['flags']) or 'none'}"
         )
     print("No .xlsm modifications made")
+    if args.strict_capacity:
+        blocking = [
+            row for row in flagged
+            if "OCCUPIED_SLOTS_EXCEED_CAPACITY" in row["flags"]
+            or "CAPACITY_NOT_CONFIGURED" in row["flags"]
+        ]
+        if blocking:
+            print(f"SAFETY STOP: {len(blocking)} therapist/day capacity exceptions")
+            return 3
+        print("STRICT CAPACITY GATE OK")
     return 0
 
 
