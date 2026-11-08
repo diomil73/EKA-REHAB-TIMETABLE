@@ -151,3 +151,16 @@ def test_shareable_executive_layout_uses_native_buttons_and_hides_excel_chrome()
     assert "navigation buttons missing" in verifier
     assert "navigation target mismatch" in verifier
     assert "DisplayWorkbookTabs" in verifier
+
+
+def test_executive_headline_cards_are_verified_against_aggregates():
+    import inspect
+    from tools import export_management_therapist_summary as mod
+    checker = inspect.getsource(mod.verify_management_native)
+    assert 'int(ws.Range("A9").Value2) != planned_total' in checker
+    assert 'int(ws.Range("C9").Value2) != delivered_total' in checker
+    assert 'headline_ratio = ws.Range("F9").Value2' in checker
+    assert "KPI percentage mismatch" in checker
+    render = inspect.getsource(mod._write_mode_sheet)
+    assert "OnAction" not in render
+    assert 'Address="",\n                          SubAddress=' in render
