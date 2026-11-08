@@ -144,3 +144,13 @@ def test_benchmarks_are_lines_not_new_columns():
     assert 'series.Values = Array(referenceActual, referenceActual)' in code
     assert 'series.XValues = Array("Προγραμ.", "Πραγματ.", "Μ.Ο.' not in code
     assert code.count("plot.Chart.HasLegend = True") == 2
+
+
+def test_department_totals_display_without_summing_therapist_percentages():
+    code = THERAPIST_HISTORY_MODULE_CODE
+    assert 'teamPlanned = CLng(referencePlanned)' in code
+    assert 'teamActual = CLng(referenceActual)' in code
+    assert 'ws.Range("A20").Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | Προγραμματισμένες: "' in code
+    assert 'CStr(teamPlanned)' in code
+    assert 'CStr(teamActual)' in code
+    assert 'If selectedRow = 0 Or periodKey = selectedPeriod Then' in code
