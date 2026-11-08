@@ -136,6 +136,10 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     ws.Range("A1:N2").UnMerge
     On Error GoTo ReportError
     ws.Range("A1:P1048576").ClearContents
+    ' Clear the prior hidden daily cache before loading a new mode/period;
+    ' otherwise old trailing rows could silently enter today's chart.
+    ws.Range("Q1:U" & CStr(Application.Max(2, _
+        ws.Cells(ws.Rows.Count, 17).End(xlUp).Row))).ClearContents
     ws.Range("P1").Value2 = 0
     ws.Range("P2").Value2 = reportMode
     EnsureReportButtons ws
