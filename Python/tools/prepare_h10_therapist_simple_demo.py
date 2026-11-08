@@ -35,6 +35,8 @@ End Sub
 
 REQUIRED_VBA = (
     'ActiveWindow.SplitRow = 22',
+    'series.ChartType = xlLine',
+    'series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)',
     'Formula1:="=ROW()=$P$1"',
     '"Μ.Ο. περιόδου: "',
     '"Απουσίες/αναβολές"',
@@ -57,8 +59,8 @@ def check_candidate(source: Path, output: Path) -> None:
         raise H10DemoError("Source must be frozen verified BO demo")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
-    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BR.XLSM"):
-        raise H10DemoError("Fresh H10 BR _DEMO_ .xlsm destination required")
+    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BS.XLSM"):
+        raise H10DemoError("Fresh H10 BS _DEMO_ .xlsm destination required")
     if source.resolve() == output.resolve():
         raise H10DemoError("Source and destination collision")
 
@@ -141,7 +143,7 @@ def install_native(source: Path, output: Path) -> None:
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh BO -> BR copy SHA256 mismatch")
+        raise H10DemoError("Fresh BO -> BS copy SHA256 mismatch")
 
     excel = None
     book = None
@@ -151,10 +153,10 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "open BR for installation"
+        stage = "open BS for installation"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
-            raise H10DemoError("BR opened read-only; no edits possible")
+            raise H10DemoError("BS opened read-only; no edits possible")
         vbproj = book.VBProject
         report = book.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
         stage = "locate therapist report sheet module"
@@ -175,10 +177,10 @@ def install_native(source: Path, output: Path) -> None:
         code.AddFromString(EVENT_CODE)
         stage = "verify installed VBA and protected history sheets"
         _verify_native(book)
-        stage = "save BR"
+        stage = "save BS"
         book.Save()
     except Exception as exc:
-        raise H10DemoError(f"BR install failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BS install failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -195,14 +197,14 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "read-only persisted BR reopen"
+        stage = "read-only persisted BS reopen"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=True)
         if not bool(book.ReadOnly):
-            raise H10DemoError("Native BR reopen was not read-only")
+            raise H10DemoError("Native BS reopen was not read-only")
         stage = "read-only persisted VBA protection audit"
         _verify_native(book)
     except Exception as exc:
-        raise H10DemoError(f"BR verification failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BS verification failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -215,7 +217,7 @@ def install_native(source: Path, output: Path) -> None:
     if digest(source) != source_hash:
         raise H10DemoError("Frozen BO source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BR only; BO and archived previews unchanged")
+    print("Fresh BS only; BO and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
@@ -229,7 +231,7 @@ def main() -> int:
         install_native(args.source, args.output)
     except Exception as exc:
         print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
-        print("Freeze BR; do not retry, repair or overwrite candidate")
+        print("Freeze BS; do not retry, repair or overwrite candidate")
         return 2
     return 0
 
