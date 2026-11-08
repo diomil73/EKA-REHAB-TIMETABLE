@@ -197,4 +197,5 @@ def test_five_exact_user_hex_colors_are_trial_only():
                 'RGB(63, 168, 245)']:
         assert rgb in vba
     assert 'series.Points(1).Format.Fill.ForeColor.RGB = RGB(63, 168, 245)' in vba
-    assert 'series.Points(2).Format.Fill.ForeColor.RGB = RGB(91, 250, 116)' in vba
+    assert 'series.Points(2).Format.Fill.ForeColor.RGB = RGB(255, 3, 3)' in vba
+    assert 'BLUE = planned, RED = delivered' in vba
