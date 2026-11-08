@@ -50,18 +50,18 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
 def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bq = tmp_path / "H10_DEMO_BR.xlsm"
+    bq = tmp_path / "H10_DEMO_BS.xlsm"
     check_candidate(bo, bq)
     bq.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
         check_candidate(bo, bq)
     assert bq.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BR"):
-        check_candidate(bo, tmp_path / "H10_DEMO_BS.xlsm")
+    with pytest.raises(H10DemoError, match="BS"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BT.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BR2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BS2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -130,3 +130,17 @@ def test_selection_event_contract_rejects_duplicate_event():
 def test_selection_event_contract_rejects_absent_event():
     with pytest.raises(H10DemoError, match="declaration count 0"):
         verify_selection_event("Option Explicit\n")
+
+
+def test_benchmarks_are_lines_not_new_columns():
+    code = THERAPIST_HISTORY_MODULE_CODE
+    assert code.count("series.ChartType = xlLine") == 3
+    assert code.count("series.MarkerStyle = xlMarkerStyleNone") == 3
+    assert code.count("series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)") == 3
+    assert 'series.Values = Array(loadPerDay, 0)' in code
+    assert 'series.Values = Array(referencePatients, referencePatients)' in code
+    assert 'series.Values = Array(plannedSessions, actualSessions)' in code
+    assert 'series.Values = Array(referencePlanned, referencePlanned)' in code
+    assert 'series.Values = Array(referenceActual, referenceActual)' in code
+    assert 'series.XValues = Array("Προγραμ.", "Πραγματ.", "Μ.Ο.' not in code
+    assert code.count("plot.Chart.HasLegend = True") == 2
