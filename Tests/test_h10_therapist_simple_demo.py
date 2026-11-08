@@ -33,8 +33,8 @@ def test_period_benchmarks_are_separate_and_day_weighted_for_patients():
     assert "referencePlanned / referenceCount" in vba
     assert "referenceActual / referenceCount" in vba
     assert '"Μ.Ο. περιόδου: "' in vba
-    assert '"Μ.Ο. προγρ."' in vba
-    assert '"Μ.Ο. πραγμ."' in vba
+    assert '"Κόκκινοι δείκτες: Μ.Ο. προγρ. "' in vba
+    assert '" | πραγματ. "' in vba
 
 
 def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
