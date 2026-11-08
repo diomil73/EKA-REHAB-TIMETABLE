@@ -895,3 +895,29 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BR source tests failed" }
 If source gate GREEN, verify existing immutable `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm` in read-only mode and ensure BR does not yet exist. Then run `Python/tools/prepare_h10_therapist_simple_demo.py --source ...BO.xlsm --output Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BR.xlsm` **once**. If the new native event validation or any step fails, freeze BR, do not retry. Only after `H10 THERAPIST SIMPLE DEMO INSTALL OK`, independently audit BR history, workbook protection, and H7 toolbar before visual inspection. Do not derive true vacant slots by subtracting cancellations or suspensions; H9 real attendance chart remains placeholder.
 
 User preference: autonomous forward progress without repetitive OK, but local Windows Excel operations must be done by operator; all fatal safety stops prevail over read-only audits.
+
+## 2026-11-08 — BR H10 native installation GREEN, independent post-install gates pending
+
+Operator reported exact fresh BR build stdout:
+```
+H10 THERAPIST SIMPLE DEMO INSTALL OK
+Fresh BR only; BO and archived previews unchanged
+Sticky therapist charts, selection highlight, period benchmarks installed
+Synthetic data is demonstration only; no production attendance KPI
+```
+This is the **first confirmed native H10 installer success** after BP/BQ failures. Installer itself has saved the BR VBA modification and reopened it read-only to check code/worksheet protection; operator's output confirms only that scope. It does **not** establish independent post-install cross-sheet history preservation, full workbook protection/toolbar audits, or manual chart behavior. Never claim complete visual acceptance until the independent checks and hands-on smoke are green. BR path: `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BR.xlsm`, immutable source BO `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm`. BP and BQ remain frozen failed candidates, no overwrite or retry.
+
+Next strictly **read-only**, with all Excel windows closed:
+```powershell
+$br = ".\Excel\previews\UNIFIED_H10_DEMO_THERAPIST_20261108_BR.xlsm"
+if (!(Test-Path -LiteralPath $br)) { throw "SAFETY STOP: BR missing" }
+python .\Python\tools\verify_h8_synthetic_history.py --workbook $br
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BR cross-sheet history verification failed" }
+python .\Python\tools\audit_workbook_protection.py $br
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BR protection audit failed" }
+python .\Python\tools\inspect_h7_integrated_ui.py $br
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BR toolbar audit failed" }
+```
+Expected history 25 dates, 522 patient sessions, 150 therapist days, 150 synthetic attendance facts, 25 finalization events and `Workbook unchanged: True`. Protection audit should show 24 worksheets; audit may contain expected `SAFETY FINDING` for deliberately unprotected operational sheets: do not treat its final COMPLETE as blanket proof of all sheets protected. H7 integrated toolbar audit should end `H7 INTEGRATED AUDIT OK; workbook not changed`. If any independent audit fails, stop and freeze BR, no repairing it. If green, manually launch BR and examine therapist statistics daily/weekly/monthly/overall; frozen 22-row graph pane, selected-row blue highlight, same-period benchmark bar labels, and actual chart redraw. Staff-attendance third chart remains **unavailable**, not synthetic operational data. User requested clear manager-friendly presentation and reserves approval until they see live UI.
+
+No further native edits or new candidate needed while awaiting read-only audits and visual smoke.
