@@ -383,7 +383,7 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
         ws.Range(lastColumn & "5").Width - ws.Range(firstColumn & "5").Left
     Set plot = ws.ChartObjects.Add( _
         ws.Range(firstColumn & "5").Left, ws.Range(firstColumn & "5").Top, _
-        chartWidth - 4, 100)
+        chartWidth - 4, 88)
     plot.Name = chartName
     plot.Placement = xlFreeFloating
     plot.Chart.ChartType = xlColumnClustered
@@ -601,9 +601,9 @@ Private Sub BuildDepartmentAppendix(ByVal ws As Worksheet, _
         If LCase$(reportMode) = "overall" Then
             groupKey = "Όλο το ιστορικό"
         Else
-            groupKey = CStr(ws.Cells(r, 1).Value2)
-            If Len(CStr(ws.Cells(r, 2).Value2)) > 0 Then
-                groupKey = groupKey & " έως " & CStr(ws.Cells(r, 2).Value2)
+            groupKey = CStr(ws.Cells(r, 1).Text)
+            If Len(CStr(ws.Cells(r, 2).Text)) > 0 Then
+                groupKey = groupKey & " έως " & CStr(ws.Cells(r, 2).Text)
             End If
         End If
         If Not groups.Exists(groupKey) Then
@@ -730,8 +730,8 @@ Private Function NewTherapistTrendChart(ByVal ws As Worksheet, _
     chartWidth = ws.Range(lastColumn & "12").Left + _
         ws.Range(lastColumn & "12").Width - ws.Range(firstColumn & "12").Left
     Set NewTherapistTrendChart = ws.ChartObjects.Add( _
-        ws.Range(firstColumn & "12").Left, ws.Range(firstColumn & "12").Top, _
-        chartWidth - 4, 90)
+        ws.Range(firstColumn & "11").Left, ws.Range(firstColumn & "11").Top, _
+        chartWidth - 4, 76)
     NewTherapistTrendChart.Name = chartName
     NewTherapistTrendChart.Placement = xlFreeFloating
     NewTherapistTrendChart.Chart.ChartType = xlLine
@@ -852,10 +852,11 @@ NextDailyTrend:
     AddTherapistTrendSeries plot, "Ασθενείς/ημέρα", xPlot, lPlot, RGB(63, 168, 245)
     StyleTherapistTrendRuler plot
     plot.Chart.Axes(xlValue).MinimumScale = 0
-    plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
-        WorksheetFunction.RoundUp(maxPatient, 0))
+    plot.Chart.Axes(xlValue).MaximumScale = 6
     plot.Chart.Axes(xlValue).MajorUnit = 1
     plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
+    If maxPatient > 6 Then ws.Range("A17").Value2 = _
+        "ΕΛΕΓΧΟΣ ΦΟΡΤΟΥ: καταγράφηκε τιμή >6"
 
     Set plot = NewTherapistTrendChart(ws, "ekaTherapistSessionTrend", "E", "H")
     AddTherapistTrendSeries plot, "Αρχικά προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)
@@ -982,8 +983,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Next r
     ' One visually rounded shared ceiling per selected period/cohort.
     ' Include team benchmark in case all valid rows are edge cases.
-    cohortAxisPatients = Application.Max(6, _
-        WorksheetFunction.RoundUp(cohortMaxPatients, 0))
+    cohortAxisPatients = 6  ' Fixed operational workload ruler; anomalies remain visible as warnings.
     cohortAxisSessions = Application.Max(1, _
         WorksheetFunction.RoundUp(cohortMaxSessions, -1))
     If referenceCount > 0 And referenceDays > 0 Then
@@ -1015,10 +1015,14 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.HasLegend = False
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = cohortAxisPatients
-    ws.Range("A19").Value2 = "Μ.Ο. περιόδου: " & Format$(referencePatients, "0.0") & " ασθενείς/ημέρα"
+    plot.Chart.Axes(xlValue).MajorUnit = 1
+    ws.Range("A19").Value2 = "Μ.Ο.: " & Format$(referencePatients, "0.0") & " ασθενείς/ημέρα"
+    If loadPerDay > 6 Then ws.Range("A19").Value2 = _
+        "ΕΛΕΓΧΟΣ: " & Format$(loadPerDay, "0.0") & " ασθενείς/ημέρα (>6)"
     plot.Chart.HasTitle = True
-    plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα" & IIf( _
+    plot.Chart.ChartTitle.Text = "Φόρτος" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
+    plot.Chart.ChartTitle.Format.TextFrame2.TextRange.Font.Size = 9
     referenceColor = RGB(225, 0, 30) ' red by default
     If WorkloadTrafficColor(loadPerDay) = RGB(255, 3, 3) And _
             referencePatients <= loadPerDay Then
@@ -1045,8 +1049,9 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         Format$(referencePlanned, "0.0") & " | πραγματ. " & _
         Format$(referenceActual, "0.0")
     plot.Chart.HasTitle = True
-    plot.Chart.ChartTitle.Text = "Θεραπείες" & IIf( _
+    plot.Chart.ChartTitle.Text = "Συνεδρίες" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
+    plot.Chart.ChartTitle.Format.TextFrame2.TextRange.Font.Size = 9
     AddTherapistMeanMarker plot, "ekaMeanPlanned", referencePlanned, 1, 2, RGB(225, 0, 30)
     referenceColor = RGB(225, 0, 30)
     If referenceActual <= actualSessions And actualSessions > 0 Then
@@ -1064,7 +1069,8 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' finalized therapist/day history schema. Do not manufacture that count.
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistAttendanceChart", "I", "M")
     plot.Chart.HasTitle = True
-    plot.Chart.ChartTitle.Text = "Παρουσίες / απουσίες"
+    plot.Chart.ChartTitle.Text = "Παρουσίες"
+    plot.Chart.ChartTitle.Format.TextFrame2.TextRange.Font.Size = 9
     ws.Range("I19").Value2 = "Μη διαθέσιμο ιστορικό απουσιών / εργασίμων"
     ws.Range("I19").Font.Bold = True
 End Sub
