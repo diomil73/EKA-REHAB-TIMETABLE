@@ -50,18 +50,18 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
 def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bq = tmp_path / "H10_DEMO_BS.xlsm"
+    bq = tmp_path / "H10_DEMO_BT.xlsm"
     check_candidate(bo, bq)
     bq.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
         check_candidate(bo, bq)
     assert bq.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BS"):
-        check_candidate(bo, tmp_path / "H10_DEMO_BT.xlsm")
+    with pytest.raises(H10DemoError, match="BT"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BU.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BS2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BT2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -132,18 +132,25 @@ def test_selection_event_contract_rejects_absent_event():
         verify_selection_event("Option Explicit\n")
 
 
-def test_benchmarks_are_lines_not_new_columns():
+def test_mean_markers_are_thin_short_chart_overlays_not_extra_bar_or_line_series():
     code = THERAPIST_HISTORY_MODULE_CODE
-    assert code.count("series.ChartType = xlLine") == 3
-    assert code.count("series.MarkerStyle = xlMarkerStyleNone") == 3
-    assert code.count("series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)") == 3
-    assert 'series.Values = Array(loadPerDay, 0)' in code
-    assert 'series.Values = Array(referencePatients, referencePatients)' in code
-    assert 'series.Values = Array(plannedSessions, actualSessions)' in code
-    assert 'series.Values = Array(referencePlanned, referencePlanned)' in code
-    assert 'series.Values = Array(referenceActual, referenceActual)' in code
-    assert 'series.XValues = Array("Προγραμ.", "Πραγματ.", "Μ.Ο.' not in code
-    assert code.count("plot.Chart.HasLegend = True") == 2
+    assert "Private Sub AddTherapistMeanMarker" in code
+    assert "plot.Chart.Shapes.AddLine(" in code
+    assert "lineHalfWidth = slotWidth * 0.28" in code
+    assert "marker.Line.Weight = 1.25" in code
+    assert "marker.Line.DashStyle = msoLineSolid" in code
+    assert "series.ChartType = xlLine" not in code
+    assert "Μ.Ο. προγρ." in code
+    assert "referencePatients, 1, 1, referenceColor" in code
+    assert "referencePlanned, 1, 2, RGB(225, 0, 30)" in code
+    assert "referenceActual, 2, 2, RGB(225, 0, 30)" in code
+
+
+def test_mean_marker_changes_to_fluorescent_green_only_on_red_load_bar():
+    code = THERAPIST_HISTORY_MODULE_CODE
+    assert "referenceColor = RGB(225, 0, 30)" in code
+    assert "If WorkloadTrafficColor(loadPerDay) = RGB(205, 50, 55) Then" in code
+    assert "referenceColor = RGB(57, 255, 20)" in code
 
 
 def test_department_totals_display_without_summing_therapist_percentages():
@@ -154,3 +161,13 @@ def test_department_totals_display_without_summing_therapist_percentages():
     assert 'CStr(teamPlanned)' in code
     assert 'CStr(teamActual)' in code
     assert 'If selectedRow = 0 Or periodKey = selectedPeriod Then' in code
+
+
+def test_department_delivery_percent_is_count_weighted_and_zero_safe():
+    code = THERAPIST_HISTORY_MODULE_CODE
+    assert '" | Υλοποίηση: "' in code
+    assert "100# * CDbl(teamActual) / Application.Max(1, teamPlanned)" in code
+    assert 'Format$(100# * CDbl(teamActual)' in code
+    assert '"0.0") & "%"' in code
+    assert '"—"' in code
+    assert round(359 / 434 * 100, 1) == 82.7
