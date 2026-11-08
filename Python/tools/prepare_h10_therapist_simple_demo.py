@@ -50,6 +50,11 @@ REQUIRED_VBA = (
     'AddTherapistTrendSeries plot, "Τελικά πραγματοποιημένες"',
     'ws.Columns("P:U").Hidden = True',
     'Private Sub RenderManagementSummary',
+    'ws.Range("A8:B8").Merge',
+    'ws.Range("F15").Top',
+    'shape.Top = ws.Range("A5").Top',
+    'ws.Range("A22:N2000").ClearFormats',
+    'ws.Cells(lastGroup + 1, 3)).NumberFormat = "0"',
     'Public Sub ExportManagementOnlyWorkbook',
     'Public Sub ShowManagementSummaryDaily',
     'Public Sub ShowManagementSummaryOverall',
@@ -82,8 +87,8 @@ def check_candidate(source: Path, output: Path) -> None:
         raise H10DemoError("Source must be frozen verified BO demo")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
-    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BX.XLSM"):
-        raise H10DemoError("Fresh H10 BX _DEMO_ .xlsm destination required")
+    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BY.XLSM"):
+        raise H10DemoError("Fresh H10 BY _DEMO_ .xlsm destination required")
     if source.resolve() == output.resolve():
         raise H10DemoError("Source and destination collision")
 
@@ -187,7 +192,7 @@ def install_native(source: Path, output: Path) -> None:
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh BO -> BX copy SHA256 mismatch")
+        raise H10DemoError("Fresh BO -> BY copy SHA256 mismatch")
 
     excel = None
     book = None
@@ -197,10 +202,10 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "open BX for installation"
+        stage = "open BY for installation"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
-            raise H10DemoError("BX opened read-only; no edits possible")
+            raise H10DemoError("BY opened read-only; no edits possible")
         vbproj = book.VBProject
         report = book.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
         stage = "locate therapist report sheet module"
@@ -244,10 +249,10 @@ def install_native(source: Path, output: Path) -> None:
         management.Protect("", False, True, True)
         stage = "verify installed VBA and protected history sheets"
         _verify_native(book)
-        stage = "save BX"
+        stage = "save BY"
         book.Save()
     except Exception as exc:
-        raise H10DemoError(f"BX install failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BY install failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -264,14 +269,14 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "read-only persisted BX reopen"
+        stage = "read-only persisted BY reopen"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=True)
         if not bool(book.ReadOnly):
-            raise H10DemoError("Native BX reopen was not read-only")
+            raise H10DemoError("Native BY reopen was not read-only")
         stage = "read-only persisted VBA protection audit"
         _verify_native(book)
     except Exception as exc:
-        raise H10DemoError(f"BX verification failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BY verification failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -284,7 +289,7 @@ def install_native(source: Path, output: Path) -> None:
     if digest(source) != source_hash:
         raise H10DemoError("Frozen BO source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BX only; BO and archived previews unchanged")
+    print("Fresh BY only; BO and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
@@ -298,7 +303,7 @@ def main() -> int:
         install_native(args.source, args.output)
     except Exception as exc:
         print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
-        print("Freeze BX; do not retry, repair or overwrite candidate")
+        print("Freeze BY; do not retry, repair or overwrite candidate")
         return 2
     return 0
 
