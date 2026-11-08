@@ -143,13 +143,15 @@ def test_mean_markers_are_thin_short_chart_overlays_not_extra_bar_or_line_series
     assert "Μ.Ο. προγρ." in code
     assert "referencePatients, 1, 1, referenceColor" in code
     assert "referencePlanned, 1, 2, RGB(225, 0, 30)" in code
-    assert "referenceActual, 2, 2, RGB(225, 0, 30)" in code
+    assert "referenceActual, 2, 2, referenceColor" in code
 
 
 def test_mean_marker_changes_to_fluorescent_green_only_on_red_load_bar():
     code = THERAPIST_HISTORY_MODULE_CODE
     assert "referenceColor = RGB(225, 0, 30)" in code
-    assert "If WorkloadTrafficColor(loadPerDay) = RGB(255, 3, 3) Then" in code
+    assert "If WorkloadTrafficColor(loadPerDay) = RGB(255, 3, 3) And _" in code
+    assert "referencePatients <= loadPerDay Then" in code
+    assert "If referenceActual <= actualSessions And actualSessions > 0 Then" in code
     assert "referenceColor = RGB(57, 255, 20)" in code
 
 
