@@ -414,10 +414,10 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     series.Name = "Θεραπευτής"
     series.XValues = Array("Προγραμ.", "Πραγματ.")
     series.Values = Array(plannedSessions, actualSessions)
-    ' TRIAL palette only. Categorical blue/green here is NOT a
-    ' performance judgment: no arbitrary traffic threshold for sessions.
+    ' User-selected semantic color contract: BLUE = planned, RED = delivered.
+    ' Apply the same mapping to the mini time-series beneath this chart.
     series.Points(1).Format.Fill.ForeColor.RGB = RGB(63, 168, 245)
-    series.Points(2).Format.Fill.ForeColor.RGB = RGB(91, 250, 116)
+    series.Points(2).Format.Fill.ForeColor.RGB = RGB(255, 3, 3)
     plot.Chart.HasLegend = False
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = cohortAxisSessions
