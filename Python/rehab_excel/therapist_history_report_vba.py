@@ -12,7 +12,27 @@ Private Const REPORT_SHEET As String = "THERAPIST_HISTORY_REPORT"
 Private Const MANAGEMENT_SHEET As String = "MANAGEMENT_SUMMARY"
 
 Public Sub OpenTherapistHistoryReport()
-    RenderTherapistHistoryReport "monthly"
+    RenderTherapistHistoryReport "today"
+End Sub
+
+Public Sub ShowTherapistHistoryToday()
+    RenderTherapistHistoryReport "today"
+End Sub
+
+Public Sub ShowTherapistHistoryYesterday()
+    RenderTherapistHistoryReport "yesterday"
+End Sub
+
+Public Sub ShowTherapistHistoryCurrentWeek()
+    RenderTherapistHistoryReport "week"
+End Sub
+
+Public Sub ShowTherapistHistoryCurrentMonth()
+    RenderTherapistHistoryReport "month"
+End Sub
+
+Public Sub ShowTherapistHistoryCurrentYear()
+    RenderTherapistHistoryReport "year"
 End Sub
 
 Public Sub ShowTherapistHistoryDaily()
@@ -337,6 +357,11 @@ End Function
 
 Private Function ReportModeDescription(ByVal reportMode As String) As String
     Select Case LCase$(Trim$(reportMode))
+        Case "today": ReportModeDescription = "Σήμερα | τρέχουσα ημερομηνία, μόνο οριστικοποιημένα"
+        Case "yesterday": ReportModeDescription = "Χθες | προηγούμενη ημερομηνία"
+        Case "week": ReportModeDescription = "Τρέχουσα εβδομάδα | Δευτέρα έως σήμερα"
+        Case "month": ReportModeDescription = "Τρέχων μήνας | από 1η έως σήμερα"
+        Case "year": ReportModeDescription = "Τρέχον έτος | από 1/1 έως σήμερα"
         Case "daily": ReportModeDescription = "Ημερήσια προβολή ανά κλεισμένη ημέρα"
         Case "weekly": ReportModeDescription = "Εβδομαδιαία σύνοψη (Δευτέρα έως Κυριακή)"
         Case "monthly": ReportModeDescription = "Μηνιαία σύνοψη"
@@ -716,6 +741,10 @@ Private Function TrendDateWithinReport(ByVal dateText As String, _
             ' Through the selected day, starting at the first finalized fact;
             ' do not make up a timeline for days before available history.
             TrendDateWithinReport = (dateText <= periodStart)
+        Case "today", "yesterday", "week", "month", "year"
+            ' Exporter already restricted the finalized daily cache to
+            ' this precise calendar mode. Never reach outside its window.
+            TrendDateWithinReport = True
         Case "overall"
             TrendDateWithinReport = True
         Case Else
@@ -1132,11 +1161,13 @@ End Sub
 
 Private Sub HighlightTherapistReportMode(ByVal ws As Worksheet, ByVal reportMode As String)
     Dim modes As Variant, i As Long, shape As Shape, selected As String
-    modes = Array("Daily", "Weekly", "Monthly", "Overall")
+    modes = Array("Today", "Yesterday", "Week", "Month", "Year", "Overall")
     Select Case LCase$(Trim$(reportMode))
-        Case "daily": selected = "Daily"
-        Case "weekly": selected = "Weekly"
-        Case "monthly": selected = "Monthly"
+        Case "today": selected = "Today"
+        Case "yesterday": selected = "Yesterday"
+        Case "week": selected = "Week"
+        Case "month": selected = "Month"
+        Case "year": selected = "Year"
         Case "overall": selected = "Overall"
         Case Else: Err.Raise vbObjectError + 7650, , "Unknown therapist mode"
     End Select
@@ -1157,10 +1188,12 @@ Private Sub HighlightTherapistReportMode(ByVal ws As Worksheet, ByVal reportMode
 End Sub
 
 Private Sub EnsureReportButtons(ByVal ws As Worksheet)
-    EnsureOneReportButton ws, "ekaHistory_Daily", "Ημερήσια", "ShowTherapistHistoryDaily", 98#
-    EnsureOneReportButton ws, "ekaHistory_Weekly", "Εβδομαδιαία", "ShowTherapistHistoryWeekly", 108#
-    EnsureOneReportButton ws, "ekaHistory_Monthly", "Μηνιαία", "ShowTherapistHistoryMonthly", 98#
-    EnsureOneReportButton ws, "ekaHistory_Overall", "Συνολικά", "ShowTherapistHistoryOverall", 90#
+    EnsureOneReportButton ws, "ekaHistory_Today", "Σήμερα", "ShowTherapistHistoryToday", 72#
+    EnsureOneReportButton ws, "ekaHistory_Yesterday", "Χθες", "ShowTherapistHistoryYesterday", 70#
+    EnsureOneReportButton ws, "ekaHistory_Week", "Εβδομάδα", "ShowTherapistHistoryCurrentWeek", 90#
+    EnsureOneReportButton ws, "ekaHistory_Month", "Μήνας", "ShowTherapistHistoryCurrentMonth", 74#
+    EnsureOneReportButton ws, "ekaHistory_Year", "Έτος", "ShowTherapistHistoryCurrentYear", 66#
+    EnsureOneReportButton ws, "ekaHistory_Overall", "Σύνολο", "ShowTherapistHistoryOverall", 80#
     EnsureOneReportButton ws, "ekaHistory_Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
     EnsureOneReportButton ws, "ekaHistory_PersonChart", "Γράφημα θεραπευτή", "ShowSelectedTherapistChart", 160#
     EnsureOneReportButton ws, "ekaHistory_ManagementExport", "Εξαγωγή διοίκησης", "ExportManagementOnlyWorkbook", 160#
@@ -1199,10 +1232,12 @@ Private Sub PositionReportButtons(ByVal ws As Worksheet)
     Dim specs As Variant, i As Long
     Dim shape As Shape, leftPos As Double, topPos As Double, buttonWidth As Double
     specs = Array( _
-        Array("ekaHistory_Daily", 98#), _
-        Array("ekaHistory_Weekly", 108#), _
-        Array("ekaHistory_Monthly", 98#), _
-        Array("ekaHistory_Overall", 90#), _
+        Array("ekaHistory_Today", 72#), _
+        Array("ekaHistory_Yesterday", 70#), _
+        Array("ekaHistory_Week", 90#), _
+        Array("ekaHistory_Month", 74#), _
+        Array("ekaHistory_Year", 66#), _
+        Array("ekaHistory_Overall", 80#), _
         Array("ekaHistory_Back", 116#), _
         Array("ekaHistory_PersonChart", 160#), _
         Array("ekaHistory_ManagementExport", 160#), _
