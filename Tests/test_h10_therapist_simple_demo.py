@@ -4,7 +4,7 @@ import pytest
 
 from rehab_excel.therapist_history_report_vba import THERAPIST_HISTORY_MODULE_CODE
 from tools.prepare_h10_therapist_simple_demo import (
-    EVENT_CODE, H10DemoError, REQUIRED_VBA, _safe_module_lines, check_candidate,
+    EVENT_CODE, H10DemoError, REQUIRED_VBA, _safe_module_lines, check_candidate, verify_selection_event,
 )
 
 
@@ -50,18 +50,18 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
 def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bq = tmp_path / "H10_DEMO_BQ.xlsm"
+    bq = tmp_path / "H10_DEMO_BR.xlsm"
     check_candidate(bo, bq)
     bq.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
         check_candidate(bo, bq)
     assert bq.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BQ"):
+    with pytest.raises(H10DemoError, match="BR"):
         check_candidate(bo, tmp_path / "H10_DEMO_BR.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BQ2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BR2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -100,3 +100,33 @@ def test_bq_uses_real_vbproject_property_not_filename_replace_artifact():
     assert ".VBProject" in source
     assert "VBQroject" not in source
     assert "stage = " in source
+
+
+def test_selection_event_contract_tolerates_vbide_crlf_and_spaces():
+    variant = (
+        "\r\nOption Explicit\r\n"
+        + EVENT_CODE.replace("\n", "\r\n").replace(
+            "    If ", "        If "
+        ).replace(
+            "    On Error", "       On   Error"
+        )
+    )
+    verify_selection_event(variant)
+
+
+def test_selection_event_contract_rejects_missing_guard():
+    shortened = EVENT_CODE.replace(
+        "    If Target.Row < 23 Then Exit Sub\n", ""
+    )
+    with pytest.raises(H10DemoError, match="statement readback"):
+        verify_selection_event(shortened)
+
+
+def test_selection_event_contract_rejects_duplicate_event():
+    with pytest.raises(H10DemoError, match="declaration count 2"):
+        verify_selection_event(EVENT_CODE + EVENT_CODE)
+
+
+def test_selection_event_contract_rejects_absent_event():
+    with pytest.raises(H10DemoError, match="declaration count 0"):
+        verify_selection_event("Option Explicit\n")
