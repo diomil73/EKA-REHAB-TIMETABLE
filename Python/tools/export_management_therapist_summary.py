@@ -104,85 +104,168 @@ def inspect_share_package(file: Path) -> None:
 
 
 def _write_mode_sheet(ws, mode, rows):
+    """Standalone macro-free executive page with native navigation buttons."""
     ws.Name = MODE_LABELS[mode]
     ws.Cells.Font.Name = "Calibri"
-    ws.Columns("A").ColumnWidth = 24
-    ws.Columns("B:C").ColumnWidth = 24
+    ws.Cells.Font.Size = 11
+    ws.Columns("A").ColumnWidth = 29
+    ws.Columns("B:C").ColumnWidth = 25
     ws.Columns("D").ColumnWidth = 20
-    ws.Columns("E:J").ColumnWidth = 13
+    ws.Columns("E").ColumnWidth = 4
+    ws.Columns("F:J").ColumnWidth = 15
+    ws.Rows("1:3").RowHeight = 23
+    ws.Rows(5).RowHeight = 32
+    ws.Rows(8).RowHeight = 25
+    ws.Rows("9:10").RowHeight = 25
+    ws.Rows(15).RowHeight = 35
 
-    ws.Range("A1:J2").Merge()
-    ws.Range("A1").Value2 = "ΕΙΚΟΝΑ ΤΜΗΜΑΤΟΣ | ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ"
-    ws.Range("A1:J2").Interior.Color = 0x3D2310
-    ws.Range("A1:J2").Font.Color = 0xFFFFFF
-    ws.Range("A1:J2").Font.Bold = True
-    ws.Range("A1:J2").Font.Size = 17
-    ws.Rows("1:2").RowHeight = 24
+    navy, pale, ink = 0x3D2310, 0xF4EDE6, 0x3D2310
+    ws.Range("A1:J3").Merge()
+    ws.Range("A1:J3").Interior.Color = navy
+    ws.Range("A1").Value2 = "ΔΙΟΙΚΗΣΗ  |  ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ"
+    ws.Range("A1:J3").Font.Color = 0xFFFFFF
+    ws.Range("A1:J3").Font.Bold = True
+    ws.Range("A1:J3").Font.Size = 18
+    ws.Range("A1:J3").VerticalAlignment = -4108
 
+    # 4 native shape hyperlinks serve as buttons, no VBA in exported XLSX.
+    # Their href is an INTERNAL workbook SubAddress, never an external URL.
     for i, (tab, name) in enumerate(MODE_LABELS.items()):
-        cell = ws.Cells(4, 1 + i * 2)
-        cell.Value2 = name
-        ws.Hyperlinks.Add(Anchor=cell, Address="", SubAddress=f"'{name}'!A1",
-                          TextToDisplay=name)
-        cell.Font.Bold = True
-    ws.Range("A6:D6").Value2 = [[
-        "Περίοδος", "Αρχικά προγραμματισμένες",
-        "Τελικά πραγματοποιημένες", "Υλοποίηση",
-    ]]
-    ws.Range("A6:D6").Font.Bold = True
-    ws.Range("A6:D6").Interior.Color = 0xE8DDE1
-    planned_total = delivered_total = 0
-    for i, (period, planned, delivered, pct) in enumerate(rows, 7):
+        button = ws.Shapes.AddShape(5, 0, 0, 120, 28)
+        button.Name = "ekaExecutiveMode_" + tab
+        button.Left = ws.Range("A5").Left + i * 133
+        button.Top = ws.Range("A5").Top
+        button.Width = 120
+        button.Height = 28
+        button.Fill.ForeColor.RGB = 0xAA6825 if tab == mode else pale
+        button.Line.ForeColor.RGB = 0x87694C
+        button.TextFrame2.TextRange.Text = name
+        button.TextFrame2.TextRange.Font.Size = 11
+        button.TextFrame2.TextRange.Font.Bold = True
+        button.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = (
+            0xFFFFFF if tab == mode else ink
+        )
+        button.TextFrame2.TextRange.ParagraphFormat.Alignment = 2
+        button.TextFrame2.VerticalAnchor = 3
+        ws.Hyperlinks.Add(Anchor=button, Address="",
+                          SubAddress=f"'{name}'!A1")
+
+    planned_total = sum(entry[1] for entry in rows)
+    delivered_total = sum(entry[2] for entry in rows)
+    rate = delivered_total / planned_total if planned_total > 0 else None
+
+    # Three large overview figures, not a tiny table impersonating a report.
+    for left, right, caption, value, number_format, accent in (
+        ("A", "B", "ΑΡΧΙΚΑ ΠΡΟΓΡΑΜΜΑΤΙΣΜΕΝΕΣ", planned_total, "#,##0", BLUE_RGB),
+        ("C", "D", "ΤΕΛΙΚΑ ΠΡΑΓΜΑΤΟΠΟΙΗΜΕΝΕΣ", delivered_total, "#,##0", RED_RGB),
+        ("F", "G", "ΠΟΣΟΣΤΟ ΥΛΟΠΟΙΗΣΗΣ", rate if rate is not None else
+         "Μη διαθέσιμο", "0.0%", 0x8A6825),
+    ):
+        ws.Range(f"{left}8:{right}8").Merge()
+        ws.Range(f"{left}9:{right}10").Merge()
+        ws.Range(f"{left}8:{right}10").Interior.Color = pale
+        label = ws.Range(f"{left}8")
+        number = ws.Range(f"{left}9")
+        label.Value2 = caption
+        number.Value2 = value
+        label.Font.Color = ink
+        label.Font.Size = 10
+        label.Font.Bold = True
+        number.Font.Color = accent
+        number.Font.Bold = True
+        number.Font.Size = 24
+        if isinstance(value, (int, float)):
+            number.NumberFormat = number_format
+        ws.Range(f"{left}8:{right}10").HorizontalAlignment = -4108
+        ws.Range(f"{left}8:{right}10").VerticalAlignment = -4108
+
+    ws.Range("A12:J12").Merge()
+    ws.Range("A12").Value2 = (
+        "ΠΕΡΙΟΔΟΣ: " + MODE_LABELS[mode] +
+        "  |  Μόνο οριστικοποιημένο ιστορικό"
+    )
+    ws.Range("A12:J12").Font.Color = ink
+    ws.Range("A12:J12").Font.Bold = True
+    ws.Range("A15").Value2 = "Περίοδος"
+    ws.Range("B15").Value2 = "Αρχικά προγραμματισμένες"
+    ws.Range("C15").Value2 = "Τελικά πραγματοποιημένες"
+    ws.Range("D15").Value2 = "Υλοποίηση"
+    ws.Range("A15:D15").Interior.Color = navy
+    ws.Range("A15:D15").Font.Color = 0xFFFFFF
+    ws.Range("A15:D15").Font.Bold = True
+    ws.Range("A15:D15").WrapText = True
+
+    first_row = 16
+    for i, (period, planned, delivered, pct) in enumerate(rows, first_row):
         ws.Cells(i, 1).NumberFormat = "@"
         ws.Cells(i, 1).Value2 = period
         ws.Cells(i, 2).Value2 = planned
         ws.Cells(i, 3).Value2 = delivered
+        ws.Cells(i, 2).NumberFormat = "#,##0"
+        ws.Cells(i, 3).NumberFormat = "#,##0"
         if pct is None:
             ws.Cells(i, 4).Value2 = "Μη διαθέσιμο"
         else:
             ws.Cells(i, 4).Value2 = pct
             ws.Cells(i, 4).NumberFormat = "0.0%"
-        planned_total += planned
-        delivered_total += delivered
-    final = 7 + len(rows)
+        if (i - first_row) % 2:
+            ws.Range(f"A{i}:D{i}").Interior.Color = 0xFAF7F3
+
+    final = first_row + len(rows)
     ws.Cells(final, 1).Value2 = "ΣΥΝΟΛΟ ΟΜΑΔΑΣ"
     ws.Cells(final, 2).Value2 = planned_total
     ws.Cells(final, 3).Value2 = delivered_total
-    if planned_total > 0:
-        ws.Cells(final, 4).Value2 = delivered_total / planned_total
-        ws.Cells(final, 4).NumberFormat = "0.0%"
-    else:
+    ws.Cells(final, 2).NumberFormat = "#,##0"
+    ws.Cells(final, 3).NumberFormat = "#,##0"
+    if rate is None:
         ws.Cells(final, 4).Value2 = "Μη διαθέσιμο"
-    ws.Range(ws.Cells(final, 1), ws.Cells(final, 4)).Font.Bold = True
-    ws.Cells(final + 2, 1).Value2 = (
-        "Μπλε: αρχικό πρόγραμμα | Κόκκινο: τελικό αποτέλεσμα. "
-        "Μερικές ημέρες οι επιπλέον θεραπείες μπορεί να υπερβούν το αρχικό πρόγραμμα."
-    )
-    ws.Range(ws.Cells(final + 2, 1), ws.Cells(final + 2, 10)).Merge()
-    ws.Range(ws.Cells(final + 2, 1), ws.Cells(final + 2, 10)).WrapText = True
-    ws.Rows(final + 2).RowHeight = 34
+    else:
+        ws.Cells(final, 4).Value2 = rate
+        ws.Cells(final, 4).NumberFormat = "0.0%"
+    ws.Range(f"A{final}:D{final}").Interior.Color = pale
+    ws.Range(f"A{final}:D{final}").Font.Bold = True
 
-    if not rows:
-        return
-    chart = ws.ChartObjects().Add(ws.Range("F6").Left, ws.Range("F6").Top, 550, 310)
-    chart.Name = "DepartmentSummary"
-    chart.Chart.ChartType = 51  # xlColumnClustered
-    for column, label, rgb in (
-        (2, "Αρχικά προγραμματισμένες", BLUE_RGB),
-        (3, "Τελικά πραγματοποιημένες", RED_RGB),
-    ):
-        series = chart.Chart.SeriesCollection().NewSeries()
-        series.Name = label
-        series.XValues = ws.Range(ws.Cells(7, 1), ws.Cells(final - 1, 1))
-        series.Values = ws.Range(ws.Cells(7, column), ws.Cells(final - 1, column))
-        series.Format.Fill.ForeColor.RGB = rgb
-    chart.Chart.HasTitle = True
-    chart.Chart.ChartTitle.Text = MODE_LABELS[mode] + " | ΣΥΝΕΔΡΙΕΣ ΤΜΗΜΑΤΟΣ"
-    chart.Chart.HasLegend = True
-    chart.Chart.Axes(2).MinimumScale = 0
-    chart.Chart.Axes(2).HasMajorGridlines = True
+    note_row = max(final + 3, 33)
+    ws.Range(f"A{note_row}:J{note_row + 1}").Merge()
+    ws.Range(f"A{note_row}").Value2 = (
+        "Μπλε: αρχικά προγραμματισμένες  |  Κόκκινο: τελικά πραγματοποιημένες. "
+        "Επιπλέον συνεδρίες μπορούν να ξεπεράσουν τον αρχικό προγραμματισμό."
+    )
+    ws.Range(f"A{note_row}:J{note_row + 1}").WrapText = True
+    ws.Range(f"A{note_row}:J{note_row + 1}").Font.Color = ink
+
+    if rows:
+        # Placed BELOW navigation and KPI cards, never above the buttons.
+        chart = ws.ChartObjects().Add(
+            ws.Range("F15").Left, ws.Range("F15").Top, 520, 330
+        )
+        chart.Name = "DepartmentSummary"
+        chart.Chart.ChartType = 51  # xlColumnClustered
+        for column, label, rgb in (
+            (2, "Αρχικά προγραμματισμένες", BLUE_RGB),
+            (3, "Τελικά πραγματοποιημένες", RED_RGB),
+        ):
+            series = chart.Chart.SeriesCollection().NewSeries()
+            series.Name = label
+            series.XValues = ws.Range(ws.Cells(first_row, 1),
+                                      ws.Cells(final - 1, 1))
+            series.Values = ws.Range(ws.Cells(first_row, column),
+                                     ws.Cells(final - 1, column))
+            series.Format.Fill.ForeColor.RGB = rgb
+        chart.Chart.HasTitle = True
+        chart.Chart.ChartTitle.Text = MODE_LABELS[mode] + " | ΣΥΝΕΔΡΙΕΣ ΤΜΗΜΑΤΟΣ"
+        chart.Chart.HasLegend = True
+        chart.Chart.Axes(2).MinimumScale = 0
+        chart.Chart.Axes(2).HasMajorGridlines = True
+
+    # A clean standalone mini-app appearance in Excel: worksheet navigation
+    # only through the familiar mode buttons; no row/column letters or grid.
     ws.Activate()
+    ws.Application.ActiveWindow.DisplayGridlines = False
+    ws.Application.ActiveWindow.DisplayHeadings = False
+    ws.Application.ActiveWindow.Zoom = 90
     ws.Range("A1").Select()
+
 
 
 def verify_management_native(file: Path, expected: dict) -> None:
@@ -209,7 +292,7 @@ def verify_management_native(file: Path, expected: dict) -> None:
                 raise ValueError(f"Management {mode} chart count mismatch")
             planned_total = delivered_total = 0
             for offset, (period, planned, delivered, ratio) in enumerate(expected_rows):
-                row = 7 + offset
+                row = 16 + offset
                 actual_period = str(ws.Cells(row, 1).Value2)
                 actual_planned = int(ws.Cells(row, 2).Value2)
                 actual_delivered = int(ws.Cells(row, 3).Value2)
@@ -225,7 +308,7 @@ def verify_management_native(file: Path, expected: dict) -> None:
                     raise ValueError(f"Management {mode} ratio mismatch")
                 planned_total += planned
                 delivered_total += delivered
-            total_row = 7 + len(expected_rows)
+            total_row = 16 + len(expected_rows)
             if (str(ws.Cells(total_row, 1).Value2) != "ΣΥΝΟΛΟ ΟΜΑΔΑΣ"
                     or int(ws.Cells(total_row, 2).Value2) != planned_total
                     or int(ws.Cells(total_row, 3).Value2) != delivered_total):
@@ -279,6 +362,9 @@ def export_shareable(source: Path, output: Path) -> None:
         for idx, mode in enumerate(MODES, 1):
             _write_mode_sheet(book.Worksheets(idx), mode, periods[mode])
         book.Worksheets(1).Activate()
+        excel.ActiveWindow.DisplayWorkbookTabs = False
+        excel.ActiveWindow.DisplayHeadings = False
+        excel.ActiveWindow.DisplayGridlines = False
         # FileFormat 51 is macro-free XLSX. Fresh workbook with no source links.
         book.SaveAs(str(output.resolve()), FileFormat=51)
         book.Close(SaveChanges=False)
