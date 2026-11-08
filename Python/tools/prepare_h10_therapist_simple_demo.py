@@ -66,7 +66,10 @@ REQUIRED_VBA = (
     'TRIAL #FF0303',
     'TRIAL #5BFA74',
     'Formula1:="=ROW()=$P$1"',
-    '"Μ.Ο. περιόδου: "',
+    '"Μ.Ο.: "',
+    'cohortAxisPatients = 6',
+    'If loadPerDay > 6 Then',
+    'plot.Chart.ChartTitle.Format.TextFrame2.TextRange.Font.Size = 9',
     '"Απουσίες/αναβολές"',
     "Public Sub HighlightSelectedTherapistRow",
 )
