@@ -402,3 +402,22 @@ def test_department_period_labels_use_displayed_dates_not_excel_serials():
     vba = THERAPIST_HISTORY_MODULE_CODE
     assert 'groupKey = CStr(ws.Cells(r, 1).Text)' in vba
     assert 'groupKey = groupKey & " έως " & CStr(ws.Cells(r, 2).Text)' in vba
+
+
+def test_six_current_calendar_mode_buttons_are_distinct_and_old_shapes_retired():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    pairs = [
+        ("Today", "Σήμερα", "ShowTherapistHistoryToday", "today"),
+        ("Yesterday", "Χθες", "ShowTherapistHistoryYesterday", "yesterday"),
+        ("Week", "Εβδομάδα", "ShowTherapistHistoryCurrentWeek", "week"),
+        ("Month", "Μήνας", "ShowTherapistHistoryCurrentMonth", "month"),
+        ("Year", "Έτος", "ShowTherapistHistoryCurrentYear", "year"),
+        ("Overall", "Σύνολο", "ShowTherapistHistoryOverall", "overall"),
+    ]
+    for key, label, macro, mode in pairs:
+        assert f'EnsureOneReportButton ws, "ekaHistory_{key}", "{label}", "{macro}"' in vba
+        assert f'Case "{mode}": selected = "{key}"' in vba
+    assert 'obsolete = Array("ekaHistory_Daily", "ekaHistory_Weekly", "ekaHistory_Monthly")' in vba
+    assert 'ws.Shapes(CStr(oldName)).Delete' in vba
+    assert 'RenderTherapistHistoryReport "today"' in vba
+    assert 'Case "today", "yesterday", "week", "month", "year"' in vba
