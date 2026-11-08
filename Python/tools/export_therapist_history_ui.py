@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
+from datetime import date, timedelta
 from pathlib import Path
 import sys
 
@@ -42,6 +44,44 @@ HEADERS = (
 
 class TherapistHistoryUiExportError(RuntimeError):
     pass
+
+
+CURRENT_MODES = ("today", "yesterday", "week", "month", "year", "overall")
+LEGACY_MODES = ("daily", "weekly", "monthly")
+
+
+def selected_period(mode: str, as_of: date) -> tuple[date | None, date]:
+    """Calendar bounds, not a rolling window or latest available record."""
+    if mode == "today":
+        return as_of, as_of
+    if mode == "yesterday":
+        previous = as_of - timedelta(days=1)
+        return previous, previous
+    if mode == "week":
+        return as_of - timedelta(days=as_of.weekday()), as_of
+    if mode == "month":
+        return as_of.replace(day=1), as_of
+    if mode == "year":
+        return as_of.replace(month=1, day=1), as_of
+    if mode == "overall":
+        return None, as_of
+    raise TherapistHistoryUiExportError(f"Unknown selected period: {mode}")
+
+
+def _selected_reports(daily, mode: str, as_of: date):
+    """One output row per therapist in the chosen calendar interval."""
+    start, end = selected_period(mode, as_of)
+    scoped = tuple(
+        row for row in daily
+        if (start is None or start <= row.service_date) and row.service_date <= end
+    )
+    grouped = build_therapist_overall_reports(scoped)
+    if mode == "overall":
+        return grouped, scoped
+    return tuple(
+        replace(row, period_start=start, period_end=end) for row in grouped
+    ), scoped
+
 
 
 def _field(value: object) -> str:
@@ -160,16 +200,20 @@ def export_therapist_history_ui(
     *,
     mode: str = "monthly",
     trend_output_path: str | Path | None = None,
+    as_of: date | None = None,
 ) -> dict[str, object]:
     mode = mode.strip().casefold()
-    if mode not in {"daily", "weekly", "monthly", "overall"}:
+    if mode not in set(CURRENT_MODES + LEGACY_MODES):
         raise TherapistHistoryUiExportError(f"Unsupported report mode: {mode!r}")
 
     daily = report_therapist_history(workbook_path)
     daily_counts = _unique_patient_days(
         read_current_patient_session_history_rows(workbook_path)
     )
-    if mode == "daily":
+    if mode in CURRENT_MODES:
+        reports, scoped_daily = _selected_reports(daily, mode, as_of or date.today())
+        values = _period_values
+    elif mode == "daily":
         reports = daily
         values = _daily_values
     elif mode == "weekly":
@@ -212,7 +256,7 @@ def export_therapist_history_ui(
                     (report.service_date, report.therapist_id.casefold()), 0
                 ),
             )
-            for report in daily
+            for report in (scoped_daily if mode in CURRENT_MODES else daily)
         )
         trend_lines = ["\t".join(trend_headers)]
         trend_lines.extend(
@@ -228,7 +272,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Export therapist history for the in-workbook report UI.")
     parser.add_argument("--workbook", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--mode", choices=("daily", "weekly", "monthly", "overall"), default="monthly")
+    parser.add_argument("--mode", choices=CURRENT_MODES + LEGACY_MODES, default="month")
     parser.add_argument("--trend-output", type=Path, default=None,
                         help="Optional sorted, finalized daily facts TSV for mini charts")
     args = parser.parse_args()
