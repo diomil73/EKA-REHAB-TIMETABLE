@@ -329,9 +329,23 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistLoadChart", "A", "D")
     Set series = plot.Chart.SeriesCollection.NewSeries
     series.Name = "Διαφορετικοί ασθενείς/ημέρα"
-    series.XValues = Array("Επιλογή", "Μ.Ο.")
-    series.Values = Array(loadPerDay, referencePatients)
+    series.Name = "Θεραπευτής"
+    series.XValues = Array("Ανά ημέρα", "")
+    series.Values = Array(loadPerDay, 0)
     series.Format.Fill.ForeColor.RGB = WorkloadTrafficColor(loadPerDay)
+    ' Keep only the therapist as a column. A two-point line creates
+    ' a genuine horizontal period benchmark, not a second benchmark bar.
+    Set series = plot.Chart.SeriesCollection.NewSeries
+    series.Name = "Μ.Ο. περιόδου"
+    series.ChartType = xlLine
+    series.XValues = Array("Ανά ημέρα", "")
+    series.Values = Array(referencePatients, referencePatients)
+    series.MarkerStyle = xlMarkerStyleNone
+    series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)
+    series.Format.Line.Weight = 2.25
+    series.Format.Line.DashStyle = msoLineDash
+    plot.Chart.HasLegend = True
+    plot.Chart.Legend.Position = xlLegendPositionBottom
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
         WorksheetFunction.RoundUp(Application.Max(loadPerDay, referencePatients), 0))
@@ -343,10 +357,33 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' Chart two: planned/delivered treatment sessions per reporting period.
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistSessionChart", "E", "H")
     Set series = plot.Chart.SeriesCollection.NewSeries
-    series.Name = "Συνεδρίες"
-    series.XValues = Array("Προγραμ.", "Πραγματ.", "Μ.Ο. προγρ.", "Μ.Ο. πραγμ.")
-    series.Values = Array(plannedSessions, actualSessions, referencePlanned, referenceActual)
-    ws.Range("E19").Value2 = "Μ.Ο. θεραπευτή στην ίδια περίοδο"
+    series.Name = "Θεραπευτής"
+    series.XValues = Array("Προγραμ.", "Πραγματ.")
+    series.Values = Array(plannedSessions, actualSessions)
+    ' Each reference remains a horizontal line on the SAME chart.
+    ' The different dash patterns distinguish the two benchmarks.
+    Set series = plot.Chart.SeriesCollection.NewSeries
+    series.Name = "Μ.Ο. προγρ."
+    series.ChartType = xlLine
+    series.XValues = Array("Προγραμ.", "Πραγματ.")
+    series.Values = Array(referencePlanned, referencePlanned)
+    series.MarkerStyle = xlMarkerStyleNone
+    series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)
+    series.Format.Line.Weight = 2.25
+    series.Format.Line.DashStyle = msoLineDash
+    Set series = plot.Chart.SeriesCollection.NewSeries
+    series.Name = "Μ.Ο. πραγμ."
+    series.ChartType = xlLine
+    series.XValues = Array("Προγραμ.", "Πραγματ.")
+    series.Values = Array(referenceActual, referenceActual)
+    series.MarkerStyle = xlMarkerStyleNone
+    series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)
+    series.Format.Line.Weight = 2.25
+    series.Format.Line.DashStyle = msoLineRoundDot
+    plot.Chart.HasLegend = True
+    plot.Chart.Legend.Position = xlLegendPositionBottom
+    plot.Chart.Axes(xlValue).MinimumScale = 0
+    ws.Range("E19").Value2 = "Μωβ γραμμές: μέσοι όροι ίδιας περιόδου"
     plot.Chart.HasTitle = True
     plot.Chart.ChartTitle.Text = "Θεραπείες" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
