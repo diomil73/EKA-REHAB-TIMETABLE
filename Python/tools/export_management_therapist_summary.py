@@ -71,8 +71,11 @@ def inspect_share_package(file: Path) -> None:
     """Fail closed if the ZIP contains macros, external links or extra sheets."""
     with zipfile.ZipFile(file) as zipped:
         files = set(zipped.namelist())
-        if "xl/vbaProject.bin" in files or any("externalLinks/" in name for name in files):
-            raise ValueError("Unsafe VBA or external link in management export")
+        suspicious = ("externalLinks/", "embeddings/", "connections.xml",
+                      "queryTables/", "pivotCache", "vbaProject", "customXml/",
+                      "activeX/", "oleObjects/")
+        if any(any(token in name for token in suspicious) for name in files):
+            raise ValueError("Unsafe VBA or external link or embedded data in management export")
         sheets = [
             name for name in files
             if name.startswith("xl/worksheets/sheet")
@@ -91,6 +94,11 @@ def inspect_share_package(file: Path) -> None:
             content = zipped.read(name)
             if any(marker.encode() in content for marker in forbidden):
                 raise ValueError("Operational schema leaked into management report")
+            if name.endswith(".rels") and b'TargetMode="External"' in content:
+                raise ValueError("External relationship in management report")
+            if name == "xl/workbook.xml":
+                if b'state="hidden"' in content or b'state="veryHidden"' in content:
+                    raise ValueError("Hidden worksheet in management report")
 
 
 def _write_mode_sheet(ws, mode, rows):
