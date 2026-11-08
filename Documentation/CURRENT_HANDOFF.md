@@ -1486,3 +1486,15 @@ Operator directed `μη με περιμενεις, προχωρα`. Continued **
 - `Python/tools/export_management_therapist_summary.py` commit `98cd643` now computes SHA256 of frozen source before/after, verifies the created archive for no private data structures, then **reopens the new XLSX in Windows Excel as read-only**, verifies exactly 4 visible worksheets with exactly one chart each (if populated), EVERY period's planned/delivered count, percentage/zero-denominator display and grand total; verifies XLSX unchanged by read-only audit; repeats archive leak check. If any check fails, returns SAFETY STOP; never share failed output. 
 - `Tests/test_h10_management_export.py` commit `531335a` enforces the native read-back contract in source.
 - Native/pytest statuses **remain NOT RUN / NOT GREEN** until Windows operator executes gates. The precise copy-paste gate and fail-closed procedure have been saved separately in `Documentation/H10_BV_NATIVE_RUNBOOK_20261108.md` (commit `594cbc9`). Before displaying status, read this latest block and runbook rather than older BU-era instructions.
+
+## 2026-11-08 22:31 Athens — BV installer SAFETY STOP, freeze evidence immediately
+
+Operator ran the prescribed BV creation command. The ONLY pasted console excerpt is the final PowerShell wrapper:
+```
+SAFETY STOP: BV installation failed. Do not retry.
+At line:2 char:5
++     throw "SAFETY STOP: BV installation failed. Do not retry."
+```
+This is **NOT the primary Python installer error**. The exact preceding `SAFETY STOP: H10DemoError: BV install failed at <stage>: <exception>` or verification stage has **not been shared yet**. Do not speculate about a confirmed root cause, do not claim a native BV or success, and **do not retry, repair, overwrite or delete BV**. A partial BV file might exist. The operator should retrieve/copy only the earlier stdout/stderr lines from their existing PowerShell history (no rerun). Freeze this candidate permanently; any eventual source fix must use a **new uniquely named native candidate BW or later**, with updated installer restrictions and full tests. The BO frozen source and BU visual proof must remain untouched.
+
+Assistant inspected current `Python/tools/prepare_h10_therapist_simple_demo.py` after failure: it catches exceptions and prints detailed failing installer stage before PowerShell's generic throw. The existing excerpt is insufficient to distinguish VBA module insertion vs worksheet event vs management sheet protection vs reopening. The previous no-BV-until-tests gate was reportedly passed by script flow, but test counts/status were not pasted and must not be fabricated. Next step: obtain primary Python diagnostic lines, reproduce via source-only mocks/tests as possible, checkpoint fix, **never rerun BV**.
