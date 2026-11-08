@@ -4,7 +4,7 @@ import pytest
 
 from rehab_excel.therapist_history_report_vba import THERAPIST_HISTORY_MODULE_CODE
 from tools.prepare_h10_therapist_simple_demo import (
-    EVENT_CODE, H10DemoError, REQUIRED_VBA, check_candidate,
+    EVENT_CODE, H10DemoError, REQUIRED_VBA, _safe_module_lines, check_candidate,
 )
 
 
@@ -50,18 +50,18 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
 def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bp = tmp_path / "H10_DEMO_BP.xlsm"
-    check_candidate(bo, bp)
-    bp.write_bytes(b"already exists")
+    bq = tmp_path / "H10_DEMO_BQ.xlsm"
+    check_candidate(bo, bq)
+    bq.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
-        check_candidate(bo, bp)
-    assert bp.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BP"):
-        check_candidate(bo, tmp_path / "H10_DEMO_BQ.xlsm")
+        check_candidate(bo, bq)
+    assert bq.read_bytes() == b"already exists"
+    with pytest.raises(H10DemoError, match="BQ"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BR.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BP2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BQ2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -69,3 +69,34 @@ def test_install_requires_persisted_vba_markers_and_event_module():
     assert all(fragment in THERAPIST_HISTORY_MODULE_CODE for fragment in REQUIRED_VBA)
     assert EVENT_CODE.count("Worksheet_SelectionChange") == 1
     assert "ThisWorkbook.Save" in THERAPIST_HISTORY_MODULE_CODE
+
+
+def test_empty_worksheet_vba_module_must_not_call_invalid_lines_one_zero():
+    class EmptyModule:
+        CountOfLines = 0
+
+        def Lines(self, *args):
+            raise AssertionError("Lines(1, 0) is invalid in native Excel")
+
+    assert _safe_module_lines(EmptyModule()) == ""
+
+
+def test_nonempty_vba_module_uses_valid_line_range():
+    class Module:
+        CountOfLines = 2
+
+        def Lines(self, start, count):
+            assert (start, count) == (1, 2)
+            return "Option Explicit\\r\\nSub Test(): End Sub"
+
+    assert _safe_module_lines(Module()).startswith("Option Explicit")
+
+
+def test_bq_uses_real_vbproject_property_not_filename_replace_artifact():
+    import inspect
+    from tools import prepare_h10_therapist_simple_demo as module
+
+    source = inspect.getsource(module)
+    assert ".VBProject" in source
+    assert "VBQroject" not in source
+    assert "stage = " in source
