@@ -9,6 +9,7 @@ THERAPIST_HISTORY_BUTTON_PREFIX = "ekaHistory_"
 THERAPIST_HISTORY_MODULE_CODE = r'''Option Explicit
 
 Private Const REPORT_SHEET As String = "THERAPIST_HISTORY_REPORT"
+Private Const MANAGEMENT_SHEET As String = "MANAGEMENT_SUMMARY"
 
 Public Sub OpenTherapistHistoryReport()
     RenderTherapistHistoryReport "monthly"
@@ -28,6 +29,42 @@ End Sub
 
 Public Sub ShowTherapistHistoryOverall()
     RenderTherapistHistoryReport "overall"
+End Sub
+
+Public Sub OpenManagementSummary()
+    RenderTherapistHistoryReport "overall"
+    ShowManagementSummarySheet
+End Sub
+
+Public Sub ShowManagementSummaryDaily()
+    RenderTherapistHistoryReport "daily"
+    ShowManagementSummarySheet
+End Sub
+
+Public Sub ShowManagementSummaryWeekly()
+    RenderTherapistHistoryReport "weekly"
+    ShowManagementSummarySheet
+End Sub
+
+Public Sub ShowManagementSummaryMonthly()
+    RenderTherapistHistoryReport "monthly"
+    ShowManagementSummarySheet
+End Sub
+
+Public Sub ShowManagementSummaryOverall()
+    RenderTherapistHistoryReport "overall"
+    ShowManagementSummarySheet
+End Sub
+
+Private Sub ShowManagementSummarySheet()
+    Dim ws As Worksheet
+    On Error GoTo SummaryUnavailable
+    Set ws = ThisWorkbook.Worksheets(MANAGEMENT_SHEET)
+    ws.Activate
+    ws.Range("A1").Select
+    Exit Sub
+SummaryUnavailable:
+    MsgBox "Η διοικητική σύνοψη δεν είναι ακόμη διαθέσιμη.", vbExclamation
 End Sub
 
 Public Sub ExportManagementOnlyWorkbook()
@@ -260,6 +297,7 @@ NextTrendLine:
         totalPlannedSessions, totalActualSessions, totalFinalizedTherapistDays, _
         totalDistinctPatientDayLoad / Application.Max(1, totalFinalizedTherapistDays), 0
     BuildDepartmentAppendix ws, rowIndex - 1, reportMode
+    RenderManagementSummary ws, rowIndex - 1, reportMode
     EnsureReportButtons ws
     HighlightTherapistReportMode ws, reportMode
     ws.Activate
@@ -910,6 +948,7 @@ Private Sub EnsureReportButtons(ByVal ws As Worksheet)
     EnsureOneReportButton ws, "ekaHistory_Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
     EnsureOneReportButton ws, "ekaHistory_PersonChart", "Γράφημα θεραπευτή", "ShowSelectedTherapistChart", 160#
     EnsureOneReportButton ws, "ekaHistory_ManagementExport", "Εξαγωγή διοίκησης", "ExportManagementOnlyWorkbook", 160#
+    EnsureOneReportButton ws, "ekaHistory_ManagementView", "Προβολή διοίκησης", "OpenManagementSummary", 160#
     PositionReportButtons ws
 End Sub
 
@@ -950,7 +989,8 @@ Private Sub PositionReportButtons(ByVal ws As Worksheet)
         Array("ekaHistory_Overall", 90#), _
         Array("ekaHistory_Back", 116#), _
         Array("ekaHistory_PersonChart", 160#), _
-        Array("ekaHistory_ManagementExport", 160#))
+        Array("ekaHistory_ManagementExport", 160#), _
+        Array("ekaHistory_ManagementView", 160#))
     topPos = ws.Rows(3).Top + 4
     leftPos = ws.Range("A3").Left + 4
     For i = LBound(specs) To UBound(specs)
