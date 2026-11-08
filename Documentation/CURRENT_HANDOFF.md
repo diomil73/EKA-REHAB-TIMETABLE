@@ -1229,3 +1229,35 @@ Operator reported **37 passed in 12.25s** for the requested H10 / H8 synthetic a
 Operator corrected the framing: the question about accrued expertise refers to the **whole multi-component rehabilitation-center operational system**, not just therapist reports. Its interdependent scope includes recurring and daily therapy schedules, therapist/patient absences, automatic and manual replacements, conflicts, student placement management, review/confirmation, daily close/amendment, rollback/restore and durable historical/statistical reporting. Answer and future design must take the total architecture and interactions seriously, distinguish currently implemented/vetted behavior from intended/in-progress functionality, and favor manager-readable presentation with faithful operational semantics. The user authorizes ongoing autonomous progress without repetitive OK; ask only for substantive business decisions or hands-on native Excel verification.
 
 **Next guarded native H10 demonstration**, only if BO still has previously verified cross-sheet history and BP does not exist: with Excel fully closed, `git pull --ff-only origin work/history-statistics-rebuild`, then `python Python/tools/verify_h8_synthetic_history.py --workbook Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm`; upon GREEN, `python Python/tools/prepare_h10_therapist_simple_demo.py --source Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm --output Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BP.xlsm`; upon native success, independently verify BP history, protection and H7 UI, then manually compare sticky charts, active row and period benchmarks. Stop/freeze BP on any failure, never retry/overwrite or patch frozen BO; no production changes. Current H10 UI is a visual prototype; no unproven free-slot KPI and no real attendance third chart.
+
+## 2026-11-08 — BP H10 native COM SAFETY STOP; freeze BP, diagnose empty VBIDE module
+
+Operator ran the one-shot H10 native BO -> BP installer and reported:
+```
+SAFETY STOP: com_error: (-2147352567, 'Παρουσιάστηκε εξαίρεση.',
+(0, '', 'Invalid procedure call or argument',
+'C:\\Program Files\\Common Files\\Microsoft Shared\\VBA\\VBA7.1\\1032\\VbLR6.chm',
+1000005, -2147024809), None)
+Freeze BP; do not retry, repair or overwrite candidate
+```
+**BP is failed and frozen.** Later commands in the pasted transcript (operator executed after failure rather than stopping) confirm read-only semantic history **25 days/522 patient sessions/150 therapist-day/150 synthetic attendance/25 events, Workbook unchanged=True**; protection audit **24 worksheets** and H7 integrated toolbar audit passed. These checks *do not* override native H10 installer failure and do not establish the new VBA event/rendering works. No native H10 acceptance; BO remains verified immutable source. No BP repair or reuse.
+
+Source inspection identified a plausible error-5 origin: the installer called `CodeModule.Lines(1, CodeModule.CountOfLines)` on the previously empty worksheet VBA code module. In VBIDE, `Lines(1,0)` is invalid. The failed BP traceback lacked a stage, so this is a **hypothesis**, not a proven exclusive cause. We also added stage-specific error messages to reveal any other failing VBA operation.
+
+New source-only remediation:
+- `006b8c7` introduces `_safe_module_lines` that skips `Lines(1,0)`; new candidate is guarded **BQ**, not BP; adds native operation stage to failed install/read-only verify messages.
+- `912ecb9` normalizes VBA newline differences for reliable persisted event inspection.
+- `8d6ed61` restores exact `VBProject` Excel property spelling after a mechanical name replacement.
+- `03ce8c7` updates BQ source tests and adds three tests for zero-line worksheet module, normal VBIDE Lines range and exact VBProject spelling.
+- New H10 source tests **NOT yet run**. Prior H10 source gate 37 passed on previous pre-fix code, **not** on BQ patch.
+
+Next source gate:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h10_therapist_simple_demo.py Tests/test_h8_synthetic_demo_history.py Tests/test_h8_synthetic_history_verifier.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BQ source gate failed" }
+```
+Expected **40** if former 37 tests + 3 new regressions all pass. If green, close all Excel, verify frozen BO (read-only), ensure `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BQ.xlsm` does not already exist, and build new BQ via `Python/tools/prepare_h10_therapist_simple_demo.py --source Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm --output Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BQ.xlsm`; only after `H10 THERAPIST SIMPLE DEMO INSTALL OK` check BQ read-only history, protection and toolbar. Freeze BQ on any failure; no retry. If all pass, manually smoke sticky chart pane (top 22 rows), selected blue row, period benchmark, unchanged synthetic history and third attendance placeholder.
+
+Keep user direction: manager-readable simplified overview, preserve hidden source/audit nuance and do not invent a final empty-slot count from released/suspension counts.
