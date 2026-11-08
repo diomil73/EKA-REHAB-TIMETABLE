@@ -313,6 +313,8 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Dim referencePlanned As Double, referenceActual As Double
     Dim teamPlanned As Long, teamActual As Long
     Dim referenceColor As Long
+    Dim cohortMaxPatients As Double, cohortMaxSessions As Double
+    Dim cohortAxisPatients As Double, cohortAxisSessions As Double
     Dim referenceCount As Long, referenceDays As Long, r As Long
     Dim lastRow As Long, selectedPeriod As String, periodKey As String
 
@@ -349,10 +351,22 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
                     CDbl(ws.Cells(r, 14).Value2) * CLng(ws.Cells(r, 4).Value2)
                 referencePlanned = referencePlanned + CDbl(ws.Cells(r, 7).Value2)
                 referenceActual = referenceActual + CDbl(ws.Cells(r, 8).Value2)
+                ' Chart scales are based on the WHOLE comparable cohort.
+                ' Selecting a person must never rescale the ordinate.
+                cohortMaxPatients = Application.Max(cohortMaxPatients, _
+                    CDbl(ws.Cells(r, 14).Value2))
+                cohortMaxSessions = Application.Max(cohortMaxSessions, _
+                    CDbl(ws.Cells(r, 7).Value2), CDbl(ws.Cells(r, 8).Value2))
                 referenceCount = referenceCount + 1
             End If
         End If
     Next r
+    ' One visually rounded shared ceiling per selected period/cohort.
+    ' Include team benchmark in case all valid rows are edge cases.
+    cohortAxisPatients = Application.Max(6, _
+        WorksheetFunction.RoundUp(cohortMaxPatients, 0))
+    cohortAxisSessions = Application.Max(1, _
+        WorksheetFunction.RoundUp(cohortMaxSessions, -1))
     teamPlanned = CLng(referencePlanned)
     teamActual = CLng(referenceActual)
     If referenceCount > 0 And referenceDays > 0 Then
@@ -383,8 +397,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     series.Format.Fill.ForeColor.RGB = WorkloadTrafficColor(loadPerDay)
     plot.Chart.HasLegend = False
     plot.Chart.Axes(xlValue).MinimumScale = 0
-    plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
-        WorksheetFunction.RoundUp(Application.Max(loadPerDay, referencePatients), 0))
+    plot.Chart.Axes(xlValue).MaximumScale = cohortAxisPatients
     ws.Range("A19").Value2 = "Μ.Ο. περιόδου: " & Format$(referencePatients, "0.0") & " ασθενείς/ημέρα"
     plot.Chart.HasTitle = True
     plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα" & IIf( _
@@ -403,9 +416,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     series.Values = Array(plannedSessions, actualSessions)
     plot.Chart.HasLegend = False
     plot.Chart.Axes(xlValue).MinimumScale = 0
-    plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
-        WorksheetFunction.RoundUp(Application.Max(plannedSessions, actualSessions, _
-            referencePlanned, referenceActual), 0))
+    plot.Chart.Axes(xlValue).MaximumScale = cohortAxisSessions
     ws.Range("E19").Value2 = "Κόκκινοι δείκτες: Μ.Ο. προγρ. " & _
         Format$(referencePlanned, "0.0") & " | πραγματ. " & _
         Format$(referenceActual, "0.0")
