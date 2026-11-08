@@ -269,3 +269,32 @@ def test_visible_mini_axis_gridlines_and_actual_over_plan_warning():
     assert 'If positiveDeltaDays > 0 Then' in vba
     assert 'Αρχικά προγραμματισμένες' in vba
     assert 'Τελικά πραγματοποιημένες' in vba
+
+
+def test_four_mode_internal_management_preview_never_claims_private_xlsm_is_shareable():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    for name in ("ShowManagementSummaryDaily", "ShowManagementSummaryWeekly",
+                 "ShowManagementSummaryMonthly", "ShowManagementSummaryOverall",
+                 "ExportManagementOnlyWorkbook", "RenderManagementSummary"):
+        assert f"Sub {name}" in vba
+    assert 'Private Const MANAGEMENT_SHEET As String = "MANAGEMENT_SUMMARY"' in vba
+    assert 'ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True' in vba
+    assert 'BuildDepartmentAppendix ws, rowIndex - 1, reportMode' in vba
+    assert 'RenderManagementSummary ws, rowIndex - 1, reportMode' in vba
+    assert 'Private Sub RenderManagementSummary' in vba
+    assert 'Αρχικά προγραμματισμένες' in vba
+    assert 'Τελικά πραγματοποιημένες' in vba
+    assert 'ws.Cells(targetRow + 2, 1).Value2' in vba
+    assert '«Εξαγωγή μόνο διοίκησης»' in vba
+    assert 'If Len(Dir$(path)) > 0 Then' in vba
+    assert 'ExportManagementOnlyWorkbook' in vba
+
+
+def test_native_installer_reserves_unique_bv_and_verifies_management_sheet():
+    import inspect
+    from tools import prepare_h10_therapist_simple_demo as installer
+    source = inspect.getsource(installer)
+    assert 'MANAGEMENT_SUMMARY' in source
+    assert 'Management preview protection invalid' in source
+    assert 'Protected' not in source or 'management.Protect' in source
+    assert '_BV.XLSM' in source
