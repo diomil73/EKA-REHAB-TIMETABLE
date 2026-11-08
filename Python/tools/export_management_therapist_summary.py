@@ -9,6 +9,8 @@ mode buttons in a file that can safely be shared without VBA/hidden sheets.
 """
 
 import argparse
+import hashlib
+import math
 from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
@@ -183,6 +185,67 @@ def _write_mode_sheet(ws, mode, rows):
     ws.Range("A1").Select()
 
 
+def verify_management_native(file: Path, expected: dict) -> None:
+    """Independently reopen the new XLSX read-only and reconcile all totals."""
+    import win32com.client  # type: ignore[import-not-found]
+
+    before_hash = hashlib.sha256(file.read_bytes()).hexdigest()
+    excel = None
+    book = None
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.EnableEvents = False
+        book = excel.Workbooks.Open(str(file.resolve()), UpdateLinks=0, ReadOnly=True)
+        if not bool(book.ReadOnly) or bool(book.HasVBProject) or int(book.Worksheets.Count) != 4:
+            raise ValueError("Management export read-only structure invalid")
+        for mode in MODES:
+            ws = book.Worksheets(MODE_LABELS[mode])
+            if int(ws.Visible) != -1:
+                raise ValueError(f"Management {mode} worksheet unexpectedly hidden")
+            expected_rows = expected[mode]
+            if int(ws.ChartObjects().Count) != (1 if expected_rows else 0):
+                raise ValueError(f"Management {mode} chart count mismatch")
+            planned_total = delivered_total = 0
+            for offset, (period, planned, delivered, ratio) in enumerate(expected_rows):
+                row = 7 + offset
+                actual_period = str(ws.Cells(row, 1).Value2)
+                actual_planned = int(ws.Cells(row, 2).Value2)
+                actual_delivered = int(ws.Cells(row, 3).Value2)
+                if (actual_period, actual_planned, actual_delivered) != (
+                    period, planned, delivered,
+                ):
+                    raise ValueError(f"Management {mode} row {row} read-back mismatch")
+                exported_ratio = ws.Cells(row, 4).Value2
+                if ratio is None:
+                    if str(exported_ratio) != "Μη διαθέσιμο":
+                        raise ValueError("Zero denominator was not explicitly unavailable")
+                elif not math.isclose(float(exported_ratio), ratio, abs_tol=1e-12):
+                    raise ValueError(f"Management {mode} ratio mismatch")
+                planned_total += planned
+                delivered_total += delivered
+            total_row = 7 + len(expected_rows)
+            if (str(ws.Cells(total_row, 1).Value2) != "ΣΥΝΟΛΟ ΟΜΑΔΑΣ"
+                    or int(ws.Cells(total_row, 2).Value2) != planned_total
+                    or int(ws.Cells(total_row, 3).Value2) != delivered_total):
+                raise ValueError(f"Management {mode} total read-back mismatch")
+            total_ratio = ws.Cells(total_row, 4).Value2
+            if planned_total == 0:
+                if str(total_ratio) != "Μη διαθέσιμο":
+                    raise ValueError("Team zero denominator marked incorrectly")
+            elif not math.isclose(float(total_ratio),
+                                  delivered_total / planned_total, abs_tol=1e-12):
+                raise ValueError(f"Management {mode} total percentage mismatch")
+    finally:
+        if book is not None:
+            book.Close(SaveChanges=False)
+        if excel is not None:
+            excel.Quit()
+    if hashlib.sha256(file.read_bytes()).hexdigest() != before_hash:
+        raise ValueError("Read-only management validation altered the export")
+
+
 def export_shareable(source: Path, output: Path) -> None:
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
         raise ValueError("Existing .xlsm source required")
@@ -191,6 +254,7 @@ def export_shareable(source: Path, output: Path) -> None:
     if source.resolve() == output.resolve():
         raise ValueError("Source/destination collision")
     # Read report facts first. No spreadsheet data copied, only aggregation.
+    source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
     periods = department_periods(report_therapist_history(source))
     if not periods["overall"]:
         raise ValueError("No finalized history available to share")
@@ -225,6 +289,10 @@ def export_shareable(source: Path, output: Path) -> None:
         if excel is not None:
             excel.Quit()
     inspect_share_package(output)
+    verify_management_native(output, periods)
+    inspect_share_package(output)
+    if hashlib.sha256(source.read_bytes()).hexdigest() != source_hash:
+        raise ValueError("Source operational XLSM was modified during export")
 
 
 def main() -> int:
