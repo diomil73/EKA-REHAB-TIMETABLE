@@ -49,21 +49,23 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
     assert "ws.Range(\"E19\").Value2" in vba
 
 
-def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
+def test_h10_requires_strict_new_bz_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bq = tmp_path / "H10_DEMO_BY.xlsm"
-    check_candidate(bo, bq)
-    bq.write_bytes(b"already exists")
+    bz = tmp_path / "H10_DEMO_BZ.xlsm"
+    check_candidate(bo, bz)
+    bz.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
-        check_candidate(bo, bq)
-    assert bq.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BY"):
-        check_candidate(bo, tmp_path / "H10_DEMO_BZ.xlsm")
+        check_candidate(bo, bz)
+    assert bz.read_bytes() == b"already exists"
+    with pytest.raises(H10DemoError, match="BZ"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BY.xlsm")
+    with pytest.raises(H10DemoError, match="BZ"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BZ2.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BY2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BZ.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -299,7 +301,7 @@ def test_native_installer_reserves_unique_by_and_verifies_management_sheet():
     assert 'MANAGEMENT_SUMMARY' in source
     assert 'Management preview protection invalid' in source
     assert 'Protected' not in source or 'management.Protect' in source
-    assert '_BY.XLSM' in source
+    assert '_BZ.XLSM' in source
 
 
 def test_therapist_selection_does_not_change_entire_department_total():
