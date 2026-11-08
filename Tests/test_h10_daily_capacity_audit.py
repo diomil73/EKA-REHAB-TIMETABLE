@@ -67,3 +67,25 @@ def test_requested_person_is_filtered_and_all_days_included():
     assert len(reports) == 1
     assert reports[0]["therapist"] == "Κοσμίδης"
     assert reports[0]["flags"] == ()
+
+
+def test_strict_capacity_gate_retains_real_occupied_slot_violation():
+    row = item(slots=9, sessions=9, planned=6, shared=0)
+    result = capacity_anomalies([row], {(row.service_date, row.therapist_id.casefold()): 9})
+    assert len(result) == 1
+    assert "OCCUPIED_SLOTS_EXCEED_CAPACITY" in result[0]["flags"]
+    assert result[0]["final_occupied_slots"] == 9
+    assert result[0]["capacity_slots"] == 6
+
+
+def test_diagnostic_cli_exposes_opt_in_fail_closed_capacity_gate():
+    from pathlib import Path
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "Python" / "tools" / "audit_therapist_daily_capacity.py"
+    ).read_text(encoding="utf-8")
+    assert '"--strict-capacity"' in source
+    assert '"OCCUPIED_SLOTS_EXCEED_CAPACITY" in row["flags"]' in source
+    assert '"CAPACITY_NOT_CONFIGURED" in row["flags"]' in source
+    assert 'print(f"SAFETY STOP: {len(blocking)} therapist/day capacity exceptions")' in source
+    assert 'return 3' in source
