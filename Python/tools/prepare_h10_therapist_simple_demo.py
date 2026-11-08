@@ -70,14 +70,14 @@ def _safe_module_lines(module) -> str:
 
 
 def _verify_native(wb) -> None:
-    if not bool(wb.HasVBQroject):
+    if not bool(wb.HasVBProject):
         raise H10DemoError("VBA project missing")
-    module = wb.VBQroject.VBComponents(THERAPIST_HISTORY_MODULE_NAME).CodeModule
+    module = wb.VBProject.VBComponents(THERAPIST_HISTORY_MODULE_NAME).CodeModule
     installed = _safe_module_lines(module)
     if any(fragment not in installed for fragment in REQUIRED_VBA):
         raise H10DemoError("H10 VBA markers missing after native reopen")
     sheet = wb.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
-    component = wb.VBQroject.VBComponents(sheet.CodeName).CodeModule
+    component = wb.VBProject.VBComponents(sheet.CodeName).CodeModule
     sheet_code = _safe_module_lines(component)
     normalized_sheet = sheet_code.replace("\r\n", "\n").replace("\r", "\n").strip()
     normalized_event = EVENT_CODE.replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -121,7 +121,7 @@ def install_native(source: Path, output: Path) -> None:
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
             raise H10DemoError("BQ opened read-only; no edits possible")
-        vbproj = book.VBQroject
+        vbproj = book.VBProject
         report = book.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
         stage = "locate therapist report sheet module"
         component = vbproj.VBComponents(report.CodeName)
