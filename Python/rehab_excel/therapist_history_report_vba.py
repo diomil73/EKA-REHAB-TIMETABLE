@@ -266,6 +266,40 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
     Set NewTherapistMiniChart = plot
 End Function
 
+Private Sub AddTherapistMeanMarker(ByVal plot As ChartObject, _
+        ByVal markerName As String, ByVal meanValue As Double, _
+        ByVal categoryIndex As Long, ByVal categoryCount As Long, _
+        ByVal markerColor As Long)
+    ' Chart-local shape gives a genuinely SHORT, thin, solid horizontal
+    ' reference across the column, not a full-width line-series or a bar.
+    ' Category slot determines x; value-axis determines y.
+    Dim area As PlotArea, axis As Axis, marker As Shape
+    Dim slotWidth As Double, centerX As Double, lineHalfWidth As Double
+    Dim markerY As Double, minValue As Double, maxValue As Double
+
+    If meanValue < 0 Or categoryCount <= 0 Then Exit Sub
+    Set axis = plot.Chart.Axes(xlValue)
+    minValue = CDbl(axis.MinimumScale)
+    maxValue = CDbl(axis.MaximumScale)
+    If maxValue <= minValue Then Exit Sub
+    Set area = plot.Chart.PlotArea
+    slotWidth = CDbl(area.InsideWidth) / CDbl(categoryCount)
+    centerX = CDbl(area.InsideLeft) + _
+        (CDbl(categoryIndex) - 0.5) * slotWidth
+    ' Marker spans about half a category slot, slightly wider than the
+    ' plotted column on a one-series clustered column chart.
+    lineHalfWidth = slotWidth * 0.28
+    markerY = CDbl(area.InsideTop) + CDbl(area.InsideHeight) * _
+        (maxValue - meanValue) / (maxValue - minValue)
+    Set marker = plot.Chart.Shapes.AddLine( _
+        CSng(centerX - lineHalfWidth), CSng(markerY), _
+        CSng(centerX + lineHalfWidth), CSng(markerY))
+    marker.Name = markerName
+    marker.Line.ForeColor.RGB = markerColor
+    marker.Line.Weight = 1.25
+    marker.Line.DashStyle = msoLineSolid
+End Sub
+
 Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         ByVal plannedSlots As Long, ByVal actualSlots As Long, _
         Optional ByVal therapistName As String = "", _
@@ -278,6 +312,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Dim loadPerDay As Double, referencePatients As Double
     Dim referencePlanned As Double, referenceActual As Double
     Dim teamPlanned As Long, teamActual As Long
+    Dim referenceColor As Long
     Dim referenceCount As Long, referenceDays As Long, r As Long
     Dim lastRow As Long, selectedPeriod As String, periodKey As String
 
@@ -330,7 +365,9 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' A single combined total is not a sum of therapist percentage values.
     If referenceCount > 0 Then
         ws.Range("A20").Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | Προγραμματισμένες: " & _
-            CStr(teamPlanned) & " | Πραγματοποιημένες: " & CStr(teamActual)
+            CStr(teamPlanned) & " | Πραγματοποιημένες: " & CStr(teamActual) & _
+            " | Υλοποίηση: " & IIf(teamPlanned > 0, _
+            Format$(100# * CDbl(teamActual) / Application.Max(1, teamPlanned), "0.0") & "%", "—")
         ws.Range("A20").Font.Bold = True
         ws.Range("A20").Font.Color = RGB(37, 99, 170)
     End If
@@ -340,24 +377,11 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     loadPerDay = uniquePatientsPerDay
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistLoadChart", "A", "D")
     Set series = plot.Chart.SeriesCollection.NewSeries
-    series.Name = "Διαφορετικοί ασθενείς/ημέρα"
     series.Name = "Θεραπευτής"
-    series.XValues = Array("Ανά ημέρα", "")
-    series.Values = Array(loadPerDay, 0)
+    series.XValues = Array("Ανά ημέρα")
+    series.Values = Array(loadPerDay)
     series.Format.Fill.ForeColor.RGB = WorkloadTrafficColor(loadPerDay)
-    ' Keep only the therapist as a column. A two-point line creates
-    ' a genuine horizontal period benchmark, not a second benchmark bar.
-    Set series = plot.Chart.SeriesCollection.NewSeries
-    series.Name = "Μ.Ο. περιόδου"
-    series.ChartType = xlLine
-    series.XValues = Array("Ανά ημέρα", "")
-    series.Values = Array(referencePatients, referencePatients)
-    series.MarkerStyle = xlMarkerStyleNone
-    series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)
-    series.Format.Line.Weight = 2.25
-    series.Format.Line.DashStyle = msoLineDash
-    plot.Chart.HasLegend = True
-    plot.Chart.Legend.Position = xlLegendPositionBottom
+    plot.Chart.HasLegend = False
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
         WorksheetFunction.RoundUp(Application.Max(loadPerDay, referencePatients), 0))
@@ -365,6 +389,11 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.HasTitle = True
     plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
+    referenceColor = RGB(225, 0, 30) ' red by default
+    If WorkloadTrafficColor(loadPerDay) = RGB(205, 50, 55) Then
+        referenceColor = RGB(57, 255, 20) ' fluorescent green on red workload bar
+    End If
+    AddTherapistMeanMarker plot, "ekaMeanPatients", referencePatients, 1, 1, referenceColor
 
     ' Chart two: planned/delivered treatment sessions per reporting period.
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistSessionChart", "E", "H")
@@ -372,33 +401,19 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     series.Name = "Θεραπευτής"
     series.XValues = Array("Προγραμ.", "Πραγματ.")
     series.Values = Array(plannedSessions, actualSessions)
-    ' Each reference remains a horizontal line on the SAME chart.
-    ' The different dash patterns distinguish the two benchmarks.
-    Set series = plot.Chart.SeriesCollection.NewSeries
-    series.Name = "Μ.Ο. προγρ."
-    series.ChartType = xlLine
-    series.XValues = Array("Προγραμ.", "Πραγματ.")
-    series.Values = Array(referencePlanned, referencePlanned)
-    series.MarkerStyle = xlMarkerStyleNone
-    series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)
-    series.Format.Line.Weight = 2.25
-    series.Format.Line.DashStyle = msoLineDash
-    Set series = plot.Chart.SeriesCollection.NewSeries
-    series.Name = "Μ.Ο. πραγμ."
-    series.ChartType = xlLine
-    series.XValues = Array("Προγραμ.", "Πραγματ.")
-    series.Values = Array(referenceActual, referenceActual)
-    series.MarkerStyle = xlMarkerStyleNone
-    series.Format.Line.ForeColor.RGB = RGB(112, 48, 160)
-    series.Format.Line.Weight = 2.25
-    series.Format.Line.DashStyle = msoLineRoundDot
-    plot.Chart.HasLegend = True
-    plot.Chart.Legend.Position = xlLegendPositionBottom
+    plot.Chart.HasLegend = False
     plot.Chart.Axes(xlValue).MinimumScale = 0
-    ws.Range("E19").Value2 = "Μωβ γραμμές: μέσοι όροι ίδιας περιόδου"
+    plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
+        WorksheetFunction.RoundUp(Application.Max(plannedSessions, actualSessions, _
+            referencePlanned, referenceActual), 0))
+    ws.Range("E19").Value2 = "Κόκκινοι δείκτες: Μ.Ο. προγρ. " & _
+        Format$(referencePlanned, "0.0") & " | πραγματ. " & _
+        Format$(referenceActual, "0.0")
     plot.Chart.HasTitle = True
     plot.Chart.ChartTitle.Text = "Θεραπείες" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
+    AddTherapistMeanMarker plot, "ekaMeanPlanned", referencePlanned, 1, 2, RGB(225, 0, 30)
+    AddTherapistMeanMarker plot, "ekaMeanActual", referenceActual, 2, 2, RGB(225, 0, 30)
 
     ' Chart three: not a zero-absence chart. Historical therapist attendance
     ' and a reliable working-day denominator are NOT persisted in the current
