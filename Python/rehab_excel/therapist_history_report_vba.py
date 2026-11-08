@@ -597,8 +597,9 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
     referenceColor = RGB(225, 0, 30) ' red by default
-    If WorkloadTrafficColor(loadPerDay) = RGB(255, 3, 3) Then
-        referenceColor = RGB(57, 255, 20) ' fluorescent green on red workload bar
+    If WorkloadTrafficColor(loadPerDay) = RGB(255, 3, 3) And _
+            referencePatients <= loadPerDay Then
+        referenceColor = RGB(57, 255, 20) ' neon only where marker crosses red fill
     End If
     AddTherapistMeanMarker plot, "ekaMeanPatients", referencePatients, 1, 1, referenceColor
 
@@ -622,7 +623,11 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.ChartTitle.Text = "Θεραπείες" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
     AddTherapistMeanMarker plot, "ekaMeanPlanned", referencePlanned, 1, 2, RGB(225, 0, 30)
-    AddTherapistMeanMarker plot, "ekaMeanActual", referenceActual, 2, 2, RGB(57, 255, 20)
+    referenceColor = RGB(225, 0, 30)
+    If referenceActual <= actualSessions And actualSessions > 0 Then
+        referenceColor = RGB(57, 255, 20) ' neon where benchmark crosses red bar
+    End If
+    AddTherapistMeanMarker plot, "ekaMeanActual", referenceActual, 2, 2, referenceColor
 
     ' Mini trend panels: genuine finalized daily data, same time window and
     ' chart ordinate for every therapist in that cohort, two series in sessions.
