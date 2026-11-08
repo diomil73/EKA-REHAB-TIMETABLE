@@ -889,6 +889,10 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         selectedPeriod = ""
     End If
     For r = 23 To lastRow
+        ' Department-wide totals must include ALL rows of the active mode,
+        ' regardless of the selected therapist's benchmark cohort.
+        teamPlanned = teamPlanned + CLng(ws.Cells(r, 7).Value2)
+        teamActual = teamActual + CLng(ws.Cells(r, 8).Value2)
         periodKey = CStr(ws.Cells(r, 1).Value2) & "|" & CStr(ws.Cells(r, 2).Value2)
         If selectedRow = 0 Or periodKey = selectedPeriod Then
             If IsNumeric(ws.Cells(r, 14).Value2) And _
@@ -914,8 +918,6 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         WorksheetFunction.RoundUp(cohortMaxPatients, 0))
     cohortAxisSessions = Application.Max(1, _
         WorksheetFunction.RoundUp(cohortMaxSessions, -1))
-    teamPlanned = CLng(referencePlanned)
-    teamActual = CLng(referenceActual)
     If referenceCount > 0 And referenceDays > 0 Then
         referencePatients = referencePatients / referenceDays
         referencePlanned = referencePlanned / referenceCount
@@ -924,8 +926,8 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
 
     ' One plain-language departmental total, same period as the benchmark.
     ' A single combined total is not a sum of therapist percentage values.
-    If referenceCount > 0 Then
-        ws.Range("A20").Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | Προγραμματισμένες: " & _
+    If lastRow >= 23 Then
+        ws.Range("A20").Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ (προβολή) | Προγραμματισμένες: " & _
             CStr(teamPlanned) & " | Πραγματοποιημένες: " & CStr(teamActual) & _
             " | Υλοποίηση: " & IIf(teamPlanned > 0, _
             Format$(100# * CDbl(teamActual) / Application.Max(1, teamPlanned), "0.0") & "%", "—")
