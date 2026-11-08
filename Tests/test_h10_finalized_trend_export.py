@@ -89,3 +89,47 @@ def test_h10_trend_output_is_optional_and_refuses_collision(tmp_path, monkeypatc
             workbook, dest, mode="daily", trend_output_path=dest,
         )
     assert not dest.exists()
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_start", "expected_end"),
+    [
+        ("today", "2026-11-09", "2026-11-09"),
+        ("yesterday", "2026-11-08", "2026-11-08"),
+        ("week", "2026-11-09", "2026-11-09"),
+        ("month", "2026-11-01", "2026-11-09"),
+        ("year", "2026-01-01", "2026-11-09"),
+        ("overall", None, "2026-11-09"),
+    ],
+)
+def test_calendar_mode_window_is_explicit_and_never_future_filled(mode, expected_start, expected_end):
+    start, end = mod.selected_period(mode, date(2026, 11, 9))
+    assert (start.isoformat() if start else None) == expected_start
+    assert end.isoformat() == expected_end
+
+
+def test_six_modes_emit_at_most_one_row_per_therapist_and_no_future_facts(tmp_path, monkeypatch):
+    observations = (
+        daily("2026-11-06", "T1", 2, 1),
+        daily("2026-11-07", "T1", 3, 2),
+        daily("2026-11-09", "T1", 4, 3),
+        daily("2026-11-09", "T2", 5, 4),
+        daily("2026-11-10", "T1", 6, 5),
+    )
+    monkeypatch.setattr(mod, "report_therapist_history", lambda _: observations)
+    monkeypatch.setattr(mod, "read_current_patient_session_history_rows", lambda _: ())
+    workbook = tmp_path / "demo.xlsm"
+    expected = {"today": 2, "yesterday": 0, "week": 2, "month": 2, "year": 2, "overall": 2}
+    for mode, count in expected.items():
+        output = tmp_path / f"{mode}.tsv"
+        trend = tmp_path / f"{mode}-trend.tsv"
+        result = mod.export_therapist_history_ui(
+            workbook, output, mode=mode, as_of=date(2026, 11, 9), trend_output_path=trend
+        )
+        assert result["rows"] == count
+        body = output.read_text(encoding="utf-8-sig").splitlines()[1:]
+        assert len({line.split("\t")[3] for line in body}) == len(body)
+        assert all("2026-11-10" not in line for line in trend.read_text(encoding="utf-8-sig").splitlines())
+    today = (tmp_path / "today.tsv").read_text(encoding="utf-8-sig").splitlines()
+    assert today[1].split("\t")[7:9] == ["4", "3"]
+    assert len((tmp_path / "yesterday.tsv").read_text(encoding="utf-8-sig").splitlines()) == 1
