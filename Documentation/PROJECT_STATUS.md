@@ -811,3 +811,24 @@ Next user-facing manual UI smoke on existing BO only (no rebuild/seed/reinstall)
 5. If all good, record BO as accepted **synthetic demo UI** while preserving BL as the established H8 reference, AZ immutable source, BM/BN frozen failed diagnostics.
 
 No new native file or changes to BO authorized by this checkpoint.
+
+## 2026-11-08 — H10 simplified therapist UI prototype, user wants to judge it visually
+
+User requested a **visual trial first** before finalizing therapist workload/reporting semantics. They strongly prioritize a compact, immediately understandable manager-facing overview; complex clinical/operational distinctions should remain in source/audit history rather than crowd the main dashboard. The user also asked whether our project experience helps architect the broader rehab-center system: yes, the project has established consistent operational contracts, although local decisions and clinical workflows still need user expertise. **No new business-rule decision was requested yet**.
+
+H10 source-only prototype commits:
+- `c7d6d7d`: updates `Python/rehab_excel/therapist_history_report_vba.py` with a 22-row frozen header, matching the patient history's sticky chart surface; active row blue conditional-format highlighting keyed by hidden `P1`; new selected row macro and VBA event support; comparison bars for selected therapist vs same-period averages, with per-day patient mean weighted by reported days. Preserves H9 staff-attendance **unavailable** placeholder.
+- `10a7796`: makes the table's three report-mode groups use plain-language `Απουσίες/αναβολές`, `Αναστολές θεραπείας`, and display `Ασθενείς/ημέρα` consistently. NOTE: Both historical cause counts are still retained in the detailed table in this **prototype** for transparency. Do not claim the underlying business-rule redesign or exact free-slot utilization model has been implemented; in particular, do not interpret existing "released" as verified final empty capacity.
+- `61eee84`: `Python/tools/prepare_h10_therapist_simple_demo.py` is a guarded **one-shot native** BO -> previously nonexistent BP `_DEMO_.xlsm` copy that updates **only** the therapist report VBA module and its report worksheet selection-change handler, preserving BO's verified synthetic historical technical sheets and VBA. It refuses existing BP, wrong names or source, no overwrite. Native persisted reopen checks expected new VBA and report protection and keeps 5 historical technical sheets veryHidden/protected. It does not change seed/production histories or install H9 real attendance.
+- `257fade` and `b680adf`: `Tests/test_h10_therapist_simple_demo.py` with six source regression tests: frozen panes to row 22, selection highlight, same-period benchmark arithmetic/labels, plain-language headers, BO/BP naming/overwrite guard, persisted VBA marker/event structure.
+
+**Status:** These new H10 tests have NOT been run yet, BP has NOT been created. BO remains previously verified synthetic historical source (25 days, 522 patient sessions, 150 therapist-day rows, 150 synthetic attendance facts, 25 events), unchanged. Accepted BL and frozen AZ/BJ/BK plus failed BM/BN unchanged.
+
+Before any BP native Excel operation, the user should run with Excel closed:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h10_therapist_simple_demo.py Tests/test_h8_synthetic_demo_history.py Tests/test_h8_synthetic_history_verifier.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: H10 prototype source tests failed" }
+```
+No green claim is valid until operator reports results. If green, first **read-only** verify existing BO using `Python/tools/verify_h8_synthetic_history.py`; if green, run one-shot `prepare_h10_therapist_simple_demo.py --source Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm --output Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BP.xlsm`, with explicit absent-target check and STOP on error. Run read-only `verify_h8_synthetic_history.py` again on BP, plus independent native protection and toolbar audits. Do not retry on same BP after any failure; freeze and inspect. Manual compare BP's daily/weekly/monthly/overall charts, active row, benchmark comparison, and sticky panes. Explicitly preserve staff-attendance placeholder and clarify that patient-side reasons are a later independent improvement.
