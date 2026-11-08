@@ -219,6 +219,10 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     ws.ChartObjects("ekaDepartmentHistoryChart").Delete
     On Error GoTo ReportError
     ws.Range("A1:P1048576").ClearContents
+    ' Clear stale workbook formatting from previous, possibly larger periods.
+    ' ClearContents alone leaves old traffic-light fills even on empty rows.
+    ' Never clear technical history: these coordinates belong to report UI.
+    ws.Range("A22:N2000").ClearFormats
     ' Clear the prior hidden daily cache before loading a new mode/period;
     ' otherwise old trailing rows could silently enter today's chart.
     ws.Range("Q1:U" & CStr(Application.Max(2, _
@@ -423,6 +427,8 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
     ws.Range("C5").Value2 = "Τελικά πραγματ."
     ws.Range("D5").Value2 = "Υλοποίηση"
     ws.Range("A5:D5").Font.Bold = True
+    ws.Columns("B:C").NumberFormat = "0"
+    ws.Columns("D").NumberFormat = "0.0%"
     ws.Columns("A").ColumnWidth = 30
     ws.Columns("B:D").ColumnWidth = 23
     ws.Columns("E:J").ColumnWidth = 14
@@ -562,6 +568,14 @@ Private Sub BuildDepartmentAppendix(ByVal ws As Worksheet, _
 
     headerRow = finalTherapistRow + 3
     startRow = headerRow + 2
+    ' The parent report uses date formatting in columns A:B. Summary counts
+    ' are new numeric measures and MUST override inherited date formatting.
+    ws.Range(ws.Cells(startRow - 1, 1), _
+        ws.Cells(startRow + groupKeys.Count, 1)).NumberFormat = "@"
+    ws.Range(ws.Cells(startRow, 2), _
+        ws.Cells(startRow + groupKeys.Count, 3)).NumberFormat = "0"
+    ws.Range(ws.Cells(startRow, 4), _
+        ws.Cells(startRow + groupKeys.Count, 4)).NumberFormat = "0.0%"
     ws.Cells(headerRow, 1).Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | " & _
         ReportModeDescription(reportMode)
     ws.Cells(headerRow, 1).Font.Bold = True
@@ -593,6 +607,9 @@ Private Sub BuildDepartmentAppendix(ByVal ws As Worksheet, _
     ws.Cells(lastGroup + 1, 1).Value2 = "ΣΥΝΟΛΟ"
     ws.Cells(lastGroup + 1, 2).Value2 = allPlanned
     ws.Cells(lastGroup + 1, 3).Value2 = allDelivered
+    ' Read-back correctness: numeric totals cannot be date serial displays.
+    ws.Range(ws.Cells(startRow, 2), _
+        ws.Cells(lastGroup + 1, 3)).NumberFormat = "0"
     If allPlanned > 0 Then
         ws.Cells(lastGroup + 1, 4).Value2 = allDelivered / allPlanned
         ws.Cells(lastGroup + 1, 4).NumberFormat = "0.0%"
@@ -868,7 +885,8 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ws.ChartObjects("ekaTherapistAttendanceChart").Delete
     ws.ChartObjects("ekaTherapistLoadTrend").Delete
     ws.ChartObjects("ekaTherapistSessionTrend").Delete
-    ws.ChartObjects("ekaDepartmentHistoryChart").Delete
+    ' The department appendix is independently generated on report refresh.
+    ' Selecting another therapist MUST NOT delete its department chart.
     On Error GoTo 0
     ws.Range("A5:M20").ClearContents
 
