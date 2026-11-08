@@ -57,22 +57,28 @@ def check_candidate(source: Path, output: Path) -> None:
         raise H10DemoError("Source must be frozen verified BO demo")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
-    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BP.XLSM"):
-        raise H10DemoError("Fresh H10 BP _DEMO_ .xlsm destination required")
+    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BQ.XLSM"):
+        raise H10DemoError("Fresh H10 BQ _DEMO_ .xlsm destination required")
     if source.resolve() == output.resolve():
         raise H10DemoError("Source and destination collision")
 
 
+def _safe_module_lines(module) -> str:
+    """Do not call VBA CodeModule.Lines(1, 0) on an empty worksheet module."""
+    count = int(module.CountOfLines)
+    return "" if count == 0 else str(module.Lines(1, count))
+
+
 def _verify_native(wb) -> None:
-    if not bool(wb.HasVBProject):
+    if not bool(wb.HasVBQroject):
         raise H10DemoError("VBA project missing")
-    module = wb.VBProject.VBComponents(THERAPIST_HISTORY_MODULE_NAME).CodeModule
-    installed = module.Lines(1, module.CountOfLines)
+    module = wb.VBQroject.VBComponents(THERAPIST_HISTORY_MODULE_NAME).CodeModule
+    installed = _safe_module_lines(module)
     if any(fragment not in installed for fragment in REQUIRED_VBA):
         raise H10DemoError("H10 VBA markers missing after native reopen")
     sheet = wb.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
-    component = wb.VBProject.VBComponents(sheet.CodeName).CodeModule
-    sheet_code = component.Lines(1, component.CountOfLines)
+    component = wb.VBQroject.VBComponents(sheet.CodeName).CodeModule
+    sheet_code = _safe_module_lines(component)
     if EVENT_CODE.strip() not in sheet_code:
         raise H10DemoError("Therapist row-selection event not persisted")
     if not bool(sheet.ProtectContents) or bool(sheet.ProtectDrawingObjects):
@@ -99,33 +105,44 @@ def install_native(source: Path, output: Path) -> None:
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh BO -> BP copy SHA256 mismatch")
+        raise H10DemoError("Fresh BO -> BQ copy SHA256 mismatch")
 
     excel = None
     book = None
+    stage = "initialize native Excel session"
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
+        stage = "open BQ for installation"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
-            raise H10DemoError("BP opened read-only; no edits possible")
-        vbproj = book.VBProject
+            raise H10DemoError("BQ opened read-only; no edits possible")
+        vbproj = book.VBQroject
         report = book.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
+        stage = "locate therapist report sheet module"
         component = vbproj.VBComponents(report.CodeName)
         code = component.CodeModule
-        present = code.Lines(1, code.CountOfLines)
+        stage = "read existing worksheet VBA (may be empty)"
+        present = _safe_module_lines(code)
         if "Worksheet_SelectionChange" in present:
             raise H10DemoError("Existing selection event detected; stop rather than overwrite")
+        stage = "replace therapist history standard module"
         old = vbproj.VBComponents(THERAPIST_HISTORY_MODULE_NAME)
         vbproj.VBComponents.Remove(old)
         new = vbproj.VBComponents.Add(1)
         new.Name = THERAPIST_HISTORY_MODULE_NAME
+        stage = "write therapist history standard VBA"
         new.CodeModule.AddFromString(THERAPIST_HISTORY_MODULE_CODE)
+        stage = "write worksheet selection-change handler"
         code.AddFromString(EVENT_CODE)
+        stage = "verify installed VBA and protected history sheets"
         _verify_native(book)
+        stage = "save BQ"
         book.Save()
+    except Exception as exc:
+        raise H10DemoError(f"BQ install failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -142,10 +159,14 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
+        stage = "read-only persisted BQ reopen"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=True)
         if not bool(book.ReadOnly):
-            raise H10DemoError("Native BP reopen was not read-only")
+            raise H10DemoError("Native BQ reopen was not read-only")
+        stage = "read-only persisted VBA protection audit"
         _verify_native(book)
+    except Exception as exc:
+        raise H10DemoError(f"BQ verification failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -158,7 +179,7 @@ def install_native(source: Path, output: Path) -> None:
     if digest(source) != source_hash:
         raise H10DemoError("Frozen BO source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BP only; BO and archived previews unchanged")
+    print("Fresh BQ only; BO and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
@@ -172,7 +193,7 @@ def main() -> int:
         install_native(args.source, args.output)
     except Exception as exc:
         print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
-        print("Freeze BP; do not retry, repair or overwrite candidate")
+        print("Freeze BQ; do not retry, repair or overwrite candidate")
         return 2
     return 0
 
