@@ -159,6 +159,7 @@ def export_therapist_history_ui(
     output_path: str | Path,
     *,
     mode: str = "monthly",
+    trend_output_path: str | Path | None = None,
 ) -> dict[str, object]:
     mode = mode.strip().casefold()
     if mode not in {"daily", "weekly", "monthly", "overall"}:
@@ -190,6 +191,36 @@ def export_therapist_history_ui(
     lines = ["\t".join(HEADERS)]
     lines.extend("\t".join(_field(value) for value in row) for row in rows)
     output.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+
+    if trend_output_path is not None:
+        # The primary TSV contract remains unchanged. The optional second TSV
+        # carries only finalized, genuine daily facts; no interpolated dates,
+        # future dates, or invented attendance. It is used for the two tiny
+        # historical charts beneath the main therapist charts.
+        trend_path = Path(trend_output_path).resolve()
+        if trend_path == output:
+            raise TherapistHistoryUiExportError("Trend output collides with report output")
+        trend_path.parent.mkdir(parents=True, exist_ok=True)
+        trend_headers = ("Date", "Therapist", "Planned", "Delivered", "UniquePatients")
+        trend_rows = sorted(
+            (
+                report.service_date.isoformat(),
+                report.therapist_id,
+                report.planned_sessions,
+                report.final_active_sessions,
+                daily_counts.get(
+                    (report.service_date, report.therapist_id.casefold()), 0
+                ),
+            )
+            for report in daily
+        )
+        trend_lines = ["\t".join(trend_headers)]
+        trend_lines.extend(
+            "\t".join(_field(field) for field in row) for row in trend_rows
+        )
+        trend_path.write_text(
+            "\n".join(trend_lines) + "\n", encoding="utf-8-sig"
+        )
     return {"ok": True, "mode": mode, "rows": len(rows), "output": str(output)}
 
 
@@ -198,16 +229,22 @@ def main() -> int:
     parser.add_argument("--workbook", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--mode", choices=("daily", "weekly", "monthly", "overall"), default="monthly")
+    parser.add_argument("--trend-output", type=Path, default=None,
+                        help="Optional sorted, finalized daily facts TSV for mini charts")
     args = parser.parse_args()
 
     try:
-        result = export_therapist_history_ui(args.workbook, args.output, mode=args.mode)
+        result = export_therapist_history_ui(
+            args.workbook, args.output, mode=args.mode,
+            trend_output_path=args.trend_output,
+        )
     except Exception as exc:
-        try:
-            if args.output.exists():
-                args.output.unlink()
-        except OSError:
-            pass
+        for candidate in (args.output, args.trend_output):
+            try:
+                if candidate is not None and candidate.exists():
+                    candidate.unlink()
+            except OSError:
+                pass
         print(f"THERAPIST HISTORY UI EXPORT FAILED: {exc}")
         return 2
 
