@@ -351,3 +351,23 @@ def test_individual_selection_does_not_delete_the_persistent_department_chart():
     assert 'ws.ChartObjects("ekaDepartmentHistoryChart").Delete' not in per_therapist
     assert 'chart.Name = "ekaDepartmentHistoryChart"' in vba
     assert 'ws.ChartObjects("ekaDepartmentHistoryChart").Delete' in vba
+
+
+def test_management_internal_dashboard_does_not_obscure_buttons_and_has_kpi_tiles():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    begin = vba.index("Private Sub RenderManagementSummary(")
+    end = vba.index("Private Sub BuildDepartmentAppendix(", begin)
+    source = vba[begin:end]
+    assert 'ws.Range("A8:B8").Merge' in source
+    assert 'ws.Range("C8:D8").Merge' in source
+    assert 'ws.Range("F8:G8").Merge' in source
+    assert 'ws.Range("A9").Value2 = plannedTotal' in source
+    assert 'ws.Range("C9").Value2 = deliveredTotal' in source
+    assert 'ws.Range("F9").Value2 = deliveredTotal / plannedTotal' in source
+    assert 'ws.Range("F15").Left' in source
+    assert 'ws.Range("F15").Top' in source
+    assert 'shape.Top = ws.Range("A5").Top' in source
+    assert 'shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB' in source
+    assert 'ActiveWindow.DisplayHeadings = False' in source
+    assert 'ActiveWindow.DisplayGridlines = False' in source
+    assert 'ws.Range("A15:D15").Interior.Color' in source
