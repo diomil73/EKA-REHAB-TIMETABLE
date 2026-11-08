@@ -361,10 +361,9 @@ End Sub
 Private Sub BuildTherapistMiniTrends(ByVal ws As Worksheet, _
         ByVal reportMode As String, ByVal selectedRow As Long, _
         ByVal therapistName As String)
-    Dim lastDaily As Long, r As Long, count As Long, n As Long
+    Dim lastDaily As Long, r As Long, n As Long
     Dim dateText As String, previousDate As String, person As String
     Dim maxPatient As Double, maxSession As Double
-    Dim dailyCount As Long, dailyPatients As Double
     Dim xs() As Variant, planned() As Variant, delivered() As Variant
     Dim patients() As Variant, dayCounts() As Long
     Dim xPlot() As Variant, pPlot() As Variant, dPlot() As Variant
@@ -414,7 +413,11 @@ NextDailyTrend:
     Next r
 
     ' No trend extrapolation from a single finalized day.
-    If n < 2 Then Exit Sub
+    If n < 2 Then
+        ws.Range("A18").Value2 = "Τάση: ανεπαρκείς ημέρες"
+        Exit Sub
+    End If
+    ws.Range("A18").Value2 = "Τάση: " & CStr(xs(1)) & " έως " & CStr(xs(n))
     ReDim xPlot(1 To n)
     ReDim pPlot(1 To n)
     ReDim dPlot(1 To n)
@@ -624,7 +627,6 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' Mini trend panels: genuine finalized daily data, same time window and
     ' chart ordinate for every therapist in that cohort, two series in sessions.
     BuildTherapistMiniTrends ws, reportMode, selectedRow, therapistName
-    ws.Range("A18").Value2 = "Τάση φόρτου | οριστικοποιημένες ημέρες"
     ws.Range("E18").Value2 = "Μπλε: προγρ. | Κόκκινο: πραγματ."
 
     ' Chart three: not a zero-absence chart. Historical therapist attendance
