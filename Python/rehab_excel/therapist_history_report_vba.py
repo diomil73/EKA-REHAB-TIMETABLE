@@ -492,15 +492,18 @@ Private Function NewTherapistTrendChart(ByVal ws As Worksheet, _
     NewTherapistTrendChart.Chart.ChartType = xlLine
     NewTherapistTrendChart.Chart.HasLegend = False
     NewTherapistTrendChart.Chart.HasTitle = False
-    ' A visible but unobtrusive horizontal ruler, rather than a flat,
-    ' unlabeled sparkline. The caller sets exact bounds and major units.
-    With NewTherapistTrendChart.Chart.Axes(xlValue)
+End Function
+
+Private Sub StyleTherapistTrendRuler(ByVal plot As ChartObject)
+    ' Axis objects are accessed ONLY after the first actual data series
+    ' exists. Calling Chart.Axes on an empty chart may raise Excel 1004.
+    With plot.Chart.Axes(xlValue)
         .HasMajorGridlines = True
         .MajorGridlines.Format.Line.ForeColor.RGB = RGB(215, 225, 235)
         .MajorGridlines.Format.Line.Weight = 0.5
         .TickLabels.Font.Size = 8
     End With
-End Function
+End Sub
 
 Private Sub AddTherapistTrendSeries(ByVal plot As ChartObject, _
         ByVal seriesName As String, ByVal xs As Variant, _
@@ -602,6 +605,7 @@ NextDailyTrend:
 
     Set plot = NewTherapistTrendChart(ws, "ekaTherapistLoadTrend", "A", "D")
     AddTherapistTrendSeries plot, "Ασθενείς/ημέρα", xPlot, lPlot, RGB(63, 168, 245)
+    StyleTherapistTrendRuler plot
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
         WorksheetFunction.RoundUp(maxPatient, 0))
@@ -611,6 +615,7 @@ NextDailyTrend:
     Set plot = NewTherapistTrendChart(ws, "ekaTherapistSessionTrend", "E", "H")
     AddTherapistTrendSeries plot, "Αρχικά προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)
     AddTherapistTrendSeries plot, "Τελικά πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)
+    StyleTherapistTrendRuler plot
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
         WorksheetFunction.RoundUp(maxSession, 0))
