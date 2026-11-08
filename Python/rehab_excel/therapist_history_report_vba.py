@@ -142,6 +142,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
         ws.Cells(ws.Rows.Count, 17).End(xlUp).Row))).ClearContents
     ws.Range("P1").Value2 = 0
     ws.Range("P2").Value2 = reportMode
+    ws.Columns("Q").NumberFormat = "@"  ' preserve ISO dates as text, not Excel serial
     EnsureReportButtons ws
     ws.Cells(1, 1).Value2 = "Ιστορικό / Στατιστικά Θεραπευτών"
     ws.Cells(2, 1).Value2 = ReportModeDescription(reportMode) & _
@@ -291,7 +292,7 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
         ws.Range(lastColumn & "5").Width - ws.Range(firstColumn & "5").Left
     Set plot = ws.ChartObjects.Add( _
         ws.Range(firstColumn & "5").Left, ws.Range(firstColumn & "5").Top, _
-        chartWidth - 4, 108)
+        chartWidth - 4, 100)
     plot.Name = chartName
     plot.Placement = xlFreeFloating
     plot.Chart.ChartType = xlColumnClustered
@@ -332,16 +333,24 @@ Private Function NewTherapistTrendChart(ByVal ws As Worksheet, _
         ByVal chartName As String, ByVal firstColumn As String, _
         ByVal lastColumn As String) As ChartObject
     Dim chartWidth As Double
-    chartWidth = ws.Range(lastColumn & "13").Left + _
-        ws.Range(lastColumn & "13").Width - ws.Range(firstColumn & "13").Left
+    chartWidth = ws.Range(lastColumn & "12").Left + _
+        ws.Range(lastColumn & "12").Width - ws.Range(firstColumn & "12").Left
     Set NewTherapistTrendChart = ws.ChartObjects.Add( _
-        ws.Range(firstColumn & "13").Left, ws.Range(firstColumn & "13").Top, _
-        chartWidth - 4, 72)
+        ws.Range(firstColumn & "12").Left, ws.Range(firstColumn & "12").Top, _
+        chartWidth - 4, 90)
     NewTherapistTrendChart.Name = chartName
     NewTherapistTrendChart.Placement = xlFreeFloating
     NewTherapistTrendChart.Chart.ChartType = xlLine
     NewTherapistTrendChart.Chart.HasLegend = False
     NewTherapistTrendChart.Chart.HasTitle = False
+    ' A visible but unobtrusive horizontal ruler, rather than a flat,
+    ' unlabeled sparkline. The caller sets exact bounds and major units.
+    With NewTherapistTrendChart.Chart.Axes(xlValue)
+        .HasMajorGridlines = True
+        .MajorGridlines.Format.Line.ForeColor.RGB = RGB(215, 225, 235)
+        .MajorGridlines.Format.Line.Weight = 0.5
+        .TickLabels.Font.Size = 8
+    End With
 End Function
 
 Private Sub AddTherapistTrendSeries(ByVal plot As ChartObject, _
@@ -445,6 +454,7 @@ NextDailyTrend:
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
         WorksheetFunction.RoundUp(maxPatient, 0))
+    plot.Chart.Axes(xlValue).MajorUnit = 1
     plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
 
     Set plot = NewTherapistTrendChart(ws, "ekaTherapistSessionTrend", "E", "H")
@@ -452,7 +462,11 @@ NextDailyTrend:
     AddTherapistTrendSeries plot, "Πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
-        WorksheetFunction.RoundUp(maxSession, -1))
+        WorksheetFunction.RoundUp(maxSession, 0))
+    ' A unit on the right means ONE session when values fit. For a large
+    ' team-wide series, widen only the tick spacing, not the data values.
+    plot.Chart.Axes(xlValue).MajorUnit = Application.Max(1, _
+        WorksheetFunction.RoundUp(maxSession / 8#, 0))
     plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
 End Sub
 
