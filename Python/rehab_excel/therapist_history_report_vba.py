@@ -399,6 +399,7 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
     Dim headerRow As Long, sourceRow As Long, targetRow As Long
     Dim i As Long, shape As Shape, names As Variant, calls As Variant
     Dim maxCount As Double, widthPoints As Double
+    Dim plannedTotal As Double, deliveredTotal As Double, percentText As String
 
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets(MANAGEMENT_SHEET)
@@ -413,6 +414,7 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
     ws.ChartObjects("ekaManagementChart").Delete
     On Error GoTo 0
     ws.Cells.ClearContents
+    ws.Range("A1:J40").ClearFormats
     ws.Range("A1:J2").UnMerge
     ws.Range("A1:J2").Merge
     ws.Range("A1").Value2 = "ΔΙΟΙΚΗΣΗ | ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ"
@@ -422,11 +424,31 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
     ws.Range("A1:J2").Font.Size = 17
     ws.Range("A3").Value2 = ReportModeDescription(reportMode)
     ws.Range("A3").Font.Bold = True
-    ws.Range("A5").Value2 = "Περίοδος"
-    ws.Range("B5").Value2 = "Αρχικά προγρ."
-    ws.Range("C5").Value2 = "Τελικά πραγματ."
-    ws.Range("D5").Value2 = "Υλοποίηση"
-    ws.Range("A5:D5").Font.Bold = True
+    ws.Range("A3").Font.Color = RGB(16, 35, 61)
+    ws.Range("A8:B8").Merge
+    ws.Range("C8:D8").Merge
+    ws.Range("F8:G8").Merge
+    ws.Range("A9:B10").Merge
+    ws.Range("C9:D10").Merge
+    ws.Range("F9:G10").Merge
+    ws.Range("A8").Value2 = "ΑΡΧΙΚΑ ΠΡΟΓΡΑΜΜΑΤΙΣΜΕΝΕΣ"
+    ws.Range("C8").Value2 = "ΤΕΛΙΚΑ ΠΡΑΓΜΑΤΟΠΟΙΗΜΕΝΕΣ"
+    ws.Range("F8").Value2 = "ΠΟΣΟΣΤΟ ΥΛΟΠΟΙΗΣΗΣ"
+    ws.Range("A8:B10").Interior.Color = RGB(236, 241, 247)
+    ws.Range("C8:D10").Interior.Color = RGB(236, 241, 247)
+    ws.Range("F8:G10").Interior.Color = RGB(236, 241, 247)
+    ws.Range("A8:G8").Font.Bold = True
+    ws.Range("A9:G10").Font.Bold = True
+    ws.Range("A9:G10").Font.Size = 22
+    ws.Range("A9").Font.Color = RGB(63, 168, 245)
+    ws.Range("C9").Font.Color = RGB(255, 3, 3)
+    ws.Range("A15").Value2 = "Περίοδος"
+    ws.Range("B15").Value2 = "Αρχικά προγρ."
+    ws.Range("C15").Value2 = "Τελικά πραγματ."
+    ws.Range("D15").Value2 = "Υλοποίηση"
+    ws.Range("A15:D15").Font.Bold = True
+    ws.Range("A15:D15").Interior.Color = RGB(16, 35, 61)
+    ws.Range("A15:D15").Font.Color = RGB(255, 255, 255)
     ws.Columns("B:C").NumberFormat = "0"
     ws.Columns("D").NumberFormat = "0.0%"
     ws.Columns("A").ColumnWidth = 30
@@ -435,7 +457,7 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
 
     headerRow = finalTherapistRow + 3
     sourceRow = headerRow + 2
-    targetRow = 6
+    targetRow = 16
     If finalTherapistRow >= 23 Then
         Do While Len(CStr(source.Cells(sourceRow, 1).Value2)) > 0
             If CStr(source.Cells(sourceRow, 1).Value2) = "ΣΥΝΟΛΟ" Then Exit Do
@@ -475,21 +497,33 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
         ws.Cells(targetRow, 4).Value2 = "Μη διαθέσιμο"
     End If
     ws.Range(ws.Cells(targetRow, 1), ws.Cells(targetRow, 4)).Font.Bold = True
+    plannedTotal = CDbl(ws.Cells(targetRow, 2).Value2)
+    deliveredTotal = CDbl(ws.Cells(targetRow, 3).Value2)
+    ws.Range("A9").Value2 = plannedTotal
+    ws.Range("C9").Value2 = deliveredTotal
+    ws.Range("A9").NumberFormat = "#,##0"
+    ws.Range("C9").NumberFormat = "#,##0"
+    If plannedTotal > 0 Then
+        ws.Range("F9").Value2 = deliveredTotal / plannedTotal
+        ws.Range("F9").NumberFormat = "0.0%"
+    Else
+        ws.Range("F9").Value2 = "Μη διαθέσιμο"
+    End If
 
-    If targetRow > 6 Then
-        Set chart = ws.ChartObjects.Add(ws.Range("F5").Left, _
-            ws.Range("F5").Top, ws.Range("F1:J1").Width, 260)
+    If targetRow > 16 Then
+        Set chart = ws.ChartObjects.Add(ws.Range("F15").Left, _
+            ws.Range("F15").Top, ws.Range("F1:J1").Width, 285)
         chart.Name = "ekaManagementChart"
         chart.Chart.ChartType = xlColumnClustered
         Set series = chart.Chart.SeriesCollection.NewSeries
         series.Name = "Αρχικά προγραμματισμένες"
-        series.XValues = ws.Range(ws.Cells(6, 1), ws.Cells(targetRow - 1, 1))
-        series.Values = ws.Range(ws.Cells(6, 2), ws.Cells(targetRow - 1, 2))
+        series.XValues = ws.Range(ws.Cells(16, 1), ws.Cells(targetRow - 1, 1))
+        series.Values = ws.Range(ws.Cells(16, 2), ws.Cells(targetRow - 1, 2))
         series.Format.Fill.ForeColor.RGB = RGB(63, 168, 245)
         Set series = chart.Chart.SeriesCollection.NewSeries
         series.Name = "Τελικά πραγματοποιημένες"
-        series.XValues = ws.Range(ws.Cells(6, 1), ws.Cells(targetRow - 1, 1))
-        series.Values = ws.Range(ws.Cells(6, 3), ws.Cells(targetRow - 1, 3))
+        series.XValues = ws.Range(ws.Cells(16, 1), ws.Cells(targetRow - 1, 1))
+        series.Values = ws.Range(ws.Cells(16, 3), ws.Cells(targetRow - 1, 3))
         series.Format.Fill.ForeColor.RGB = RGB(255, 3, 3)
         chart.Chart.HasTitle = True
         chart.Chart.ChartTitle.Text = "Συνεδρίες όλου του τμήματος"
@@ -515,21 +549,37 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
             Set shape = ws.Shapes.AddShape(5, 0, 0, 135, 27)
             shape.Name = "ekaManagementButton" & CStr(i)
         End If
-        shape.Left = ws.Range("A4").Left + i * 143
-        shape.Top = ws.Range("A4").Top
+        shape.Left = ws.Range("A5").Left + i * 143
+        shape.Top = ws.Range("A5").Top
         shape.Width = 135
-        shape.Height = 27
+        shape.Height = 28
         shape.OnAction = CStr(calls(i))
         shape.Placement = xlFreeFloating
         shape.TextFrame2.TextRange.Text = CStr(names(i))
-        shape.Fill.ForeColor.RGB = RGB(230, 239, 249)
+        If (i = 0 And LCase$(reportMode) = "daily") Or _
+           (i = 1 And LCase$(reportMode) = "weekly") Or _
+           (i = 2 And LCase$(reportMode) = "monthly") Or _
+           (i = 3 And LCase$(reportMode) = "overall") Then
+            shape.Fill.ForeColor.RGB = RGB(37, 99, 170)
+            shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
+        Else
+            shape.Fill.ForeColor.RGB = RGB(236, 241, 247)
+            shape.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(16, 35, 61)
+        End If
         shape.TextFrame2.TextRange.Font.Bold = True
+        shape.TextFrame2.TextRange.Font.Size = 10
+        shape.Line.ForeColor.RGB = RGB(170, 185, 205)
     Next i
     ws.Cells(targetRow + 2, 1).Value2 = _
         "ΠΡΟΣΟΧΗ: το εσωτερικό φύλλο δεν αποστέλλεται." & _
         " Χρησιμοποιήστε «Εξαγωγή μόνο διοίκησης» για νέο καθαρό XLSX."
     ws.Range(ws.Cells(targetRow + 2, 1), ws.Cells(targetRow + 2, 10)).Merge
     ws.Range(ws.Cells(targetRow + 2, 1), ws.Cells(targetRow + 2, 10)).Font.Bold = True
+    ws.Activate
+    If Not ActiveWindow Is Nothing Then
+        ActiveWindow.DisplayHeadings = False
+        ActiveWindow.DisplayGridlines = False
+    End If
     ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
 End Sub
 
