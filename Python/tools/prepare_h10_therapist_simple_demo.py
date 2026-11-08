@@ -49,6 +49,10 @@ REQUIRED_VBA = (
     'AddTherapistTrendSeries plot, "Αρχικά προγραμματισμένες"',
     'AddTherapistTrendSeries plot, "Τελικά πραγματοποιημένες"',
     'ws.Columns("P:U").Hidden = True',
+    'Private Sub RenderManagementSummary',
+    'Public Sub ExportManagementOnlyWorkbook',
+    'Public Sub ShowManagementSummaryDaily',
+    'Public Sub ShowManagementSummaryOverall',
     'Private Sub BuildDepartmentAppendix',
     'chart.Name = "ekaDepartmentHistoryChart"',
     'ws.Range("P3").Value2 = rowIndex - 1',
@@ -135,6 +139,9 @@ def _verify_native(wb) -> None:
     if any(fragment not in installed for fragment in REQUIRED_VBA):
         raise H10DemoError("H10 VBA markers missing after native reopen")
     sheet = wb.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
+    management = wb.Worksheets("MANAGEMENT_SUMMARY")
+    if not bool(management.ProtectContents) or bool(management.ProtectDrawingObjects):
+        raise H10DemoError("Management preview protection invalid")
     component = wb.VBProject.VBComponents(sheet.CodeName).CodeModule
     sheet_code = _safe_module_lines(component)
     verify_selection_event(sheet_code)
@@ -194,6 +201,21 @@ def install_native(source: Path, output: Path) -> None:
         new.CodeModule.AddFromString(THERAPIST_HISTORY_MODULE_CODE)
         stage = "write worksheet selection-change handler"
         code.AddFromString(EVENT_CODE)
+        stage = "install protected management-only preview sheet"
+        try:
+            management = book.Worksheets("MANAGEMENT_SUMMARY")
+        except Exception:
+            management = book.Worksheets.Add(After=book.Worksheets(book.Worksheets.Count))
+            management.Name = "MANAGEMENT_SUMMARY"
+        management.Unprotect("")
+        management.Cells.ClearContents()
+        management.Range("A1").Value2 = (
+            "ΔΙΟΙΚΗΣΗ | Ανοίξτε «Προβολή διοίκησης» από τα στατιστικά θεραπευτών"
+        )
+        management.Range("A2").Value2 = (
+            "Μην αποστείλετε το λειτουργικό XLSM. Χρησιμοποιήστε την ασφαλή εξαγωγή XLSX."
+        )
+        management.Protect(DrawingObjects=False, Contents=True, Scenarios=True)
         stage = "verify installed VBA and protected history sheets"
         _verify_native(book)
         stage = "save BV"
