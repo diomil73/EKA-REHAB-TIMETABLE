@@ -277,6 +277,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Dim plot As ChartObject, series As Series
     Dim loadPerDay As Double, referencePatients As Double
     Dim referencePlanned As Double, referenceActual As Double
+    Dim teamPlanned As Long, teamActual As Long
     Dim referenceCount As Long, referenceDays As Long, r As Long
     Dim lastRow As Long, selectedPeriod As String, periodKey As String
 
@@ -317,10 +318,21 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
             End If
         End If
     Next r
+    teamPlanned = CLng(referencePlanned)
+    teamActual = CLng(referenceActual)
     If referenceCount > 0 And referenceDays > 0 Then
         referencePatients = referencePatients / referenceDays
         referencePlanned = referencePlanned / referenceCount
         referenceActual = referenceActual / referenceCount
+    End If
+
+    ' One plain-language departmental total, same period as the benchmark.
+    ' A single combined total is not a sum of therapist percentage values.
+    If referenceCount > 0 Then
+        ws.Range("A20").Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | Προγραμματισμένες: " & _
+            CStr(teamPlanned) & " | Πραγματοποιημένες: " & CStr(teamActual)
+        ws.Range("A20").Font.Bold = True
+        ws.Range("A20").Font.Color = RGB(37, 99, 170)
     End If
 
     ' Chart one: 0-6 delivered treatments per finalized therapist-day,
