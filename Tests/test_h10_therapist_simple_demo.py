@@ -199,3 +199,39 @@ def test_five_exact_user_hex_colors_are_trial_only():
     assert 'series.Points(1).Format.Fill.ForeColor.RGB = RGB(63, 168, 245)' in vba
     assert 'series.Points(2).Format.Fill.ForeColor.RGB = RGB(255, 3, 3)' in vba
     assert 'BLUE = planned, RED = delivered' in vba
+
+
+def test_mini_trends_use_persisted_finalized_daily_cache_and_exact_colors():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert '" --trend-output " & QuoteReportArg(trendPath)' in vba
+    assert 'ws.Range("Q1:U" & CStr(Application.Max(2' in vba
+    assert 'CStr(trendLines(0)) <> _' in vba
+    assert 'If UBound(trendParts) <> 4 Then' in vba
+    assert 'ws.Cells(trendRow, 19).Value2 = CLng(trendParts(2))' in vba
+    assert 'ws.Cells(trendRow, 20).Value2 = CLng(trendParts(3))' in vba
+    assert 'ws.Columns("P:U").Hidden = True' in vba
+    assert 'Private Sub BuildTherapistMiniTrends' in vba
+    assert 'BuildTherapistMiniTrends ws, reportMode, selectedRow, therapistName' in vba
+    assert '"ekaTherapistLoadTrend"' in vba
+    assert '"ekaTherapistSessionTrend"' in vba
+    assert 'AddTherapistTrendSeries plot, "Προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)' in vba
+    assert 'AddTherapistTrendSeries plot, "Πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)' in vba
+    assert 'plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1' in vba
+    assert 'maxSession = Application.Max(maxSession, CDbl(ws.Cells(r, 19).Value2)' in vba
+    assert 'If n < 2 Then Exit Sub' in vba
+    assert 'ws.Range("E18").Value2 = "Μπλε: προγρ. | Κόκκινο: πραγματ."' in vba
+
+
+def test_trend_window_modes_are_explicit_and_never_invent_attendance():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert 'Private Function TrendDateWithinReport' in vba
+    assert 'Case "daily"' in vba
+    assert 'Case "weekly"' in vba
+    assert 'Case "monthly"' in vba
+    assert 'Case "overall"' in vba
+    assert 'dateText <= periodStart' in vba
+    assert 'dateText >= periodStart And _' in vba
+    assert 'Left$(dateText, 7) = Left$(periodStart, 7)' in vba
+    assert 'ws.ChartObjects("ekaTherapistSessionTrend").Delete' in vba
+    assert 'ws.ChartObjects("ekaTherapistLoadTrend").Delete' in vba
+    assert '"Μη διαθέσιμο ιστορικό απουσιών / εργασίμων"' in vba
