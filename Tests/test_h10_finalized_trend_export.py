@@ -14,6 +14,7 @@ def daily(day: str, name: str, planned: int, actual: int):
         service_date=date.fromisoformat(day),
         therapist_id=name,
         snapshot_version=1,
+        capacity_timeslots=6,
         planned_occupied_timeslots=planned,
         final_occupied_timeslots=actual,
         planned_sessions=planned,
@@ -21,6 +22,7 @@ def daily(day: str, name: str, planned: int, actual: int):
         replacements_received=0,
         released_by_cancellation_or_no_show=planned - actual,
         treatment_suspensions_affecting_load=0,
+        approved_shared_or_over_capacity_events=0,
         planned_capacity_utilization=None,
         actual_capacity_utilization=None,
     )
