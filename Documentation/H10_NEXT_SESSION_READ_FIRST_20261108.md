@@ -214,3 +214,7 @@ Source-only improvements made, **no new native proof**:
 **Διοίκηση:** το ανεξάρτητο .xlsx έγινε δεκτό ως λειτουργική βάση· θέλει κουμπιά με όψη όπως στο μενού θεραπευτών, αλλά ο χρήστης επιλέγει να αφήσουμε συνολικό οπτικό polish για το τέλος. Διατηρούμε τέσσερα ασφαλή, macro-free sheets/links, δεν εξάγουμε τα ατομικά στοιχεία.
 
 **Επόμενα:** τρέξτε στο Windows checkout τα στοχευμένα pytest μετά από `git pull --ff-only`. Στη συνέχεια προέχει η υλοποίηση των έξι χρονικών προβολών και η ακριβής επαλήθευση Καλυβιώτη/Κοσμίδη πριν νέο native BZ. Ποτέ overwrite ή δεύτερη προσπάθεια σε frozen previews.
+
+
+### 2026-11-09 — source test stop and synchronized repair
+Windows operator: `44 passed, 2 failed` after `af6a050`/ `711fb54`. Both failing assertions were stale after shortening `"Μ.Ο. περιόδου: "` to `"Μ.Ο.: "`: `test_period_benchmarks_are_separate_and_day_weighted_for_patients` and `test_install_requires_persisted_vba_markers_and_event_module`. Source-only repair: `05e671c` updated native installer REQUIRED_VBA label and added non-optional new 0–6, warning and compact title markers; `14d43f4` updated test while retaining weighted reference checks. Static check confirms **34/34 required quoted VBA fragments present**. No new Windows pytest/native verification yet, and no BY/BZ creation/overwrite. Run targeted tests with FF-only pull; STOP on nonzero. Six-period rework and Kalyviotis audit remain open.
