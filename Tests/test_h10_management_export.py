@@ -76,3 +76,39 @@ def test_export_package_rejects_hidden_operational_schema(tmp_path):
         z.writestr("xl/workbook.xml", "<workbook>THERAPIST_DAY_HISTORY</workbook>")
     with pytest.raises(ValueError, match="leaked"):
         inspect_share_package(filename)
+
+
+def test_export_package_rejects_hidden_sheets_and_external_relationships(tmp_path):
+    hidden = tmp_path / "hidden.xlsx"
+    with zipfile.ZipFile(hidden, "w") as z:
+        for i in range(1, 5):
+            z.writestr(f"xl/worksheets/sheet{i}.xml", "<worksheet/>")
+        z.writestr("xl/workbook.xml", '<workbook><sheet state="veryHidden"/></workbook>')
+    with pytest.raises(ValueError, match="Hidden"):
+        inspect_share_package(hidden)
+
+    linked = tmp_path / "external.xlsx"
+    with zipfile.ZipFile(linked, "w") as z:
+        for i in range(1, 5):
+            z.writestr(f"xl/worksheets/sheet{i}.xml", "<worksheet/>")
+        z.writestr("xl/_rels/workbook.xml.rels",
+                   '<Relationships><Relationship TargetMode="External" /></Relationships>')
+    with pytest.raises(ValueError, match="External"):
+        inspect_share_package(linked)
+
+
+def test_export_package_rejects_embedded_objects_and_extra_sheets(tmp_path):
+    embedded = tmp_path / "embedded.xlsx"
+    with zipfile.ZipFile(embedded, "w") as z:
+        for i in range(1, 5):
+            z.writestr(f"xl/worksheets/sheet{i}.xml", "<worksheet/>")
+        z.writestr("xl/embeddings/oleObject1.bin", "secret")
+    with pytest.raises(ValueError, match="embedded"):
+        inspect_share_package(embedded)
+
+    extra = tmp_path / "extra.xlsx"
+    with zipfile.ZipFile(extra, "w") as z:
+        for i in range(1, 6):
+            z.writestr(f"xl/worksheets/sheet{i}.xml", "<worksheet/>")
+    with pytest.raises(ValueError, match="exactly four"):
+        inspect_share_package(extra)
