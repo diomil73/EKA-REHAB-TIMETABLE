@@ -30,6 +30,49 @@ Public Sub ShowTherapistHistoryOverall()
     RenderTherapistHistoryReport "overall"
 End Sub
 
+Public Sub ExportManagementOnlyWorkbook()
+    ' Never copy the operational workbook or merely hide private worksheets.
+    ' The Python exporter creates an unrelated four-sheet macro-free XLSX.
+    Dim exportTool As String, destination As Variant, path As String
+    Dim commandLine As String, exitCode As Long
+    exportTool = ResolveReportTool("export_management_therapist_summary.py")
+    If Len(exportTool) = 0 Then
+        MsgBox "Δεν βρέθηκε το εργαλείο ασφαλούς εξαγωγής.", vbExclamation
+        Exit Sub
+    End If
+    destination = Application.GetSaveAsFilename( _
+        InitialFilename:=ThisWorkbook.Path & "\\DIOMIL_MANAGEMENT_" & _
+        Format$(Now, "yyyymmdd_hhnnss") & ".xlsx", _
+        FileFilter:="Excel workbook (*.xlsx),*.xlsx", _
+        Title:="Αποστολή μόνο συγκεντρωτικών στοιχείων διοίκησης")
+    If VarType(destination) = vbBoolean Then Exit Sub
+    path = CStr(destination)
+    If LCase$(Right$(path, 5)) <> ".xlsx" Then
+        MsgBox "Επιτρέπεται μόνο νέο αρχείο .xlsx.", vbExclamation
+        Exit Sub
+    End If
+    If Len(Dir$(path)) > 0 Then
+        MsgBox "Το αρχείο υπάρχει ήδη. Δεν επιτρέπεται αντικατάσταση.", vbCritical
+        Exit Sub
+    End If
+    On Error GoTo ExportError
+    ThisWorkbook.Save
+    commandLine = QuoteReportArg("python") & " " & _
+        QuoteReportArg(exportTool) & " --source " & _
+        QuoteReportArg(ThisWorkbook.FullName) & " --output " & QuoteReportArg(path)
+    exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
+    If exitCode <> 0 Or Len(Dir$(path)) = 0 Then
+        MsgBox "Η εξαγωγή δεν πιστοποιήθηκε. Μην αποστείλετε το αρχείο.", vbCritical
+        Exit Sub
+    End If
+    MsgBox "Δημιουργήθηκε ξεχωριστή αναφορά διοίκησης." & vbCrLf & path, _
+        vbInformation
+    Exit Sub
+ExportError:
+    MsgBox "Αποτυχία ασφαλούς εξαγωγής. Μην αποστείλετε το αρχείο: " & _
+        Err.Description, vbCritical
+End Sub
+
 Public Sub ShowSelectedTherapistChart()
     Dim ws As Worksheet, selectedRow As Long, finalRow As Long
     Dim priorEvents As Boolean, priorScreenUpdating As Boolean
@@ -861,6 +904,7 @@ Private Sub EnsureReportButtons(ByVal ws As Worksheet)
     EnsureOneReportButton ws, "ekaHistory_Overall", "Συνολικά", "ShowTherapistHistoryOverall", 90#
     EnsureOneReportButton ws, "ekaHistory_Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
     EnsureOneReportButton ws, "ekaHistory_PersonChart", "Γράφημα θεραπευτή", "ShowSelectedTherapistChart", 160#
+    EnsureOneReportButton ws, "ekaHistory_ManagementExport", "Εξαγωγή διοίκησης", "ExportManagementOnlyWorkbook", 160#
     PositionReportButtons ws
 End Sub
 
@@ -900,7 +944,8 @@ Private Sub PositionReportButtons(ByVal ws As Worksheet)
         Array("ekaHistory_Monthly", 98#), _
         Array("ekaHistory_Overall", 90#), _
         Array("ekaHistory_Back", 116#), _
-        Array("ekaHistory_PersonChart", 160#))
+        Array("ekaHistory_PersonChart", 160#), _
+        Array("ekaHistory_ManagementExport", 160#))
     topPos = ws.Rows(3).Top + 4
     leftPos = ws.Range("A3").Left + 4
     For i = LBound(specs) To UBound(specs)
