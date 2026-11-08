@@ -1188,6 +1188,14 @@ Private Sub HighlightTherapistReportMode(ByVal ws As Worksheet, ByVal reportMode
 End Sub
 
 Private Sub EnsureReportButtons(ByVal ws As Worksheet)
+    ' Retire legacy four-mode shapes; never leave ghost navigation behind.
+    Dim obsolete As Variant, oldName As Variant
+    obsolete = Array("ekaHistory_Daily", "ekaHistory_Weekly", "ekaHistory_Monthly")
+    On Error Resume Next
+    For Each oldName In obsolete
+        ws.Shapes(CStr(oldName)).Delete
+    Next oldName
+    On Error GoTo 0
     EnsureOneReportButton ws, "ekaHistory_Today", "Σήμερα", "ShowTherapistHistoryToday", 72#
     EnsureOneReportButton ws, "ekaHistory_Yesterday", "Χθες", "ShowTherapistHistoryYesterday", 70#
     EnsureOneReportButton ws, "ekaHistory_Week", "Εβδομάδα", "ShowTherapistHistoryCurrentWeek", 90#
