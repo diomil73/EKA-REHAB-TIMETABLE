@@ -20,7 +20,7 @@ def test_selected_therapist_highlight_uses_one_active_row_and_resets_on_rerender
     assert 'ws.Range("P1").Value2 = 0' in vba
     assert 'Formula1:="=ROW()=$P$1"' in vba
     assert 'RGB(37, 99, 170)' in vba
-    assert 'ws.Columns("P").Hidden = True' in vba
+    assert 'ws.Columns("P:U").Hidden = True' in vba
     assert 'Target.CountLarge <> 1' in EVENT_CODE
     assert "ShowSelectedTherapistChart" in EVENT_CODE
 
@@ -50,18 +50,18 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
 def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bq = tmp_path / "H10_DEMO_BU.xlsm"
+    bq = tmp_path / "H10_DEMO_BV.xlsm"
     check_candidate(bo, bq)
     bq.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
         check_candidate(bo, bq)
     assert bq.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BU"):
-        check_candidate(bo, tmp_path / "H10_DEMO_BV.xlsm")
+    with pytest.raises(H10DemoError, match="BV"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BW.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BU2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BV2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -220,12 +220,12 @@ def test_mini_trends_use_persisted_finalized_daily_cache_and_exact_colors():
     assert 'BuildTherapistMiniTrends ws, reportMode, selectedRow, therapistName' in vba
     assert '"ekaTherapistLoadTrend"' in vba
     assert '"ekaTherapistSessionTrend"' in vba
-    assert 'AddTherapistTrendSeries plot, "Προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)' in vba
-    assert 'AddTherapistTrendSeries plot, "Πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)' in vba
+    assert 'AddTherapistTrendSeries plot, "Αρχικά προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)' in vba
+    assert 'AddTherapistTrendSeries plot, "Τελικά πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)' in vba
     assert 'plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1' in vba
     assert 'maxSession = Application.Max(maxSession, CDbl(ws.Cells(r, 19).Value2)' in vba
     assert 'If n < 2 Then Exit Sub' in vba
-    assert 'ws.Range("E18").Value2 = "Μπλε: προγρ. | Κόκκινο: πραγματ."' in vba
+    assert 'ws.Range("E18").Value2 = "Μπλε: αρχικά προγρ. | Κόκκινο: τελικά πραγματ."' in vba
 
 
 def test_trend_window_modes_are_explicit_and_never_invent_attendance():
@@ -241,3 +241,29 @@ def test_trend_window_modes_are_explicit_and_never_invent_attendance():
     assert 'ws.ChartObjects("ekaTherapistSessionTrend").Delete' in vba
     assert 'ws.ChartObjects("ekaTherapistLoadTrend").Delete' in vba
     assert '"Μη διαθέσιμο ιστορικό απουσιών / εργασίμων"' in vba
+
+
+def test_department_appendix_is_after_last_therapist_and_never_selectable_as_person():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert 'Private Sub BuildDepartmentAppendix' in vba
+    assert 'BuildDepartmentAppendix ws, rowIndex - 1, reportMode' in vba
+    assert 'headerRow = finalTherapistRow + 3' in vba
+    assert 'groupKey = "Όλο το ιστορικό"' in vba
+    assert 'chart.Name = "ekaDepartmentHistoryChart"' in vba
+    assert 'allDelivered / allPlanned' in vba
+    assert 'If allPlanned > 0 Then' in vba
+    assert 'ws.Range("P3").Value2 = rowIndex - 1' in vba
+    assert 'finalRow = CLng(ws.Range("P3").Value2)' in vba
+    assert 'Target.Row > CLng(Me.Range("P3").Value2)' in EVENT_CODE
+    assert 'If Target.Row > CLng(Me.Range("P3").Value2) Then Exit Sub' in EVENT_CODE
+
+
+def test_visible_mini_axis_gridlines_and_actual_over_plan_warning():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert '.HasMajorGridlines = True' in vba
+    assert 'plot.Chart.Axes(xlValue).MajorUnit = 1' in vba
+    assert 'chartWidth - 4, 90)' in vba
+    assert 'positiveDeltaDays = positiveDeltaDays + 1' in vba
+    assert 'If positiveDeltaDays > 0 Then' in vba
+    assert 'Αρχικά προγραμματισμένες' in vba
+    assert 'Τελικά πραγματοποιημένες' in vba
