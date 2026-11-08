@@ -32,7 +32,8 @@ def test_period_benchmarks_are_separate_and_day_weighted_for_patients():
     assert "referencePatients / referenceDays" in vba
     assert "referencePlanned / referenceCount" in vba
     assert "referenceActual / referenceCount" in vba
-    assert '"Μ.Ο. περιόδου: "' in vba
+    assert '"Μ.Ο.: "' in vba
+    assert 'referencePatients, "0.0"' in vba
     assert '"Κόκκινοι δείκτες: Μ.Ο. προγρ. "' in vba
     assert '" | πραγματ. "' in vba
 
