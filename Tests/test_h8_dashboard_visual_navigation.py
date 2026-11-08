@@ -30,7 +30,9 @@ def test_therapists_show_three_native_panels_in_single_row():
         assert f'ws.ChartObjects("{chart}").Delete' in src
     for segment in (('"A", "D"'), ('"E", "H"'), ('"I", "M"')):
         assert segment in src
-    assert 'chartWidth - 4, 175)' in src
+    assert 'chartWidth - 4, 108)' in src
+    assert 'chartWidth - 4, 72)' in src
+    assert 'NewTherapistTrendChart' in src
     assert "plannedSessions, actualSessions" in src
     assert "plot.Chart.Axes(xlValue).MinimumScale = 0" in src
     assert "Application.Max(6" in src
@@ -40,11 +42,11 @@ def test_workload_traffic_light_contract_is_explicit_and_never_looks_up_from_liv
     src = THERAPIST_HISTORY_MODULE_CODE
     for threshold in ("loadPerDay >= 5.5", "loadPerDay >= 4.5", "loadPerDay >= 2.5", "loadPerDay > 0"):
         assert threshold in src
-    assert "RGB(205, 50, 55)" in src
-    assert "RGB(235, 138, 45)" in src
-    assert "RGB(238, 207, 72)" in src
-    assert "RGB(79, 166, 93)" in src
-    assert "RGB(160, 169, 177)" in src
+    assert "RGB(255, 3, 3)" in src
+    assert "RGB(255, 180, 0)" in src
+    assert "RGB(255, 242, 0)" in src
+    assert "RGB(91, 250, 116)" in src
+    assert "RGB(63, 168, 245)" in src
     assert "loadPerDay = uniquePatientsPerDay" in src
     assert 'ws.Cells(rowIndex, 14).Value2' in src
 
