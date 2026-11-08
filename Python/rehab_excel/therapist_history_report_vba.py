@@ -51,10 +51,11 @@ Public Sub ShowSelectedTherapistChart()
     Application.EnableEvents = False
     Application.ScreenUpdating = False
     ws.Unprotect ""
+    ws.Range("P1").Value2 = selectedRow
     BuildTherapistLoadChart ws, CLng(ws.Cells(selectedRow, 5).Value2), _
         CLng(ws.Cells(selectedRow, 6).Value2), CStr(ws.Cells(selectedRow, 3).Value2), _
         CLng(ws.Cells(selectedRow, 7).Value2), CLng(ws.Cells(selectedRow, 8).Value2), _
-        CLng(ws.Cells(selectedRow, 4).Value2), CDbl(ws.Cells(selectedRow, 14).Value2)
+        CLng(ws.Cells(selectedRow, 4).Value2), CDbl(ws.Cells(selectedRow, 14).Value2), selectedRow
     ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     Application.EnableEvents = priorEvents
     Application.ScreenUpdating = priorScreenUpdating
@@ -69,6 +70,16 @@ ChartError:
     On Error GoTo 0
     MsgBox "Το ατομικό γράφημα δεν ενημερώθηκε (" & CStr(failureNumber) & _
         "): " & failureText, vbCritical, "Στατιστικά θεραπευτών"
+End Sub
+
+Public Sub HighlightSelectedTherapistRow(ByVal selectedRow As Long)
+    Dim ws As Worksheet, finalRow As Long
+    Set ws = ThisWorkbook.Worksheets(REPORT_SHEET)
+    finalRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    If selectedRow < 23 Or selectedRow > finalRow Then Exit Sub
+    ws.Unprotect ""
+    ws.Range("P1").Value2 = selectedRow
+    ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
 End Sub
 
 Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
@@ -121,11 +132,12 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     On Error Resume Next
     ws.Range("A1:N2").UnMerge
     On Error GoTo ReportError
-    ws.Range("A1:N1048576").ClearContents
+    ws.Range("A1:P1048576").ClearContents
+    ws.Range("P1").Value2 = 0
     EnsureReportButtons ws
     ws.Cells(1, 1).Value2 = "Ιστορικό / Στατιστικά Θεραπευτών"
     ws.Cells(2, 1).Value2 = ReportModeDescription(reportMode) & _
-        " | Μόνο οριστικοποιημένες ημέρες | αν υπάρχει 1 ημέρα, οι περίοδοι μπορεί να συμπίπτουν"
+        " | Οριστικοποιημένες ημέρες | Σύγκριση με μέσο όρο ίδιας περιόδου"
     For col = 0 To UBound(headers)
         ws.Cells(22, col + 1).Value2 = headers(col)
     Next col
@@ -165,7 +177,7 @@ NextLine:
     FormatReportSheet ws, rowIndex - 1
     BuildTherapistLoadChart ws, totalPlannedSlots, totalActualSlots, "", _
         totalPlannedSessions, totalActualSessions, totalFinalizedTherapistDays, _
-        totalDistinctPatientDayLoad / Application.Max(1, totalFinalizedTherapistDays)
+        totalDistinctPatientDayLoad / Application.Max(1, totalFinalizedTherapistDays), 0
     EnsureReportButtons ws
     HighlightTherapistReportMode ws, reportMode
     ws.Activate
@@ -190,7 +202,7 @@ End Sub
 Private Function ReportHeaders(ByVal reportMode As String) As Variant
     Select Case LCase$(Trim$(reportMode))
         Case "daily"
-            ReportHeaders = Array("Ημερομηνία", "", "Θεραπευτής", "Οριστ. ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος", "Ασθενείς/ημέρα")
+            ReportHeaders = Array("Ημερομηνία", "", "Θεραπευτής", "Οριστ. ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Απουσίες/αναβολές", "Αναστολές θεραπείας", "Προγρ. φόρτος", "Πραγμ. φόρτος", "Ασθενείς/ημέρα")
         Case "monthly"
             ReportHeaders = Array("Μήνας", "", "Θεραπευτής", "Οριστ. ημέρες", "Προγρ. θέσεις", "Πραγμ. θέσεις", "Προγρ. συνεδρίες", "Πραγμ. συνεδρίες", "Αναπληρώσεις", "Αποδεσμεύσεις", "Αναστολές", "Προγρ. φόρτος", "Πραγμ. φόρτος")
         Case Else
@@ -260,9 +272,13 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         Optional ByVal plannedSessions As Long = 0, _
         Optional ByVal actualSessions As Long = 0, _
         Optional ByVal finalizedDays As Long = 0, _
-        Optional ByVal uniquePatientsPerDay As Double = 0)
+        Optional ByVal uniquePatientsPerDay As Double = 0, _
+        Optional ByVal selectedRow As Long = 0)
     Dim plot As ChartObject, series As Series
-    Dim loadPerDay As Double
+    Dim loadPerDay As Double, referencePatients As Double
+    Dim referencePlanned As Double, referenceActual As Double
+    Dim referenceCount As Long, referenceDays As Long, r As Long
+    Dim lastRow As Long, selectedPeriod As String, periodKey As String
 
     ' Always remove all old charts, including when there are no rows.
     On Error Resume Next
@@ -277,18 +293,49 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
         Exit Sub
     End If
 
+    ' Comparable, period-specific benchmark. Do not compare September's
+    ' therapist against October's or mix weekly and monthly rows.
+    ' One row is one therapist-period; load is weighted by finalized days.
+    lastRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    If selectedRow >= 23 And selectedRow <= lastRow Then
+        selectedPeriod = CStr(ws.Cells(selectedRow, 1).Value2) & "|" & _
+                         CStr(ws.Cells(selectedRow, 2).Value2)
+    Else
+        selectedPeriod = ""
+    End If
+    For r = 23 To lastRow
+        periodKey = CStr(ws.Cells(r, 1).Value2) & "|" & CStr(ws.Cells(r, 2).Value2)
+        If selectedRow = 0 Or periodKey = selectedPeriod Then
+            If IsNumeric(ws.Cells(r, 14).Value2) And _
+               IsNumeric(ws.Cells(r, 4).Value2) Then
+                referenceDays = referenceDays + CLng(ws.Cells(r, 4).Value2)
+                referencePatients = referencePatients + _
+                    CDbl(ws.Cells(r, 14).Value2) * CLng(ws.Cells(r, 4).Value2)
+                referencePlanned = referencePlanned + CDbl(ws.Cells(r, 7).Value2)
+                referenceActual = referenceActual + CDbl(ws.Cells(r, 8).Value2)
+                referenceCount = referenceCount + 1
+            End If
+        End If
+    Next r
+    If referenceCount > 0 And referenceDays > 0 Then
+        referencePatients = referencePatients / referenceDays
+        referencePlanned = referencePlanned / referenceCount
+        referenceActual = referenceActual / referenceCount
+    End If
+
     ' Chart one: 0-6 delivered treatments per finalized therapist-day,
     ' with explicit traffic colors; greater than six is still red.
     loadPerDay = uniquePatientsPerDay
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistLoadChart", "A", "D")
     Set series = plot.Chart.SeriesCollection.NewSeries
     series.Name = "Διαφορετικοί ασθενείς/ημέρα"
-    series.XValues = Array("Ανά ημέρα")
-    series.Values = Array(loadPerDay)
+    series.XValues = Array("Επιλογή", "Μ.Ο.")
+    series.Values = Array(loadPerDay, referencePatients)
     series.Format.Fill.ForeColor.RGB = WorkloadTrafficColor(loadPerDay)
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
-        WorksheetFunction.RoundUp(loadPerDay, 0))
+        WorksheetFunction.RoundUp(Application.Max(loadPerDay, referencePatients), 0))
+    ws.Range("A19").Value2 = "Μ.Ο. περιόδου: " & Format$(referencePatients, "0.0") & " ασθενείς/ημέρα"
     plot.Chart.HasTitle = True
     plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
@@ -297,8 +344,9 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistSessionChart", "E", "H")
     Set series = plot.Chart.SeriesCollection.NewSeries
     series.Name = "Συνεδρίες"
-    series.XValues = Array("Προγραμ.", "Πραγματ.")
-    series.Values = Array(plannedSessions, actualSessions)
+    series.XValues = Array("Προγραμ.", "Πραγματ.", "Μ.Ο. προγρ.", "Μ.Ο. πραγμ.")
+    series.Values = Array(plannedSessions, actualSessions, referencePlanned, referenceActual)
+    ws.Range("E19").Value2 = "Μ.Ο. θεραπευτή στην ίδια περίοδο"
     plot.Chart.HasTitle = True
     plot.Chart.ChartTitle.Text = "Θεραπείες" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
@@ -328,6 +376,16 @@ Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
     ws.Columns("C").ColumnWidth = 19
     ws.Columns("D:N").ColumnWidth = 13
     If lastRow >= 22 Then ws.Range("A22:N" & CStr(lastRow)).Borders.LineStyle = 1
+    ws.Range("A23:M" & CStr(Application.Max(lastRow, 23))).FormatConditions.Delete
+    If lastRow >= 23 Then
+        With ws.Range("A23:M" & CStr(lastRow)).FormatConditions.Add( _
+                Type:=xlExpression, Formula1:="=ROW()=$P$1")
+            .Interior.Color = RGB(37, 99, 170)
+            .Font.Color = RGB(255, 255, 255)
+            .Font.Bold = True
+        End With
+    End If
+    ws.Columns("P").Hidden = True
     ws.Rows(1).RowHeight = 28
     ws.Rows(2).RowHeight = 22
     ws.Rows(3).RowHeight = 32
@@ -348,8 +406,8 @@ Private Sub ResetReportWindow(ByVal ws As Worksheet)
         ActiveWindow.SplitRow = 0
         ActiveWindow.ScrollColumn = 1
         ActiveWindow.ScrollRow = 1
-        ws.Range("A5").Select
-        ActiveWindow.SplitRow = 4
+        ws.Range("A23").Select
+        ActiveWindow.SplitRow = 22
         ActiveWindow.FreezePanes = True
         ActiveWindow.ScrollColumn = 1
         ActiveWindow.ScrollRow = 1
