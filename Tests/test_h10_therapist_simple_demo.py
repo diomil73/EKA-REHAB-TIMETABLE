@@ -184,7 +184,7 @@ def test_all_therapists_share_cohort_scale_independent_of_selection():
     vba = THERAPIST_HISTORY_MODULE_CODE
     assert 'periodKey = CStr(ws.Cells(r, 1).Value2)' in vba
     assert 'If selectedRow = 0 Or periodKey = selectedPeriod Then' in vba
-    assert 'cohortMaxPatients = Application.Max(cohortMaxPatients' in vba
+    assert "cohortAxisPatients = 6" in vba
     assert 'cohortMaxSessions = Application.Max(cohortMaxSessions' in vba
     assert 'CDbl(ws.Cells(r, 7).Value2), CDbl(ws.Cells(r, 8).Value2)' in vba
     assert 'plot.Chart.Axes(xlValue).MaximumScale = cohortAxisPatients' in vba
@@ -265,7 +265,7 @@ def test_visible_mini_axis_gridlines_and_actual_over_plan_warning():
     vba = THERAPIST_HISTORY_MODULE_CODE
     assert '.HasMajorGridlines = True' in vba
     assert 'plot.Chart.Axes(xlValue).MajorUnit = 1' in vba
-    assert 'chartWidth - 4, 90)' in vba
+    assert 'chartWidth - 4, 76)' in vba
     assert 'positiveDeltaDays = positiveDeltaDays + 1' in vba
     assert 'If positiveDeltaDays > 0 Then' in vba
     assert 'Αρχικά προγραμματισμένες' in vba
@@ -371,3 +371,33 @@ def test_management_internal_dashboard_does_not_obscure_buttons_and_has_kpi_tile
     assert 'ActiveWindow.DisplayHeadings = False' in source
     assert 'ActiveWindow.DisplayGridlines = False' in source
     assert 'ws.Range("A15:D15").Interior.Color' in source
+
+
+def test_workload_charts_are_fixed_zero_to_six_and_do_not_hide_excess_facts():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert "cohortAxisPatients = 6" in vba
+    assert "plot.Chart.Axes(xlValue).MaximumScale = cohortAxisPatients" in vba
+    assert "plot.Chart.Axes(xlValue).MaximumScale = 6" in vba
+    assert "plot.Chart.Axes(xlValue).MajorUnit = 1" in vba
+    assert 'If loadPerDay > 6 Then' in vba
+    assert 'If maxPatient > 6 Then' in vba
+    assert 'Format$(loadPerDay, "0.0")' in vba
+    # Actual count is preserved even when the fixed chart cannot show > 6.
+    assert "loadPerDay = uniquePatientsPerDay" in vba
+    assert "series.Values = Array(loadPerDay)" in vba
+
+
+def test_compact_chart_titles_and_clear_vertical_separation():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert 'chartWidth - 4, 88)' in vba
+    assert 'ws.Range(firstColumn & "11").Top' in vba
+    assert 'chartWidth - 4, 76)' in vba
+    assert vba.count('plot.Chart.ChartTitle.Format.TextFrame2.TextRange.Font.Size = 9') == 3
+    assert 'plot.Chart.ChartTitle.Text = "Φόρτος"' in vba
+    assert 'plot.Chart.ChartTitle.Text = "Συνεδρίες"' in vba
+
+
+def test_department_period_labels_use_displayed_dates_not_excel_serials():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert 'groupKey = CStr(ws.Cells(r, 1).Text)' in vba
+    assert 'groupKey = groupKey & " έως " & CStr(ws.Cells(r, 2).Text)' in vba
