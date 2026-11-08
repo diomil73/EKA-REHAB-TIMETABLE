@@ -1261,3 +1261,26 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BQ source gate failed" }
 Expected **40** if former 37 tests + 3 new regressions all pass. If green, close all Excel, verify frozen BO (read-only), ensure `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BQ.xlsm` does not already exist, and build new BQ via `Python/tools/prepare_h10_therapist_simple_demo.py --source Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm --output Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BQ.xlsm`; only after `H10 THERAPIST SIMPLE DEMO INSTALL OK` check BQ read-only history, protection and toolbar. Freeze BQ on any failure; no retry. If all pass, manually smoke sticky chart pane (top 22 rows), selected blue row, period benchmark, unchanged synthetic history and third attendance placeholder.
 
 Keep user direction: manager-readable simplified overview, preserve hidden source/audit nuance and do not invent a final empty-slot count from released/suspension counts.
+
+## 2026-11-08 — BQ fatal native gate, frozen; BR staged
+
+Operator's **BQ** fresh H10 native install failed at the newly instrumented stage:
+```
+SAFETY STOP: H10DemoError: BQ install failed at verify installed VBA and protected history sheets:
+Therapist row-selection event not persisted
+Freeze BQ; do not retry, repair or overwrite candidate
+```
+**Freeze BQ permanently**, alongside BP (earlier native error). This failed *before Save*, at an in-memory VBIDE event-code comparison; it is **not proof that the event was absent from Excel**, only that the verifier did not recognize the entire exact literal block. Do not use BQ to judge visual reports. The unchanged, independently verified BO remains the safe demonstration source; all accepted/frozen predecessors stay untouched.
+
+Code inspection showed `_verify_native` compared the complete literal `EVENT_CODE` to `CodeModule.Lines()` (after normalizing CRLF only). VBIDE may normalize whitespace, spacing or code formatting, which makes raw-block equality overly brittle. Rather than disable verification, source commit `83f6842` replaces this with a strict ordered statement-by-statement contract: ignores indentation/case/repeated spaces and newline format while requiring one exact `Worksheet_SelectionChange` declaration, all safety guards and the expected body including `End Sub`. Includes mismatch line/count in failure report. Next new one-shot native file is **BR** only, not failed BQ. Source commits `1eeca69` and `86dccad` update destination safety regression and add four specific VBIDE event-contract tests (tolerated formatting, missing guard, duplicate event and absent event). Previous three zero-line VBA module regressions are retained. **Fresh source suite not yet run**. Prior source 37 and 40 reported? Only **37 passed** before BQ changes was user confirmed. Do not fabricate revised count.
+
+Operator next gate with all Excel closed:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+python -m pytest Tests/test_h10_therapist_simple_demo.py Tests/test_h8_synthetic_demo_history.py Tests/test_h8_synthetic_history_verifier.py Tests/test_h8_dashboard_visual_navigation.py Tests/test_h8_unique_patient_workload.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BR source tests failed" }
+```
+If source gate GREEN, verify existing immutable `Excel/previews/UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm` in read-only mode and ensure BR does not yet exist. Then run `Python/tools/prepare_h10_therapist_simple_demo.py --source ...BO.xlsm --output Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BR.xlsm` **once**. If the new native event validation or any step fails, freeze BR, do not retry. Only after `H10 THERAPIST SIMPLE DEMO INSTALL OK`, independently audit BR history, workbook protection, and H7 toolbar before visual inspection. Do not derive true vacant slots by subtracting cancellations or suspensions; H9 real attendance chart remains placeholder.
+
+User preference: autonomous forward progress without repetitive OK, but local Windows Excel operations must be done by operator; all fatal safety stops prevail over read-only audits.
