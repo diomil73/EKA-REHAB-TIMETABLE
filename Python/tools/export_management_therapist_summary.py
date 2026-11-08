@@ -283,13 +283,24 @@ def verify_management_native(file: Path, expected: dict) -> None:
         book = excel.Workbooks.Open(str(file.resolve()), UpdateLinks=0, ReadOnly=True)
         if not bool(book.ReadOnly) or bool(book.HasVBProject) or int(book.Worksheets.Count) != 4:
             raise ValueError("Management export read-only structure invalid")
+        if bool(excel.ActiveWindow.DisplayWorkbookTabs):
+            raise ValueError("Management exported workbook tabs must be hidden")
         for mode in MODES:
             ws = book.Worksheets(MODE_LABELS[mode])
+            ws.Activate()
             if int(ws.Visible) != -1:
                 raise ValueError(f"Management {mode} worksheet unexpectedly hidden")
             expected_rows = expected[mode]
             if int(ws.ChartObjects().Count) != (1 if expected_rows else 0):
                 raise ValueError(f"Management {mode} chart count mismatch")
+            if int(ws.Shapes.Count) < len(MODES) + (1 if expected_rows else 0):
+                raise ValueError(f"Management {mode} navigation buttons missing")
+            if bool(excel.ActiveWindow.DisplayHeadings) or bool(excel.ActiveWindow.DisplayGridlines):
+                raise ValueError(f"Management {mode} sheet shows Excel headings/grid")
+            for tab, tab_name in MODE_LABELS.items():
+                shape = ws.Shapes("ekaExecutiveMode_" + tab)
+                if str(shape.Hyperlink.SubAddress) != f"'{tab_name}'!A1":
+                    raise ValueError(f"Management {mode} navigation target mismatch: {tab}")
             planned_total = delivered_total = 0
             for offset, (period, planned, delivered, ratio) in enumerate(expected_rows):
                 row = 16 + offset
