@@ -624,6 +624,8 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' Mini trend panels: genuine finalized daily data, same time window and
     ' chart ordinate for every therapist in that cohort, two series in sessions.
     BuildTherapistMiniTrends ws, reportMode, selectedRow, therapistName
+    ws.Range("A18").Value2 = "Τάση φόρτου | οριστικοποιημένες ημέρες"
+    ws.Range("E18").Value2 = "Μπλε: προγρ. | Κόκκινο: πραγματ."
 
     ' Chart three: not a zero-absence chart. Historical therapist attendance
     ' and a reliable working-day denominator are NOT persisted in the current
