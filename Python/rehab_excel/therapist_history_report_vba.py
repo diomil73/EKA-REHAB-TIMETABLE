@@ -387,6 +387,146 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
     Set NewTherapistMiniChart = plot
 End Function
 
+Private Sub RenderManagementSummary(ByVal source As Worksheet, _
+        ByVal finalTherapistRow As Long, ByVal reportMode As String)
+    ' Internal preview ONLY. Never share the underlying operational XLSM.
+    ' Read exclusively the newly built department aggregate, never person rows.
+    Dim ws As Worksheet, chart As ChartObject, series As Series
+    Dim headerRow As Long, sourceRow As Long, targetRow As Long
+    Dim i As Long, shape As Shape, names As Variant, calls As Variant
+    Dim maxCount As Double, widthPoints As Double
+
+    On Error Resume Next
+    Set ws = ThisWorkbook.Worksheets(MANAGEMENT_SHEET)
+    On Error GoTo 0
+    If ws Is Nothing Then
+        Set ws = ThisWorkbook.Worksheets.Add( _
+            After:=ThisWorkbook.Worksheets(ThisWorkbook.Worksheets.Count))
+        ws.Name = MANAGEMENT_SHEET
+    End If
+    ws.Unprotect ""
+    On Error Resume Next
+    ws.ChartObjects("ekaManagementChart").Delete
+    On Error GoTo 0
+    ws.Cells.ClearContents
+    ws.Range("A1:J2").UnMerge
+    ws.Range("A1:J2").Merge
+    ws.Range("A1").Value2 = "ΔΙΟΙΚΗΣΗ | ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ"
+    ws.Range("A1:J2").Interior.Color = RGB(16, 35, 61)
+    ws.Range("A1:J2").Font.Color = RGB(255, 255, 255)
+    ws.Range("A1:J2").Font.Bold = True
+    ws.Range("A1:J2").Font.Size = 17
+    ws.Range("A3").Value2 = ReportModeDescription(reportMode)
+    ws.Range("A3").Font.Bold = True
+    ws.Range("A5").Value2 = "Περίοδος"
+    ws.Range("B5").Value2 = "Αρχικά προγρ."
+    ws.Range("C5").Value2 = "Τελικά πραγματ."
+    ws.Range("D5").Value2 = "Υλοποίηση"
+    ws.Range("A5:D5").Font.Bold = True
+    ws.Columns("A").ColumnWidth = 30
+    ws.Columns("B:D").ColumnWidth = 23
+    ws.Columns("E:J").ColumnWidth = 14
+
+    headerRow = finalTherapistRow + 3
+    sourceRow = headerRow + 2
+    targetRow = 6
+    If finalTherapistRow >= 23 Then
+        Do While Len(CStr(source.Cells(sourceRow, 1).Value2)) > 0
+            If CStr(source.Cells(sourceRow, 1).Value2) = "ΣΥΝΟΛΟ" Then Exit Do
+            ws.Cells(targetRow, 1).NumberFormat = "@"
+            ws.Cells(targetRow, 1).Value2 = CStr(source.Cells(sourceRow, 1).Value2)
+            ws.Cells(targetRow, 2).Value2 = CDbl(source.Cells(sourceRow, 2).Value2)
+            ws.Cells(targetRow, 3).Value2 = CDbl(source.Cells(sourceRow, 3).Value2)
+            If CDbl(source.Cells(sourceRow, 2).Value2) > 0 Then
+                ws.Cells(targetRow, 4).Value2 = _
+                    CDbl(source.Cells(sourceRow, 3).Value2) / _
+                    CDbl(source.Cells(sourceRow, 2).Value2)
+                ws.Cells(targetRow, 4).NumberFormat = "0.0%"
+            Else
+                ws.Cells(targetRow, 4).Value2 = "Μη διαθέσιμο"
+            End If
+            maxCount = Application.Max(maxCount, _
+                CDbl(ws.Cells(targetRow, 2).Value2), _
+                CDbl(ws.Cells(targetRow, 3).Value2))
+            targetRow = targetRow + 1
+            sourceRow = sourceRow + 1
+        Loop
+    End If
+    ws.Cells(targetRow, 1).Value2 = "ΣΥΝΟΛΟ ΟΜΑΔΑΣ"
+    If finalTherapistRow >= 23 Then
+        ws.Cells(targetRow, 2).Value2 = CDbl(source.Cells(sourceRow, 2).Value2)
+        ws.Cells(targetRow, 3).Value2 = CDbl(source.Cells(sourceRow, 3).Value2)
+    Else
+        ws.Cells(targetRow, 2).Value2 = 0
+        ws.Cells(targetRow, 3).Value2 = 0
+    End If
+    If CDbl(ws.Cells(targetRow, 2).Value2) > 0 Then
+        ws.Cells(targetRow, 4).Value2 = _
+            CDbl(ws.Cells(targetRow, 3).Value2) / _
+            CDbl(ws.Cells(targetRow, 2).Value2)
+        ws.Cells(targetRow, 4).NumberFormat = "0.0%"
+    Else
+        ws.Cells(targetRow, 4).Value2 = "Μη διαθέσιμο"
+    End If
+    ws.Range(ws.Cells(targetRow, 1), ws.Cells(targetRow, 4)).Font.Bold = True
+
+    If targetRow > 6 Then
+        Set chart = ws.ChartObjects.Add(ws.Range("F5").Left, _
+            ws.Range("F5").Top, ws.Range("F1:J1").Width, 260)
+        chart.Name = "ekaManagementChart"
+        chart.Chart.ChartType = xlColumnClustered
+        Set series = chart.Chart.SeriesCollection.NewSeries
+        series.Name = "Αρχικά προγραμματισμένες"
+        series.XValues = ws.Range(ws.Cells(6, 1), ws.Cells(targetRow - 1, 1))
+        series.Values = ws.Range(ws.Cells(6, 2), ws.Cells(targetRow - 1, 2))
+        series.Format.Fill.ForeColor.RGB = RGB(63, 168, 245)
+        Set series = chart.Chart.SeriesCollection.NewSeries
+        series.Name = "Τελικά πραγματοποιημένες"
+        series.XValues = ws.Range(ws.Cells(6, 1), ws.Cells(targetRow - 1, 1))
+        series.Values = ws.Range(ws.Cells(6, 3), ws.Cells(targetRow - 1, 3))
+        series.Format.Fill.ForeColor.RGB = RGB(255, 3, 3)
+        chart.Chart.HasTitle = True
+        chart.Chart.ChartTitle.Text = "Συνεδρίες όλου του τμήματος"
+        chart.Chart.HasLegend = True
+        chart.Chart.Legend.Position = xlLegendPositionBottom
+        chart.Chart.Axes(xlValue).MinimumScale = 0
+        chart.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
+            WorksheetFunction.RoundUp(maxCount, -1))
+        chart.Chart.Axes(xlValue).HasMajorGridlines = True
+    End If
+
+    names = Array("Ημερήσια", "Εβδομαδιαία", "Μηνιαία", "Συνολικά", _
+        "Εξαγωγή μόνο διοίκησης", "Στατιστικά θεραπευτών")
+    calls = Array("ShowManagementSummaryDaily", "ShowManagementSummaryWeekly", _
+        "ShowManagementSummaryMonthly", "ShowManagementSummaryOverall", _
+        "ExportManagementOnlyWorkbook", "OpenTherapistHistoryReport")
+    For i = LBound(names) To UBound(names)
+        Set shape = Nothing
+        On Error Resume Next
+        Set shape = ws.Shapes("ekaManagementButton" & CStr(i))
+        On Error GoTo 0
+        If shape Is Nothing Then
+            Set shape = ws.Shapes.AddShape(5, 0, 0, 135, 27)
+            shape.Name = "ekaManagementButton" & CStr(i)
+        End If
+        shape.Left = ws.Range("A4").Left + i * 143
+        shape.Top = ws.Range("A4").Top
+        shape.Width = 135
+        shape.Height = 27
+        shape.OnAction = CStr(calls(i))
+        shape.Placement = xlFreeFloating
+        shape.TextFrame2.TextRange.Text = CStr(names(i))
+        shape.Fill.ForeColor.RGB = RGB(230, 239, 249)
+        shape.TextFrame2.TextRange.Font.Bold = True
+    Next i
+    ws.Cells(targetRow + 2, 1).Value2 = _
+        "ΠΡΟΣΟΧΗ: το εσωτερικό φύλλο δεν αποστέλλεται." & _
+        " Χρησιμοποιήστε «Εξαγωγή μόνο διοίκησης» για νέο καθαρό XLSX."
+    ws.Range(ws.Cells(targetRow + 2, 1), ws.Cells(targetRow + 2, 10)).Merge
+    ws.Range(ws.Cells(targetRow + 2, 1), ws.Cells(targetRow + 2, 10)).Font.Bold = True
+    ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
+End Sub
+
 Private Sub BuildDepartmentAppendix(ByVal ws As Worksheet, _
         ByVal finalTherapistRow As Long, ByVal reportMode As String)
     ' Chart follows the last therapist automatically, regardless of count.
