@@ -30,8 +30,8 @@ def test_therapists_show_three_native_panels_in_single_row():
         assert f'ws.ChartObjects("{chart}").Delete' in src
     for segment in (('"A", "D"'), ('"E", "H"'), ('"I", "M"')):
         assert segment in src
-    assert 'chartWidth - 4, 108)' in src
-    assert 'chartWidth - 4, 72)' in src
+    assert 'chartWidth - 4, 100)' in src
+    assert 'chartWidth - 4, 90)' in src
     assert 'NewTherapistTrendChart' in src
     assert "plannedSessions, actualSessions" in src
     assert "plot.Chart.Axes(xlValue).MinimumScale = 0" in src
