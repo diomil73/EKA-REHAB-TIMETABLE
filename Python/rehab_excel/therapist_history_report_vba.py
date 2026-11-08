@@ -238,15 +238,15 @@ Private Function WorkloadTrafficColor(ByVal loadPerDay As Double) As Long
     ' Classification applies to distinct patients treated per finalized
     ' therapist-day. Session count and occupied slots are separate KPIs.
     If loadPerDay >= 5.5 Then
-        WorkloadTrafficColor = RGB(205, 50, 55)       ' six or more: red
+        WorkloadTrafficColor = RGB(255, 3, 3)        ' TRIAL #FF0303: six or more
     ElseIf loadPerDay >= 4.5 Then
-        WorkloadTrafficColor = RGB(235, 138, 45)      ' five: orange
+        WorkloadTrafficColor = RGB(255, 180, 0)      ' TRIAL #FFB400: five
     ElseIf loadPerDay >= 2.5 Then
-        WorkloadTrafficColor = RGB(238, 207, 72)      ' three/four: yellow
+        WorkloadTrafficColor = RGB(255, 242, 0)      ' TRIAL #FFF200: three/four
     ElseIf loadPerDay > 0 Then
-        WorkloadTrafficColor = RGB(79, 166, 93)       ' one/two: green
+        WorkloadTrafficColor = RGB(91, 250, 116)     ' TRIAL #5BFA74: one/two
     Else
-        WorkloadTrafficColor = RGB(160, 169, 177)     ' zero: no treatment
+        WorkloadTrafficColor = RGB(63, 168, 245)     ' TRIAL #3FA8F5: zero
     End If
 End Function
 
@@ -403,7 +403,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
     referenceColor = RGB(225, 0, 30) ' red by default
-    If WorkloadTrafficColor(loadPerDay) = RGB(205, 50, 55) Then
+    If WorkloadTrafficColor(loadPerDay) = RGB(255, 3, 3) Then
         referenceColor = RGB(57, 255, 20) ' fluorescent green on red workload bar
     End If
     AddTherapistMeanMarker plot, "ekaMeanPatients", referencePatients, 1, 1, referenceColor
@@ -414,6 +414,10 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     series.Name = "Θεραπευτής"
     series.XValues = Array("Προγραμ.", "Πραγματ.")
     series.Values = Array(plannedSessions, actualSessions)
+    ' TRIAL palette only. Categorical blue/green here is NOT a
+    ' performance judgment: no arbitrary traffic threshold for sessions.
+    series.Points(1).Format.Fill.ForeColor.RGB = RGB(63, 168, 245)
+    series.Points(2).Format.Fill.ForeColor.RGB = RGB(91, 250, 116)
     plot.Chart.HasLegend = False
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = cohortAxisSessions
