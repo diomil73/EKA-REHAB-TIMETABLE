@@ -139,7 +139,11 @@ def test_mean_markers_are_thin_short_chart_overlays_not_extra_bar_or_line_series
     assert "lineHalfWidth = slotWidth * 0.28" in code
     assert "marker.Line.Weight = 1.25" in code
     assert "marker.Line.DashStyle = msoLineSolid" in code
-    assert "series.ChartType = xlLine" not in code
+    # The new mini-trends ARE true line charts. Only the mean overlay
+    # must never be represented as another chart data series.
+    assert 'series.Name = "Μ.Ο. περιόδου"' not in code
+    assert 'series.Name = "Μ.Ο. προγρ."' not in code
+    assert 'series.Name = "Μ.Ο. πραγμ."' not in code
     assert "Μ.Ο. προγρ." in code
     assert "referencePatients, 1, 1, referenceColor" in code
     assert "referencePlanned, 1, 2, RGB(225, 0, 30)" in code
