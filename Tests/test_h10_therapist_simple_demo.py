@@ -58,8 +58,10 @@ def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     assert bp.read_bytes() == b"already exists"
     with pytest.raises(H10DemoError, match="BP"):
         check_candidate(bo, tmp_path / "H10_DEMO_BQ.xlsm")
+    bn = tmp_path / "H8_DEMO_BN.xlsm"
+    bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(tmp_path / "H8_DEMO_BN.xlsm", tmp_path / "H10_DEMO_BP2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BP2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
