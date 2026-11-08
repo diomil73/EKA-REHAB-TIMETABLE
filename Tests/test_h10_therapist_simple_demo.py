@@ -224,7 +224,9 @@ def test_mini_trends_use_persisted_finalized_daily_cache_and_exact_colors():
     assert 'AddTherapistTrendSeries plot, "Τελικά πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)' in vba
     assert 'plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1' in vba
     assert 'maxSession = Application.Max(maxSession, CDbl(ws.Cells(r, 19).Value2)' in vba
-    assert 'If n < 2 Then Exit Sub' in vba
+    assert 'If n < 2 Then' in vba
+    assert 'ws.Range("A18").Value2 = "Τάση: ανεπαρκείς ημέρες"' in vba
+    assert 'StyleTherapistTrendRuler plot' in vba
     assert 'ws.Range("E18").Value2 = "Μπλε: αρχικά προγρ. | Κόκκινο: τελικά πραγματ."' in vba
 
 
