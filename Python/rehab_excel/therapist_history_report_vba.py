@@ -295,6 +295,160 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
     Set NewTherapistMiniChart = plot
 End Function
 
+Private Function TrendDateWithinReport(ByVal dateText As String, _
+        ByVal ws As Worksheet, ByVal reportMode As String, _
+        ByVal selectedRow As Long) As Boolean
+    Dim periodStart As String, periodEnd As String
+    ' ISO 8601 yyyy-mm-dd lexicographic comparisons, locale independent.
+    ' A mode with no selected row displays all currently finalized dates.
+    If selectedRow < 23 Then
+        TrendDateWithinReport = True
+        Exit Function
+    End If
+    periodStart = CStr(ws.Cells(selectedRow, 1).Value2)
+    periodEnd = CStr(ws.Cells(selectedRow, 2).Value2)
+    Select Case LCase$(reportMode)
+        Case "monthly"
+            TrendDateWithinReport = (Left$(dateText, 7) = Left$(periodStart, 7))
+        Case "weekly"
+            TrendDateWithinReport = (dateText >= periodStart And _
+                dateText <= periodEnd)
+        Case "daily"
+            ' Through the selected day, starting at the first finalized fact;
+            ' do not make up a timeline for days before available history.
+            TrendDateWithinReport = (dateText <= periodStart)
+        Case "overall"
+            TrendDateWithinReport = True
+        Case Else
+            Err.Raise vbObjectError + 7652, , "Unknown therapist trend mode"
+    End Select
+End Function
+
+Private Function NewTherapistTrendChart(ByVal ws As Worksheet, _
+        ByVal chartName As String, ByVal firstColumn As String, _
+        ByVal lastColumn As String) As ChartObject
+    Dim chartWidth As Double
+    chartWidth = ws.Range(lastColumn & "13").Left + _
+        ws.Range(lastColumn & "13").Width - ws.Range(firstColumn & "13").Left
+    Set NewTherapistTrendChart = ws.ChartObjects.Add( _
+        ws.Range(firstColumn & "13").Left, ws.Range(firstColumn & "13").Top, _
+        chartWidth - 4, 72)
+    NewTherapistTrendChart.Name = chartName
+    NewTherapistTrendChart.Placement = xlFreeFloating
+    NewTherapistTrendChart.Chart.ChartType = xlLine
+    NewTherapistTrendChart.Chart.HasLegend = False
+    NewTherapistTrendChart.Chart.HasTitle = False
+End Function
+
+Private Sub AddTherapistTrendSeries(ByVal plot As ChartObject, _
+        ByVal seriesName As String, ByVal xs As Variant, _
+        ByVal values As Variant, ByVal colorValue As Long)
+    Dim series As Series
+    Set series = plot.Chart.SeriesCollection.NewSeries
+    series.Name = seriesName
+    series.XValues = xs
+    series.Values = values
+    series.ChartType = xlLine
+    series.MarkerStyle = xlMarkerStyleNone
+    series.Format.Line.ForeColor.RGB = colorValue
+    series.Format.Line.Weight = 1.6
+End Sub
+
+Private Sub BuildTherapistMiniTrends(ByVal ws As Worksheet, _
+        ByVal reportMode As String, ByVal selectedRow As Long, _
+        ByVal therapistName As String)
+    Dim lastDaily As Long, r As Long, count As Long, n As Long
+    Dim dateText As String, previousDate As String, person As String
+    Dim maxPatient As Double, maxSession As Double
+    Dim dailyCount As Long, dailyPatients As Double
+    Dim xs() As Variant, planned() As Variant, delivered() As Variant
+    Dim patients() As Variant, dayCounts() As Long
+    Dim xPlot() As Variant, pPlot() As Variant, dPlot() As Variant
+    Dim lPlot() As Variant, i As Long, plot As ChartObject
+    Dim dayLabel As String, maxRowCount As Long
+
+    lastDaily = ws.Cells(ws.Rows.Count, 17).End(xlUp).Row
+    If lastDaily < 3 Then Exit Sub
+    maxRowCount = lastDaily - 1
+    ReDim xs(1 To maxRowCount)
+    ReDim planned(1 To maxRowCount)
+    ReDim delivered(1 To maxRowCount)
+    ReDim patients(1 To maxRowCount)
+    ReDim dayCounts(1 To maxRowCount)
+
+    ' Source TSV is sorted by ISO date and therapist. Aggregate once per
+    ' date for the department; retain one daily point per selected therapist.
+    ' Every comparison uses exactly the same selected date/window.
+    previousDate = ""
+    For r = 2 To lastDaily
+        dateText = CStr(ws.Cells(r, 17).Value2)
+        If Not TrendDateWithinReport(dateText, ws, reportMode, selectedRow) Then _
+            GoTo NextDailyTrend
+        person = CStr(ws.Cells(r, 18).Value2)
+        ' Shared scale is calculated across ALL therapist-day facts, not
+        ' the selected therapist alone.
+        maxPatient = Application.Max(maxPatient, CDbl(ws.Cells(r, 21).Value2))
+        maxSession = Application.Max(maxSession, CDbl(ws.Cells(r, 19).Value2), _
+            CDbl(ws.Cells(r, 20).Value2))
+        If Len(therapistName) > 0 And _
+                StrComp(person, therapistName, vbTextCompare) <> 0 Then _
+            GoTo NextDailyTrend
+        If n = 0 Or dateText <> previousDate Then
+            n = n + 1
+            xs(n) = dateText
+            planned(n) = 0#
+            delivered(n) = 0#
+            patients(n) = 0#
+            dayCounts(n) = 0
+            previousDate = dateText
+        End If
+        planned(n) = CDbl(planned(n)) + CDbl(ws.Cells(r, 19).Value2)
+        delivered(n) = CDbl(delivered(n)) + CDbl(ws.Cells(r, 20).Value2)
+        patients(n) = CDbl(patients(n)) + CDbl(ws.Cells(r, 21).Value2)
+        dayCounts(n) = dayCounts(n) + 1
+NextDailyTrend:
+    Next r
+
+    ' No trend extrapolation from a single finalized day.
+    If n < 2 Then Exit Sub
+    ReDim xPlot(1 To n)
+    ReDim pPlot(1 To n)
+    ReDim dPlot(1 To n)
+    ReDim lPlot(1 To n)
+    For i = 1 To n
+        dayLabel = CStr(xs(i))
+        xPlot(i) = Mid$(dayLabel, 6, 5)
+        pPlot(i) = CDbl(planned(i))
+        dPlot(i) = CDbl(delivered(i))
+        If dayCounts(i) > 0 Then
+            lPlot(i) = CDbl(patients(i)) / CDbl(dayCounts(i))
+        Else
+            lPlot(i) = 0#
+        End If
+        If Len(therapistName) = 0 Then
+            ' The department series is a sum of daily session counts.
+            ' Its axis must contain department totals rather than individual
+            ' values; therapist-to-therapist comparison remains fixed below.
+            maxSession = Application.Max(maxSession, CDbl(planned(i)), CDbl(delivered(i)))
+        End If
+    Next i
+
+    Set plot = NewTherapistTrendChart(ws, "ekaTherapistLoadTrend", "A", "D")
+    AddTherapistTrendSeries plot, "Ασθενείς/ημέρα", xPlot, lPlot, RGB(63, 168, 245)
+    plot.Chart.Axes(xlValue).MinimumScale = 0
+    plot.Chart.Axes(xlValue).MaximumScale = Application.Max(6, _
+        WorksheetFunction.RoundUp(maxPatient, 0))
+    plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
+
+    Set plot = NewTherapistTrendChart(ws, "ekaTherapistSessionTrend", "E", "H")
+    AddTherapistTrendSeries plot, "Προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)
+    AddTherapistTrendSeries plot, "Πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)
+    plot.Chart.Axes(xlValue).MinimumScale = 0
+    plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
+        WorksheetFunction.RoundUp(maxSession, -1))
+    plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
+End Sub
+
 Private Sub AddTherapistMeanMarker(ByVal plot As ChartObject, _
         ByVal markerName As String, ByVal meanValue As Double, _
         ByVal categoryIndex As Long, ByVal categoryCount As Long, _
