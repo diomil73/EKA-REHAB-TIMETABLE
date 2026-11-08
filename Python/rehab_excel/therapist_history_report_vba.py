@@ -483,7 +483,7 @@ Private Sub BuildTherapistMiniTrends(ByVal ws As Worksheet, _
     Dim patients() As Variant, dayCounts() As Long
     Dim xPlot() As Variant, pPlot() As Variant, dPlot() As Variant
     Dim lPlot() As Variant, i As Long, plot As ChartObject
-    Dim dayLabel As String, maxRowCount As Long
+    Dim dayLabel As String, maxRowCount As Long, positiveDeltaDays As Long
 
     lastDaily = ws.Cells(ws.Rows.Count, 17).End(xlUp).Row
     If lastDaily < 3 Then Exit Sub
@@ -542,6 +542,8 @@ NextDailyTrend:
         xPlot(i) = Mid$(dayLabel, 6, 5)
         pPlot(i) = CDbl(planned(i))
         dPlot(i) = CDbl(delivered(i))
+        If CDbl(dPlot(i)) > CDbl(pPlot(i)) Then _
+            positiveDeltaDays = positiveDeltaDays + 1
         If dayCounts(i) > 0 Then
             lPlot(i) = CDbl(patients(i)) / CDbl(dayCounts(i))
         Else
@@ -564,8 +566,8 @@ NextDailyTrend:
     plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
 
     Set plot = NewTherapistTrendChart(ws, "ekaTherapistSessionTrend", "E", "H")
-    AddTherapistTrendSeries plot, "Προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)
-    AddTherapistTrendSeries plot, "Πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)
+    AddTherapistTrendSeries plot, "Αρχικά προγραμματισμένες", xPlot, pPlot, RGB(63, 168, 245)
+    AddTherapistTrendSeries plot, "Τελικά πραγματοποιημένες", xPlot, dPlot, RGB(255, 3, 3)
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = Application.Max(1, _
         WorksheetFunction.RoundUp(maxSession, 0))
@@ -574,6 +576,10 @@ NextDailyTrend:
     plot.Chart.Axes(xlValue).MajorUnit = Application.Max(1, _
         WorksheetFunction.RoundUp(maxSession / 8#, 0))
     plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
+    If positiveDeltaDays > 0 Then
+        ws.Range("E17").Value2 = CStr(positiveDeltaDays) & _
+            " ημέρες: τελικά > αρχικά (έλεγχος αιτίας)"
+    End If
 End Sub
 
 Private Sub AddTherapistMeanMarker(ByVal plot As ChartObject, _
@@ -728,7 +734,9 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Set plot = NewTherapistMiniChart(ws, "ekaTherapistSessionChart", "E", "H")
     Set series = plot.Chart.SeriesCollection.NewSeries
     series.Name = "Θεραπευτής"
-    series.XValues = Array("Προγραμ.", "Πραγματ.")
+    ' Initial plan vs final delivered: the red series can correctly exceed
+    ' the blue for a day with extra sessions. Never clamp either value.
+    series.XValues = Array("Αρχ. προγρ.", "Τελ. πραγματ.")
     series.Values = Array(plannedSessions, actualSessions)
     ' User-selected semantic color contract: BLUE = planned, RED = delivered.
     ' Apply the same mapping to the mini time-series beneath this chart.
@@ -753,7 +761,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' Mini trend panels: genuine finalized daily data, same time window and
     ' chart ordinate for every therapist in that cohort, two series in sessions.
     BuildTherapistMiniTrends ws, reportMode, selectedRow, therapistName
-    ws.Range("E18").Value2 = "Μπλε: προγρ. | Κόκκινο: πραγματ."
+    ws.Range("E18").Value2 = "Μπλε: αρχικά προγρ. | Κόκκινο: τελικά πραγματ."
 
     ' Chart three: not a zero-absence chart. Historical therapist attendance
     ' and a reliable working-day denominator are NOT persisted in the current
