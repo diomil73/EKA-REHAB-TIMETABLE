@@ -82,8 +82,8 @@ def check_candidate(source: Path, output: Path) -> None:
         raise H10DemoError("Source must be frozen verified BO demo")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
-    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BW.XLSM"):
-        raise H10DemoError("Fresh H10 BW _DEMO_ .xlsm destination required")
+    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BX.XLSM"):
+        raise H10DemoError("Fresh H10 BX _DEMO_ .xlsm destination required")
     if source.resolve() == output.resolve():
         raise H10DemoError("Source and destination collision")
 
@@ -151,8 +151,15 @@ def _verify_native(wb) -> None:
         )
     sheet = wb.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
     management = wb.Worksheets("MANAGEMENT_SUMMARY")
-    if not bool(management.ProtectContents) or bool(management.ProtectDrawingObjects):
-        raise H10DemoError("Management preview protection invalid")
+    managed_contents = bool(management.ProtectContents)
+    managed_drawing = bool(management.ProtectDrawingObjects)
+    managed_scenarios = bool(management.ProtectScenarios)
+    if not managed_contents or managed_drawing or not managed_scenarios:
+        raise H10DemoError(
+            "Management preview protection invalid: "
+            f"Contents={managed_contents}; DrawingObjects={managed_drawing}; "
+            f"Scenarios={managed_scenarios}"
+        )
     component = wb.VBProject.VBComponents(sheet.CodeName).CodeModule
     sheet_code = _safe_module_lines(component)
     verify_selection_event(sheet_code)
@@ -180,7 +187,7 @@ def install_native(source: Path, output: Path) -> None:
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh BO -> BW copy SHA256 mismatch")
+        raise H10DemoError("Fresh BO -> BX copy SHA256 mismatch")
 
     excel = None
     book = None
@@ -190,10 +197,10 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "open BW for installation"
+        stage = "open BX for installation"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
-            raise H10DemoError("BW opened read-only; no edits possible")
+            raise H10DemoError("BX opened read-only; no edits possible")
         vbproj = book.VBProject
         report = book.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
         stage = "locate therapist report sheet module"
@@ -230,13 +237,17 @@ def install_native(source: Path, output: Path) -> None:
         management.Range("A2").Value2 = (
             "Μην αποστείλετε το λειτουργικό XLSM. Χρησιμοποιήστε την ασφαλή εξαγωγή XLSX."
         )
-        management.Protect(DrawingObjects=False, Contents=True, Scenarios=True)
+        # Explicit POSITIONAL COM arguments: Excel Worksheet.Protect
+        # signature is (Password, DrawingObjects, Contents, Scenarios, ...).
+        # Keep drawings editable for dashboard buttons and chart refresh.
+        # The readback strictly verifies actual Excel protection flags.
+        management.Protect("", False, True, True)
         stage = "verify installed VBA and protected history sheets"
         _verify_native(book)
-        stage = "save BW"
+        stage = "save BX"
         book.Save()
     except Exception as exc:
-        raise H10DemoError(f"BW install failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BX install failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -253,14 +264,14 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "read-only persisted BW reopen"
+        stage = "read-only persisted BX reopen"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=True)
         if not bool(book.ReadOnly):
-            raise H10DemoError("Native BW reopen was not read-only")
+            raise H10DemoError("Native BX reopen was not read-only")
         stage = "read-only persisted VBA protection audit"
         _verify_native(book)
     except Exception as exc:
-        raise H10DemoError(f"BW verification failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BX verification failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -273,7 +284,7 @@ def install_native(source: Path, output: Path) -> None:
     if digest(source) != source_hash:
         raise H10DemoError("Frozen BO source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BW only; BO and archived previews unchanged")
+    print("Fresh BX only; BO and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
@@ -287,7 +298,7 @@ def main() -> int:
         install_native(args.source, args.output)
     except Exception as exc:
         print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
-        print("Freeze BW; do not retry, repair or overwrite candidate")
+        print("Freeze BX; do not retry, repair or overwrite candidate")
         return 2
     return 0
 
