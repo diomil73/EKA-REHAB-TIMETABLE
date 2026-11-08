@@ -41,7 +41,8 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
     vba = THERAPIST_HISTORY_MODULE_CODE
     assert vba.count('"Απουσίες/αναβολές"') == 3
     assert vba.count('"Αναστολές θεραπείας"') == 3
-    assert vba.count('"Ασθενείς/ημέρα"') == 3
+    # Three report headers plus the deliberate mini-trend series label.
+    assert vba.count('"Ασθενείς/ημέρα"') == 4
     assert '"Αποδεσμεύσεις"' not in vba
     assert '"Μη διαθέσιμο ιστορικό απουσιών / εργασίμων"' in vba
     assert "ws.Range(\"E19\").Value2" in vba
@@ -50,18 +51,18 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
 def test_h10_requires_strict_new_demo_destination_and_existing_bo(tmp_path):
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"sentinel")
-    bq = tmp_path / "H10_DEMO_BV.xlsm"
+    bq = tmp_path / "H10_DEMO_BW.xlsm"
     check_candidate(bo, bq)
     bq.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
         check_candidate(bo, bq)
     assert bq.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BV"):
-        check_candidate(bo, tmp_path / "H10_DEMO_BW.xlsm")
+    with pytest.raises(H10DemoError, match="BW"):
+        check_candidate(bo, tmp_path / "H10_DEMO_BX.xlsm")
     bn = tmp_path / "H8_DEMO_BN.xlsm"
     bn.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="BO"):
-        check_candidate(bn, tmp_path / "H10_DEMO_BV2.xlsm")
+        check_candidate(bn, tmp_path / "H10_DEMO_BW2.xlsm")
 
 
 def test_install_requires_persisted_vba_markers_and_event_module():
@@ -297,7 +298,7 @@ def test_native_installer_reserves_unique_bv_and_verifies_management_sheet():
     assert 'MANAGEMENT_SUMMARY' in source
     assert 'Management preview protection invalid' in source
     assert 'Protected' not in source or 'management.Protect' in source
-    assert '_BV.XLSM' in source
+    assert '_BW.XLSM' in source
 
 
 def test_therapist_selection_does_not_change_entire_department_total():
@@ -310,3 +311,13 @@ def test_therapist_selection_does_not_change_entire_department_total():
     )
     assert "teamPlanned = CLng(referencePlanned)" not in vba
     assert "teamActual = CLng(referenceActual)" not in vba
+
+
+def test_imported_vba_verification_reports_exact_missing_markers():
+    import inspect
+    from tools import prepare_h10_therapist_simple_demo as installer
+    source = inspect.getsource(installer._verify_native)
+    assert "missing = [" in source
+    assert "H10 VBA marker read-back mismatch" in source
+    assert "persisted lines=" in source
+    assert "normalize(fragment) not in installed_normalized" in source
