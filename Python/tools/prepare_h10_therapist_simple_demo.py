@@ -57,8 +57,8 @@ def check_candidate(source: Path, output: Path) -> None:
         raise H10DemoError("Source must be frozen verified BO demo")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
-    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BQ.XLSM"):
-        raise H10DemoError("Fresh H10 BQ _DEMO_ .xlsm destination required")
+    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BR.XLSM"):
+        raise H10DemoError("Fresh H10 BR _DEMO_ .xlsm destination required")
     if source.resolve() == output.resolve():
         raise H10DemoError("Source and destination collision")
 
@@ -67,6 +67,43 @@ def _safe_module_lines(module) -> str:
     """Do not call VBA CodeModule.Lines(1, 0) on an empty worksheet module."""
     count = int(module.CountOfLines)
     return "" if count == 0 else str(module.Lines(1, count))
+
+
+def _event_lines(source: str) -> list[str]:
+    """Compare VBA statements, not VBIDE's whitespace/line-ending presentation."""
+    return [
+        " ".join(line.strip().casefold().split())
+        for line in source.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        if line.strip()
+    ]
+
+
+def verify_selection_event(source: str) -> None:
+    """Fail closed on missing/duplicate event or a missing safety guard.
+
+    VBIDE may reformat spaces or line endings on CodeModule.AddFromString.
+    Literal whole-block comparison is not a sound persisted-code contract.
+    """
+    actual = _event_lines(source)
+    required = _event_lines(EVENT_CODE)
+    signature = required[0]
+    if actual.count(signature) != 1:
+        raise H10DemoError(
+            f"Therapist selection event declaration count {actual.count(signature)}; "
+            f"VBA lines={len(actual)}"
+        )
+    offset = actual.index(signature)
+    if actual[offset:offset + len(required)] != required:
+        # Report only concise diagnostic metadata, never assume installation.
+        mismatch = next(
+            (i for i, line in enumerate(required)
+             if offset + i >= len(actual) or actual[offset + i] != line),
+            len(required),
+        )
+        raise H10DemoError(
+            f"Therapist selection event failed statement readback at "
+            f"relative line {mismatch + 1}; VBA lines={len(actual)}"
+        )
 
 
 def _verify_native(wb) -> None:
@@ -79,10 +116,7 @@ def _verify_native(wb) -> None:
     sheet = wb.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
     component = wb.VBProject.VBComponents(sheet.CodeName).CodeModule
     sheet_code = _safe_module_lines(component)
-    normalized_sheet = sheet_code.replace("\r\n", "\n").replace("\r", "\n").strip()
-    normalized_event = EVENT_CODE.replace("\r\n", "\n").replace("\r", "\n").strip()
-    if normalized_event not in normalized_sheet:
-        raise H10DemoError("Therapist row-selection event not persisted")
+    verify_selection_event(sheet_code)
     if not bool(sheet.ProtectContents) or bool(sheet.ProtectDrawingObjects):
         raise H10DemoError("Therapist report protection invalid")
     for name in ("FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY",
@@ -107,7 +141,7 @@ def install_native(source: Path, output: Path) -> None:
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh BO -> BQ copy SHA256 mismatch")
+        raise H10DemoError("Fresh BO -> BR copy SHA256 mismatch")
 
     excel = None
     book = None
@@ -117,10 +151,10 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "open BQ for installation"
+        stage = "open BR for installation"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
-            raise H10DemoError("BQ opened read-only; no edits possible")
+            raise H10DemoError("BR opened read-only; no edits possible")
         vbproj = book.VBProject
         report = book.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
         stage = "locate therapist report sheet module"
@@ -141,10 +175,10 @@ def install_native(source: Path, output: Path) -> None:
         code.AddFromString(EVENT_CODE)
         stage = "verify installed VBA and protected history sheets"
         _verify_native(book)
-        stage = "save BQ"
+        stage = "save BR"
         book.Save()
     except Exception as exc:
-        raise H10DemoError(f"BQ install failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BR install failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -161,14 +195,14 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "read-only persisted BQ reopen"
+        stage = "read-only persisted BR reopen"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=True)
         if not bool(book.ReadOnly):
-            raise H10DemoError("Native BQ reopen was not read-only")
+            raise H10DemoError("Native BR reopen was not read-only")
         stage = "read-only persisted VBA protection audit"
         _verify_native(book)
     except Exception as exc:
-        raise H10DemoError(f"BQ verification failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"BR verification failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -181,7 +215,7 @@ def install_native(source: Path, output: Path) -> None:
     if digest(source) != source_hash:
         raise H10DemoError("Frozen BO source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BQ only; BO and archived previews unchanged")
+    print("Fresh BR only; BO and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
@@ -195,7 +229,7 @@ def main() -> int:
         install_native(args.source, args.output)
     except Exception as exc:
         print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
-        print("Freeze BQ; do not retry, repair or overwrite candidate")
+        print("Freeze BR; do not retry, repair or overwrite candidate")
         return 2
     return 0
 
