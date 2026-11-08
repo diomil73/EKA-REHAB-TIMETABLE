@@ -161,9 +161,9 @@ def test_mean_marker_changes_to_fluorescent_green_only_on_red_load_bar():
 
 def test_department_totals_display_without_summing_therapist_percentages():
     code = THERAPIST_HISTORY_MODULE_CODE
-    assert 'teamPlanned = CLng(referencePlanned)' in code
-    assert 'teamActual = CLng(referenceActual)' in code
-    assert 'ws.Range("A20").Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ | Προγραμματισμένες: "' in code
+    assert 'teamPlanned = teamPlanned + CLng(ws.Cells(r, 7).Value2)' in code
+    assert 'teamActual = teamActual + CLng(ws.Cells(r, 8).Value2)' in code
+    assert 'ws.Range("A20").Value2 = "ΟΛΟΙ ΟΙ ΘΕΡΑΠΕΥΤΕΣ (προβολή) | Προγραμματισμένες: "' in code
     assert 'CStr(teamPlanned)' in code
     assert 'CStr(teamActual)' in code
     assert 'If selectedRow = 0 Or periodKey = selectedPeriod Then' in code
@@ -298,3 +298,15 @@ def test_native_installer_reserves_unique_bv_and_verifies_management_sheet():
     assert 'Management preview protection invalid' in source
     assert 'Protected' not in source or 'management.Protect' in source
     assert '_BV.XLSM' in source
+
+
+def test_therapist_selection_does_not_change_entire_department_total():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert "teamPlanned = teamPlanned + CLng(ws.Cells(r, 7).Value2)" in vba
+    assert "teamActual = teamActual + CLng(ws.Cells(r, 8).Value2)" in vba
+    assert "If selectedRow = 0 Or periodKey = selectedPeriod Then" in vba
+    assert vba.index("teamPlanned = teamPlanned +") < vba.index(
+        "If selectedRow = 0 Or periodKey = selectedPeriod Then"
+    )
+    assert "teamPlanned = CLng(referencePlanned)" not in vba
+    assert "teamActual = CLng(referenceActual)" not in vba
