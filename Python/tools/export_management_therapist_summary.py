@@ -324,6 +324,17 @@ def verify_management_native(file: Path, expected: dict) -> None:
                     or int(ws.Cells(total_row, 2).Value2) != planned_total
                     or int(ws.Cells(total_row, 3).Value2) != delivered_total):
                 raise ValueError(f"Management {mode} total read-back mismatch")
+            # KPI cards must reconcile with the detail and grand totals.
+            if (int(ws.Range("A9").Value2) != planned_total or
+                    int(ws.Range("C9").Value2) != delivered_total):
+                raise ValueError(f"Management {mode} headline KPI mismatch")
+            headline_ratio = ws.Range("F9").Value2
+            if planned_total == 0:
+                if str(headline_ratio) != "Μη διαθέσιμο":
+                    raise ValueError(f"Management {mode} KPI denominator handling invalid")
+            elif not math.isclose(float(headline_ratio),
+                                  delivered_total / planned_total, abs_tol=1e-12):
+                raise ValueError(f"Management {mode} KPI percentage mismatch")
             total_ratio = ws.Cells(total_row, 4).Value2
             if planned_total == 0:
                 if str(total_ratio) != "Μη διαθέσιμο":
