@@ -333,3 +333,21 @@ def test_management_protection_uses_explicit_com_arguments_and_reads_flags():
     assert "managed_drawing = bool(management.ProtectDrawingObjects)" in audit
     assert "managed_scenarios = bool(management.ProtectScenarios)" in audit
     assert "DrawingObjects={managed_drawing}" in audit
+
+
+def test_report_refresh_clears_old_traffic_colors_and_department_counts_are_numeric():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    assert 'ws.Range("A22:N2000").ClearFormats' in vba
+    assert 'ws.Range(ws.Cells(startRow, 2), _' in vba
+    assert 'ws.Cells(lastGroup + 1, 3)).NumberFormat = "0"' in vba
+    assert 'ws.Columns("B:C").NumberFormat = "0"' in vba
+
+
+def test_individual_selection_does_not_delete_the_persistent_department_chart():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    start = vba.index("Private Sub BuildTherapistLoadChart(")
+    end = vba.index("End Sub", start)
+    per_therapist = vba[start:end]
+    assert 'ws.ChartObjects("ekaDepartmentHistoryChart").Delete' not in per_therapist
+    assert 'chart.Name = "ekaDepartmentHistoryChart"' in vba
+    assert 'ws.ChartObjects("ekaDepartmentHistoryChart").Delete' in vba
