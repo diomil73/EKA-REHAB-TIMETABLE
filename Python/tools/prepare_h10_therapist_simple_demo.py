@@ -79,7 +79,9 @@ def _verify_native(wb) -> None:
     sheet = wb.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
     component = wb.VBQroject.VBComponents(sheet.CodeName).CodeModule
     sheet_code = _safe_module_lines(component)
-    if EVENT_CODE.strip() not in sheet_code:
+    normalized_sheet = sheet_code.replace("\r\n", "\n").replace("\r", "\n").strip()
+    normalized_event = EVENT_CODE.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if normalized_event not in normalized_sheet:
         raise H10DemoError("Therapist row-selection event not persisted")
     if not bool(sheet.ProtectContents) or bool(sheet.ProtectDrawingObjects):
         raise H10DemoError("Therapist report protection invalid")
