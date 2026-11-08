@@ -218,3 +218,13 @@ Source-only improvements made, **no new native proof**:
 
 ### 2026-11-09 — source test stop and synchronized repair
 Windows operator: `44 passed, 2 failed` after `af6a050`/ `711fb54`. Both failing assertions were stale after shortening `"Μ.Ο. περιόδου: "` to `"Μ.Ο.: "`: `test_period_benchmarks_are_separate_and_day_weighted_for_patients` and `test_install_requires_persisted_vba_markers_and_event_module`. Source-only repair: `05e671c` updated native installer REQUIRED_VBA label and added non-optional new 0–6, warning and compact title markers; `14d43f4` updated test while retaining weighted reference checks. Static check confirms **34/34 required quoted VBA fragments present**. No new Windows pytest/native verification yet, and no BY/BZ creation/overwrite. Run targeted tests with FF-only pull; STOP on nonzero. Six-period rework and Kalyviotis audit remain open.
+
+
+### 2026-11-09 — Six-mode source implementation awaiting operator pytest
+Operator confirmed `46 passed in 2.56s`, `H10 SOURCE TESTS GREEN` for previous source batch. Continued automatically:
+- `fb307a1` `Python/tools/export_therapist_history_ui.py` defines today/yesterday/week/month/year/overall calendar-scoped modes, with a single aggregated report row per therapist per period; excludes dates after as-of and does not invent missing data; legacy CLI modes remain for callers such as management (4-sheet export unchanged). Reporting bounds for current partial periods end at as-of, not future 31/12. Optional trend TSV is scoped to precisely selected finalized days. `as_of` injectable for deterministic tests.
+- `bfb2be2`, `9a97d69` add date-window, one-row-per-therapist, future exclusion, empty-yesterday regression fixtures.
+- `48ceec2` changes native therapist interface to six buttons `Σήμερα / Χθες / Εβδομάδα / Μήνας / Έτος / Σύνολο`; default opens today, old management summary actions remain four modes and sanitized output unchanged. New trend interpretation trusts already scoped cache.
+- `4a51d3d` clears old three legacy mode shapes on refresh (no ghost buttons). `cf4283f` asserts six mode buttons, macro binding and legacy shape cleanup.
+
+**NOT GREEN YET:** no local Windows pytest or native Excel verification of this new batch. Do not claim complete. Run targeted tests before further changes/new workbook. Frozen BO/BY untouched. Installer currently ONLY authorizes a fresh `_BY.xlsm` and must be upgraded with new tests and collision safety for future unused `_BZ.xlsm` before any native trial. **Never rerun installer on BY or alter BO.** Kalyviotis `9` raw-day diagnostic and Kosmidis `8 occupied slots/6 capacity` remain unresolved; protect/visual runtime verification still open. Avoid accepting fixed 0–6 ruler as source-data correction.
