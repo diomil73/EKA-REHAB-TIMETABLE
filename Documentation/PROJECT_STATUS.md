@@ -942,3 +942,27 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BS source gate failed" }
 Then with Excel closed confirm BS absent, read-only history verify BO, one-shot native BS from BO using `prepare_h10_therapist_simple_demo.py --source ...BO.xlsm --output ...BS.xlsm`. On **native success only** independently verify BS cross-sheet history/protection/H7 toolbar, and manually inspect actual mean horizontal lines plus department summary across daily/weekly/monthly/overall and selected therapist. On any fatal stop freeze BS, no retry or overwrite. Distinguish source/new VBA from proven native chart behavior.
 
 **Product scope**: The prototype's new combined line is a brief same-period total, not yet a full department dashboard with unique patient counts, date breakdown and department utilization policies. Do not invent denominator or imply that group distinct patients = sum of individual patient counts. Manager-friendly output should remain uncomplicated.
+
+## 2026-11-08 — BS native H10 simplified average-line UI install GREEN, read-only audits pending
+
+Operator confirmed exact one-shot native install output for `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261108_BS.xlsm`:
+```
+H10 THERAPIST SIMPLE DEMO INSTALL OK
+Fresh BS only; BO and archived previews unchanged
+Sticky therapist charts, selection highlight, period benchmarks installed
+Synthetic data is demonstration only; no production attendance KPI
+```
+Installer completed native save and independently reopened persisted VBA for read-only verification, and reports BO/archived previews unchanged. This is positive **native installation proof**, NOT independent history/protection/toolbar audit nor chart visual acceptance. BS includes source revisions `e0da523` (purple horizontal reference series), `4a03e61` (simple all-therapists planned/delivered same-period total) and BQ/BR preexisting sticky-chart/selection highlights. Charts have not yet been visibly verified in native Excel. Do not claim line reference visually approved until manual smoke. H9 real attendance remains unconnected to third chart. BO immutable verified synthetic base; BR prior visually inspected, BP/BQ frozen failed.
+
+Next operator-only **read-only gates** with Excel closed:
+```powershell
+$bs = ".\Excel\previews\UNIFIED_H10_DEMO_THERAPIST_20261108_BS.xlsm"
+if (!(Test-Path -LiteralPath $bs)) { throw "SAFETY STOP: BS missing" }
+python .\Python\tools\verify_h8_synthetic_history.py --workbook $bs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BS history verification failed; freeze BS" }
+python .\Python\tools\audit_workbook_protection.py $bs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BS protection audit failed; freeze BS" }
+python .\Python\tools\inspect_h7_integrated_ui.py $bs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: BS integrated UI audit failed; freeze BS" }
+```
+History expected: 25 days, 522 patient sessions, 150 therapist-day rows, 150 synthetic attendance facts, 25 finalization events; unchanged SHA256. Audit expected 24 sheets and H7 integrated toolbar OK; expected preexisting safety findings on deliberately unprotected operational sheets are diagnostic and not total audit failure. Stop on any error. After all pass, operator opens **only BS** and checks monthly/weekly/overall/daily: purple horizontal mean lines (not bars), selected-row highlight, chart fixed when scrolling, and all-therapists plain total. User decides whether design is understandable; do not pre-approve visual layout. Keep overall-mode per-therapist historical table distinct from the combined department KPI. No rerun installer, no overwrite.
