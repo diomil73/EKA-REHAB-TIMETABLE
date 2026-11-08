@@ -104,6 +104,16 @@ def generate_demo_rows(
         suspension_by = Counter()
         planned_slots: dict[str, set[str]] = {x: set() for x in t}
         actual_slots: dict[str, set[str]] = {x: set() for x in t}
+        # Reserve EVERY therapist's original timetable first, including
+        # therapists processed later below. Replacements may use only a
+        # genuinely free original clock slot, never synthetic 14:00+ slots.
+        reserved: dict[str, set[str]] = {
+            therapist: {
+                f"{8 + k:02d}:00:00"
+                for k in range(1 + ((i * 3 + j * 2) % 6))
+            }
+            for j, therapist in enumerate(t)
+        }
         patient_seen: set[str] = set()
         session_rows = []
         for j, original in enumerate(t):
@@ -127,8 +137,23 @@ def generate_demo_rows(
                 pattern = (i * 17 + j * 11 + k * 7) % 19
                 if j == absent_idx:
                     status = DailySessionStatus.REPLACED
-                    effective_therapist = t[(j + 1) % 6]
-                    effective_time = f"{14 + k:02d}:00:00"
+                    # Distribute across PRESENT therapists, using a free
+                    # slot in the same six-slot daily timetable. Avoid both
+                    # original reservations and earlier replacements.
+                    choice = next((
+                        (recipient, clock)
+                        for offset in range(1, len(t))
+                        for recipient in (t[(j + offset) % len(t)],)
+                        for clock in (f"{8 + h:02d}:00:00" for h in range(6))
+                        if clock not in reserved[recipient]
+                        and clock not in actual_slots[recipient]
+                    ), None)
+                    if choice is None:
+                        raise DemoHistoryError(
+                            f"No free recipient clock slot for synthetic replacement {day}"
+                        )
+                    effective_therapist, effective_time = choice
+                    reserved[effective_therapist].add(effective_time)
                     replacement_id = f"DEMO-REPL-{day:%Y%m%d}-{j}-{k}"
                     reason = "Synthetic therapist sick leave replacement"
                 elif pattern in (0, 1):
@@ -178,6 +203,10 @@ def generate_demo_rows(
         for therapist in t:
             if len(actual_slots[therapist]) != actual_sessions[therapist]:
                 raise DemoHistoryError("Overlapping therapist times in synthetic data")
+            if len(actual_slots[therapist]) > 6:
+                raise DemoHistoryError(
+                    f"Synthetic occupied clock slots exceed six: {day} / {therapist}"
+                )
             outputs["THERAPIST_DAY_HISTORY"].append((
                 snapshot, day.isoformat(), therapist, 6,
                 len(planned_slots[therapist]), planned_sessions[therapist],
