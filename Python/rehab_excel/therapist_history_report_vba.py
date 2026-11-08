@@ -83,8 +83,9 @@ Public Sub HighlightSelectedTherapistRow(ByVal selectedRow As Long)
 End Sub
 
 Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
-    Dim exportScript As String, outputPath As String, commandLine As String
+    Dim exportScript As String, outputPath As String, trendPath As String, commandLine As String
     Dim exitCode As Long, rawText As String, lines As Variant, parts As Variant
+    Dim trendLines As Variant, trendParts As Variant, trendLine As Long, trendRow As Long
     Dim ws As Worksheet, rowIndex As Long, sourceLine As Long, col As Long
     Dim headers As Variant
     Dim totalPlannedSlots As Long, totalActualSlots As Long
@@ -108,13 +109,15 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
 
     ThisWorkbook.Save
     outputPath = Environ$("TEMP") & "\\eka_therapist_history_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Int(Timer * 100)) & ".tsv"
+    trendPath = Environ$("TEMP") & "\\eka_therapist_daily_trend_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Int(Timer * 100)) & ".tsv"
     commandLine = QuoteReportArg("python") & " " & QuoteReportArg(exportScript) & _
                   " --workbook " & QuoteReportArg(ThisWorkbook.FullName) & _
                   " --output " & QuoteReportArg(outputPath) & _
-                  " --mode " & QuoteReportArg(reportMode)
+                  " --mode " & QuoteReportArg(reportMode) & _
+                  " --trend-output " & QuoteReportArg(trendPath)
 
     exitCode = CreateObject("WScript.Shell").Run(commandLine, 0, True)
-    If exitCode <> 0 Or Dir$(outputPath) = "" Then
+    If exitCode <> 0 Or Dir$(outputPath) = "" Or Dir$(trendPath) = "" Then
         MsgBox "Δεν ήταν δυνατή η δημιουργία του ιστορικού θεραπευτών.", vbExclamation, "Ιστορικό θεραπευτών"
         GoTo CleanUp
     End If
@@ -134,6 +137,7 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
     On Error GoTo ReportError
     ws.Range("A1:P1048576").ClearContents
     ws.Range("P1").Value2 = 0
+    ws.Range("P2").Value2 = reportMode
     EnsureReportButtons ws
     ws.Cells(1, 1).Value2 = "Ιστορικό / Στατιστικά Θεραπευτών"
     ws.Cells(2, 1).Value2 = ReportModeDescription(reportMode) & _
@@ -174,6 +178,30 @@ Private Sub RenderTherapistHistoryReport(ByVal reportMode As String)
 NextLine:
     Next sourceLine
 
+    ' Cache only daily finalized facts for chart drawing. Q:U are hidden,
+    ' sorted by date from the exporter, and cleared on every fresh render.
+    trendLines = Split(Replace(Replace( _
+        ReadReportUtf8File(trendPath), ChrW(&HFEFF), ""), vbCr, ""), vbLf)
+    If UBound(trendLines) < 0 Or CStr(trendLines(0)) <> _
+            "Date" & vbTab & "Therapist" & vbTab & "Planned" & vbTab & _
+            "Delivered" & vbTab & "UniquePatients" Then
+        Err.Raise vbObjectError + 7602, , "Invalid therapist daily trend header"
+    End If
+    trendRow = 2
+    For trendLine = 1 To UBound(trendLines)
+        If Len(Trim$(CStr(trendLines(trendLine)))) = 0 Then GoTo NextTrendLine
+        trendParts = Split(CStr(trendLines(trendLine)), vbTab)
+        If UBound(trendParts) <> 4 Then Err.Raise vbObjectError + 7603, , _
+            "Invalid therapist daily trend record"
+        ws.Cells(trendRow, 17).Value2 = trendParts(0)
+        ws.Cells(trendRow, 18).Value2 = trendParts(1)
+        ws.Cells(trendRow, 19).Value2 = CLng(trendParts(2))
+        ws.Cells(trendRow, 20).Value2 = CLng(trendParts(3))
+        ws.Cells(trendRow, 21).Value2 = CLng(trendParts(4))
+        trendRow = trendRow + 1
+NextTrendLine:
+    Next trendLine
+
     FormatReportSheet ws, rowIndex - 1
     BuildTherapistLoadChart ws, totalPlannedSlots, totalActualSlots, "", _
         totalPlannedSessions, totalActualSessions, totalFinalizedTherapistDays, _
@@ -191,6 +219,7 @@ CleanUp:
     On Error Resume Next
     If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True
     If Len(outputPath) > 0 And Dir$(outputPath) <> "" Then Kill outputPath
+    If Len(trendPath) > 0 And Dir$(trendPath) <> "" Then Kill trendPath
     On Error GoTo 0
     Exit Sub
 
@@ -258,7 +287,7 @@ Private Function NewTherapistMiniChart(ByVal ws As Worksheet, _
         ws.Range(lastColumn & "5").Width - ws.Range(firstColumn & "5").Left
     Set plot = ws.ChartObjects.Add( _
         ws.Range(firstColumn & "5").Left, ws.Range(firstColumn & "5").Top, _
-        chartWidth - 4, 175)
+        chartWidth - 4, 108)
     plot.Name = chartName
     plot.Placement = xlFreeFloating
     plot.Chart.ChartType = xlColumnClustered
@@ -317,12 +346,15 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     Dim cohortAxisPatients As Double, cohortAxisSessions As Double
     Dim referenceCount As Long, referenceDays As Long, r As Long
     Dim lastRow As Long, selectedPeriod As String, periodKey As String
+    Dim reportMode As String
 
     ' Always remove all old charts, including when there are no rows.
     On Error Resume Next
     ws.ChartObjects("ekaTherapistLoadChart").Delete
     ws.ChartObjects("ekaTherapistSessionChart").Delete
     ws.ChartObjects("ekaTherapistAttendanceChart").Delete
+    ws.ChartObjects("ekaTherapistLoadTrend").Delete
+    ws.ChartObjects("ekaTherapistSessionTrend").Delete
     On Error GoTo 0
     ws.Range("A5:M20").ClearContents
 
@@ -335,6 +367,7 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     ' therapist against October's or mix weekly and monthly rows.
     ' One row is one therapist-period; load is weighted by finalized days.
     lastRow = ws.Cells(ws.Rows.Count, 3).End(xlUp).Row
+    reportMode = CStr(ws.Range("P2").Value2)
     If selectedRow >= 23 And selectedRow <= lastRow Then
         selectedPeriod = CStr(ws.Cells(selectedRow, 1).Value2) & "|" & _
                          CStr(ws.Cells(selectedRow, 2).Value2)
@@ -428,7 +461,11 @@ Private Sub BuildTherapistLoadChart(ByVal ws As Worksheet, _
     plot.Chart.ChartTitle.Text = "Θεραπείες" & IIf( _
         Len(therapistName) > 0, " | " & therapistName, "")
     AddTherapistMeanMarker plot, "ekaMeanPlanned", referencePlanned, 1, 2, RGB(225, 0, 30)
-    AddTherapistMeanMarker plot, "ekaMeanActual", referenceActual, 2, 2, RGB(225, 0, 30)
+    AddTherapistMeanMarker plot, "ekaMeanActual", referenceActual, 2, 2, RGB(57, 255, 20)
+
+    ' Mini trend panels: genuine finalized daily data, same time window and
+    ' chart ordinate for every therapist in that cohort, two series in sessions.
+    BuildTherapistMiniTrends ws, reportMode, selectedRow, therapistName
 
     ' Chart three: not a zero-absence chart. Historical therapist attendance
     ' and a reliable working-day denominator are NOT persisted in the current
@@ -464,7 +501,7 @@ Private Sub FormatReportSheet(ByVal ws As Worksheet, ByVal lastRow As Long)
             .Font.Bold = True
         End With
     End If
-    ws.Columns("P").Hidden = True
+    ws.Columns("P:U").Hidden = True
     ws.Rows(1).RowHeight = 28
     ws.Rows(2).RowHeight = 22
     ws.Rows(3).RowHeight = 32
