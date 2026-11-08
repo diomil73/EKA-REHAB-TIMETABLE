@@ -154,3 +154,25 @@ Operator ran the full PowerShell `& { ... }` guard, correctly stopped before any
 Source inspection localized rejection to `_verify_native` requiring management `ProtectContents=True` and `ProtectDrawingObjects=False`. The previous installer called `management.Protect(DrawingObjects=False, Contents=True, Scenarios=True)` with keyword COM args; the actual offending flag is **NOT known** because prior error did not print flags. Candidate fix/diagnostic **source-only** commits `c940220`, `20f1d24`: reserve new unique `BX` only; use explicit `management.Protect("", False, True, True)` with COM positional args (Excel order Password/Drawings/Contents/Scenarios); verify and print **all actual flags** Contents, DrawingObjects, Scenarios on failure. Test verifies script and read-back flag contract. **This is a hypothesis and must not be called native green until new BX run.** Previous source gate 50 passed applies only to BW code snapshot; rerun all tests on BX.
 
 Operator prefers **copyable PowerShell fenced code block directly in ChatGPT**, not documents links or prose messages to IDE. Never send separate independent PowerShell statements that could continue after throw. Entire `& { ... }` block should be one paste from opening to closing brace, all Excel closed; gate full focused pytest, frozen BO read-only verification, no existing BX, one-shot native BX, then history/protection/H7 audits. If fail, freeze BX, preserve exact first Python SAFETY STOP; no retry. Management export and graphical acceptance later, only after native proof. Maintain complete docs/handoff on every change.
+
+## 2026-11-08 — Operator-confirmed native BX GREEN, pending visual acceptance
+
+**Latest authoritative operator output** (PowerShell continuous guarded block):
+```
+Workbook: C:\Users\Dionysis\Documents\GitHub\EKA-REHAB-TIMETABLE\Excel\previews\UNIFIED_H10_DEMO_THERAPIST_20261108_BX.xlsm
+ReadOnly: True
+VBA Module3: PRESENT
+VBA modUnifiedDaySave: PRESENT
+VBA modTherapistHistoryReport: PRESENT
+VBA modPatientHistoryReport: PRESENT
+REPORT THERAPIST_HISTORY_REPORT: visibility=-1
+REPORT PATIENT_HISTORY_REPORT: visibility=-1
+HISTORY SHEETS: all veryHidden
+H7 INTEGRATED AUDIT OK; workbook not changed
+BX SOURCE, NATIVE AND READ-ONLY GATES PASSED
+```
+This final success banner comes INSIDE the guarded `& { ... }` block after source pytest, BO verification, fresh native BX install, BX history, protection and H7 read-only audits. Therefore the complete specified BX safety gate was **operator-confirmed green**. Exact number of pytest passes and intermediate detailed outputs were not included in this latest excerpt; DO NOT invent them. BO/BU remain frozen accepted baselines; BV and BW remain frozen failed and must never be overwritten/repaired. **BX is the current native GREEN candidate, but new dashboard UI and management sharing are not visually/operator accepted until next steps.**
+
+**Immediate operator task:** with BX safely backed by verified install, open ONLY BX in native Excel and test therapist report screens: mini trend horizontal gridlines/y scales and height; blue initial planned/red final delivered semantic labels and 2026-09-28 Argentos delta (+2 replacements); row-click across therapists and mode switching daily/weekly/monthly/overall; team totals independent of selected therapist; dynamic aggregate panel after final therapist; management preview navigation and all four filters. Capture screenshots/errors. If VBA/runtime error, do NOT save/repair/retry on BX; freeze as new visual failure and source fix in a *new* candidate suffix BY (only after source gate). In-app MANAGEMENT_SUMMARY is internal only: **never send operational XLSM**. Only a separately generated, verified clean .xlsx may be shared later, after separate privacy-safe export acceptance. Third attendance KPI remains unavailable without validated source; demo history synthetic.
+
+**User workflow preference:** Provide all next operator instructions in copyable fenced PowerShell code directly in chat, rather than referring them to repo runbooks. Continue authoring/updating code and docs automatically without waiting for generic 'OK'.
