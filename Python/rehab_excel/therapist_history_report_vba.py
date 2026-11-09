@@ -901,8 +901,7 @@ NextDailyTrend:
     plot.Chart.Axes(xlValue).MaximumScale = 6
     plot.Chart.Axes(xlValue).MajorUnit = 1
     plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
-    ' Keep the left workload sparkline as a true enlarged plot, not a title panel.
-    plot.Chart.PlotArea.InsideHeight = 78
+    ' Enlarge the entire trend chart; let Excel fit its plot area and axis labels.
     If maxPatient > 6 Then ws.Range("A17").Value2 = _
         "ΕΛΕΓΧΟΣ ΦΟΡΤΟΥ: καταγράφηκε τιμή >6"
 
