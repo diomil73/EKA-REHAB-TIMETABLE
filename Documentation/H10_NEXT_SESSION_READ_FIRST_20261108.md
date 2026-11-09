@@ -434,3 +434,16 @@ Operator Windows authoritative log:
 - Latest source refinements in CC: removed redundant `Γράφημα θεραπευτή` top button, automatic row selection retained; taller 108pt `Ασθενείς/ημέρα` mini trend at y=0–6 step 1; internal MANAGEMENT_SUMMARY KPI tiles aligned A:B/D:E/G:H with gutters; empty-period handling. **No user screenshot or visual acceptance of CC yet.**
 - Next action: operator opens CC only, verifies **Έτος/Σύνολο** (synthetic finalized 2026-09-21..10-23) and selects therapist row, screenshot of load trend labels/axis, then internal **Προβολή διοίκησης** screenshot KPI alignment. Current **Σήμερα/Χθες/Εβδομάδα/Μήνας** lack finalized demo data in November 2026 by design. If UI issue is found, do not repair/overwrite CC; source fix and NEW unique candidate. Avoid unnecessary new workbook now.
 - Agreed future 20+ therapist `Καρτέλα θεραπευτή` remains design-only; pilot requires later uploaded updated copy and additional native functional checks.
+
+
+### 2026-11-10 — CC visual screenshots received: H10 usability baseline visually accepted, real pilot still gated
+User provided two screenshots of freshly built CC `Σύνολο` therapist report and `MANAGEMENT_SUMMARY` internal screen.
+Observed in therapist screenshot:
+- Redundant top `Γράφημα θεραπευτή` button removed; one therapist row (Αργέντος) highlighted while individual plots `Φόρτος | Αργέντος` and `Συνεδρίες | Αργέντος` shown.
+- Taller `Ασθενείς/ημέρα` line trend shows readable y-axis integer ticks 0..6 and variation across finalized synthetic days. Blue/red session trends show separately. One upper-right attendance placeholder stays blank by design; explanatory message below `Μη διαθέσιμο ιστορικό απουσιών / εργασίμων`.
+- Six therapist rows shown for overall synthetic finalized interval 2026-09-21 through 2026-10-23; header/selected-row/navigation legible, no obvious chart-text collision. Team 522 planned, 416 delivered, 79.7%, consistent with previous validated synthetic figures.
+Observed in management screenshot:
+- Three KPI tiles top aligned, independent gutters and centered headline values 522 / 416 / 79.7%; period buttons and export/report navigation present; table and chart separate without overlapping.
+- Residual cosmetic issues: tile widths differ and there remains generous whitespace, but no blocker based on shown screenshots.
+- User did not demonstrate every button, each date mode, actual exported .xlsx or protection/rollback from screenshots. Record **visual screenshot acceptance for these TWO screens only**, not full functional acceptance or pilot certification.
+Decision: freeze CC as successful synthetic H10 visual baseline; avoid extra cosmetic candidate. Future dynamic single therapist profile supporting 20+ and sensitive absence ledger remains design-only. Next real shadow pilot must await user's actual updated production workbook, follow the existing read-only pilot source readiness audit and evidence gate; never treat synthetic H8 attendance as real therapist absence KPI.
