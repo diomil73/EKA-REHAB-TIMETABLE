@@ -71,3 +71,39 @@ def test_missing_source_is_safe_stop(tmp_path):
     from unittest.mock import patch
     with patch.object(sys, "argv", ["audit_pilot_source_readiness", "--workbook", str(tmp_path / "none.xlsm")]):
         assert main() == 2
+
+
+def test_nonempty_history_row_with_missing_snapshot_id_still_requires_isolation(tmp_path):
+    path = fixture(tmp_path)
+    from openpyxl import load_workbook
+    book = load_workbook(path)
+    sheet = book.create_sheet("PATIENT_SESSION_HISTORY")
+    sheet.append(("SnapshotId", "ServiceDate"))
+    sheet.append((None, "2026-10-30"))
+    book.save(path)
+    book.close()
+    before = sha256(path.read_bytes()).hexdigest()
+    result = inspect_source(path)
+    assert result["history_rows"] == 1
+    assert "EXISTING_TEST_OR_UNKNOWN_HISTORY_REQUIRES_ISOLATION" in result["issues"]
+    assert "HISTORY_SCHEMA_REQUIRES_MAPPING" in result["issues"]
+    assert sha256(path.read_bytes()).hexdigest() == before
+
+
+def test_external_workbook_link_parts_require_review_without_disclosing_paths(tmp_path):
+    from zipfile import ZipFile, ZIP_DEFLATED
+    path = fixture(tmp_path)
+    with ZipFile(path, "a", compression=ZIP_DEFLATED) as archive:
+        archive.writestr("xl/externalLinks/externalLink1.xml", "<externalLink/>")
+    before = sha256(path.read_bytes()).hexdigest()
+    result = inspect_source(path)
+    assert result["external_links_present"] is True
+    assert "EXTERNAL_WORKBOOK_LINKS_REQUIRES_REVIEW" in result["issues"]
+    assert sha256(path.read_bytes()).hexdigest() == before
+
+
+def test_existing_history_with_wrong_headers_not_treated_as_importable(tmp_path):
+    path = fixture(tmp_path, prior_history=True)
+    result = inspect_source(path)
+    assert "HISTORY_SCHEMA_REQUIRES_MAPPING" in result["issues"]
+    assert result["malformed_history_schemas"] == ("FINALIZED_DAY_SNAPSHOTS",)
