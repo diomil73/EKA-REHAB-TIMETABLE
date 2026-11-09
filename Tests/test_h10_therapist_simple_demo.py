@@ -75,6 +75,9 @@ def test_bz_installer_checks_corrected_source_before_copy():
     source = inspect.getsource(installer.install_native)
     assert source.index("verify_demo_history(source)") < source.index("output.open(\"xb\")")
     assert source.index("capacity_anomalies(") < source.index("output.open(\"xb\")")
+    assert source.index("clock_conflicts(") < source.index("output.open(\"xb\")")
+    assert '"SHARED_CLOCK_WITHOUT_RECORDED_APPROVAL" in exception["flags"]' in source
+    assert '"SLOT_OR_SESSION_RECONCILIATION_MISMATCH" in exception["flags"]' in source
     assert '"OCCUPIED_SLOTS_EXCEED_CAPACITY" in row["flags"]' in source
     assert '"CAPACITY_NOT_CONFIGURED" in row["flags"]' in source
 
