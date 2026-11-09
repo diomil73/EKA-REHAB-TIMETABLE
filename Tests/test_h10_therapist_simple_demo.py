@@ -49,32 +49,32 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
     assert "ws.Range(\"E19\").Value2" in vba
 
 
-def test_h10_requires_isolated_cb_and_strict_fresh_bz_destination(tmp_path):
+def test_h10_requires_isolated_cb_and_strict_fresh_cc_destination(tmp_path):
     cb = tmp_path / "H8_DEMO_HISTORY_CB.xlsm"
     cb.write_bytes(b"sentinel")
-    bz = tmp_path / "H10_DEMO_BZ.xlsm"
-    check_candidate(cb, bz)
-    bz.write_bytes(b"already exists")
+    cc = tmp_path / "H10_DEMO_CC.xlsm"
+    check_candidate(cb, cc)
+    cc.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
-        check_candidate(cb, bz)
-    assert bz.read_bytes() == b"already exists"
-    with pytest.raises(H10DemoError, match="BZ"):
-        check_candidate(cb, tmp_path / "H10_DEMO_BY.xlsm")
-    with pytest.raises(H10DemoError, match="BZ"):
-        check_candidate(cb, tmp_path / "H10_DEMO_BZ2.xlsm")
+        check_candidate(cb, cc)
+    assert cc.read_bytes() == b"already exists"
+    with pytest.raises(H10DemoError, match="CC"):
+        check_candidate(cb, tmp_path / "H10_DEMO_BZ.xlsm")
+    with pytest.raises(H10DemoError, match="CC"):
+        check_candidate(cb, tmp_path / "H10_DEMO_CC2.xlsm")
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="CB"):
-        check_candidate(bo, tmp_path / "H10_DEMO_NEW_BZ.xlsm")
+        check_candidate(bo, tmp_path / "H10_DEMO_NEW_CC.xlsm")
     ca = tmp_path / "H8_DEMO_HISTORY_CA.xlsm"
     ca.write_bytes(b"frozen")
     with pytest.raises(H10DemoError, match="CB"):
-        check_candidate(ca, tmp_path / "H10_DEMO_NEW_BZ.xlsm")
+        check_candidate(ca, tmp_path / "H10_DEMO_NEW_CC.xlsm")
     assert bo.read_bytes() == b"frozen"
     assert ca.read_bytes() == b"frozen"
 
 
-def test_bz_installer_checks_isolated_cb_before_copy():
+def test_cc_installer_checks_isolated_cb_before_copy():
     import inspect
     from tools import prepare_h10_therapist_simple_demo as installer
     source = inspect.getsource(installer.install_native)
@@ -315,14 +315,14 @@ def test_four_mode_internal_management_preview_never_claims_private_xlsm_is_shar
     assert 'ExportManagementOnlyWorkbook' in vba
 
 
-def test_native_installer_reserves_unique_by_and_verifies_management_sheet():
+def test_native_installer_reserves_unique_cc_and_verifies_management_sheet():
     import inspect
     from tools import prepare_h10_therapist_simple_demo as installer
     source = inspect.getsource(installer)
     assert 'MANAGEMENT_SUMMARY' in source
     assert 'Management preview protection invalid' in source
     assert 'Protected' not in source or 'management.Protect' in source
-    assert '_BZ.XLSM' in source
+    assert '_CC.XLSM' in source
 
 
 def test_therapist_selection_does_not_change_entire_department_total():
