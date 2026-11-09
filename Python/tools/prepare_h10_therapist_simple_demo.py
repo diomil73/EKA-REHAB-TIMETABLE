@@ -95,8 +95,8 @@ def check_candidate(source: Path, output: Path) -> None:
         raise H10DemoError("Source must be isolated CB demo, never CA/BO")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
-    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BZ.XLSM"):
-        raise H10DemoError("Fresh H10 BZ _DEMO_ .xlsm destination required")
+    if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_CC.XLSM"):
+        raise H10DemoError("Fresh H10 CC _DEMO_ .xlsm destination required")
     if source.resolve() == output.resolve():
         raise H10DemoError("Source and destination collision")
 
@@ -196,7 +196,7 @@ def install_native(source: Path, output: Path) -> None:
         raise H10DemoError("pywin32 required") from exc
 
     # Fail closed BEFORE creating the destination. The old frozen CA has
-    # known synthetic 8/9 occupied-slot errors and must never feed BZ.
+    # Prior frozen CA test history must never feed this fresh CC.
     verify_demo_history(source)
     # The CB admission invariant is stronger than H8 synthetic correctness:
     # CB must contain NO inherited test-archive rows in any history ledger.
@@ -236,7 +236,7 @@ def install_native(source: Path, output: Path) -> None:
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh CB -> BZ copy SHA256 mismatch")
+        raise H10DemoError("Fresh CB -> CC copy SHA256 mismatch")
 
     excel = None
     book = None
@@ -246,10 +246,10 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "open BZ for installation"
+        stage = "open CC for installation"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
-            raise H10DemoError("BZ opened read-only; no edits possible")
+            raise H10DemoError("CC opened read-only; no edits possible")
         vbproj = book.VBProject
         report = book.Worksheets(THERAPIST_HISTORY_SHEET_NAME)
         stage = "locate therapist report sheet module"
@@ -293,10 +293,10 @@ def install_native(source: Path, output: Path) -> None:
         management.Protect("", False, True, True)
         stage = "verify installed VBA and protected history sheets"
         _verify_native(book)
-        stage = "save BZ"
+        stage = "save CC"
         book.Save()
     except Exception as exc:
-        raise H10DemoError(f"BZ install failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"CC install failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -313,14 +313,14 @@ def install_native(source: Path, output: Path) -> None:
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        stage = "read-only persisted BZ reopen"
+        stage = "read-only persisted CC reopen"
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=True)
         if not bool(book.ReadOnly):
-            raise H10DemoError("Native BZ reopen was not read-only")
+            raise H10DemoError("Native CC reopen was not read-only")
         stage = "read-only persisted VBA protection audit"
         _verify_native(book)
     except Exception as exc:
-        raise H10DemoError(f"BZ verification failed at {stage}: {exc}") from exc
+        raise H10DemoError(f"CC verification failed at {stage}: {exc}") from exc
     finally:
         if book is not None:
             try:
@@ -333,7 +333,7 @@ def install_native(source: Path, output: Path) -> None:
     if digest(source) != source_hash:
         raise H10DemoError("Isolated CB source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BZ only; isolated CB and archived previews unchanged")
+    print("Fresh CC only; isolated CB and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
@@ -347,7 +347,7 @@ def main() -> int:
         install_native(args.source, args.output)
     except Exception as exc:
         print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
-        print("Freeze BZ; do not retry, repair or overwrite candidate")
+        print("Freeze CC; do not retry, repair or overwrite candidate")
         return 2
     return 0
 
