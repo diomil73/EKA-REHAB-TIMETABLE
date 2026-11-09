@@ -351,3 +351,9 @@ git pull --ff-only origin work/history-statistics-rebuild
 python -m pytest Tests/test_h10_synthetic_only_source.py Tests/test_h10_therapist_simple_demo.py Tests/test_h8_synthetic_history_verifier.py Tests/test_h10_daily_capacity_audit.py Tests/test_h10_baseline_clock_conflicts.py -q
 ```
 On green, inspect results and plan CB once only; **do not** reuse frozen CA as BZ source, do not touch original AZ/BO/BY/CA, and do not prematurely begin parallel pilot.
+
+
+### 2026-11-09 — CB isolation gate source regression: one failed, 63 passed; fixed
+Operator Windows ran focused H10 synthetic isolation tests: `1 failed, 63 passed in 10.17s`. Only failure `test_h10_requires_isolated_cb_and_strict_fresh_bz_destination` due to stale local test variable `ca` used before assignment (two references, lines 59 and 64), following installer source migration CA→CB. **This is a TEST BUG, not Excel data corruption and not a CB native proof.** The pytest safety stop prevented any CB creation.
+- `e297234` replaces both erroneous test `check_candidate(ca, ...)` with `check_candidate(cb, ...)` in checks intended to exercise existing destination and invalid BZ suffix. Keeps later explicit CA/BO rejection checks, and asserts frozen CA/BO test sentinels unchanged.
+- **Post-fix pytest not yet run**. Next operator `git pull --ff-only origin work/history-statistics-rebuild`; run same 5-file H10 isolation gate, expect no test fixture name failure. No CA, CB or BZ modification; CB and BZ remain unbuilt. Stop on any failure.
