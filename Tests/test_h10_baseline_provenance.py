@@ -21,9 +21,11 @@ def test_provenance_audit_mismatched_history_fails_closed(tmp_path, monkeypatch,
     candidate = tmp_path / "CA.xlsm"
     original.write_bytes(b"original")
     candidate.write_bytes(b"candidate")
+    baseline_row = ("SNAP", 1, "THERAPIST", 6, 7, 7, 7, 7, 0, 7, 7, ("08:00",))
+    changed_row = ("SNAP", 1, "THERAPIST", 6, 7, 6, 7, 7, 0, 7, 6, ("08:00",))
     monkeypatch.setattr(
         mod, "_summaries",
-        lambda path, day: ((1, 2, 3),) if path == original else ((1, 2, 4),),
+        lambda path, day: (baseline_row,) if path == original else (changed_row,),
     )
     assert mod.audit(original, candidate, date(2026, 10, 30)) == 3
     assert "SAFETY STOP" in capsys.readouterr().out
@@ -33,3 +35,15 @@ def test_provenance_rejects_missing_original(tmp_path):
     candidate = tmp_path / "CA.xlsm"
     candidate.write_bytes(b"candidate")
     assert mod.audit(tmp_path / "missing.xlsm", candidate, date(2026, 10, 30)) == 2
+
+
+def test_malformed_summary_is_rejected_without_unhandled_unpacking(tmp_path, monkeypatch, capsys):
+    original = tmp_path / "AZ.xlsm"
+    candidate = tmp_path / "CA.xlsm"
+    original.write_bytes(b"original")
+    candidate.write_bytes(b"candidate")
+    monkeypatch.setattr(mod, "_summaries", lambda path, day: ((1, 2, 3),))
+    assert mod.audit(original, candidate, date(2026, 10, 30)) == 2
+    assert "SAFETY STOP: Malformed provenance summary" in capsys.readouterr().out
+    assert original.read_bytes() == b"original"
+    assert candidate.read_bytes() == b"candidate"
