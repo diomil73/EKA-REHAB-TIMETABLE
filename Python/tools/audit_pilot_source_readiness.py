@@ -7,21 +7,27 @@ It prints only counts/status and short safe issue codes, not personal records.
 """
 
 import argparse
-from collections import Counter
 from hashlib import sha256
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
 
 from openpyxl import load_workbook
 
+from rehab_excel.finalized_day_snapshots import HEADERS as SNAP_HEADERS
+from rehab_excel.therapist_day_history_store import HEADERS as THERAPIST_HEADERS
+from rehab_excel.patient_session_history_store import HEADERS as SESSION_HEADERS
+from rehab_excel.day_history_event_store import HEADERS as EVENT_HEADERS
+from rehab_excel.therapist_attendance_history_store import HEADERS as ATTENDANCE_HEADERS
+
 REQUIRED_SHEETS = ("MASTER_SCHEDULE", "DAILY_INPUT", "PATIENTS", "THERAPIST_DAILY")
-HISTORY_SHEETS = (
-    "FINALIZED_DAY_SNAPSHOTS",
-    "THERAPIST_DAY_HISTORY",
-    "PATIENT_SESSION_HISTORY",
-    "DAY_HISTORY_EVENTS",
-    "THERAPIST_ATTENDANCE_HISTORY",
-)
+HISTORY_SCHEMAS = {
+    "FINALIZED_DAY_SNAPSHOTS": SNAP_HEADERS,
+    "THERAPIST_DAY_HISTORY": THERAPIST_HEADERS,
+    "PATIENT_SESSION_HISTORY": SESSION_HEADERS,
+    "DAY_HISTORY_EVENTS": EVENT_HEADERS,
+    "THERAPIST_ATTENDANCE_HISTORY": ATTENDANCE_HEADERS,
+}
+HISTORY_SHEETS = tuple(HISTORY_SCHEMAS)
 
 
 def _digest(path: Path) -> str:
@@ -32,13 +38,28 @@ def _digest(path: Path) -> str:
     return h.hexdigest()
 
 
-def _header_count(ws) -> int:
+def _history_data_count(ws, width: int) -> int:
+    """Count populated history rows even when column A is blank/corrupt."""
     if ws.max_row is None or ws.max_row < 2:
         return 0
     return sum(
-        1 for (cell,) in ws.iter_rows(min_row=2, min_col=1, max_col=1, values_only=True)
-        if cell is not None and str(cell).strip()
+        1 for row in ws.iter_rows(
+            min_row=2, min_col=1, max_col=width, values_only=True
+        )
+        if any(value is not None and str(value).strip() for value in row)
     )
+
+
+def _history_schema_matches(ws, expected: tuple[str, ...]) -> bool:
+    if ws.max_row is None or ws.max_row < 1:
+        return False
+    observed = tuple(
+        str(value or "").strip() for value in next(ws.iter_rows(
+            min_row=1, max_row=1, min_col=1, max_col=len(expected),
+            values_only=True,
+        ))
+    )
+    return observed == expected
 
 
 def inspect_source(path: Path) -> dict:
@@ -49,7 +70,11 @@ def inspect_source(path: Path) -> dict:
     try:
         with ZipFile(path, "r") as archive:
             parts = set(archive.namelist())
-            has_vba = any(name.endswith("/vbaProject.bin") for name in parts)
+            has_vba = "xl/vbaProject.bin" in parts
+            has_external_links = any(
+                name.startswith("xl/externalLinks/") or name == "xl/connections.xml"
+                for name in parts
+            )
         book = load_workbook(path, read_only=True, data_only=False,
                              keep_vba=path.suffix.lower() == ".xlsm",
                              keep_links=False)
@@ -58,8 +83,13 @@ def inspect_source(path: Path) -> dict:
             missing = tuple(name for name in REQUIRED_SHEETS if name not in present)
             history = tuple(name for name in HISTORY_SHEETS if name in present)
             history_counts = {
-                name: _header_count(book[name]) for name in history
+                name: _history_data_count(book[name], len(HISTORY_SCHEMAS[name]))
+                for name in history
             }
+            malformed_history_schemas = tuple(
+                name for name in history
+                if not _history_schema_matches(book[name], HISTORY_SCHEMAS[name])
+            )
             has_prior_history = any(history_counts.values())
             registry_rows = 0
             duplicate_ids = 0
@@ -95,11 +125,17 @@ def inspect_source(path: Path) -> dict:
                 issues.append("DUPLICATE_PATIENT_IDS")
             if has_prior_history:
                 issues.append("EXISTING_TEST_OR_UNKNOWN_HISTORY_REQUIRES_ISOLATION")
+            if malformed_history_schemas:
+                issues.append("HISTORY_SCHEMA_REQUIRES_MAPPING")
+            if has_external_links:
+                issues.append("EXTERNAL_WORKBOOK_LINKS_REQUIRES_REVIEW")
             return {
                 "operational_sheets_found": len(REQUIRED_SHEETS) - len(missing),
                 "missing_operational_sheets": missing,
                 "history_sheets_found": len(history),
                 "history_rows": sum(history_counts.values()),
+                "malformed_history_schemas": malformed_history_schemas,
+                "external_links_present": has_external_links,
                 "patient_registry_rows": registry_rows,
                 "duplicate_patient_ids": duplicate_ids,
                 "incomplete_registry_rows": incomplete_registry,
@@ -131,6 +167,7 @@ def main() -> int:
     print(f"Incomplete registry rows: {results['incomplete_registry_rows']}")
     print(f"Historical sheets: {results['history_sheets_found']}; data rows: {results['history_rows']}")
     print(f"VBA project: {'YES' if results['vba_present'] else 'NO'}")
+    print(f"External links/connections: {'YES' if results['external_links_present'] else 'NO'}")
     for code in results["issues"]:
         print(f"REVIEW REQUIRED: {code}")
     print("Workbook unchanged: True")
