@@ -58,11 +58,19 @@ def check_names(source: Path, output: Path) -> None:
 
 
 def keep_row(values: tuple[object, ...], *, id_column: int) -> bool:
-    """Returns True only for a fully attributed synthetic H8 record."""
-    key = values[id_column]
-    if key is None or not str(key).strip():
+    """Keep strictly H8-attributed rows; discard older test data only in CB.
+
+    Older test DAY_HISTORY_EVENTS may have no RelatedSnapshotId. They are
+    deliberately excluded from synthetic-only CB, never edited in CA.
+    """
+    raw_key = values[id_column]
+    text = "" if raw_key is None else str(raw_key).strip()
+    if not text:
+        if id_column == 10:
+            if str(values[0] or "").startswith("DEMO-"):
+                raise DemoIsolationError("Synthetic-looking event missing snapshot link")
+            return False
         raise DemoIsolationError("Historical record has no snapshot provenance")
-    text = str(key).strip()
     if text.startswith("DEMO-") and not text.startswith(DEMO_PREFIX):
         raise DemoIsolationError("Unknown DEMO namespace in history")
     return text.startswith(DEMO_PREFIX)
