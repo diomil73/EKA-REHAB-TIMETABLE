@@ -781,7 +781,6 @@ Private Function NewTherapistTrendChart(ByVal ws As Worksheet, _
     NewTherapistTrendChart.Chart.ChartType = xlLine
     NewTherapistTrendChart.Chart.HasLegend = False
     NewTherapistTrendChart.Chart.HasTitle = False
-    NewTherapistTrendChart.Chart.PlotArea.Format.Fill.Visible = msoFalse
 End Function
 
 Private Sub StyleTherapistTrendRuler(ByVal plot As ChartObject)
