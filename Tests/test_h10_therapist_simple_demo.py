@@ -444,3 +444,16 @@ def test_six_current_calendar_mode_buttons_are_distinct_and_old_shapes_retired()
     assert 'ws.Shapes(CStr(oldName)).Delete' in vba
     assert 'RenderTherapistHistoryReport "today"' in vba
     assert 'Case "today", "yesterday", "week", "month", "year"' in vba
+
+
+def test_empty_calendar_period_chart_action_does_not_request_impossible_row():
+    vba = THERAPIST_HISTORY_MODULE_CODE
+    begin = vba.index("Public Sub ShowSelectedTherapistChart()")
+    end = vba.index("End Sub", begin)
+    action = vba[begin:end]
+    assert "If finalRow < 23 Then" in action
+    assert "Δεν υπάρχουν οριστικοποιημένες ημέρες στην επιλεγμένη περίοδο." in action
+    assert 'Επιλέξτε «Έτος» ή «Σύνολο»' in action
+    assert action.index("If finalRow < 23 Then") < action.index("If selectedRow < 23 Or")
+    assert 'Len(Trim$(CStr(ws.Cells(selectedRow, 3).Value2))) = 0' in action
+    assert action.index("If selectedRow < 23 Or") < action.index("Application.EnableEvents = False")
