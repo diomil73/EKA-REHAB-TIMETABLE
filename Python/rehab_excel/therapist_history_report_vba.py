@@ -144,7 +144,16 @@ Public Sub ShowSelectedTherapistChart()
     End If
     selectedRow = ActiveCell.Row
     finalRow = CLng(ws.Range("P3").Value2)
-    If selectedRow < 23 Or selectedRow > finalRow Then
+    ' An empty current-calendar period has no therapist row to select.
+    ' Never prompt for an impossible selection, and never reuse a prior row.
+    If finalRow < 23 Then
+        MsgBox "Δεν υπάρχουν οριστικοποιημένες ημέρες στην επιλεγμένη περίοδο." & _
+            vbCrLf & "Επιλέξτε «Έτος» ή «Σύνολο» για διαθέσιμο ιστορικό.", _
+            vbInformation, "Ιστορικό θεραπευτών"
+        Exit Sub
+    End If
+    If selectedRow < 23 Or selectedRow > finalRow Or _
+       Len(Trim$(CStr(ws.Cells(selectedRow, 3).Value2))) = 0 Then
         MsgBox "Επιλέξτε πρώτα τη γραμμή του θεραπευτή στον πίνακα.", vbInformation
         Exit Sub
     End If
