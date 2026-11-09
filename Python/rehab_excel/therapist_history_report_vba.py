@@ -769,12 +769,13 @@ Private Function NewTherapistTrendChart(ByVal ws As Worksheet, _
         ws.Range(lastColumn & "12").Width - ws.Range(firstColumn & "12").Left
     Set NewTherapistTrendChart = ws.ChartObjects.Add( _
         ws.Range(firstColumn & "11").Left, ws.Range(firstColumn & "11").Top, _
-        chartWidth - 4, 76)
+        chartWidth - 4, 108)
     NewTherapistTrendChart.Name = chartName
     NewTherapistTrendChart.Placement = xlFreeFloating
     NewTherapistTrendChart.Chart.ChartType = xlLine
     NewTherapistTrendChart.Chart.HasLegend = False
     NewTherapistTrendChart.Chart.HasTitle = False
+    NewTherapistTrendChart.Chart.PlotArea.Format.Fill.Visible = msoFalse
 End Function
 
 Private Sub StyleTherapistTrendRuler(ByVal plot As ChartObject)
@@ -888,11 +889,14 @@ NextDailyTrend:
 
     Set plot = NewTherapistTrendChart(ws, "ekaTherapistLoadTrend", "A", "D")
     AddTherapistTrendSeries plot, "Ασθενείς/ημέρα", xPlot, lPlot, RGB(63, 168, 245)
+    plot.Chart.Axes(xlValue).TickLabels.Font.Size = 9
     StyleTherapistTrendRuler plot
     plot.Chart.Axes(xlValue).MinimumScale = 0
     plot.Chart.Axes(xlValue).MaximumScale = 6
     plot.Chart.Axes(xlValue).MajorUnit = 1
     plot.Chart.Axes(xlCategory).TickLabelPosition = xlNone
+    ' Keep the left workload sparkline as a true enlarged plot, not a title panel.
+    plot.Chart.PlotArea.InsideHeight = 78
     If maxPatient > 6 Then ws.Range("A17").Value2 = _
         "ΕΛΕΓΧΟΣ ΦΟΡΤΟΥ: καταγράφηκε τιμή >6"
 
@@ -1212,7 +1216,11 @@ Private Sub EnsureReportButtons(ByVal ws As Worksheet)
     EnsureOneReportButton ws, "ekaHistory_Year", "Έτος", "ShowTherapistHistoryCurrentYear", 66#
     EnsureOneReportButton ws, "ekaHistory_Overall", "Σύνολο", "ShowTherapistHistoryOverall", 80#
     EnsureOneReportButton ws, "ekaHistory_Back", "← Προηγούμενη", "ToolbarTherapistDaily", 116#
-    EnsureOneReportButton ws, "ekaHistory_PersonChart", "Γράφημα θεραπευτή", "ShowSelectedTherapistChart", 160#
+    ' The selected report row already refreshes charts automatically.
+    ' Retire redundant button on existing templates, including older BZ copies.
+    On Error Resume Next
+    ws.Shapes("ekaHistory_PersonChart").Delete
+    On Error GoTo 0
     EnsureOneReportButton ws, "ekaHistory_ManagementExport", "Εξαγωγή διοίκησης", "ExportManagementOnlyWorkbook", 160#
     EnsureOneReportButton ws, "ekaHistory_ManagementView", "Προβολή διοίκησης", "OpenManagementSummary", 160#
     PositionReportButtons ws
@@ -1256,7 +1264,6 @@ Private Sub PositionReportButtons(ByVal ws As Worksheet)
         Array("ekaHistory_Year", 66#), _
         Array("ekaHistory_Overall", 80#), _
         Array("ekaHistory_Back", 116#), _
-        Array("ekaHistory_PersonChart", 160#), _
         Array("ekaHistory_ManagementExport", 160#), _
         Array("ekaHistory_ManagementView", 160#))
     topPos = ws.Rows(3).Top + 4
