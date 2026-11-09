@@ -333,3 +333,21 @@ Operator confirmed `47 passed in 3.46s`, `PILOT INTAKE SAFETY GATES GREEN`. Pyth
 - `76fb2ee` adds parameterized evidence validator tests and no-overwrite test. `53ec07b` updates `Documentation/PARALLEL_PILOT_ADMISSION_20261109.md`. These new tests have NOT YET RUN on user's Windows.
 - Next requested PowerShell: `git pull --ff-only origin work/history-statistics-rebuild`; `python -m pytest Tests/test_pilot_acceptance_evidence.py Tests/test_pilot_source_readiness.py -q`. Then wait for user updated **copy** of current departmental workbook; do not demand it today, no modifications to primary workbook, no BZ or resurrection of CA.
 - Focus operational correctness/safety/usability before nonblocking cosmetic polish; all earlier AZ/BO/BY/CA remain test artifacts.
+
+
+### 2026-11-09 — 21 PILOT acceptance source tests green; synthetic-only CB source staging
+User native Windows confirmed `21 passed in 2.97s`, `PILOT ACCEPTANCE CONTRACT GREEN`. This is source-only evidence-manifest validation, not pilot approval. Updated operational workbook not yet uploaded. User directs correctness/safety/usability before cosmetic polish and autonomous work.
+
+To unblock H10 native visual proof with known test-fixture contamination in frozen CA:
+- `bd0cdb6` adds `Python/tools/prepare_h10_synthetic_only_source.py`, one-shot native isolated **new CB** copied from immutable `_CA.xlsm`. Strict preflight verifies H8 synthetic cross-sheet source, five historical schemas; exclusive-create CB, Windows Excel COM removes inherited old test history from **CB only** while retaining `DEMO-H8-*` rows and matching DAY_HISTORY_EVENTS.RelatedSnapshotId. Preserve the 25 synthetic days, 522 patient sessions etc. Reprotect technical sheets as veryHidden, save, independently read back full synthetic H8 reconciliation and require zero non-H8 historical rows; CA hash unchanged. If any failure freeze CB, never repair or overwrite. No CB created to date.
+- `7735fbf` handles legacy events lacking RelatedSnapshotId by excluding only in CB, but stops on synthetic-looking event missing link.
+- `f0a6ae1` changes H10 one-shot installer source **from CA to isolated CB** before creating fresh BZ; checks ALL five source ledgers have zero inherited test records, still verifies synthetic H8, strict capacity, and shared-clock approvals. Direct frozen CA/BO denied.
+- `27fed7b` updates H10 installer regression source assertions for CB, old CA rejected; `6bd78a2` adds independent isolation/selection tests.
+- **SOURCE TESTS NOT YET RUN on Windows.** Never run native CB/BZ until source regression green and there is no Excel process. No existing workbook has been modified. Still need review new native script robustness and independent CB readback after source green; DO NOT interpret source tests as native Excel installation.
+
+For next tests:
+```powershell
+git pull --ff-only origin work/history-statistics-rebuild
+python -m pytest Tests/test_h10_synthetic_only_source.py Tests/test_h10_therapist_simple_demo.py Tests/test_h8_synthetic_history_verifier.py Tests/test_h10_daily_capacity_audit.py Tests/test_h10_baseline_clock_conflicts.py -q
+```
+On green, inspect results and plan CB once only; **do not** reuse frozen CA as BZ source, do not touch original AZ/BO/BY/CA, and do not prematurely begin parallel pilot.
