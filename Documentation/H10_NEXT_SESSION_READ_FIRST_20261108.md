@@ -405,3 +405,11 @@ User noted source UI screenshot BZ and the redundant top `Γράφημα θερ�
 - `d85f1e6` adds `Documentation/THERAPIST_PROFILE_20_PLUS_DESIGN_20261109.md`: one dynamic profile for 20+ therapists; immutable therapist ID; availability and future absence event ledger separated from patient cancellation/replacement; no medical diagnosis/free-text in common dashboards; access review first. **Only design, not implemented.**
 - ALL SOURCE CHANGES after BZ screenshot untested on Windows. BZ remains a frozen disposable test fixture; no repair/overwrite. New unique candidate, adjusted installer name gate and native Excel proof needed if/when visual improvements are tested. No operational pilot approved.
 - Next: run `git pull --ff-only origin work/history-statistics-rebuild` then `python -m pytest Tests/test_h10_therapist_simple_demo.py Tests/test_h10_synthetic_only_source.py Tests/test_h10_management_export.py -q`. Stop on any test failure. Keep working workbook source separate; don't request new personal health data or initiate write-back.
+
+
+### 2026-11-10 — H10 UI source regression: 59 passed, 2 failed; stale assertions repaired
+Operator Windows result after source-only H10 UI cleanup: `2 failed, 59 passed in 4.16s`, safety stop correctly interrupted all next steps. The two failures were **test assertions no longer matching intended source**, NOT evidence of a native Excel error:
+1. `test_compact_chart_titles_and_clear_vertical_separation` expected old 76-point mini trend height; source uses intended 108-point height for workload scale readability.
+2. `test_redundant_person_chart_button_retired_from_current_and_legacy_report` expected `Private Sub HighlightSelectedTherapistRow` but actual supported VBA declares `Public Sub HighlightSelectedTherapistRow(ByVal selectedRow As Long)`, needed for worksheet event/module calls.
+- Source-only `f943236` updates both regressions to assert **108** and the actual **Public Sub** signature. VBA source remains unchanged. **Post-fix Windows pytest NOT yet run**.
+- Next `git pull --ff-only origin work/history-statistics-rebuild`; `python -m pytest Tests/test_h10_therapist_simple_demo.py Tests/test_h10_synthetic_only_source.py Tests/test_h10_management_export.py -q`. No XLSM creation, repair or overwrite. Frozen BZ remains as before and 20+ therapist dynamic profile stays design-only.
