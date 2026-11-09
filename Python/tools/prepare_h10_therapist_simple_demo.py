@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-"""One-shot native H10 therapist UI refinement on a fresh copy of H8 BO.
+"""One-shot native H10 therapist UI refinement on fresh isolated H8 CB.
 
-Copies freshly verified corrected synthetic CA history intact. Does not rebuild seed data,
-rewrite the snapshot stores or modify BO. All native edits take place in a
+Copies independently verified synthetic-only CB history intact. Does not rebuild seed data,
+rewrite snapshot stores or modify CA/CB. All native edits take place in a
 previously nonexistent candidate only.
 """
 
@@ -90,9 +90,9 @@ def digest(path: Path) -> str:
 
 def check_candidate(source: Path, output: Path) -> None:
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
-        raise H10DemoError("Existing corrected CA .xlsm source required")
-    if "_DEMO_" not in source.name.upper() or not source.name.upper().endswith("_CA.XLSM"):
-        raise H10DemoError("Source must be a new corrected CA demo, not frozen BO")
+        raise H10DemoError("Existing synthetic-only CB .xlsm source required")
+    if "_DEMO_" not in source.name.upper() or not source.name.upper().endswith("_CB.XLSM"):
+        raise H10DemoError("Source must be isolated CB demo, never CA/BO")
     if output.exists():
         raise H10DemoError("Candidate already exists; never overwrite")
     if "_DEMO_" not in output.name.upper() or not output.name.upper().endswith("_BZ.XLSM"):
@@ -195,9 +195,15 @@ def install_native(source: Path, output: Path) -> None:
     except ImportError as exc:
         raise H10DemoError("pywin32 required") from exc
 
-    # Fail closed BEFORE creating the destination. The old frozen BO has
+    # Fail closed BEFORE creating the destination. The old frozen CA has
     # known synthetic 8/9 occupied-slot errors and must never feed BZ.
     verify_demo_history(source)
+    # The CB admission invariant is stronger than H8 synthetic correctness:
+    # CB must contain NO inherited test-archive rows in any history ledger.
+    from tools.prepare_h10_synthetic_only_source import classify_rows
+    for name, (_, non_demo) in classify_rows(source).items():
+        if non_demo:
+            raise H10DemoError(f"CB contains archived test history in {name}")
     anomalies = capacity_anomalies(report_therapist_history(source), {})
     blocking = [
         row for row in anomalies if
@@ -206,7 +212,7 @@ def install_native(source: Path, output: Path) -> None:
     ]
     if blocking:
         raise H10DemoError(
-            f"Corrected CA capacity gate failed: {len(blocking)} therapist-days"
+            f"Isolated CB capacity gate failed: {len(blocking)} therapist-days"
         )
     # A capacity-only gate cannot catch two patients occupying the same
     # clock slot with zero recorded approval (legacy Oct 30 evidence).
@@ -230,7 +236,7 @@ def install_native(source: Path, output: Path) -> None:
     with source.open("rb") as inp, output.open("xb") as out:
         shutil.copyfileobj(inp, out)
     if digest(output) != source_hash or digest(source) != source_hash:
-        raise H10DemoError("Fresh CA -> BZ copy SHA256 mismatch")
+        raise H10DemoError("Fresh CB -> BZ copy SHA256 mismatch")
 
     excel = None
     book = None
