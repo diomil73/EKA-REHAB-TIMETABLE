@@ -49,32 +49,37 @@ def test_simple_labels_keep_technical_cause_out_of_primary_load_chart():
     assert "ws.Range(\"E19\").Value2" in vba
 
 
-def test_h10_requires_corrected_ca_and_strict_fresh_bz_destination(tmp_path):
-    ca = tmp_path / "H8_DEMO_HISTORY_CA.xlsm"
-    ca.write_bytes(b"sentinel")
+def test_h10_requires_isolated_cb_and_strict_fresh_bz_destination(tmp_path):
+    cb = tmp_path / "H8_DEMO_HISTORY_CB.xlsm"
+    cb.write_bytes(b"sentinel")
     bz = tmp_path / "H10_DEMO_BZ.xlsm"
-    check_candidate(ca, bz)
+    check_candidate(cb, bz)
     bz.write_bytes(b"already exists")
     with pytest.raises(H10DemoError, match="already exists"):
         check_candidate(ca, bz)
     assert bz.read_bytes() == b"already exists"
     with pytest.raises(H10DemoError, match="BZ"):
-        check_candidate(ca, tmp_path / "H10_DEMO_BY.xlsm")
+        check_candidate(cb, tmp_path / "H10_DEMO_BY.xlsm")
     with pytest.raises(H10DemoError, match="BZ"):
         check_candidate(ca, tmp_path / "H10_DEMO_BZ2.xlsm")
     bo = tmp_path / "H8_DEMO_BO.xlsm"
     bo.write_bytes(b"frozen")
-    with pytest.raises(H10DemoError, match="CA"):
+    with pytest.raises(H10DemoError, match="CB"):
         check_candidate(bo, tmp_path / "H10_DEMO_NEW_BZ.xlsm")
+    ca = tmp_path / "H8_DEMO_HISTORY_CA.xlsm"
+    ca.write_bytes(b"frozen")
+    with pytest.raises(H10DemoError, match="CB"):
+        check_candidate(ca, tmp_path / "H10_DEMO_NEW_BZ.xlsm")
     assert bo.read_bytes() == b"frozen"
 
 
-def test_bz_installer_checks_corrected_source_before_copy():
+def test_bz_installer_checks_isolated_cb_before_copy():
     import inspect
     from tools import prepare_h10_therapist_simple_demo as installer
     source = inspect.getsource(installer.install_native)
     assert source.index("verify_demo_history(source)") < source.index("output.open(\"xb\")")
     assert source.index("capacity_anomalies(") < source.index("output.open(\"xb\")")
+    assert source.index("classify_rows(source)") < source.index("output.open(\"xb\")")
     assert source.index("clock_conflicts(") < source.index("output.open(\"xb\")")
     assert '"SHARED_CLOCK_WITHOUT_RECORDED_APPROVAL" in exception["flags"]' in source
     assert '"SLOT_OR_SESSION_RECONCILIATION_MISMATCH" in exception["flags"]' in source
