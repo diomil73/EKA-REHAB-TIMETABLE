@@ -20,6 +20,8 @@ if str(PYTHON_ROOT) not in sys.path:
 from tools.verify_h8_synthetic_history import verify_demo_history
 from tools.report_therapist_history import report_therapist_history
 from tools.audit_therapist_daily_capacity import capacity_anomalies
+from tools.audit_h10_baseline_clock_conflicts import clock_conflicts
+from rehab_excel.patient_session_history_store import read_current_patient_session_history_rows
 from rehab_excel.therapist_history_report_vba import (
     THERAPIST_HISTORY_MODULE_NAME,
     THERAPIST_HISTORY_MODULE_CODE,
@@ -205,6 +207,23 @@ def install_native(source: Path, output: Path) -> None:
     if blocking:
         raise H10DemoError(
             f"Corrected CA capacity gate failed: {len(blocking)} therapist-days"
+        )
+    # A capacity-only gate cannot catch two patients occupying the same
+    # clock slot with zero recorded approval (legacy Oct 30 evidence).
+    # Inspect ALL finalized service dates and stop BEFORE opening output.
+    reports = report_therapist_history(source)
+    sessions = read_current_patient_session_history_rows(source)
+    service_dates = sorted({row.service_date for row in reports})
+    clock_flags = [
+        exception
+        for service_date in service_dates
+        for exception in clock_conflicts(reports, sessions, service_date)
+        if "SHARED_CLOCK_WITHOUT_RECORDED_APPROVAL" in exception["flags"]
+        or "SLOT_OR_SESSION_RECONCILIATION_MISMATCH" in exception["flags"]
+    ]
+    if clock_flags:
+        raise H10DemoError(
+            f"Corrected source clock/approval gate failed: {len(clock_flags)} therapist-days"
         )
     source_hash = digest(source)
     output.parent.mkdir(parents=True, exist_ok=True)
