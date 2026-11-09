@@ -68,16 +68,18 @@ def test_native_copy_occurs_only_after_full_read_only_classification():
     assert source.index("for name, to_remove in removals.items():") < source.index("ws.Rows(row_idx).Delete()")
 
 
-def test_h10_installer_cannot_reuse_old_ca():
+def test_h10_cc_installer_cannot_reuse_old_ca_or_bz():
     from tools.prepare_h10_therapist_simple_demo import H10DemoError, check_candidate
     import tempfile
     with tempfile.TemporaryDirectory() as dirname:
         folder = Path(dirname)
         ca = folder / "H8_DEMO_CA.xlsm"
         cb = folder / "H8_DEMO_CB.xlsm"
-        bz = folder / "H10_DEMO_BZ.xlsm"
+        cc = folder / "H10_DEMO_CC.xlsm"
         ca.write_bytes(b"frozen")
         cb.write_bytes(b"isolated")
         with pytest.raises(H10DemoError, match="CB"):
-            check_candidate(ca, bz)
-        check_candidate(cb, bz)
+            check_candidate(ca, cc)
+        check_candidate(cb, cc)
+        with pytest.raises(H10DemoError, match="CC"):
+            check_candidate(cb, folder / "H10_DEMO_BZ.xlsm")
