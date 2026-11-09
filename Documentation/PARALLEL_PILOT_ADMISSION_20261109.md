@@ -22,3 +22,13 @@
 - Δημιουργήθηκε `Python/tools/audit_pilot_source_readiness.py` και regression tests `Tests/test_pilot_source_readiness.py`. **Αναμένονται Windows pytest**, δεν έγινε native install.
 - Ο χρήστης δεν έχει ακόμη ανεβάσει το επικαιροποιημένο αντίγραφο. Δεν είναι δυνατόν να επικυρώσουμε σήμερα compatibility των πραγματικών στηλών, φόρμουλων και macro names.
 - BZ παραμένει unbuilt. Το CA παραμένει frozen test candidate που αποτυγχάνει στα strict data gates λόγω παλαιότερων test history facts.
+
+
+## 2026-11-09: επιβεβαίωση πηγής και ενίσχυση του intake
+Ο χρήστης επιβεβαίωσε **44 passed in 2.23s**, `PILOT READINESS SOURCE TESTS GREEN`. Πρόκειται αποκλειστικά για tests κώδικα απογραφής, όχι για πραγματικό λειτουργικό αντίγραφο.
+
+Ενίσχυση source-only:
+- `7c88915`: ανιχνεύουμε historical rows ακόμη και με κενό SnapshotId/στήλη A (παλιότερα παραλείπονταν), ελέγχουμε ακριβείς επικεφαλίδες ιστορικών πινάκων πριν από τυχόν mapping και εντοπίζουμε `xl/externalLinks` / `xl/connections.xml` ως δυνητικές εξαρτήσεις. Κάθε τέτοιο εύρημα είναι `REVIEW REQUIRED` και **όχι** αυτόματη μεταφορά ή διαγραφή.
+- `e37caf5`: τρία νέα regression tests για κενό SnapshotId, λανθασμένες επικεφαλίδες και ZIP externalLink part.
+- Τα νέα tests **δεν έχουν εκτελεστεί ακόμη στα Windows**. Δεν χρησιμοποιήθηκε/τροποποιήθηκε κανένα Excel, δεν υπάρχει λειτουργικό αντίγραφο από τον χρήστη ακόμη.
+- `audit_pilot_source_readiness.py` δεν μπορεί να επιβεβαιώσει VBA runtime, προστασίες, αξιόπιστο save/reopen, χρήση όλων των θεραπευτών, ασφάλεια παραλλαγών, διαθεσιμότητα ωρών ή συμβατότητα καθημερινής λειτουργίας. Αυτά παραμένουν blocking gates με native proof όταν φτάσει το ασφαλές αντίγραφο.
