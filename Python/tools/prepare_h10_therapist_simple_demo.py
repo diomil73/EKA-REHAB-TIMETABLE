@@ -195,8 +195,8 @@ def install_native(source: Path, output: Path) -> None:
     except ImportError as exc:
         raise H10DemoError("pywin32 required") from exc
 
-    # Fail closed BEFORE creating the destination. The old frozen CA has
-    # Prior frozen CA test history must never feed this fresh CC.
+    # Fail closed BEFORE creating CC: only verified synthetic-only CB is permitted.
+    # Frozen CA and historical BZ must never be used as the source.
     verify_demo_history(source)
     # The CB admission invariant is stronger than H8 synthetic correctness:
     # CB must contain NO inherited test-archive rows in any history ledger.
