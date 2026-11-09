@@ -289,7 +289,7 @@ def test_visible_mini_axis_gridlines_and_actual_over_plan_warning():
     vba = THERAPIST_HISTORY_MODULE_CODE
     assert '.HasMajorGridlines = True' in vba
     assert 'plot.Chart.Axes(xlValue).MajorUnit = 1' in vba
-    assert 'chartWidth - 4, 76)' in vba
+    assert 'chartWidth - 4, 108)' in vba
     assert 'positiveDeltaDays = positiveDeltaDays + 1' in vba
     assert 'If positiveDeltaDays > 0 Then' in vba
     assert 'Αρχικά προγραμματισμένες' in vba
@@ -457,3 +457,23 @@ def test_empty_calendar_period_chart_action_does_not_request_impossible_row():
     assert action.index("If finalRow < 23 Then") < action.index("If selectedRow < 23 Or")
     assert 'Len(Trim$(CStr(ws.Cells(selectedRow, 3).Value2))) = 0' in action
     assert action.index("If selectedRow < 23 Or") < action.index("Application.EnableEvents = False")
+
+
+def test_redundant_person_chart_button_retired_from_current_and_legacy_report():
+    code = THERAPIST_HISTORY_MODULE_CODE
+    assert 'ws.Shapes("ekaHistory_PersonChart").Delete' in code
+    assert 'EnsureOneReportButton ws, "ekaHistory_PersonChart"' not in code
+    begin = code.index("Private Sub PositionReportButtons(")
+    end = code.index("End Sub", begin)
+    assert '"ekaHistory_PersonChart"' not in code[begin:end]
+    assert "Private Sub HighlightSelectedTherapistRow" in code
+    assert "ShowSelectedTherapistChart" in code  # internal compatibility only
+
+
+def test_load_trend_is_taller_and_has_readable_integer_zero_six_axis():
+    code = THERAPIST_HISTORY_MODULE_CODE
+    assert "chartWidth - 4, 108)" in code
+    assert "plot.Chart.PlotArea.InsideHeight = 78" in code
+    assert "plot.Chart.Axes(xlValue).MaximumScale = 6" in code
+    assert "plot.Chart.Axes(xlValue).MajorUnit = 1" in code
+    assert "plot.Chart.Axes(xlValue).TickLabels.Font.Size = 9" in code
