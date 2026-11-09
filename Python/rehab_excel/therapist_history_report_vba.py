@@ -459,23 +459,29 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
     ws.Range("A3").Value2 = ReportModeDescription(reportMode)
     ws.Range("A3").Font.Bold = True
     ws.Range("A3").Font.Color = RGB(16, 35, 61)
+    ' Refresh existing merged KPI tiles before positioning new ones.
+    ws.Range("A8:J10").UnMerge
     ws.Range("A8:B8").Merge
-    ws.Range("C8:D8").Merge
-    ws.Range("F8:G8").Merge
+    ws.Range("D8:E8").Merge
+    ws.Range("G8:H8").Merge
     ws.Range("A9:B10").Merge
-    ws.Range("C9:D10").Merge
-    ws.Range("F9:G10").Merge
+    ws.Range("D9:E10").Merge
+    ws.Range("G9:H10").Merge
     ws.Range("A8").Value2 = "ΑΡΧΙΚΑ ΠΡΟΓΡΑΜΜΑΤΙΣΜΕΝΕΣ"
-    ws.Range("C8").Value2 = "ΤΕΛΙΚΑ ΠΡΑΓΜΑΤΟΠΟΙΗΜΕΝΕΣ"
-    ws.Range("F8").Value2 = "ΠΟΣΟΣΤΟ ΥΛΟΠΟΙΗΣΗΣ"
+    ws.Range("D8").Value2 = "ΤΕΛΙΚΑ ΠΡΑΓΜΑΤΟΠΟΙΗΜΕΝΕΣ"
+    ws.Range("G8").Value2 = "ΠΟΣΟΣΤΟ ΥΛΟΠΟΙΗΣΗΣ"
     ws.Range("A8:B10").Interior.Color = RGB(236, 241, 247)
-    ws.Range("C8:D10").Interior.Color = RGB(236, 241, 247)
-    ws.Range("F8:G10").Interior.Color = RGB(236, 241, 247)
-    ws.Range("A8:G8").Font.Bold = True
-    ws.Range("A9:G10").Font.Bold = True
-    ws.Range("A9:G10").Font.Size = 22
+    ws.Range("D8:E10").Interior.Color = RGB(236, 241, 247)
+    ws.Range("G8:H10").Interior.Color = RGB(236, 241, 247)
+    ws.Range("A8:H8").Font.Bold = True
+    ' Equal tile height, centered content and visible gutters between KPI cards.
+    ws.Rows("8:10").RowHeight = 22
+    ws.Range("A8:H8").HorizontalAlignment = xlCenter
+    ws.Range("A9:H10").Font.Bold = True
+    ws.Range("A9:H10").HorizontalAlignment = xlCenter
+    ws.Range("A9:H10").Font.Size = 22
     ws.Range("A9").Font.Color = RGB(63, 168, 245)
-    ws.Range("C9").Font.Color = RGB(255, 3, 3)
+    ws.Range("D9").Font.Color = RGB(255, 3, 3)
     ws.Range("A15").Value2 = "Περίοδος"
     ws.Range("B15").Value2 = "Αρχικά προγρ."
     ws.Range("C15").Value2 = "Τελικά πραγματ."
@@ -534,14 +540,14 @@ Private Sub RenderManagementSummary(ByVal source As Worksheet, _
     plannedTotal = CDbl(ws.Cells(targetRow, 2).Value2)
     deliveredTotal = CDbl(ws.Cells(targetRow, 3).Value2)
     ws.Range("A9").Value2 = plannedTotal
-    ws.Range("C9").Value2 = deliveredTotal
+    ws.Range("D9").Value2 = deliveredTotal
     ws.Range("A9").NumberFormat = "#,##0"
-    ws.Range("C9").NumberFormat = "#,##0"
+    ws.Range("D9").NumberFormat = "#,##0"
     If plannedTotal > 0 Then
-        ws.Range("F9").Value2 = deliveredTotal / plannedTotal
-        ws.Range("F9").NumberFormat = "0.0%"
+        ws.Range("G9").Value2 = deliveredTotal / plannedTotal
+        ws.Range("G9").NumberFormat = "0.0%"
     Else
-        ws.Range("F9").Value2 = "Μη διαθέσιμο"
+        ws.Range("G9").Value2 = "Μη διαθέσιμο"
     End If
 
     If targetRow > 16 Then
