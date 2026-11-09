@@ -68,6 +68,18 @@ def audit(baseline: Path, candidate: Path, service_date: date) -> int:
     if not original:
         print(f"SAFETY STOP: Baseline has no current-final facts for {service_date}")
         return 2
+    if not copied:
+        print(f"SAFETY STOP: Candidate has no current-final facts for {service_date}")
+        return 3
+    # Validate both mockable summaries before any positional unpacking or
+    # informational success output. A malformed record is never an exception
+    # that hides the intended fail-closed diagnostic.
+    if any(
+        not isinstance(item, tuple) or len(item) != 12
+        for records in (original, copied) for item in records
+    ):
+        print("SAFETY STOP: Malformed provenance summary (expected 12 fields)")
+        return 2
     print(f"READ-ONLY HISTORICAL PROVENANCE {service_date.isoformat()}")
     for item in copied:
         sid, ver, person, capacity, initial, final, planned, delivered, shared, count, times, clocks = item
