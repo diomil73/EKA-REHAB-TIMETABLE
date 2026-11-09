@@ -153,16 +153,28 @@ def install(source: Path, output: Path) -> None:
         book = excel.Workbooks.Open(str(output.resolve()), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly):
             raise DemoIsolationError("Candidate opened read-only")
+        # Phase 1: preflight ALL ledgers before changing even one candidate
+        # worksheet. A later invalid sheet cannot leave a partially edited
+        # CB during the ordinary validation path.
+        removals = {}
         for name, (headers, id_col) in SCHEMAS.items():
             ws = book.Worksheets(name)
             if not bool(ws.ProtectContents) or int(ws.Visible) != 2:
                 raise DemoIsolationError(f"Technical sheet protection/visibility invalid: {name}")
-            # Record row ids and validate before touching this sheet.
+            native_headers = tuple(
+                str(ws.Cells(1, col).Value or "").strip()
+                for col in range(1, len(headers) + 1)
+            )
+            if native_headers != headers:
+                raise DemoIsolationError(f"Native history headers changed: {name}")
             last = int(ws.Cells(ws.Rows.Count, 1).End(-4162).Row)
             to_remove = []
             kept = 0
             for row_idx in range(2, last + 1):
-                values = tuple(ws.Cells(row_idx, col).Value for col in range(1, len(headers) + 1))
+                values = tuple(
+                    ws.Cells(row_idx, col).Value
+                    for col in range(1, len(headers) + 1)
+                )
                 if not any(value is not None and str(value).strip() for value in values):
                     continue
                 if keep_row(values, id_column=id_col):
@@ -171,8 +183,12 @@ def install(source: Path, output: Path) -> None:
                     to_remove.append(row_idx)
             if (kept, len(to_remove)) != expected[name]:
                 raise DemoIsolationError(f"Native preflight row count changed: {name}")
+            removals[name] = tuple(to_remove)
+
+        # Phase 2: only after ALL checks pass, edit disposable CB.
+        for name, to_remove in removals.items():
+            ws = book.Worksheets(name)
             ws.Unprotect()
-            # Row deletion from the bottom avoids shifting unrelated ids.
             for row_idx in reversed(to_remove):
                 ws.Rows(row_idx).Delete()
             ws.Protect(DrawingObjects=True, Contents=True, Scenarios=True)
