@@ -32,3 +32,13 @@
 - `e37caf5`: τρία νέα regression tests για κενό SnapshotId, λανθασμένες επικεφαλίδες και ZIP externalLink part.
 - Τα νέα tests **δεν έχουν εκτελεστεί ακόμη στα Windows**. Δεν χρησιμοποιήθηκε/τροποποιήθηκε κανένα Excel, δεν υπάρχει λειτουργικό αντίγραφο από τον χρήστη ακόμη.
 - `audit_pilot_source_readiness.py` δεν μπορεί να επιβεβαιώσει VBA runtime, προστασίες, αξιόπιστο save/reopen, χρήση όλων των θεραπευτών, ασφάλεια παραλλαγών, διαθεσιμότητα ωρών ή συμβατότητα καθημερινής λειτουργίας. Αυτά παραμένουν blocking gates με native proof όταν φτάσει το ασφαλές αντίγραφο.
+
+
+## 2026-11-09: λίστα λειτουργικής αποδοχής με υποχρεωτικά evidence refs
+**Ο χειριστής επιβεβαίωσε** `47 passed in 3.46s` / `PILOT INTAKE SAFETY GATES GREEN`. Οι source-only βελτιώσεις inventory/links/headers πέρασαν.
+
+Στο επόμενο checkpoint προστέθηκαν:
+- `Python/tools/verify_pilot_acceptance_evidence.py`: schema-versioned JSON checklist με **13 υποχρεωτικές λειτουργικές δικλείδες**: μητρώο και δομή, ιστορική προέλευση, hash και απομονωμένο αντίγραφο, χωρητικότητα, ταυτότητες/πλήθη συνεδριών, απουσίες και ακυρώσεις, απουσία και αναπλήρωση θεραπευτή, διπλοκράτηση/έγκριση, οριστικοποίηση+reopen, amendment/restore/rollback, VBA/protection/navigation, στατιστικά και ημερολογιακή οριοθέτηση, απομόνωση write-back προς το κύριο αρχείο.
+- Δημιουργία μόνο με fresh `--create-template <new-local.json>` (exclusive create, ποτέ overwrite), όλα τα tests αρχικά `pending`. Επικύρωση μόνο με `--manifest <local.json>`: 0 όταν η **δήλωση τεκμηρίων** είναι πλήρης, 3 αν υπάρχουν pending/failed/blocked ή λείπουν hashes/native checking και 2 αν είναι άκυρη η δομή. **Ακόμη και 0 δεν συνιστά ανεξάρτητη αποδοχή ή άδεια παραγωγής**, απαιτεί πραγματικό native Excel proof και ανθρώπινο έλεγχο αποτελεσμάτων.
+- Το manifest περιέχει **μόνο hashes, ημερομηνία, κωδικούς κατάστασης και σύντομα μη προσωπικά evidence identifiers**. Όχι στοιχεία ασθενών, snapshots/session IDs, ούτε raw Excel μέσα σε GitHub. Δεν επιβάλλεται δημιουργία manifest μέχρι να έρθει το επικαιροποιημένο αντίγραφο.
+- `Tests/test_pilot_acceptance_evidence.py` δοκιμάζει pending, valid/invalid contract, no-overwrite, missing proof και ίδια hashes candidate/reference. **Source-only, αναμένει pytest στα Windows**, δεν έγινε native Excel install.
