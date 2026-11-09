@@ -61,6 +61,11 @@ def test_native_copy_occurs_only_after_full_read_only_classification():
     assert "verify_isolated(output, expected)" in source
     assert "ws.Rows(row_idx).Delete()" in source
     assert "ws.Protect(" in source
+    # Every worksheet is inspected before the first candidate mutation.
+    assert source.index("removals = {}") < source.index("for name, to_remove in removals.items():")
+    assert source.index("native_headers != headers") < source.index("for name, to_remove in removals.items():")
+    assert source.index("removals[name] = tuple(to_remove)") < source.index("ws.Unprotect()")
+    assert source.index("for name, to_remove in removals.items():") < source.index("ws.Rows(row_idx).Delete()")
 
 
 def test_h10_installer_cannot_reuse_old_ca():
