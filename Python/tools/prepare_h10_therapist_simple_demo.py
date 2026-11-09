@@ -229,7 +229,7 @@ def install_native(source: Path, output: Path) -> None:
     ]
     if clock_flags:
         raise H10DemoError(
-            f"Corrected source clock/approval gate failed: {len(clock_flags)} therapist-days"
+            f"Isolated CB clock/approval gate failed: {len(clock_flags)} therapist-days"
         )
     source_hash = digest(source)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -331,15 +331,15 @@ def install_native(source: Path, output: Path) -> None:
             excel.Quit()
 
     if digest(source) != source_hash:
-        raise H10DemoError("Corrected CA source hash changed")
+        raise H10DemoError("Isolated CB source hash changed")
     print("H10 THERAPIST SIMPLE DEMO INSTALL OK")
-    print("Fresh BZ only; corrected CA and archived previews unchanged")
+    print("Fresh BZ only; isolated CB and archived previews unchanged")
     print("Sticky therapist charts, selection highlight, period benchmarks installed")
     print("Synthetic data is demonstration only; no production attendance KPI")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install H10 simple therapist visuals on a fresh BO copy")
+    parser = argparse.ArgumentParser(description="Install H10 therapist visuals on a fresh synthetic-only CB copy")
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
