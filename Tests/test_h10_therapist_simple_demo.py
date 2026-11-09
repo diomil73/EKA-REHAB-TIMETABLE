@@ -415,7 +415,7 @@ def test_compact_chart_titles_and_clear_vertical_separation():
     vba = THERAPIST_HISTORY_MODULE_CODE
     assert 'chartWidth - 4, 88)' in vba
     assert 'ws.Range(firstColumn & "11").Top' in vba
-    assert 'chartWidth - 4, 76)' in vba
+    assert 'chartWidth - 4, 108)' in vba
     assert vba.count('plot.Chart.ChartTitle.Format.TextFrame2.TextRange.Font.Size = 9') == 3
     assert 'plot.Chart.ChartTitle.Text = "Φόρτος"' in vba
     assert 'plot.Chart.ChartTitle.Text = "Συνεδρίες"' in vba
@@ -466,7 +466,7 @@ def test_redundant_person_chart_button_retired_from_current_and_legacy_report():
     begin = code.index("Private Sub PositionReportButtons(")
     end = code.index("End Sub", begin)
     assert '"ekaHistory_PersonChart"' not in code[begin:end]
-    assert "Private Sub HighlightSelectedTherapistRow" in code
+    assert "Public Sub HighlightSelectedTherapistRow(ByVal selectedRow As Long)" in code
     assert "ShowSelectedTherapistChart" in code  # internal compatibility only
 
 
