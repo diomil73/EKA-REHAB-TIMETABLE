@@ -383,11 +383,11 @@ def test_management_internal_dashboard_does_not_obscure_buttons_and_has_kpi_tile
     end = vba.index("Private Sub BuildDepartmentAppendix(", begin)
     source = vba[begin:end]
     assert 'ws.Range("A8:B8").Merge' in source
-    assert 'ws.Range("C8:D8").Merge' in source
-    assert 'ws.Range("F8:G8").Merge' in source
+    assert 'ws.Range("D8:E8").Merge' in source
+    assert 'ws.Range("G8:H8").Merge' in source
     assert 'ws.Range("A9").Value2 = plannedTotal' in source
-    assert 'ws.Range("C9").Value2 = deliveredTotal' in source
-    assert 'ws.Range("F9").Value2 = deliveredTotal / plannedTotal' in source
+    assert 'ws.Range("D9").Value2 = deliveredTotal' in source
+    assert 'ws.Range("G9").Value2 = deliveredTotal / plannedTotal' in source
     assert 'ws.Range("F15").Left' in source
     assert 'ws.Range("F15").Top' in source
     assert 'shape.Top = ws.Range("A5").Top' in source
@@ -477,3 +477,16 @@ def test_load_trend_is_taller_and_has_readable_integer_zero_six_axis():
     assert "plot.Chart.Axes(xlValue).MaximumScale = 6" in code
     assert "plot.Chart.Axes(xlValue).MajorUnit = 1" in code
     assert "plot.Chart.Axes(xlValue).TickLabels.Font.Size = 9" in code
+
+
+def test_management_kpi_tiles_have_distinct_gutters_and_centered_readability():
+    code = THERAPIST_HISTORY_MODULE_CODE
+    start = code.index("Private Sub RenderManagementSummary(")
+    end = code.index("Private Sub BuildDepartmentAppendix(", start)
+    management = code[start:end]
+    assert 'ws.Range("A8:J10").UnMerge' in management
+    for tile in ('"A8:B8"', '"D8:E8"', '"G8:H8"'):
+        assert "ws.Range(" + tile + ").Merge" in management
+    assert 'ws.Range("A8:H8").HorizontalAlignment = xlCenter' in management
+    assert 'ws.Range("A9:H10").HorizontalAlignment = xlCenter' in management
+    assert 'ws.Range("G9").NumberFormat = "0.0%"' in management
