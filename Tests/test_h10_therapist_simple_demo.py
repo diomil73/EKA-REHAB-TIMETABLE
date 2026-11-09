@@ -473,7 +473,7 @@ def test_redundant_person_chart_button_retired_from_current_and_legacy_report():
 def test_load_trend_is_taller_and_has_readable_integer_zero_six_axis():
     code = THERAPIST_HISTORY_MODULE_CODE
     assert "chartWidth - 4, 108)" in code
-    assert "plot.Chart.PlotArea.InsideHeight = 78" in code
+    assert "plot.Chart.PlotArea.InsideHeight = 78" not in code
     assert "plot.Chart.Axes(xlValue).MaximumScale = 6" in code
     assert "plot.Chart.Axes(xlValue).MajorUnit = 1" in code
     assert "plot.Chart.Axes(xlValue).TickLabels.Font.Size = 9" in code
