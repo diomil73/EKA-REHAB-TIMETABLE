@@ -56,3 +56,13 @@ Implementation contract:
 - For clearly confirmed replacement where only therapist changes, inherit original time; where time and therapist change, retain both versions with their correct effective values. Avoid producing two independent treatments from one appointment.
 - Be liberal in **text recognition**, conservative in **assignment to a real patient/therapist/time slot**, and strict in conflicts/capacity/provenance checks. No production writeback until validation.
 - Regression fixture set should cover `09.15 ΨΙΑΧΟΥ (ΚΑΛΥΒΙΩΤΗΣ)`, `10.45 ΓΑΒΡΑΣ (8.30 ΖΗΜΑΡΗΣ)`, plus equivalent missing-parenthesis/no-space/dot/colon/double-dot/compact-clock variants; do not assume those variant entries actually occur in the source without inspecting.
+
+
+## 2026-11-10 — First executable column-C read-only parser and actual source result
+- Code `Python/tools/parse_real_manual_schedule.py` committed `621e1dd`; tests `Tests/test_real_manual_schedule_parser.py` committed `33df0ca`. **Tests were run locally using a matching working copy: 12 passed**. Post-commit GitHub checkout Windows pytest has NOT yet run.
+- Actual uploaded source hash verified unchanged: SHA256 `765264ec8eae95a31ccc57629dc31b1d61f59ea5c992221affa91fcf6a8d2567`.
+- Read-only parsing visible worksheet `ΠΡΟΓΡΑΜΜΑ`, column C only: **104 nonempty C cells**; **19 PROPOSED_INITIAL**, **5 PROPOSED_REPLACEMENT**, **80 REVIEW**. Not counts of validated patients or finalized sessions. This is expected with a deliberately restricted therapist alias whitelist (7 names) and unmodeled weekday/notes.
+- Known real source cases `C8`, `C25`, `C33`, `C36` produce correct proposed linked replacements, including C8 same hour and C33 time + therapist change. New time separators `.`, `:`, `..`, comma, 3/4-digit compact clock and missing spaces/parentheses are supported where lexical pattern is unambiguous.
+- Output in this conversation: `/mnt/data/DIOMIL_COLUMN_C_PROPOSALS_20261110.csv` (column C source cell reference, normalized proposed times and names, status and reason; no copied patient names or free notes). 104 rows.
+- **Every auto-parsed result is a PROPOSAL, not an approved appointment**. No weekdays/dates/therapist-ID joins, true timeslot writes, attendance history or operational Diomil writeback. Unknown aliases and ambiguous rows stay REVIEW.
+- Next prioritize separate E/H weekday-and-time splitter including real E104 and authorized therapist alias registry, then run fresh Windows tests. Do not restore old rejected 271-row staging assumptions.
