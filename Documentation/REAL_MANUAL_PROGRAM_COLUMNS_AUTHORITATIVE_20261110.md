@@ -38,3 +38,9 @@
 - Build an **isolated, fail-closed read-only prototype** that expands row+column source cell into explicit day/time/service segments, preserving raw source and flags; blocked rows remain unresolved, not silently accepted.
 - Prioritize representative C replacement forms, E104, H split patterns, B transfer/stoppage/cross-out, G missing hours, and J out-of-scope records. Surface each original cell for user review.
 - Keep H10 CC frozen as synthetic demo. Real parallel pilot begins only after separate admission and native checks.
+
+
+## 2026-11-10 — Operator-confirmed concrete replacement examples in column C
+- **C33** `10.45 ΓΑΒΡΑΣ (8.30 ΖΗΜΑΡΗΣ)`: initial **10:45 / ΓΑΒΡΑΣ**; replacement **08:30 / ΖΗΜΑΡΗΣ**. The parenthesized time and therapist supersede both original fields for the replacement appointment while retaining original facts.
+- **C8** `09.15 ΨΙΑΧΟΥ (ΚΑΛΥΒΙΩΤΗΣ)`: initial **09:15 / ΨΙΑΧΟΥ**; replacement **09:15 / ΚΑΛΥΒΙΩΤΗΣ**. Parentheses change therapist only. **Inherit initial time** when replacement has no explicit time; do not mark hour missing or make a second appointment.
+- Parser rule: start with original time+therapist; if a confirmed parenthetical replacement specifies a new therapist but no time, carry original time forward; if it specifies both time+therapist, replace both; always preserve linked original and replacement versions and exact source cell. Applies to these confirmed patterns; unrecognized forms remain HOLD.
