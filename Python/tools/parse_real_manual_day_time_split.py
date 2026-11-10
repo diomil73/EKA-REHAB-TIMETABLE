@@ -46,9 +46,12 @@ def _checked_pairs(pairs: list[tuple[str, str]]) -> SplitProposal:
     return SplitProposal("PROPOSED_SPLIT", tuple(seen.items()))
 
 
-def split_day_times(raw: str) -> SplitProposal:
+def split_day_times(raw: str, service_column: str = "E") -> SplitProposal:
     """Propose weekday/time pairs, never authorize bookings."""
     cell = str(raw or "").upper().strip()
+    # Manual entries may mix Latin E/A into Greek weekday codes (e.g. ΤE, ΠA).
+    # This normalized string is for recognition only; source cell is immutable.
+    cell = cell.replace("E", "Ε").replace("A", "Α")
     if not cell or cell == "*":
         return SplitProposal("EMPTY")
     times = [(m.start(), m.end(), _format_time(m.group())) for m in TIME_PATTERN.finditer(cell)]
@@ -57,6 +60,24 @@ def split_day_times(raw: str) -> SplitProposal:
         return SplitProposal("REVIEW", note="No recognized time")
     if len(times) > 3:
         return SplitProposal("REVIEW", note="Too many time candidates")
+
+    # One time + explicit weekdays anywhere in the cell is a common pattern.
+    # E: names of one or more occupational therapists are descriptive, not
+    # authoritative assignment IDs. H: require only weekday/time information.
+    # Never infer "daily" when E/H omits weekdays.
+    if len(times) == 1:
+        first = times[0]
+        fragment = cell[:first[0]] + " " + cell[first[1]:]
+        day_names = tuple(DAYS[m.group()] for m in DAY_TOKEN.finditer(fragment))
+        if not day_names:
+            return SplitProposal("REVIEW", note="Explicit weekdays absent")
+        remainder = DAY_TOKEN.sub(" ", fragment)
+        remainder = re.sub(r"\(\s*Τ\s*\)", " ", remainder)  # (Τ) technology annotation
+        remainder = re.sub(r"[\s,;()./\-]+", "", remainder)
+        if remainder and (service_column != "E" or
+                          not re.fullmatch(r"[Α-ΩΆΈΉΊΌΎΏΪΫ]+", remainder)):
+            return SplitProposal("REVIEW", note="Unrecognized non-weekday annotation")
+        return _checked_pairs([(day, first[2]) for day in day_names])
 
     # Real E104 format: 11.30(ΔΕ-ΤΕ-ΠΑ)(12.15 ΤΡ-ΠΕ)ΡΑΠΤΗ.
     # Explicit parenthesized day list AFTER first time binds to that time.
@@ -97,7 +118,7 @@ def export_review(source: Path, output: Path) -> dict[str, int]:
     results, counts = [], {}
     for column in ("E", "H"):
         for cell, raw in _visible_cells(source, column):
-            proposal = split_day_times(raw)
+            proposal = split_day_times(raw, service_column=column)
             counts[proposal.status] = counts.get(proposal.status, 0) + 1
             for day, clock in proposal.assignments or (("", ""),):
                 results.append((cell, column, proposal.status, day, clock, proposal.note))
