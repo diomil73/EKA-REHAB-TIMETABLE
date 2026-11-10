@@ -44,3 +44,15 @@
 - **C33** `10.45 ΓΑΒΡΑΣ (8.30 ΖΗΜΑΡΗΣ)`: initial **10:45 / ΓΑΒΡΑΣ**; replacement **08:30 / ΖΗΜΑΡΗΣ**. The parenthesized time and therapist supersede both original fields for the replacement appointment while retaining original facts.
 - **C8** `09.15 ΨΙΑΧΟΥ (ΚΑΛΥΒΙΩΤΗΣ)`: initial **09:15 / ΨΙΑΧΟΥ**; replacement **09:15 / ΚΑΛΥΒΙΩΤΗΣ**. Parentheses change therapist only. **Inherit initial time** when replacement has no explicit time; do not mark hour missing or make a second appointment.
 - Parser rule: start with original time+therapist; if a confirmed parenthetical replacement specifies a new therapist but no time, carry original time forward; if it specifies both time+therapist, replace both; always preserve linked original and replacement versions and exact source cell. Applies to these confirmed patterns; unrecognized forms remain HOLD.
+
+
+## 2026-11-10 — Operator: tolerant reading of hurried handwritten-style Excel entry
+Manual data entry is rushed/inconsistent: parentheses may be present or omitted; times may use `.`, `:`, `..` or no separator at all; spaces around names, times and parentheses may be missing. **Do NOT require perfect punctuation for initial parsing.**
+
+Implementation contract:
+- Use tolerant lexical normalization on a *working copy of the cell text*: trim/collapse whitespace, handle Greek and Latin punctuation, recognize clock candidates with `:`, `.`, `..` and cautiously recognize compact four-/three-digit clock formats only when context and legal clock bounds support it. Validate hour 0–23 and minute 0–59, do not confuse weekday abbreviations or ward codes with times. Keep original exact text and provenance.
+- Tokenize plausible therapist aliases and candidate subsequent therapist/time segments whether or not wrapped in parentheses. If original and candidate replacement are unambiguous against therapist registry and slot/date context, produce a *proposed linked replacement* retaining original. Lack of parentheses alone neither proves nor disproves replacement.
+- Do **not** silently turn any second name into a definitive replacement; it may represent another clinician, another service, or a note. When multiple plausible readings remain, mark NEEDS_REVIEW with exact cell, options and reason.
+- For clearly confirmed replacement where only therapist changes, inherit original time; where time and therapist change, retain both versions with their correct effective values. Avoid producing two independent treatments from one appointment.
+- Be liberal in **text recognition**, conservative in **assignment to a real patient/therapist/time slot**, and strict in conflicts/capacity/provenance checks. No production writeback until validation.
+- Regression fixture set should cover `09.15 ΨΙΑΧΟΥ (ΚΑΛΥΒΙΩΤΗΣ)`, `10.45 ΓΑΒΡΑΣ (8.30 ΖΗΜΑΡΗΣ)`, plus equivalent missing-parenthesis/no-space/dot/colon/double-dot/compact-clock variants; do not assume those variant entries actually occur in the source without inspecting.
