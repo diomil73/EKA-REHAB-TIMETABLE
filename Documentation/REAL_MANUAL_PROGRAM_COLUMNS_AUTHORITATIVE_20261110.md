@@ -66,3 +66,15 @@ Implementation contract:
 - Output in this conversation: `/mnt/data/DIOMIL_COLUMN_C_PROPOSALS_20261110.csv` (column C source cell reference, normalized proposed times and names, status and reason; no copied patient names or free notes). 104 rows.
 - **Every auto-parsed result is a PROPOSAL, not an approved appointment**. No weekdays/dates/therapist-ID joins, true timeslot writes, attendance history or operational Diomil writeback. Unknown aliases and ambiguous rows stay REVIEW.
 - Next prioritize separate E/H weekday-and-time splitter including real E104 and authorized therapist alias registry, then run fresh Windows tests. Do not restore old rejected 271-row staging assumptions.
+
+
+## 2026-11-10 — Windows 12/12 C parser tests green; first E/H read-only weekday split
+Operator confirmed `12 passed in 1.07s` for `Tests/test_real_manual_schedule_parser.py`.
+New source `Python/tools/parse_real_manual_day_time_split.py` commit `b6a0b59`, tests `Tests/test_real_manual_day_time_split.py` commit `cf25a96`.
+- E104 literal `11.30(ΔΕ-ΤΕ-ΠΑ)(12.15 ΤΡ-ΠΕ)ΡΑΠΤΗ` => candidate separate weekday/time reservations: ΔΕ/ΤΕ/ΠΑ 11:30, ΤΡ/ΠΕ 12:15; preserve E104 as one originating cell, **not one universal hour**.
+- H15 `ΤΡ,ΠΑ11.30,ΤΕ12.15` => ΤΡ/ΠΑ 11:30, ΤΕ 12:15; H107 `ΤΡ 10.00, ΠΕ10.45` => ΤΡ 10:00, ΠΕ 10:45.
+- H31 `ΔΕ ΤΡ ΠΕ 11.30, ΠΕ 12.15 SH` => REVIEW due to additional marker and/or duplicated weekday; do not choose a Thursday slot automatically.
+- Local source-based check `8 passed in 0.04s`; GitHub-checked-out Windows tests **still need run**. Current uploaded real source SHA256 stayed `765264ec8eae95a31ccc57629dc31b1d61f59ea5c992221affa91fcf6a8d2567`.
+- Generated **read-only CSV proposals**, saved `/mnt/data/DIOMIL_E_H_WEEKDAY_TIMES_PROPOSALS_20261110.csv`: 99 nonempty E/H cells (86 E + 13 H), classified **11 PROPOSED_SPLIT, 79 REVIEW, 9 EMPTY/asterisk or headings**, yielding 118 per-day candidate rows total. No actual calendar dates, no patient names, no treatment delivery, no Diomil writeback.
+- High REVIEW is deliberate because full E/H free-text therapist-day association has not been validated; limit auto-splitting to explicit day-time groups. Never use this partial split as authority for daily slot reservations.
+- Next Windows `python -m pytest Tests/test_real_manual_schedule_parser.py Tests/test_real_manual_day_time_split.py -q`; then improve E/H support for common cases with exactly one time and weekday list, and reconcile overlaps with strict schedule capacity.
