@@ -89,3 +89,37 @@ def test_duplicate_patient_ids_stop_admission(tmp_path):
     assert not result.ready
     assert result.duplicate_ids == 1
     assert result.admitted_entries == ()
+
+
+
+def test_two_patients_same_therapist_weekday_clock_are_blocked(tmp_path):
+    path = make_review(tmp_path)
+    from openpyxl import load_workbook
+    wb = load_workbook(path)
+    patients = wb["ΑΣΘΕΝΕΙΣ"]
+    patients.append([5, "Α", "DEMO SECOND", "WARD", "DEMO-2", "CONFIRMED"])
+    ws = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    ws.append(["Α", 5, "DEMO SECOND", "ΦΘ", "ΔΕ", "11:30",
+               "DEMO THERAPIST", None, "C5 / D5 / E5",
+               "11.30 | ΔΕ | T", "PROPOSED_EXACT_SOURCE"])
+    wb.save(path)
+    result = evaluate_trial_admission(path)
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert "provider weekday/time double-bookings" in " ".join(result.blockers)
+
+
+def test_same_therapist_different_weekdays_are_allowed(tmp_path):
+    path = make_review(tmp_path)
+    from openpyxl import load_workbook
+    wb = load_workbook(path)
+    patients = wb["ΑΣΘΕΝΕΙΣ"]
+    patients.append([5, "Α", "DEMO SECOND", "WARD", "DEMO-2", "CONFIRMED"])
+    ws = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    ws.append(["Α", 5, "DEMO SECOND", "ΦΘ", "ΠΕ", "11:30",
+               "DEMO THERAPIST", None, "C5 / D5 / E5",
+               "11.30 | ΠΕ | T", "PROPOSED_EXACT_SOURCE"])
+    wb.save(path)
+    result = evaluate_trial_admission(path)
+    assert result.ready
+    assert len(result.admitted_entries) == 2
