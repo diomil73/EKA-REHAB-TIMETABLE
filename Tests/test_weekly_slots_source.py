@@ -22,6 +22,13 @@ def workbook_with_weekly_slots(tmp_path, *, weekly_rows=(), with_weekly=True):
                time(9, 15), "Δε-Τε-Πα"])
     ws.append(["DEMO-P2", "TEST OTHER", time(10, 0), "Καθ/να", "T-OTHER",
                None, None])
+    patients = wb.create_sheet("PATIENTS")
+    patients.append(["PatientID", "Θάλαμος", "Ασθενής", "Μολυσματικός", "Κατάσταση"])
+    patients.append(["DEMO-P1", "Α1", "TEST PATIENT", "ΟΧΙ", "ΠΑΡΩΝ"])
+    patients.append(["DEMO-P2", "Α2", "TEST OTHER", "ΟΧΙ", "ΠΑΡΩΝ"])
+    settings = wb.create_sheet("SETTINGS")
+    settings.append(["THERAPISTS_FTH"])
+    settings.append(["T-OLD"])
     if with_weekly:
         weekly = wb.create_sheet("PROGRAM_WEEKLY_SLOTS")
         weekly.append([
@@ -92,3 +99,30 @@ def test_unsafe_weekly_source_fails_closed(tmp_path, weekly_rows):
     path = workbook_with_weekly_slots(tmp_path, weekly_rows=weekly_rows)
     with pytest.raises(WeeklySlotsSourceError):
         read_base_schedule(path)
+
+
+def test_audit_counts_effective_weekly_entries_not_legacy_duplicates(tmp_path):
+    from rehab_excel.reader import audit_workbook
+    path = workbook_with_weekly_slots(
+        tmp_path, weekly_rows=[
+            ("DEMO-P1", "ΦΘ", "ΔΕ", time(11, 30), "T-MON", "C12"),
+            ("DEMO-P1", "ΦΘ", "ΠΕ", time(12, 15), "T-THU", "C12"),
+        ],
+    )
+    result = audit_workbook(path)
+    assert result.ok
+    assert result.patient_count == 2
+    assert result.base_entry_count == 4
+    assert result.provider_entry_count == 3
+
+
+def test_audit_blocks_unknown_weekly_identity(tmp_path):
+    from rehab_excel.reader import audit_workbook
+    path = workbook_with_weekly_slots(
+        tmp_path, weekly_rows=[
+            ("UNKNOWN", "ΦΘ", "ΔΕ", time(11, 30), "T-MON", "C12"),
+        ],
+    )
+    result = audit_workbook(path)
+    assert not result.ok
+    assert any(item.code == "invalid_granular_weekly_source" for item in result.issues)
