@@ -357,6 +357,8 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
         invalid_pattern = 0
         entry_count = 0
         provider_count = 0
+        planner_pairs: set[tuple[str, str]] = set()
+        missing_provider_pairs: set[tuple[str, str]] = set()
         for row in planner_ws.iter_rows(min_row=2, values_only=True):
             pid = _patient_id(row[headers["PatientID"]])
             name = _clean_text(row[headers["Ασθενής"]])
@@ -377,12 +379,42 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                     invalid_pattern += 1
                     continue
                 entry_count += 1
+                planner_pairs.add((pid, treatment))
                 # Only ΦΘ and Ρομποτικό require a named therapist for
                 # operational placement. Other provider columns are optional.
                 if treatment in {"ΦΘ", "Ρομποτικό"}:
                     provider_count += 1
                     if therapist_col is None or _clean_text(row[therapist_col]) is None:
                         missing_provider += 1
+                        missing_provider_pairs.add((pid, treatment))
+
+        # Audit the effective granular plan rather than replaced planner cells.
+        from .weekly_slots_source import (
+            SHEET_NAME, REQUIRES_PROVIDER, WeeklySlotsSourceError,
+            read_weekly_slots_sheet,
+        )
+        if SHEET_NAME in wb.sheetnames:
+            try:
+                weekly_entries = read_weekly_slots_sheet(
+                    wb[SHEET_NAME], inpatient_ids=planner_map.keys(),
+                )
+            except WeeklySlotsSourceError as exc:
+                issues.append(AuditIssue(
+                    code="invalid_granular_weekly_source",
+                    message=str(exc), severity="error",
+                ))
+            else:
+                weekly_pairs = {
+                    (entry.patient_id, entry.treatment) for entry in weekly_entries
+                }
+                entry_count += len(weekly_entries) - len(planner_pairs & weekly_pairs)
+                provider_count += sum(
+                    entry.treatment in REQUIRES_PROVIDER for entry in weekly_entries
+                ) - len({
+                    pair for pair in planner_pairs & weekly_pairs
+                    if pair[1] in REQUIRES_PROVIDER
+                })
+                missing_provider -= len(missing_provider_pairs & weekly_pairs)
 
         sync_mismatches = sum(
             1
