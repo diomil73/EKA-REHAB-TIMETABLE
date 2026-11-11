@@ -138,3 +138,70 @@ def split_weekly_cell(
         for weekday in days:
             result.append(WeekdaySlot(weekday, clock_value, name))
     return tuple(result)
+
+
+@dataclass(frozen=True)
+class SourceWeeklyEntry:
+    """One preserved weekday placement originating from a specific source cell."""
+    patient_id: str
+    treatment: str
+    weekday: str
+    start_time: time
+    therapist_name: str | None
+    source_cell: str
+
+    def __post_init__(self) -> None:
+        if not self.patient_id.strip() or not self.treatment.strip():
+            raise ProgrammeMappingError("PatientID and treatment are required")
+        if self.weekday not in WEEKDAYS:
+            raise ProgrammeMappingError("Unknown canonical weekday")
+        if not re.fullmatch(r"[A-Z]{1,3}[1-9][0-9]*", self.source_cell):
+            raise ProgrammeMappingError("Exact source cell address is required")
+
+
+def make_weekly_entries(
+    *,
+    patient_id: str,
+    treatment: str,
+    source_cell: str,
+    clock: Any,
+    weekdays: Any,
+    therapist: Any = None,
+    implicit_daily: bool = False,
+) -> tuple[SourceWeeklyEntry, ...]:
+    """Prepare a lossless recurrence map, never an appointment or history fact."""
+    if not patient_id.strip() or not treatment.strip():
+        raise ProgrammeMappingError("PatientID and treatment are required")
+    required = treatment in {"ΦΘ", "Ρομποτικό"}
+    slots = split_weekly_cell(
+        clock=clock, weekdays=weekdays, therapist=therapist,
+        requires_therapist=required, implicit_daily=implicit_daily,
+    )
+    return tuple(
+        SourceWeeklyEntry(
+            patient_id, treatment, item.weekday, item.start_time,
+            item.therapist_name, source_cell
+        )
+        for item in slots
+    )
+
+
+def validate_weekly_entry_consistency(
+    entries: tuple[SourceWeeklyEntry, ...] | list[SourceWeeklyEntry],
+) -> None:
+    """Block patient cross-specialty clock collisions and divergent duplicate records.
+
+    Same-weekday same-clock rows for the same patient are held for review,
+    even if the service label is the same, rather than counted twice.
+    """
+    by_patient_day_time: dict[tuple[str, str, time], SourceWeeklyEntry] = {}
+    for entry in entries:
+        key = (entry.patient_id, entry.weekday, entry.start_time)
+        if key in by_patient_day_time:
+            previous = by_patient_day_time[key]
+            raise ProgrammeMappingError(
+                "Potential patient slot overlap between "
+                f"{previous.source_cell} and {entry.source_cell} "
+                f"for {entry.patient_id} {entry.weekday} {entry.start_time:%H:%M}"
+            )
+        by_patient_day_time[key] = entry
