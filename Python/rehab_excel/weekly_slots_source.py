@@ -20,6 +20,7 @@ from rehab_core.programme_mapping import (
 SHEET_NAME = "PROGRAM_WEEKLY_SLOTS"
 HEADERS = ("PatientID", "Treatment", "Weekday", "StartTime", "Therapist", "SourceCell")
 REQUIRES_PROVIDER = frozenset({"ΦΘ", "Ρομποτικό"})
+KNOWN_TREATMENTS = frozenset({"ΦΘ", "Ρομποτικό", "Ανακλινόμενο", "Πισίνα", "Εργο", "Λογο", "ΕΦΑ", "Ψυχ"})
 WEEKDAY_PATTERN = {
     "ΔΕ": "Δε", "ΤΡ": "Τρ", "ΤΕ": "Τε", "ΠΕ": "Πε", "ΠΑ": "Πα",
 }
@@ -56,6 +57,8 @@ def read_weekly_slots_sheet(
         source_cell = str(source_cell or "").strip().upper()
         if patient_id not in allowed:
             raise WeeklySlotsSourceError(f"Weekly slot row {row_number}: unknown or non-inpatient PatientID")
+        if treatment not in KNOWN_TREATMENTS:
+            raise WeeklySlotsSourceError(f"Weekly slot row {row_number}: unsupported treatment")
         if weekday not in WEEKDAYS:
             raise WeeklySlotsSourceError(f"Weekly slot row {row_number}: invalid weekday")
         if treatment in REQUIRES_PROVIDER and not therapist:
