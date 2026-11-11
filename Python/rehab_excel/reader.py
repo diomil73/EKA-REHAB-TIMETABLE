@@ -289,6 +289,24 @@ def read_base_schedule(path: str | Path) -> list[BaseScheduleEntry]:
                         robotic=treatment == "Ρομποτικό",
                     )
                 )
+        # Optional granular backing source: one treatment per weekday/clock.
+        # It supersedes only matching patient/treatment planner cells, preventing
+        # double-counting while preserving the existing MASTER projection.
+        from .weekly_slots_source import (
+            SHEET_NAME, overlay_weekly_entries, read_weekly_slots_sheet,
+        )
+        if SHEET_NAME in wb.sheetnames:
+            weekly_entries = read_weekly_slots_sheet(
+                wb[SHEET_NAME],
+                inpatient_ids=(
+                    _patient_id(row[headers["PatientID"]])
+                    for row in ws.iter_rows(min_row=2, values_only=True)
+                    if _patient_id(row[headers["PatientID"]]) is not None
+                ),
+            )
+            entries = overlay_weekly_entries(
+                planner_entries=entries, weekly_entries=weekly_entries,
+            )
         return entries
     finally:
         wb.close()
