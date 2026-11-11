@@ -459,6 +459,7 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                         "Required-provider entries (ΦΘ/Ρομποτικό) have no therapist"
                     ),
                     count=missing_provider,
+                    severity="error",
                 )
             )
 
