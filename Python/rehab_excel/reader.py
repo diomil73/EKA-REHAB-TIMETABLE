@@ -359,9 +359,11 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                     invalid_pattern += 1
                     continue
                 entry_count += 1
-                if therapist_col is not None:
+                # Only ΦΘ and Ρομποτικό require a named therapist for
+                # operational placement. Other provider columns are optional.
+                if treatment in {"ΦΘ", "Ρομποτικό"}:
                     provider_count += 1
-                    if _clean_text(row[therapist_col]) is None:
+                    if therapist_col is None or _clean_text(row[therapist_col]) is None:
                         missing_provider += 1
 
         sync_mismatches = sum(
@@ -404,7 +406,7 @@ def audit_workbook(path: str | Path) -> WorkbookAudit:
                 AuditIssue(
                     code="provider_entries_missing_therapist",
                     message=(
-                        "Provider-owned entries (ΦΘ/Ρομποτικό/Εργο/Λογο/Ψυχ) have no provider"
+                        "Required-provider entries (ΦΘ/Ρομποτικό) have no therapist"
                     ),
                     count=missing_provider,
                 )
