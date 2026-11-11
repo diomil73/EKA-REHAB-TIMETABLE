@@ -81,3 +81,57 @@ def test_raw_and_historical_schedule_are_not_modified():
     split_weekly_cell(clock=source[0], weekdays=source[1],
                       therapist=source[2], requires_therapist=True)
     assert source == before
+
+
+def test_lossless_weekday_entries_with_provenance():
+    from rehab_core.programme_mapping import make_weekly_entries
+    entries = make_weekly_entries(
+        patient_id="DEMO-P1", treatment="ΦΘ", source_cell="C12",
+        clock="11.30/12.15", weekdays="ΔΕ/ΠΕ",
+        therapist="ΣΑΚΚΟΥ/ΓΑΒΡΑΣ",
+    )
+    assert [(e.patient_id, e.weekday, e.start_time, e.therapist_name, e.source_cell) for e in entries] == [
+        ("DEMO-P1", "ΔΕ", time(11, 30), "ΣΑΚΚΟΥ", "C12"),
+        ("DEMO-P1", "ΠΕ", time(12, 15), "ΓΑΒΡΑΣ", "C12"),
+    ]
+
+
+def test_other_specialty_entries_do_not_require_provider_name():
+    from rehab_core.programme_mapping import make_weekly_entries
+    entries = make_weekly_entries(
+        patient_id="DEMO-P1", treatment="Εργο", source_cell="J12",
+        clock="11.30", weekdays="ΔΕ-ΠΕ",
+    )
+    assert len(entries) == 2
+    assert all(entry.therapist_name is None for entry in entries)
+
+
+def test_same_patient_slot_conflicts_block_cross_specialty():
+    from rehab_core.programme_mapping import (
+        make_weekly_entries, validate_weekly_entry_consistency,
+    )
+    physio = make_weekly_entries(
+        patient_id="DEMO-P1", treatment="ΦΘ", source_cell="C12",
+        clock="11.30", weekdays="ΔΕ", therapist="ΣΑΚΚΟΥ",
+    )
+    occupational = make_weekly_entries(
+        patient_id="DEMO-P1", treatment="Εργο", source_cell="J12",
+        clock="11.30", weekdays="ΔΕ",
+    )
+    with pytest.raises(ProgrammeMappingError, match="C12 and J12"):
+        validate_weekly_entry_consistency([*physio, *occupational])
+
+
+def test_different_patients_may_share_clock_without_patient_conflict():
+    from rehab_core.programme_mapping import (
+        make_weekly_entries, validate_weekly_entry_consistency,
+    )
+    first = make_weekly_entries(
+        patient_id="DEMO-P1", treatment="ΦΘ", source_cell="C12",
+        clock="11.30", weekdays="ΔΕ", therapist="ΣΑΚΚΟΥ",
+    )
+    second = make_weekly_entries(
+        patient_id="DEMO-P2", treatment="Εργο", source_cell="J13",
+        clock="11.30", weekdays="ΔΕ",
+    )
+    validate_weekly_entry_consistency([*first, *second])
