@@ -126,3 +126,39 @@ def test_audit_blocks_unknown_weekly_identity(tmp_path):
     result = audit_workbook(path)
     assert not result.ok
     assert any(item.code == "invalid_granular_weekly_source" for item in result.issues)
+
+
+def test_required_therapist_missing_in_legacy_planner_is_hard_audit_error(tmp_path):
+    from rehab_excel.reader import audit_workbook
+    from openpyxl import load_workbook
+    path = workbook_with_weekly_slots(tmp_path, with_weekly=False)
+    wb = load_workbook(path)
+    planner = wb["PATIENT_PLANNER"]
+    planner["E2"] = None
+    wb.save(path)
+    result = audit_workbook(path)
+    assert not result.ok
+    assert any(
+        item.code == "provider_entries_missing_therapist"
+        and item.severity == "error"
+        for item in result.issues
+    )
+
+
+def test_granular_therapist_replacement_cancels_legacy_missing_provider_audit(tmp_path):
+    from rehab_excel.reader import audit_workbook
+    from openpyxl import load_workbook
+    path = workbook_with_weekly_slots(
+        tmp_path, weekly_rows=[
+            ("DEMO-P1", "ΦΘ", "ΔΕ", time(11, 30), "T-MON", "C12"),
+        ],
+    )
+    wb = load_workbook(path)
+    wb["PATIENT_PLANNER"]["E2"] = None
+    wb.save(path)
+    result = audit_workbook(path)
+    assert result.ok
+    assert not any(
+        issue.code == "provider_entries_missing_therapist"
+        for issue in result.issues
+    )
