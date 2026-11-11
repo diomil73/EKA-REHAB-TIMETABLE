@@ -165,7 +165,25 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
 
         if unadmitted:
             blockers.append(f"{unadmitted} weekly proposals cannot be admitted")
-        if admitted and not holds and not overlaps and not unadmitted:
+        if admitted:
+            # Never accept a provider in two different patient appointments at
+            # the same weekday/time. Distinct patients do not trigger the
+            # patient-slot overlap guard, so this independent gate is essential.
+            provider_slots: dict[tuple[str, str, object], str] = {}
+            provider_collisions: set[tuple[str, str, object]] = set()
+            for item in admitted:
+                if not item.therapist_name:
+                    continue  # Optional-provider specialty still blocks patient time.
+                provider_key = item.therapist_name.casefold()
+                key = (provider_key, item.weekday, item.start_time)
+                previous_patient = provider_slots.get(key)
+                if previous_patient is not None and previous_patient != item.patient_id:
+                    provider_collisions.add(key)
+                provider_slots[key] = item.patient_id
+            if provider_collisions:
+                blockers.append(
+                    f"{len(provider_collisions)} provider weekday/time double-bookings"
+                )
             try:
                 validate_weekly_entry_consistency(admitted)
             except ProgrammeMappingError:
