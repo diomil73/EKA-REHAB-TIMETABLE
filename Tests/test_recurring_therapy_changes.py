@@ -7,6 +7,7 @@ from rehab_core.models import BaseScheduleEntry
 from rehab_core.recurring_therapy_changes import (
     RecurringTherapyChange, RecurringTherapyChangeError,
     materialize_effective_sessions, recurring_entries_on_date,
+    validate_effective_weekly_patient_slots,
 )
 
 START = date(2026, 11, 1)
@@ -117,3 +118,35 @@ def test_conflicting_same_day_updates_fail_closed():
 def test_no_empty_permanent_change():
     with pytest.raises(RecurringTherapyChangeError):
         RecurringTherapyChange("weekly:2", "DEMO-P", CHANGE_DAY)
+
+
+
+def test_permanent_clock_change_cannot_overlap_other_thursday_therapy():
+    source = entries()
+    change = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", CHANGE_DAY,
+        new_start_time=time(11, 30),
+    )
+    effective = recurring_entries_on_date(
+        source, baseline_date=START, target_date=CHANGE_DAY,
+        changes=[change],
+    )
+    with pytest.raises(RecurringTherapyChangeError, match="weekday patient-slot"):
+        validate_effective_weekly_patient_slots(effective)
+
+
+def test_same_therapy_different_weekdays_are_not_patient_collision():
+    source = [
+        BaseScheduleEntry("weekly:2", "DEMO-P", "ΦΘ", time(9, 15), "Δε", "T1"),
+        BaseScheduleEntry("weekly:3", "DEMO-P", "ΦΘ", time(9, 15), "Πε", "T2"),
+    ]
+    validate_effective_weekly_patient_slots(source)
+
+
+def test_patient_collision_detected_on_other_weekday_not_just_target_date():
+    source = [
+        BaseScheduleEntry("weekly:2", "DEMO-P", "ΦΘ", time(9, 15), "Δε-Πε", "T1"),
+        BaseScheduleEntry("weekly:3", "DEMO-P", "Εργο", time(9, 15), "Πε"),
+    ]
+    with pytest.raises(RecurringTherapyChangeError, match="weekday patient-slot"):
+        validate_effective_weekly_patient_slots(source)
