@@ -165,3 +165,14 @@ A nonzero exit or any unconfirmed identity, unresolved source cell, cross-specia
 ## 2026-11-12 — Full CI regression restored (Windows + Linux)
 The prior full regression had six failures: five assertions against an outdated VBA restore patch marker and one registration-menu assertion assuming a now-replaced per-component verification statement. Commits `ca761db`, `d7080f8` preserve the **current validated restore** path and recognize the canonical character-level strike helper at native read-back; tests updated to follow the actual operator-visibility install sequence and shared VBA component verification loop (`8943c8c`, `85c4e4b`, `db05a99`, `33eaf0a`). The production recovery patch still fails closed for absent required markers; an already-secure canonical module does not need to be destructively re-patched.
 Authoritative GitHub Actions run `43305214566` at `33eaf0a`: **full Python regression 1,573 passed** on Ubuntu (16 warnings) and **1,573 passed** on Windows (15 warnings). Targeted synthetic safety: **109 passed** on each OS (4 warnings each). These are **Python and VBA source-contract tests**, not native Microsoft Excel COM execution or pilot data import. No real workbooks were modified by this CI run.
+
+
+## 2026-11-12 — Native Excel isolated read-only probe (not live import)
+Added `Python/tools/probe_native_excel_readonly.py` (`4d76049`) and fully synthetic COM-mock tests `Tests/test_probe_native_excel_readonly.py` (`37bb194`). The probe accepts `--isolated-copy <trial-copy.xlsm>` **only for an already isolated, institution-approved non-live copy**; it checks the XLSM VBA project, starts a new native Excel process on Windows, sets `AutomationSecurity=3` (macros forcibly disabled) *before* opening, disables events/alerts/updates, opens read-only with no link updates, verifies required four operational sheets by name only, closes `SaveChanges=False`, quits Excel and verifies the source SHA256 stayed unchanged. It never reads patient records or calls a VBA macro. No save/commit/replacement/import occurs.
+Synthetic regression guards reject missing VBA, writable Excel session, missing sheets and external modification; they check no-save behavior and fail-closed macro-security setup.
+This is **a structural proof only**. Running it on GitHub-hosted Windows runners with mock COM does *not* demonstrate that Microsoft Excel itself is installed there. Real Excel COM validation still requires a deliberate local Windows execution.
+For local operators, *after closing Excel and choosing a detached copy*:
+```powershell
+python Python/tools/probe_native_excel_readonly.py --isolated-copy "<approved-detached-trial-copy.xlsm>"
+```
+Stop immediately on a nonzero exit or SHA mismatch. No permission to write the original CC, production MASTER or real clinical roster is implied.
