@@ -38,6 +38,7 @@ def option(*slots):
         display_name="T2",
         provider_kind=ReplacementProviderKind.THERAPIST,
         active_sessions=0,
+        active_timeslots=0,
         infectious_sessions=0,
         robotic_sessions=0,
         replacement_sessions=0,
