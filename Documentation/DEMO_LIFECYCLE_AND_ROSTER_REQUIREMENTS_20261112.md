@@ -96,3 +96,11 @@ Implemented without further operator signoff:
 - `c4379be` and `da5c1a1`: final authoritative replacement-fact persistence optionally revalidates effective weekly slots; the real `apply_global_daily_replacements.py` caller supplies them. Existing synthetic/back-compat calls without that argument continue unchanged.
 - `87a1dc4`: regression tests prove conflicting Wednesday occupational slot blocks the writer before write; Thursday-only occupancy does not.
 No real patient data committed; **latest additions need Python regression and Windows/native Excel smoke** before any xlsm write or operational claims. This report alone is not a green test result.
+
+
+## 2026-11-12 — 36 daily-replacement regression tests passed; local-only ID review builder added
+Operator ran the five requested targeted files: **36 passed in 4.22s**. All of the preceding date-specific patient-slot proposal, global placement, manual double-booking and persistence tests are green in this Windows run; this is still not native Excel UI confirmation.
+
+Continued directly: `trial_identity_review.py` (`f21f63e`) creates **only a NEW local .xlsx review copy**, using the staging `ΑΣΘΕΝΕΙΣ` source identity and the old CC `PATIENTS` registry. The conservative `suggest_identity_matches` results populate **G:H** (suggested old ID/state); **E:F remain unmodified and UNCONFIRMED**. The review builder refuses existing output, wrong file types, used G:H headers, missing source, malformed patient row, duplicate/conflicting old IDs as auto-certification; inputs are unchanged. `c662e81` checks both input hashes and copy before editing.
+`Python/tools/prepare_trial_identity_review.py` (`8090001`) is the local CLI; only counts are printed, no names or identifiers. `Tests/test_trial_identity_review.py` (`408ac67`, `b829a77`) tests source/old unchanged, no overwrite, no approval, and an integration check that suggestions cannot bypass `trial_admission_gate`.
+**These newly added tests are not yet run.** No private filled review generated in GitHub, and no real .xlsm modified. The actual trial remains hard-stopped until source ambiguities, explicit IDs and shared slot membership approvals are reconciled; do not turn candidate name matches into confirmed hospital identities.
