@@ -81,9 +81,9 @@ def test_bridge_fails_closed_on_unverified_capacity(tmp_path, monkeypatch, capac
 
 def test_bridge_respects_four_slot_therapist_limit(tmp_path, monkeypatch):
     extras = tuple(
-        BaseScheduleEntry(f"weekly:{n}", f"P-{n}", "ΦΘ",
-                          time(n + 5, 15), "Δε", "T-4")
-        for n in (2, 3, 4, 5)
+        BaseScheduleEntry(f"weekly:{n + 10}", f"P-{n}", "ΦΘ",
+                          time(hour, 15), "Δε", "T-4")
+        for n, hour in enumerate((7, 8, 10, 11), start=1)
     )
     # Retain BASE as the edited source and supply 4 other distinct slots.
     path = fixture_workbook(tmp_path, monkeypatch, entries=(BASE, *extras, OTHER))
