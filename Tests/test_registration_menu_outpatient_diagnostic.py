@@ -28,5 +28,5 @@ def test_canonical_registration_build_verifies_global_replacement_action():
     source = inspect.getsource(module)
 
     assert "GLOBAL_REPLACEMENT_MODULE_NAME" in source
-    assert 'stage = "verifying global replacement action"' in source
+    assert '("verifying global replacement action", GLOBAL_REPLACEMENT_MODULE_NAME' in source
     assert "vbproject.VBComponents(GLOBAL_REPLACEMENT_MODULE_NAME)" in source
