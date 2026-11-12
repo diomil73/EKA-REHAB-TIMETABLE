@@ -84,3 +84,15 @@ Operator ran the previous targeted test bundle: **45 passed in 5.99 seconds**. T
 Operator directed **continuous autonomous development; do not pause for routine acknowledgments**. An audit of the real VBA entry point `ResolveDailyReplacementsInPlace` showed that it invokes `Python/tools/prepare_global_replacements_in_place.py`, which loads `read_unified_base_schedule` and `PROGRAM_WEEKLY_SLOTS`. The global planner has **two** option branches. Wired effective `base_entries` into the non-policy branch in `Python/rehab_core/global_replacement_end_to_end.py` (`d08a2cb`) and into the policy replacement helper (`feab013`) so both now use date-specific patient occupancy. Added an independent, fail-closed **post-global-plan/pre-TSV** verification of each chosen replacement against the exact target date and effective weekly base entries (`f73ec1f`), before VBA can persist changes. Added synthetic regression tests for different weekday/same-treatment and cross-specialty collisions and source-forwarding contract (`1aaa88b`).
 
 **Important limits:** The latest Python changes have not yet passed Windows pytest/native Excel VBA smoke, and standalone manual review/double-booking confirmation paths still require separate call-site audit. Passing earlier 45 tests does not prove these latest commits. Neither CC nor live MASTER was modified. Continue auditing final manual-apply and rollback paths, and never silently infer time from one legacy planner cell.
+
+
+## 2026-11-12 — Continued without checkpoints: global, manual and final persist slots
+Implemented without further operator signoff:
+- `d08a2cb`: forwarded actual effective weekly entries to unregulated global replacement proposals.
+- `feab013`: forwarded them into policy-governed global replacement suggestions.
+- `f73ec1f`: post-planner, pre-VBA TSV patient-date-time validation in `Python/tools/prepare_global_replacements_in_place.py`; silently mismatched dates or missing target sessions hard-stop.
+- `1aaa88b`: tests for date-specific global slot protection and wiring.
+- `e94603f` and `a5541ce`: clinician-confirmed double-booking exception cannot override another weekday-specific patient treatment, even if the therapist double-booking itself is authorized.
+- `c4379be` and `da5c1a1`: final authoritative replacement-fact persistence optionally revalidates effective weekly slots; the real `apply_global_daily_replacements.py` caller supplies them. Existing synthetic/back-compat calls without that argument continue unchanged.
+- `87a1dc4`: regression tests prove conflicting Wednesday occupational slot blocks the writer before write; Thursday-only occupancy does not.
+No real patient data committed; **latest additions need Python regression and Windows/native Excel smoke** before any xlsm write or operational claims. This report alone is not a green test result.
