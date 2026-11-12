@@ -1,0 +1,43 @@
+name: Diomil synthetic safety regression
+
+on:
+  push:
+    branches:
+      - work/history-statistics-rebuild
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-safety:
+    name: Synthetic Python safety
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install project and test runner
+        run: python -m pip install -e . pytest
+      - name: Run synthetic longitudinal and replacement guards
+        run: >-
+          python -m pytest
+          Tests/test_daily_weekly_replacement_slots.py
+          Tests/test_global_replacement_daily_slot_wiring.py
+          Tests/test_global_replacement_lifecycle_bridge.py
+          Tests/test_double_booking_exception.py
+          Tests/test_weekly_slots_source.py
+          Tests/test_trial_identity_reconciliation.py
+          Tests/test_trial_identity_review.py
+          Tests/test_inpatient_placement.py
+          Tests/test_recurring_therapy_changes.py
+          -q
