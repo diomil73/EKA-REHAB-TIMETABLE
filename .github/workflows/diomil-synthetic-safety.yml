@@ -40,6 +40,10 @@ jobs:
           Tests/test_trial_identity_review.py
           Tests/test_inpatient_placement.py
           Tests/test_recurring_therapy_changes.py
+          Tests/test_trial_admission_gate.py
+          Tests/test_prepare_global_multi_absence_smoke.py
+          Tests/test_apply_confirmed_double_booking.py
+          Tests/test_outpatient_recurring_smoke_builder.py
           -q
 
 
