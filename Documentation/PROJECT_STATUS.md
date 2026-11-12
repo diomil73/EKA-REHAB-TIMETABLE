@@ -1217,3 +1217,14 @@ Full instructions, three frozen artifact names, commands and contingencies: `Doc
 The read-only `recurring_change_append_plan.py` prepares an opaque new EventID against an exact stable AssignmentID and workbook SHA256. It verifies the existing ledger and strictly increasing per-assignment effective date and invokes the conservative shared capacity/patient collision preview. Added `Tests/test_recurring_change_append_plan.py` and cross-platform CI wiring. No patient treatments, existing event rows, source CC or frozen A files are modified. **Native event storage, transaction, rollback and UI remain OPEN**. Latest green CI baseline before this slice: 1646/1646 Windows/Linux; latest append-plan run must be independently verified. See `Documentation/AUTHORITATIVE_RESUME_20261112.md` for full safety and detailed resume.
 
 **Verified CI for read-only append plan:** `43314844755`, four jobs GREEN; 1,652 complete Python regressions on each of Windows and Linux, Ubuntu targeted synthetic 188 passed. Native append/rollback still pending.
+
+
+## 2026-11-13 priority checkpoint: real-source integrated trial demo
+
+The user explicitly reconfirmed that the **next visible milestone is a single usable Microsoft Excel demo built from the recently supplied real clinic schedule**, with already implemented Diomil mechanisms. This real-source demo was in preparation before recent synthetic H10/recurring-change work. Do not restart the architecture or substitute another purely synthetic statistics demo.
+
+**Immediate next steps:** inspect existing private real-source review and read-only admission pipeline (Python/rehab_excel/trial_admission_gate.py, Python/tools/preflight_trial_excel_sources.py, and tests). Find latest actual private staging/preflight evidence and re-evaluate unresolved patient identity, source cells, patient-time conflicts and shared provider slot decisions. The historical figures **61 ambiguous cells and 11 candidate overlaps** are staging observations, not an approved or necessarily current census. Do not silently import, fabricate, auto-approve, publish or leak private patient records.
+
+Identify native-proven application mechanisms and assemble a NEW isolated, never-before-used macro-enabled trial candidate with only verified facts. Newer recurring-event writeback/rollback may remain disabled pending separate native proof. Preserve immutable baseline, private source, synthetic CC and all frozen evidence. Require source hashes, no-overwrite gate, independent native Excel Save/close/reopen/readback, privacy review and operator acceptance. Python CI green does not establish native Excel proof.
+
+**Status:** next priority recorded; **no integrated real-data demo has yet been completed or accepted**. No delivery date was promised. Update all affected docs as implementation progresses. The user will resume next conversation and prefers proactive work without repeated OK.
