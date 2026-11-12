@@ -58,6 +58,7 @@ def bind_stable_assignment_ids(
                        keep_vba=path.suffix.lower() == ".xlsm")
     try:
         planner_ids: dict[tuple[str, str], str] = {}
+        declared_planner_ids: set[str] = set()
         if REGISTRY_SHEET in wb.sheetnames:
             ws = wb[REGISTRY_SHEET]
             headers = tuple(ws.cell(1, i).value for i in range(1, 4))
@@ -74,6 +75,9 @@ def bind_stable_assignment_ids(
                 key = (patient, treatment)
                 if key in planner_ids:
                     raise StableRecurringIdentityError("Duplicate planner identity key")
+                if identifier in declared_planner_ids:
+                    raise StableRecurringIdentityError("Duplicate immutable planner AssignmentID")
+                declared_planner_ids.add(identifier)
                 planner_ids[key] = identifier
 
         used_ids: set[str] = set()
