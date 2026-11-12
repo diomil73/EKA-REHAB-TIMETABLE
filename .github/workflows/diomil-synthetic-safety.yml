@@ -42,6 +42,7 @@ jobs:
           Tests/test_recurring_therapy_changes.py
           Tests/test_recurring_change_preview.py
           Tests/test_stable_recurring_ids.py
+          Tests/test_recurring_id_migration_plan.py
           Tests/test_trial_admission_gate.py
           Tests/test_preflight_trial_excel_sources.py
           Tests/test_probe_native_excel_readonly.py
