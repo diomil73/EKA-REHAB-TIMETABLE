@@ -336,10 +336,23 @@ def patch_workbook(workbook_path: Path) -> None:
             installed_daily, "Private Sub NormalizeMasterPatientStatusPresentation(ByVal master As Worksheet)"
         )
         compact_status_proc = _compact_vba(status_proc)
-        has_character_format = (
+        legacy_character_format = (
             ".Characters(" in compact_status_proc
             and ".Font.Strikethrough=False" in compact_status_proc
             and "statusCol" in compact_status_proc
+        )
+        modern_helper_call = (
+            "ApplyCharacterStrike" in compact_status_proc
+            and "master.Cells(row,statusCol),False" in compact_status_proc
+        )
+        modern_helper_implementation = (
+            "Private Sub ApplyCharacterStrike(ByVal cell As Range, ByVal enabled As Boolean)"
+            in installed_daily
+            and "cell.Characters(1, textLength).Font.Strikethrough = enabled"
+            in installed_daily
+        )
+        has_character_format = legacy_character_format or (
+            modern_helper_call and modern_helper_implementation
         )
         if not has_character_format:
             diagnostic_path = _write_master_status_diagnostic(status_proc)
