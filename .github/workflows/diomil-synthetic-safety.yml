@@ -43,6 +43,7 @@ jobs:
           Tests/test_trial_admission_gate.py
           Tests/test_preflight_trial_excel_sources.py
           Tests/test_probe_native_excel_readonly.py
+          Tests/test_prepare_native_probe_copy.py
           Tests/test_prepare_global_multi_absence_smoke.py
           Tests/test_apply_confirmed_double_booking.py
           Tests/test_outpatient_recurring_smoke_builder.py
