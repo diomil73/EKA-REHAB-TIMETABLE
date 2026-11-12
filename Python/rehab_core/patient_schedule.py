@@ -128,3 +128,51 @@ def validate_patient_cross_specialty_time(
         raise ValueError(
             "Patient has another specialty at selected time: " + treatments
         )
+
+
+def daily_recurring_patient_conflicts(
+    *,
+    entries: Iterable[BaseScheduleEntry],
+    patient_id: str,
+    target_date: date,
+    target_time: time,
+    target_base_entry_id: str | None = None,
+) -> tuple[BaseScheduleEntry, ...]:
+    """Check actual weekday-specific patient slots before a daily replacement.
+
+    Unlike the legacy nonprovider-only filter, this catches all specialties;
+    the appointment being replaced is excluded by its *exact base entry ID*.
+    The caller must pass the full effective weekly schedule (including granular
+    PROGRAM_WEEKLY_SLOTS and outpatient recurrent commitments), not the single
+    old PATIENT_PLANNER clock. This pure check does not alter historical sessions.
+    """
+    if not patient_id:
+        raise ValueError("PatientID is required")
+    return tuple(
+        entry for entry in entries
+        if entry.patient_id == patient_id
+        and entry.base_entry_id != target_base_entry_id
+        and entry.start_time == target_time
+        and pattern_applies_on_date(entry.day_pattern, target_date)
+    )
+
+
+def validate_daily_replacement_patient_slot(
+    *,
+    entries: Iterable[BaseScheduleEntry],
+    target_session: Session,
+    replacement_time: time,
+) -> None:
+    """Fail closed if the exact day's alternative slot belongs to another treatment."""
+    base_id = target_session.session_id.rsplit("@", 1)[0]
+    conflicts = daily_recurring_patient_conflicts(
+        entries=entries,
+        patient_id=target_session.patient_id,
+        target_date=target_session.session_date,
+        target_time=replacement_time,
+        target_base_entry_id=base_id,
+    )
+    if conflicts:
+        raise ValueError(
+            "Patient slot blocked on replacement date by another treatment"
+        )
