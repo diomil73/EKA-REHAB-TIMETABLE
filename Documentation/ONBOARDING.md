@@ -213,3 +213,5 @@ BI passed its source/install/protection audit, but operator manual review did no
 - Immediate development path: synthetic-only event append plan -> new exclusive-copy native append/reopen proof -> rollback/compensation -> UI integration -> separate clinical gate. Do not rerun frozen candidate A or publish a clinical file.
 - Documentation contract: update ONBOARDING, CURRENT_HANDOFF, PROJECT_STATUS, IMPLEMENTATION_MAP, DECISIONS, CHANGELOG and each relevant runbook with tested status, exact commits, safe runnable commands, failure contingencies and frozen-file ledger in the same cycle. User approval is not required for ordinary source/documentation work; real Excel operation must be run locally.
 
+
+Latest verified append-plan CI: `43314844755`, 1,652 full Python regressions passed on each of Windows and Linux (not real native Excel). The new source-only event append plan is documented in `Documentation/AUTHORITATIVE_RESUME_20261112.md`. No operator action is required until a new synthetic native runbook exists.
