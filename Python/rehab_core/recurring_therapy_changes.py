@@ -95,6 +95,28 @@ def recurring_entries_on_date(
     return tuple(effective)
 
 
+
+def validate_effective_weekly_patient_slots(
+    entries: Iterable[BaseScheduleEntry],
+) -> None:
+    """Reject same-patient weekday/time collisions in an effective programme.
+
+    This deliberately checks EVERY weekday rather than only the day on which
+    the operator edits a permanent therapy. Two different therapies, or two
+    assignments of the same therapy, may not occupy a patient's same hour.
+    Provider shared-slot approval and daily-capacity checks are separate.
+    """
+    occupied: set[tuple[str, object, time]] = set()
+    for entry in entries:
+        for weekday in parse_day_pattern(entry.day_pattern):
+            key = (entry.patient_id, weekday, entry.start_time)
+            if key in occupied:
+                raise RecurringTherapyChangeError(
+                    "Permanent change creates a weekday patient-slot collision"
+                )
+            occupied.add(key)
+
+
 def materialize_effective_sessions(
     entries: Iterable[BaseScheduleEntry],
     target_date: date,
