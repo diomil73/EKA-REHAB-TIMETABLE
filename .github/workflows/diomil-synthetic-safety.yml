@@ -40,6 +40,7 @@ jobs:
           Tests/test_trial_identity_review.py
           Tests/test_inpatient_placement.py
           Tests/test_recurring_therapy_changes.py
+          Tests/test_recurring_change_event_source.py
           Tests/test_recurring_change_preview.py
           Tests/test_stable_recurring_ids.py
           Tests/test_recurring_id_migration_plan.py
