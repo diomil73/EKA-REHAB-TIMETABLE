@@ -60,7 +60,7 @@ def test_multiple_ordered_changes_apply_by_effective_date():
     ([row(patient="WRONG")], "mismatch"),
     ([row(effective=date(2026, 10, 31))], "predates"),
     ([row(therapist=None, clock=None, days=None)], "no changed fields"),
-    ([row(clock="12:27:35")], "whole minutes"),
+    ([row(clock="12:27:35")], "Invalid changed start time"),
     ([row(event_id="bad")], "event ID"),
 ])
 def test_invalid_or_ambiguous_event_rejected(rows, issue):
