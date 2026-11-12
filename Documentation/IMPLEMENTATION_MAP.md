@@ -158,3 +158,10 @@ Canonical state and run order: `Documentation/AUTHORITATIVE_RESUME_20261112.md`.
 
 Accepted native evidence: frozen isolated read-only A, synthetic Save/reopen A and 179 immutable-ID migration A. **No native committed recurring event or rollback**. No operational migration approved. Runbook and frozen filenames: `Documentation/AUTHORITATIVE_RESUME_20261112.md`. Every future implementation must update this map alongside handoff/status/tests.
 
+
+
+### Read-only permanent event append planner (2026-11-12)
+
+- `Python/rehab_excel/recurring_change_append_plan.py`: source-SHA-bound event append *proposal*, strict stable ID and existing-event uniqueness/chronology, delegates to `recurring_change_preview` for therapist/patient capacity, never writes XLSM.
+- `Tests/test_recurring_change_append_plan.py`: synthetic source immutability, duplicate ID, backdate, stale row and concurrent-change guards.
+- CI: `.github/workflows/diomil-synthetic-safety.yml` targeted Windows/Linux plus complete suite. Native Excel event append not implemented.
