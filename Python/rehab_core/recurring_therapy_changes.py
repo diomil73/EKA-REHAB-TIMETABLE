@@ -192,6 +192,46 @@ def prepare_validated_recurring_change(
             )
     elif modified.treatment in {"ΦΘ", "Ρομποτικό"}:
         raise RecurringTherapyChangeError("Required therapist is missing")
+
+    # A newly inserted event must remain safe when older, already scheduled
+    # future events take effect. Checking only its start date is insufficient:
+    # a patient or provider conflict could first appear next week/month.
+    for future_date in sorted({
+        event.effective_date for event in candidate_history
+        if event.effective_date > change.effective_date
+    }):
+        later_entries = recurring_entries_on_date(
+            source, baseline_date=baseline_date,
+            target_date=future_date, changes=candidate_history,
+        )
+        validate_effective_weekly_patient_slots(later_entries)
+        future_modified = next(
+            item for item in later_entries
+            if item.base_entry_id == change.base_entry_id
+        )
+        if future_modified.therapist_id is not None:
+            future_provider = providers.get(future_modified.therapist_id)
+            if future_provider is None:
+                raise RecurringTherapyChangeError(
+                    "Future schedule change references unknown therapist"
+                )
+            future_check = check_permanent_assignment(
+                provider_id=future_provider.therapist_id,
+                max_daily_timeslots=future_provider.max_daily_timeslots,
+                existing_entries=later_entries,
+                proposed_day_pattern=future_modified.day_pattern,
+                proposed_time=future_modified.start_time,
+                source_entry_id=future_modified.base_entry_id,
+                patient_id=future_modified.patient_id,
+            )
+            if not future_check.allowed:
+                raise RecurringTherapyChangeError(
+                    "Future change boundary creates therapist collision or capacity excess"
+                )
+        elif future_modified.treatment in {"ΦΘ", "Ρομποτικό"}:
+            raise RecurringTherapyChangeError(
+                "Future change removes required therapist"
+            )
     return ValidatedRecurringChangePreview(
         change=change,
         effective_entries=future,
