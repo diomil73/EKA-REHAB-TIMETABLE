@@ -49,3 +49,23 @@ On success, candidate A becomes frozen native evidence, not a production app.
 This proves stable metadata persistence but not a permanent therapy change,
 VBA Apply/Restore, production approval, or native rollback. An event store
 and separate synthetic native transaction test are still required.
+
+
+## Observed operator acceptance, 2026-11-12
+
+The operator executed the prescribed native Excel block and supplied the complete success output:
+- focused Python gate: `42 passed in 3.06s`;
+- synthetic H8 source verification: 25 days, 522 patient-session rows,
+  150 therapist-day rows, 150 attendance facts, 25 finalization events;
+  source unchanged `True`;
+- native installer: `SYNTHETIC NATIVE ASSIGNMENT IDS GREEN`;
+  `Verified immutable assignments: 179`;
+  `Original CC unchanged: YES`;
+  `Historical synthetic records independently verified: YES`;
+- final wrapper: `SYNTHETIC CC ASSIGNMENT ID NATIVE MIGRATION GREEN`.
+
+**Accepted and frozen:** `UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm`.
+Do not reopen for editing, overwrite, re-migrate, or use as the next change
+candidate. This proves the 179 immutable IDs survived the native Excel Save
+and independent readback. It does not constitute authorization to migrate
+real patients or run committed effective-dated changes.
