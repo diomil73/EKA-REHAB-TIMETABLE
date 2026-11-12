@@ -283,6 +283,7 @@ def main() -> int:
             result,
             sessions=sessions,
             existing_active_replacements=existing_replacements,
+            base_entries=base_entries,
         )
         write_daily_statistics(output, target_date, statistics)
 
