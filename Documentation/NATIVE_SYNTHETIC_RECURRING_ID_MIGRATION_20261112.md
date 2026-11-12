@@ -1,0 +1,51 @@
+# One-shot native recurring AssignmentID migration on synthetic CC
+
+## Strict scope
+The previous successful CC read-only probe and synthetic Save/reopen A are frozen.
+This new run generates an entirely new `_DEMO_` .xlsm candidate. It must not
+be used on the live CC, MASTER, genuine patient data or an existing candidate.
+
+The installer reads the frozen synthetic CC, plans opaque recurring IDs in
+memory, checks that all targeted source cells are still correct and unused,
+exclusively copies the source, opens **only the fresh copy** in native Excel
+with VBA macros disabled, installs the separate planner identity registry and
+optional metadata column G on weekly/outpatient sources, Saves once, closes,
+then independently verifies every ID, existing schedules, H8 history and VBA.
+
+## Single PowerShell block
+
+Close all Excel. Run the entire block from the repository root. Do not execute
+individual lines after an exception.
+
+```powershell
+& {
+    $ErrorActionPreference = "Stop"
+
+    git pull --ff-only origin work/history-statistics-rebuild
+    if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: git pull" }
+
+    python -m pytest Tests/test_stable_recurring_ids.py Tests/test_recurring_id_migration_plan.py Tests/test_install_synthetic_recurring_ids_native.py Tests/test_recurring_change_preview.py -q
+    if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: source tests" }
+
+    $source = ".\Excel\previews\UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm"
+    $candidate = ".\Excel\previews\UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm"
+    if (!(Test-Path -LiteralPath $source -PathType Leaf)) { throw "SAFETY STOP: CC missing" }
+    if (Test-Path -LiteralPath $candidate) { throw "SAFETY STOP: candidate already exists" }
+
+    python .\Python\tools\verify_h8_synthetic_history.py --workbook $source
+    if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: source history" }
+
+    python .\Python\tools\install_synthetic_recurring_ids_native.py --source $source --output $candidate
+    if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: freeze candidate; no retry" }
+
+    Write-Host "SYNTHETIC CC ASSIGNMENT ID NATIVE MIGRATION GREEN" -ForegroundColor Green
+}
+```
+
+On ANY failure, do not delete, overwrite, retry or repair candidate A.
+Never upload clinical XLSM content to GitHub or attach private data to logs.
+On success, candidate A becomes frozen native evidence, not a production app.
+
+This proves stable metadata persistence but not a permanent therapy change,
+VBA Apply/Restore, production approval, or native rollback. An event store
+and separate synthetic native transaction test are still required.
