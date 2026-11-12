@@ -98,10 +98,8 @@ def test_report_buttons_have_dedicated_visible_row_and_are_brought_to_front():
 def test_report_refresh_recreates_buttons_and_keeps_shapes_unprotected():
     source = THERAPIST_HISTORY_MODULE_CODE
     assert "EnsureReportButtons ws" in source
-    assert 'EnsureOneReportButton ws, "ekaHistory_Daily"' in source
-    assert 'EnsureOneReportButton ws, "ekaHistory_Weekly"' in source
-    assert 'EnsureOneReportButton ws, "ekaHistory_Monthly"' in source
-    assert 'EnsureOneReportButton ws, "ekaHistory_Overall"' in source
+    for mode in ("Today", "Yesterday", "Week", "Month", "Year", "Overall"):
+        assert f'EnsureOneReportButton ws, "ekaHistory_{mode}"' in source
     assert 'EnsureOneReportButton ws, "ekaHistory_Back"' in source
     assert "shape.Visible = True" in source
     assert "ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True" in source
@@ -115,8 +113,8 @@ def test_each_mode_resets_window_to_top_and_refreezes_after_render():
     assert "ActiveWindow.SplitRow = 0" in source
     assert "ActiveWindow.ScrollColumn = 1" in source
     assert "ActiveWindow.ScrollRow = 1" in source
-    assert 'ws.Range("A5").Select' in source
-    assert "ActiveWindow.SplitRow = 4" in source
+    assert 'ws.Range("A23").Select' in source
+    assert "ActiveWindow.SplitRow = 22" in source
     assert "ActiveWindow.FreezePanes = True" in source
 
 
@@ -211,8 +209,8 @@ def test_therapist_report_has_idempotent_workload_chart_above_history_table():
 def test_therapist_selection_drilldown_preserves_worksheet_protection():
     source = THERAPIST_HISTORY_MODULE_CODE
     assert "Public Sub ShowSelectedTherapistChart()" in source
-    assert '"ekaHistory_PersonChart"' in source
-    assert '"ShowSelectedTherapistChart"' in source
+    assert 'ws.Shapes("ekaHistory_PersonChart").Delete' in source
+    assert 'BuildTherapistLoadChart ws, CLng(ws.Cells(selectedRow, 5).Value2)' in source
     assert 'selectedRow < 23 Or selectedRow > finalRow' in source
     assert 'BuildTherapistLoadChart ws, CLng(ws.Cells(selectedRow, 5).Value2)' in source
     assert 'If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True' in source
