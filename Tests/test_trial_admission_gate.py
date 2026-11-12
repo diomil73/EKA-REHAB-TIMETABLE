@@ -106,7 +106,7 @@ def test_two_patients_same_therapist_weekday_clock_are_blocked(tmp_path):
     result = evaluate_trial_admission(path)
     assert not result.ready
     assert result.admitted_entries == ()
-    assert "provider weekday/time double-bookings" in " ".join(result.blockers)
+    assert "unapproved shared provider weekday/time slots" in " ".join(result.blockers)
 
 
 def test_same_therapist_different_weekdays_are_allowed(tmp_path):
@@ -123,3 +123,74 @@ def test_same_therapist_different_weekdays_are_allowed(tmp_path):
     result = evaluate_trial_admission(path)
     assert result.ready
     assert len(result.admitted_entries) == 2
+
+
+def test_exact_shared_slot_approval_admits_independent_patient_sessions(tmp_path):
+    from openpyxl import load_workbook
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΑΣΘΕΝΕΙΣ"].append([5, "Α", "DEMO SECOND", "WARD", "DEMO-2", "CONFIRMED"])
+    wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"].append(
+        ["Α", 5, "DEMO SECOND", "ΦΘ", "ΔΕ", "11:30",
+         "DEMO THERAPIST", None, "C5 / D5 / E5",
+         "11.30 | ΔΕ | T", "PROPOSED_EXACT_SOURCE"]
+    )
+    approval = wb.create_sheet("ΕΓΚΡΙΣΕΙΣ_ΚΟΙΝΩΝ_SLOTS")
+    approval.append(["Therapist", "Weekday", "StartTime", "PatientIDs", "Decision"])
+    approval.append(["DEMO THERAPIST", "ΔΕ", "11:30", "DEMO-1|DEMO-2",
+                     "APPROVED_SHARED"])
+    wb.save(path)
+    result = evaluate_trial_admission(path)
+    assert result.ready
+    assert len(result.admitted_entries) == 2
+    assert {x.patient_id for x in result.admitted_entries} == {"DEMO-1", "DEMO-2"}
+
+
+def test_partial_shared_slot_approval_is_not_authoritative(tmp_path):
+    from openpyxl import load_workbook
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    for line, pid in [(5, "DEMO-2"), (6, "DEMO-3")]:
+        wb["ΑΣΘΕΝΕΙΣ"].append([line, "Α", f"DEMO {line}", "WARD", pid, "CONFIRMED"])
+        wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"].append(
+            ["Α", line, f"DEMO {line}", "ΦΘ", "ΔΕ", "11:30",
+             "DEMO THERAPIST", None, f"C{line} / D{line} / E{line}",
+             "11.30 | ΔΕ | T", "PROPOSED_EXACT_SOURCE"]
+        )
+    sheet = wb.create_sheet("ΕΓΚΡΙΣΕΙΣ_ΚΟΙΝΩΝ_SLOTS")
+    sheet.append(["Therapist", "Weekday", "StartTime", "PatientIDs", "Decision"])
+    sheet.append(["DEMO THERAPIST", "ΔΕ", "11:30", "DEMO-1|DEMO-2",
+                  "APPROVED_SHARED"])
+    wb.save(path)
+    result = evaluate_trial_admission(path)
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert "unapproved shared provider" in " ".join(result.blockers)
+
+
+def test_stale_shared_slot_approval_blocks_otherwise_safe_programme(tmp_path):
+    from openpyxl import load_workbook
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    sheet = wb.create_sheet("ΕΓΚΡΙΣΕΙΣ_ΚΟΙΝΩΝ_SLOTS")
+    sheet.append(["Therapist", "Weekday", "StartTime", "PatientIDs", "Decision"])
+    sheet.append(["DEMO THERAPIST", "ΔΕ", "11:30", "DEMO-1|DEMO-2",
+                  "APPROVED_SHARED"])
+    wb.save(path)
+    result = evaluate_trial_admission(path)
+    assert not result.ready
+    assert "stale or mismatched" in " ".join(result.blockers)
+
+
+def test_shared_approval_without_duplicate_member_ids(tmp_path):
+    from openpyxl import load_workbook
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    sheet = wb.create_sheet("ΕΓΚΡΙΣΕΙΣ_ΚΟΙΝΩΝ_SLOTS")
+    sheet.append(["Therapist", "Weekday", "StartTime", "PatientIDs", "Decision"])
+    sheet.append(["DEMO THERAPIST", "ΔΕ", "11:30", "DEMO-1|DEMO-1",
+                  "APPROVED_SHARED"])
+    wb.save(path)
+    result = evaluate_trial_admission(path)
+    assert not result.ready
+    assert "invalid or duplicated approval" in " ".join(result.blockers)
