@@ -10,6 +10,7 @@ never commit generated review workbooks, raw names or patient IDs to GitHub.
 from __future__ import annotations
 
 from collections import Counter
+import hashlib
 from pathlib import Path
 import shutil
 from typing import Iterable
@@ -61,6 +62,15 @@ def create_local_identity_review(
     if not source.is_file() or not old.is_file():
         raise TrialIdentityReviewError("One or more input workbooks do not exist")
 
+    def _sha256(path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for piece in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(piece)
+        return digest.hexdigest()
+
+    source_digest = _sha256(source)
+    old_digest = _sha256(old)
     old_people = tuple(
         OldPatientIdentity(person.patient_id, person.display_name)
         for person in read_patient_registry(old)
@@ -96,6 +106,10 @@ def create_local_identity_review(
     try:
         with output.open("xb") as sink, source.open("rb") as original:
             shutil.copyfileobj(original, sink)
+        if _sha256(source) != source_digest or _sha256(old) != old_digest:
+            raise TrialIdentityReviewError("One of the identity sources changed during review")
+        if _sha256(output) != source_digest:
+            raise TrialIdentityReviewError("Review output does not match the input source")
         wb = load_workbook(output)
         try:
             ws = wb[SOURCE_PATIENT_SHEET]
