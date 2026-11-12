@@ -38,7 +38,7 @@ def test_therapists_show_three_native_panels_in_single_row():
     assert 'NewTherapistTrendChart' in src
     assert "plannedSessions, actualSessions" in src
     assert "plot.Chart.Axes(xlValue).MinimumScale = 0" in src
-    assert "Application.Max(6" in src
+    assert "cohortAxisPatients = 6" in src
 
 
 def test_workload_traffic_light_contract_is_explicit_and_never_looks_up_from_live_projection():
@@ -59,7 +59,7 @@ def test_absence_panel_marks_data_unavailable_instead_of_fabricating_zeros():
     assert "Μη διαθέσιμο ιστορικό απουσιών / εργασίμων" in src
     assert 'plot.Chart.ChartTitle.Text = "Παρουσίες"' in src
     assert "If finalizedDays <= 0 Then" in src
-    assert "plot.Chart.SeriesCollection.NewSeries" in src
+    assert 'ws.Range("I19").Value2 = "Μη διαθέσιμο ιστορικό απουσιών / εργασίμων"' in src
 
 
 def test_patient_three_categories_are_planned_performed_absent_only():
@@ -75,4 +75,4 @@ def test_therapist_load_title_omits_numeric_scale_without_removing_axis():
     assert 'plot.Chart.ChartTitle.Text = "Φόρτος" & IIf(' in src
     assert '"Ασθενείς / ημέρα (0-6)"' not in src
     assert "plot.Chart.Axes(xlValue).MinimumScale = 0" in src
-    assert "Application.Max(6" in src
+    assert "cohortAxisPatients = 6" in src
