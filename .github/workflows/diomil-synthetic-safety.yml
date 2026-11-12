@@ -42,5 +42,23 @@ jobs:
           Tests/test_recurring_therapy_changes.py
           -q
 
-      - name: Run complete Python regression suite
-        run: python -m pytest Tests -q --disable-warnings --maxfail=10
+
+  complete-regression:
+    name: Complete Python regression (legacy + current)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install Python test dependencies
+        run: python -m pip install 'openpyxl>=3.1,<4' pytest
+      - name: Run entire regression suite and show legacy-contract failures
+        run: python -m pytest Tests -q --disable-warnings --maxfail=35
