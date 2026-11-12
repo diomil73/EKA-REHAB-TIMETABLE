@@ -105,6 +105,13 @@ def bind_stable_assignment_ids(
                         source_row = int(legacy_id.rsplit(":", 1)[1])
                     except ValueError as exc:
                         raise StableRecurringIdentityError("Unknown row-derived source key") from exc
+                    row_patient = str(ws.cell(source_row, 1).value or "").strip()
+                    treatment_col = 2 if namespace == "PROGRAM_WEEKLY_SLOTS" else 3
+                    row_treatment = str(ws.cell(source_row, treatment_col).value or "").strip()
+                    if row_patient != entry.patient_id or row_treatment != entry.treatment:
+                        raise StableRecurringIdentityError(
+                            "Source row changed; identity cannot be bound"
+                        )
                     identifier = ws.cell(source_row, col).value
             else:
                 raise StableRecurringIdentityError("Unknown recurring source namespace")
