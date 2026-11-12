@@ -135,3 +135,25 @@ def test_confirmed_double_booking_creates_auditable_replacement_assignment():
     assert assignment.replacement_therapist_id == "T2"
     assert assignment.replacement_time == time(10, 0)
     assert assignment.reason == "CONFIRMED DOUBLE BOOKING EXCEPTION"
+
+
+def test_manual_double_booking_does_not_override_other_weekday_specific_therapy():
+    from rehab_core.models import BaseScheduleEntry
+    target = _session("weekly:2@2026-09-18", "P1", "ABSENT", 10)
+    occupied = _session("BUSY", "P2", "T2", 11)
+    entries = (
+        BaseScheduleEntry("weekly:2", "P1", "ΦΘ", time(10, 0),
+                          "Πα", therapist_id="ABSENT"),
+        BaseScheduleEntry("weekly:3", "P1", "Εργο", time(11, 0),
+                          "Πα"),
+    )
+    with pytest.raises(ValueError, match="Patient slot blocked"):
+        propose_double_booking_exception(
+            target_session=target,
+            unresolved_session_ids=(target.session_id,),
+            therapist_id="T2",
+            replacement_time=time(11, 0),
+            therapists=(Therapist("T2", "T2"),),
+            sessions=(target, occupied),
+            base_entries=entries,
+        )
