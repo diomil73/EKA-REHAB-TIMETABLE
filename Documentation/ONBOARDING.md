@@ -1,6 +1,6 @@
 # Project Onboarding
 
-Last updated: 2026-11-04
+Last updated: 2026-11-12
 
 ## Purpose of this file
 
@@ -200,3 +200,16 @@ The operator has completed the 33-test source gate (33 passed in 4.13s), fresh B
 ## Updated immediate work — 2026-11-07: H8 analytics UX before broad protection
 
 BI passed its source/install/protection audit, but operator manual review did not accept the statistics screens: patient numeric IDs instead of names, no clear participation percentage, therapist workload/absences insufficiently exposed, period coverage not explained, no overview/individual charts, and RefreshAll asks for repeated OK confirmations. BI is **not product-accepted** and must not be overwritten. The next task is source-level H8 analytics UX and KPI definition, not protection of the remaining worksheets. The canonical requirements and current investigation are in `Documentation/H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md`, and the newest section of `Documentation/CURRENT_HANDOFF.md` is authoritative.
+
+
+## AUTHORITATIVE LATEST STATE — 2026-11-12 (supersedes old "current" pointers above)
+
+**Read first:** `Documentation/AUTHORITATIVE_RESUME_20261112.md`, then the latest appendix in `Documentation/CURRENT_HANDOFF.md`. Earlier 2026-11-04/07 H7 and 2026-11-08 H10 "next" commands above are historical, not the next operator instructions.
+
+- Real Microsoft Excel (operator-confirmed): isolated CC read-only open/close, synthetic new-sheet Save/reopen, and one-shot **179 immutable recurring AssignmentIDs** persisted in `UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm`. All three proof candidates are frozen. Underlying synthetic CC and production MASTER unchanged.
+- Last fully checked cross-platform Python CI: `43313086923`, **1,646/1,646** on Windows and Linux. GitHub COM mocks are not native Excel proof.
+- New optional `RECURRING_CHANGE_EVENTS` source reader handles effective-dated changes, immutable IDs, chronology, duplicates and historical projection. It is **READ-ONLY**; no native event write, permanent change UI, rollback or production transfer is authorized.
+- Real-data demo MASTER remains **blocked** by unconfirmed patient identities, source holds and patient/provider time conflicts. Never confuse synthetic acceptance with actual patient admission.
+- Immediate development path: synthetic-only event append plan -> new exclusive-copy native append/reopen proof -> rollback/compensation -> UI integration -> separate clinical gate. Do not rerun frozen candidate A or publish a clinical file.
+- Documentation contract: update ONBOARDING, CURRENT_HANDOFF, PROJECT_STATUS, IMPLEMENTATION_MAP, DECISIONS, CHANGELOG and each relevant runbook with tested status, exact commits, safe runnable commands, failure contingencies and frozen-file ledger in the same cycle. User approval is not required for ordinary source/documentation work; real Excel operation must be run locally.
+
