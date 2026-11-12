@@ -150,3 +150,13 @@ The split CI run on Linux covered the entire current test tree: **1548 passed, 2
 - therapist-history VBA navigation/protection: 3
 - synthetic ReplacementProviderOption fixtures omitted now-required `active_timeslots`: 5
 The five fixture errors are test setup drift only and were corrected in `Tests/test_patient_schedule.py` (`f7a006a`) and `Tests/test_replacement_workflow.py` (`9e30fed`); this does NOT change the distinct-timeslot capacity engine. Newly queued CI will verify the impact. Dashboard and restore behavior remain red until verified; do not suppress, skip or force-pass these tests. The prior DAILY_INPUT status and patient history TSV fixture mismatches were reconciled based on current explicit contracts. No clinical source data committed.
+
+
+## 2026-11-12 — Combined private-source preflight for separate native Excel pilot
+Implemented `Python/tools/preflight_trial_excel_sources.py` (`240bccf`) and `Tests/test_preflight_trial_excel_sources.py` (`eeddcd4`); synthetic CI includes this new gate (`98b600a`). The tool joins two read-only checks: (a) `trial_admission_gate.evaluate_trial_admission` on the private review XLSX, and (b) `audit_pilot_source_readiness.inspect_source` on the separately protected CC XLSM. Both inputs are SHA256 verified unchanged after inspection; only aggregate nonidentifying counters and safe issue codes may be printed; no workbooks are saved, patched or imported.
+
+Use from the repository's private Windows machine with institution-approved local paths, **only after closed Excel**:
+```powershell
+python Python/tools/preflight_trial_excel_sources.py --review "<private-reviewed-staging.xlsx>" --cc "<protected-trial-source.xlsm>"
+```
+A nonzero exit or any unconfirmed identity, unresolved source cell, cross-specialty overlap, shared-provider approval issue, incomplete CC registry, prior history, VBA problem or other intake issue **blocks** native trial import. Even exit 0 does NOT authorize production release; native COM trial requires separately verified backup, rollback and reopening. Never upload these private files to GitHub Actions. Windows native Excel is NOT installed on GitHub-hosted runners, so CI is synthetic Python-only.
