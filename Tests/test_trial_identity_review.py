@@ -133,3 +133,25 @@ def test_inpatient_review_cannot_reuse_an_outpatient_identity(tmp_path):
         assert review["ΑΣΘΕΝΕΙΣ"]["F2"].value == "ΕΚΚΡΕΜΕΙ"
     finally:
         review.close()
+
+
+
+def test_concurrent_output_creation_is_never_deleted(tmp_path, monkeypatch):
+    """If another process wins the exclusive-create race, it owns that file."""
+    from pathlib import Path
+    source, old, output = create_inputs(tmp_path)
+    original_open = Path.open
+    competing_data = b"ANOTHER WRITER OWNS THIS"
+
+    def simulate_race(path, mode="r", *args, **kwargs):
+        if Path(path) == output and mode == "xb":
+            output.write_bytes(competing_data)
+            raise FileExistsError("competing writer created output")
+        return original_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", simulate_race)
+    with pytest.raises(FileExistsError):
+        create_local_identity_review(
+            staging_path=source, old_demo_path=old, output_path=output,
+        )
+    assert output.read_bytes() == competing_data
