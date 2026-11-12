@@ -254,3 +254,8 @@ Do not rely on chat history as the only record of a decision, requirement, idea,
 - Management summary UX must be visually accepted, capacity mathematics audited and exports whitelisted/macro-free/privacy-tested before external sharing. Internal XLSM is never a management share artifact.
 - Documentation is a release safety gate: update **ONBOARDING, CURRENT_HANDOFF, PROJECT_STATUS, IMPLEMENTATION_MAP, DECISIONS, CHANGELOG, and subsystem/native runbooks** alongside meaningful source work. Include full exact copyable PowerShell commands in the relevant operator runbook, tested/not-tested scope, safety-stop contingencies, commits, frozen artifacts and next steps. The latest canonical handoff is `Documentation/AUTHORITATIVE_RESUME_20261112.md`. Historical "next" sections may remain but must be explicitly superseded rather than executed.
 
+
+
+## 2026-11-12 additional recurring-event transaction guard
+
+A permanent change may be *proposed* only after source SHA256, immutable AssignmentID, exact operator-seen assignment fingerprint, unique new EventID, valid prior ledger and later-than-prior per-assignment effective date checks all pass. Reuse the actual current event history in shared collision/capacity preflight. The proposal is **not a write authorization**, must be revalidated against an unchanged source immediately before native copy/write, and may never mutate frozen synthetic A candidates. Fail closed if existing event rows are malformed or event IDs duplicate. Any future native writer needs separate atomic rollback and independent persisted read-back before UI enablement. See `recurring_change_append_plan.py` and `Documentation/AUTHORITATIVE_RESUME_20261112.md`.
