@@ -1,6 +1,6 @@
 # Implementation Map
 
-Τελευταία ενημέρωση: 2026-10-20
+Τελευταία ενημέρωση: 2026-11-12
 
 ## Σκοπός
 
@@ -140,3 +140,21 @@ Then use:
 - history: `CHANGELOG.md`
 
 Windows: πάντα `python -m pytest`, ποτέ bare `pytest`.
+
+
+## Current recurring treatment ownership — 2026-11-12
+
+Canonical state and run order: `Documentation/AUTHORITATIVE_RESUME_20261112.md`.
+
+- `Python/rehab_core/recurring_therapy_changes.py`: effective-dated base schedule projections, preflight, historical date preservation; `Tests/test_recurring_therapy_changes.py`.
+- `Python/rehab_excel/recurring_change_preview.py`: read-only workbook base/weekly/outpatient merge, approved capacity map, SHA/stale-row validation; `Tests/test_recurring_change_preview.py`.
+- `Python/rehab_excel/stable_recurring_ids.py`: explicit per-assignment stable identifier binder; `Tests/test_stable_recurring_ids.py`.
+- `Python/rehab_excel/recurring_id_migration_plan.py`: synthetic-only pure immutable-ID creation plan, rejects duplicates/ambiguous sources; `Tests/test_recurring_id_migration_plan.py`.
+- `Python/tools/install_synthetic_recurring_ids_native.py`: one-shot *synthetic-only* native COM migration to a new XLSM, independent readback; `Tests/test_install_synthetic_recurring_ids_native.py`.
+- `Python/rehab_excel/recurring_change_event_source.py`: optional strictly validated **read-only** `RECURRING_CHANGE_EVENTS` event reader (EventID, AssignmentID, PatientID, EffectiveDate, NewTherapist, NewStartTime, NewDayPattern, Reason); `Tests/test_recurring_change_event_source.py`.
+- `Python/tools/prepare_native_probe_copy.py`, `probe_native_excel_readonly.py`, `prove_synthetic_cc_native_write.py`: isolated native structural copy/open/save/reopen checks and matching `Tests/test_prepare_native_probe_copy.py`, `Tests/test_probe_native_excel_readonly.py`, `Tests/test_prove_synthetic_cc_native_write.py`.
+- `Python/tools/preflight_trial_excel_sources.py`: private real-staging and CC read-only admission gate. Never upload actual patient files to GitHub.
+- `.github/workflows/diomil-synthetic-safety.yml`: full Python and targeted synthetic safety matrices, Linux and Windows; mocks only, not installed Microsoft Excel.
+
+Accepted native evidence: frozen isolated read-only A, synthetic Save/reopen A and 179 immutable-ID migration A. **No native committed recurring event or rollback**. No operational migration approved. Runbook and frozen filenames: `Documentation/AUTHORITATIVE_RESUME_20261112.md`. Every future implementation must update this map alongside handoff/status/tests.
+
