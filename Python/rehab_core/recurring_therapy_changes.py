@@ -11,7 +11,8 @@ from datetime import date, time
 from typing import Iterable
 
 from .base_schedule import materialize_sessions_for_date
-from .models import BaseScheduleEntry, Session
+from .models import BaseScheduleEntry, Session, Therapist
+from .permanent_assignment import check_permanent_assignment
 from .day_patterns import parse_day_pattern
 
 
@@ -131,4 +132,70 @@ def materialize_effective_sessions(
             target_date=target_date, changes=changes,
         ),
         target_date,
+    )
+
+
+@dataclass(frozen=True)
+class ValidatedRecurringChangePreview:
+    """An authorized *proposal*, not a saved event or Excel modification."""
+
+    change: RecurringTherapyChange
+    effective_entries: tuple[BaseScheduleEntry, ...]
+    affected_weekdays: tuple[str, ...]
+
+
+def prepare_validated_recurring_change(
+    entries: Iterable[BaseScheduleEntry],
+    *,
+    baseline_date: date,
+    change: RecurringTherapyChange,
+    current_changes: Iterable[RecurringTherapyChange] = (),
+    therapists: Iterable[Therapist] = (),
+) -> ValidatedRecurringChangePreview:
+    """Preflight a permanent edit over every weekday before it can be approved.
+
+    Existing effective events are projected as of the new event's start.
+    Fail closed on duplicate/conflicting patient times and provider capacity or
+    same-clock collisions. Known providers are mandatory for provider-owned
+    treatments. Existing approved therapist groups need a separate explicit
+    reassessment rather than silent acceptance in this strict edit workflow.
+    """
+    source = tuple(entries)
+    history = tuple(current_changes)
+    candidate_history = (*history, change)
+    future = recurring_entries_on_date(
+        source, baseline_date=baseline_date,
+        target_date=change.effective_date, changes=candidate_history,
+    )
+    validate_effective_weekly_patient_slots(future)
+    matching = [entry for entry in future if entry.base_entry_id == change.base_entry_id]
+    if len(matching) != 1 or matching[0].patient_id != change.patient_id:
+        raise RecurringTherapyChangeError("Changed recurring entry cannot be resolved")
+    modified = matching[0]
+    providers = {provider.therapist_id: provider for provider in therapists}
+    if modified.therapist_id is not None:
+        provider = providers.get(modified.therapist_id)
+        if provider is None:
+            raise RecurringTherapyChangeError("Changed assignment has unknown therapist")
+        outcome = check_permanent_assignment(
+            provider_id=provider.therapist_id,
+            max_daily_timeslots=provider.max_daily_timeslots,
+            existing_entries=future,
+            proposed_day_pattern=modified.day_pattern,
+            proposed_time=modified.start_time,
+            source_entry_id=modified.base_entry_id,
+            patient_id=modified.patient_id,
+        )
+        if not outcome.allowed:
+            raise RecurringTherapyChangeError(
+                "Permanent change has therapist collision, patient collision or capacity excess"
+            )
+    elif modified.treatment in {"ΦΘ", "Ρομποτικό"}:
+        raise RecurringTherapyChangeError("Required therapist is missing")
+    return ValidatedRecurringChangePreview(
+        change=change,
+        effective_entries=future,
+        affected_weekdays=tuple(sorted(day.value for day in parse_day_pattern(
+            modified.day_pattern
+        ))),
     )
