@@ -224,3 +224,48 @@ def test_preflight_detects_patient_collision_on_second_weekday():
             ),
             therapists=[Therapist("OLD-T", "Demo therapist")],
         )
+
+
+
+def test_preflight_checks_future_effective_date_patient_collision():
+    from rehab_core.models import Therapist
+    source = [
+        BaseScheduleEntry("weekly:2", "DEMO-P", "ΦΘ", time(9, 15), "Δε", "T1"),
+        BaseScheduleEntry("weekly:3", "DEMO-P", "Εργο", time(11, 30), "Πε"),
+    ]
+    future_event = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", date(2026, 11, 26),
+        new_day_pattern="Δε-Πε",
+    )
+    proposed_earlier = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", date(2026, 11, 16),
+        new_start_time=time(11, 30),
+    )
+    with pytest.raises(RecurringTherapyChangeError, match="weekday patient-slot"):
+        prepare_validated_recurring_change(
+            source, baseline_date=START, change=proposed_earlier,
+            current_changes=[future_event],
+            therapists=[Therapist("T1", "Demo therapist")],
+        )
+
+
+def test_preflight_checks_future_effective_date_provider_capacity():
+    from rehab_core.models import Therapist
+    source = [
+        BaseScheduleEntry("weekly:2", "DEMO-P", "ΦΘ", time(9, 15), "Δε", "T1"),
+        BaseScheduleEntry("weekly:3", "OTHER-P", "ΦΘ", time(10, 15), "Πε", "T1"),
+    ]
+    future_event = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", date(2026, 11, 26),
+        new_day_pattern="Δε-Πε",
+    )
+    earlier_change = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", date(2026, 11, 16),
+        new_start_time=time(12, 15),
+    )
+    with pytest.raises(RecurringTherapyChangeError, match="Future change boundary"):
+        prepare_validated_recurring_change(
+            source, baseline_date=START, change=earlier_change,
+            current_changes=[future_event],
+            therapists=[Therapist("T1", "Demo therapist", max_daily_timeslots=1)],
+        )
