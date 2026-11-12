@@ -16,7 +16,7 @@ from .models import (
     Session,
     Therapist,
 )
-from .patient_schedule import validate_patient_cross_specialty_time
+from .patient_schedule import validate_daily_replacement_patient_slot
 from .provider_policy import ProviderPolicyBook
 from .replacement_policy import validate_policy_replacement_time
 
@@ -209,11 +209,10 @@ def propose_double_booking_exception(
     ):
         raise ValueError("Patient is not available at selected double-booking time")
 
-    validate_patient_cross_specialty_time(
-        patient_id=target_session.patient_id,
-        target_date=target_session.session_date,
-        target_time=replacement_time,
-        base_entries=base_entries_tuple,
+    validate_daily_replacement_patient_slot(
+        entries=base_entries_tuple,
+        target_session=target_session,
+        replacement_time=replacement_time,
     )
 
     if is_therapist_available(
