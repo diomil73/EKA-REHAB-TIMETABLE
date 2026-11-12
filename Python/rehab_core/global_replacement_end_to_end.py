@@ -123,6 +123,7 @@ def build_global_replacement_assignments(
                 timeslots=timeslots_tuple,
                 students=students_tuple,
                 student_assignments=student_assignments_tuple,
+                base_entries=base_entries_tuple,
             )
         else:
             options = find_policy_replacement_options(
