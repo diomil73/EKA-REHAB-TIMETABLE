@@ -78,3 +78,35 @@ def test_output_cannot_be_input_source(tmp_path):
     source, old, _ = create_inputs(tmp_path)
     with pytest.raises(TrialIdentityReviewError, match="overwrite"):
         create_local_identity_review(staging_path=source, old_demo_path=old, output_path=source)
+
+
+
+def test_review_suggestions_cannot_accidentally_open_admission_gate(tmp_path):
+    """A proposed old ID in G cannot count as approval of E/F."""
+    from rehab_excel.trial_admission_gate import evaluate_trial_admission
+    source, old, output = create_inputs(tmp_path)
+    wb = load_workbook(source)
+    proposed = wb.create_sheet("ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ")
+    proposed.append(["Κλινική", "Γραμμή", "Ασθενής", "Ειδικότητα",
+                     "Ημέρα", "Ώρα", "Θεραπευτής ΦΘ/Ρομποτ.",
+                     "Προαιρετικό όνομα", "Κελιά πηγής",
+                     "Αρχικό κείμενο", "Κατάσταση"])
+    proposed.append(["Α", 4, "ΑΣΘΕΝΗΣ ΕΝΑ", "ΦΘ", "ΔΕ", "09:15",
+                     "DEMO-T", None, "C4 / D4 / E4",
+                     "09.15 | ΔΕ | DEMO-T", "PROPOSED_EXACT_SOURCE"])
+    holds = wb.create_sheet("ΕΓΓΡΑΦΕΣ_ΠΡΟΣ_ΕΛΕΓΧΟ")
+    holds.append(["Γραμμή", "Κλινική", "Ασθενής", "Ειδικότητα",
+                  "Λόγος", "Αρχικά δεδομένα", "Κελιά"])
+    overlap = wb.create_sheet("ΕΠΙΚΑΛΥΨΕΙΣ")
+    overlap.append(["Γραμμή", "Κλινική", "Ασθενής", "Ημέρα",
+                    "Ώρα", "Ειδικότητες", "Κελιά"])
+    wb.save(source)
+    wb.close()
+    create_local_identity_review(
+        staging_path=source, old_demo_path=old, output_path=output,
+    )
+    result = evaluate_trial_admission(output)
+    assert result.verified_patient_ids == 0
+    assert result.admitted_entries == ()
+    assert not result.ready
+    assert any("lack explicit confirmation" in item for item in result.blockers)
