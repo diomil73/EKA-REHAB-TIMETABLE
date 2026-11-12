@@ -92,8 +92,8 @@ def test_export_opt_in_retains_default_history_only(monkeypatch, tmp_path):
         exporter,
         "read_patient_registry",
         lambda *args, **kwargs: [
-            type("Patient", (), {"patient_id": "1"})(),
-            type("Patient", (), {"patient_id": "15"})(),
+            type("Patient", (), {"patient_id": "1", "display_name": "SYNTHETIC ONE"})(),
+            type("Patient", (), {"patient_id": "15", "display_name": "SYNTHETIC FIFTEEN"})(),
         ],
     )
     default = tmp_path / "history.tsv"
@@ -107,7 +107,8 @@ def test_export_opt_in_retains_default_history_only(monkeypatch, tmp_path):
     lines = complete.read_text(encoding="utf-8-sig").splitlines()
     assert len(lines) == 3
     assert lines[2].split("\t") == [
-        "2026-10-30", "2026-10-30", "15", "0", "0", "0", "0", "0", "0"
+        "2026-10-30", "2026-10-30", "15", "SYNTHETIC FIFTEEN",
+        "0", "0", "0", "0", "0", "0", ""
     ]
 
 
