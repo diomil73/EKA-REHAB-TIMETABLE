@@ -5,6 +5,7 @@ from datetime import time
 from typing import Iterable
 
 from .models import (
+    BaseScheduleEntry,
     DailyAbsence,
     DailySessionCancellation,
     Patient,
@@ -99,6 +100,7 @@ def find_replacement_options(
     timeslots: Iterable[time] = (),
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
+    base_entries: Iterable[BaseScheduleEntry] | None = None,
 ) -> list[ReplacementProviderOption]:
     """Return ranked providers together with a recommended feasible timeslot."""
 
@@ -115,5 +117,6 @@ def find_replacement_options(
         timeslots=timeslots,
         students=students,
         student_assignments=student_assignments,
+        base_entries=base_entries,
     )
     return [_to_option(candidate, preferred_time) for candidate in candidates]
