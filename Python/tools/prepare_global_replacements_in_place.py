@@ -23,6 +23,7 @@ from rehab_core.double_booking_review import build_double_booking_review_items  
 from rehab_core.global_replacement_end_to_end import build_global_replacement_assignments  # noqa: E402
 from rehab_core.models import AbsenceKind, Therapist  # noqa: E402
 from rehab_core.reclining_adjacency import build_reclining_adjacency_penalty  # noqa: E402
+from rehab_core.patient_schedule import validate_daily_replacement_patient_slot  # noqa: E402
 from rehab_core.service_replacement_options import build_service_id_by_session  # noqa: E402
 from rehab_core.therapist_absence_queue import build_therapist_absence_replacement_queue  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
@@ -176,6 +177,29 @@ def prepare_global_replacements_payload(workbook_path: str | Path, payload_path:
         return {"ok": True, "mode": "already_resolved", "date": target_date.isoformat(), "normal_assignments": 0, "review_required": False, "review_items": 0, "suspensions": 0, "patch_count": 0, "application_contract_components": len(contract.component_names), "source_unchanged": True}
 
     result = build_global_replacement_assignments(targets, therapists=therapists, sessions=sessions, absences=daily.absences, patients=patients, replacements=existing, cancellations=daily.cancellations, timeslots=settings.standard_timeslots, students=students, adjacency_penalty=adjacency_penalty, policy_book=policy_book, base_entries=base_entries, service_hours=service_hours, service_id_by_session=service_id_by_session, replacement_id_factory=_replacement_id_factory(history, session_by_id), reason="DAILY_INPUT global therapist absence plan")
+    # Final fail-closed gate before emitting any VBA payload. Global planners
+    # can combine choices, so validate every selected exact day/time again.
+    for assignment in result.assignments:
+        target = session_by_id.get(assignment.target_session_id)
+        if target is None:
+            raise GlobalReplacementPreparationError(
+                "Global plan references an unknown daily target session"
+            )
+        if assignment.replacement_date != target.session_date:
+            raise GlobalReplacementPreparationError(
+                "Global replacement date differs from the target date"
+            )
+        try:
+            validate_daily_replacement_patient_slot(
+                entries=base_entries,
+                target_session=target,
+                replacement_time=assignment.replacement_time,
+            )
+        except ValueError as exc:
+            raise GlobalReplacementPreparationError(
+                "Global plan attempts an occupied patient timeslot"
+            ) from exc
+
     review_items = build_double_booking_review_items(result, sessions=sessions, therapists=therapists, patients=patients, absences=daily.absences, replacements=existing, cancellations=daily.cancellations, timeslots=settings.standard_timeslots, policy_book=policy_book, base_entries=base_entries)
     reviewable = tuple(item for item in review_items if item.has_options)
 
