@@ -123,3 +123,29 @@ def test_row_based_or_malformed_identity_is_never_persistent(identity):
 
 def test_stable_id_format():
     assert is_stable_assignment_id(P_ID)
+
+
+def test_duplicate_registry_id_is_rejected_even_if_only_one_key_requested(tmp_path):
+    path = _workbook(tmp_path)
+    from openpyxl import load_workbook
+    book = load_workbook(path)
+    book["RECURRING_ASSIGNMENT_IDS"].append([P_ID, "P-UNUSED", "ΦΘ"])
+    book.save(path)
+    book.close()
+    with pytest.raises(StableRecurringIdentityError, match="Duplicate immutable planner"):
+        bind_stable_assignment_ids(path, (
+            _entry("planner:2:ΦΘ", "P-1", "ΦΘ", 10),
+        ))
+
+
+def test_embedded_id_survives_row_insertion_when_entry_row_tracks_move(tmp_path):
+    path = _workbook(tmp_path)
+    from openpyxl import load_workbook
+    book = load_workbook(path)
+    ws = book["PROGRAM_WEEKLY_SLOTS"]
+    ws.insert_rows(2)
+    book.save(path)
+    book.close()
+    moved_entry = _entry("weekly:3", "P-2", "ΦΘ", 9)
+    result = bind_stable_assignment_ids(path, (moved_entry,))
+    assert result[0].base_entry_id == W_ID
