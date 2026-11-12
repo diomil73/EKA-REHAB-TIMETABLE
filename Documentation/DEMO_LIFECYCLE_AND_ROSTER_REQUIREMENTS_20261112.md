@@ -139,3 +139,14 @@ The first expanded CI audit (`3501485`) ran the **entire** Tests/ tree rather th
 - `5ee6781` updated a synthetic patient history fixture with required registry names and the current TSV schema, without weakening the operational fail-closed name checks.
 - `9f19a5e` split GitHub Actions into a separate **targeted safety gate** and a **complete legacy+current regression job** for independent, visible pass/fail status on Windows and Linux. The full job is intentionally NOT suppressed; its remaining failures are actionable backlog.
 No production workbook or patient data is pushed to CI.
+
+
+## 2026-11-12 — Complete-suite inventory after green safety gate
+The split CI run on Linux covered the entire current test tree: **1548 passed, 20 failed, 14 warnings**. The separate 79-case synthetic safety gate remained green on Linux and Windows. Full-suite failures grouped as:
+- H7 patient-history VBA display/layout: 2
+- H8 therapist-history mode/chart/labels: 4
+- native restore repair marker drift: 5 (do NOT patch production VBA blindly)
+- registration/global replacement action stage contract: 1
+- therapist-history VBA navigation/protection: 3
+- synthetic ReplacementProviderOption fixtures omitted now-required `active_timeslots`: 5
+The five fixture errors are test setup drift only and were corrected in `Tests/test_patient_schedule.py` (`f7a006a`) and `Tests/test_replacement_workflow.py` (`9e30fed`); this does NOT change the distinct-timeslot capacity engine. Newly queued CI will verify the impact. Dashboard and restore behavior remain red until verified; do not suppress, skip or force-pass these tests. The prior DAILY_INPUT status and patient history TSV fixture mismatches were reconciled based on current explicit contracts. No clinical source data committed.
