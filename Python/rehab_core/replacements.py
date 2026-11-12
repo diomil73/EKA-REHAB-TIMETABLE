@@ -10,6 +10,7 @@ from .availability import (
     is_therapist_available,
 )
 from .models import (
+    BaseScheduleEntry,
     DailyAbsence,
     DailySessionCancellation,
     Patient,
@@ -98,6 +99,7 @@ def find_replacement_candidates(
     timeslots: Iterable[time] = (),
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
+    base_entries: Iterable[BaseScheduleEntry] | None = None,
 ) -> list[ReplacementCandidate]:
     """Rank replacement providers using occupied timeslots as operational load.
 
@@ -136,6 +138,24 @@ def find_replacement_candidates(
             cancellations=cancellations,
         )
     )
+    if base_entries is not None:
+        # Effective weekday recurrence supplements materialized provider sessions,
+        # particularly specialties without a named provider. Exclude ONLY the
+        # exact recurring source appointment being replaced.
+        from .patient_schedule import daily_recurring_patient_conflicts
+
+        effective_entries = tuple(base_entries)
+        source_id = target_session.session_id.rsplit("@", 1)[0]
+        patient_usable_slots = tuple(
+            slot for slot in patient_usable_slots
+            if not daily_recurring_patient_conflicts(
+                entries=effective_entries,
+                patient_id=target_session.patient_id,
+                target_date=target_session.session_date,
+                target_time=slot,
+                target_base_entry_id=source_id,
+            )
+        )
     if not patient_usable_slots:
         return []
 
@@ -278,6 +298,7 @@ def create_replacement_assignment(
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
     patients: Iterable[Patient] = (),
+    base_entries: Iterable[BaseScheduleEntry] | None = None,
 ) -> ReplacementAssignment:
     """Validate and create a daily replacement overlay for therapist/student."""
 
@@ -350,6 +371,15 @@ def create_replacement_assignment(
         if student_workload.active_timeslots >= student.max_daily_timeslots:
             raise ValueError("Student has reached daily timeslot capacity")
         provider_kind = ReplacementProviderKind.STUDENT
+
+    if base_entries is not None:
+        from .patient_schedule import validate_daily_replacement_patient_slot
+
+        validate_daily_replacement_patient_slot(
+            entries=base_entries,
+            target_session=target_session,
+            replacement_time=target_time,
+        )
 
     if not is_patient_available(
         patient_id=target_session.patient_id,
