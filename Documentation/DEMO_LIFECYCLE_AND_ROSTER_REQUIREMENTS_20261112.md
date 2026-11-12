@@ -194,3 +194,14 @@ The **opt-in** identity contract is intentionally not installed/written into any
 Missing, duplicated or malformed identity in strict mode is a hard stop. Legacy preview default remains read-only and backward-compatible, but must NOT become a committed effective-dated event. `weekly:N`, `outpatient:N`, `planner:N:treatment` remain non-authoritative transient keys. Existing clinical workbooks are not migrated or overwritten.
 
 **Pending:** unique ID assignment needs a controlled one-time schema migration and independent persisted read-back on a distinct synthetic workbook; event-store and native Excel COM transaction with rollback and actual UI still **not implemented**. None of this preview work proves that a real permanent treatment change has been saved or accepted.
+
+
+## 2026-11-12 — Synthetic native recurring AssignmentID installer, awaiting local Excel acceptance
+
+Commits `27db1e5`, `e9af67f` implement and test a pure, in-memory migration plan. `ce1d784`, `bd690e2` implement one-shot native COM installation and synthetic-only preflight mocks. Cross-platform CI integration `e9d27b8` resulted in GitHub Actions run `43311751430`: **1,631/1,631 full tests** passed on each of Windows and Linux; targeted synthetic suites **167/167** on each. These results are tests with mocked COM, **not** live Microsoft Excel acceptance.
+
+The new installer `Python/tools/install_synthetic_recurring_ids_native.py` accepts ONLY the frozen `UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm` and a fresh, never-before-created synthetic `_DEMO_` destination. Before a single Excel Save on the COPY only, it verifies source H8 synthetic history, hashes source, generates opaque IDs, verifies ownership and free cells, refuses existing ID registry and occupied G metadata. After Save it independently reads source schedule and assigned stable IDs, verifies H8 history and VBA and unchanged source. No patient therapy is reprogrammed, no event is committed, no production source is touched. Any failure freezes the new candidate and must not be retried with the same path.
+
+Authoritative native PowerShell operator procedure:
+`Documentation/NATIVE_SYNTHETIC_RECURRING_ID_MIGRATION_20261112.md`.
+**Native migration result remains UNTESTED until the operator posts real PC output.**
