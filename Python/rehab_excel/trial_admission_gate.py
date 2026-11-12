@@ -27,6 +27,9 @@ SOURCE_PATIENT_SHEET = "ΑΣΘΕΝΕΙΣ"
 SOURCE_WEEKLY_SHEET = "ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"
 SOURCE_HOLDS_SHEET = "ΕΓΓΡΑΦΕΣ_ΠΡΟΣ_ΕΛΕΓΧΟ"
 SOURCE_OVERLAP_SHEET = "ΕΠΙΚΑΛΥΨΕΙΣ"
+SOURCE_SHARED_SHEET = "ΕΓΚΡΙΣΕΙΣ_ΚΟΙΝΩΝ_SLOTS"
+SHARED_HEADERS = ("Therapist", "Weekday", "StartTime", "PatientIDs", "Decision")
+SHARED_ACCEPTED = "APPROVED_SHARED"
 REQUIRED_SHEETS = frozenset({
     SOURCE_PATIENT_SHEET, SOURCE_WEEKLY_SHEET,
     SOURCE_HOLDS_SHEET, SOURCE_OVERLAP_SHEET,
@@ -166,24 +169,64 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
         if unadmitted:
             blockers.append(f"{unadmitted} weekly proposals cannot be admitted")
         if admitted:
-            # Never accept a provider in two different patient appointments at
-            # the same weekday/time. Distinct patients do not trigger the
-            # patient-slot overlap guard, so this independent gate is essential.
-            provider_slots: dict[tuple[str, str, object], str] = {}
-            provider_collisions: set[tuple[str, str, object]] = set()
+            # Explicit *exact membership* approval is required for shared
+            # therapist slots. Approved patient IDs are never stored in GitHub,
+            # and a partial/stale approval never admits additional patients.
+            actual_groups: dict[tuple[str, str, object], set[str]] = {}
+            names_by_key: dict[tuple[str, str, object], str] = {}
             for item in admitted:
-                if not item.therapist_name:
-                    continue  # Optional-provider specialty still blocks patient time.
-                provider_key = item.therapist_name.casefold()
-                key = (provider_key, item.weekday, item.start_time)
-                previous_patient = provider_slots.get(key)
-                if previous_patient is not None and previous_patient != item.patient_id:
-                    provider_collisions.add(key)
-                provider_slots[key] = item.patient_id
-            if provider_collisions:
-                blockers.append(
-                    f"{len(provider_collisions)} provider weekday/time double-bookings"
-                )
+                if item.therapist_name:
+                    key = (item.therapist_name.casefold(), item.weekday, item.start_time)
+                    actual_groups.setdefault(key, set()).add(item.patient_id)
+                    names_by_key[key] = item.therapist_name
+
+            approved: dict[tuple[str, str, object], frozenset[str]] = {}
+            if SOURCE_SHARED_SHEET in wb.sheetnames:
+                sheet = wb[SOURCE_SHARED_SHEET]
+                headers = tuple(sheet.cell(1, col).value for col in range(1, 6))
+                if headers != SHARED_HEADERS:
+                    blockers.append("Shared-slot approval sheet headers are invalid")
+                else:
+                    for approval_row, values in _data_rows(sheet, 5):
+                        provider, weekday, clock, ids, decision = values
+                        try:
+                            key = (_text(provider).casefold(), _text(weekday),
+                                   parse_clock(clock))
+                        except (ProgrammeMappingError, TypeError, ValueError):
+                            blockers.append(
+                                f"Shared-slot approval row {approval_row}: invalid time"
+                            )
+                            continue
+                        member_ids = [_text(x) for x in _text(ids).split("|")]
+                        if (
+                            not key[0] or key[1] not in WEEKDAYS
+                            or _text(decision) != SHARED_ACCEPTED
+                            or len(member_ids) < 2
+                            or any(not x for x in member_ids)
+                            or len(set(member_ids)) != len(member_ids)
+                            or key in approved
+                        ):
+                            blockers.append(
+                                f"Shared-slot approval row {approval_row}: invalid or duplicated approval"
+                            )
+                            continue
+                        approved[key] = frozenset(member_ids)
+            collisions = {
+                key: frozenset(members)
+                for key, members in actual_groups.items() if len(members) > 1
+            }
+            unapproved = sum(
+                1 for key, members in collisions.items()
+                if approved.get(key) != members
+            )
+            stale = sum(
+                1 for key, members in approved.items()
+                if collisions.get(key) != members
+            )
+            if unapproved:
+                blockers.append(f"{unapproved} unapproved shared provider weekday/time slots")
+            if stale:
+                blockers.append(f"{stale} stale or mismatched shared-slot approvals")
             try:
                 validate_weekly_entry_consistency(admitted)
             except ProgrammeMappingError:
