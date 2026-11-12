@@ -110,3 +110,26 @@ def test_review_suggestions_cannot_accidentally_open_admission_gate(tmp_path):
     assert result.admitted_entries == ()
     assert not result.ready
     assert any("lack explicit confirmation" in item for item in result.blockers)
+
+
+
+def test_inpatient_review_cannot_reuse_an_outpatient_identity(tmp_path):
+    """Even a perfectly matching name must not inherit an outpatient ID."""
+    source, old, output = create_inputs(tmp_path)
+    wb = load_workbook(old)
+    ws = wb["PATIENTS"]
+    ws.cell(1, 6).value = "PatientType"
+    ws.cell(2, 6).value = "Εξωτερικός"
+    wb.save(old)
+    wb.close()
+    counts = create_local_identity_review(
+        staging_path=source, old_demo_path=old, output_path=output,
+    )
+    assert counts["exact_unconfirmed_suggestions"] == 0
+    review = load_workbook(output, read_only=True, data_only=True)
+    try:
+        assert review["ΑΣΘΕΝΕΙΣ"]["G2"].value is None
+        assert review["ΑΣΘΕΝΕΙΣ"]["H2"].value == "NO_EXACT_OLD_MATCH"
+        assert review["ΑΣΘΕΝΕΙΣ"]["F2"].value == "ΕΚΚΡΕΜΕΙ"
+    finally:
+        review.close()
