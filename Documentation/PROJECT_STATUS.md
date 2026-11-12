@@ -1215,3 +1215,5 @@ Full instructions, three frozen artifact names, commands and contingencies: `Doc
 ## Added 2026-11-12: effective-dated event append planning (SOURCE ONLY)
 
 The read-only `recurring_change_append_plan.py` prepares an opaque new EventID against an exact stable AssignmentID and workbook SHA256. It verifies the existing ledger and strictly increasing per-assignment effective date and invokes the conservative shared capacity/patient collision preview. Added `Tests/test_recurring_change_append_plan.py` and cross-platform CI wiring. No patient treatments, existing event rows, source CC or frozen A files are modified. **Native event storage, transaction, rollback and UI remain OPEN**. Latest green CI baseline before this slice: 1646/1646 Windows/Linux; latest append-plan run must be independently verified. See `Documentation/AUTHORITATIVE_RESUME_20261112.md` for full safety and detailed resume.
+
+**Verified CI for read-only append plan:** `43314844755`, four jobs GREEN; 1,652 complete Python regressions on each of Windows and Linux, Ubuntu targeted synthetic 188 passed. Native append/rollback still pending.
