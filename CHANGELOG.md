@@ -119,3 +119,9 @@
 - Created `Documentation/AUTHORITATIVE_RESUME_20261112.md` as a complete current operating handoff and refreshed ONBOARDING, CURRENT_HANDOFF, PROJECT_STATUS, IMPLEMENTATION_MAP, DECISIONS and native evidence runbooks.
 - Outstanding: synthetic event append/save/reopen with compensation and full capacity validation, real-data staging identity/conflict clearance, and management reporting visual/privacy acceptance. Production MASTER and real-patient files remain unmodified by these works.
 
+
+
+## 2026-11-12 — Source-only permanent treatment event append proposal
+
+- Added `Python/rehab_excel/recurring_change_append_plan.py`: non-mutating SHA256-bound append preflight, existing event uniqueness/strict chronology and immutable AssignmentID ownership, using current event history plus approved per-provider limits.
+- Added isolated regression tests and Windows/Linux synthetic CI wiring. This does **not** write the event to Excel and does not implement native rollback or clinical import. Existing 179-ID synthetic native proof stays frozen.
