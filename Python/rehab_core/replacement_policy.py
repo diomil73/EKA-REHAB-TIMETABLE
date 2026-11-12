@@ -128,6 +128,7 @@ def find_policy_replacement_options(
         timeslots=timeslots,
         students=students,
         student_assignments=student_assignments,
+        base_entries=base_entries,
     )
 
     policy_filtered: list[ReplacementProviderOption] = []
