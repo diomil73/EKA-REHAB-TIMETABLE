@@ -205,3 +205,37 @@ The new installer `Python/tools/install_synthetic_recurring_ids_native.py` accep
 Authoritative native PowerShell operator procedure:
 `Documentation/NATIVE_SYNTHETIC_RECURRING_ID_MIGRATION_20261112.md`.
 **Native migration result remains UNTESTED until the operator posts real PC output.**
+
+
+## 2026-11-12 — Native 179-ID acceptance and read-only effective-dated event source
+
+Operator confirmed 42/42 focused Python tests and green native Excel COM
+migration to fresh isolated synthetic candidate A:
+`UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm`.
+179 immutable recurring AssignmentIDs were saved and independently read back;
+original CC unchanged; 25 synthetic days, 522 patient-session history rows,
+150 therapist-day rows, 150 attendance facts and 25 finalization events
+remained consistent. Candidate A is **FROZEN**, not a test mutation target.
+Evidence recorded in
+`Documentation/NATIVE_SYNTHETIC_RECURRING_ID_MIGRATION_20261112.md`
+at commit `78de466`.
+
+Implemented optional **read-only** schema reader
+`Python/rehab_excel/recurring_change_event_source.py`
+(commit `57e35b9`): `RECURRING_CHANGE_EVENTS` sheet, exact headers,
+stable AssignmentID ownership, unique opaque EventID, strictly ascending
+per-assignment effective dates, duplicate-date refusal, changed-field
+validation and historical date projection via existing core.
+Tests `Tests/test_recurring_change_event_source.py` cover old/new dates,
+multiple events, malformed and duplicated identities, chronology and
+non-mutating XLSX readback (commits `7bc30db`, `94a5941`).
+GitHub Actions run `43313086923` green on Linux and Windows:
+**1,646/1,646 full Python tests** on each platform; targeted synthetic
+Windows **182/182**. These are Python tests, not a native Excel event-write
+proof.
+
+**Boundary:** this adds no event sheet to the frozen candidate, performs
+no workbook write, provides no VBA action/rollback, and cannot approve a
+permanent clinical treatment change. Next implement a fresh synthetic-only
+event sheet installation, source-bound native transaction with independent
+readback and rollback, plus capacity guard over the entire effective schedule.
