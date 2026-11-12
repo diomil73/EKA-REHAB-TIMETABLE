@@ -132,3 +132,42 @@ def test_optional_weekly_source_replaces_planner_without_double_book(monkeypatch
     result = bridge.read_effective_base_entries(path)
     assert result == (weekly,)
     assert fake.closed
+
+
+
+def test_persistent_ready_preview_requires_stable_assignment_id(tmp_path, monkeypatch):
+    path = fixture_workbook(tmp_path, monkeypatch)
+    from rehab_excel.stable_recurring_ids import StableRecurringIdentityError
+    monkeypatch.setattr(
+        bridge, "bind_stable_assignment_ids",
+        lambda path, entries: (_ for _ in ()).throw(
+            StableRecurringIdentityError("No immutable IDs in source")
+        ),
+    )
+    with pytest.raises(StableRecurringIdentityError, match="immutable IDs"):
+        bridge.preview_recurring_change_from_excel(
+            path, baseline_date=BASELINE,
+            change=proposed(new_start_time=time(12, 15)),
+            expected_entry=BASE, provider_max_daily_slots=CAPACITIES,
+            require_stable_identity=True,
+        )
+
+
+def test_persistent_ready_preview_accepts_verified_stable_id(tmp_path, monkeypatch):
+    from dataclasses import replace
+    path = fixture_workbook(tmp_path, monkeypatch)
+    stable_id = "assignment:STABLE0000123456"
+    stable_entry = replace(BASE, base_entry_id=stable_id)
+    monkeypatch.setattr(
+        bridge, "bind_stable_assignment_ids",
+        lambda path, entries: (stable_entry, OTHER),
+    )
+    change = RecurringTherapyChange(
+        stable_id, "SYN-P", MOVE_DAY, new_start_time=time(12, 15),
+    )
+    preview = bridge.preview_recurring_change_from_excel(
+        path, baseline_date=BASELINE, change=change,
+        expected_entry=stable_entry, provider_max_daily_slots=CAPACITIES,
+        require_stable_identity=True,
+    )
+    assert preview.proposed.change.base_entry_id == stable_id
