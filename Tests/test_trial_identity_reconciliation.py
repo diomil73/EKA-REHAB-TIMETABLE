@@ -66,3 +66,13 @@ def test_normalization_handles_final_sigma_accents_and_space():
     assert normalize_patient_name("  ΆΣΘΕΝΗΣ   ΔΟΚΙΜΗ  ") == normalize_patient_name(
         "ασθενησ δοκιμη"
     )
+
+
+
+def test_ward_or_doctor_reassignment_does_not_change_exact_id_candidate():
+    # Source location identifies a snapshot row, never the patient's identity.
+    source = [PatientIdentity(38, "Β", "ΣΥΝΘΕΤΙΚΟΣ ΑΣΘΕΝΗΣ")]
+    history = [OldPatientIdentity("PERMANENT-ID-12", "ΣΥΝΘΕΤΙΚΟΣ ΑΣΘΕΝΗΣ")]
+    suggestion = suggest_identity_matches(source, history)[0]
+    assert suggestion.suggested_patient_id == "PERMANENT-ID-12"
+    assert suggestion.state == "EXACT_NAME_CANDIDATE_UNCONFIRMED"
