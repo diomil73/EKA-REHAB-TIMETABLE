@@ -162,3 +162,56 @@ def test_granular_therapist_replacement_cancels_legacy_missing_provider_audit(tm
         issue.code == "provider_entries_missing_therapist"
         for issue in result.issues
     )
+
+
+
+def test_same_specialty_different_days_different_times_survive_daily_projection(tmp_path):
+    """A patient's ΦΘ on Monday and Thursday must not collapse into one time."""
+    path = workbook_with_weekly_slots(
+        tmp_path,
+        weekly_rows=[
+            ("DEMO-P1", "ΦΘ", "ΔΕ", time(9, 15), "T-MON", "C12"),
+            ("DEMO-P1", "ΦΘ", "ΠΕ", time(12, 15), "T-THU", "C12"),
+        ],
+    )
+    source = read_base_schedule(path)
+    monday = materialize_sessions_for_date(source, date(2026, 11, 16))
+    thursday = materialize_sessions_for_date(source, date(2026, 11, 19))
+    tuesday = materialize_sessions_for_date(source, date(2026, 11, 17))
+    p1 = lambda sessions: [x for x in sessions if x.patient_id == "DEMO-P1"]
+    assert [(x.start_time, x.therapist_id) for x in p1(monday)] == [
+        (time(9, 15), "T-MON")
+    ]
+    assert [(x.start_time, x.therapist_id) for x in p1(thursday)] == [
+        (time(12, 15), "T-THU")
+    ]
+    assert p1(tuesday) == []
+
+
+def test_same_nonprovider_specialty_different_days_reserves_both_times(tmp_path):
+    """Optional therapist must not erase day-specific occupational appointments."""
+    from rehab_core.patient_schedule import nonprovider_patient_conflicts_on_date
+    path = workbook_with_weekly_slots(
+        tmp_path,
+        weekly_rows=[
+            ("DEMO-P1", "Εργο", "ΔΕ", time(8, 30), None, "G12"),
+            ("DEMO-P1", "Εργο", "ΠΕ", time(11, 30), None, "G12"),
+        ],
+    )
+    entries = read_base_schedule(path)
+    p1_occupational = [
+        x for x in entries if x.patient_id == "DEMO-P1" and x.treatment == "Εργο"
+    ]
+    assert len(p1_occupational) == 2
+    assert nonprovider_patient_conflicts_on_date(
+        entries=entries, patient_id="DEMO-P1",
+        target_date=date(2026, 11, 16), target_time=time(8, 30),
+    ) == (p1_occupational[0],)
+    assert nonprovider_patient_conflicts_on_date(
+        entries=entries, patient_id="DEMO-P1",
+        target_date=date(2026, 11, 19), target_time=time(11, 30),
+    ) == (p1_occupational[1],)
+    assert not nonprovider_patient_conflicts_on_date(
+        entries=entries, patient_id="DEMO-P1",
+        target_date=date(2026, 11, 19), target_time=time(8, 30),
+    )
