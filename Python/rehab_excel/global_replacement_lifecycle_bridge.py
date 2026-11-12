@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from rehab_core.global_replacement_end_to_end import GlobalReplacementAssignmentResult
-from rehab_core.models import ReplacementAssignment, Session
+from rehab_core.models import BaseScheduleEntry, ReplacementAssignment, Session
+from rehab_core.patient_schedule import validate_daily_replacement_patient_slot
 
 from .daily_replacement_facts import (
     DailyReplacementFactRow,
@@ -133,6 +134,7 @@ def persist_global_replacement_result(
     *,
     sessions: Iterable[Session],
     existing_active_replacements: Iterable[ReplacementAssignment] = (),
+    base_entries: Iterable[BaseScheduleEntry] | None = None,
     require_fully_resolved: bool = True,
     persistence_service: PersistenceService = append_daily_replacement_facts,
 ) -> GlobalReplacementPersistenceReport:
@@ -159,6 +161,30 @@ def persist_global_replacement_result(
         raise GlobalReplacementLifecycleError(
             "Global replacement plan is not finalized; unresolved request(s): " + unresolved
         )
+
+    # Re-check exact weekday recurring patient occupancy at the final
+    # persistence boundary, independent of planner/UI proposal filtering.
+    # Old synthetic callers may omit the source; the real workbook caller
+    # must provide the effective base + outpatient entries.
+    if batch.assignments_to_persist and base_entries is not None:
+        effective_entries = tuple(base_entries)
+        session_by_id = {session.session_id: session for session in session_tuple}
+        for assignment in batch.assignments_to_persist:
+            target = session_by_id.get(assignment.target_session_id)
+            if target is None or target.session_date != assignment.replacement_date:
+                raise GlobalReplacementLifecycleError(
+                    "Replacement target/date is missing or inconsistent"
+                )
+            try:
+                validate_daily_replacement_patient_slot(
+                    entries=effective_entries,
+                    target_session=target,
+                    replacement_time=assignment.replacement_time,
+                )
+            except ValueError as exc:
+                raise GlobalReplacementLifecycleError(
+                    "Replacement conflicts with patient's actual daily programme"
+                ) from exc
 
     if batch.assignments_to_persist:
         try:
