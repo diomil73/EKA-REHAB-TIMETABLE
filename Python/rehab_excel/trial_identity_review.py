@@ -34,7 +34,7 @@ class TrialIdentityReviewError(RuntimeError):
 SUGGESTION_HEADERS = ("Προτεινόμενο παλιό PatientID (όχι έγκριση)", "Κατάσταση αντιστοίχισης")
 EXPECTED_SOURCE_HEADERS = (
     "Γραμμή πηγής", "Κλινική", "Ασθενής (πηγή)",
-    "Θάλαμος", "Αντιστοίχιση PatientID", "Επιβεβαίωση",
+    "Θάλαμος/ιατρός (πηγή)", "Αντιστοίχιση PatientID", "Επιβεβαίωση",
 )
 
 
