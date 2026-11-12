@@ -12,6 +12,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+PYTHON_ROOT = Path(__file__).resolve().parents[1]
+if str(PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(PYTHON_ROOT))
 from zipfile import ZipFile
 
 from tools.prepare_native_probe_copy import create_probe_copy, _sha256
@@ -85,10 +88,12 @@ def native_write_reopen_proof(source: Path, output: Path, *, excel_client=None) 
             sheet.Range("A1").Value = PROBE_MARKER
             book.Save()
         finally:
-            if book is not None:
-                book.Close(SaveChanges=False)
-            if excel is not None:
-                excel.Quit()
+            try:
+                if book is not None:
+                    book.Close(SaveChanges=False)
+            finally:
+                if excel is not None:
+                    excel.Quit()
         excel = book = None
         try:
             phase = "native-reopen"
