@@ -9,7 +9,10 @@ def test_mode_highlight_persists_in_both_reports_after_buttons_are_recreated():
     ):
         assert f"Private Sub {name}" in code
         assert f"{name} ws, reportMode" in code
-        assert 'modes = Array("Daily", "Weekly", "Monthly", "Overall")' in code
+        if name == "HighlightPatientReportMode":
+            assert 'modes = Array("Daily", "Weekly", "Monthly", "Overall")' in code
+        else:
+            assert 'modes = Array("Today", "Yesterday", "Week", "Month", "Year", "Overall")' in code
         assert "RGB(37, 99, 170)" in code
         assert "RGB(255, 255, 255)" in code
         assert "RGB(236, 241, 247)" in code
@@ -30,8 +33,8 @@ def test_therapists_show_three_native_panels_in_single_row():
         assert f'ws.ChartObjects("{chart}").Delete' in src
     for segment in (('"A", "D"'), ('"E", "H"'), ('"I", "M"')):
         assert segment in src
-    assert 'chartWidth - 4, 100)' in src
-    assert 'chartWidth - 4, 90)' in src
+    assert 'chartWidth - 4, 88)' in src
+    assert 'chartWidth - 4, 108)' in src
     assert 'NewTherapistTrendChart' in src
     assert "plannedSessions, actualSessions" in src
     assert "plot.Chart.Axes(xlValue).MinimumScale = 0" in src
@@ -54,7 +57,7 @@ def test_workload_traffic_light_contract_is_explicit_and_never_looks_up_from_liv
 def test_absence_panel_marks_data_unavailable_instead_of_fabricating_zeros():
     src = THERAPIST_HISTORY_MODULE_CODE
     assert "Μη διαθέσιμο ιστορικό απουσιών / εργασίμων" in src
-    assert 'plot.Chart.ChartTitle.Text = "Παρουσίες / απουσίες"' in src
+    assert 'plot.Chart.ChartTitle.Text = "Παρουσίες"' in src
     assert "If finalizedDays <= 0 Then" in src
     assert "plot.Chart.SeriesCollection.NewSeries" in src
 
@@ -69,7 +72,7 @@ def test_patient_three_categories_are_planned_performed_absent_only():
 
 def test_therapist_load_title_omits_numeric_scale_without_removing_axis():
     src = THERAPIST_HISTORY_MODULE_CODE
-    assert 'plot.Chart.ChartTitle.Text = "Ασθενείς ανά ημέρα"' in src
+    assert 'plot.Chart.ChartTitle.Text = "Φόρτος" & IIf(' in src
     assert '"Ασθενείς / ημέρα (0-6)"' not in src
     assert "plot.Chart.Axes(xlValue).MinimumScale = 0" in src
     assert "Application.Max(6" in src
