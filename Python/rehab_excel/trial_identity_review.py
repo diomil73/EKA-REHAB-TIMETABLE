@@ -105,8 +105,12 @@ def create_local_identity_review(
     suggestions = suggest_identity_matches(patients, old_people)
     # Copy-first, then decorate only the new copy. E:F are never touched.
     output.parent.mkdir(parents=True, exist_ok=True)
+    created_by_this_call = False
     try:
-        with output.open("xb") as sink, source.open("rb") as original:
+        with output.open("xb") as sink:
+            created_by_this_call = True
+            with source.open("rb") as original:
+                shutil.copyfileobj(original, sink)
             shutil.copyfileobj(original, sink)
         if _sha256(source) != source_digest or _sha256(old) != old_digest:
             raise TrialIdentityReviewError("One of the identity sources changed during review")
@@ -140,5 +144,8 @@ def create_local_identity_review(
                 "exact_unconfirmed_suggestions": totals["EXACT_NAME_CANDIDATE_UNCONFIRMED"],
                 "requires_individual_review": len(suggestions) - totals["EXACT_NAME_CANDIDATE_UNCONFIRMED"]}
     except Exception:
-        output.unlink(missing_ok=True)
+        # An atomic 'xb' failure means another writer owns this path.
+        # NEVER delete that other file on our way out.
+        if created_by_this_call:
+            output.unlink(missing_ok=True)
         raise
