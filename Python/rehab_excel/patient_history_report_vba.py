@@ -121,6 +121,7 @@ Private Sub RenderPatientHistory(ByVal reportMode As String)
 
     ws.Range("A1").Value2 = "Ιστορικό / Στατιστικά Ασθενών"
     ws.Range("A2").Value2 = ModeDescription(reportMode) & _
+        " | Τρέχον μητρώο: χωρίς συνεδρία = 0" & _
         " | Συμμετοχή = πραγματοποιημένες / προγραμματισμένες | επιλέξτε γραμμή για ατομικό γράφημα"
     ws.Range("A22:J22").Value = Array( _
         "Από", "Έως", "Ονοματεπώνυμο", "Οριστ. ημέρες", "Προγρ. συνεδρίες", _
