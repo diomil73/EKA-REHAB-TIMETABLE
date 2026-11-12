@@ -17,6 +17,7 @@ from typing import Iterable
 
 from openpyxl import load_workbook
 
+from rehab_core.models import PatientType
 from .patient_registry_source import read_patient_registry
 from .trial_identity_reconciliation import (
     OldPatientIdentity,
@@ -74,6 +75,7 @@ def create_local_identity_review(
     old_people = tuple(
         OldPatientIdentity(person.patient_id, person.display_name)
         for person in read_patient_registry(old)
+        if person.patient_type == PatientType.INPATIENT
     )
     source_book = load_workbook(source, read_only=True, data_only=True)
     try:
