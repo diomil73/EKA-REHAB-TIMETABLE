@@ -131,3 +131,11 @@ Without requiring an extra "OK", implemented `prepare_validated_recurring_change
 `Tests/test_recurring_therapy_changes.py` updated (`44bc34d`) with five synthetic safe/blocking scenarios. **Not run yet.** This does NOT replace the final Excel native COM transaction or clinician approval.
 
 Also fixed a privacy/safety race in `trial_identity_review.py` (`ef61672`): if an unrelated process exclusively creates the proposed output between the existence check and the atomic open, our error handler must **not delete that other process's file**. Added synthetic race regression (`f9106e4`). New identity review tests also await execution.
+
+
+## 2026-11-12 — Automated complete Python regression audit
+The first expanded CI audit (`3501485`) ran the **entire** Tests/ tree rather than only 79 synthetic safety tests. Ubuntu stopped at 10 reported failures after **714 passes** (12 suppressed warnings, 6.78 s). Windows also reported complete-suite failure. These are **not** failures of the new 79-test safety subset, which remained green. Failure groups include: a stale DAILY_INPUT cancellation options assertion; patient history UI fixture missing the newly mandatory display name; patient and therapist dashboard VBA tests asserting older page layouts/modes; and the native restore repair script expecting a declaration marker no longer found. The last group requires a real code audit before any native write. Do not retroactively declare the whole suite green or silently disable failures.
+- `eab7ad9` aligned one legacy test with three explicit daily cancellation/suspension statuses.
+- `5ee6781` updated a synthetic patient history fixture with required registry names and the current TSV schema, without weakening the operational fail-closed name checks.
+- `9f19a5e` split GitHub Actions into a separate **targeted safety gate** and a **complete legacy+current regression job** for independent, visible pass/fail status on Windows and Linux. The full job is intentionally NOT suppressed; its remaining failures are actionable backlog.
+No production workbook or patient data is pushed to CI.
