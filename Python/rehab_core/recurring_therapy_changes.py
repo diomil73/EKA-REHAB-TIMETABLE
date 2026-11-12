@@ -195,7 +195,7 @@ def prepare_validated_recurring_change(
     return ValidatedRecurringChangePreview(
         change=change,
         effective_entries=future,
-        affected_weekdays=tuple(sorted(day.value for day in parse_day_pattern(
+        affected_weekdays=tuple(sorted(day.name for day in parse_day_pattern(
             modified.day_pattern
         ))),
     )
