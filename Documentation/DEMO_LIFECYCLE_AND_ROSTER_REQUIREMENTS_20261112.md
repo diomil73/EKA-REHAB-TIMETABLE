@@ -120,3 +120,14 @@ Implemented pure date-effective primitives:
 - `Python/rehab_core/recurring_therapy_changes.py` (`f73f141`) models separately **permanent effective-dated** therapist/time/weekday changes for an exact recurring assignment, preserving the base ID and previous-day materialization. This is independent of **one-day replacement overlays**; it does not silently reschedule multiple weekday-specific entries together. Tests `Tests/test_recurring_therapy_changes.py` (`8d15ef7`).
 - `Tests/test_trial_identity_reconciliation.py` (`cbf6126`) explicitly checks a change of clinic/source row cannot invalidate the unique candidate's stable old ID.
 **New tests have NOT yet been executed.** These are pure rules only; Excel registry persistence, point-in-time placement history snapshots, UI actions, patient/therapist capacity checks for permanent therapy changes, and controlled COM read-back remain to be integrated. Do not claim earlier finalized daily reports contain historical room/doctor unless the actual snapshot has such fields.
+
+
+## 2026-11-12 — Permanent therapy-change preflight, no operator checkpoint
+Without requiring an extra "OK", implemented `prepare_validated_recurring_change` in `Python/rehab_core/recurring_therapy_changes.py` (`4246128`, `21e764e`). This is a **pure proposal guard**, not a write/apply operation:
+1. Project all current effective-dated changes and the proposed edit at its effective date while retaining the immutable baseline recurrence and PatientID.
+2. Fail closed on any same-patient/same-weekday/same-time treatment collision.
+3. For named providers, require an existing therapist and reuse `check_permanent_assignment` across **every** affected weekday for provider collision and distinct timeslot capacity. Unapproved same-slot group changes need explicit reassessment and are not silently admitted.
+4. Require a therapist on ΦΘ/Ρομποτικό; keep provider-optional specialties independent. Return an explicit proposed projection with affected weekdays.
+`Tests/test_recurring_therapy_changes.py` updated (`44bc34d`) with five synthetic safe/blocking scenarios. **Not run yet.** This does NOT replace the final Excel native COM transaction or clinician approval.
+
+Also fixed a privacy/safety race in `trial_identity_review.py` (`ef61672`): if an unrelated process exclusively creates the proposed output between the existence check and the atomic open, our error handler must **not delete that other process's file**. Added synthetic race regression (`f9106e4`). New identity review tests also await execution.
