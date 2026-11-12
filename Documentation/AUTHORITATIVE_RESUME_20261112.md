@@ -94,3 +94,10 @@ For the entire regression, separately run `python -m pytest Tests -q --disable-w
 When these disagree, the newest dated **operator-confirmed evidence** and this handoff supersede older planned instructions; do not silently rewrite old historical observations. Every new context should first read `ONBOARDING.md`, then THIS file, then `CURRENT_HANDOFF.md` and the relevant subsystem runbook.
 
 **Status when this file was created:** 179-ID native migration confirmed; event source READ-ONLY; NO native event append or rollback proven. No new user action requested.
+
+
+## 9. Subsequent source-only checkpoint: strict recurring-event append plan
+
+After the 1,646-case validated event reader, committed `Python/rehab_excel/recurring_change_append_plan.py` (`a0791a3`) and `Tests/test_recurring_change_append_plan.py` (`3a44486`) with cross-platform CI wiring (`38b3b28`). This is a **read-only** in-memory candidate for one effective-dated event. It verifies immutable AssignmentID, exact expected BaseScheduleEntry, existing event IDs and ledger schema, strict later-than-existing effective date for the same assignment, and invokes `preview_recurring_change_from_excel(..., require_stable_identity=True)` with the actual current event history and explicitly supplied therapist capacities. It records source SHA256 and provides `verify_unchanged_source` for a future transaction. It never creates a workbook, appends an Excel row, saves, executes VBA, approves a clinical change or makes history authoritative.
+
+**Next gate:** inspect full GitHub Actions results for the latest source commit, repair any failed case before proceeding. Then add tests proving source changes while parsing, bad existing event ledger schema/row gaps, same-date collision, actual 4-slot capacity and future effective-date conflict, and only after that implement a NEW synthetic-only unique output native append + independent readback. Frozen A files and original CC may not be changed. This newer checkpoint supersedes the earlier "no append plan" statement; it does **not** supersede any native-success evidence.
