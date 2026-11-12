@@ -28,6 +28,7 @@ from rehab_core.recurring_therapy_changes import (
 from .outpatient_schedule_source import read_unified_base_schedule
 from .patient_registry_source import read_patient_registry
 from .reader import read_settings
+from .stable_recurring_ids import bind_stable_assignment_ids, is_stable_assignment_id
 from .weekly_slots_source import SHEET_NAME, overlay_weekly_entries, read_weekly_slots_sheet
 
 
@@ -82,6 +83,7 @@ def preview_recurring_change_from_excel(
     expected_entry: BaseScheduleEntry,
     provider_max_daily_slots: Mapping[str, int],
     current_changes: Iterable[RecurringTherapyChange] = (),
+    require_stable_identity: bool = False,
 ) -> RecurringExcelPreview:
     """Read, verify stale-edit fingerprint, preflight, and verify unchanged bytes.
 
@@ -96,6 +98,12 @@ def preview_recurring_change_from_excel(
     before = _digest(workbook)
     try:
         entries = read_effective_base_entries(workbook)
+        if require_stable_identity:
+            entries = bind_stable_assignment_ids(workbook, entries)
+            if not is_stable_assignment_id(change.base_entry_id):
+                raise RecurringExcelPreviewError(
+                    "Persistent proposal requires immutable assignment ID"
+                )
         matching = [entry for entry in entries
                     if entry.base_entry_id == expected_entry.base_entry_id]
         if len(matching) != 1 or matching[0] != expected_entry:
