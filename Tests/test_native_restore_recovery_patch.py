@@ -5,6 +5,7 @@ from rehab_excel.daily_input_action_vba import DAILY_INPUT_MODULE_CODE
 from rehab_excel.operator_visibility_patch_vba import (
     patch_daily_input_patient_status_visibility,
     patch_daily_input_workload_visibility,
+    patch_daily_input_rich_text_strike_contract,
 )
 from tools.patch_native_restore_recovery import (
     NativeRestoreRecoveryPatchError,
@@ -59,6 +60,7 @@ def test_ledger_refresh_replacement_tolerates_crlf():
 
 def test_master_status_normalization_clears_character_level_strike_through():
     daily = patch_daily_input_workload_visibility(DAILY_INPUT_MODULE_CODE)
+    daily = patch_daily_input_rich_text_strike_contract(daily)
     daily = patch_daily_input_patient_status_visibility(daily)
     patched = patch_daily_input_status_rich_text(daily)
     # Current canonical VBA uses a scoped, tested character-level helper.
