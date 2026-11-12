@@ -61,11 +61,10 @@ def test_master_status_normalization_clears_character_level_strike_through():
     daily = patch_daily_input_workload_visibility(DAILY_INPUT_MODULE_CODE)
     daily = patch_daily_input_patient_status_visibility(daily)
     patched = patch_daily_input_status_rich_text(daily)
-    assert "master.Cells(row, statusCol).Font.Strikethrough = False" in patched
-    assert (
-        "master.Cells(row, statusCol).Characters(1, "
-        "Len(CStr(master.Cells(row, statusCol).Value))).Font.Strikethrough = False"
-    ) in patched
+    # Current canonical VBA uses a scoped, tested character-level helper.
+    # The legacy one-line repair must not duplicate or override that helper.
+    assert "ApplyCharacterStrike master.Cells(row, statusCol), False" in patched
+    assert "cell.Characters(1, textLength).Font.Strikethrough = enabled" in patched
 
 
 def test_rich_text_verification_tolerates_com_spacing_and_line_continuation():
