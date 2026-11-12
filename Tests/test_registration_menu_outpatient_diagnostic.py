@@ -29,4 +29,4 @@ def test_canonical_registration_build_verifies_global_replacement_action():
 
     assert "GLOBAL_REPLACEMENT_MODULE_NAME" in source
     assert '("verifying global replacement action", GLOBAL_REPLACEMENT_MODULE_NAME' in source
-    assert "vbproject.VBComponents(GLOBAL_REPLACEMENT_MODULE_NAME)" in source
+    assert "vbproject.VBComponents(component_name)" in source
