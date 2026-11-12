@@ -1602,3 +1602,10 @@ Canonical synthetic source remains `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20
 
 **Safe source tests** from repository root on Windows (no Excel needed): `python -m pytest Tests/test_recurring_therapy_changes.py Tests/test_recurring_change_preview.py Tests/test_stable_recurring_ids.py Tests/test_recurring_id_migration_plan.py Tests/test_install_synthetic_recurring_ids_native.py Tests/test_recurring_change_event_source.py -q`. Full suite: `python -m pytest Tests -q --disable-warnings --maxfail=35`. Always first `git pull --ff-only origin work/history-statistics-rebuild`; if it fails, stop. Never execute historical native runbooks again using existing filenames. After any failure freeze the candidate and use a new name after a code fix. No current operator task is requested.
 
+
+
+## AUTHORITATIVE APPEND-PLAN CHECKPOINT — 2026-11-12 (most recent)
+
+Follow `Documentation/AUTHORITATIVE_RESUME_20261112.md` for full operator rules, frozen files and private-data boundaries. New source-only append-plan commits: `a0791a3` core `recurring_change_append_plan.py`; `3a44486` regression tests; `38b3b28` GitHub Linux/Windows CI integration. The planner binds a candidate EventID to immutable AssignmentID, previously observed schedule entry, current event history, strict append chronology and source SHA256. No workbook write has been implemented or permitted.
+
+Do NOT run the prior native Excel A runbooks again. Do NOT claim this plan is a native Excel event append or verified rollback. Exact source test command from repo root: `python -m pytest Tests/test_recurring_change_append_plan.py Tests/test_recurring_change_event_source.py Tests/test_recurring_change_preview.py Tests/test_recurring_therapy_changes.py -q`. Stop on failure; review latest workflow `diomil-synthetic-safety.yml` and report both Windows/Linux complete-regression results. Next: close any test gaps, establish a fresh synthetic-exclusive native event append write/readback/rollback design. The validated earlier operator outcome remains 179 IDs and unchanged original CC.
