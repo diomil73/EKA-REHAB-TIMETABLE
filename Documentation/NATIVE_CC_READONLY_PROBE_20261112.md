@@ -70,3 +70,21 @@ suffix after a source fix.
 daily slots or import approval. A separate write-capable smoke on another
 fresh, synthetic-only preview and native reopen/readback will be required before
 functional demo acceptance.
+
+
+## CURRENT SAFETY NOTE (2026-11-12)
+
+This historical native command has **already completed** on the operator's
+Windows machine (see `Documentation/AUTHORITATIVE_RESUME_20261112.md`).
+Its output A is accepted and FROZEN. **DO NOT RUN THIS SCRIPT AGAIN** against
+the same output filename, do not overwrite/repair/delete it, and do not treat
+this proof as permission to modify MASTER, CC, clinical data or permanent
+therapy event history.
+
+To resume development, start with `Documentation/ONBOARDING.md` and
+`Documentation/AUTHORITATIVE_RESUME_20261112.md`. For a NEW native scenario
+first implement source/tests, select a never-before-used synthetic candidate,
+use one complete fail-closed PowerShell scriptblock and independently verify
+history, VBA, source hashes and actual persisted semantics. On any failure
+freeze that candidate and record the exact first safety error; do not retry
+the same artifact.
