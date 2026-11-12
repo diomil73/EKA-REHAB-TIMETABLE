@@ -60,5 +60,8 @@ jobs:
           cache: pip
       - name: Install Python test dependencies
         run: python -m pip install 'openpyxl>=3.1,<4' pytest
+      - name: Install Windows COM import stubs/runtime for mocked unit tests
+        if: runner.os == 'Windows'
+        run: python -m pip install 'pywin32>=306'
       - name: Run entire regression suite and show legacy-contract failures
         run: python -m pytest Tests -q --disable-warnings --maxfail=35
