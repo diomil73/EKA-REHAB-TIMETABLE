@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-11-04
+Last updated: 2026-11-12
 
 ## Mandatory read order for any new conversation or developer
 
@@ -1585,3 +1585,20 @@ Source-only improvements made, **no new native proof**:
 - Fresh installer now **BY only**, source/test `fb5186e` / `5d898ee`. GitHub static check showed all 32 VBA installed-marker fragments present. **Do not claim any BY native success or latest pytest results: NOT EXECUTED.** Frozen green BX still older look; failed/frozen BV, BW; BO and BU untouched. Next operator gate only fresh BY.
 - User requested directly copyable `powershell` blocks in chat and automatic continued source/docs work, not standalone links.
 - User screenshot of exported XLSX from prior build is NOT the new layout and must not be overwritten/reused as native verification. The new exporter must write to a different never-before-existing filename and pass its own inspect/share-safe check before sending to management.
+
+
+## AUTHORITATIVE LATEST RESUME — 2026-11-12 (this supersedes ALL earlier "next" commands)
+
+The canonical full recovery/operator handbook is `Documentation/AUTHORITATIVE_RESUME_20261112.md`. **Read it next.** Last operator output: focused tests **42 passed in 3.06s**, native synthetic recurring identity migration **179 IDs verified**, original frozen CC unchanged, synthetic H8 history unchanged (25 days/522 patient-session rows/150 therapist days/150 attendance facts/25 finalization events). Recorded at `Documentation/NATIVE_SYNTHETIC_RECURRING_ID_MIGRATION_20261112.md` commit `78de466`.
+
+Three frozen successful native proofs, never overwrite, re-run, or use for further modification:
+1. `Excel/previews/UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm`
+2. `Excel/previews/UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm`
+3. `Excel/previews/UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm`
+
+Canonical synthetic source remains `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm` and stays immutable. GitHub `work/history-statistics-rebuild` latest verified code run `43313086923`: **1646/1646 full Python tests on each Windows/Linux**, targeted Windows **182/182**. Both verify Python and mock COM only, **not** native Excel event writing.
+
+`Python/rehab_excel/recurring_change_event_source.py` now implements a strict read-only optional effective-dated `RECURRING_CHANGE_EVENTS` schema. No event has been saved on actual Excel, no permanent therapy change/rollback native proof or UI exists. The current work is to build a separate synthetic-only event append plan and then native one-shot Save/reopen/rollback on a NEW output path; do not reuse any frozen A. Real-patient transfer/admission stays blocked by unresolved identities, held cells and shared-slot conflicts; do not publish real trial MASTER. See full exact workflow, source files, safety guards, privacy, what remains and commands in `AUTHORITATIVE_RESUME_20261112.md`.
+
+**Safe source tests** from repository root on Windows (no Excel needed): `python -m pytest Tests/test_recurring_therapy_changes.py Tests/test_recurring_change_preview.py Tests/test_stable_recurring_ids.py Tests/test_recurring_id_migration_plan.py Tests/test_install_synthetic_recurring_ids_native.py Tests/test_recurring_change_event_source.py -q`. Full suite: `python -m pytest Tests -q --disable-warnings --maxfail=35`. Always first `git pull --ff-only origin work/history-statistics-rebuild`; if it fails, stop. Never execute historical native runbooks again using existing filenames. After any failure freeze the candidate and use a new name after a code fix. No current operator task is requested.
+
