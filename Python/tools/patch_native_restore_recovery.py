@@ -188,11 +188,12 @@ def patch_daily_change_ledger_code(code: str) -> str:
         "    Dim changeId As String\n"
         "    Dim previousEvents As Boolean, previousScreenUpdating As Boolean"
     )
-    if declaration_marker not in normalized:
+    if declaration_marker in normalized:
+        normalized = normalized.replace(declaration_marker, declaration_replacement, 1)
+    elif "    Dim changeId As String" not in normalized:
         raise NativeRestoreRecoveryPatchError(
             "daily-change restore declaration marker not found"
         )
-    normalized = normalized.replace(declaration_marker, declaration_replacement, 1)
 
     apply_pattern = re.compile(
         r'(?m)^\s*If Not ApplyPayloadFileInPlace\(patchPath,\s*"daily-change restore"\) Then\s*Err\.Raise vbObjectError \+ 2836, , "Restore patch apply failed"\s*$'
@@ -202,9 +203,12 @@ def patch_daily_change_ledger_code(code: str) -> str:
     )
     normalized, apply_count = apply_pattern.subn(apply_replacement, normalized, count=1)
     if apply_count != 1:
-        raise NativeRestoreRecoveryPatchError(
-            "daily-change restore apply marker not found semantically"
-        )
+        # Newer canonical ledger VBA already calls the validated daily-input
+        # transaction directly. A recovery patch must not regress it.
+        if "If Not ApplyValidatedDailyInputPayload(patchPath) Then" not in normalized:
+            raise NativeRestoreRecoveryPatchError(
+                "daily-change restore apply marker not found semantically"
+            )
 
     if "ApplyPayloadFileInPlace" in normalized:
         raise NativeRestoreRecoveryPatchError(
@@ -230,6 +234,15 @@ def patch_daily_input_status_rich_text(code: str) -> str:
         "Len(CStr(master.Cells(row, statusCol).Value))).Font.Strikethrough = False"
     )
     if normalized.count(marker) != 1:
+        # The modern visibility patch uses ApplyCharacterStrike, whose
+        # implementation writes character-level strike state and verifies it.
+        # Keep that canonical helper instead of inserting a duplicate reset.
+        if (
+            "Private Sub ApplyCharacterStrike(ByVal cell As Range, ByVal enabled As Boolean)" in normalized
+            and "cell.Characters(1, textLength).Font.Strikethrough = enabled" in normalized
+            and "ApplyCharacterStrike master.Cells(row, statusCol), False" in normalized
+        ):
+            return normalized
         raise NativeRestoreRecoveryPatchError(
             "MASTER status normalization marker not found exactly once"
         )
