@@ -193,3 +193,53 @@ def test_preview_workflow_may_explicitly_persist_partial_plan_when_requested():
     assert report.persisted_fact_count == 1
     assert report.persisted_replacement_ids == ("R-A",)
     assert report.unresolved_request_ids == ("B",)
+
+
+def test_persistence_blocks_weekday_patient_conflict_before_writer():
+    from rehab_core.models import BaseScheduleEntry
+    target = _session("weekly:2@2026-10-21", "P-A", "ABSENT", 9)
+    result = GlobalReplacementAssignmentResult(
+        assignments=(_replacement("R1", target, "T2", 10),),
+        unresolved_request_ids=(),
+    )
+    entries = [
+        BaseScheduleEntry("weekly:2", "P-A", "ΦΘ", time(9), "Τε", "ABSENT"),
+        BaseScheduleEntry("weekly:3", "P-A", "Εργο", time(10), "Τε"),
+    ]
+    calls = []
+
+    def writer(*args, **kwargs):
+        calls.append(True)
+        return 1
+
+    with pytest.raises(GlobalReplacementLifecycleError, match="actual daily programme"):
+        persist_global_replacement_result(
+            "preview.xlsm", result, sessions=[target],
+            base_entries=entries, persistence_service=writer,
+        )
+    assert calls == []
+
+
+def test_persistence_allows_other_weekday_appointment_without_interference():
+    from rehab_core.models import BaseScheduleEntry
+    target = _session("weekly:2@2026-10-21", "P-A", "ABSENT", 9)
+    result = GlobalReplacementAssignmentResult(
+        assignments=(_replacement("R1", target, "T2", 10),),
+        unresolved_request_ids=(),
+    )
+    entries = [
+        BaseScheduleEntry("weekly:2", "P-A", "ΦΘ", time(9), "Τε", "ABSENT"),
+        BaseScheduleEntry("weekly:3", "P-A", "Εργο", time(10), "Πε"),
+    ]
+    calls = []
+
+    def writer(path, replacements, *, sessions):
+        calls.append(True)
+        return len(tuple(replacements))
+
+    report = persist_global_replacement_result(
+        "preview.xlsm", result, sessions=[target],
+        base_entries=entries, persistence_service=writer,
+    )
+    assert calls == [True]
+    assert report.persisted_fact_count == 1
