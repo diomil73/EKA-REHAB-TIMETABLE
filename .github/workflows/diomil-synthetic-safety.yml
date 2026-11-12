@@ -41,3 +41,6 @@ jobs:
           Tests/test_inpatient_placement.py
           Tests/test_recurring_therapy_changes.py
           -q
+
+      - name: Run complete Python regression suite
+        run: python -m pytest Tests -q --disable-warnings --maxfail=10
