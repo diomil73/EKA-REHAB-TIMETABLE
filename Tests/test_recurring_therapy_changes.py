@@ -8,6 +8,7 @@ from rehab_core.recurring_therapy_changes import (
     RecurringTherapyChange, RecurringTherapyChangeError,
     materialize_effective_sessions, recurring_entries_on_date,
     validate_effective_weekly_patient_slots,
+    prepare_validated_recurring_change,
 )
 
 START = date(2026, 11, 1)
@@ -150,3 +151,76 @@ def test_patient_collision_detected_on_other_weekday_not_just_target_date():
     ]
     with pytest.raises(RecurringTherapyChangeError, match="weekday patient-slot"):
         validate_effective_weekly_patient_slots(source)
+
+
+
+def test_preflight_accepts_safe_future_therapist_and_clock_move():
+    from rehab_core.models import Therapist
+    change = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", CHANGE_DAY,
+        new_therapist_id="NEW-T", new_start_time=time(12, 15),
+    )
+    preview = prepare_validated_recurring_change(
+        entries(), baseline_date=START, change=change,
+        therapists=[Therapist("NEW-T", "Demo therapist", max_daily_timeslots=6)],
+    )
+    assert preview.change is change
+    assert preview.effective_entries[0].therapist_id == "NEW-T"
+    assert preview.affected_weekdays == ("MONDAY", "THURSDAY")
+
+
+def test_preflight_rejects_provider_collision_on_thursday_only():
+    from rehab_core.models import Therapist
+    source = entries() + [
+        BaseScheduleEntry("weekly:4", "OTHER-P", "ΦΘ", time(12, 15),
+                          "Πε", "NEW-T")
+    ]
+    change = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", CHANGE_DAY,
+        new_therapist_id="NEW-T", new_start_time=time(12, 15),
+    )
+    with pytest.raises(RecurringTherapyChangeError, match="therapist collision"):
+        prepare_validated_recurring_change(
+            source, baseline_date=START, change=change,
+            therapists=[Therapist("NEW-T", "Demo therapist", max_daily_timeslots=6)],
+        )
+
+
+def test_preflight_rejects_therapist_daily_capacity_increase():
+    from rehab_core.models import Therapist
+    source = entries() + [
+        BaseScheduleEntry("weekly:4", "OTHER-P", "ΦΘ", time(8, 15), "Πε", "NEW-T"),
+        BaseScheduleEntry("weekly:5", "THIRD-P", "ΦΘ", time(10, 15), "Πε", "NEW-T"),
+    ]
+    change = RecurringTherapyChange(
+        "weekly:2", "DEMO-P", CHANGE_DAY,
+        new_therapist_id="NEW-T", new_start_time=time(12, 15),
+    )
+    with pytest.raises(RecurringTherapyChangeError, match="capacity excess"):
+        prepare_validated_recurring_change(
+            source, baseline_date=START, change=change,
+            therapists=[Therapist("NEW-T", "Demo therapist", max_daily_timeslots=2)],
+        )
+
+
+def test_preflight_rejects_unknown_new_therapist():
+    with pytest.raises(RecurringTherapyChangeError, match="unknown therapist"):
+        prepare_validated_recurring_change(
+            entries(), baseline_date=START,
+            change=RecurringTherapyChange(
+                "weekly:2", "DEMO-P", CHANGE_DAY, new_therapist_id="UNREGISTERED"
+            ),
+        )
+
+
+def test_preflight_detects_patient_collision_on_second_weekday():
+    from rehab_core.models import Therapist
+    with pytest.raises(RecurringTherapyChangeError, match="weekday patient-slot"):
+        prepare_validated_recurring_change(
+            entries(), baseline_date=START,
+            change=RecurringTherapyChange(
+                "weekly:2", "DEMO-P", CHANGE_DAY,
+                new_start_time=time(11, 30),
+            ),
+            therapists=[Therapist("OLD-T", "Demo therapist")],
+        )
