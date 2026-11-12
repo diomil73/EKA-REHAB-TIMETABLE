@@ -176,3 +176,11 @@ For local operators, *after closing Excel and choosing a detached copy*:
 python Python/tools/probe_native_excel_readonly.py --isolated-copy "<approved-detached-trial-copy.xlsm>"
 ```
 Stop immediately on a nonzero exit or SHA mismatch. No permission to write the original CC, production MASTER or real clinical roster is implied.
+
+
+## 2026-11-12 — Read-only workbook recurring-change bridge
+Following operator-confirmed synthetic CC native save/reopen A proof (`Documentation/NATIVE_CC_SYNTHETIC_SAVE_REOPEN_20261112.md`), added `Python/rehab_excel/recurring_change_preview.py` (`e7e79c2`). It joins the actual `PATIENTS` registry, unified `PATIENT_PLANNER` + `OUTPATIENT_SCHEDULE` sources, optional granular `PROGRAM_WEEKLY_SLOTS` overlay, and the pure `prepare_validated_recurring_change` capacity/collision gate. The optional granular source REPLACES overlapping legacy (patient,treatment) pairs, never adds duplicate treatment slots. Callers MUST supply approved per-provider capacity for **every** registered therapist, and an exact previous `BaseScheduleEntry` fingerprint; 4-slot therapists do not inherit an assumed 6-slot default. Any stale row shift, unknown provider, invalid capacity, or changed source hash stops the preview.
+
+Tests in `Tests/test_recurring_change_preview.py` (`9f1d63e`, `8b8db11`) cover accepted change, stale row-based identity, unverified/invalid capacity, a 4-slot provider, mid-inspection mutation, and granular weekly overlay. The cross-platform CI targeted suite includes this test (`4705e75`).
+
+**Critical scope:** this is a **read-only proposal**, NOT operational UI, committed event or Excel write-back. The current `weekly:N` and `outpatient:N` IDs derive from Excel row numbers and MUST NOT be persisted as permanent change identity until the workbook schema supplies immutable IDs and authoritative effective-dated events. Existing finalized history must never be retroactively rewritten. Before enabling an actual persistent action: design stable assignment IDs, event history, exact-hash/transaction protection and native save/reopen/rollback tests on a fresh synthetic-only candidate.
