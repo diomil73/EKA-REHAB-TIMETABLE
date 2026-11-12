@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-04
+Last updated: 2026-11-12
 
 ## Entry point
 
@@ -1196,3 +1196,17 @@ Source-only improvements made, **no new native proof**:
 - Fresh installer now **BY only**, source/test `fb5186e` / `5d898ee`. GitHub static check showed all 32 VBA installed-marker fragments present. **Do not claim any BY native success or latest pytest results: NOT EXECUTED.** Frozen green BX still older look; failed/frozen BV, BW; BO and BU untouched. Next operator gate only fresh BY.
 - User requested directly copyable `powershell` blocks in chat and automatic continued source/docs work, not standalone links.
 - User screenshot of exported XLSX from prior build is NOT the new layout and must not be overwritten/reused as native verification. The new exporter must write to a different never-before-existing filename and pass its own inspect/share-safe check before sending to management.
+
+
+## CURRENT PROJECT STATUS — 2026-11-12 (supersedes obsolete H7 current-stage header)
+
+**Verified completed (bounded):** source-level scheduling/replacement and historical controls retain historical proof; 2026-11-12 Windows native read-only CC probe GREEN; isolated synthetic diagnostic Save/reopen GREEN; independently verified native recurring identity migration **179 stable AssignmentIDs** GREEN. All three 2026-11-12 A outputs frozen, CC and MASTER unchanged. Latest GitHub CI `43313086923`: 1646/1646 full Python cases on Windows and Linux, but no actual Excel event append in CI.
+
+**Implemented but NOT native event-write accepted:** `recurring_therapy_changes.py` effective-dated projection/preflight; `recurring_change_preview.py` source bridge; `stable_recurring_ids.py` strict binder; `recurring_id_migration_plan.py` and one-shot synthetic native installer; optional `recurring_change_event_source.py` is READ-ONLY for stable event IDs, chronology and past-date preservation.
+
+**Blocking further clinical rollout:** native append/rollback/Excel UI for permanent therapy changes not implemented; actual patient roster identities remain unconfirmed, 61 historical ambiguous source cells and 11 candidate patient-time overlaps unresolved, shared-provider slot approval needed; no real-data demo MASTER completed. Stated counts are staging candidates, never approved census. H10 report and macro-free management export still need visual/operator acceptance; occupancy must count distinct therapist clock slots versus patient sessions.
+
+**Next implementation in strict order:** (1) immutable synthetic-only append/event transaction plan and capacity validation; (2) fresh unique native Excel event append + independent readback, history and VBA audit; (3) compensating rollback and historical/future projection tests; (4) application-style UI and native acceptance; (5) separate private real-data admission gate, never auto-approve or mix clinical data into public GitHub. No native action required from operator until a new tested script and unique candidate are ready.
+
+Full instructions, three frozen artifact names, commands and contingencies: `Documentation/AUTHORITATIVE_RESUME_20261112.md`. Earlier historical sections are not updated retroactively and must not be treated as current operating orders.
+
