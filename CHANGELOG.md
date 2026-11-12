@@ -107,3 +107,15 @@
 - Replacements now keep the original patient in muted italics without strikethrough and append `→ provider HH:MM`.
 - Absence/cancellation-style states retain strikethrough semantics.
 - Added multi-replacement same-cell regression coverage and corrected `DailySessionState.original_should_be_struck_through`.
+
+
+## 2026-11-12 — Native synthetic identity proof, read-only event history and complete handoff
+
+- Verified by operator on actual Windows Excel: isolated read-only CC probe; fresh synthetic Save/close/read-only reopen with preserved VBA and unchanged source; one-shot native stable AssignmentID migration with **179 IDs** independently read back, source CC and synthetic history unchanged. All three A candidates frozen.
+- Added effective-dated recurring change proposal and capacity/patient-collision checks, read-only Excel bridge and strict immutable `AssignmentID` binding.
+- Added pure migration plan, one-shot **synthetic-only** native Excel identity installer, synthetic COM tests, and independent history/VBA readback.
+- Added optional read-only `RECURRING_CHANGE_EVENTS` parser: validated immutable event IDs, assignment/patient match, effective-date chronology and duplicate prevention. No native event append, real treatment edit, rollback or production use yet.
+- GitHub Actions 2026-11-12 run `43313086923`: **1,646 Python tests passed on each Windows and Linux**, and **182 targeted tests on Windows**. Those runs do not exercise actual Excel COM.
+- Created `Documentation/AUTHORITATIVE_RESUME_20261112.md` as a complete current operating handoff and refreshed ONBOARDING, CURRENT_HANDOFF, PROJECT_STATUS, IMPLEMENTATION_MAP, DECISIONS and native evidence runbooks.
+- Outstanding: synthetic event append/save/reopen with compensation and full capacity validation, real-data staging identity/conflict clearance, and management reporting visual/privacy acceptance. Production MASTER and real-patient files remain unmodified by these works.
+
