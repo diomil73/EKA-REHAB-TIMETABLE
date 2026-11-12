@@ -111,7 +111,6 @@ def create_local_identity_review(
             created_by_this_call = True
             with source.open("rb") as original:
                 shutil.copyfileobj(original, sink)
-            shutil.copyfileobj(original, sink)
         if _sha256(source) != source_digest or _sha256(old) != old_digest:
             raise TrialIdentityReviewError("One of the identity sources changed during review")
         if _sha256(output) != source_digest:
