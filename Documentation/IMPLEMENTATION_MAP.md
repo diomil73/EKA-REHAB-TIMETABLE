@@ -165,3 +165,7 @@ Accepted native evidence: frozen isolated read-only A, synthetic Save/reopen A a
 - `Python/rehab_excel/recurring_change_append_plan.py`: source-SHA-bound event append *proposal*, strict stable ID and existing-event uniqueness/chronology, delegates to `recurring_change_preview` for therapist/patient capacity, never writes XLSM.
 - `Tests/test_recurring_change_append_plan.py`: synthetic source immutability, duplicate ID, backdate, stale row and concurrent-change guards.
 - CI: `.github/workflows/diomil-synthetic-safety.yml` targeted Windows/Linux plus complete suite. Native Excel event append not implemented.
+
+
+### 2026-11-13 real-source demo preflight preparation (documentation-only)
+Read `Documentation/REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md` for the latest private-input preflight, safe single-block PowerShell, stop rules, precise unsupported import boundary and weekend native acceptance plan. Tracked `trial_admission_gate.py`, `preflight_trial_excel_sources.py` and `audit_pilot_source_readiness.py` were inspected, but **no code, live private source, Windows Excel, or full tests were executed in this checkpoint**. No real-data XLSM was produced. The read-only gate is NOT an importer; strict gate still blocks on unresolved holds, overlaps and shared slots. Next work requires confirmed local private source revision and separate eligible pilot intake, then actual supported native importer engineering and one-shot proof. Do not reuse synthetic CC or frozen artifacts; keep clinical values off public GitHub.
