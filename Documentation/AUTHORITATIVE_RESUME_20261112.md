@@ -114,3 +114,7 @@ The user explicitly reconfirmed that the **next visible milestone is a single us
 Identify native-proven application mechanisms and assemble a NEW isolated, never-before-used macro-enabled trial candidate with only verified facts. Newer recurring-event writeback/rollback may remain disabled pending separate native proof. Preserve immutable baseline, private source, synthetic CC and all frozen evidence. Require source hashes, no-overwrite gate, independent native Excel Save/close/reopen/readback, privacy review and operator acceptance. Python CI green does not establish native Excel proof.
 
 **Status:** next priority recorded; **no integrated real-data demo has yet been completed or accepted**. No delivery date was promised. Update all affected docs as implementation progresses. The user will resume next conversation and prefers proactive work without repeated OK.
+
+
+### 2026-11-13 real-source demo preflight preparation (documentation-only)
+See `Documentation/REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`. Audited tracked read-only source gate and tests; created operator-safe PowerShell and stop/runbook. No real patient import, code changes, current staging check, native Excel proof or demo delivery was performed. Do not reuse protected CC or frozen candidates.
