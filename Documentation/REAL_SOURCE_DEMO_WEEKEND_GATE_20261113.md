@@ -82,3 +82,29 @@ Weekend operator scenarios (admission/discharge, absence/return, replacements, t
 ## Status and handoff
 
 As of 2026-11-13: tracked read-only admission/preflight code and synthetic tests inspected; local real input availability and freshness **not verified**, no actual current blockers recomputed, no importer built, no integrated real-data workbook produced, and no native Excel acceptance. The immediate human-dependent point is identifying and reviewing the **private** current staging plus separate eligible pilot-intake source; do not move to writeback on a guessed file. Record any real results in `CURRENT_HANDOFF.md` using only nonidentifying facts.
+
+## Additional existing tools discovered during 2026-11-13 source inspection
+
+- `Python/tools/prepare_trial_identity_review.py` is an **optional separate local-only preparation step** if identity mapping is not yet independently confirmed. It calls `rehab_excel.trial_identity_review.create_local_identity_review`, creates a NEW review copy rather than editing originals, and explicitly labels all inferred matches **UNCONFIRMED**. Do not execute against a destination that exists. Do not mistake suggested IDs for confirmation.
+- `Python/tools/check_trial_admission.py --review ...` provides an isolated review-only count/blocker gate prior to the combined `preflight_trial_excel_sources.py`. Prefer the combined gate for a final source readiness decision. Since blocker messages may contain source row numbers, only share non-identifying aggregate output.
+- `Python/tools/verify_pilot_acceptance_evidence.py --create-template ...` creates a **new** local JSON checklist, marked pending. The `--manifest ...` validation checks 13 required acceptance gates, separate SHA-256 values, pilot date and a native Excel flag. This is an evidence *structure* checker, **not** a direct test that native behavior succeeded. Keep this manifest private.
+- `Python/tools/build_unified_preview.py` is a separate operational preview builder that assembles application forms and MASTER projection from an existing source XLSM, **not a reviewed staging XLSX to real-data importer**. It accepts an overwrite option; **do not use --overwrite for the real trial or on frozen evidence.**
+- `Python/rehab_core/programme_mapping.py` already defines `SourceWeeklyEntry`, explicit weekday/clock mapping and patient-slot collision rejection; reuse this exact semantic model for any future real-data import plan. Do not replace it with a lossy single-clock-per-treatment mapping.
+
+### Local acceptance manifest initialization (optional; private folder only)
+
+This step requires no patient names, but it does require the operator's local repo and a **new, previously nonexistent** JSON destination. It does not build or authorize a demo.
+
+```powershell
+& {
+    $ErrorActionPreference = "Stop"
+    $evidence = "C:\PRIVATE_LOCAL_FOLDER\DIOMIL_TRIAL_EVIDENCE_20261114.json"
+    if (Test-Path -LiteralPath $evidence) { throw "SAFETY STOP: evidence destination exists" }
+
+    python .\Python\tools\verify_pilot_acceptance_evidence.py --create-template "$evidence"
+    if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: evidence initialization failed" }
+    Write-Host "LOCAL PENDING CHECKLIST CREATED; NATIVE PROOF NOT CLAIMED"
+}
+```
+
+Do not mark any gate PASS before native evidence is actually collected.
