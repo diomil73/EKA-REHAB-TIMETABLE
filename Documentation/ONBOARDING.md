@@ -215,3 +215,7 @@ BI passed its source/install/protection audit, but operator manual review did no
 
 
 Latest verified append-plan CI: `43314844755`, 1,652 full Python regressions passed on each of Windows and Linux (not real native Excel). The new source-only event append plan is documented in `Documentation/AUTHORITATIVE_RESUME_20261112.md`. No operator action is required until a new synthetic native runbook exists.
+
+
+### 2026-11-13 real-source demo preflight preparation (documentation-only)
+Read `Documentation/REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md` for the latest private-input preflight, safe single-block PowerShell, stop rules, precise unsupported import boundary and weekend native acceptance plan. Tracked `trial_admission_gate.py`, `preflight_trial_excel_sources.py` and `audit_pilot_source_readiness.py` were inspected, but **no code, live private source, Windows Excel, or full tests were executed in this checkpoint**. No real-data XLSM was produced. The read-only gate is NOT an importer; strict gate still blocks on unresolved holds, overlaps and shared slots. Next work requires confirmed local private source revision and separate eligible pilot intake, then actual supported native importer engineering and one-shot proof. Do not reuse synthetic CC or frozen artifacts; keep clinical values off public GitHub.
