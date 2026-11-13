@@ -118,3 +118,7 @@ Identify native-proven application mechanisms and assemble a NEW isolated, never
 
 ### 2026-11-13 real-source demo preflight preparation (documentation-only)
 See `Documentation/REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`. Audited tracked read-only source gate and tests; created operator-safe PowerShell and stop/runbook. No real patient import, code changes, current staging check, native Excel proof or demo delivery was performed. Do not reuse protected CC or frozen candidates.
+
+
+### 2026-11-13 source-only trial import planning checkpoint
+Added `Python/rehab_excel/trial_import_plan.py` (commit `b0e9d48`) and `Tests/test_trial_import_plan.py` (commit `0a9bc4c`). The plan reuses strict read-only combined preflight and exact approved `SourceWeeklyEntry` admission, cross-checks counts, binds both source SHA256 values, rejects changed sources, and hides private entries from its object repr. **It does not write an XLSM, implement a native importer, or authorize clinical use.** The new test file has six synthetic cases, but **tests/CI have NOT yet been observed passing**. Before native integration run `python -m pytest Tests/test_trial_import_plan.py Tests/test_trial_admission_gate.py Tests/test_preflight_trial_excel_sources.py -q` in one PowerShell fail-fast block; stop on red. No private patient data uploaded. Current real staging remains unverified. More work is needed to build the new isolated native importer and independent readback.
