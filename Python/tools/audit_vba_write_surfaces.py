@@ -361,9 +361,9 @@ def audit(path: Path) -> int:
                         f"operation={operation}{suffix}"
                     )
                     total += 1
-                # The normalizers can be referenced by other modules that
-                # already have write-pattern matches. Include those candidate
-                # callers rather than reviewing Module6 in isolation.
+                # Emit candidate references to every declared VBA
+                # procedure, including cross-module edges from write-bearing
+                # components. These are identifier matches, not runtime proof.
                 for caller, line_number, callee in _possible_call_edges(
                     lines, known_procedures
                 ):
