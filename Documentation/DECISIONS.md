@@ -379,3 +379,13 @@ A separate local/private cross-check of the currently uploaded source and review
 **Still blocked:** every PatientID confirmation remains pending; suggestions are not approvals; source notes and overlap holds remain unresolved. No real-patient import, native writer or integrated real-data XLSM has been run or accepted. The new alignment CLI is read-only.
 
 **Next engineering slice:** bind the original A:V source hash into the private import plan; build a complete patient-registry plus weekly-treatment projection and synthetic roundtrip; retain U/V as explicitly unmapped until their operational contract is decided. Before interpreting blank weekday cells, obtain the operator's rule. Do not enable import from the existing proposals.
+
+ 
+## 2026-11-15 — source programme operating weekdays
+
+- There are no treatment sessions on Saturday or Sunday.
+- The operating week is Monday–Friday (`ΔΕ, ΤΡ, ΤΕ, ΠΕ, ΠΑ`).
+- For source import only, a populated treatment time/value with a blank corresponding weekday cell means recurring Monday–Friday.
+- A blank treatment time/value creates no session, regardless of the weekday cell.
+- Explicitly stated weekday patterns remain authoritative. Never generate weekend sessions.
+- Implement via the source importer’s explicit `implicit_daily=True` path; do not change the general parser default globally.
