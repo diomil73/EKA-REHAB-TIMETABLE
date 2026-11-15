@@ -897,3 +897,33 @@ Following the accepted 20:31 bundle, two further **read-only** analysis improvem
 **Validation boundary:** these new commits are after the accepted 38-focused / 1,854-full result and have not yet been run by the operator. They must not inherit that earlier GREEN. The next local action is one execution of the updated PowerShell gate with Excel closed. The new script still does not save or modify any XLSM.
 
 After this proof, proceed to the full synthetic integration workbook design/build. The real-source file named `DIOMIL_ΕΛΕΓΜΕΝΗ_ΜΕΤΑΦΟΡΑ_ΠΗΓΗΣ_ΠΡΟΣ_MASTER_20261112.xlsx` was not found among the currently available Project attachments; do not guess its local location or commit it. When the real-data admission milestone is reached, ask the operator to supply the reviewed source privately and follow `REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`. The A:T column mapping already supplied in the conversation is retained as the operator's source-schema reference; the reclining-treatment replacement rule still requires the operator's fresh clinical instructions at the point of implementation.
+
+
+## 2026-11-15 20:50 — expanded H10 call-edge gate accepted; private source inputs identified
+
+**Operator evidence bundle:** `DIOMIL_H10_CALL_EDGE_BUNDLE_20261115_205003.txt` (private conversation upload; do not copy the bundle or workbook data into the public repository).
+
+### Accepted validation
+- Focused tests: **45 passed in 2.47s**.
+- Full repository regression: **1,856 passed, 1 skipped, 26 warnings in 30.07s**; exit was successful.
+- The sole skip is `Tests/test_afternoon_sheet_preview.py:68` because symlinks are unavailable in the Windows environment.
+- Expanded cross-candidate VBA evidence verifier: **GREEN**, 3 distinct workbooks, 44 nonempty component metadata records, 12 procedure-profile hashes and 1,027 possible static call-edge references.
+- Each of the three distinct H10 candidates completed the read-only VBA write-surface audit with `ReadOnly=True`, macros/events disabled, `SOURCE HASH UNCHANGED: YES`, and `NO WORKBOOK WAS MODIFIED`.
+- Each candidate reports 1,569 static operation-pattern matches. These are lexical candidates, not runtime write counts.
+- Read-only workbook structure scan completed for all three candidates; source hashes unchanged and no workbook was modified.
+- Worksheet-formula references to `NormalizeTimeMS` and `NormalizePresenceMS`: zero in all three inspected candidates. This rules out those worksheet-formula references only, not every possible invocation mechanism.
+- The 1,027 call edges are static identifier references, not proof that every branch executes at runtime.
+
+### Product target and private intake boundary
+The operator's target is one functional integrated Excel demo using the reviewed patient/treatment source and the previously supplied A:T field mapping. Two private conversation uploads are available for local inspection: the 10-11-26 patient treatment programme workbook and the 12-11-26 identity-review/proposals workbook. They are not repository assets and must never be committed, attached to public issues, or copied into public logs.
+
+The source programme sheet `ΠΡΟΓΡΑΜΜΑ` has the operator's A:T fields; U/V carry additional afternoon and pool fields. Preserve these as separately mapped fields rather than silently dropping them. The identity workbook is a review/proposal artifact, not approval: every patient identity remains pending, exact-name suggestions are not confirmations, and flagged source overlaps/notes remain on hold. Do not import or activate real patient rows until identity decisions and conflict/source holds have been explicitly resolved. No live import or real-data XLSM has been produced by this inspection.
+
+The previously referenced filename `DIOMIL_ΕΛΕΓΜΕΝΗ_ΜΕΤΑΦΟΡΑ_ΠΗΓΗΣ_ΠΡΟΣ_MASTER_20261112.xlsx` is not the name of either available upload. Do not ask for a re-upload of the two available files. If a later stage requires that distinct reviewed/approved artifact, request it only then.
+
+### Next work
+1. Keep all private source files local and read-only.
+2. Reconcile the private source schema and identity-review contract against the tracked trial admission/preflight/projection code.
+3. Build a synthetic, source-shaped fixture and test the complete A:V parser/projection without real patient data.
+4. Close any remaining native-only VBA ownership questions and define the fresh integration candidate from a trusted source; never write into any frozen H10 proof workbook.
+5. Only after synthetic source-to-workbook roundtrip is proven, run the separate private identity/conflict admission gate and request operator decisions for unresolved clinical/source holds.
