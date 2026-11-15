@@ -112,3 +112,20 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: native sheet preview failed" }
 ```
 
 The placeholder paths are intentional: do not execute verbatim or substitute frozen CC automatically. The operator must verify existing files and choose unique names. A successful result demonstrates only the technical sheet and MASTER width preservation. Run separate source/VBA tests and interactive native UI acceptance before making an operational claim.
+
+## Confirmed local Windows regression checkpoint — 2026-11-15
+
+The operator ran the focused synthetic suite on the feature branch and reported:
+
+```text
+60 passed, 1 skipped in 3.29s
+```
+
+This is **not** native Excel proof, and no workbook was built or opened by this result. One test was skipped. `Tests/test_afternoon_sheet_preview.py::test_refuses_symlink_output` is written to skip if symlink creation is unavailable, so it is a plausible cause, but **the exact skip reason has not been verified**. When useful, run `python -m pytest Tests/test_afternoon_sheet_preview.py -q -rs` without requiring extra user approval for routine source work.
+
+The operator also explicitly required:
+- MASTER must continue showing **`ΦΘ`** exactly, **not** `Πρωινή ΦΘ`: no wider column/cell or visual change.
+- In patient-management UI, morning and afternoon may have distinct clear labels; they are two programmes for the **same treatment kind** `ΦΘ`. PM must have its own storage, while morning remains mapped to the established `PATIENT_PLANNER` fields.
+- Proceed autonomously between actual gates; do not ask the operator to respond `οκ` after each increment. Ask only for local/native Excel tests, true clinical decisions, or unresolved ambiguities. Continue to commit docs/contingencies for each meaningful step.
+
+**Stop before a native build until the exact input is verified as a fresh synthetic full integrated workbook.** The existing `Python/tools/build_unified_preview.py` is not by itself evidence that every later H10 integration is present. Never repurpose frozen H10 CC, X/Z/AB/BF or original source as a disposable target. Keep unrelated changes isolated and do not merge this branch based solely on the 60 synthetic passes.
