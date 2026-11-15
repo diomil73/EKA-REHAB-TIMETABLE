@@ -24,6 +24,8 @@ def test_panel_installs_in_existing_form_without_replacing_morning_programme():
     assert "lstTreatments" in form
     assert 'lblAfternoonState.Caption' in form
     assert "Πρωινή ΦΘ" not in form
+    assert "    Me.Height = 665" in form
+    assert "    Me.Height = 585" not in form
 
 
 def test_readonly_panel_has_no_afternoon_save_or_worksheet_mutation():
