@@ -8,6 +8,7 @@ from .daily_state import DailySessionStatus, build_daily_session_states
 from .models import (
     BaseScheduleEntry,
     DailyAbsence,
+    DailySessionCancellation,
     Patient,
     ReplacementAssignment,
     Session,
@@ -23,8 +24,6 @@ from .replacement_policy import find_policy_replacement_options
 
 @dataclass(frozen=True)
 class TherapistAbsenceReplacementItem:
-    """One patient session that needs a replacement because its therapist is absent."""
-
     session_id: str
     patient_id: str
     patient_name: str
@@ -39,6 +38,7 @@ class TherapistAbsenceReplacementItem:
 class TherapistAbsenceReplacementQueue:
     items: tuple[TherapistAbsenceReplacementItem, ...]
     skipped_patient_absent: int = 0
+    skipped_cancelled: int = 0
 
     @property
     def affected_sessions(self) -> int:
@@ -53,23 +53,18 @@ def build_therapist_absence_replacement_queue(
     patients: Iterable[Patient],
     timeslots: Iterable[time],
     replacements: Iterable[ReplacementAssignment] = (),
+    cancellations: Iterable[DailySessionCancellation] = (),
     students: Iterable[Student] = (),
     student_assignments: Iterable[StudentAssignment] = (),
     policy_book: ProviderPolicyBook | None = None,
     base_entries: Iterable[BaseScheduleEntry] = (),
 ) -> TherapistAbsenceReplacementQueue:
-    """Build replacement suggestions for sessions affected by therapist absence.
-
-    Patient absence has priority. Provider policy is optional. When recurring
-    base entries are supplied, times occupied by any other specialty for the
-    same patient are removed from replacement options as well.
-    """
-
     session_list = tuple(sessions)
     absence_list = tuple(absences)
     patient_list = tuple(patients)
     therapist_list = tuple(therapists)
     replacement_list = tuple(replacements)
+    cancellation_list = tuple(cancellations)
     student_list = tuple(students)
     student_assignment_list = tuple(student_assignments)
     timeslot_list = tuple(timeslots)
@@ -82,9 +77,13 @@ def build_therapist_absence_replacement_queue(
         session_list,
         absences=absence_list,
         replacements=replacement_list,
+        cancellations=cancellation_list,
     )
     skipped_patient_absent = sum(
         1 for state in states if state.status == DailySessionStatus.PATIENT_ABSENT
+    )
+    skipped_cancelled = sum(
+        1 for state in states if state.status == DailySessionStatus.CANCELLED
     )
 
     items: list[TherapistAbsenceReplacementItem] = []
@@ -103,6 +102,7 @@ def build_therapist_absence_replacement_queue(
                 absences=absence_list,
                 patients=patient_list,
                 replacements=replacement_list,
+                cancellations=cancellation_list,
                 requested_time=session.start_time,
                 timeslots=timeslot_list,
                 students=student_list,
@@ -122,6 +122,7 @@ def build_therapist_absence_replacement_queue(
                 absences=absence_list,
                 patients=patient_list,
                 replacements=replacement_list,
+                cancellations=cancellation_list,
                 requested_time=session.start_time,
                 timeslots=timeslot_list,
                 students=student_list,
@@ -152,4 +153,5 @@ def build_therapist_absence_replacement_queue(
     return TherapistAbsenceReplacementQueue(
         items=tuple(items),
         skipped_patient_absent=skipped_patient_absent,
+        skipped_cancelled=skipped_cancelled,
     )

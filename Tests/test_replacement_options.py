@@ -41,9 +41,13 @@ def test_busy_exact_time_provider_remains_with_alternative_slot():
     low = next(o for o in options if o.provider_id == "low")
     assert low.exact_time_available is False
     assert low.recommended_time == time(9, 15)
+    assert low.active_sessions == 1
+    assert low.active_timeslots == 1
+    assert low.capacity_limit == 6
+    assert low.capacity_remaining == 5
 
 
-def test_lower_load_stays_ahead_even_when_higher_load_has_exact_time():
+def test_lower_timeslot_load_stays_ahead_even_when_higher_load_has_exact_time():
     target = session("target", "p", "orig", 8, 30)
     sessions = [
         target,
@@ -61,4 +65,4 @@ def test_lower_load_stays_ahead_even_when_higher_load_has_exact_time():
         timeslots=[time(8, 30), time(9, 15), time(10, 0), time(10, 45)],
     )
     assert options[0].provider_id == "low"
-    assert options[0].active_sessions < options[1].active_sessions
+    assert options[0].active_timeslots < options[1].active_timeslots

@@ -8,7 +8,27 @@ import sys
 from typing import Protocol
 from zipfile import ZipFile
 
+from .application_shell_vba import APP_SHELL_MODULE_NAME, install_application_shell
+from .close_day_action_vba import CLOSE_DAY_MODULE_NAME, install_close_day_action
+from .daily_change_ledger_vba import MODULE_NAME as DAILY_CHANGE_LEDGER_MODULE_NAME, VBA_CODE as DAILY_CHANGE_LEDGER_BASE_CODE
+from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
+from .daily_input_change_ledger_vba import MODULE_NAME as DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME, install_daily_input_change_ledger
+from .daily_input_change_navigation_vba import MODULE_NAME as DAILY_INPUT_CHANGE_NAV_MODULE_NAME, install_daily_input_change_navigation
+from .daily_restore_in_session_vba import build_in_session_ledger_vba
+from .double_booking_review_vba import DOUBLE_BOOKING_FORM_NAME, DOUBLE_BOOKING_MODULE_NAME
+from .global_replacement_action_vba import GLOBAL_REPLACEMENT_MODULE_NAME
+from .master_toolbar_vba import (
+    MASTER_TOOLBAR_MODULE_NAME,
+    MasterToolbarError,
+    install_master_toolbar,
+)
 from .patient_registration_form_vba import PATIENT_FORM_NAME, install_patient_form
+from .therapist_registration_form_vba import THERAPIST_FORM_NAME, install_therapist_form
+from .therapist_workload_strip_vba import (
+    MODULE_NAME as WORKLOAD_MODULE_NAME,
+    install_therapist_workload_strip,
+)
+from .student_registration_form_vba import STUDENT_FORM_NAME, install_student_form
 
 
 MENU_FORM_NAME = "frmRegistrationMenu"
@@ -20,7 +40,7 @@ DEFAULT_PREVIEW_FILENAME = "REGISTRATION_MENU_PREVIEW.xlsm"
 STANDARD_MODULE_CODE = f'''Option Explicit
 
 Public Sub {MENU_MACRO_NAME}()
-    {MENU_FORM_NAME}.Show
+    {MENU_FORM_NAME}.Show vbModeless
 End Sub
 '''
 
@@ -29,15 +49,15 @@ USERFORM_CODE = '''Option Explicit
 
 Private Sub UserForm_Initialize()
     With Me
-        .Caption = "Κεντρικό Μενού Εγγραφών"
+        .Caption = "Κεντρικό Μενού"
         .Width = 330
-        .Height = 310
+        .Height = 350
         .StartUpPosition = 1
         .BackColor = RGB(245, 247, 250)
     End With
 
     With lblTitle
-        .Caption = "Επιλέξτε νέα εγγραφή"
+        .Caption = "Επιλέξτε ενέργεια"
         .Left = 35
         .Top = 24
         .Width = 250
@@ -53,11 +73,12 @@ Private Sub UserForm_Initialize()
     StyleMenuButton cmdPatient, "Νέος ασθενής", 68
     StyleMenuButton cmdTherapist, "Νέος θεραπευτής", 113
     StyleMenuButton cmdStudent, "Νέος φοιτητής", 158
+    StyleMenuButton cmdOutpatientSchedule, "Πρόγραμμα εξωτερικού ασθενή", 203
 
     With cmdClose
         .Caption = "Κλείσιμο"
         .Left = 105
-        .Top = 220
+        .Top = 260
         .Width = 110
         .Height = 30
         .Font.Name = "Calibri"
@@ -85,11 +106,19 @@ Private Sub cmdPatient_Click()
 End Sub
 
 Private Sub cmdTherapist_Click()
-    MsgBox "Η φόρμα εγγραφής νέου θεραπευτή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος θεραπευτής"
+    frmNewTherapist.Show
 End Sub
 
 Private Sub cmdStudent_Click()
-    MsgBox "Η φόρμα εγγραφής νέου φοιτητή θα συνδεθεί στο ασφαλές registration backend σε επόμενο βήμα.", vbInformation, "Νέος φοιτητής"
+    frmNewStudent.Show
+End Sub
+
+Private Sub cmdOutpatientSchedule_Click()
+    On Error GoTo MissingForm
+    frmOutpatientSchedule.Show
+    Exit Sub
+MissingForm:
+    MsgBox "Η φόρμα προγράμματος εξωτερικού ασθενή δεν είναι εγκατεστημένη σε αυτό το αρχείο.", vbExclamation, "Πρόγραμμα εξωτερικού ασθενή"
 End Sub
 
 Private Sub cmdClose_Click()
@@ -137,12 +166,7 @@ class RegistrationMenuInstallerBackend(Protocol):
 
 
 class Win32ComRegistrationMenuInstaller:
-    """Install the central registration menu into an already-created workbook copy.
-
-    The COM layer deliberately avoids Width/Height styling because some
-    Office/pywin32 combinations reject those assignments. Visual sizing and
-    styling are applied by VBA in UserForm_Initialize when the form opens.
-    """
+    """Install the central registration menu into an already-created workbook copy."""
 
     @staticmethod
     def _remove_component_if_present(vbproject, name: str) -> None:
@@ -191,18 +215,20 @@ class Win32ComRegistrationMenuInstaller:
 
         excel = None
         workbook = None
+        stage = "starting Excel"
         try:
             excel = win32com.client.DispatchEx("Excel.Application")
             excel.Visible = False
             excel.DisplayAlerts = False
             excel.ScreenUpdating = False
             excel.EnableEvents = False
+
+            stage = "opening workbook"
             workbook = excel.Workbooks.Open(
-                str(workbook_path.resolve()),
-                UpdateLinks=0,
-                ReadOnly=False,
+                str(workbook_path.resolve()), UpdateLinks=0, ReadOnly=False
             )
 
+            stage = "accessing VBA project"
             try:
                 vbproject = workbook.VBProject
                 _ = vbproject.VBComponents.Count
@@ -214,43 +240,104 @@ class Win32ComRegistrationMenuInstaller:
                     "then retry on the preview copy."
                 ) from exc
 
-            self._remove_component_if_present(vbproject, MENU_MODULE_NAME)
-            self._remove_component_if_present(vbproject, MENU_FORM_NAME)
-            self._remove_component_if_present(vbproject, PATIENT_FORM_NAME)
+            for label, name in (
+                ("menu module", MENU_MODULE_NAME),
+                ("menu form", MENU_FORM_NAME),
+                ("app shell module", APP_SHELL_MODULE_NAME),
+                ("MASTER toolbar module", MASTER_TOOLBAR_MODULE_NAME),
+                ("DAILY_INPUT action module", DAILY_INPUT_MODULE_NAME),
+                ("daily change ledger module", DAILY_CHANGE_LEDGER_MODULE_NAME),
+                ("DAILY_INPUT change ledger module", DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME),
+                ("DAILY_INPUT change navigation module", DAILY_INPUT_CHANGE_NAV_MODULE_NAME),
+                ("close-day action module", CLOSE_DAY_MODULE_NAME),
+                ("patient form", PATIENT_FORM_NAME),
+                ("therapist form", THERAPIST_FORM_NAME),
+                ("student form", STUDENT_FORM_NAME),
+            ):
+                stage = f"removing old {label}"
+                self._remove_component_if_present(vbproject, name)
 
+            stage = "creating menu module"
             module = vbproject.VBComponents.Add(1)
             module.Name = MENU_MODULE_NAME
             module.CodeModule.AddFromString(STANDARD_MODULE_CODE)
 
+            stage = "adding blank menu UserForm"
             form = vbproject.VBComponents.Add(3)
             form.Name = MENU_FORM_NAME
             designer = form.Designer
-            designer.Caption = "Κεντρικό Μενού Εγγραφών"
+            designer.Caption = "Κεντρικό Μενού"
 
-            self._add_label(designer, "lblTitle", "Επιλέξτε νέα εγγραφή", 18)
+            self._add_label(designer, "lblTitle", "Επιλέξτε ενέργεια", 18)
             self._add_command_button(designer, "cmdPatient", "Νέος ασθενής", 55)
             self._add_command_button(designer, "cmdTherapist", "Νέος θεραπευτής", 92)
             self._add_command_button(designer, "cmdStudent", "Νέος φοιτητής", 129)
-            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 176)
+            self._add_command_button(designer, "cmdOutpatientSchedule", "Πρόγραμμα εξωτερικού ασθενή", 166)
+            self._add_command_button(designer, "cmdClose", "Κλείσιμο", 215)
             form.CodeModule.AddFromString(USERFORM_CODE)
 
+            stage = "installing application shell"
+            install_application_shell(vbproject, workbook=workbook)
+            stage = "installing MASTER toolbar"
+            install_master_toolbar(vbproject, workbook)
+            stage = "installing DAILY_INPUT action and guided replacement workflow"
+            install_daily_input_action(vbproject)
+            stage = "installing therapist workload/navigation strip"
+            install_therapist_workload_strip(vbproject, workbook)
+
+            stage = "installing in-session daily replacement ledger"
+            ledger_module = vbproject.VBComponents.Add(1)
+            ledger_module.Name = DAILY_CHANGE_LEDGER_MODULE_NAME
+            ledger_module.CodeModule.AddFromString(
+                build_in_session_ledger_vba(DAILY_CHANGE_LEDGER_BASE_CODE)
+            )
+            stage = "installing reversible DAILY_INPUT ledger"
+            install_daily_input_change_ledger(vbproject)
+            stage = "routing therapist navigation through ledger sync"
+            install_daily_input_change_navigation(vbproject, workbook)
+
+            stage = "installing close-day action"
+            install_close_day_action(vbproject)
+            stage = "installing patient form"
             install_patient_form(vbproject, position_control=self._position_control)
+            stage = "installing therapist form"
+            install_therapist_form(vbproject, position_control=self._position_control)
+            stage = "installing student form"
+            install_student_form(vbproject, position_control=self._position_control)
+
+            stage = "saving workbook"
             workbook.Save()
 
+            stage = "verifying menu and operational components"
             module_present = self._component_present(vbproject, MENU_MODULE_NAME)
             form_present = self._component_present(vbproject, MENU_FORM_NAME)
-            patient_form_present = self._component_present(vbproject, PATIENT_FORM_NAME)
-            if not patient_form_present:
-                raise RegistrationMenuVbaError(
-                    "Patient registration form was not confirmed in the preview VBA project"
-                )
-
+            required = {
+                APP_SHELL_MODULE_NAME: "Application shell",
+                MASTER_TOOLBAR_MODULE_NAME: "MASTER toolbar",
+                DAILY_INPUT_MODULE_NAME: "DAILY_INPUT action",
+                GLOBAL_REPLACEMENT_MODULE_NAME: "Global replacement action",
+                DOUBLE_BOOKING_MODULE_NAME: "Guided double-booking module",
+                DOUBLE_BOOKING_FORM_NAME: "Guided double-booking form",
+                WORKLOAD_MODULE_NAME: "Therapist workload/navigation",
+                DAILY_CHANGE_LEDGER_MODULE_NAME: "In-session daily change ledger",
+                DAILY_INPUT_CHANGE_LEDGER_MODULE_NAME: "Reversible DAILY_INPUT ledger",
+                DAILY_INPUT_CHANGE_NAV_MODULE_NAME: "DAILY_INPUT change navigation",
+                CLOSE_DAY_MODULE_NAME: "Close-day action",
+                PATIENT_FORM_NAME: "Patient registration form",
+                THERAPIST_FORM_NAME: "Therapist registration form",
+                STUDENT_FORM_NAME: "Student registration form",
+            }
+            for name, label in required.items():
+                if not self._component_present(vbproject, name):
+                    raise RegistrationMenuVbaError(
+                        f"{label} was not confirmed in the preview VBA project"
+                    )
             return module_present, form_present
         except RegistrationMenuVbaError:
             raise
         except Exception as exc:
             raise RegistrationMenuVbaError(
-                f"Excel registration menu installation failed: {exc}"
+                f"Excel registration menu installation failed during {stage}: {exc}"
             ) from exc
         finally:
             if workbook is not None:
@@ -272,8 +359,6 @@ def create_registration_menu_preview(
     backend: RegistrationMenuInstallerBackend | None = None,
     overwrite: bool = False,
 ) -> RegistrationMenuPreviewReport:
-    """Install the menu into a NEW .xlsm copy while proving source immutability."""
-
     source = Path(source_path).resolve()
     output = Path(output_path).resolve()
 

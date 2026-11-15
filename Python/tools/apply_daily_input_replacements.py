@@ -17,7 +17,14 @@ from openpyxl import load_workbook  # noqa: E402
 from rehab_config.provider_policy_store import load_policy_book  # noqa: E402
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
-from rehab_core.models import AbsenceKind, ReplacementAssignment, Therapist  # noqa: E402
+from rehab_core.daily_statistics import calculate_daily_treatment_statistics  # noqa: E402
+from rehab_core.models import (  # noqa: E402
+    AbsenceKind,
+    DailySessionCancellation,
+    ReplacementAssignment,
+    Therapist,
+)
+from rehab_core.orphan_resolution import create_treatment_suspension  # noqa: E402
 from rehab_core.patient_schedule import validate_patient_cross_specialty_time  # noqa: E402
 from rehab_core.replacement_policy import (  # noqa: E402
     find_policy_replacement_options,
@@ -28,12 +35,43 @@ from rehab_core.therapist_absence_queue import (  # noqa: E402
     build_therapist_absence_replacement_queue,
 )
 from rehab_excel.daily_input_reader import DailyInputReadError, read_daily_input  # noqa: E402
+from rehab_excel.daily_operational_fact_writer import (  # noqa: E402
+    DailyOperationalFactWriteError,
+    append_treatment_suspensions_to_daily_input,
+    build_treatment_suspension_rows,
+)
+from rehab_excel.daily_preview_composer import (  # noqa: E402
+    DailyPreviewCompositionError,
+    compose_outpatient_daily_plan,
+)
+from rehab_excel.daily_replacement_facts import (  # noqa: E402
+    DailyReplacementFactError,
+    append_daily_replacement_facts,
+    read_daily_replacement_fact_rows,
+    read_daily_replacement_facts,
+)
+from rehab_excel.daily_statistics_writer import (  # noqa: E402
+    DailyStatisticsWriteError,
+    write_daily_statistics,
+)
 from rehab_excel.native_excel import apply_write_plan_to_copy  # noqa: E402
+from rehab_excel.outpatient_presentation import OutpatientPresentationError  # noqa: E402
+from rehab_excel.outpatient_schedule_source import (  # noqa: E402
+    OutpatientScheduleSourceError,
+    read_unified_base_schedule,
+)
 from rehab_excel.patient_centric_preview import (  # noqa: E402
     PatientCentricPreviewError,
     build_patient_centric_preview_plan,
 )
-from rehab_excel.reader import read_base_schedule, read_patients, read_settings  # noqa: E402
+from rehab_excel.patient_registry_source import (  # noqa: E402
+    PatientRegistrySourceError,
+    read_patient_registry,
+)
+from rehab_excel.reader import read_settings  # noqa: E402
+
+
+SUSPEND_CHOICE = "suspend"
 
 
 def _norm(value: str) -> str:
@@ -83,31 +121,82 @@ def _has_vba(path: Path) -> bool:
         return "xl/vbaProject.bin" in archive.namelist()
 
 
-def _ask_rank(option_count: int) -> int | None:
+def _ask_resolution(option_count: int) -> int | str:
+    """Require one final operational outcome for an orphan session.
+
+    Candidate numbers mean placement. ``S`` records a date-specific treatment
+    suspension. ``Q`` aborts the entire preview, so a completed preview can
+    never contain a deliberately unresolved orphan.
+    """
+
     while True:
-        raw = input(
-            f"Choose candidate [1-{option_count}], 0 to leave unresolved, or Q to cancel: "
-        ).strip()
-        if raw.upper() == "Q":
+        if option_count > 0:
+            prompt = (
+                f"Choose candidate [1-{option_count}], S for Αναστολή θεραπείας, "
+                "or Q to cancel: "
+            )
+        else:
+            prompt = "No placement is available. Choose S for Αναστολή θεραπείας or Q to cancel: "
+        raw = input(prompt).strip()
+        normalized = raw.upper()
+        if normalized == "Q":
             raise KeyboardInterrupt
-        try:
-            rank = int(raw)
-        except ValueError:
-            print("Enter a number or Q.")
+        if normalized in {"S", "SUSPEND"}:
+            return SUSPEND_CHOICE
+        if option_count > 0:
+            try:
+                rank = int(raw)
+            except ValueError:
+                print(f"Enter 1-{option_count}, S, or Q.")
+                continue
+            if 1 <= rank <= option_count:
+                return rank
+            print(f"Choose 1-{option_count}, S, or Q.")
             continue
-        if rank == 0:
-            return None
-        if 1 <= rank <= option_count:
-            return rank
-        print(f"Choose 1-{option_count}, 0, or Q.")
+        print("Choose S or Q.")
+
+
+def _append_treatment_suspension(
+    target,
+    *,
+    cancellations: list[DailySessionCancellation],
+    suspensions: list[DailySessionCancellation],
+) -> DailySessionCancellation:
+    suspension = create_treatment_suspension(
+        target,
+        cancellation_id=f"orphan-suspend:{target.session_id}:{target.session_date.isoformat()}",
+    )
+    cancellations.append(suspension)
+    suspensions.append(suspension)
+    return suspension
+
+
+def _replacement_id(target, history_rows) -> str:
+    """Allocate the next immutable replacement id for one session/date history."""
+
+    base = f"daily-input:{target.session_id}:{target.session_date.isoformat()}"
+    max_version = 0
+    for fact in history_rows:
+        replacement_id = str(getattr(fact, "replacement_id", "") or "").strip()
+        if replacement_id == base:
+            max_version = max(max_version, 1)
+            continue
+        prefix = f"{base}:v"
+        if replacement_id.startswith(prefix):
+            suffix = replacement_id[len(prefix) :]
+            if suffix.isdigit():
+                max_version = max(max_version, int(suffix))
+    if max_version == 0:
+        return base
+    return f"{base}:v{max_version + 1}"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Read therapist absences from DAILY_INPUT, choose replacements one by one, "
-            "recalculate load/availability after every accepted choice, apply provider "
-            "policy and patient cross-specialty availability, then create a preview."
+            "Read therapist absences from DAILY_INPUT, resolve each affected session "
+            "by replacement or date-specific treatment suspension, recalculate "
+            "load/availability after every choice, then create a finalized preview."
         )
     )
     parser.add_argument(
@@ -130,14 +219,32 @@ def main() -> int:
         print(f"SAFETY STOP: input workbook not found: {input_book}")
         return 2
 
+    output_created = False
     try:
         target_date = _read_daily_input_date(input_book)
-        patients = read_patients(input_book)
+        patients = read_patient_registry(input_book)
         settings = read_settings(input_book)
-        base_entries = read_base_schedule(input_book)
+        base_entries = read_unified_base_schedule(input_book)
         sessions = materialize_sessions_for_date(base_entries, target_date)
         daily = read_daily_input(input_book, patients=patients, sessions=sessions)
         policy_book = load_policy_book(REPO_ROOT / "Config" / "provider_policy.json")
+        cancellations = list(daily.cancellations)
+        suspensions: list[DailySessionCancellation] = []
+        replacement_history = list(
+            read_daily_replacement_fact_rows(
+                input_book,
+                target_date=target_date,
+                include_restored=True,
+            )
+        )
+        replacements: list[ReplacementAssignment] = list(
+            read_daily_replacement_facts(
+                input_book,
+                sessions=sessions,
+                target_date=target_date,
+            )
+        )
+        new_replacements: list[ReplacementAssignment] = []
 
         therapist_absences = tuple(
             absence
@@ -155,41 +262,54 @@ def main() -> int:
         initial_queue = build_therapist_absence_replacement_queue(
             sessions=sessions,
             absences=daily.absences,
+            cancellations=cancellations,
             therapists=therapists,
             patients=patients,
             timeslots=settings.standard_timeslots,
             policy_book=policy_book,
             base_entries=base_entries,
         )
-        if not initial_queue.items:
+        if not initial_queue.items and not replacements:
             raise DailyInputReadError(
-                "No session needs replacement after applying patient/therapist absences"
+                "No session needs replacement after applying patient/therapist absences and cancellations"
             )
 
         session_by_id = {session.session_id: session for session in sessions}
         patient_by_id = {patient.patient_id: patient for patient in patients}
-        pending_ids = [item.session_id for item in initial_queue.items]
-        replacements: list[ReplacementAssignment] = []
-        unresolved: list[str] = []
+        persisted_target_ids = {replacement.target_session_id for replacement in replacements}
+        pending_ids = [
+            item.session_id
+            for item in initial_queue.items
+            if item.session_id not in persisted_target_ids
+        ]
+        initially_persisted_replacements = len(replacements)
 
-        print("SEQUENTIAL THERAPIST ABSENCE REPLACEMENTS")
+        print("SEQUENTIAL THERAPIST ABSENCE RESOLUTION")
         print(f"Date: {target_date.isoformat()}")
-        print(f"Sessions needing replacement: {len(pending_ids)}")
+        print(f"Sessions needing resolution: {len(pending_ids)}")
+        if initially_persisted_replacements:
+            print(f"Persisted replacements loaded: {initially_persisted_replacements}")
         if initial_queue.skipped_patient_absent:
             print(
                 "Patient-absent sessions excluded: "
                 f"{initial_queue.skipped_patient_absent}"
             )
+        if initial_queue.skipped_cancelled:
+            print(f"Cancelled/no-show sessions excluded: {initial_queue.skipped_cancelled}")
         print(
-            "IMPORTANT: ranking is recalculated after every accepted replacement, "
-            "so load and occupied timeslots update immediately."
+            "IMPORTANT: every affected session must finish as placement or "
+            "Αναστολή θεραπείας. A completed preview cannot leave an orphan unresolved."
+        )
+        print(
+            "RANKING: recalculated after every accepted outcome, so load and occupied "
+            "timeslots update immediately."
         )
         print(
             "PROVIDER POLICY: replacement exclusions, temporary max load, blocked times, "
             "and Manager/Acting Manager open times are active."
         )
         print(
-            "PATIENT SCHEDULE: all PATIENT_PLANNER specialties are checked before a "
+            "PATIENT SCHEDULE: all recurring specialties are checked before a "
             "replacement time is offered."
         )
 
@@ -206,6 +326,7 @@ def main() -> int:
                 absences=daily.absences,
                 patients=patients,
                 replacements=replacements,
+                cancellations=cancellations,
                 requested_time=target.start_time,
                 timeslots=settings.standard_timeslots,
                 base_entries=base_entries,
@@ -226,8 +347,6 @@ def main() -> int:
                     "   No feasible provider/timeslot remains after capacity, provider-policy, "
                     "and patient cross-specialty checks."
                 )
-                unresolved.append(session_id)
-                continue
 
             for rank, option in enumerate(visible, start=1):
                 exact = "exact" if option.exact_time_available else "alternative"
@@ -239,16 +358,21 @@ def main() -> int:
                 )
 
             try:
-                rank = _ask_rank(len(visible))
+                resolution = _ask_resolution(len(visible))
             except KeyboardInterrupt:
                 print("\nCANCELLED: no preview was written.")
                 return 0
-            if rank is None:
-                unresolved.append(session_id)
-                print("   Left unresolved.")
+
+            if resolution == SUSPEND_CHOICE:
+                _append_treatment_suspension(
+                    target,
+                    cancellations=cancellations,
+                    suspensions=suspensions,
+                )
+                print("   SUSPENDED: Αναστολή θεραπείας for this date only.")
                 continue
 
-            option = visible[rank - 1]
+            option = visible[int(resolution) - 1]
             validate_policy_replacement_time(
                 provider_id=option.provider_id,
                 target_date=target.session_date,
@@ -262,18 +386,20 @@ def main() -> int:
                 base_entries=base_entries,
             )
             replacement = create_replacement_assignment(
-                replacement_id=f"daily-input-{len(replacements) + 1}",
+                replacement_id=_replacement_id(target, replacement_history),
                 target_session=target,
                 replacement_therapist_id=option.provider_id,
                 therapists=therapists,
                 sessions=sessions,
                 absences=daily.absences,
                 replacements=replacements,
+                cancellations=cancellations,
                 replacement_time=option.recommended_time,
                 reason="DAILY_INPUT therapist absence",
                 patients=patients,
             )
             replacements.append(replacement)
+            new_replacements.append(replacement)
             print(
                 f"   ACCEPTED: {option.display_name} "
                 f"{option.recommended_time.strftime('%H:%M')}"
@@ -283,8 +409,16 @@ def main() -> int:
             sessions,
             absences=daily.absences,
             replacements=replacements,
+            cancellations=cancellations,
             target_date=target_date,
         )
+        statistics = calculate_daily_treatment_statistics(states)
+        if not statistics.is_finalized:
+            raise DailyInputReadError(
+                "Daily resolution is not finalized: "
+                f"{statistics.unresolved_sessions} orphan session(s) remain unresolved"
+            )
+
         preview = build_patient_centric_preview_plan(
             input_book,
             base_entries=base_entries,
@@ -293,21 +427,65 @@ def main() -> int:
             patients=patients,
             rebuild_multi_member_groups=True,
         )
-        report = apply_write_plan_to_copy(
+        composed_plan = compose_outpatient_daily_plan(
             preview.write_plan,
+            states=states,
+            patients=patients,
+        )
+        report = apply_write_plan_to_copy(
+            composed_plan,
             output,
             overwrite=args.overwrite,
         )
-    except (DailyInputReadError, PatientCentricPreviewError, ValueError, KeyError) as exc:
+        output_created = True
+        persisted_replacement_facts = append_daily_replacement_facts(
+            output,
+            new_replacements,
+            sessions=sessions,
+        )
+        suspension_rows = build_treatment_suspension_rows(
+            suspensions,
+            sessions=sessions,
+            patients=patients,
+        )
+        persisted_suspensions = append_treatment_suspensions_to_daily_input(
+            output,
+            suspension_rows,
+        )
+        write_daily_statistics(output, target_date, statistics)
+    except (
+        DailyInputReadError,
+        DailyOperationalFactWriteError,
+        DailyReplacementFactError,
+        DailyStatisticsWriteError,
+        PatientCentricPreviewError,
+        PatientRegistrySourceError,
+        OutpatientScheduleSourceError,
+        OutpatientPresentationError,
+        DailyPreviewCompositionError,
+        ValueError,
+        KeyError,
+    ) as exc:
+        if output_created and output.exists():
+            try:
+                output.unlink()
+            except OSError:
+                pass
         print(f"SAFETY STOP: {exc}")
         return 2
 
     vba_preserved = _has_vba(input_book) == _has_vba(output) and _has_vba(output)
-    print("\nDAILY REPLACEMENTS PREVIEW OK")
+    print("\nDAILY RESOLUTION PREVIEW OK")
     print(f"Input: {report.source_path}")
     print(f"Preview: {report.output_path}")
-    print(f"Accepted replacements: {len(replacements)}")
-    print(f"Unresolved sessions: {len(unresolved)}")
+    print(f"Session cancellations: {len(cancellations)}")
+    print(f"Accepted replacements this run: {len(new_replacements)}")
+    print(f"Active replacements after resolution: {len(replacements)}")
+    print(f"Persisted replacements loaded: {initially_persisted_replacements}")
+    print(f"Persisted replacement facts written: {persisted_replacement_facts}")
+    print(f"Treatment suspensions: {len(suspensions)}")
+    print(f"Persisted suspension facts: {persisted_suspensions}")
+    print(f"Unresolved sessions: {statistics.unresolved_sessions}")
     for replacement in replacements:
         patient = patient_by_id.get(replacement.patient_id)
         patient_name = patient.display_name if patient is not None else replacement.patient_id
@@ -316,13 +494,31 @@ def main() -> int:
             f"{replacement.replacement_therapist_id} "
             f"{replacement.replacement_time.strftime('%H:%M')}"
         )
-    if unresolved:
-        print("Unresolved session ids: " + ", ".join(unresolved))
+    for suspension in suspensions:
+        target = session_by_id[suspension.target_session_id]
+        patient = patient_by_id.get(target.patient_id)
+        patient_name = patient.display_name if patient is not None else target.patient_id
+        print(
+            f"  {patient_name}: {target.therapist_id} "
+            f"{target.start_time.strftime('%H:%M')} -> Αναστολή θεραπείας"
+        )
+    print(
+        "Statistics: "
+        f"scheduled={statistics.scheduled_sessions}, "
+        f"performed={statistics.performed_sessions}, "
+        f"replaced={statistics.replaced_sessions}, "
+        f"suspended={statistics.treatment_suspended_sessions}, "
+        f"no_show={statistics.patient_no_show_sessions}, "
+        f"department_postponed={statistics.department_postponed_sessions}, "
+        f"patient_absent={statistics.patient_absent_sessions}, "
+        f"unresolved={statistics.unresolved_sessions}"
+    )
+    print("Daily statistics sheet: DAILY_STATISTICS")
     print(f"Input unchanged: {report.source_unchanged}")
     print(f"VBA preserved: {vba_preserved}")
     print(
-        "NEXT: open only DAILY_REPLACEMENTS_PREVIEW.xlsm and inspect all affected "
-        "original/destination cells."
+        "NEXT: re-read the output workbook and verify replacement facts, suspension facts, "
+        "and DAILY_STATISTICS reconstruct the finalized daily state."
     )
     return 0 if report.source_unchanged and vba_preserved else 3
 

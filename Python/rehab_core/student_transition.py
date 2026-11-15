@@ -79,7 +79,7 @@ class StudentEndTransitionPlan:
 def expired_student_label(student: Student) -> str:
     """Stable post-placement display label while preserving real identity internally."""
 
-    return f"Φοιτ.{student.student_number}"
+    return f"Φοιτ.{student.student_id}"
 
 
 def _base_entry_id_from_session_id(session_id: str) -> str | None:

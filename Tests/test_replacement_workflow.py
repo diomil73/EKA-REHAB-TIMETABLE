@@ -14,6 +14,7 @@ def _option(name: str, hour: int) -> ReplacementProviderOption:
         display_name=name,
         provider_kind=ReplacementProviderKind.THERAPIST,
         active_sessions=1,
+        active_timeslots=1,
         infectious_sessions=0,
         robotic_sessions=0,
         replacement_sessions=0,

@@ -110,8 +110,41 @@ def test_lower_daily_workload_is_ranked_first():
     )
 
     assert [candidate.therapist_id for candidate in candidates] == ["T-B", "T-A"]
+    assert candidates[0].active_timeslots == 1
+    assert candidates[1].active_timeslots == 2
     assert candidates[0].active_sessions == 1
     assert candidates[1].active_sessions == 2
+
+
+def test_more_patients_can_rank_ahead_when_they_use_fewer_timeslots():
+    sessions = [
+        Session("A1", "PA1", "T-A", TODAY, time(8, 30)),
+        Session("A2", "PA2", "T-A", TODAY, time(8, 30)),
+        Session("A3", "PA3", "T-A", TODAY, time(9, 15)),
+        Session("A4", "PA4", "T-A", TODAY, time(10, 0)),
+        Session("A5", "PA5", "T-A", TODAY, time(10, 45)),
+        Session("A6", "PA6", "T-A", TODAY, time(10, 45)),
+        Session("B1", "PB1", "T-B", TODAY, time(8, 30)),
+        Session("B2", "PB2", "T-B", TODAY, time(9, 15)),
+        Session("B3", "PB3", "T-B", TODAY, time(10, 0)),
+        Session("B4", "PB4", "T-B", TODAY, time(10, 45)),
+        Session("B5", "PB5", "T-B", TODAY, time(11, 30)),
+    ]
+
+    candidates = find_replacement_candidates(
+        target_session(),
+        therapists=[Therapist("T-A", "A"), Therapist("T-B", "B")],
+        sessions=sessions,
+        timeslots=[time(8, 30), time(9, 15), time(10, 0), time(10, 45), time(11, 30), SLOT],
+    )
+
+    assert [candidate.therapist_id for candidate in candidates] == ["T-A", "T-B"]
+    assert candidates[0].active_sessions == 6
+    assert candidates[0].active_timeslots == 4
+    assert candidates[0].capacity_remaining == 2
+    assert candidates[1].active_sessions == 5
+    assert candidates[1].active_timeslots == 5
+    assert candidates[1].capacity_remaining == 1
 
 
 def test_patient_absence_is_removed_from_daily_workload():
@@ -137,6 +170,8 @@ def test_patient_absence_is_removed_from_daily_workload():
 
     assert candidates[0].active_sessions == 1
     assert candidates[1].active_sessions == 1
+    assert candidates[0].active_timeslots == 1
+    assert candidates[1].active_timeslots == 1
 
 
 def test_robotic_session_only_returns_robotic_capable_therapists():
@@ -171,14 +206,14 @@ def test_total_load_stays_first_priority_for_infectious_target():
         patients=patients,
     )
 
-    # Confirmed ranking: total operational load remains the first priority.
-    # Infectious workload is a tie-breaker, not a reason to override lower load.
+    # Operational timeslot load remains the first priority. Infectious workload
+    # is a later tie-breaker and never overrides a lower occupied-timeslot load.
     assert [candidate.therapist_id for candidate in candidates] == ["T-A", "T-B"]
-    assert candidates[0].active_sessions == 1
-    assert candidates[1].active_sessions == 2
+    assert candidates[0].active_timeslots == 1
+    assert candidates[1].active_timeslots == 2
 
 
-def test_infectious_workload_breaks_tie_after_load_and_time_match():
+def test_infectious_workload_breaks_tie_after_load_and_patient_count_match():
     patients = [
         Patient("P-TARGET", "Target", infectious=True),
         Patient("P-INF", "Infectious", infectious=True),
@@ -197,6 +232,7 @@ def test_infectious_workload_breaks_tie_after_load_and_time_match():
     )
 
     assert [candidate.therapist_id for candidate in candidates] == ["T-B", "T-A"]
+    assert candidates[0].active_timeslots == candidates[1].active_timeslots == 1
     assert candidates[0].active_sessions == candidates[1].active_sessions == 1
     assert candidates[0].infectious_sessions == 0
     assert candidates[1].infectious_sessions == 1

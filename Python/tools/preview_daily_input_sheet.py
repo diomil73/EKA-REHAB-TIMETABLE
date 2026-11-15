@@ -4,13 +4,16 @@ import argparse
 import sys
 from datetime import date
 from pathlib import Path
-from zipfile import ZipFile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON_ROOT = REPO_ROOT / "Python"
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
+from rehab_excel.application_contract import (  # noqa: E402
+    ApplicationContractError,
+    assert_application_contract,
+)
 from rehab_excel.daily_input_patients import audit_daily_input_patients  # noqa: E402
 from rehab_excel.daily_input_sheet import (  # noqa: E402
     DailyInputSheetError,
@@ -20,16 +23,16 @@ from rehab_excel.daily_input_sheet import (  # noqa: E402
 from rehab_excel.reader import read_settings  # noqa: E402
 
 
+DEFAULT_APP_SOURCE = (
+    REPO_ROOT / "Excel" / "previews" / "OUTPATIENT_RECURRING_SMOKE.xlsm"
+)
+
+
 def _parse_date(value: str) -> date:
     try:
         return date.fromisoformat(value.strip())
     except ValueError as exc:
         raise argparse.ArgumentTypeError("Date must be YYYY-MM-DD") from exc
-
-
-def _has_vba(path: Path) -> bool:
-    with ZipFile(path) as archive:
-        return "xl/vbaProject.bin" in archive.namelist()
 
 
 def main() -> int:
@@ -40,7 +43,11 @@ def main() -> int:
     parser.add_argument(
         "--source",
         type=Path,
-        default=REPO_ROOT / "Rehab_Center_System_v27_1.xlsm",
+        default=DEFAULT_APP_SOURCE,
+        help=(
+            "Complete application workbook used as the immutable source. "
+            "Defaults to the known-good outpatient recurring smoke artifact."
+        ),
     )
     parser.add_argument(
         "--output",
@@ -57,6 +64,8 @@ def main() -> int:
         return 2
 
     try:
+        source_contract = assert_application_contract(source)
+
         patient_audit = audit_daily_input_patients(source)
         if not patient_audit.ok:
             details = list(patient_audit.identity_mismatches) + [
@@ -78,11 +87,11 @@ def main() -> int:
             spec,
             overwrite=args.overwrite,
         )
-    except (ValueError, DailyInputSheetError) as exc:
+        preview_contract = assert_application_contract(preview)
+    except (ValueError, DailyInputSheetError, ApplicationContractError) as exc:
         print(f"SAFETY STOP: {exc}")
         return 2
 
-    vba_preserved = _has_vba(source) == _has_vba(preview) and _has_vba(preview)
     print("DAILY INPUT PREVIEW OK")
     print(f"Date: {args.date.isoformat()}")
     print(f"Source: {source}")
@@ -99,9 +108,15 @@ def main() -> int:
     print(f"Patient status options: {len(spec.patient_statuses)}")
     print(f"Timeslots: {', '.join(spec.timeslots)}")
     print(f"Source unchanged: {source_unchanged}")
-    print(f"VBA preserved: {vba_preserved}")
+    print("Application contract source: OK")
+    print("Application contract preview: OK")
+    print(f"Required app components: {len(source_contract.required_components)}")
+    print(
+        "Preview VBA component count: "
+        f"{len(preview_contract.component_names)}"
+    )
     print("NEXT: inspect the cleaned DAILY_INPUT sheet and its dropdowns.")
-    return 0 if source_unchanged and vba_preserved else 3
+    return 0 if source_unchanged else 3
 
 
 if __name__ == "__main__":

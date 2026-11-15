@@ -27,6 +27,21 @@ from .daily_state import (
     DailySessionStatus,
     build_daily_session_states,
 )
+from .daily_statistics import (
+    DailyTreatmentStatistics,
+    calculate_daily_treatment_statistics,
+)
+from .day_finalization import (
+    DayFinalizationError,
+    FinalizedDaySnapshot,
+    FinalizedSnapshotStatus,
+    build_finalized_day_snapshot,
+)
+from .therapist_day_history import (
+    TherapistDayHistoryError,
+    TherapistDayHistoryRow,
+    build_therapist_day_history_rows,
+)
 from .day_patterns import (
     RehabWeekday,
     parse_day_pattern,
@@ -37,13 +52,20 @@ from .models import (
     AbsenceKind,
     BaseScheduleEntry,
     DailyAbsence,
+    DailySessionCancellation,
     Patient,
+    PatientType,
     ReplacementAssignment,
     ReplacementProviderKind,
     Session,
+    SessionCancellationKind,
     Student,
     StudentAssignment,
     Therapist,
+)
+from .orphan_resolution import (
+    TREATMENT_SUSPENSION_REASON,
+    create_treatment_suspension,
 )
 from .registration import (
     NewPatientRequest,
@@ -84,11 +106,18 @@ from .workload import (
 __all__ = [
     "AbsenceKind",
     "DailyCapacityStatus",
+    "DailyTreatmentStatistics",
+    "DayFinalizationError",
+    "FinalizedDaySnapshot",
+    "FinalizedSnapshotStatus",
+    "TherapistDayHistoryError",
+    "TherapistDayHistoryRow",
     "RecurringCapacityCheck",
     "RecurringCapacityIssue",
     "BaseScheduleEntry",
     "ConflictKind",
     "DailyAbsence",
+    "DailySessionCancellation",
     "DailySessionStatus",
     "DailySessionState",
     "NewPatientRequest",
@@ -96,6 +125,7 @@ __all__ = [
     "NewTherapistRequest",
     "OperationalOccurrence",
     "Patient",
+    "PatientType",
     "RehabWeekday",
     "RegistrationCheck",
     "RegistrationIssue",
@@ -104,6 +134,7 @@ __all__ = [
     "ReplacementProviderKind",
     "ScheduleConflict",
     "Session",
+    "SessionCancellationKind",
     "Student",
     "StudentAssignment",
     "StudentDisplayState",
@@ -111,14 +142,19 @@ __all__ = [
     "StudentEndReassignmentOption",
     "StudentEndTransitionPlan",
     "StudentWorkload",
+    "TREATMENT_SUSPENSION_REASON",
     "Therapist",
     "TherapistWorkload",
     "build_daily_session_states",
+    "build_finalized_day_snapshot",
+    "build_therapist_day_history_rows",
     "build_operational_occurrences",
     "build_student_display_map",
+    "calculate_daily_treatment_statistics",
     "calculate_student_workload",
     "calculate_therapist_workload",
     "create_replacement_assignment",
+    "create_treatment_suspension",
     "expired_student_label",
     "find_operational_conflicts",
     "find_replacement_candidates",

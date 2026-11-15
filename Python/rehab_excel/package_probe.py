@@ -37,8 +37,21 @@ class WorkbookPackageProbe:
 
     @staticmethod
     def _join_part(base_part: str, target: str) -> str:
+        """Resolve an OPC relationship target to the ZIP member name.
+
+        Relationship targets may be package-absolute (``/xl/...``) or relative
+        to the source part. ``zipfile`` member names never begin with ``/``, so
+        package-absolute targets must be normalized back to the archive-root
+        member name before they are opened.
+        """
+
+        normalized_target = str(target).replace("\\", "/")
+        if normalized_target.startswith("/"):
+            return posixpath.normpath(normalized_target.lstrip("/"))
         base = str(PurePosixPath(base_part).parent)
-        return posixpath.normpath(posixpath.join(base, target))
+        return posixpath.normpath(
+            posixpath.join(base, normalized_target)
+        ).lstrip("/")
 
     def _load_sheet_parts(self) -> dict[str, str]:
         if self._sheet_parts is not None:
