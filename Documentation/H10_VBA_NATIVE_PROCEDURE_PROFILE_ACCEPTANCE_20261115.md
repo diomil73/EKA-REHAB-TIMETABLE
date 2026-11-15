@@ -55,3 +55,24 @@ Recommended next autonomous source work: trace the application-shell and event-r
 ## Provenance and safety
 
 The user-provided reports are local audit artifacts, not new Git-tracked production content. The acceptance is limited to report-observed results; no native Excel COM run occurred in this documentation task. No patient data, VBA source text, cell formulas or patient identities are reproduced in this register.
+
+
+## Subsequent source-level ownership proof: ThisWorkbook events
+
+The tracked generator `Python/rehab_excel/application_shell_vba.py` contains `_EVENT_SPECS` and `install_application_shell`, which install calls into the workbook's VBA document module.
+
+We independently computed the SHA-256 of the exact one-line VBA body created by each generator entry (four spaces followed by the call name). Every result **matches the observed native profile hash** in all three candidates:
+
+| Workbook event | Installed call | SHA-256 prefix |
+|---|---|---|
+| `Workbook_Open` | `EnterApplicationShell` | `587b673406a7` |
+| `Workbook_Activate` | `EnterApplicationShell` | `587b673406a7` |
+| `Workbook_Deactivate` | `ExitApplicationShell` | `c755c205e4b4` |
+| `Workbook_SheetActivate` | `KeepApplicationShell` | `04ddae21bbda` |
+| `Workbook_BeforeClose` | `ExitApplicationShell` | `c755c205e4b4` |
+
+**ThisWorkbook event source ownership is now confirmed** for this one-line event-handler scope, not merely inferred from procedure names. The called routines are implemented in the tracked `modApplicationShell` generator: entering/preserving the application view, restoring user interface on deactivate/close, and retaining the sheet/navigation shell. Nested calls such as `ApplyMasterView` are still separately governed by their existing contracts.
+
+A regression assertion was committed in `Tests/test_h10_native_workbook_event_hash_contract.py` to prevent generator event calls from drifting away from these native SHA-256 proofs. This new test has not yet been run on the operator machine; do not include it in the earlier 1,832-pass claim.
+
+The remaining native-only behavior review narrows to `PATIENT_PLANNER.Worksheet_Change`, `Module6` time/presence helpers and the empty `Module5` module. Module5 is confirmed empty in the native code-module output, so there is no executable procedure to trace. The exact implementation and called routines of `PATIENT_PLANNER.Worksheet_Change` still require inspection without exposing patient data or modifying a workbook.
