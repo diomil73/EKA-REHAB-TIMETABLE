@@ -29,18 +29,41 @@ HEADERS = (
 
 VBA_CODE = r'''Option Explicit
 
+' Extend the source-linked grid after registrations, without replacing the
+' original patient registry or writing lifecycle events. Row 2 is a template.
+Public Sub RefreshDemoActiveCensus()
+    Dim patients As Worksheet, view As Worksheet
+    Dim patientLast As Long, viewLast As Long
+    Set patients = ThisWorkbook.Worksheets("PATIENTS")
+    Set view = ThisWorkbook.Worksheets("DEMO_ACTIVE_CENSUS")
+    patientLast = Application.Max(2, _
+        patients.Cells(patients.Rows.Count, 1).End(xlUp).Row, _
+        patients.Cells(patients.Rows.Count, 3).End(xlUp).Row)
+    viewLast = Application.Max(2, _
+        view.Cells(view.Rows.Count, 1).End(xlUp).Row)
+    If Left$(CStr(view.Cells(2, 1).Formula), 4) <> "=IF(" Then
+        Err.Raise vbObjectError + 3091, , "Η βάση της ενεργής λίστας λείπει."
+    End If
+    If patientLast > viewLast Then
+        view.Range("A" & CStr(viewLast) & ":F" & CStr(viewLast)).AutoFill _
+            Destination:=view.Range("A" & CStr(viewLast) & ":F" & CStr(patientLast)), _
+            Type:=xlFillDefault
+    End If
+    view.Calculate
+End Sub
+
 Public Sub OpenDemoActiveCensus()
     On Error GoTo MissingSheet
+    RefreshDemoActiveCensus
     With ThisWorkbook.Worksheets("DEMO_ACTIVE_CENSUS")
         .Visible = xlSheetVisible
-        .Calculate
         .Activate
         .Range("A1").Select
     End With
     KeepApplicationShell
     Exit Sub
 MissingSheet:
-    MsgBox "Δεν βρέθηκε η κατάσταση ενεργών ασθενών.", vbExclamation, "Diomil DEMO"
+    MsgBox "Η προβολή ενεργών ασθενών χρειάζεται έλεγχο.", vbExclamation, "Diomil DEMO"
 End Sub
 '''
 
@@ -120,7 +143,9 @@ def install_demo_active_census(workbook, *, patient_rows: int) -> None:
     if ws.Cells(2, 8).Value2 in (None, ""):
         ws.Cells(2, 8).Formula = "=TODAY()"
     ws.Cells(2, 8).NumberFormat = "dd/mm/yyyy"
-    for row in range(2, patient_rows + 2):
+    # Row 2 remains a blank, formula-only template even if the DEMO starts
+    # with zero patients. VBA can extend the grid after future admissions.
+    for row in range(2, max(3, patient_rows + 2)):
         formula = census_formulas(row, patient_type_source_column=int(type_col))
         for col, value in enumerate(
             (
@@ -187,7 +212,8 @@ def verify_demo_active_census(path: str | Path, *, patient_rows: int) -> None:
         code = str(module.CodeModule.Lines(
             1, int(module.CodeModule.CountOfLines)
         ))
-        if "Public Sub OpenDemoActiveCensus()" not in code:
+        if ("Public Sub OpenDemoActiveCensus()" not in code
+                or "Public Sub RefreshDemoActiveCensus()" not in code):
             raise DemoActiveCensusError("Active census VBA module missing")
         master = wb.Worksheets("MASTER_SCHEDULE")
         ws = wb.Worksheets(SHEET_NAME)
@@ -207,7 +233,7 @@ def verify_demo_active_census(path: str | Path, *, patient_rows: int) -> None:
         ), None)
         if type_col is None:
             raise DemoActiveCensusError("Patient type is not available")
-        for row in range(2, patient_rows + 2):
+        for row in range(2, max(3, patient_rows + 2)):
             expected = census_formulas(
                 row, patient_type_source_column=type_col,
             )
