@@ -62,7 +62,7 @@ class TrialImportPlan:
 def prepare_trial_import_plan(
     *, review: str | Path, intake: str | Path,
     programme: str | Path | None = None,
-    *, empty_demo_shell: bool = False,
+    empty_demo_shell: bool = False,
 ) -> TrialImportPlan:
     """Validate both private inputs and preserve the exact admitted placements.
 
