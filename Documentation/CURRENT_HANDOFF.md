@@ -1707,3 +1707,27 @@ Operator confirmed `34 passed in 8.73s` (four focused tests, source-level only).
 ## 2026-11-15 — 39-pass checkpoint and stronger read-only native preview checks
 
 Operator confirmed `39 passed in 9.23s` on the four targeted source modules. Additional changes after that run: PM count wording corrected from days to sessions (`005c0b0`, `4879474`) with regressions (`abe2ebf`, `93625cd`); native preview invariants now capture every used MASTER column width plus both formula and cached value snapshots for MASTER/PATIENT_PLANNER/PATIENTS (`109d5ca`), with updated isolated fake COM tests (`6ba0fe7`, `1902596`). **These latest changes still need Windows tests.** Next exact command and native provenance boundary in `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`. Do not run Excel yet; no synthetic integrated native candidate has been verified. No source workbook, MASTER or frozen CC changed.
+
+## 2026-11-15 — 49-pass Windows source gate; native synthetic candidate NOT FOUND
+
+Operator confirmed **49 passed in 9.22s** for the five targeted afternoon modules:
+- `Tests/test_afternoon_minimal_native_installer.py`
+- `Tests/test_afternoon_patient_readonly_vba.py`
+- `Tests/test_afternoon_patient_form_state.py`
+- `Tests/test_afternoon_patient_bridge.py`
+- `Tests/test_afternoon_native_preflight.py`
+
+This confirms the latest source changes, including accurate session wording, CRLF/LF normalization, designer-access fail-closed checks, macro auto-execution disablement and expanded MASTER/formula snapshots. It is still **source test evidence only**, not native Excel save/reopen or UI acceptance.
+
+A read-only repository inventory found only one tracked XLSM: `Rehab_Center_System_v27_1.xlsm`. Its tracked baseline audit reports 90 patient records and identifies it as a populated clinical workbook. It is explicitly **excluded** as a native smoke source. No fresh synthetic integrated XLSM is currently tracked in the repository.
+
+The H10 helper `prepare_h10_synthetic_only_source.py` isolates synthetic history-ledger rows in a demo copy; it does **not** sanitize the PATIENTS registry and all other workbook sheets. Therefore it must not be represented as a synthetic-only patient workbook or reused for this patient-form native smoke without a separate, comprehensive provenance proof.
+
+### Current safe state and next action
+
+- Source regression gate: **GREEN, 49 passed in 9.22s**.
+- Native candidate provenance: **BLOCKED / none identified**.
+- Native Excel installer: **NOT RUN**.
+- Real source workbook, populated canonical workbook, frozen H10 CC, MASTER and patient data: **untouched by this work**.
+
+Do not run the native installer or preflight against the tracked populated workbook merely because its XLSM structure is valid. Next step is to identify or deliberately create a fresh integrated disposable workbook whose entire patient roster and all relevant sheets are demonstrably synthetic, while retaining the exact compatible `PatientProgramRuntime` and `frmPatientScheduling` components. If no such candidate exists, build a dedicated synthetic fixture using a reviewed data-generation/scrubbing design first; do not sanitize or repurpose the populated canonical workbook ad hoc. Once provenance is established, run structural preflight, then use a never-before-existing output path with the minimal installer only. Preserve any failed output and never retry in place.
