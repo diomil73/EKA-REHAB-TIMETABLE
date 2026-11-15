@@ -788,3 +788,10 @@ The read-only VBA auditor now emits additional metadata for components with no o
 It does not emit VBA source lines, literals, patient names, cell values, or formulas. This is intended to compare the embedded implementations across the three native candidates and provide a safe structural profile for the four remaining native-only components (ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6, Module5).
 
 New regression tests cover source redaction, stable procedure hashes, profile counts and the emitted metadata contract. These latest profile changes have NOT yet been executed locally. The previously reported 24 focused passes / 1,829 full passes validate the preceding auditor revision, not this new profile revision. A fresh focused/full/native run is required before relying on the new profile output.
+
+
+## 2026-11-15 19:50 — H10 procedure-profile acceptance and event source reconciliation
+
+Operator evidence `DIOMIL_VBA_PROFILE_BUNDLE_20261115_195014.txt`: 27 focused tests passed; 1,832 full tests passed, 1 skipped, 26 warnings. Three distinct H10 native read-only XLSM audits passed, with 1,569 static operation matches each, matching nonempty component inventories, unchanged SHA-256s and no workbook modifications. Detailed acceptance is in `Documentation/H10_VBA_NATIVE_PROCEDURE_PROFILE_ACCEPTANCE_20261115.md`.
+
+The tracked `Python/rehab_excel/application_shell_vba.py` workbook-event installer was compared with the native procedure SHA-256s: all five `ThisWorkbook` event bodies matched exactly, so ownership for that event-call scope is now confirmed. The regression assertion `Tests/test_h10_native_workbook_event_hash_contract.py` was committed but is not covered by the preceding green test count. `Module5` is empty in the native code-module output despite CountOfLines=1. The remaining native-only event/normalizer semantics of `PATIENT_PLANNER.Worksheet_Change` and `Module6` must not be inferred. No frozen candidate was modified; the integrated synthetic workbook and real-source admission remain unaccepted.
