@@ -245,3 +245,16 @@ def test_call_edge_auditor_does_not_print_source_lines():
     assert "_safe_label(caller)" in source
     assert "_safe_label(callee)" in source
     assert "f\"  POSSIBLE_CALL_EDGE caller=" in source
+
+
+def test_component_sha256_uses_newlines_not_literal_backslash_n():
+    source = inspect.getsource(module.audit)
+    assert 'sha256("\\n".join(lines).encode("utf-8")).hexdigest()' in source
+    assert 'sha256("\\\\n".join(lines).encode("utf-8")).hexdigest()' not in source
+
+
+def test_normalizer_call_search_covers_modules_with_write_matches():
+    source = inspect.getsource(module.audit)
+    assert 'if name.casefold() in {"normalizetimems", "normalizepresencems"}' in source
+    assert "lines, normalizer_names" in source
+    assert "POSSIBLE_CALL_EDGE" in source
