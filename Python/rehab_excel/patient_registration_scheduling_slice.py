@@ -10,6 +10,7 @@ from .native_excel import apply_write_plan_to_copy
 from .outpatient_schedule_source import read_unified_base_schedule
 from .patient_edit_form_vba import install_patient_edit_form
 from .patient_program_combo_clear_vba import install_combo_clear_handlers
+from .afternoon_patient_readonly_vba import install_afternoon_readonly_panel
 from .patient_program_conflict_layout_vba import install_conflict_runtime_layout
 from .patient_program_form_vba import install_patient_program_ui
 from .patient_program_master_render_vba import install_patient_program_master_render
@@ -268,6 +269,12 @@ def _install_scheduling_ui(workbook_path: Path) -> None:
 
         stage = "installing combo clear handlers"
         install_combo_clear_handlers(vbproject)
+
+        stage = "installing read-only afternoon patient panel"
+        install_afternoon_readonly_panel(
+            vbproject,
+            position_control=_position_control,
+        )
 
         stage = "verifying patient-program VBA replacement"
         _verify_patient_program_vba(vbproject)
