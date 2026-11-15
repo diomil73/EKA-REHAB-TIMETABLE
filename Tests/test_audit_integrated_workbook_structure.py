@@ -40,6 +40,7 @@ def test_structure_audit_is_read_only_and_never_prints_cell_values(tmp_path, cap
     assert "PRIVATE SYNTHETIC PATIENT NAME" not in output
     assert "SYNTH-P001" not in output
     assert "SYNTH-T001" not in output
+    assert "=1+1" not in output
     assert sha256(path.read_bytes()).hexdigest() == before
 
 
