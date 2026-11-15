@@ -140,7 +140,7 @@ def _verify_patient_program_vba(vbproject) -> None:
         if marker in form_code or marker in runtime_code
     ]
 
-    # The optional PM panel must be present in BOTH form and runtime and
+    # The integrated PM panel must be present in BOTH form and runtime and
     # must have its own designer control. Do not accept only a source patch.
     afternoon_form_markers = (
         "RefreshAfternoonReadOnlyPanel",
