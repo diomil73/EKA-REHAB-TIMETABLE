@@ -158,3 +158,45 @@ def test_side_effect_scan_does_not_count_procedure_declarations():
         "RunHidden = shell.Run(commandLine, 0, True)",
         "stream.SaveToFile filePath, 2",
     ]
+
+
+def test_procedure_profiles_are_source_redacted_and_stable():
+    lines = [
+        "Private Function NormalizeTimeMS(ByVal rawTime As Variant) As String",
+        "    If IsDate(rawTime) Then",
+        '        NormalizeTimeMS = Format(CDate(rawTime), "hh:mm")',
+        "    Else",
+        '        NormalizeTimeMS = ""',
+        "    End If",
+        "End Function",
+    ]
+    profiles = module._procedure_profiles(lines)
+    assert len(profiles) == 1
+    profile = profiles[0]
+    assert profile["name"] == "NormalizeTimeMS"
+    assert profile["body_lines"] == 5
+    assert profile["categories"]["branches"] == 3
+    assert profile["categories"]["date_time"] == 1
+    assert len(profile["source_sha256"]) == 64
+    assert "rawTime" not in str(profile)
+    assert "hh:mm" not in str(profile)
+    assert "NormalizeTimeMS = " not in str(profile)
+
+
+def test_procedure_profiles_are_stable_across_identical_source():
+    lines = [
+        "Private Sub Worksheet_Change(ByVal Target As Range)",
+        "    If Target.CountLarge > 1 Then Exit Sub",
+        "End Sub",
+    ]
+    first = module._procedure_profiles(lines)
+    second = module._procedure_profiles(list(lines))
+    assert first == second
+    assert first[0]["categories"]["branches"] == 1
+
+
+def test_unmatched_component_audit_emits_only_profile_metadata():
+    source = inspect.getsource(module.audit)
+    assert "PROCEDURE_PROFILE" in source
+    assert "component_sha256=" in source
+    assert "_procedure_profiles(lines)" in source
