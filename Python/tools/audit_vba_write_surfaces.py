@@ -85,7 +85,7 @@ def _procedure_profiles(lines: list[str]) -> list[dict[str, object]]:
                 categories["branches"] += 1
             elif re.match(r"^(?:For|For Each|Next|Do|Loop|While|Wend)\b", stripped, re.IGNORECASE):
                 categories["loops"] += 1
-            elif re.search(r"\b(?:Date|Time|CDate|IsDate|Format|Hour|Minute|Second|NormalizeTimeMS|NormalizePresenceMS)\b", stripped, re.IGNORECASE):
+            elif re.search(r"\b(?:Date|Time|CDate|IsDate|Format|Hour|Minute|Second)\b", stripped, re.IGNORECASE):
                 categories["date_time"] += 1
             elif re.search(r"\b(?:Target|Application|EnableEvents|Intersect)\b", stripped, re.IGNORECASE):
                 categories["event_target"] += 1
