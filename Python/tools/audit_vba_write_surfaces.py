@@ -314,7 +314,7 @@ def audit(path: Path) -> int:
                         else ""
                     )
                     procedures = ",".join(procedure_names) if procedure_names else "(none)"
-                    component_hash = sha256("\\n".join(lines).encode("utf-8")).hexdigest()
+                    component_hash = sha256("\n".join(lines).encode("utf-8")).hexdigest()
                     print(
                         f"NO_PATTERN_MATCH_COMPONENT name={_safe_label(component_name)} "
                         f"type={int(component.Type)} lines={line_count}"
