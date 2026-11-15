@@ -125,6 +125,7 @@ def audit(path: Path) -> int:
         )
 
         print("DIOMIL READ-ONLY INTEGRATED WORKBOOK STRUCTURE AUDIT")
+        print("Candidate filename:", path.name)
         print("File extension:", path.suffix.lower())
         print("File size bytes:", before_size)
         print("File SHA256:", before_hash)
@@ -241,9 +242,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Non-identifying, read-only inventory of one integrated Excel workbook."
     )
-    parser.add_argument("workbook", type=Path)
+    parser.add_argument(
+        "workbooks",
+        nargs="+",
+        type=Path,
+        help="One or more existing XLSM/XLSX candidates to inventory read-only.",
+    )
     args = parser.parse_args(argv)
-    return audit(args.workbook)
+    results = []
+    for candidate in args.workbooks:
+        print("\\n=== CANDIDATE START ===")
+        results.append(audit(candidate))
+        print("=== CANDIDATE END ===")
+    if all(code == 0 for code in results):
+        print("ALL CANDIDATE STRUCTURE AUDITS COMPLETE")
+        return 0
+    print("CANDIDATE STRUCTURE AUDITS REQUIRE REVIEW:", results)
+    return 3 if 3 in results else 2
 
 
 if __name__ == "__main__":
