@@ -415,3 +415,9 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon installer security test
 ```
 
 **No native command yet.** The next actual native test still requires a verified, fresh, integrated **synthetic disposable** workbook. The preflight and `--confirm-synthetic-disposable` flag do not guarantee provenance. Avoid using H10 frozen CC or production source. The intended test is the isolated minimal installer only, never the broad patient scheduling UI reinstall that refreshes MASTER. All current clinical operations remain unchanged.
+
+### Additional designer-access safety hardening
+
+An audit found that even catching only `Designer.Controls(PANEL_LABEL)` errors could hide a real COM permission failure as "label missing." Commit `d9fcb9c` now **enumerates all existing designer control names**; any failure to access the designer/control list propagates and halts installation. Only a successful enumeration not containing `lblAfternoonState` authorizes creating that optional label. The corresponding source test was updated in `894b485`. This supersedes the previous description of handling optional label lookup errors; there is now **no catch-all missing-label exception** in that preflight. Source/native acceptance is still pending.
+
+Do not equate a structural workbook preflight or source tests with a safe production install. The only allowed future native test remains a newly created, provenance-verified **synthetic disposable** workbook; the original MASTER and frozen H10 artifacts must not be used as mutation targets.
