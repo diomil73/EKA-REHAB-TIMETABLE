@@ -397,7 +397,7 @@ SnapshotId, ServiceDate, TherapistId, Outcome, Source, ReasonCode.
 
 ### 4.13 Permanent recurring therapy changes
 
-<badge> SOURCE PLANNING + STABLE ID NATIVE PROOF; EVENT WRITE NOT PROVEN </badge>
+**SOURCE PLANNING + STABLE ID NATIVE PROOF; EVENT WRITE NOT PROVEN**
 
 Έχουν υλοποιηθεί:
 - effective-dated recurring change domain projection,
