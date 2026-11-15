@@ -273,3 +273,10 @@ The upcoming source-to-demo work should start by reviewing:
 - their focused tests and `Documentation/REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`
 
 Build a synthetic fixture matching the operator's A:T programme mapping plus U/V afternoon/pool fields. Keep real source workbooks private. The identity review is not an approval ledger; admission must remain fail-closed until explicit identity and conflict decisions.
+
+
+## 2026-11-15 — A:V real-source demo schema design
+
+Added `Documentation/TRIAL_SOURCE_SCHEMA_AND_IMPORT_DESIGN_20261115.md` as the current source-to-demo design contract. It records the operator's A:T mapping, the additional U/V afternoon/pool fields, the boundaries of the existing read-only admission/import-plan/weekly-projection modules, and the required architecture for source alignment, patient registry projection, full recurring schedule projection, synthetic end-to-end tests and later native Excel acceptance.
+
+Important unresolved rules are explicit rather than guessed: blank weekday semantics; missing A context handling; U/V operational scope; and fresh operator instructions for reclining replacement behavior at implementation time. The private identity review remains unapproved; no real-patient import or native integrated demo is authorized. Keep source workbooks and all patient-level facts outside GitHub.
