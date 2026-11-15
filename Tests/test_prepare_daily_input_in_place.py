@@ -103,3 +103,14 @@ def test_rich_text_payload_skips_whole_cell_min_font_size():
 def test_daily_input_payload_escape_contract():
     escaped = module._escape("A\\B\tC\nD\rE")
     assert escaped == "A\\\\B\\tC\\nD\\rE"
+
+
+def test_daily_input_filters_discharge_events_before_materializing_sessions():
+    source = inspect.getsource(module.prepare_daily_input_payload)
+    assert "read_patient_exits(source, patients=patients)" in source
+    assert "base_entries = active_entries_on(" in source
+    assert source.index("base_entries = active_entries_on(") < source.index(
+        "sessions = materialize_sessions_for_date("
+    )
+    # Permanent patient exits must never be logged as daily absences.
+    assert "patient_exit" not in inspect.getsource(module._change_line)
