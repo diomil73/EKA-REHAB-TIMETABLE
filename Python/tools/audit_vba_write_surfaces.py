@@ -126,6 +126,62 @@ def _procedure_profiles(lines: list[str]) -> list[dict[str, object]]:
     return profiles
 
 
+def _code_without_vba_strings_or_comments(line: str) -> str:
+    """Discard quoted literals/comments before matching procedure references."""
+    output: list[str] = []
+    position = 0
+    in_string = False
+    while position < len(line):
+        char = line[position]
+        if char == '"':
+            if in_string and position + 1 < len(line) and line[position + 1] == '"':
+                output.extend("  ")
+                position += 2
+                continue
+            in_string = not in_string
+            output.append(" ")
+        elif char == "'" and not in_string:
+            break
+        else:
+            output.append(" " if in_string else char)
+        position += 1
+    return "".join(output)
+
+
+def _possible_call_edges(
+    lines: list[str], all_procedures: set[str]
+) -> list[tuple[str, int, str]]:
+    """Locate potential references to declared VBA procedures, not resolved calls.
+
+    Procedure identifiers are collected from the workbook's own VBA modules.
+    Lines used for matching have quoted literals and comments removed.
+    """
+    names = {name.casefold(): name for name in all_procedures}
+    if not names:
+        return []
+    pattern = re.compile(
+        r"(?<![A-Za-z0-9_])(" +
+        "|".join(re.escape(name) for name in sorted(names.values(), key=len, reverse=True))
+        + r")(?![A-Za-z0-9_])",
+        re.IGNORECASE,
+    )
+    current = "(module declarations)"
+    edges: list[tuple[str, int, str]] = []
+    for number, line in enumerate(lines, start=1):
+        proc_match = PROCEDURE.match(line)
+        if proc_match:
+            current = proc_match.group(1)
+            continue
+        clean = _code_without_vba_strings_or_comments(line)
+        if re.match(r"^\s*(?:End\s+(?:Sub|Function|Property)|Attribute)\b", clean, re.IGNORECASE):
+            continue
+        for match in pattern.finditer(clean):
+            callee = names[match.group(1).casefold()]
+            if callee.casefold() != current.casefold():
+                edges.append((current, number, callee))
+    return edges
+
+
 def _operation(line: str) -> tuple[str, str | None]:
     if re.search(
         r"\bKill\s+|\b(?:FileCopy|MkDir|RmDir)\s+|\bOpen\s+.+\s+For\s+(?:Output|Append|Binary)\b|\b(?:Print|Put|Write)\s*#|\.(?:SaveToFile|DeleteFile)\b|\bWriteUtf8Text\s*(?:\(|\b)",
@@ -219,6 +275,14 @@ def audit(path: Path) -> int:
         else:
             components = workbook.VBProject.VBComponents
             count = int(components.Count)
+            # Use declared VBA procedure identifiers only, never cell contents.
+            known_procedures: set[str] = set()
+            for component_index in range(1, count + 1):
+                source_module = components(component_index).CodeModule
+                nlines = int(source_module.CountOfLines)
+                if nlines:
+                    source_lines = str(source_module.Lines(1, nlines)).splitlines()
+                    known_procedures.update(_procedure_names(source_lines))
             worksheet_names = {
                 str(sheet.CodeName): str(sheet.Name)
                 for sheet in workbook.Worksheets
@@ -267,6 +331,13 @@ def audit(path: Path) -> int:
                             f"body_lines={profile['body_lines']} "
                             f"categories={category_text} "
                             f"source_sha256={profile['source_sha256']}"
+                        )
+                    for caller, number, callee in _possible_call_edges(
+                        lines, known_procedures
+                    ):
+                        print(
+                            f"  POSSIBLE_CALL_EDGE caller={_safe_label(caller)} "
+                            f"line={number} callee={_safe_label(callee)}"
                         )
                     continue
                 sheet_suffix = (
