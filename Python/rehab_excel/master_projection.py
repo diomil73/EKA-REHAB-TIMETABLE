@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 import re
 import unicodedata
@@ -137,9 +138,23 @@ def build_master_projection(
     *,
     patients: Iterable[Patient] | None = None,
     room_order: Sequence[str] | None = None,
+    target_date: date | None = None,
 ) -> tuple[MasterProjectionRow, ...]:
     path = Path(workbook_path)
     patient_list = tuple(patients) if patients is not None else tuple(read_patient_registry(path))
+    if target_date is not None:
+        if not isinstance(target_date, date) or isinstance(target_date, datetime):
+            raise MasterProjectionError("MASTER census requires a valid target date")
+        # Optional patient exits preserve the legacy undated MASTER projection.
+        # This branch changes only the view for an explicitly requested day.
+        from rehab_core.lifecycle import patient_active_on
+        from .patient_exit_source import read_patient_exits
+
+        exits = read_patient_exits(path, patients=patient_list)
+        patient_list = tuple(
+            patient for patient in patient_list
+            if patient_active_on(patient.patient_id, target_date, exits)
+        )
     rooms, row_by_id, master_header_row = _projection_metadata(
         path,
         room_order=room_order,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from hashlib import sha256
 from pathlib import Path
 import shutil
@@ -401,6 +402,7 @@ def refresh_master_projection_in_place(
     workbook_path: str | Path,
     *,
     backend: MasterProjectionBackend | None = None,
+    target_date: date | None = None,
 ) -> int:
     """Rebuild MASTER_SCHEDULE inside an already-created working/preview workbook."""
 
@@ -410,7 +412,10 @@ def refresh_master_projection_in_place(
     if path.suffix.casefold() != ".xlsm":
         raise MasterProjectionWriteError("MASTER projection refresh requires .xlsm")
 
-    projection = build_master_projection(path)
+    projection = (
+        build_master_projection(path, target_date=target_date)
+        if target_date is not None else build_master_projection(path)
+    )
     selected = backend or Win32ComMasterProjectionBackend()
     selected.apply(path, projection)
 
