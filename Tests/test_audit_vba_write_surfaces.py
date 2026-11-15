@@ -80,3 +80,9 @@ def test_write_surface_audit_disables_macros_and_verifies_hash():
 
 def test_write_surface_audit_escapes_unicode_component_and_sheet_names():
     assert module._safe_label("Φύλλο1").startswith(chr(92) + "u03a6")
+
+
+def test_write_surface_audit_caps_cover_largest_native_module():
+    # The native inventory found 265 write-surface matches in one report module.
+    assert module.MAX_MATCHES_PER_COMPONENT >= 265
+    assert module.MAX_TOTAL_MATCHES >= 1396
