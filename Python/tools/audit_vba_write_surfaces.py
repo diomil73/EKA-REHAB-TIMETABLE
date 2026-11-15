@@ -49,12 +49,18 @@ def _operation(line: str) -> tuple[str, str | None]:
     if re.search(r"\.\s*(?:ClearContents|Clear|Delete|Insert|Add|PasteSpecial|Copy)\b", line, re.IGNORECASE):
         return "range_or_structure_mutation", target
     if re.search(r"\.\s*(?:Value2?|Formula)\b", line, re.IGNORECASE):
-        return "cell_value_or_formula_write", target
+        if re.search(
+            r"\.\s*(?:Value2?|Formula)\b(?:\s*\([^)]*\))?\s*=",
+            line,
+            re.IGNORECASE,
+        ):
+            return "cell_value_or_formula_write", target
+        return "cell_value_or_formula_access", target
     if re.search(r"\.\s*(?:Visible|Hidden|ScrollArea|EnableSelection|OnAction)\b", line, re.IGNORECASE):
         return "visibility_navigation_or_action_binding", target
     if target:
         return "worksheet_reference", target
-    return "format_or_other_write", target
+    return "format_or_other_access_or_write", target
 
 
 def _safe_label(value: object) -> str:
