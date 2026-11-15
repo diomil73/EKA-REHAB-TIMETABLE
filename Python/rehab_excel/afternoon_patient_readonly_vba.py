@@ -57,7 +57,7 @@ NextLine:
     lblAfternoonState.Caption = statusText & detailText
     If itemCount > 2 Then _
         lblAfternoonState.Caption = lblAfternoonState.Caption & _
-            vbCrLf & "... και άλλες ημέρες."
+            vbCrLf & "... και άλλες συνεδρίες."
     Exit Sub
 PanelError:
     lblAfternoonState.Caption = "Απογευματινή ΦΘ: η ανάγνωση απέτυχε."
