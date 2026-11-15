@@ -128,3 +128,32 @@ def test_cli_requires_explicit_disposable_synthetic_confirmation(tmp_path, capsy
     assert main(["--source", str(source), "--output", str(output)]) == 2
     assert not output.exists()
     assert "SAFETY STOP" in capsys.readouterr().out
+
+
+def test_existing_vba_components_must_be_fetched_outside_missing_label_guard():
+    """A missing runtime or blocked designer must not be treated as label absence."""
+    source = (
+        Path(__file__).resolve().parents[1] / "Python"
+        / "rehab_excel" / "afternoon_minimal_native_installer.py"
+    ).read_text(encoding="utf-8")
+    component_lookup = source.index('VBComponents("PatientProgramRuntime")', source.index("prior = _baseline(book)"))
+    designer_lookup = source.index("designer = form.Designer", component_lookup)
+    missing_label_guard = source.index("try:\n            existing_label", designer_lookup)
+    assert component_lookup < designer_lookup < missing_label_guard
+    assert "except Exception:\n            existing_label = None" in source
+    assert "Already installed afternoon panel" in source
+
+
+def test_native_sessions_disable_automatic_workbook_macros():
+    source = (
+        Path(__file__).resolve().parents[1] / "Python"
+        / "rehab_excel" / "afternoon_minimal_native_installer.py"
+    ).read_text(encoding="utf-8")
+    assert "excel.AutomationSecurity = 3" in source
+    assert "verifier.AutomationSecurity = 3" in source
+    assert source.index("excel.AutomationSecurity = 3") < source.index(
+        'book = excel.Workbooks.Open'
+    )
+    assert source.index("verifier.AutomationSecurity = 3") < source.index(
+        'readonly = verifier.Workbooks.Open'
+    )
