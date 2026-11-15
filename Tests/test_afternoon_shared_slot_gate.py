@@ -134,3 +134,65 @@ def test_edit_plan_rejects_stale_approval_after_patient_removed():
             plan, (approval("SYNTH-P1", "SYNTH-P2"),)
         )
     assert review_afternoon_edit_plan(plan).ready
+
+
+def test_existing_scheduler_overlap_adapter_rejects_staggered_physio():
+    from rehab_excel.afternoon_shared_slot_gate import (
+        review_afternoon_existing_scheduler_overlaps,
+    )
+    from rehab_excel.automatic_patient_schedule import _intervals_overlap
+    assert _intervals_overlap(time(16), "ΦΘ", time(16, 30), "ΦΘ")
+    staggered = (
+        slot("SYNTH-P1"),
+        AfternoonSlot("SYNTH-P2", "ΦΘ", "ΔΕ", time(16, 30), "SYNTH-PT"),
+    )
+    with pytest.raises(AfternoonSharedSlotError):
+        review_afternoon_existing_scheduler_overlaps(staggered)
+
+
+def test_existing_scheduler_overlap_adapter_accepts_adjacent_45_minute_slots():
+    from rehab_excel.afternoon_shared_slot_gate import (
+        review_afternoon_existing_scheduler_overlaps,
+    )
+    adjacent = (
+        slot("SYNTH-P1"),
+        AfternoonSlot("SYNTH-P2", "ΦΘ", "ΔΕ", time(16, 45), "SYNTH-PT"),
+    )
+    assert review_afternoon_existing_scheduler_overlaps(adjacent).ready
+
+
+def test_existing_scheduler_overlap_adapter_uses_exact_group_membership():
+    from rehab_excel.afternoon_shared_slot_gate import (
+        review_afternoon_existing_scheduler_overlaps,
+    )
+    shared = (slot("SYNTH-P1"), slot("SYNTH-P2"))
+    with pytest.raises(AfternoonSharedSlotError):
+        review_afternoon_existing_scheduler_overlaps(shared)
+    assert review_afternoon_existing_scheduler_overlaps(
+        shared, (approval("SYNTH-P1", "SYNTH-P2"),)
+    ).ready
+
+
+def test_existing_scheduler_overlap_adapter_keeps_patient_and_provider_separate():
+    from rehab_excel.afternoon_shared_slot_gate import (
+        review_afternoon_existing_scheduler_overlaps,
+    )
+    unrelated = (
+        slot("SYNTH-P1"),
+        AfternoonSlot("SYNTH-P2", "ΦΘ", "ΔΕ", time(16, 15), "SYNTH-OTHER"),
+    )
+    assert review_afternoon_existing_scheduler_overlaps(unrelated).ready
+    same_patient = (
+        slot("SYNTH-P1"),
+        AfternoonSlot("SYNTH-P1", "ΦΘ", "ΔΕ", time(16, 15), "SYNTH-OTHER"),
+    )
+    with pytest.raises(AfternoonSharedSlotError):
+        review_afternoon_existing_scheduler_overlaps(same_patient)
+
+
+def test_existing_scheduler_overlap_adapter_never_checks_morning_entries():
+    from rehab_excel.afternoon_shared_slot_gate import (
+        review_afternoon_existing_scheduler_overlaps,
+    )
+    # This API takes afternoon rows only; there is no morning collection.
+    assert review_afternoon_existing_scheduler_overlaps((slot("SYNTH-P1"),)).ready
