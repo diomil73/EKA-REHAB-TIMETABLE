@@ -1,5 +1,9 @@
 # Real manual schedule | authoritative operator column semantics (2026-11-10)
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**Current use:** This file's A:V column mapping remains the business authority for interpreting the **real** hand-maintained schedule, but a saved copy from 10 November is only the snapshot it describes; **a new private copy of the current workbook is required for current-day assessment**. The operator will compare every source patient/treatment/weekday/time/therapist against the same current snapshot in Diomil. No synthetic data substitute. The unresolved F/U/V columns cannot be dropped. No therapies Saturday/Sunday; blank weekday for a valid clock means exactly Monday–Friday and a blank clock never produces a session. Never copy names/rows/MRN or screenshot of patient-identifiable information to GitHub. The precise accepted demo and evidence gates are in `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 **Status:** user-defined interpretation rules, not yet implemented or independently verified against every source cell. The earlier machine-parsed 271-row staging preview is **REJECTED as an import authority** and must not be used to populate patient schedules, slot reservations, or finalized history. The original manually maintained `ΠΡΟΓΡΑΜΜΑΤΑ  ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx` remains read-only, separate from disposable H10 synthetic test workbooks.
 
 ## Meaning of visible worksheet `ΠΡΟΓΡΑΜΜΑ` columns

@@ -1,5 +1,9 @@
 # DIOMIL integrated test baseline and acceptance matrix
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**Supersedes previous phrase “one complete synthetic integrated DIOMIL test workbook” as end-user acceptance.** We retain a synthetic integration workbook ONLY as a technical fixture. **User evaluation requires a private native real-data XLSM** with the actual patients, every weekday/time/treatment/provider from the current manual schedule, not random fixtures. Tests GREEN (1.960 Windows/Linux, run 43769366651) are **not** real-data/operator acceptance. Native/real-source/manual side-by-side/status of F/U/V/user flows remain **PENDING**. All acceptance rows must distinguish code/synthetic, native seeded, full source match, operational interaction, save/restore, and signed-off pilot. Full definitive matrix and handoff: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 Date: 2026-11-15
 Branch reviewed: `work/afternoon-medical-scope-20261115`
 

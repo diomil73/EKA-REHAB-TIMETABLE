@@ -1,5 +1,9 @@
 # DIOMIL practice DEMO: safe native seeding and operational acceptance
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**Real-data only for the operator DEMO.** Synthetic data are allowed ONLY for CI/safety testing, not for clinical workflow comparison. The eligible private original A:V programme must be the **current manual snapshot** for the same date/week, plus approved review identities and independently approved clinical facts. Use a completely clean isolated VBA XLSM shell, all SHA/safety gates, COM write/readback and side-by-side per-patient/day/time/treatment/provider reconciliation. No identity/status guesses, no partial source admission, no weekend treatments, no public real-data uploads. Existing F/U/V (reclining 30 min, afternoon/pool) remain blocking until a correct representation is accepted. Real native output and operator acceptance NOT YET DONE; the seeder is internal code, not a user-ready one-click build. Detailed acceptance and issue handling: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`. When a real DEMO is actually created, record its **non-identifying** evidence, native/save/reopen outcome, unresolved issues, SHA, exact user checklist results, and updated filenames/commit in all live handoffs.
+
 Date: 2026-11-15
 Branch: `work/afternoon-medical-scope-20261115`
 **Current status: code bridge + synthetic tests only. No operator/native Excel acceptance yet.**

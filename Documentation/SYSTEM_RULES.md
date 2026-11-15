@@ -1,5 +1,9 @@
 # System Rules
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**New non-negotiable evaluation rule:** Only a **real, current, approved manual-source private snapshot** may populate the operator's integration DEMO. Synthetic schedules are test fixtures, not a comparable demo. The original manual remains operationally authoritative until user approval. Exact 1:1 patient, original source row, specialty, weekday, hour, provider and inpatient/outpatient status; **ΔΕ–ΠΑ only**, no treatments at weekends. F/U/V unmapped fields are hard blockers, not silent omissions. Patient IDs/clinical facts require private confirmation. Demo exit is a future effective event, not a daily absence or permanent erasure. Evidence/status in `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 ## Confirmed rules
 
 1. Το αρχικό πρόγραμμα είναι η πηγή αναφοράς και δεν αντικαθίσταται από ημερήσιες εξαιρέσεις.

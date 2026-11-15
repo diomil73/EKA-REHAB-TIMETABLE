@@ -1,5 +1,9 @@
 # Diomil real-source integrated demo: operator handoff and stop gates (2026-11-13)
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**Latest operator instruction overrides historical weekend target wording:** The desired DEMO is a **real-source parallel assessment** against an up-to-date manual schedule, not a synthetic scene. This earlier weekend read-only proposal is not acceptance evidence and its November 14/15 target is past; do not present it as a current execution schedule. Original A:V + review must be independently aligned, complete and source-hash bound. Monday–Friday therapies only. F/U/V and clinical approvals are hard gates. None of the real native workbook, full source match, or user flows has yet been accepted. For latest next step and complete trial case grid use `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 ## Why this exists
 
 The operator intends to test genuine clinic scenarios over 2026-11-14/15. The priority is an **openable, integrated, private trial XLSM using the operator's reviewed real schedule**, with existing, proven application functionality. The current repository has **not** completed or natively accepted this workbook. Do not confuse synthetic CC or green CI with real-data acceptance.

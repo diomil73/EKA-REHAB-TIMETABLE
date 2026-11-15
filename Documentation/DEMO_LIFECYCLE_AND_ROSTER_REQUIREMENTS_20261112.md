@@ -1,5 +1,9 @@
 # Diomil functional demo: outpatient end, inpatient permanent discharge, therapist/student roster lifecycle
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**SUPERSEDES 2026-11-12 line “Pilot is synthetic-data-only” for USER ACCEPTANCE.** The user now explicitly requires the demonstration to be based on **real current manual patient/treatment/provider/day/time data**. Existing synthetic-only instructions remain valid for **technical automated test fixtures only**, and the 2027 actual programme must never be inferred or magically imported. The operational evaluation is a separately authorized private copy with a real source snapshot and NO production writes. The exit/arrival/therapist/student use cases, history preservation and save/reopen gates below remain required. Native real-data pilot acceptance is PENDING. All result reporting and list of missing gates is in `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 **Operator instruction (2026-11-12):** Pilot is synthetic-data-only; actual 2027 program NOT imported. Operator enters outpatient appointments through the existing outpatient management menu. Cosmetic finish is postponed. All patient, roster and daily logic must be proven in one functional demo before clinical use.
 
 ## Required behavior

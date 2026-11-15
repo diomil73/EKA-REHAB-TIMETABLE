@@ -1,5 +1,9 @@
 # Diomil: ασφαλής υποδοχή επικαιροποιημένου αντιγράφου για παράλληλη πιλοτική λειτουργία
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**Latest decision:** The pilot runs privately with **real patients, real therapists, real specialties, real slots**, against one designated **current** manual weekly source. This is the only way to check practical equivalence. Synthetic CC/H8 fixtures are useful for regression but cannot be the operator's final test workbook. The manual workbook remains the only official operational system until explicit acceptance; a private one-way copy enters Diomil, with no back-write or automatic sync. Verify approvals and exact full source mapping, stop on F/U/V, preserve live/manual sources and old histories, test trial changes only in a fresh isolated XLSM, compare entire week ΔΕ–ΠΑ, then Save/Close/Reopen/Restore. No patient data in the repository. Source-to-DEMO and checklist: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 ## Απόφαση και προτεραιότητα
 Ο χρήστης επέλεξε ορθότητα, ασφάλεια και καθημερινή χρηστικότητα πριν από τελικό αισθητικό polish. Το υφιστάμενο αρχείο τμήματος παραμένει **μοναδική επιχειρησιακή πηγή** έως την ξεχωριστή, ρητή αποδοχή του πιλοτικού. Το Diomil αρχίζει ως ξεχωριστό αντίγραφο για παράλληλη αξιολόγηση χωρίς αυτόματη αμφίδρομη σύνδεση, write-back, συγχρονισμό ή αλλαγές στο τρέχον αρχείο.
 

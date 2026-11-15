@@ -1,5 +1,9 @@
 # DIOMIL — Real-source demo schema and import design
 
+## ΕΠΙΧΕΙΡΗΣΙΑΚΗ ΕΝΗΜΕΡΩΣΗ 2026-11-16: ΠΡΑΓΜΑΤΙΚΟ DEMO
+
+**Project user confirmation, 2026-11-16:** No synthetic patients/times/treatments in the evaluation deliverable. Only a **fresh current private hand-kept A:V source**, approved identity review, strict complete source match and approved clinical fields can seed the separately isolated XLSM. F/U/V require full semantics and block the source when present. Exact ΔΕ–ΠΑ and weekdays with no clock must obey original contract; zero weekend therapy. Preserve source-row and provenance; do not invent room/doctor from A, infer MRN/illness from formatting, reuse IDs or silently omit therapy. All private workbook bytes stay off GitHub. Native source/schedule readback and private manual comparison are still PENDING. See `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md` for the updated release acceptance plan.
+
 Date: 2026-11-15  
 Branch: `work/afternoon-medical-scope-20261115`  
 Status: source schema inspected locally; design only; no patient import or workbook write authorized.
