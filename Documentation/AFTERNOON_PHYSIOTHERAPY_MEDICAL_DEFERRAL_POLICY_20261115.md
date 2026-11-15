@@ -258,3 +258,28 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: patient form read-only source tes
 ```
 
 Do not build any native XLSM or touch the clinic's existing MASTER until the chosen synthetic source is confirmed suitable for a fresh disposable integration preview and the new UI has its own independent validated save/rollback contract. The MASTER header/cell still reads `ΦΘ` exactly and is not widened.
+
+## 2026-11-15 — Source integration: read-only afternoon panel on existing patient form
+
+Confirmed from operator on Windows: **101 passed, 1 skipped in 4.22s** before this new integration slice. The one skip is the unavailable symlink test, not a scheduling failure.
+
+New integration:
+- `Python/tools/patient_program_bridge.py` adds `afternoon-state-vba` as a **separate read-only command**. Response records are `PM_STATUS\t<0|1>\t<message>` and `PM_ROW\t<weekday>\t<HH:MM>\t<provider>`, never the existing morning `TREATMENT`/`CURRENT` protocol. This reuses the established Python launcher.
+- `Python/rehab_excel/afternoon_patient_readonly_vba.py` adds an opt-in, idempotent source patch and a read-only `lblAfternoonState` panel to existing `frmPatientScheduling`. It refreshes after normal configuration and displays the selected patient's PM status and at most two explicit day/time/provider rows plus a count hint. It deliberately has no save, delete or booking button.
+- `Python/rehab_excel/patient_registration_scheduling_slice.py` installs the panel after existing MASTER/conflict/combobox installers and before VBA verification; it is only exercised when building a **fresh disposable preview**. It must not be run on frozen evidence or production workbooks.
+- New tests: `Tests/test_afternoon_patient_bridge.py` for subprocess TSV protocol, synthetic sheet states, read-only bytes and malformed input, plus `Tests/test_afternoon_patient_readonly_vba.py` for patch safety/idempotence/source contract.
+- The existing morning `PATIENT_PLANNER` save logic and the MASTER label `ΦΘ` remain untouched. The new panel increases **patient form height only**, not MASTER column widths or layout.
+
+**Important limitation:** this is first-stage read-only UI integration. No PM operational write path exists, and Python/static tests cannot replace a native Microsoft Excel VBA compilation, installation, save/reopen and manual UI smoke test. In particular, forms, macros, control layout and Unicode display remain unproven in native Excel. Do not merge or deploy this branch until the native proof is green.
+
+### Source gate for this slice
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py Tests/test_afternoon_patient_form_state.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_patient_readonly_vba.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Read-only UI integration tests failed" }
+```
+
+No user `οκ` requested. Stop only at this actual Windows test or at an unresolved native Excel/source provenance gate.
