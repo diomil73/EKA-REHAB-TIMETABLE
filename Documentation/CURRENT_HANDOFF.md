@@ -2088,3 +2088,16 @@ The write-surface auditor was hardened: macros/events disabled, read-only open, 
 Exact next action: run Tests/test_audit_vba_write_surfaces.py together with Tests/test_audit_vba_project_inventory.py and Tests/test_audit_integrated_workbook_structure.py, then full pytest regression, then Python/tools/audit_vba_write_surfaces.py against the three distinct candidate paths. Do not proceed to workbook protection changes or synthetic workbook construction until unresolved components and write surfaces are reconciled.
 
 The native inventory does not certify any H10 candidate as the whole-program synthetic demo. All source candidates remain frozen.
+
+
+## 2026-11-15 — first write-surface audit was safely incomplete; cap and classification corrected
+
+The operator uploaded DIOMIL_VBA_WRITE_SURFACES_20261115_185058.txt. All three distinct candidate workbooks opened ReadOnly=True with macros/events disabled. All three source fingerprints remained unchanged and the report explicitly confirms no workbook was modified.
+
+However, all three audits correctly returned INCOMPLETE because the old per-component output cap truncated modTherapistHistoryReport: 265 matched source lines, with only 200 emitted. Each report therefore printed 1,331 operations while component headers account for 1,396. This is a tooling-output limitation, not a workbook failure.
+
+The auditor has now been changed to MAX_MATCHES_PER_COMPONENT=500 and MAX_TOTAL_MATCHES=5000, with regression coverage for the known 265/1,396 counts. Its classifier was also corrected so a direct .Value/.Value2/.Formula assignment is distinguished from a value read/access; the scan is static evidence of candidate surfaces, not proof that every property access mutates a cell.
+
+The uploaded report showed the same component match counts and operation categories across the three distinct candidates. This is useful evidence but must be reconfirmed with the corrected auditor.
+
+Next action: pull the latest branch, run focused auditor tests and full pytest regression, then rerun the sanitized write-surface audit on the same three distinct candidates. The new reports must show 1,396 matched operations per workbook (unless the updated classification only changes categories, not match totals), no COMPONENT OUTPUT TRUNCATED, VBA WRITE-SURFACE AUDIT COMPLETE, SOURCE HASH UNCHANGED: YES, and NO WORKBOOK WAS MODIFIED. The fourth byte-identical CC candidate remains skipped.
