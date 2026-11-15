@@ -40,6 +40,9 @@ from rehab_excel.trial_demo_weekly_navigation import (
 from rehab_excel.trial_demo_patient_exit_vba import (
     install_demo_patient_exit_action, verify_demo_patient_exit_action,
 )
+from rehab_excel.trial_demo_active_census import (
+    install_demo_active_census, verify_demo_active_census,
+)
 from rehab_excel.trial_demo_source_projection import (
     TrialDemoSourceProjection, project_trial_demo_sources,
 )
@@ -332,6 +335,9 @@ class Win32ComTrialDemoSeedBackend:
                         "Patient exits sheet header collision"
                     )
                 exits.Cells(1, col).Value = header
+            install_demo_active_census(
+                wb, patient_rows=projection.patient_registry.patient_count,
+            )
             # Preserve all existing VBA components and operational controls.
             # Do not silently run code/macros or alter active/closed histories.
             excel.CalculateFull()
@@ -544,6 +550,9 @@ def seed_trial_demo_workbook(
             assert_application_contract(stage)
             verify_demo_weekly_navigation(stage)
             verify_demo_patient_exit_action(stage)
+            verify_demo_active_census(
+                stage, patient_rows=projection.patient_registry.patient_count,
+            )
         plan.verify_sources(r, source, programme=p)
         if _digest(source) != before or destination.exists():
             raise TrialDemoNativeSeedError("SAFETY STOP: source changed or output occupied")

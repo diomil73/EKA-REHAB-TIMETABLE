@@ -231,6 +231,8 @@ Public Sub DemoPatientExitAction()
     exits.Cells(exitRow, 3).NumberFormat = "yyyy-mm-dd"
     exits.Cells(exitRow, 3).Value = serviceEnd
     exits.Cells(exitRow, 4).Value = reason
+    ' Refresh the separate date-effective census without mutating MASTER.
+    ThisWorkbook.Worksheets("DEMO_ACTIVE_CENSUS").Calculate
     ThisWorkbook.Save
     If StrComp(Trim$(CStr(exits.Cells(exitRow, 1).Value2)), patientId, vbBinaryCompare) <> 0 Then
         Err.Raise vbObjectError + 2992, , "Το PatientID δεν διατηρήθηκε μετά την αποθήκευση."
