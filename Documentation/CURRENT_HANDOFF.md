@@ -1647,3 +1647,21 @@ Active isolated branch: `work/afternoon-medical-scope-20261115`. Operator-confir
 ## 2026-11-15 — Afternoon bridge Windows encoding SAFETY STOP
 
 The latest 9-file Windows focused run was **NOT GREEN**: `3 failed, 110 passed, 1 skipped, 3 warnings`. Failures occurred only in the new subprocess test for `afternoon-state-vba` because parent decoded UTF-8 while child emitted Windows Greek console bytes; `proc.stdout` became `None`. Test harness repair in commits `da91ef4`, `0624a19` explicitly sets `PYTHONIOENCODING=utf-8` for the child, matching the already-established VBA bridge launcher, plus a cp1253 regression. These changes have **not yet been retested on operator Windows**. Test only `Tests/test_afternoon_patient_bridge.py` and `Tests/test_afternoon_patient_readonly_vba.py` first, then all 9 source tests before any native preview. Full exact commands/contingencies in `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`. Do not mutate real workbook, frozen smoke or MASTER.
+
+## 2026-11-15 — Ambiguous 101-pass rerun; full integration gate still required
+
+After the encoding repair (`da91ef4`, `0624a19`) the operator reported `101 passed, 1 skipped in 4.03s`. This is green **for the set actually run** but the exact command is unavailable. The previous failed 9-file run counted `110 passed, 3 failed, 1 skipped`. Therefore `101 passed` **cannot be treated as proof that the three formerly failing bridge subprocess tests were included or repaired**. Never silently upgrade this to an all-green integration status.
+
+Additional conservative change: `_verify_patient_program_vba` now also verifies the afternoon form/runtime method markers, the increased runtime form height, and the existence of the **actual VBA UserForm designer control** `lblAfternoonState`, not just strings in Python. Commit `4618e83`; corresponding static test `dc5be67`. This requires a fresh source gate and later actual native disposable Excel proof. Morning scheduling, original workbook and MASTER widths remain unchanged.
+
+### Mandatory combined local check
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py Tests/test_afternoon_patient_form_state.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_patient_readonly_vba.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon full source gate failed" }
+```
+
+The expected number of tests is **greater than 101** if these 9 files are collected, but the authoritative result is the exact pytest output, not an invented target count. The one symlink skip may persist on Windows. Do not start native Excel COM installation until this full gate is green and an explicitly disposable, non-frozen input has been verified.
