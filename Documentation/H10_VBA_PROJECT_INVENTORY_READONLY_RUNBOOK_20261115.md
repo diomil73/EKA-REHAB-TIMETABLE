@@ -63,7 +63,7 @@ The full synthetic integration workbook remains NOT CERTIFIED. The next VBA inve
 
 Close all existing Excel windows first. Pull the branch, run the focused tests, then full regression. Only if both are green, run the read-only VBA inventory for the four manifest entries. The fourth file is automatically skipped as byte-identical to the third.
 
-\`\`\`powershell
+```powershell
 $ErrorActionPreference = "Stop"
 
 git pull --ff-only origin work/afternoon-medical-scope-20261115
@@ -74,8 +74,8 @@ if ($LASTEXITCODE -ne 0) {
 $env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
 
 # Focused tests for both read-only auditors.
-python -m pytest \`
-  Tests/test_audit_integrated_workbook_structure.py \`
+python -m pytest `
+  Tests/test_audit_integrated_workbook_structure.py `
   Tests/test_audit_vba_project_inventory.py -q
 if ($LASTEXITCODE -ne 0) {
     throw "SAFETY STOP: Focused auditor tests failed"
@@ -108,10 +108,10 @@ $vbaLog = Join-Path $PWD (
 $previousEAP = $ErrorActionPreference
 try {
     $ErrorActionPreference = "Continue"
-    python Python\tools\audit_vba_project_inventory.py \`
-      "Excel\previews\UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm" \`
-      "Excel\previews\UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm" \`
-      "Excel\previews\UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm" \`
+    python Python\tools\audit_vba_project_inventory.py `
+      "Excel\previews\UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm" `
+      "Excel\previews\UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm" `
+      "Excel\previews\UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm" `
       "Excel\previews\UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm" *> $vbaLog
     $vbaCode = $LASTEXITCODE
 }
@@ -125,7 +125,7 @@ Write-Host "VBA INVENTORY EXIT CODE: $vbaCode"
 if ($vbaCode -ne 0) {
     throw "SAFETY STOP: VBA inventory incomplete; upload the full TXT"
 }
-\`\`\`
+```
 
 ## Expected result
 
