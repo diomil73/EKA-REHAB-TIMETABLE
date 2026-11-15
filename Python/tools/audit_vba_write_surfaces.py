@@ -40,7 +40,7 @@ def _matches(lines: list[str]) -> list[tuple[int, str, str]]:
         match = PROCEDURE.match(line)
         if match:
             current = match.group(1)
-        if WRITE_LINE.search(line):
+        elif WRITE_LINE.search(line):
             found.append((number, current, line.strip()))
     return found
 
