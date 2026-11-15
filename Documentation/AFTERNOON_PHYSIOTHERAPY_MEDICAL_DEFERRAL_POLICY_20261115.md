@@ -285,3 +285,30 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Read-only UI integration tests fa
 No user `οκ` requested. Stop only at this actual Windows test or at an unresolved native Excel/source provenance gate.
 
 **Read-only panel display fix:** the existing `frmPatientScheduling.UserForm_Initialize` sets `Me.Height = 585`, which overrides designer height and would clip the panel at y=525. The isolated patch now changes only the **patient form runtime height to 665** (not MASTER widths); `Tests/test_afternoon_patient_readonly_vba.py` asserts this. See commits `4ab0c78` / `24e0464`. This runtime height adjusted to 665 remains unverified in native Excel until disposable preview acceptance.
+
+## 2026-11-15 — Windows Greek console encoding failure and repair
+
+Native *source-regression* run reported by operator:
+
+```text
+3 failed, 110 passed, 1 skipped, 3 warnings in 9.98s
+SAFETY STOP: Afternoon integration tests failed
+```
+
+**Root cause confirmed from traceback:** `Tests/test_afternoon_patient_bridge.py::_run` used `subprocess.run(..., capture_output=True, text=True, encoding="utf-8")` while the Windows Python subprocess inherited a legacy console encoding (bytes such as `0xC1` for Greek letters). Parent decoding as UTF-8 failed in the subprocess reader thread with `UnicodeDecodeError`; `CompletedProcess.stdout` was `None`, which then caused the three test assertions to fail. This is a subprocess **test harness** mismatch, not a workbook write/corruption or VBA compile error. The failed run is **not green**.
+
+Fix: in `Tests/test_afternoon_patient_bridge.py`, pass `env={**os.environ, "PYTHONIOENCODING": "utf-8"}` to the child process while keeping `encoding="utf-8"` for the parent reader. This matches `PatientProgramRuntime.RunProgramBridge`, which already invokes cmd with `PYTHONIOENCODING=utf-8`. Added a regression that simulates a Greek Windows parent `PYTHONIOENCODING=cp1253` and proves child stdout remains UTF-8. Commits: `da91ef4`, `0624a19`.
+
+**No Excel/VBA production file was changed in this repair**; the fixed source is isolated to tests. The expected symlink skip remains documented. Never interpret the earlier 101-pass checkpoint as an endorsement of these newer UI integration tests.
+
+### Next targeted test (Windows)
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_patient_readonly_vba.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: bridge encoding regression still failing" }
+```
+
+If green, rerun the nine-file combined focused suite from the preceding section. Do **not** proceed to an actual Excel COM installer on a non-disposable source until both green and native provenance gates are met. If failure persists, retain full traceback and check child stdout byte encoding; no blanket `errors="ignore"` or replacement decoding permitted, which could corrupt Greek UI text silently.
