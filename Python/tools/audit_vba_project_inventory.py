@@ -56,6 +56,7 @@ def audit_one(path: Path) -> tuple[int, str | None]:
     excel = None
     workbook = None
     complete = True
+    status = 0
     try:
         import win32com.client  # type: ignore[import-not-found]
 
@@ -65,6 +66,7 @@ def audit_one(path: Path) -> tuple[int, str | None]:
         excel.EnableEvents = False
         excel.ScreenUpdating = False
         excel.AskToUpdateLinks = False
+        excel.Calculation = -4135  # xlCalculationManual; avoid open-time recalculation.
         # msoAutomationSecurityForceDisable: do not execute workbook macros.
         excel.AutomationSecurity = 3
 
@@ -77,66 +79,67 @@ def audit_one(path: Path) -> tuple[int, str | None]:
         )
         if not bool(workbook.ReadOnly):
             print("SAFETY STOP: workbook did not open read-only")
-            return 2, None
+            status = 2
+        else:
+            project = workbook.VBProject
+            protection = int(project.Protection)
+            if protection != 0:
+                print("SAFETY STOP: VBA project is locked; component inventory unavailable")
+                status = 2
+            else:
+                components = project.VBComponents
+                count = int(components.Count)
+                print("DIOMIL NATIVE VBA PROJECT INVENTORY")
+                print("Candidate:", path.name)
+                print("Workbook SHA256:", before_hash)
+                print("Workbook size bytes:", before_size)
+                print("Excel ReadOnly:", bool(workbook.ReadOnly))
+                print("Macros disabled before open: YES")
+                print("Excel events disabled: YES")
+                print("Calculation mode set to manual: YES")
+                print("VBA project protection:", protection)
+                print("VBA component count:", count)
 
-        project = workbook.VBProject
-        protection = int(project.Protection)
-        if protection != 0:
-            print("SAFETY STOP: VBA project is locked; component inventory unavailable")
-            return 2, None
-
-        components = project.VBComponents
-        count = int(components.Count)
-        print("DIOMIL NATIVE VBA PROJECT INVENTORY")
-        print("Candidate:", path.name)
-        print("Workbook SHA256:", before_hash)
-        print("Workbook size bytes:", before_size)
-        print("Excel ReadOnly:", bool(workbook.ReadOnly))
-        print("Macros disabled before open: YES")
-        print("Excel events disabled: YES")
-        print("VBA project protection:", protection)
-        print("VBA component count:", count)
-
-        for index in range(1, count + 1):
-            component = components.Item(index)
-            name = str(component.Name)
-            component_type = int(component.Type)
-            label = component_type_label(component_type)
-            code_lines = int(component.CodeModule.CountOfLines)
-            print(
-                f"COMPONENT {index:03d} | name={name} | "
-                f"type={label}({component_type}) | code_lines={code_lines}"
-            )
-
-            if component_type == 3:
-                try:
-                    controls = component.Designer.Controls
-                    control_count = int(controls.Count)
-                    print(f"  USERFORM_CONTROLS: {control_count}")
-                    for control_index in range(0, control_count):
-                        control = controls.Item(control_index)
-                        control_name = str(control.Name)
-                        control_type = _type_name(control)
-                        print(
-                            f"  CONTROL {control_index + 1:03d} | "
-                            f"name={control_name} | type={control_type}"
-                        )
-                except Exception as exc:
-                    complete = False
+                for index in range(1, count + 1):
+                    component = components.Item(index)
+                    name = str(component.Name)
+                    component_type = int(component.Type)
+                    label = component_type_label(component_type)
+                    code_lines = int(component.CodeModule.CountOfLines)
                     print(
-                        "  USERFORM CONTROL INVENTORY INCOMPLETE:",
-                        type(exc).__name__,
+                        f"COMPONENT {index:03d} | name={name} | "
+                        f"type={label}({component_type}) | code_lines={code_lines}"
                     )
 
-        print("VBA SOURCE TEXT PRINTED: NO")
-        print("CELL VALUES OR FORMULAS PRINTED: NO")
+                    if component_type == 3:
+                        try:
+                            controls = component.Designer.Controls
+                            control_count = int(controls.Count)
+                            print(f"  USERFORM_CONTROLS: {control_count}")
+                            for control_index in range(0, control_count):
+                                control = controls.Item(control_index)
+                                control_name = str(control.Name)
+                                control_type = _type_name(control)
+                                print(
+                                    f"  CONTROL {control_index + 1:03d} | "
+                                    f"name={control_name} | type={control_type}"
+                                )
+                        except Exception as exc:
+                            complete = False
+                            print(
+                                "  USERFORM CONTROL INVENTORY INCOMPLETE:",
+                                type(exc).__name__,
+                            )
+
+                print("VBA SOURCE TEXT PRINTED: NO")
+                print("CELL VALUES OR FORMULAS PRINTED: NO")
 
     except ImportError:
         print("SAFETY STOP: pywin32 is required for native Excel VBA inventory")
-        return 2, None
+        status = 2
     except Exception as exc:
         print(f"SAFETY STOP: native VBA inventory failed ({type(exc).__name__})")
-        return 2, None
+        status = 2
     finally:
         if workbook is not None:
             try:
@@ -161,13 +164,15 @@ def audit_one(path: Path) -> tuple[int, str | None]:
     if not unchanged:
         print("SAFETY STOP: source workbook changed during read-only inspection")
         return 2, after_hash
+    if status != 0:
+        print("NATIVE VBA PROJECT INVENTORY NOT COMPLETED")
+        return status, after_hash
     if not complete:
         print("NATIVE VBA PROJECT INVENTORY INCOMPLETE")
         return 3, after_hash
     print("NATIVE VBA PROJECT INVENTORY COMPLETE")
     print("NO WORKBOOK WAS MODIFIED")
     return 0, after_hash
-
 
 def audit_many(paths: list[Path]) -> int:
     seen: dict[str, str] = {}
