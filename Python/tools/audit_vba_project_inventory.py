@@ -120,6 +120,8 @@ def audit_one(path: Path) -> tuple[int, str | None]:
                                 control = controls.Item(control_index)
                                 control_name = str(control.Name)
                                 control_type = _type_name(control)
+                                if control_type == "TYPE_UNAVAILABLE":
+                                    complete = False
                                 print(
                                     f"  CONTROL {control_index + 1:03d} | "
                                     f"name={control_name} | type={control_type}"
