@@ -194,3 +194,38 @@ def test_patient_registry_plan_must_cover_all_admitted_weekly_ids(tmp_path):
     )
     with pytest.raises(TrialPatientRegistryProjectionError, match="scope"):
         _run((bad, programme, review, intake))
+
+
+def test_joined_demo_projection_preserves_both_sheets_and_roundtrips(tmp_path):
+    from rehab_excel.trial_demo_source_projection import project_trial_demo_sources
+    from rehab_excel.weekly_slots_source import read_weekly_slots_sheet
+    plan, programme, review, intake = _fixture(tmp_path)
+    joined = project_trial_demo_sources(
+        plan, programme=programme, review=review, intake=intake,
+        clinical_approvals=_approval(),
+    )
+    assert joined.patients == joined.patient_registry.patient_count == 1
+    assert joined.weekday_slots == joined.weekly_slots.row_count == 1
+    assert "DEMO-1" not in repr(joined)
+    assert joined.patient_registry.rows[0][0] == joined.weekly_slots.rows[0][0]
+    weekly = Workbook()
+    ws = weekly.active
+    ws.title = "PROGRAM_WEEKLY_SLOTS"
+    ws.append(joined.weekly_slots.headers)
+    for row in joined.weekly_slots.rows:
+        ws.append(row)
+    result = read_weekly_slots_sheet(ws, inpatient_ids={"DEMO-1"})
+    assert len(result) == 1
+    assert (result[0].day_pattern, result[0].start_time) == ("Δε", time(9, 30))
+    weekly.close()
+
+
+def test_joined_demo_projection_never_silently_imports_outpatient_slots(tmp_path):
+    from rehab_excel.trial_demo_source_projection import project_trial_demo_sources
+    from rehab_excel.trial_weekly_projection import TrialWeeklyProjectionError
+    plan, programme, review, intake = _fixture(tmp_path)
+    with pytest.raises(TrialWeeklyProjectionError, match="inpatient"):
+        project_trial_demo_sources(
+            plan, programme=programme, review=review, intake=intake,
+            clinical_approvals=_approval(patient_type=PatientType.OUTPATIENT),
+        )
