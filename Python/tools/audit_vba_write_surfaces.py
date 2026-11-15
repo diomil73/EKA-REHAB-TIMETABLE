@@ -37,6 +37,16 @@ def _matches(lines: list[str]) -> list[tuple[int, str, str]]:
     return found
 
 
+def _procedure_names(lines: list[str]) -> list[str]:
+    """Return procedure identifiers only; never return VBA source text."""
+    names: list[str] = []
+    for line in lines:
+        match = PROCEDURE.match(line)
+        if match and match.group(1) not in names:
+            names.append(match.group(1))
+    return names
+
+
 def _operation(line: str) -> tuple[str, str | None]:
     sheet = re.search(r'\b(?:Worksheets|Sheets)\s*\(\s*"([^"]+)"', line, re.IGNORECASE)
     target = sheet.group(1) if sheet else None
@@ -132,10 +142,22 @@ def audit(path: Path) -> int:
                 raw = str(module.Lines(1, line_count))
                 lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n")
                 matches = _matches(lines)
-                if not matches:
-                    continue
                 component_name = str(component.Name)
                 sheet_name = worksheet_names.get(component_name)
+                if not matches:
+                    procedure_names = _procedure_names(lines)
+                    sheet_suffix = (
+                        f" worksheet_name={_safe_label(sheet_name)}"
+                        if sheet_name is not None
+                        else ""
+                    )
+                    procedures = ",".join(procedure_names) if procedure_names else "(none)"
+                    print(
+                        f"NO_PATTERN_MATCH_COMPONENT name={_safe_label(component_name)} "
+                        f"type={int(component.Type)} lines={line_count}"
+                        f"{sheet_suffix} procedures={_safe_label(procedures)}"
+                    )
+                    continue
                 sheet_suffix = (
                     f" worksheet_name={_safe_label(sheet_name)}"
                     if sheet_name is not None
