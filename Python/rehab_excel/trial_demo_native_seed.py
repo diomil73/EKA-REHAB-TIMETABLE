@@ -126,6 +126,23 @@ def assert_clean_native_demo_shell(intake: str | Path) -> None:
             ):
                 if _nonempty(row):
                     raise TrialDemoNativeSeedError("Demo shell contains old treatments")
+            # A clean practice seed cannot inherit hidden/old operational
+            # bookings, student assignments or previous daily decisions.
+            old_operational_sources = (
+                "OUTPATIENT_SCHEDULE", "SESSIONS", "REPLACEMENTS",
+                "REPLACEMENT_LOG", "DAILY_LOG", "DAILY_CHANGE_LEDGER",
+                "CONFLICT_LOG", "THERAPIST_ATTENDANCE", "STUDENTS",
+            )
+            for source_name in old_operational_sources:
+                if source_name not in wb.sheetnames:
+                    continue
+                for values in wb[source_name].iter_rows(
+                    min_row=2, values_only=True,
+                ):
+                    if _nonempty(values):
+                        raise TrialDemoNativeSeedError(
+                            "Demo shell contains old operational records"
+                        )
             if "PROGRAM_WEEKLY_SLOTS" in wb.sheetnames:
                 weekly = wb["PROGRAM_WEEKLY_SLOTS"]
                 if tuple(weekly.cell(1, i).value for i in range(1, 7)) != WEEKLY_HEADERS:

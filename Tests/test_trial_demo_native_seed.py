@@ -130,3 +130,18 @@ def test_native_seeder_rejects_public_git_checkout_path(tmp_path):
             clinical_approvals={},
         )
     assert not out.exists()
+
+
+@pytest.mark.parametrize("sheet", [
+    "OUTPATIENT_SCHEDULE", "DAILY_CHANGE_LEDGER", "STUDENTS", "SESSIONS",
+])
+def test_old_operational_sources_are_not_inherited_into_new_demo(tmp_path, sheet):
+    path = _blank_shell(tmp_path)
+    wb = load_workbook(path, keep_vba=True)
+    ws = wb.create_sheet(sheet)
+    ws.append(["SampleHeader"])
+    ws.append(["OLD SYNTHETIC RECORD"])
+    wb.save(path)
+    wb.close()
+    with pytest.raises(TrialDemoNativeSeedError, match="old operational records"):
+        assert_clean_native_demo_shell(path)
