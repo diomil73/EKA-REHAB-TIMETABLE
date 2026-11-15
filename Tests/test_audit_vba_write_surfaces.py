@@ -95,3 +95,23 @@ def test_value_access_is_not_mislabeled_as_a_write():
     assert module._operation("ws.Cells(rowIndex, 1).Value = patientName") == (
         "cell_value_or_formula_write", None
     )
+
+
+def test_procedure_inventory_returns_names_without_source_text():
+    names = module._procedure_names([
+        "Option Explicit",
+        "Private Sub Worksheet_Change(ByVal Target As Range)",
+        "    secretPatientName = Target.Value",
+        "End Sub",
+        "Public Function ValidateRow() As Boolean",
+        "End Function",
+    ])
+    assert names == ["Worksheet_Change", "ValidateRow"]
+    assert "secretPatientName" not in ",".join(names)
+
+
+def test_unmatched_component_audit_reports_procedure_names_not_source():
+    source = inspect.getsource(module.audit)
+    assert "NO_PATTERN_MATCH_COMPONENT" in source
+    assert "_procedure_names(lines)" in source
+    assert "procedure_names" in source
