@@ -2101,3 +2101,23 @@ The auditor has now been changed to MAX_MATCHES_PER_COMPONENT=500 and MAX_TOTAL_
 The uploaded report showed the same component match counts and operation categories across the three distinct candidates. This is useful evidence but must be reconfirmed with the corrected auditor.
 
 Next action: pull the latest branch, run focused auditor tests and full pytest regression, then rerun the sanitized write-surface audit on the same three distinct candidates. The new reports must show 1,396 matched operations per workbook (unless the updated classification only changes categories, not match totals), no COMPONENT OUTPUT TRUNCATED, VBA WRITE-SURFACE AUDIT COMPLETE, SOURCE HASH UNCHANGED: YES, and NO WORKBOOK WAS MODIFIED. The fourth byte-identical CC candidate remains skipped.
+
+
+## 2026-11-15 — completed uncapped native write-surface audit and full regression
+
+Operator uploaded DIOMIL_FULL_20261115_185519.txt and DIOMIL_VBA_WRITE_SURFACES_FINAL_20261115_185519.txt.
+
+Full regression: 1,824 passed, 1 skipped (Windows symlink unavailable), 26 warnings, 29.18 seconds. The three focused auditor tests were run before the full suite; the full suite also includes Tests/test_audit_vba_write_surfaces.py and passed.
+
+All three distinct native candidates completed the uncapped read-only audit:
+- UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm: 67 components, 1,396 matched source lines.
+- UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm: 67 components, 1,396 matched source lines.
+- UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm: 66 components, 1,396 matched source lines.
+
+For all three: ReadOnly=True; macros disabled before open; Excel events disabled; VBA WRITE-SURFACE AUDIT COMPLETE; SOURCE HASH UNCHANGED: YES; NO WORKBOOK WAS MODIFIED. No truncation or incomplete markers remain.
+
+The audit lists 35 components with at least one candidate source-pattern match in each workbook. Reconciliation against the 67-component inventory must account for two worksheet/document module names rendered differently between inventory and audit (component 008 / worksheet 7, and component 061 / worksheet 22). After normalizing these name-encoding aliases, 32 components have no matched operation pattern: 23 have zero code lines, and 9 have source code but no line matching the current audit patterns. These are NOT proven safe or read-only; they are simply outside the current static pattern detector and remain a targeted review item. The earlier handoff's reference to 37 unresolved components was inaccurate and is superseded by this 32-component reconciliation.
+
+The 1,396 matches per workbook are candidate source-pattern locations, not 1,396 confirmed runtime writes. The classifier separates Value/Value2/Formula access from direct assignment, but static matching cannot establish call reachability, runtime execution, indirect effects, or full write semantics. Do not modify native workbooks as part of this review.
+
+Next: finish the targeted review of the 9 non-empty unmatched components and inspect candidate categories in the 35 matched components, prioritizing direct cell writes, range/structure mutations, workbook saves, and protection changes. Keep the 23 zero-code components as inventory-only; do not treat them as unexplained executable code.
