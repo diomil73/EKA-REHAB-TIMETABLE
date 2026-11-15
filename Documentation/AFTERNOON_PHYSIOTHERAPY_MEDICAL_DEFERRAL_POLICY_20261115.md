@@ -47,7 +47,7 @@ Status: **pure policy and synthetic tests committed on an isolated branch; NOT o
 git fetch origin
 git switch work/afternoon-medical-scope-20261115
 $env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
-python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py -q
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py -q
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon/medical policy tests failed" }
 ```
 
@@ -80,3 +80,35 @@ Before switching, run `git status --short` and ensure tracked work is preserved.
 Design and test a distinct, opt-in afternoon programme data store keyed by patient + weekday + time + physiotherapist; ensure zero auto-seeding from the real source and no effects on the existing morning planner, solver, MASTER layout, histories or conflict guard. Then add native form controls only after the source-level interface and rollback contract are audited. Avoid duplicate treatment identifiers by using a programme field/namespace rather than a new duplicate `ΦΘ` treatment name.
 
 This map is based on repository source inspection, not native Windows Excel behavior.
+
+## 2026-11-15 — Native Excel *header-only* isolated sheet preview
+
+- New files: `Python/rehab_excel/afternoon_sheet_preview.py`, `Python/tools/build_afternoon_sheet_preview.py` and `Tests/test_afternoon_sheet_preview.py`.
+- The builder takes an explicit source XLSM and **a fresh, nonexisting output XLSM**. It creates `AFTERNOON_PHYSIO_SLOTS` with the five agreed technical headers and **zero patient rows**. The sheet is `veryHidden`; the future patient-facing UI is not yet implemented.
+- It never opens the source for editing. It compares source SHA-256 before/after copying and after native Excel save, reopens output read-only, verifies the VBA project, header-only state, technical hidden status and widths of the first 12 MASTER columns.
+- It refuses to overwrite any existing output, use a symlink output, use an XLSX instead of XLSM, or install on a file missing MASTER/PATIENTS/PATIENT_PLANNER and VBA.
+- It intentionally **preserves a failed output** as potentially valuable forensic evidence. If failure occurs, do not retry with the same output path or manually repair that copy. Use another fresh name only after reviewing the failure.
+- This native step does **not** change the existing morning planner, install buttons or forms, make PM scheduling operational, or admit a real patient. It is an infrastructure smoke test, not production clearance.
+
+### Safe local commands
+
+Close Excel. After `git status --short` shows no conflicting tracked local changes, pull the branch and run the synthetic tests:
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: source gate failed" }
+```
+
+For the native step, choose a **fresh disposable integrated synthetic Diomil build**, not the frozen H10 CC, original clinical source, production master or any existing approved smoke artifact. Copy the source to a new separately named disposable input only if its provenance and native-integrated status are understood. Then:
+
+```powershell
+python .\Python\tools\build_afternoon_sheet_preview.py `
+  --source ".\Excel\previews\<FRESH_SYNTHETIC_INTEGRATED_INPUT>.xlsm" `
+  --output ".\Excel\previews\<FRESH_NEW_AFTERNOON_COPY>.xlsm"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: native sheet preview failed" }
+```
+
+The placeholder paths are intentional: do not execute verbatim or substitute frozen CC automatically. The operator must verify existing files and choose unique names. A successful result demonstrates only the technical sheet and MASTER width preservation. Run separate source/VBA tests and interactive native UI acceptance before making an operational claim.
