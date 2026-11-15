@@ -720,3 +720,21 @@ The VBA auditor was further extended after the first targeted source review:
 New focused regression tests cover procedure inventory, external I/O/process/lifecycle classification, and declaration-line exclusion. These latest changes have not yet been executed on the operator's Windows/Excel machine. The previous 1,824-pass full regression and completed native audit predate these latest changes and must not be presented as validation of them.
 
 Next operator gate: pull branch work/afternoon-medical-scope-20261115; run Tests/test_audit_vba_write_surfaces.py and the existing integrated-structure/VBA-inventory tests; run full pytest; then rerun the sanitized audit on the same three distinct H10 candidates. Upload the focused/full regression logs and final write-surface report. The new report should expose procedure identifiers for the remaining unmatched non-empty components and separately classify the external file/process operations in modDoubleBookingReview. Preserve ReadOnly=True, disabled macros/events, unchanged source hashes and no workbook modifications.
+
+
+## Operator validation received — 2026-11-15 19:34 UTC
+
+Evidence bundle: DIOMIL_VBA_SOURCE_REVIEW_20261115_193409.txt
+
+Results:
+- Focused auditor/inventory/structure tests: 24 passed.
+- Full pytest: 1,829 passed, 1 skipped (symlinks unavailable), 26 warnings, 29.64 seconds.
+- Native read-only VBA write-surface audit completed for all three H10 candidates: UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm, UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm, and UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm.
+- Each audit reports 1,569 matched operations, SOURCE HASH UNCHANGED: YES, and NO WORKBOOK WAS MODIFIED.
+- Read-only safeguards reported: ReadOnly=True, macros disabled before open, Excel events disabled.
+
+The same eight no-pattern components appear in each candidate: ThisWorkbook document module (19 lines; Workbook_Open/Activate/Deactivate/SheetActivate/BeforeClose), worksheet module for PATIENT_PLANNER (25 lines; Worksheet_Change), Module6 (26 lines; NormalizeTimeMS and NormalizePresenceMS), Module5 (1 line; no procedure), modRegistrationMenu, modOutpatientSchedule, modOutpatientScheduleManager, and modSchedulingConflict. The four named UI/navigation components were source-reviewed separately and are not direct worksheet-write procedures. The workbook event module, PATIENT_PLANNER Worksheet_Change, and Module6 still need explicit ownership/behavior review; Module5 should be checked for whitespace/attribute-only/empty content before classifying as inert.
+
+The modDoubleBookingReview external file/process/workbook-close behavior is now visible in the audit, confirming why the former worksheet-only scan was incomplete. Do not interpret the 1,569 pattern matches as 1,569 confirmed writes: the report includes accesses, reads, formatting/navigation, and writes. The classification is a static surface inventory, not runtime proof.
+
+Next: review the three remaining behavior-bearing no-pattern components (ThisWorkbook events, PATIENT_PLANNER Worksheet_Change, Module6 time/presence normalization); classify Module5; then consolidate component ownership, side-effect type, target sheets/files/processes, and test/native evidence into the master write-surface map. No further workbook mutation or native write trial is authorized by this audit.
