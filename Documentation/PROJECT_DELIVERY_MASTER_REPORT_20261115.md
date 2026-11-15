@@ -1,5 +1,11 @@
 # DIOMIL — Συγκεντρωτική αναφορά παραδόσεων και εκκρεμοτήτων
 
+## ΝΕΟ ΚΡΙΤΗΡΙΟ ΑΠΟΔΟΧΗΣ 2026-11-16: REAL-DATA DEMO
+
+**Νέο authoritative addendum (χωρίς αναθεώρηση παλαιών H2–H10 proofs):** Η πραγματική επιχειρησιακή αξιολόγηση πρέπει να γίνει με **επικαιροποιημένο πραγματικό χειροκίνητο πρόγραμμα** και 1:1 σύγκριση ασθενών/ειδικοτήτων/ημερών/ωρών/θεραπευτών. Οποιοδήποτε παλιό synthetic-only demo milestone είναι τεχνικό regression fixture και **όχι αποδεκτό παραδοτέο**.
+
+**Confirmed engineering evidence:** `9fcc6108` και GitHub Actions `43769366651`, 1.960 GREEN Windows + Linux, synthetic gates GREEN. **Not delivered:** πραγματικό native XLSM, current-source read-only alignment/approved private identities/clinical facts, πλήρης F/U/V, independent COM readback/user acceptance, in-session active MASTER update, admissions/absence/replacement/staff/student/save-restore integration. Δεν υπάρχουν προσωπικά δεδομένα στο repo. Επόμενο acceptance register και full operator runbook: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`; παλαιές specialist checkpoints frozen.
+
 Ημερομηνία απογραφής: 2026-11-15  
 Repository: diomil73/EKA-REHAB-TIMETABLE  
 Branch απογραφής: work/afternoon-medical-scope-20261115  

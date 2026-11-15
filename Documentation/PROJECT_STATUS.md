@@ -1,5 +1,9 @@
 # Project Status
 
+## ΝΕΟ ΚΡΙΤΗΡΙΟ ΑΠΟΔΟΧΗΣ 2026-11-16: REAL-DATA DEMO
+
+**Milestone:** ιδιωτικό **real-data evaluation DEMO** σε αντιπαράθεση με το πραγματικό χειροκίνητο. Κατάσταση: **NOT DELIVERED / NATIVE USER ACCEPTANCE PENDING**. Συνθετικό workbook δεν ικανοποιεί την αποδοχή. Code-only CI: 1.960/1.960 Windows και Linux GREEN, run `43769366651`; δεν είναι αποδεικτικό Excel native. Blockers: ενημερωμένη πραγματική πηγή + εγκεκριμένο review/clinical fields, ανοιχτές F/U/V semantics, clean εφαρμογικό shell, native COM validation, end-to-end καθημερινές πράξεις και ενεργό MASTER, save/restore. Πρώτη κατεύθυνση: ιδιωτικό read-only source-to-DEMO reconciliation χωρίς προσωπικά δεδομένα στο repo. Κύριο live report: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 Last updated: 2026-11-15
 
 ## Entry point

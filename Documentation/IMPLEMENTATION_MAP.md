@@ -1,5 +1,11 @@
 # Implementation Map
 
+## ΝΕΟ ΚΡΙΤΗΡΙΟ ΑΠΟΔΟΧΗΣ 2026-11-16: REAL-DATA DEMO
+
+**Real-data pilot ownership:** Αρχική πηγή/review `trial_source_alignment.py`, `trial_source_weekday_projection.py`, `trial_demo_source_reconciliation.py`; εγκρίσεις/identities `trial_patient_registry_projection.py`, `trial_import_plan.py`; gated Excel writer/readback `trial_demo_native_seed.py`; granular operational reader `outpatient_schedule_source.py`; frontend `trial_demo_weekly_navigation.py`, `trial_demo_patient_exit_vba.py`, `trial_demo_active_census.py`; day-effective patient exits `patient_exit_source.py`; opt-in MASTER `master_projection.py`, `master_projection_writer.py`.
+
+**Gap ownership:** F/U/V source semantics still not admitted; private current actual programme + review and eligible Excel shell absent; the live real-data workbook + 1:1 manual reconciliation not performed; user flows and native save/reopen not accepted; in-session canonical MASTER refresh not automatically wired. Never substitute H8 synthetic data for business evaluation. Full matrix and next gate: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 Τελευταία ενημέρωση: 2026-11-12
 
 ## Σκοπός

@@ -1,5 +1,11 @@
 # Project Onboarding
 
+## ΝΕΟ ΚΡΙΤΗΡΙΟ ΑΠΟΔΟΧΗΣ 2026-11-16: REAL-DATA DEMO
+
+**Διάβασε πρώτο:** `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`. Η τελική εργασία χρήστη ΔΕΝ είναι synthetic-only: απαιτεί ιδιωτικό, ενημερωμένο **πραγματικό** πρόγραμμα ασθενών/θεραπειών/ωρών/θεραπευτών, για πλήρη σύγκριση με το σημερινό χειροκίνητο. Αντιμετώπισε τυχόν παλαιές αναφορές για «synthetic-only pilot» ως ιστορικό scope που έχει **υπερκεραστεί** για την επιχειρησιακή αξιολόγηση. Συνθετικά σενάρια επιτρέπονται μόνο ως CI fixtures. Το live real-data Excel δεν υπάρχει ακόμη και δεν είναι επιτρεπτό να αποθηκευτούν προσωπικά δεδομένα στο GitHub.
+
+**Προτεραιότητες:** A:V/review/clinical approvals με SHA, F/U/V/holds χωρίς παράλειψη, νέα private native XLSM με πραγματική πλήρη σύγκριση ΔΕ–ΠΑ, καθημερινές ενέργειες και save/reopen, μετά analytics/appearance. Code checkpoint 1.960 GREEN Windows/Linux run 43769366651, **όχι native proof**.
+
 Last updated: 2026-11-12
 
 ## Purpose of this file

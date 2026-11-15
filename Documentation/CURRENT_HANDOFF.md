@@ -1,5 +1,11 @@
 # Current Handoff
 
+## ΝΕΟ ΚΡΙΤΗΡΙΟ ΑΠΟΔΟΧΗΣ 2026-11-16: REAL-DATA DEMO
+
+**Τρέχουσα απόφαση χρήστη:** Για αντιπαραβολή με το σημερινό χειροκίνητο πρόγραμμα το DEMO **υποχρεωτικά τροφοδοτείται από τα πραγματικά, ενημερωμένα δεδομένα** και όχι τυχαίους ασθενείς/ώρες/θεραπείες. Δεν ζητείται ένα ακόμη synthetic H8/CC αρχείο. Τα test fixtures συνεχίζουν μόνο για regression. Το ακριβές source/review/clinical approval παραμένει ιδιωτικό και δεν βρίσκεται διαθέσιμο στο παρόν GitHub connector περιβάλλον. Σταματά κάθε εισαγωγή αν υπάρχει ασάφεια source A:V, pending F/U/V ή mismatch με το χειροκίνητο.
+
+**Τελευταίο εξακριβωμένο code checkpoint:** `9fcc610831211dc1baca900d4382771de857d8a3`, CI `43769366651`, 1.960 pytest GREEN σε Windows/Linux, synthetic safety GREEN. Καμία native real-data XLSM κατασκευή, readback ή τελική operator acceptance. **Ακριβής προτεραιότητα:** φρέσκο ιδιωτικό snapshot του χειροκίνητου, source/review mapping, επίλυση F/U/V/holds, clean πλήρες XLSM, private native seeding, 1:1 θεραπεία/ημέρα/ώρα/πάροχος σύγκριση, πρακτική ροή και Save/Close/Reopen. Ενημέρωση όλων των live reports με αποτέλεσμα ΚΑΘΕ native gate, όχι μόνο με κώδικα. Πλήρες σχέδιο: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 Last updated: 2026-11-15
 
 ## Mandatory read order for any new conversation or developer
