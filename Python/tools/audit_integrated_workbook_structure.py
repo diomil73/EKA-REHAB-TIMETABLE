@@ -20,6 +20,11 @@ ALLOWED_SUFFIXES = {".xlsm", ".xlsx"}
 MAX_CELLS_PER_SHEET = 1_000_000
 MAX_TOTAL_CELLS = 3_000_000
 HEADER_SCAN_ROWS = 30
+VBA_UDF_NAMES = ("NormalizeTimeMS", "NormalizePresenceMS")
+VBA_UDF_PATTERNS = {
+    name: re.compile(rf"(?<![A-Za-z0-9_.]){re.escape(name)}\\s*\\(", re.IGNORECASE)
+    for name in VBA_UDF_NAMES
+}
 
 ROLE_PATTERNS = {
     "patient": re.compile(r"patient|ασθεν", re.IGNORECASE),
@@ -76,6 +81,19 @@ def _roles(value: object) -> set[str]:
     if not isinstance(value, str) or not value.strip():
         return set()
     return {role for role, pattern in ROLE_PATTERNS.items() if pattern.search(value)}
+
+
+def _formula_udf_references(value: object) -> set[str]:
+    """Return known VBA UDF names called by a formula, without exposing it."""
+    if not isinstance(value, str) or not value.startswith("="):
+        return set()
+    # Remove Excel double-quoted string literals, including escaped quotes,
+    # so a text constant mentioning a function is not mistaken for a call.
+    expression = re.sub(r'"(?:[^"]|"")*"', '""', value)
+    return {
+        name for name, pattern in VBA_UDF_PATTERNS.items()
+        if pattern.search(expression)
+    }
 
 
 def _zip_inventory(path: Path) -> dict[str, object]:
@@ -156,6 +174,7 @@ def audit(path: Path) -> int:
         print("")
 
         patient_staff_indices: list[int] = []
+        workbook_udf_counts = {name: 0 for name in VBA_UDF_NAMES}
         for index, ws in enumerate(formulas_wb.worksheets, start=1):
             cached_ws = cached_wb[ws.title]
             dimension = ws.calculate_dimension()
@@ -164,6 +183,7 @@ def audit(path: Path) -> int:
             formula_count = 0
             cached_formula_count = 0
             header_roles: set[str] = set()
+            sheet_udf_counts = {name: 0 for name in VBA_UDF_NAMES}
             sheet_limit_hit = False
 
             formula_rows = ws.iter_rows()
@@ -181,6 +201,9 @@ def audit(path: Path) -> int:
                         formula_count += 1
                         if cached_cell.value is not None:
                             cached_formula_count += 1
+                        for udf_name in _formula_udf_references(value):
+                            sheet_udf_counts[udf_name] += 1
+                            workbook_udf_counts[udf_name] += 1
                     if row_number <= HEADER_SCAN_ROWS:
                         header_roles.update(_roles(value))
                     if sheet_cells >= MAX_CELLS_PER_SHEET or total_cells >= MAX_TOTAL_CELLS:
@@ -207,6 +230,7 @@ def audit(path: Path) -> int:
                 f"dimension={dimension} | scanned_cells={sheet_cells} | "
                 f"nonempty_cells={nonempty} | formulas={formula_count} | "
                 f"formula_cached_results={cached_formula_count} | "
+                f"vba_udf_formula_refs={','.join(f'{name}:{sheet_udf_counts[name]}' for name in VBA_UDF_NAMES)} | "
                 f"role_hints={role_label} | patient_staff_surface={'YES' if is_patient_staff else 'NO'}"
             )
 
@@ -221,6 +245,9 @@ def audit(path: Path) -> int:
         print("PATIENT_OR_STAFF_BEARING_SHEET_INDICES:",
               ",".join(str(x) for x in patient_staff_indices) or "NONE_DETECTED")
         print("TOTAL_SCANNED_CELLS:", total_cells)
+        print("VBA_UDF_FORMULA_REFERENCES:", ", ".join(
+            f"{name}={workbook_udf_counts[name]}" for name in VBA_UDF_NAMES
+        ))
         print("STRUCTURAL_SCAN_LIMITS:",
               f"per_sheet={MAX_CELLS_PER_SHEET}; total={MAX_TOTAL_CELLS}")
         if incomplete:
