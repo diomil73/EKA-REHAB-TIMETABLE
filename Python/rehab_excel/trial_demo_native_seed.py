@@ -37,6 +37,9 @@ from rehab_excel.patient_exit_source import HEADERS as PATIENT_EXIT_HEADERS
 from rehab_excel.trial_demo_weekly_navigation import (
     install_demo_weekly_navigation, verify_demo_weekly_navigation,
 )
+from rehab_excel.trial_demo_patient_exit_vba import (
+    install_demo_patient_exit_action, verify_demo_patient_exit_action,
+)
 from rehab_excel.trial_demo_source_projection import (
     TrialDemoSourceProjection, project_trial_demo_sources,
 )
@@ -311,6 +314,7 @@ class Win32ComTrialDemoSeedBackend:
                         view.Cells(rownum, col).NumberFormat = "hh:mm"
                     view.Cells(rownum, col).Value = value
             install_demo_weekly_navigation(wb)
+            install_demo_patient_exit_action(wb)
             # The explicit discharge/program-end ledger starts EMPTY in a new
             # practice candidate. Finalized historical patient records are
             # deliberately never erased by a lifecycle action.
@@ -539,6 +543,7 @@ def seed_trial_demo_workbook(
             _verify_seed_workbook(stage, projection)
             assert_application_contract(stage)
             verify_demo_weekly_navigation(stage)
+            verify_demo_patient_exit_action(stage)
         plan.verify_sources(r, source, programme=p)
         if _digest(source) != before or destination.exists():
             raise TrialDemoNativeSeedError("SAFETY STOP: source changed or output occupied")
