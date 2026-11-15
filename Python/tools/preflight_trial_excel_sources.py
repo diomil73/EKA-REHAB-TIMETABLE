@@ -30,7 +30,9 @@ def _digest(path: Path) -> str:
     return value.hexdigest()
 
 
-def inspect_native_pilot_inputs(*, review: Path, cc: Path) -> dict[str, object]:
+def inspect_native_pilot_inputs(
+    *, review: Path, cc: Path, allow_empty_demo_shell: bool = False,
+) -> dict[str, object]:
     """Return non-identifying preflight counts; always verify source hashes."""
     review, cc = review.resolve(), cc.resolve()
     if review == cc or review.suffix.lower() != ".xlsx" or cc.suffix.lower() != ".xlsm":
@@ -46,7 +48,17 @@ def inspect_native_pilot_inputs(*, review: Path, cc: Path) -> dict[str, object]:
             raise RuntimeError("SAFETY STOP: an input changed during read-only preflight")
     # Do not include raw gate blockers, which may contain row provenance.
     gate_ready = gate.ready
-    master_ready = not master["issues"]
+    # For a NEW practice-demo only, allow an otherwise clean VBA shell
+    # containing no patients. Never relax the ordinary private pilot gate.
+    # An existing populated patient registry, any history or any other issue
+    # is not an eligible blank demo shell.
+    empty_demo_shell_ready = (
+        allow_empty_demo_shell
+        and master["patient_registry_rows"] == 0
+        and master["history_rows"] == 0
+        and set(master["issues"]) == {"EMPTY_OR_MISSING_PATIENT_REGISTRY"}
+    )
+    master_ready = not master["issues"] or empty_demo_shell_ready
     return {
         "review_patients": gate.candidate_patients,
         "verified_patient_ids": gate.verified_patient_ids,
@@ -60,6 +72,7 @@ def inspect_native_pilot_inputs(*, review: Path, cc: Path) -> dict[str, object]:
         "legacy_issue_codes": master["issues"],
         "review_gate_ready": gate_ready,
         "cc_intake_ready": master_ready,
+        "empty_demo_shell_ready": empty_demo_shell_ready,
         "native_trial_permitted": gate_ready and master_ready,
         "inputs_unchanged": True,
     }
