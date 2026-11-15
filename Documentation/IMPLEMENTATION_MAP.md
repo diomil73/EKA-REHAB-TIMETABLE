@@ -249,3 +249,13 @@ Current source/test status remains **NOT RUN after these commits**. The prior 1,
 ## 2026-11-15 — Project-wide delivery register
 
 The consolidated, evidence-based project delivery report is `Documentation/PROJECT_DELIVERY_MASTER_REPORT_20261115.md`. It brings together the H2–H10 delivery evidence, Recovery track, outpatient/registration/recurring-change workstreams, real-source admission, afternoon scope, protection gates and remaining release blockers. It does not replace specialist proofs or change any frozen artifact. Use `Documentation/CURRENT_HANDOFF.md` for the exact next operator action.
+
+
+## 2026-11-15 — VBA inventory ownership reconciliation
+
+The native H10 inventory is complete for three distinct VBA projects. The 30 named application components map to tracked generators/installers; 37 components remain unresolved (10 generic standard modules and 27 worksheet/document modules). The 66-component CC candidate lacks one zero-line document module whose identity must be resolved with Unicode-safe output.
+
+Detailed component-to-generator/test ownership and the next read-only write-surface gate are recorded in:
+- Documentation/H10_VBA_OWNERSHIP_AND_WRITE_SURFACE_MAP_20261115.md
+
+Do not infer that generic modules or worksheet document modules are obsolete. Do not implement blanket sheet protection or build the final synthetic integration workbook until their event/write/protection surfaces are reconciled.
