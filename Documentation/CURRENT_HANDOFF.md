@@ -2293,3 +2293,32 @@ The targeted, source-redacted `POSSIBLE_CALL_EDGE` output was integrated into `P
 **Latest change test status:** the new call-edge extraction, verifier extension and regression assertions have been committed but have not yet been executed on the operator's Windows source checkout. The previous 1,832-pass full suite is not proof for these new commits. The previously uploaded native profile report did not yet include call-edge records, so it cannot establish the unknown PATIENT_PLANNER event's actual call targets.
 
 No additional Excel workbook was opened or saved during this GitHub-only update; previously frozen native evidence remains unchanged.
+
+
+## 2026-11-15 — verifier hardening and one-command Windows call-edge gate
+
+Changes implemented on `work/afternoon-medical-scope-20261115`:
+
+1. Fixed a real parser defect: the `POSSIBLE_CALL_EDGE` regex accidentally escaped `\\s`, `\\S` and `\\d` twice, preventing correct recognition. The corrected expression has an explicit parsing regression test.
+2. The native read-only auditor now searches **all components with existing operation matches** for potential references to `NormalizeTimeMS` and `NormalizePresenceMS`, not just the eight no-pattern components. Existing no-pattern call-edge records are retained. These are **candidate identifier references**, not proof of runtime invocation.
+3. Corrected normalized no-pattern `component_sha256`: its line separator is now an actual LF, not a literal backslash plus `n`. **Previous native source-redacted component fingerprints are historical fingerprints from the old algorithm**; they are comparable within that original report, but must not be compared directly against newly generated component fingerprints. Per-procedure hashes were already normalized with LF and are not affected by this component-hash correction.
+4. The verifier now refuses malformed operation/profile/call-edge records and compares each component's declared `matched_operations` count to the number of parsed operation rows, in addition to global counts, safety attestations and three-candidate equality. Regression cases for malformed input and mismatch were added.
+5. Created `Scripts/run_h10_vba_call_edge_gate.ps1`. It enforces the correct branch, existence of three frozen reference XLSMs, fresh unique output logs, focused pytest, full pytest, read-only native auditor, 3/3 successful audit/hash/no-modification markers and the offline three-candidate verifier. It bundles results into a single upload file. The script never saves or edits a source XLSM and does not automatically retry failed candidates.
+
+Archived uploaded report `DIOMIL_VBA_PROFILES_20261115_195014.txt` was inspected offline again: exactly three completed audit blocks, each with 1,569 parsed operation rows, 12 procedure profiles and eight no-pattern components. This is a read-only check of **old evidence**, not proof for the newer scanner/verifier or the new one-command gate.
+
+**Validation status:** All newest source changes and PowerShell runbook are committed, but no post-change Windows PowerShell/pytest/native run has yet been observed. Do not describe the new version as accepted until the next operator report. The previously accepted 1,832-pass regression and three preserved source hashes remain valid for their earlier revision. The next required native evidence is not an integration installation; it is the targeted call-edge proof needed to resolve `PATIENT_PLANNER.Worksheet_Change` and `Module6` helper callers.
+
+### Exact operator command when the next gate is ready
+
+With Excel closed, from the repo directory:
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: git pull failed" }
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Scripts\run_h10_vba_call_edge_gate.ps1
+```
+
+Upload the printed `DIOMIL_H10_CALL_EDGE_BUNDLE_*.txt`. The PowerShell script stops on failed source regression, absent candidates, incomplete native results, changed workbook fingerprints, or cross-candidate differences. It does not grant permission for a writable synthetic demo or for any real patient migration.
+
+After successful evidence review, continue the new fully synthetic integrated fixture design, maintaining explicit separation from frozen native candidates and real admission paths.
