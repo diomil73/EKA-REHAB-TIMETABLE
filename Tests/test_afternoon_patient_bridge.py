@@ -1,6 +1,7 @@
 """Synthetic-only command protocol tests for the existing patient VBA bridge."""
 from datetime import time
 from pathlib import Path
+import os
 import subprocess
 import sys
 
@@ -32,6 +33,7 @@ def _run(book, patient="SYNTH-P1"):
         [sys.executable, str(BRIDGE), "afternoon-state-vba", str(book),
          "--patient-id", patient],
         capture_output=True, text=True, encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         check=False,
     )
 
