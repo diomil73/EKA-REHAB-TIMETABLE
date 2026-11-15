@@ -53,7 +53,8 @@ class FakeSheets:
 
 
 class FakeWorkbook:
-    Worksheets = FakeSheets()
+    def __init__(self):
+        self.Worksheets = FakeSheets()
 
 
 def test_baseline_captures_all_used_master_widths_and_sheet_formulas():
