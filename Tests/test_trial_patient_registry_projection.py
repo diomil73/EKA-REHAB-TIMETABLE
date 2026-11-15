@@ -33,6 +33,7 @@ def _fixture(tmp_path, *, source_context="UNIT A / DR DEMO", confirm="CONFIRMED"
     src["A4"] = source_context
     src["B4"] = "DEMO PERSON"
     src["C4"] = "09:30"
+    src["D4"] = "ΔΕ"
     src["E4"] = "DEMO THERAPIST"
     original.save(programme)
     original.close()
@@ -228,4 +229,90 @@ def test_joined_demo_projection_never_silently_imports_outpatient_slots(tmp_path
         project_trial_demo_sources(
             plan, programme=programme, review=review, intake=intake,
             clinical_approvals=_approval(patient_type=PatientType.OUTPATIENT),
+        )
+
+
+def test_source_parity_requires_all_five_days_when_source_day_is_blank(tmp_path):
+    from rehab_excel.trial_demo_source_reconciliation import (
+        TrialDemoSourceReconciliationError, reconcile_demo_source_weekdays,
+    )
+    from rehab_excel.trial_demo_source_projection import project_trial_demo_sources
+    plan, programme, review, intake = _fixture(tmp_path)
+    wb = load_workbook(programme)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["D4"] = None
+    wb.save(programme)
+    wb.close()
+    plan = TrialImportPlan(
+        plan.review_sha256, plan.intake_sha256, 1, 1, plan.entries,
+        sha256(programme.read_bytes()).hexdigest(),
+    )
+    with pytest.raises(TrialDemoSourceReconciliationError, match="projection differs"):
+        project_trial_demo_sources(
+            plan, programme=programme, review=review, intake=intake,
+            clinical_approvals=_approval(),
+        )
+    staged = load_workbook(review)
+    ws = staged["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    for day in ("ΤΡ", "ΤΕ", "ΠΕ", "ΠΑ"):
+        ws.append([
+            "CLINIC-A", 4, "DEMO PERSON", "ΦΘ", day, "09:30",
+            "DEMO THERAPIST", None, "C4 / D4 / E4",
+            "Synthetic", "PROPOSED_EXACT_SOURCE",
+        ])
+    staged.save(review)
+    staged.close()
+    entries = tuple(
+        SourceWeeklyEntry(
+            "DEMO-1", "ΦΘ", day, time(9, 30), "DEMO THERAPIST", "C4",
+        ) for day in ("ΔΕ", "ΤΡ", "ΤΕ", "ΠΕ", "ΠΑ")
+    )
+    plan = TrialImportPlan(
+        sha256(review.read_bytes()).hexdigest(), plan.intake_sha256,
+        1, 5, entries, plan.programme_sha256,
+    )
+    joined = project_trial_demo_sources(
+        plan, programme=programme, review=review, intake=intake,
+        clinical_approvals=_approval(),
+    )
+    assert joined.weekday_slots == 5
+    assert [r[2] for r in joined.weekly_slots.rows] == [
+        "ΔΕ", "ΤΡ", "ΤΕ", "ΠΕ", "ΠΑ",
+    ]
+
+
+def test_source_parity_rejects_correct_cell_reference_with_changed_time(tmp_path):
+    from rehab_excel.trial_demo_source_reconciliation import (
+        TrialDemoSourceReconciliationError, reconcile_demo_source_weekdays,
+    )
+    plan, programme, review, intake = _fixture(tmp_path)
+    wb = load_workbook(programme)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["C4"] = "10:30"
+    wb.save(programme)
+    wb.close()
+    updated = TrialImportPlan(
+        plan.review_sha256, plan.intake_sha256, 1, 1, plan.entries,
+        sha256(programme.read_bytes()).hexdigest(),
+    )
+    with pytest.raises(TrialDemoSourceReconciliationError, match="projection differs"):
+        reconcile_demo_source_weekdays(
+            updated, programme=programme, review=review, intake=intake,
+        )
+
+
+def test_source_parity_blocks_unmapped_afternoon_without_partial_schedule(tmp_path):
+    from rehab_excel.trial_demo_source_reconciliation import (
+        TrialDemoSourceReconciliationError, reconcile_demo_source_weekdays,
+    )
+    plan, programme, review, intake = _fixture(tmp_path)
+    wb = load_workbook(programme)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["U4"] = "SYNTHETIC PM SERVICE"
+    wb.save(programme)
+    wb.close()
+    updated = TrialImportPlan(
+        plan.review_sha256, plan.intake_sha256, 1, 1, plan.entries,
+        sha256(programme.read_bytes()).hexdigest(),
+    )
+    with pytest.raises(TrialDemoSourceReconciliationError, match="independent review"):
+        reconcile_demo_source_weekdays(
+            updated, programme=programme, review=review, intake=intake,
         )
