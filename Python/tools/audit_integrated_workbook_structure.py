@@ -240,7 +240,7 @@ def audit(path: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Non-identifying, read-only inventory of one integrated Excel workbook."
+        description="Non-identifying, read-only inventory of integrated Excel workbook candidates."
     )
     parser.add_argument(
         "workbooks",
@@ -251,7 +251,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     results = []
     for candidate in args.workbooks:
-        print("\\n=== CANDIDATE START ===")
+        print("")
+        print("=== CANDIDATE START ===")
         results.append(audit(candidate))
         print("=== CANDIDATE END ===")
     if all(code == 0 for code in results):
