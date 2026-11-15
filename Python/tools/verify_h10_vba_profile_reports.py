@@ -101,7 +101,7 @@ def _parse_block(block: str) -> dict:
                 fingerprint,
             )
             if line.startswith("COMPONENT "):
-                matched_count = re.search(r"matched_operations=(\\d+)", line)
+                matched_count = re.search(r"matched_operations=(\d+)", line)
                 if matched_count is None:
                     raise EvidenceError(
                         f"{name}: missing component matched-operations count"
