@@ -368,15 +368,27 @@ def seed_trial_demo_workbook(
         plan.verify_sources(r, source, programme=p)
         if _digest(source) != before or destination.exists():
             raise TrialDemoNativeSeedError("SAFETY STOP: source changed or output occupied")
-        with stage.open("rb") as original, destination.open("xb") as published:
-            shutil.copyfileobj(original, published)
-        if _digest(stage) != _digest(destination):
-            destination.unlink(missing_ok=True)
-            raise TrialDemoNativeSeedError("SAFETY STOP: published copy mismatch")
+        published_by_this_call = False
+        try:
+            with destination.open("xb") as published:
+                published_by_this_call = True
+                with stage.open("rb") as original:
+                    shutil.copyfileobj(original, published)
+            if _digest(stage) != _digest(destination):
+                raise TrialDemoNativeSeedError("SAFETY STOP: published copy mismatch")
+            plan.verify_sources(r, source, programme=p)
+            if _digest(source) != before:
+                raise TrialDemoNativeSeedError("SAFETY STOP: intake shell changed")
+        except Exception:
+            if published_by_this_call:
+                destination.unlink(missing_ok=True)
+            raise
     return TrialDemoNativeSeedReport(
         patient_count=projection.patients,
         weekday_slot_count=projection.weekday_slot_count,
-        source_unchanged=_digest(source) == before,
-        verified_native_readback=True,
+        source_unchanged=True,
+        # Injected mock backends may validate structural readback only,
+        # never claim native Excel/COM acceptance.
+        verified_native_readback=backend is None,
         output_path=str(destination),
     )
