@@ -361,6 +361,20 @@ def audit(path: Path) -> int:
                         f"operation={operation}{suffix}"
                     )
                     total += 1
+                # The normalizers can be referenced by other modules that
+                # already have write-pattern matches. Include those candidate
+                # callers rather than reviewing Module6 in isolation.
+                normalizer_names = {
+                    name for name in known_procedures
+                    if name.casefold() in {"normalizetimems", "normalizepresencems"}
+                }
+                for caller, line_number, callee in _possible_call_edges(
+                    lines, normalizer_names
+                ):
+                    print(
+                        f"  POSSIBLE_CALL_EDGE caller={_safe_label(caller)} "
+                        f"line={line_number} callee={_safe_label(callee)}"
+                    )
                 if len(matches) > MAX_MATCHES_PER_COMPONENT:
                     truncated = True
                     print("  COMPONENT OUTPUT TRUNCATED")
