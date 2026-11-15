@@ -229,10 +229,10 @@ def _emit_afternoon_state(workbook: Path, patient_id: str) -> None:
     records, so the morning form cannot mistake them for morning ΦΘ entries.
     """
     state = read_afternoon_patient_form_state(workbook, patient_id=patient_id)
-    print("\\t".join(("PM_STATUS", "1" if state.enabled else "0",
+    print("\t".join(("PM_STATUS", "1" if state.enabled else "0",
                     _safe(afternoon_form_status(state)))))
     for weekday, clock, therapist in afternoon_form_rows(state):
-        print("\\t".join(("PM_ROW", _safe(weekday), _safe(clock), _safe(therapist))))
+        print("\t".join(("PM_ROW", _safe(weekday), _safe(clock), _safe(therapist))))
 
 
 def build_parser() -> argparse.ArgumentParser:
