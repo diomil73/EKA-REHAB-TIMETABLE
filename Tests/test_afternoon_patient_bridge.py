@@ -90,3 +90,16 @@ def test_malformed_afternoon_schema_cannot_be_silently_ignored(tmp_path):
     assert proc.returncode == 2
     assert proc.stdout.startswith("ERROR\t")
     assert "PM_ROW" not in proc.stdout
+
+
+def test_child_python_output_is_utf8_even_if_parent_console_is_greek_cp1253(tmp_path, monkeypatch):
+    """Reproduce the Windows decode failure independently of host code page."""
+    monkeypatch.setenv("PYTHONIOENCODING", "cp1253")
+    book = _create_synthetic_book(tmp_path, afternoon=True, rows=(
+        ("SYNTH-P1", "ΦΘ", "ΔΕ", time(16), "SYNTH-PT1"),
+    ))
+    proc = _run(book)
+    assert proc.returncode == 0
+    assert "PM_STATUS\t1\t" in proc.stdout
+    assert "PM_ROW\tΔΕ\t16:00\tSYNTH-PT1" in proc.stdout
+    assert "κενή" not in proc.stdout
