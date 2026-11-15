@@ -1433,15 +1433,24 @@ This is a **source regression GREEN** checkpoint only. It is not native Excel sa
 Proceed with the **full DIOMIL synthetic integration workbook** plan, not an afternoon-only preview. The immediate engineering task is a read-only architecture/data-surface audit of the current compatible application baseline: identify the exact workbook shell/component source and inventory every patient/staff-bearing sheet, hidden/veryHidden surface, named range, formula/cache, VBA component and linked identity/assignment/history table. Then design a deterministic synthetic roster and prove full-workbook synthetic provenance before any native installer or Excel write operation. Keep the accepted/frozen H2-H8 artifacts and populated operational workbook immutable.
 
 
-## 2026-11-15 — Local workbook inventory manifest generated; candidate review pending
+## 2026-11-15 — Workbook manifest inspected; H10 candidate triage, no workbook selected
 
-Operator generated the read-only PowerShell workbook manifest:
+The operator supplied and the project reviewed `DIOMIL_WORKBOOK_MANIFEST_20261115_162813.txt`.
 
-- File: `DIOMIL_WORKBOOK_MANIFEST_20261115_162813.txt` at the repository root on the private Windows workstation.
-- Reported workbook count: **337**.
-- Search scope: repository root plus recursive `Excel`, `Preview`, and `Forensic_Backups` folders.
-- The manifest explicitly records: **NO WORKBOOK OPENED OR MODIFIED**.
-- The console excerpt begins with a truncated filename resembling `DIOMIL_FULL_REGRESSION_20261...`, but it is not enough to identify or approve a candidate.
-- Manifest contents have not yet been received for inspection. No workbook has been selected, opened, modified, or designated as the complete synthetic integration base.
+- Manifest total: **337 workbooks** = **336 .xlsm + 1 .xlsx**.
+- The inventory is metadata-only: full paths, names, sizes and last-write times. The manifest explicitly states **NO WORKBOOK OPENED OR MODIFIED**.
+- The list contains multiple generations (H5–H10), history/demo artifacts, older master/tool-bar smoke workbooks, and forensic recovery-lineage files.
+- Most recent named H10 artifacts in the manifest:
+  - `Excel/previews/UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm` — 629,797 bytes; 12 Nov 2026 23:40:58.
+  - `Excel/previews/UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm` — 622,070 bytes; 12 Nov 2026 23:16:38.
+  - `Excel/previews/UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm` — 731,415 bytes; 12 Nov 2026 23:10:08.
+  - `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm` — 731,415 bytes; 11 Nov 2026 01:14:02.
+- `UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm` is the newest H10-named candidate by manifest timestamp, **not an approved integration baseline**. Filename, size and timestamp do not prove workbook content, synthetic-only provenance, completeness, or acceptance status.
+- No workbook has been selected, opened, modified, migrated, or designated as the complete synthetic integration base. Preserve the populated clinical baseline and all accepted/frozen artifacts.
 
-Next: obtain and inspect the exact manifest text, then classify candidates by filename, full path, extension, size and last-write time; compare only candidate metadata with the established acceptance/provenance records. Do not open or write any candidate during selection. Preserve the populated clinical baseline and all accepted/frozen artifacts.
+Regression evidence must be kept distinct:
+- The user-provided terminal tail reports **1808 passed, 1 skipped, 26 warnings in 30.54s; EXIT CODE: 0**.
+- The separately uploaded `DIOMIL_TEST_FULL_20261115_161242.txt` records an earlier/different run with **1 failed, 1806 passed, 1 skipped, 27 warnings in 36.72s**. Its failure is `Tests/test_patient_registration_scheduling_slice.py::test_patient_program_vba_verification_accepts_only_new_runtime_and_form`, reporting missing afternoon form/runtime markers and the read-only label control.
+- These are two distinct artifacts/results; do not merge them or claim the uploaded failing report is green. The exact full path/name and complete contents of the successful `DIOMIL_FULL_REGRESSION_...` report still need to be matched to the supplied green terminal tail before it is treated as the authoritative full-regression artifact.
+
+Next: finish metadata classification and cross-check the three leading H10 candidates against existing acceptance/provenance documentation. Only then nominate a candidate for a controlled, read-only content inspection. Do not perform any workbook write, native Excel open/save, operational migration, or patient-data action as part of this selection stage.
