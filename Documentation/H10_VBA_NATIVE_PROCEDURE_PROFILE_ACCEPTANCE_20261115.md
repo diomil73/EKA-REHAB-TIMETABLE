@@ -76,3 +76,41 @@ We independently computed the SHA-256 of the exact one-line VBA body created by 
 A regression assertion was committed in `Tests/test_h10_native_workbook_event_hash_contract.py` to prevent generator event calls from drifting away from these native SHA-256 proofs. This new test has not yet been run on the operator machine; do not include it in the earlier 1,832-pass claim.
 
 The remaining native-only behavior review narrows to `PATIENT_PLANNER.Worksheet_Change`, `Module6` time/presence helpers and the empty `Module5` module. Module5 is confirmed empty in the native code-module output, so there is no executable procedure to trace. The exact implementation and called routines of `PATIENT_PLANNER.Worksheet_Change` still require inspection without exposing patient data or modifying a workbook.
+
+
+## Machine-checkable write-surface evidence reconciliation
+
+Added `Python/tools/verify_h10_vba_profile_reports.py` and `Tests/test_verify_h10_vba_profile_reports.py`. These parse the sanitized UTF-16/UTF-8 auditor output and fail closed on absent read-only/macros-off/events-off/hash-unchanged/no-modification markers, unexpected workbooks/component counts, incomplete/truncated audit, missing per-component fingerprints, and cross-candidate operation/profile differences.
+
+The uploaded `DIOMIL_VBA_PROFILES_20261115_195014.txt` was independently parsed for the following per-workbook categories (identical across all three distinct candidates):
+
+| Static line-pattern category | Count |
+|---|---:|
+| worksheet_reference | 80 |
+| cell_value_or_formula_access | 373 |
+| cell_value_or_formula_write | 282 |
+| range_or_structure_mutation | 111 |
+| format_or_other_access_or_write | 464 |
+| visibility_navigation_or_action_binding | 30 |
+| external_process_launch | 28 |
+| external_file_write_or_delete | 91 |
+| external_file_read | 46 |
+| workbook_save | 26 |
+| workbook_close | 4 |
+| protection_unprotect | 17 |
+| protection_protect | 17 |
+| **Total** | **1,569** |
+
+All three report the exact same component-category counts and operation metadata for 44 nonempty VBA modules. These counts describe static pattern lines, not confirmed mutating instructions or operational call execution. Explicit worksheet targets in the report are only those syntactically named in a matched VBA line. They are *not* a complete variable/data-flow mapping.
+
+High-priority static sources for human ownership review:
+- `modTherapistHistoryReport`: 271 matched lines, including 74 direct Value/Formula assignment candidates, 22 range/structure candidates, and 10 protection calls.
+- `modPatientRegistrationBridge`: 111 matched lines, including 42 direct assignment candidates across registration/update code.
+- `modDailyChangeLedger`: 106 matched lines, including 29 direct assignments and restore/rollback operations.
+- `modGlobalReplacementAction`: 96 matched lines, including 25 direct assignments, saves, protect/unprotect and external Python/file operations.
+- Legacy `Module4`: 87 matched lines, including 18 direct assignments, 8 structure candidates and references to the replacement workflow.
+- `modDoubleBookingReview`: 16 matches involving file I/O, Python execution and workbook lifecycle.
+
+The new automated verifier and its synthetic unit tests were committed **after** the reported 1,832-pass source regression, so they are **not yet operator-tested**. The independent ad hoc inspection of the uploaded report is not a substitute for a passing repository test suite. Do not promote the release acceptance level because of this addition.
+
+No clinical data, original VBA source code or workbook files were added to the GitHub repository.
