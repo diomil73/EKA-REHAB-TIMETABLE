@@ -114,3 +114,30 @@ High-priority static sources for human ownership review:
 The new automated verifier and its synthetic unit tests were committed **after** the reported 1,832-pass source regression, so they are **not yet operator-tested**. The independent ad hoc inspection of the uploaded report is not a substitute for a passing repository test suite. Do not promote the release acceptance level because of this addition.
 
 No clinical data, original VBA source code or workbook files were added to the GitHub repository.
+
+
+## 2026-11-15 — Offline evidence verification and prioritized writer map
+
+The uploaded `DIOMIL_VBA_PROFILES_20261115_195014.txt` is UTF-16LE with a BOM. A direct local invocation of the same parsing and comparison logic as `Python/tools/verify_h10_vba_profile_reports.py`, operating on that exact uploaded artifact, returned **GREEN**: three named candidates (67/67/66 total VBA components), 44 nonempty component records per candidate, exactly 1,569 operation-pattern rows per candidate and 12 no-pattern procedure profiles apiece. The component metadata, recorded operations and procedure-profile hashes all agree across the three. This verifies the report data and its parser logic; it does **not** substitute for running the committed repository pytest tests or for a new Windows Excel inspection.
+
+Prioritized static ownership table for review (counts per candidate; all three agree):
+
+| Module | Value/formula write candidates | Range/structure candidates | Protection calls | Important note |
+|---|---:|---:|---:|---|
+| `modTherapistHistoryReport` | 74 | 22 | 10 | High concentration of derived history/report changes |
+| `modPatientRegistrationBridge` | 42 | 5 | 0 | Registry/planner and related views, explicit `PATIENTS` / `PATIENT_PLANNER` references |
+| `modDailyChangeLedger` | 29 | 5 | 0 | Daily ledger/restore and authoritative save hooks |
+| `modGlobalReplacementAction` | 25 | 10 | 4 | Replacement transactions, Python/file I/O and rollback |
+| `modReplacementOperator` | 20 | 9 | 6 | Operator replacement decisions and protections |
+| Legacy `Module4` | 18 | 8 | 0 | `REPLACEMENTS` / `REPLACEMENT_LOG` and planner logic |
+| `modPatientHistoryReport` | 13 | 4 | 6 | History report and protection behavior |
+| Legacy `Module2` | 11 | 10 | 0 | Therapist attendance and conflict refresh |
+| `modOutpatientInSession` | 10 | 1 | 0 | Day and outpatient in-session state |
+| Legacy `Module1` | 8 | 7 | 0 | Therapist daily presentation |
+| `modDoubleBookingReview` | 0 | 0 | 0 | **Not read-only**: 5 process-launch and 6 file-write/delete candidates, plus workbook close |
+
+The native pattern output names 13 explicit worksheet targets: `CONFLICT_LOG`, `DAILY_INPUT`, `FINALIZED_DAY_SNAPSHOTS`, `MASTER_SCHEDULE`, `NEW_PATIENT`, `OUTPATIENT_SCHEDULE`, `PATIENTS`, `PATIENT_PLANNER`, `REPLACEMENTS`, `REPLACEMENT_LOG`, `SETTINGS`, `THERAPIST_ATTENDANCE` and `THERAPIST_DAILY`. This list records **literal references in matched lines only**; it does not mean no other sheets are written through variables.
+
+To make the remaining event/normalizer analysis more specific without exposing raw source, the read-only auditor now records `POSSIBLE_CALL_EDGE caller=... line=... callee=...` for the eight no-pattern components. The callable names are collected exclusively from procedure declarations in the inspected VBA project, and string literals/comments are suppressed during matching. **These are candidate identifier references, not proved runtime calls or control flow.** New synthetic tests were added; both the code and tests are pending the next normal operator regression/native gate. This does not change any workbook or Trust Center setting.
+
+Next decision gate: reconcile `PATIENT_PLANNER.Worksheet_Change` candidate edges to tracked writer/refresh routines, examine `Module6` normalization callers, then design the fully synthetic integrated workbook builder in a brand-new path. The frozen H10 candidates remain immutable.
