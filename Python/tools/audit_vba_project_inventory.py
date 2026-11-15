@@ -69,8 +69,21 @@ def audit_one(path: Path) -> tuple[int, str | None]:
         excel.EnableEvents = False
         excel.ScreenUpdating = False
         excel.AskToUpdateLinks = False
-        excel.Calculation = -4135  # xlCalculationManual; avoid open-time recalculation.
+        # Calculation is an optional Application-level setting. Some localized
+        # Excel/COM installations reject this property; do not let that prevent
+        # a strictly read-only inventory. No workbook is saved.
+        try:
+            stage = "setting optional manual calculation mode"
+            excel.Calculation = -4135  # xlCalculationManual
+            calculation_manual = True
+        except Exception as exc:
+            calculation_manual = False
+            print(
+                "WARNING: manual calculation mode unavailable:",
+                type(exc).__name__,
+            )
         # msoAutomationSecurityForceDisable: do not execute workbook macros.
+        stage = "setting macro security"
         excel.AutomationSecurity = 3
 
         stage = "opening workbook read-only"
@@ -104,7 +117,7 @@ def audit_one(path: Path) -> tuple[int, str | None]:
                 print("Excel ReadOnly:", bool(workbook.ReadOnly))
                 print("Macros disabled before open: YES")
                 print("Excel events disabled: YES")
-                print("Calculation mode set to manual: YES")
+                print("Calculation mode set to manual:", "YES" if calculation_manual else "UNAVAILABLE")
                 print("VBA project protection:", protection)
                 print("VBA component count:", count)
 
