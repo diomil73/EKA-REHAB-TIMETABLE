@@ -33,6 +33,9 @@ from rehab_excel.trial_demo_planner_mirror import (
 )
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule
 from rehab_excel.patient_registry_source import read_patient_registry
+from rehab_excel.trial_demo_weekly_navigation import (
+    install_demo_weekly_navigation, verify_demo_weekly_navigation,
+)
 from rehab_excel.trial_demo_source_projection import (
     TrialDemoSourceProjection, project_trial_demo_sources,
 )
@@ -305,6 +308,7 @@ class Win32ComTrialDemoSeedBackend:
                         value = (start.hour * 3600 + start.minute * 60) / 86400
                         view.Cells(rownum, col).NumberFormat = "hh:mm"
                     view.Cells(rownum, col).Value = value
+            install_demo_weekly_navigation(wb)
             # Preserve all existing VBA components and operational controls.
             # Do not silently run code/macros or alter active/closed histories.
             excel.CalculateFull()
@@ -507,6 +511,7 @@ def seed_trial_demo_workbook(
             apply_master_visual_style_in_place(stage)
             _verify_seed_workbook(stage, projection)
             assert_application_contract(stage)
+            verify_demo_weekly_navigation(stage)
         plan.verify_sources(r, source, programme=p)
         if _digest(source) != before or destination.exists():
             raise TrialDemoNativeSeedError("SAFETY STOP: source changed or output occupied")
