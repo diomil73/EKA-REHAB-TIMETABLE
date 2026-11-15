@@ -37,6 +37,9 @@ ROLE_PATTERNS = {
     "robotics": re.compile(r"robot|ρομποτ", re.IGNORECASE),
     "psychology": re.compile(r"psych|ψυχ", re.IGNORECASE),
     "physiotherapy": re.compile(r"physio|φυσικοθεραπ|φ/θ", re.IGNORECASE),
+    "schedule": re.compile(r"schedule|program|προγραμμ|προγραμ|προγρ", re.IGNORECASE),
+    "registry": re.compile(r"registry|μητρω|μητρώ", re.IGNORECASE),
+    "outpatient": re.compile(r"outpatient|εξωτερικ", re.IGNORECASE),
 }
 
 ZIP_GROUPS = {
@@ -180,7 +183,8 @@ def audit(path: Path) -> int:
             is_patient_staff = bool(
                 combined_roles.intersection(
                     {"patient", "therapist", "doctor", "student", "assignment",
-                     "session", "attendance", "physiotherapy", "psychology"}
+                     "session", "attendance", "physiotherapy", "psychology",
+                     "schedule", "registry", "outpatient"}
                 )
             )
             if is_patient_staff:
