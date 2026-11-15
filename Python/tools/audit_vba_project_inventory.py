@@ -175,7 +175,7 @@ def audit_one(path: Path) -> tuple[int, str | None]:
     return 0, after_hash
 
 def audit_many(paths: list[Path]) -> int:
-    seen: dict[str, str] = {}
+    seen: dict[str, tuple[str, int]] = {}
     results: list[int] = []
     for path in paths:
         print("")
@@ -185,17 +185,21 @@ def audit_many(paths: list[Path]) -> int:
         except OSError:
             fingerprint = None
         if fingerprint is not None and fingerprint in seen:
+            previous_name, previous_code = seen[fingerprint]
             print("Candidate:", path.name)
-            print("DUPLICATE BYTE-IDENTICAL CONTENT; already audited:", seen[fingerprint])
+            print("DUPLICATE BYTE-IDENTICAL CONTENT; already audited:", previous_name)
             print("VBA component inventory skipped for duplicate")
-            results.append(0)
+            print("Original audit status:", previous_code)
+            results.append(previous_code)
             print("=== VBA CANDIDATE END ===")
             continue
 
         code, resulting_hash = audit_one(path)
         results.append(code)
-        if code == 0 and resulting_hash is not None:
-            seen[resulting_hash] = path.name
+        if fingerprint is not None:
+            seen[fingerprint] = (path.name, code)
+        if resulting_hash is not None and resulting_hash != fingerprint:
+            seen[resulting_hash] = (path.name, code)
         print("=== VBA CANDIDATE END ===")
 
     if all(code == 0 for code in results):
@@ -203,7 +207,6 @@ def audit_many(paths: list[Path]) -> int:
         return 0
     print("VBA PROJECT INVENTORIES REQUIRE REVIEW:", results)
     return 3 if 3 in results else 2
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
