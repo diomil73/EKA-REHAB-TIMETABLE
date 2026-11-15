@@ -283,3 +283,5 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Read-only UI integration tests fa
 ```
 
 No user `οκ` requested. Stop only at this actual Windows test or at an unresolved native Excel/source provenance gate.
+
+**Read-only panel display fix:** the existing `frmPatientScheduling.UserForm_Initialize` sets `Me.Height = 585`, which overrides designer height and would clip the panel at y=525. The isolated patch now changes only the **patient form runtime height to 665** (not MASTER widths); `Tests/test_afternoon_patient_readonly_vba.py` asserts this. See commits `4ab0c78` / `24e0464`. This runtime height adjusted to 665 remains unverified in native Excel until disposable preview acceptance.
