@@ -1699,3 +1699,7 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon installer security test
 ### 2026-11-15 — Strict designer COM access gate
 
 After the confirmed `133 passed, 1 skipped` checkpoint, the minimal native installer was further tightened in `d9fcb9c`: its `frmPatientScheduling` designer controls must now enumerate successfully before checking whether `lblAfternoonState` already exists. Blocked VBA project/designer access is **not** treated as an absent label. Test contract updated in `894b485`; updated detailed instructions in `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`. These post-checkpoint changes require new Windows tests and later disposable native proof. Source/production/MASTER untouched.
+
+### 2026-11-15 — Targeted native-installer source gate green, newline fix pending
+
+Operator confirmed `34 passed in 8.73s` (four focused tests, source-level only). Newly discovered Windows VBA CRLF-versus-Python-LF marker mismatch repaired in `Python/rehab_excel/afternoon_patient_readonly_vba.py` and post-reopen VBA source canonicalization in `afternoon_minimal_native_installer.py`; tests added for CRLF, CR, idempotence and strict readback. Commit details and **mandatory next test command** in `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`. These newest tests still need Windows verification. No native preview source has been approved; frozen CC, real clinical files and MASTER remain off limits.
