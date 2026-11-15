@@ -15,7 +15,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--confirm-synthetic-disposable",
+        action="store_true",
+        help="Explicit acknowledgement that input is newly created synthetic disposable XLSM",
+    )
     args = parser.parse_args(argv)
+    if not args.confirm_synthetic_disposable:
+        print("SAFETY STOP: explicit synthetic disposable confirmation required")
+        return 2
     try:
         output = install_afternoon_minimal_preview(args.source, args.output)
     except (AfternoonMinimalInstallError, OSError, ValueError) as exc:
