@@ -68,6 +68,12 @@ End Sub
 
 def patch_afternoon_panel_text(runtime_code: str, form_code: str) -> tuple[str, str]:
     """Produce source-only patches and refuse unknown/version-drifted VBA."""
+    # VBA CodeModule.Lines commonly returns CRLF even though the repository
+    # Python string constants use LF. Match source anchors canonically.
+    if not isinstance(runtime_code, str) or not isinstance(form_code, str):
+        raise RuntimeError("Patient VBA source must be text")
+    runtime_code = runtime_code.replace("\r\n", "\n").replace("\r", "\n")
+    form_code = form_code.replace("\r\n", "\n").replace("\r", "\n")
     if RUNTIME_INSERT.strip() in runtime_code:
         updated_runtime = runtime_code
     elif runtime_code.count(RUNTIME_MARKER) == 1:
