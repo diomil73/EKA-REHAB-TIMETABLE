@@ -22,6 +22,8 @@ Status: **pure policy and synthetic tests committed on an isolated branch; NOT o
 
 - `Python/rehab_core/programme_scope_policy.py`: pure immutable scheduling and absence records; `affected_session_ids` preview and `conflicting_session_pairs` local namespace checker.
 - `Tests/test_programme_scope_policy.py`: **synthetic-only** regression scenarios; no patient names or identifiers from real data.
+- `Python/rehab_core/patient_programme_draft.py`: pure patient-management draft contract for the blank afternoon physiotherapy triple; explicit time/day/therapist input required; existing morning pool remains distinct.
+- `Tests/test_patient_programme_draft.py`: synthetic-only draft validation and pool placement tests.
 - Both files do **not** modify any Excel workbook, VBA, MASTER, patient registry, CC or frozen native acceptance artifact.
 - This is a policy demonstration, **not** installed in DAILY_INPUT, UI, patient management, scheduling persistence or stats. Do not claim end-to-end completion.
 
@@ -43,7 +45,7 @@ Status: **pure policy and synthetic tests committed on an isolated branch; NOT o
 git fetch origin
 git switch work/afternoon-medical-scope-20261115
 $env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
-python -m pytest Tests/test_programme_scope_policy.py -q
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py -q
 if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon/medical policy tests failed" }
 ```
 
