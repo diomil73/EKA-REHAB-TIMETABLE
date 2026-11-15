@@ -178,7 +178,7 @@ def test_legacy_patient_scheduling_runtime_is_removed_before_new_runtime_install
     ) is False
 
 
-def _fake_component(code: str):
+def _fake_component(code: str, *, designer_controls: tuple[str, ...] = ()):
     class FakeCodeModule:
         CountOfLines = 1
 
@@ -187,16 +187,26 @@ def _fake_component(code: str):
             assert count == 1
             return code
 
-    return SimpleNamespace(CodeModule=FakeCodeModule())
+    class FakeControls:
+        def __call__(self, name):
+            if name not in designer_controls:
+                raise KeyError(name)
+            return SimpleNamespace(Name=name)
+
+    designer = SimpleNamespace(Controls=FakeControls())
+    return SimpleNamespace(CodeModule=FakeCodeModule(), Designer=designer)
 
 
-def test_patient_program_vba_verification_accepts_only_new_runtime_and_form():
+def test_patient_program_vba_verification_accepts_new_runtime_form_and_afternoon_panel():
     components = {
         scheduling_slice.PATIENT_PROGRAM_FORM_NAME: _fake_component(
-            "lstTreatments\nSavePatientProgramAtomic\nBuildAutomaticRequestArguments"
+            "lstTreatments\nSavePatientProgramAtomic\nBuildAutomaticRequestArguments\n"
+            "RefreshAfternoonReadOnlyPanel\nlblAfternoonState\nMe.Height = 665",
+            designer_controls=("lblAfternoonState",),
         ),
         scheduling_slice.PATIENT_PROGRAM_MODULE_NAME: _fake_component(
-            "LoadPatientProgramConfig\nCompletePatientProgram\nOpenPatientScheduling"
+            "LoadPatientProgramConfig\nCompletePatientProgram\nOpenPatientScheduling\n"
+            "LoadPatientAfternoonState\nafternoon-state-vba"
         ),
     }
 
@@ -209,6 +219,30 @@ def test_patient_program_vba_verification_accepts_only_new_runtime_and_form():
     scheduling_slice._verify_patient_program_vba(
         SimpleNamespace(VBComponents=FakeComponents())
     )
+
+
+def test_patient_program_vba_verification_rejects_missing_afternoon_designer_control():
+    components = {
+        scheduling_slice.PATIENT_PROGRAM_FORM_NAME: _fake_component(
+            "lstTreatments\nSavePatientProgramAtomic\nBuildAutomaticRequestArguments\n"
+            "RefreshAfternoonReadOnlyPanel\nlblAfternoonState\nMe.Height = 665"
+        ),
+        scheduling_slice.PATIENT_PROGRAM_MODULE_NAME: _fake_component(
+            "LoadPatientProgramConfig\nCompletePatientProgram\nOpenPatientScheduling\n"
+            "LoadPatientAfternoonState\nafternoon-state-vba"
+        ),
+    }
+
+    class FakeComponents:
+        def __call__(self, name):
+            if name not in components:
+                raise KeyError(name)
+            return components[name]
+
+    with pytest.raises(RuntimeError, match="missing afternoon read-only label control"):
+        scheduling_slice._verify_patient_program_vba(
+            SimpleNamespace(VBComponents=FakeComponents())
+        )
 
 
 def test_patient_program_vba_verification_rejects_legacy_form_code():
