@@ -1457,3 +1457,9 @@ Next: finish metadata classification and cross-check the three leading H10 candi
 
 
 Cross-reference to the pre-existing acceptance matrix: the whole-workbook synthetic fixture is still **NOT CERTIFIED**; the tracked `Rehab_Center_System_v27_1.xlsm` is a populated clinical baseline and is explicitly excluded. Existing H8/H10 synthetic-history verification covers only its documented history scope and does not establish that every registry, schedule, hidden sheet, cached value, identity or embedded source in a candidate is synthetic. The H10 dashboard lineage is documented as partial/not fully accepted. Therefore none of the four newest H10 candidates may be promoted to a whole-program synthetic source solely from its name, timestamp, or H8/H10 history evidence.
+
+Specific manifest traps and references:
+- `UNIFIED_H10_DEMO_SYNTHETIC_ONLY_20261109_CB.xlsm` must **not** be treated as a fully synthetic whole-workbook fixture. The documented helper isolates synthetic history-ledger rows but does not sanitize the PATIENTS registry and all other patient-bearing sheets.
+- `UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm` belongs to the frozen H10 therapist lineage; preserve it unchanged. The separate `UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm` is a different file and its name alone does not prove acceptance or suitability.
+- `UNIFIED_H8_DEMO_HISTORY_20261109_CA.xlsm` is a history demonstration artifact, not proof of a complete synthetic application roster.
+- The sole `.xlsx` entry is `DIOMIL_MANAGEMENT_BY_DEMO_20261108.xlsx`; its filename does not establish that it has passed the independent privacy/export audit required for a shareable management-only deliverable.
