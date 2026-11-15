@@ -1,0 +1,187 @@
+"""Minimal native, copy-only afternoon read-only panel installation.
+
+Only runs with Microsoft Excel, on a NEW separate XLSM, after explicit
+synthetic provenance selection. Does not call the broad patient UI installer,
+refresh MASTER, or touch source bytes. Does not admit or migrate patients.
+"""
+from __future__ import annotations
+
+from hashlib import sha256
+from pathlib import Path
+import shutil
+import sys
+
+from rehab_excel.afternoon_native_preflight import (
+    AfternoonNativePreflightError, inspect_afternoon_native_candidate,
+)
+from rehab_excel.afternoon_patient_readonly_vba import (
+    PANEL_LABEL, install_afternoon_readonly_panel, patch_afternoon_panel_text,
+    _module_text,
+)
+from rehab_excel.afternoon_sheet_preview import validate_preview_paths
+from rehab_excel.afternoon_slots_source import HEADERS, SHEET_NAME
+
+
+class AfternoonMinimalInstallError(RuntimeError):
+    pass
+
+
+def _hash(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _position(control, left: float, top: float) -> None:
+    control.Left = left
+    control.Top = top
+
+
+def _roster(book) -> tuple[str, ...]:
+    return tuple(str(book.Worksheets(i).Name) for i in range(1, int(book.Worksheets.Count) + 1))
+
+
+def _baseline(book) -> tuple:
+    """Conservative native worksheet invariants, no patient values in logs."""
+    master = book.Worksheets("MASTER_SCHEDULE")
+    planner = book.Worksheets("PATIENT_PLANNER")
+    patients = book.Worksheets("PATIENTS")
+    return (
+        _roster(book),
+        tuple(float(master.Columns(i).ColumnWidth) for i in range(1, 13)),
+        (master.UsedRange.Address, master.UsedRange.Value2),
+        (planner.UsedRange.Address, planner.UsedRange.Value2),
+        (patients.UsedRange.Address, patients.UsedRange.Value2),
+    )
+
+
+def _confirm_panel(book, original_runtime: str, original_form: str) -> None:
+    project = book.VBProject
+    runtime = project.VBComponents("PatientProgramRuntime")
+    form = project.VBComponents("frmPatientScheduling")
+    expected_runtime, expected_form = patch_afternoon_panel_text(
+        original_runtime, original_form
+    )
+    if _module_text(runtime).replace("\r\n", "\n") != expected_runtime.replace("\r\n", "\n"):
+        raise AfternoonMinimalInstallError("Afternoon runtime readback mismatch")
+    if _module_text(form).replace("\r\n", "\n") != expected_form.replace("\r\n", "\n"):
+        raise AfternoonMinimalInstallError("Afternoon form code readback mismatch")
+    label = form.Designer.Controls(PANEL_LABEL)
+    if str(label.Caption) != "Απογευματινή ΦΘ: προβολή μόνο":
+        raise AfternoonMinimalInstallError("Afternoon form label was not retained")
+    ws = book.Worksheets(SHEET_NAME)
+    if int(ws.Visible) != 2:
+        raise AfternoonMinimalInstallError("Afternoon technical sheet must be veryHidden")
+    if tuple(str(ws.Cells(1, i).Value) for i in range(1, 6)) != HEADERS:
+        raise AfternoonMinimalInstallError("Afternoon schema readback mismatch")
+    if any(ws.Cells(2, i).Value is not None for i in range(1, 6)):
+        raise AfternoonMinimalInstallError("Afternoon sheet must start empty")
+
+
+def install_afternoon_minimal_preview(
+    source: str | Path,
+    output: str | Path,
+) -> Path:
+    """Only add one PM sheet and one read-only panel to a fresh disposable copy.
+
+    The source must already have the correct existing form/runtime. Never
+    derive form code by overwriting a different VBA version.
+    """
+    if sys.platform != "win32":
+        raise AfternoonMinimalInstallError("Microsoft Excel on Windows required")
+    src, dst = validate_preview_paths(source, output)
+    try:
+        inspect_afternoon_native_candidate(src)
+    except AfternoonNativePreflightError as exc:
+        raise AfternoonMinimalInstallError("Source structural gate failed") from exc
+    original_sha = _hash(src)
+    try:
+        import win32com.client  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise AfternoonMinimalInstallError("pywin32 required") from exc
+
+    excel = None
+    book = None
+    verifier = None
+    readonly = None
+    try:
+        with src.open("rb") as input_file, dst.open("xb") as output_file:
+            shutil.copyfileobj(input_file, output_file)
+        if _hash(src) != original_sha:
+            raise AfternoonMinimalInstallError("Source changed during copy")
+
+        excel = win32com.client.DispatchEx("Excel.Application")
+        excel.Visible = False
+        excel.DisplayAlerts = False
+        excel.EnableEvents = False
+        excel.AskToUpdateLinks = False
+        book = excel.Workbooks.Open(str(dst), UpdateLinks=0, ReadOnly=False)
+        if bool(book.ReadOnly) or not bool(book.HasVBProject):
+            raise AfternoonMinimalInstallError("Writable VBA workbook required")
+        if SHEET_NAME in _roster(book):
+            raise AfternoonMinimalInstallError("Existing afternoon sheet forbidden")
+        prior = _baseline(book)
+        try:
+            runtime = book.VBProject.VBComponents("PatientProgramRuntime")
+            form = book.VBProject.VBComponents("frmPatientScheduling")
+            runtime_code, form_code = _module_text(runtime), _module_text(form)
+            # Preflight all source anchors before making any change.
+            patch_afternoon_panel_text(runtime_code, form_code)
+            form.Designer.Controls(PANEL_LABEL)
+            raise AfternoonMinimalInstallError("Already installed afternoon panel")
+        except AfternoonMinimalInstallError:
+            raise
+        except Exception:
+            # Normal first-install case: label does not exist.
+            pass
+
+        ws = book.Worksheets.Add(After=book.Worksheets(book.Worksheets.Count))
+        ws.Name = SHEET_NAME
+        for i, header in enumerate(HEADERS, 1):
+            ws.Cells(1, i).Value = header
+        ws.Visible = 2
+        install_afternoon_readonly_panel(book.VBProject, position_control=_position)
+        if _baseline(book) != prior:
+            raise AfternoonMinimalInstallError("Morning/Master/registry in-memory invariant changed")
+        _confirm_panel(book, runtime_code, form_code)
+        book.Save()
+        book.Close(SaveChanges=False)
+        book = None
+        excel.Quit()
+        excel = None
+
+        verifier = win32com.client.DispatchEx("Excel.Application")
+        verifier.Visible = False
+        verifier.DisplayAlerts = False
+        verifier.EnableEvents = False
+        readonly = verifier.Workbooks.Open(str(dst), UpdateLinks=0, ReadOnly=True)
+        if _baseline(readonly) != prior:
+            raise AfternoonMinimalInstallError("Source sheet values or MASTER widths changed after reopen")
+        if _roster(readonly) != prior[0] + (SHEET_NAME,):
+            raise AfternoonMinimalInstallError("Unexpected sheet roster after reopen")
+        _confirm_panel(readonly, runtime_code, form_code)
+        if _hash(src) != original_sha:
+            raise AfternoonMinimalInstallError("Source changed after native save")
+        return dst
+    except Exception as exc:
+        # Preserve fresh output for diagnosis, never delete or retry in place.
+        if isinstance(exc, AfternoonMinimalInstallError):
+            raise
+        raise AfternoonMinimalInstallError(
+            "Minimal afternoon preview failed; preserve new output for inspection"
+        ) from exc
+    finally:
+        for workbook in (readonly, book):
+            if workbook is not None:
+                try:
+                    workbook.Close(SaveChanges=False)
+                except Exception:
+                    pass
+        for application in (verifier, excel):
+            if application is not None:
+                try:
+                    application.Quit()
+                except Exception:
+                    pass
