@@ -10,17 +10,25 @@ from rehab_excel.afternoon_sheet_preview import AfternoonPreviewError
 
 
 class FakeUsedRange:
-    Address = "$A$1:$B$2"
+    Address = "$B$1:$P$2"
+    Column = 2
     Value2 = (("SYNTHETIC", "VALUE"), (1, 2))
+    Formula = (("SYNTHETIC", "VALUE"), (1, 2))
+
+    class _Columns:
+        Count = 15
+
+    Columns = _Columns()
 
 
 class FakeColumn:
-    ColumnWidth = 12.5
+    def __init__(self, index):
+        self.ColumnWidth = 10.0 + index
 
 
 class FakeColumns:
     def __call__(self, index):
-        return FakeColumn()
+        return FakeColumn(index)
 
 
 class FakeSheet:
@@ -48,11 +56,14 @@ class FakeWorkbook:
     Worksheets = FakeSheets()
 
 
-def test_baseline_is_stable_and_captures_first_12_master_widths():
+def test_baseline_captures_all_used_master_widths_and_sheet_formulas():
     before = _baseline(FakeWorkbook())
     assert before[0] == ("MASTER_SCHEDULE", "PATIENT_PLANNER", "PATIENTS")
-    assert len(before[1]) == 12
-    assert all(width == 12.5 for width in before[1])
+    assert before[1] == (2, 15, tuple(10.0 + index for index in range(2, 17)))
+    assert before[2][0] == "$B$1:$P$2"
+    assert before[2][2] == (("SYNTHETIC", "VALUE"), (1, 2))
+    assert before[3][2] == (("SYNTHETIC", "VALUE"), (1, 2))
+    assert before[4][2] == (("SYNTHETIC", "VALUE"), (1, 2))
     assert len(before) == 5
 
 
