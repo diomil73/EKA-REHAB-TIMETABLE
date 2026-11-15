@@ -45,6 +45,9 @@ def test_census_opens_separately_with_master_back_navigation():
     assert "Public Sub OpenDemoActiveCensus()" in active.VBA_CODE
     assert 'Worksheets("DEMO_ACTIVE_CENSUS")' in active.VBA_CODE
     assert ".Calculate" in active.VBA_CODE
+    assert "Public Sub RefreshDemoActiveCensus()" in active.VBA_CODE
+    assert "AutoFill" in active.VBA_CODE
+    assert "patientLast > viewLast" in active.VBA_CODE
     assert "KeepApplicationShell" in active.VBA_CODE
     source = inspect.getsource(active.install_demo_active_census)
     assert 'caption="Ενεργοί ασθενείς"' in source
@@ -58,7 +61,7 @@ def test_native_seed_and_exit_ui_use_same_census_without_rewriting_master():
     code = exit_ui.VBA_CODE
     assert "install_demo_active_census(" in writer
     assert "verify_demo_active_census(" in seed
-    assert 'ThisWorkbook.Worksheets("DEMO_ACTIVE_CENSUS").Calculate' in code
+    assert "RefreshDemoActiveCensus" in code
     assert "MASTER_SCHEDULE" not in code
     assert "PATIENTS.Delete" not in code
 
