@@ -175,3 +175,28 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Afternoon source regression tests
 ```
 
 The `-rs` option prints why one test was skipped; do not silently infer the reason from the previous summary. Only after this test gate and further source inspection should a newly named disposable native Excel copy be created. The code is still not a functioning afternoon patient form.
+
+## 2026-11-15 — Explicit-duration overlap gate
+
+**Latest operator-confirmed suite (before this new change):** `88 passed, 1 skipped in 3.66s`. The skip reason remains unverified because the reported output did not include a detailed skip line.
+
+New files:
+- `Python/rehab_excel/afternoon_interval_gate.py`: **read-only, standalone** interval gate. Every proposed afternoon session must be paired with an explicitly supplied positive within-day end time. It rejects overlap for the same patient (including different therapist) and for the same physiotherapist (including different patients and different start times). Half-open intervals allow one session to begin exactly when another ends.
+- `Tests/test_afternoon_interval_gate.py`: synthetic tests for shifted overlap, adjacency, patient/therapist conflicts, explicit durations, group boundaries, stale approvals and exact end-time mapping.
+- Same-therapist group sessions with exactly the same start and end are permissible only with the exact patient-membership approval already required by `afternoon_shared_slot_gate`. Different end times are not silently accepted as a group.
+- `review_afternoon_timed_edit` checks the **entire after-edit schedule**, requiring explicit end times for *all* slots including unchanged patients; it fails if there are missing or extra timing entries. It does **not** write or approve the edit.
+- **No session duration has been guessed or added to the workbook schema.** The currently defined `AFTERNOON_PHYSIO_SLOTS` sheet has only patient/treatment/day/start/provider and cannot yet supply end time. Before native operations, reconcile the user-approved duration policy and introduce a backwards-compatible authoritative duration source, together with doctor/therapist absence and history/admission gates. Until then, the interval gate is a synthetic contract and its existence does not confer production readiness.
+
+The operator's MASTER instruction remains nonnegotiable: display `ΦΘ` exactly, **never** widen the existing cell by displaying `Πρωινή ΦΘ`; no change to the existing MASTER layout.
+
+### Focused source gate after these commits
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py Tests/test_afternoon_interval_gate.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: interval policy tests failed" }
+```
+
+This gate runs synthetic data only and does not require opening Excel. Never claim full afternoon scheduling integration until an isolated, native Excel install/save/reopen proof has passed.
