@@ -682,3 +682,14 @@ The detailed mapping and next operator gate are in Documentation/H10_VBA_OWNERSH
 The first uploaded write-surface audit safely opened all three distinct candidate workbooks read-only, with macros/events disabled, and verified unchanged source hashes. It did not complete: the prior 200-match per-component output cap truncated modTherapistHistoryReport, which contains 265 matched source lines. The audit returned INCOMPLETE for all three candidates and is not accepted as the final write-surface proof.
 
 The auditor was updated to 500 matches per component / 5,000 total, and its value-property classifier now distinguishes direct assignment from read/access. New regression coverage protects the known 265/1,396 match counts and read/write distinction. The operator must pull the latest branch, rerun focused tests and full regression, and regenerate the three read-only write-surface reports before source ownership reconciliation can be closed.
+
+
+## 13. 2026-11-15 — completed native VBA write-surface evidence
+
+The final uncapped write-surface report completed for all three distinct candidates in read-only mode, with macros and Excel events disabled. All three reported unchanged source hashes and no workbook modification. Component counts: 67, 67, and 66. Each produced 1,396 candidate source-pattern matches without truncation.
+
+There are 35 components with at least one matched source-pattern line per candidate. Reconciliation with the native inventory requires normalizing two worksheet-module name encoding aliases. The remaining 32 components without a matched operation pattern consist of 23 zero-code components and 9 non-empty components requiring targeted source review. Absence of a pattern match is not proof of no writes.
+
+The 1,396 matches are not confirmed runtime writes. Per-workbook category counts: worksheet references 80; value/formula accesses 373; direct value/formula writes 282; range/structure mutation candidates 111; format/other candidates 460; visibility/action binding 30; workbook saves 26; unprotect 17; protect 17.
+
+Full regression completed: 1,824 passed, 1 skipped, 26 warnings. The earlier "37 unresolved components" note is superseded; use 32 after accounting for the two worksheet-module name encoding aliases.
