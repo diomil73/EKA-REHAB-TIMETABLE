@@ -296,3 +296,23 @@ After this proof, proceed to the full synthetic integration workbook design/buil
 The expanded gate is now operator-verified, superseding the prior 20:40 pending status. Evidence bundle: `DIOMIL_H10_CALL_EDGE_BUNDLE_20261115_205003.txt` (private operator evidence). Focused tests: 45 passed. Full regression: 1,856 passed, 1 skipped, 26 warnings. All three distinct H10 candidates completed read-only VBA write-surface and workbook-structure audits; source hashes were unchanged and no workbook was modified. Cross-candidate verifier: GREEN; 44 component metadata records, 12 procedure-profile hashes, 1,027 possible static call-edge references. These are static references, not runtime execution proof. Formula references to the two scanned normalizers were zero across the three candidates.
 
 The next step is no longer rerunning the same gate. Proceed with documented source-level reconciliation and source-shaped synthetic integration design; preserve all H10 proof candidates frozen.
+
+ 
+## 2026-11-15 21:15 — source-alignment audit and cross-platform CI accepted
+
+Added:
+- `Python/rehab_excel/trial_source_alignment.py`: read-only comparison of original A:V programme rows, identity review rows and weekly source-cell references. It emits aggregate counts/safe blocker codes only and verifies both input hashes remain unchanged.
+- `Python/tools/audit_trial_source_alignment.py`: local private-input CLI; never prints patient names, IDs, room/doctor values, raw source cells or local paths.
+- `Tests/test_trial_source_alignment.py`: synthetic tests for exact provenance, identity/context mismatches, wrong source rows/cells, unsupported specialties, missing source times, reclining's time-only source reference, unchanged files and CLI privacy.
+- `Documentation/TRIAL_SOURCE_SCHEMA_AND_IMPORT_DESIGN_20261115.md`: A:V field contract and complete source-to-demo architecture.
+
+**GitHub Actions run 43751221120 — GREEN**, commit `94618fa6402c3cfbf028dbcc32b5f694377df754`:
+- Focused synthetic safety: **200 passed** on Ubuntu and Windows.
+- Full regression: **1,869 passed** on Ubuntu (15 warnings) and Windows (14 warnings).
+- No failed or skipped tests in the reported test summaries.
+
+A separate local/private cross-check of the currently uploaded source and review pair found matching patient source-row/name/context provenance and matching weekly source-cell references for the staged review rows. Some A-column ward/doctor contexts are blank and remain blank; no forward-fill was inferred. This check does not approve identities or prove the semantic correctness of proposed weekdays/times/providers.
+
+**Still blocked:** every PatientID confirmation remains pending; suggestions are not approvals; source notes and overlap holds remain unresolved. No real-patient import, native writer or integrated real-data XLSM has been run or accepted. The new alignment CLI is read-only.
+
+**Next engineering slice:** bind the original A:V source hash into the private import plan; build a complete patient-registry plus weekly-treatment projection and synthetic roundtrip; retain U/V as explicitly unmapped until their operational contract is decided. Before interpreting blank weekday cells, obtain the operator's rule. Do not enable import from the existing proposals.
