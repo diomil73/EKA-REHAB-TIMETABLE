@@ -33,6 +33,7 @@ from rehab_excel.trial_demo_planner_mirror import (
 )
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule
 from rehab_excel.patient_registry_source import read_patient_registry
+from rehab_excel.patient_exit_source import HEADERS as PATIENT_EXIT_HEADERS
 from rehab_excel.trial_demo_weekly_navigation import (
     install_demo_weekly_navigation, verify_demo_weekly_navigation,
 )
@@ -139,6 +140,7 @@ def assert_clean_native_demo_shell(intake: str | Path) -> None:
                 "OUTPATIENT_SCHEDULE", "SESSIONS", "REPLACEMENTS",
                 "REPLACEMENT_LOG", "DAILY_LOG", "DAILY_CHANGE_LEDGER",
                 "CONFLICT_LOG", "THERAPIST_ATTENDANCE", "STUDENTS",
+                "PATIENT_EXITS",
             )
             for source_name in old_operational_sources:
                 if source_name not in wb.sheetnames:
@@ -309,6 +311,23 @@ class Win32ComTrialDemoSeedBackend:
                         view.Cells(rownum, col).NumberFormat = "hh:mm"
                     view.Cells(rownum, col).Value = value
             install_demo_weekly_navigation(wb)
+            # The explicit discharge/program-end ledger starts EMPTY in a new
+            # practice candidate. Finalized historical patient records are
+            # deliberately never erased by a lifecycle action.
+            try:
+                exits = wb.Worksheets("PATIENT_EXITS")
+            except Exception:
+                exits = wb.Worksheets.Add(
+                    After=wb.Worksheets(wb.Worksheets.Count)
+                )
+                exits.Name = "PATIENT_EXITS"
+            for col, header in enumerate(PATIENT_EXIT_HEADERS, start=1):
+                existing = str(exits.Cells(1, col).Value2 or "").strip()
+                if existing not in ("", header):
+                    raise TrialDemoNativeSeedError(
+                        "Patient exits sheet header collision"
+                    )
+                exits.Cells(1, col).Value = header
             # Preserve all existing VBA components and operational controls.
             # Do not silently run code/macros or alter active/closed histories.
             excel.CalculateFull()
@@ -339,8 +358,16 @@ def _verify_seed_workbook(
             raise TrialDemoNativeSeedError("VBA project missing after native save")
     wb = load_workbook(stage, read_only=True, data_only=False, keep_vba=True)
     try:
-        if not {"PATIENTS", "PATIENT_PLANNER", "PROGRAM_WEEKLY_SLOTS", "DEMO_WEEKLY_VIEW"}.issubset(wb.sheetnames):
+        if not {"PATIENTS", "PATIENT_PLANNER", "PROGRAM_WEEKLY_SLOTS", "DEMO_WEEKLY_VIEW", "PATIENT_EXITS"}.issubset(wb.sheetnames):
             raise TrialDemoNativeSeedError("Native output missing required sheets")
+        exit_sheet = wb["PATIENT_EXITS"]
+        if tuple(exit_sheet.cell(1, col).value for col in range(1, 5)) != PATIENT_EXIT_HEADERS:
+            raise TrialDemoNativeSeedError("Patient exits ledger missing or malformed")
+        if any(
+            any(value is not None and str(value).strip() for value in values)
+            for values in exit_sheet.iter_rows(min_row=2, max_col=4, values_only=True)
+        ):
+            raise TrialDemoNativeSeedError("New DEMO has pre-existing patient exit events")
         patients = wb["PATIENTS"]
         headers = {str(value).strip(): col for col, value in enumerate(
             next(patients.iter_rows(min_row=1, max_row=1, values_only=True)), start=1
