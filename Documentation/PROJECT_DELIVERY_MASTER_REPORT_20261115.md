@@ -698,3 +698,12 @@ Full regression completed: 1,824 passed, 1 skipped, 26 warnings. The earlier "37
 ### Reconciliation count clarification
 
 The 32-component no-match reconciliation (23 zero-code + 9 non-empty) is grounded in the 67-component inventory candidate and applies to the two 67-component reports. The CC read-only probe has 66 components and the same 35 matched components, so its arithmetic remainder is 31, not 32. Its candidate-specific component inventory has not yet been reconciled item-by-item; do not project the 23/9 breakdown onto that 66-component workbook. The two worksheet-module display-name aliases are normalized only when matching against the 67-component inventory.
+
+
+## Targeted VBA source review — 2026-11-15
+
+Tracked source review clarifies five named components previously absent from the worksheet-write detector. The registration menu, outpatient entry macro, outpatient schedule manager and scheduling-conflict popup are navigation/read-only UI or explicit confirmation surfaces; the outpatient form delegates actual writes to the Python preview/authoritative-commit worker. The double-booking review module does perform external file I/O and process orchestration, including temporary request/response files and authoritative workbook close/reopen coordination. It was not a no-op; it was outside the previous worksheet-only detector's scope.
+
+Source-contract regression tests exist for all five components. They do not replace native end-to-end acceptance.
+
+Generic Module5, Module6 and two non-empty worksheet/document modules remain unresolved. The auditor is extended to output procedure names and worksheet names for no-pattern components, without VBA source text, and to detect external file I/O, process launch and workbook close. A fresh operator run is required before this subtask can close.
