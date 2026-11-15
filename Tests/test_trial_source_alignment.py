@@ -13,7 +13,7 @@ from rehab_excel.trial_source_alignment import (
 def _inputs(tmp_path, *, source_name="DEMO PERSON", review_name="DEMO PERSON",
             source_context="WARD A", review_context="WARD A",
             source_cell="C2 / D2 / E2", specialty="ΦΘ",
-            schedule_row=2, include_context=True):
+            schedule_row=2, include_context=True, source_time=True):
     source = tmp_path / "programme.xlsx"
     review = tmp_path / "review.xlsx"
 
@@ -27,6 +27,10 @@ def _inputs(tmp_path, *, source_name="DEMO PERSON", review_name="DEMO PERSON",
     row[2] = 9.5
     row[3] = "ΔΕ"
     row[4] = "DEMO THERAPIST"
+    if specialty == "ΑΝΑΚΛΙΝΟΜΕΝΟ":
+        row[5] = "10.00"
+    if not source_time:
+        row[2] = None
     ws.append(row)
     wb.save(source)
     wb.close()
@@ -114,6 +118,13 @@ def test_reclining_source_reference_is_time_only(tmp_path):
     result = audit_trial_source_alignment(programme=source, review=review)
     assert result.aligned
     assert result.source_references_checked == 1
+
+
+def test_missing_source_time_cell_fails_closed(tmp_path):
+    source, review = _inputs(tmp_path, source_time=False)
+    result = audit_trial_source_alignment(programme=source, review=review)
+    assert not result.aligned
+    assert result.source_reference_mismatches == 1
 
 
 def test_wrong_programme_headers_stop_before_alignment(tmp_path):
