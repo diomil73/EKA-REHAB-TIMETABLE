@@ -146,3 +146,11 @@ Created `Documentation/INTEGRATED_TEST_BASELINE_MATRIX_20261115.md` after review
 Key distinction: most core daily mechanisms have substantial operator-confirmed native evidence (daily absence Apply/Restore, day close/amendment, therapist and patient session history, contextual day save, integrated reports). H8 dashboard artifact BL is manually accepted for its specifically recorded UI scope. This does **not** mean every analytics feature is complete. The patient 15-day progress/evaluation workflow remains design-only. H10 therapist charts/management have partial native/source evidence and later visual follow-ups; genuine therapist absence/working-day history is unavailable. Other explicitly open mechanisms remain global multi-absence optimization, permanent recurring-change native write/rollback/UI, real-source native importer/admission, and final worksheet protection classification. Afternoon read-only UI is source-green at 49/9.22s, but has no native Excel acceptance or save path.
 
 The matrix records exact accepted/frozen artifact names and scope boundaries, and is the guide for selecting component references when building the single full-application synthetic test workbook. Frozen proof files are evidence only, never writable build targets. No workbook was opened or modified in this documentation review.
+
+
+## 2026-11-15 — Full DIOMIL workbook candidate architecture audit
+
+- Added `Python/tools/audit_integrated_workbook_structure.py` for non-identifying, read-only XLSM/XLSX structural inventory (sheet visibility/dimensions, formula/cache counts, defined-name count, ZIP/VBA package metadata and schema role hints).
+- Added focused tests in `Tests/test_audit_integrated_workbook_structure.py` covering read-only hash preservation, no patient/staff cell values in output, hidden/veryHidden surfaces, invalid/corrupt inputs, scan-limit fail-closed behavior and multi-candidate execution.
+- Updated `Documentation/CURRENT_HANDOFF.md`, `Documentation/PROJECT_STATUS.md`, and `Documentation/INTEGRATED_TEST_BASELINE_MATRIX_20261115.md` with the exact execution gates and candidate restrictions.
+- The four H10 workbook files remain unselected and read-only. No workbook was opened in Excel or modified. The new focused tests have not yet been run by the operator.
