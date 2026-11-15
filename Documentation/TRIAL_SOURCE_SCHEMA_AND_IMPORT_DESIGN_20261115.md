@@ -95,3 +95,17 @@ The uploaded private source/review pair was separately cross-checked without exp
 Operator clarification: **there are no Saturday/Sunday treatments; the operating treatment week is Monday through Friday (ΔΕ–ΠΑ).** For source import interpretation, when a treatment's corresponding time/value is present but its weekday cell is blank, interpret that treatment as recurring Monday–Friday. Never generate Saturday or Sunday sessions. A missing treatment time/value means no session is created; do not create a weekday slot from a blank day cell alone.
 
 Implementation must keep this as an explicit source-import rule (pass `implicit_daily=True` only for the relevant source mapping when a treatment value exists and its day cell is blank), rather than changing the general parser default for unrelated callers. Add synthetic regression coverage for blank-day + present-time => exactly ΔΕ, ΤΡ, ΤΕ, ΠΕ, ΠΑ and zero weekend entries; blank-time + blank-day => zero entries. Preserve explicitly supplied weekday patterns unchanged.
+
+## 2026-11-15 — A:V weekday candidate projection (source-only)
+
+The pure module `Python/rehab_excel/trial_source_weekday_projection.py` now maps individual A:V-shaped rows into candidate `SourceWeeklyEntry` records, reusing `rehab_core.programme_mapping.make_weekly_entries`. It has no workbook input/output and no identity auto-approval. Only a separate, explicitly confirmed PatientID may be supplied by the future private admission flow.
+
+- A treatment clock with a blank weekday field becomes exactly five recurring weekdays (ΔΕ–ΠΑ), using `implicit_daily=True` locally without changing the general parser default.
+- Blank clock creates no slot; nonblank days/provider alongside a blank clock become a privacy-safe missing-clock blocker.
+- Explicit weekday/time groups keep their own exact weekday and clock; invalid patterns and weekends are blocked.
+- Reclining F and afternoon/pool U/V are retained as blockers until their dedicated operational rules exist. If any field blocks, the complete row returns no admissible candidates, not a silently truncated programme.
+- Source cell coordinates and clinical review provenance remain necessary. The module does not establish identity confirmation, overlap resolution, native importer functionality, or application acceptance.
+
+Synthetic-only regression: `Tests/test_trial_source_weekday_projection.py`. These new tests are **not yet verified green** until their own CI result is checked. The previously accepted 1,869-pass CI applies to its earlier commit, not this addition.
+
+**Immediate next integration work:** connect the source-row reader and explicitly confirmed private identity mapping to this projection; add the complete patient registry projection and bind the original programme SHA256 to the plan before any native Excel writer. The first requested deliverable remains a single operational demo for admissions, discharge, absences, replacements, therapists and students; H9/H10 analytics are not the immediate gate.
