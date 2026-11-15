@@ -2067,3 +2067,24 @@ Current source/test status remains **NOT RUN after these commits**. The prior 1,
 ## 2026-11-15 — Project-wide delivery register
 
 The consolidated, evidence-based project delivery report is `Documentation/PROJECT_DELIVERY_MASTER_REPORT_20261115.md`. It brings together the H2–H10 delivery evidence, Recovery track, outpatient/registration/recurring-change workstreams, real-source admission, afternoon scope, protection gates and remaining release blockers. It does not replace specialist proofs or change any frozen artifact. Use `Documentation/CURRENT_HANDOFF.md` for the exact next operator action.
+
+
+## 2026-11-15 — Native VBA inventory completed; next gate
+
+The operator uploaded DIOMIL_H10_VBA_INVENTORY_FINAL_20261115.txt. The read-only native inventory completed for all three distinct H10 VBA projects:
+- UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm: 67 components.
+- UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm: 67 components.
+- UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm: 66 components.
+- UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm is byte-identical to the CC probe and was correctly skipped as a duplicate with original status 0.
+
+All distinct candidates were ReadOnly=True, macros disabled before open, events disabled, and source hashes unchanged. No workbook was modified. Excel rejected the optional manual Calculation setting; this is explicitly a warning, not a successful manual-calculation assertion.
+
+The initial component comparison shows 30 named application components mapped to tracked Python generators/installers and 37 unresolved components (10 generic standard modules plus 27 worksheet/document modules). The 66-component candidate lacks one zero-code-line document module; its identity remains unresolved because the captured console encoding corrupted non-ASCII names.
+
+See Documentation/H10_VBA_OWNERSHIP_AND_WRITE_SURFACE_MAP_20261115.md for the detailed preliminary mapping.
+
+The write-surface auditor was hardened: macros/events disabled, read-only open, hash before/after, Unicode-safe names, and sanitized output without raw VBA source lines. Its tests and native write-surface audit are the next operator gate. The gate must cover the three distinct candidates; do not repeat the byte-identical duplicate.
+
+Exact next action: run Tests/test_audit_vba_write_surfaces.py together with Tests/test_audit_vba_project_inventory.py and Tests/test_audit_integrated_workbook_structure.py, then full pytest regression, then Python/tools/audit_vba_write_surfaces.py against the three distinct candidate paths. Do not proceed to workbook protection changes or synthetic workbook construction until unresolved components and write surfaces are reconciled.
+
+The native inventory does not certify any H10 candidate as the whole-program synthetic demo. All source candidates remain frozen.
