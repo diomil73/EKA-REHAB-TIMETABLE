@@ -53,3 +53,10 @@ Use a **new disposable private candidate**, preserve a frozen clean starting cop
 7. If any action fails, preserve the candidate and logs, do not force repairs on frozen sources or repeat unneeded old test gates.
 
 **Acceptance wording:** A green Python CI run is code-level evidence only. A new native COM write/readback is a separate milestone; complete interactive operator DEMO acceptance is later still.
+
+
+## 2026-11-15 — Production reader readback added to native DEMO seed
+
+The native seed's independent post-save verification now also calls the production `read_patient_registry(stage)` parser and compares every imported PatientID, display name, room, infectious flag, status, inpatient/outpatient classification, hospital MRN and responsible doctor with the approved in-memory registry projection. This sits alongside the existing `read_base_schedule(stage)` comparison for every granular recurring treatment/day/time/provider. This closes a readback gap: matching worksheet cells alone did not prove that both production source readers could consume the native result.
+
+Code commit: `702db942b5e9416344438f744efa7a6889dcc5e7`. This commit was made after the previously green `2b1c85bd` workflow; **do not claim the new reader-check commit has CI evidence until a run for this exact SHA completes**. No private source workbook, native Excel run, or operational UI acceptance was performed.
