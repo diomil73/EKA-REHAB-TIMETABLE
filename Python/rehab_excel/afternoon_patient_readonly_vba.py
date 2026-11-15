@@ -83,6 +83,14 @@ def patch_afternoon_panel_text(runtime_code: str, form_code: str) -> tuple[str, 
         updated_form = updated_form.replace(FORM_HELPER_MARKER, FORM_HELPER + FORM_HELPER_MARKER, 1)
     else:
         raise RuntimeError("Patient form marker missing or ambiguous")
+    # The original UserForm_Initialize sets its own height at runtime.
+    # Designer.Height alone is insufficient and would clip the PM label.
+    if "    Me.Height = 585" in updated_form:
+        updated_form = updated_form.replace(
+            "    Me.Height = 585", "    Me.Height = 665", 1
+        )
+    elif "    Me.Height = 665" not in updated_form:
+        raise RuntimeError("Patient form runtime height marker missing")
     return updated_runtime, updated_form
 
 
