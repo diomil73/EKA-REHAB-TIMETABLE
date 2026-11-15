@@ -1695,3 +1695,7 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon installer security test
 ```
 
 **No native command yet.** The next actual native test still requires a verified, fresh, integrated **synthetic disposable** workbook. The preflight and `--confirm-synthetic-disposable` flag do not guarantee provenance. Avoid using H10 frozen CC or production source. The intended test is the isolated minimal installer only, never the broad patient scheduling UI reinstall that refreshes MASTER. All current clinical operations remain unchanged.
+
+### 2026-11-15 — Strict designer COM access gate
+
+After the confirmed `133 passed, 1 skipped` checkpoint, the minimal native installer was further tightened in `d9fcb9c`: its `frmPatientScheduling` designer controls must now enumerate successfully before checking whether `lblAfternoonState` already exists. Blocked VBA project/designer access is **not** treated as an absent label. Test contract updated in `894b485`; updated detailed instructions in `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`. These post-checkpoint changes require new Windows tests and later disposable native proof. Source/production/MASTER untouched.
