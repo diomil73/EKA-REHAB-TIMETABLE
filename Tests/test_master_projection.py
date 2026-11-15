@@ -186,3 +186,47 @@ def test_projection_starts_below_shifted_master_header(tmp_path):
     )
 
     assert [row.target_row for row in rows] == [6, 7]
+
+
+def test_date_effective_master_keeps_last_active_day_then_excludes_discharge(tmp_path):
+    from datetime import date
+    from openpyxl import load_workbook
+    from rehab_excel.patient_exit_source import HEADERS as EXIT_HEADERS
+
+    path = _workbook(tmp_path)
+    wb = load_workbook(path)
+    exit_sheet = wb.create_sheet("PATIENT_EXITS")
+    exit_sheet.append(EXIT_HEADERS)
+    exit_sheet.append(["2", "inpatient_discharge", date(2026, 11, 16), "DEMO"])
+    wb.save(path)
+    wb.close()
+
+    sample = [
+        Patient("1", "ΧΑΣΙΚΟΣ", room="A09"),
+        Patient("2", "ΒΑΡΒΑΡΑΣ", room="A02", infectious=True),
+        Patient("3", "ΤΕΣΤ", room="A09"),
+    ]
+    original = path.read_bytes()
+    undated = build_master_projection(
+        path, patients=sample, room_order=("A02", "A09"),
+    )
+    on_last_day = build_master_projection(
+        path, patients=sample, room_order=("A02", "A09"),
+        target_date=date(2026, 11, 16),
+    )
+    day_after = build_master_projection(
+        path, patients=sample, room_order=("A02", "A09"),
+        target_date=date(2026, 11, 17),
+    )
+    assert {row.patient_id for row in undated} == {"1", "2", "3"}
+    assert on_last_day == undated
+    assert {row.patient_id for row in day_after} == {"1", "3"}
+    assert {row.planner_row for row in day_after} == {2, 4}
+    assert path.read_bytes() == original
+
+
+def test_date_effective_master_rejects_invalid_service_date(tmp_path):
+    from rehab_excel.master_projection import MasterProjectionError
+
+    with __import__("pytest").raises(MasterProjectionError, match="valid target date"):
+        build_master_projection(_workbook(tmp_path), target_date="2026-11-17")
