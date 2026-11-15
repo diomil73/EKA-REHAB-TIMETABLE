@@ -2141,3 +2141,16 @@ Existing regression coverage was inspected: Tests/test_registration_menu_vba.py,
 Module5 (1 code line), Module6 (26 lines), and two worksheet/document modules (19 and 12 lines) still require identity/procedure review. Their native VBA source is not available in the repository's tracked generator files. Do not guess their purpose. The next auditor revision reports procedure identifiers and worksheet names for every non-empty component with no current pattern match, without printing VBA source text. It also scans external file I/O, process launches and workbook close calls, in addition to worksheet mutation surfaces.
 
 Next operator gate: pull the latest branch; run focused auditor tests, full pytest regression, and the same three-candidate read-only native audit. Inspect the NO_PATTERN_MATCH_COMPONENT records, especially Module5, Module6 and the two worksheet modules. Preserve all workbook hashes.
+
+
+## Latest continuation gate — 2026-11-15
+
+The VBA auditor was further extended after the first targeted source review:
+- emits NO_PATTERN_MATCH_COMPONENT records with escaped component name, type, line count, worksheet name when applicable, and procedure identifiers only; it never prints source text;
+- detects external file create/write/delete/read, process launches, and ThisWorkbook.Close in addition to worksheet and workbook write surfaces;
+- excludes procedure declaration lines from operation matches;
+- recognizes .Run(...) calls with or without whitespace.
+
+New focused regression tests cover procedure inventory, external I/O/process/lifecycle classification, and declaration-line exclusion. These latest changes have not yet been executed on the operator's Windows/Excel machine. The previous 1,824-pass full regression and completed native audit predate these latest changes and must not be presented as validation of them.
+
+Next operator gate: pull branch work/afternoon-medical-scope-20261115; run Tests/test_audit_vba_write_surfaces.py and the existing integrated-structure/VBA-inventory tests; run full pytest; then rerun the sanitized audit on the same three distinct H10 candidates. Upload the focused/full regression logs and final write-surface report. The new report should expose procedure identifiers for the remaining unmatched non-empty components and separately classify the external file/process operations in modDoubleBookingReview. Preserve ReadOnly=True, disabled macros/events, unchanged source hashes and no workbook modifications.
