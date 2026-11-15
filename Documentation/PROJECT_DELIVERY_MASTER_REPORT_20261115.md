@@ -775,3 +775,16 @@ The latest operator evidence bundle is DIOMIL_VBA_SOURCE_REVIEW_20261115_193409.
 The audit exposes external file I/O, process-launch and workbook-close lifecycle behavior in modDoubleBookingReview. It also identifies eight components with no operation-pattern match per candidate: ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6 (NormalizeTimeMS/NormalizePresenceMS), Module5 (one line/no procedure), and four named UI/navigation entry modules. The four named UI modules were matched to tracked source and reviewed. The four native-only components still require behavior-level review.
 
 Important: 1,569 matches are static source-pattern locations, not confirmed runtime writes. The VBA inventory/audit gate is complete; source ownership mapping and semantic review remain partial. The full synthetic integrated workbook and actual patient-source admission are still separate, unaccepted milestones.
+
+
+## 2026-11-15 — source-redacted procedure profiling added
+
+The read-only VBA auditor now emits additional metadata for components with no operation-pattern match:
+- per-component SHA-256 fingerprint;
+- per-procedure SHA-256 fingerprint;
+- procedure line range and body-line count;
+- statement-category counts only (assignments, branches, loops, date/time operations, event/Target references, calls, other).
+
+It does not emit VBA source lines, literals, patient names, cell values, or formulas. This is intended to compare the embedded implementations across the three native candidates and provide a safe structural profile for the four remaining native-only components (ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6, Module5).
+
+New regression tests cover source redaction, stable procedure hashes, profile counts and the emitted metadata contract. These latest profile changes have NOT yet been executed locally. The previously reported 24 focused passes / 1,829 full passes validate the preceding auditor revision, not this new profile revision. A fresh focused/full/native run is required before relying on the new profile output.
