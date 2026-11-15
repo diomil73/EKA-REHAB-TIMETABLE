@@ -72,3 +72,14 @@ def test_structure_audit_fails_closed_when_scan_limit_is_reached(tmp_path, monke
     assert "SCAN LIMIT REACHED" in output
     assert "READ-ONLY STRUCTURE AUDIT INCOMPLETE" in output
     assert "SOURCE HASH UNCHANGED: YES" in output
+
+
+
+def test_structure_audit_cli_runs_multiple_candidates_and_aggregates_status(monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(module, "audit", lambda path: calls.append(path.name) or 0)
+
+    assert module.main(["first.xlsm", "second.xlsm"]) == 0
+
+    assert calls == ["first.xlsm", "second.xlsm"]
+    assert "ALL CANDIDATE STRUCTURE AUDITS COMPLETE" in capsys.readouterr().out
