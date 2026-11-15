@@ -1,0 +1,666 @@
+# DIOMIL — Συγκεντρωτική αναφορά παραδόσεων και εκκρεμοτήτων
+
+Ημερομηνία απογραφής: 2026-11-15  
+Repository: diomil73/EKA-REHAB-TIMETABLE  
+Branch απογραφής: work/afternoon-medical-scope-20261115  
+Τύπος: evidence-based project delivery register, όχι δήλωση production release.
+
+---
+
+## 1. Γιατί δημιουργήθηκε αυτή η αναφορά
+
+Πριν από αυτή την απογραφή υπήρχαν δύο χρήσιμα αλλά διαφορετικά έγγραφα:
+
+- PROJECT_HANDOFF_EVIDENCE_2026-11-03.md: ιστορική παράδοση κυρίως για H2–H7.
+- INTEGRATED_TEST_BASELINE_MATRIX_20261115.md: αποτύπωση αποδεκτών native artifacts, scope και μεγάλων κενών για τη δημιουργία ενός πλήρους synthetic integration workbook.
+
+Κανένα από τα δύο δεν ήταν πλήρης, ενιαία αναφορά παραδόσεων όλων των workstreams του Diomil. Το παρόν έγγραφο καλύπτει αυτό το κενό. Δεν αντικαθιστά τις επιμέρους αναφορές, τα runbooks ή τα πρωτογενή logs. Συγκεντρώνει την κατάσταση και παραπέμπει στα πρωτογενή στοιχεία.
+
+### Απογραφή τεκμηρίωσης
+
+Στο Documentation εντοπίστηκαν 149 αρχεία. Από αυτά, με βάση τα ονόματά τους:
+
+- 35 αρχεία με CHECKPOINT στο όνομα,
+- 46 αρχεία της σειράς RECOVERY_,
+- 8 αρχεία handoff / resume / status / onboarding,
+- 5 native runbooks,
+- 5 H10-specific guides / runbooks.
+
+Οι κατηγορίες επικαλύπτονται και δεν αθροίζονται. Τα 149 αρχεία περιλαμβάνουν επίσης συμβόλαια, αποφάσεις, προδιαγραφές, σχεδιασμούς, audits και οδηγίες. Δεν είναι 149 ολοκληρωμένα παραδοτέα.
+
+Η απογραφή εξέτασε τα βασικά handoff/status έγγραφα, την acceptance matrix, τις τελικές H2–H10 αναφορές, τις βασικές αναφορές Recovery, την πραγματική πηγή/εισαγωγή και το τρέχον afternoon scope. Τα ενδιάμεσα failed checkpoints διατηρούνται ως ιστορικό και δεν υπερισχύουν των νεότερων τελικών αποδείξεων.
+
+---
+
+## 2. Πώς διαβάζονται οι καταστάσεις
+
+| Κατάσταση | Ακριβής σημασία |
+|---|---|
+| NATIVE ACCEPTED / FROZEN | Ο χρήστης επιβεβαίωσε συγκεκριμένη λειτουργία στο συγκεκριμένο Excel artifact. Το αρχείο είναι αποδεικτικό, όχι writable βάση. |
+| NATIVE INSTALL / READ-ONLY AUDIT GREEN | Εγκατάσταση και persisted readback πέρασαν. Δεν συνεπάγεται απαραίτητα χειροκίνητη αποδοχή UI. |
+| SOURCE GREEN ONLY | Python/source tests πέρασαν. Δεν αποδεικνύει native Excel ή λειτουργική αποδοχή. |
+| PARTIAL ACCEPTANCE | Έγινε αποδεκτό συγκεκριμένο υποσύνολο, όχι ολόκληρη η απαίτηση ή το workstream. |
+| DESIGN / NOT IMPLEMENTED | Υπάρχει απαίτηση ή σχεδιασμός, χωρίς αποδεκτή υλοποίηση. |
+| BLOCKED | Λείπει υποχρεωτικό source, provenance, επιχειρησιακή απόφαση ή native proof. |
+| FAILED / FROZEN | Η συγκεκριμένη προσπάθεια απέτυχε και διατηρείται ως διαγνωστικό στοιχείο. Δεν επαναχρησιμοποιείται. |
+
+Ένα GREEN αφορά πάντα το συγκεκριμένο scope της αντίστοιχης αναφοράς. Δεν σημαίνει ότι ολόκληρο το Diomil είναι έτοιμο.
+
+---
+
+## 3. Συνολική εικόνα
+
+### Τι έχει ουσιαστικά παραδοθεί
+
+1. Ο βασικός μηχανισμός ημερήσιας ανακατασκευής και οι σημαντικές διαδρομές απουσίας / αντικατάστασης / επαναφοράς έχουν ισχυρή source και native τεκμηρίωση.
+2. Το κλείσιμο ημέρας, η διατήρηση ιστορικού και η versioned διόρθωση κλεισμένης ημέρας έχουν native proofs.
+3. Τα ιστορικά στατιστικά θεραπευτών και ασθενών έχουν λειτουργικό backend και αποδεκτά συγκεκριμένα Excel UI scopes.
+4. Το H8 dashboard έχει native και χειροκίνητη αποδοχή για το καταγεγραμμένο dashboard scope.
+5. Έχει αποδειχθεί σε synthetic αντίγραφα η native αποθήκευση/reopen και η μεταφορά 179 σταθερών recurring AssignmentIDs.
+6. Το outpatient CREATE και βασικά registration / preview backends υπάρχουν και έχουν επιμέρους τεκμηρίωση.
+
+### Τι δεν έχει παραδοθεί ως ολοκληρωμένο προϊόν
+
+1. Πλήρης καταγραφή πραγματικών παρουσιών/απουσιών θεραπευτών με αξιόπιστο ημερολόγιο εργασίμων και ιστορικό.
+2. Μόνιμη αλλαγή recurring θεραπείας με native event append, transaction, rollback και ολοκληρωμένο UI.
+3. Πραγματικός importer / native admission του ενημερωμένου προγράμματος ασθενών.
+4. Πλήρης, αποδεδειγμένα synthetic, ενιαία δοκιμαστική έκδοση ολόκληρης της εφαρμογής.
+5. Ολοκληρωμένη πολιτική προστασίας όλων των φύλλων και των επιτρεπόμενων περιοχών επεξεργασίας.
+6. Ο global optimizer για ταυτόχρονες απουσίες πολλών θεραπευτών.
+7. Η 15ήμερη αξιολόγηση / πρόοδος ασθενούς.
+8. Native integration και save path για το νέο afternoon physiotherapy / medical deferral scope.
+9. Πλήρης αποδοχή των τελικών H10 charts και του ανεξάρτητου management XLSX.
+
+---
+
+## 4. Αναλυτικό μητρώο παραδόσεων
+
+### 4.1 Ημερήσια λειτουργία, ανακατασκευή και αντικαταστάσεις
+
+**Κατάσταση: CORE MECHANISMS NATIVE-PROVEN, με ανοιχτό global optimizer.**
+
+Η ημερήσια αλήθεια βασίζεται στη διαδρομή:
+
+recurring/base schedule + DAILY_INPUT + ACTIVE DAILY_REPLACEMENT_FACTS → DailySessionState → operational views/statistics.
+
+Οι απουσίες, ακυρώσεις, no-shows, αναστολές και αντικαταστάσεις είναι overlays και δεν πρέπει να καταστρέφουν το recurring πρόγραμμα.
+
+Στις αναφορές Recovery τεκμηριώνονται:
+- restart-safe authoritative reconstruction,
+- replacement lifecycle V87–V92,
+- authoritative DAILY_REPLACEMENT_FACTS,
+- per-row / selected / restore-all restore backend,
+- validation πριν από mutation, semantic readback και rollback,
+- συνέπεια MASTER_SCHEDULE / THERAPIST_DAILY / daily statistics,
+- in-session mutation αντί για παλιό close/reopen preview-sync μοντέλο.
+
+**Native patient-absence Apply / Restore X:** επιβεβαιώθηκε μία συγκεκριμένη all-day απουσία ασθενούς, Apply μία φορά και Restore μία φορά. Επαληθεύτηκαν:
+- αφαίρεση και επαναφορά από MASTER και THERAPIST_DAILY,
+- επαναφορά του MASTER_SCHEDULE!D8 στην εσωτερική PATIENT_PLANNER formula,
+- επαναφορά του MASTER_SCHEDULE!M8 σε παρών,
+- DAILY_CHANGE_LEDGER ACTIVE → RESTORED,
+- συμπλήρωση RestoredAt,
+- εκκαθάριση της αντίστοιχης DAILY_INPUT γραμμής.
+
+Αυτό δεν αποδεικνύει κάθε συνδυασμό απουσιών ή κάθε μελλοντική recurring αλλαγή.
+
+**Ανοιχτό:** η ποιότητα ανάθεσης όταν υπάρχουν πολλές ταυτόχρονες απουσίες θεραπευτών. Το single-patient candidate ranking δεν είναι ο τελικός global multi-absence optimizer. Οι κανόνες scarcity, adjacency, capacity, workload balance και explicit exceptions πρέπει να διατηρηθούν.
+
+Πηγές:
+- RECOVERY_RUNTIME_PAYLOAD_CAPTURE_GATE_2026-11-01.md
+- RECOVERY_J_TO_M_HANDOFF_2026-10-31.md
+- RECOVERY_GATE_67_GREEN_2026-10-31.md
+- RECOVERY_CANONICAL_SOURCE_GREEN_GATE_2026-11-01.md
+- RECOVERY_DAILY_CHANGE_RESTORE_2026-10-31.md
+- RECOVERY_REPLACEMENT_OPERATOR_RESTORE_2026-10-31.md
+- CURRENT_HANDOFF.md
+
+### 4.2 H2 — Κλείσιμο ημέρας και durable history
+
+**NATIVE ACCEPTED / FROZEN**
+
+Το Z είναι το πρώτο operator-confirmed native close-day proof της συγκεκριμένης recovery γραμμής:
+- fresh workbook build,
+- read-only preflight,
+- επιτυχές CloseOperationalDay μία φορά,
+- επιτυχής post-close read-only inspection.
+
+Το ακριβές inspector output δεν είχε επικολληθεί στην αναφορά, επομένως δεν αποδίδονται επιπλέον counts ή IDs που δεν τεκμηριώθηκαν.
+
+Artifact: UNIFIED_CLOSE_DAY_HISTORY_20261101_Z.xlsm.
+
+Πηγή: CLOSE_DAY_NATIVE_Z_PROOF_2026-11-01.md.
+
+### 4.3 H3 — Διόρθωση κλεισμένης ημέρας / version chain
+
+**NATIVE ACCEPTED / FROZEN**
+
+Το AB απέδειξε:
+- source gate 35 passed in 3.23s,
+- read-only preparation και hash-bound apply,
+- native atomic persistence,
+- version 1 → version 2,
+- v1 preserved ως SUPERSEDED,
+- v2 CURRENT_FINAL,
+- 16 therapist/day history rows,
+- linked amendment STARTED / FINALIZED events,
+- independent post-save outcome inspection.
+
+Αυτό αποδεικνύει το durable backend. Η user-facing correction action / navigation ήταν ξεχωριστό UX θέμα, το οποίο εξελίχθηκε αργότερα μέσα στο H6 contextual Save Day. Το H3 proof από μόνο του δεν αποδεικνύει όλη τη μεταγενέστερη εφαρμογή.
+
+Artifact: UNIFIED_DAY_AMENDMENT_20261101_AB.xlsm.
+
+Πηγή: DAY_AMENDMENT_NATIVE_AB_PROOF_2026-11-01.md.
+
+### 4.4 H4 — Ιστορικές αναφορές θεραπευτών
+
+**NATIVE ACCEPTED / FROZEN**
+
+Backend και UI αποδείχθηκαν για:
+- Ημερήσια,
+- Εβδομαδιαία,
+- Μηνιαία,
+- Συνολικά.
+
+Η αναφορά διαβάζει finalized history και μετρά μόνο CURRENT_FINAL. Τα SUPERSEDED snapshots παραμένουν στο audit history, αλλά δεν διπλομετρώνται.
+
+Μετρικές:
+- planned / actual occupied timeslots,
+- planned / active sessions,
+- replacements received,
+- released load από cancellations/no-shows,
+- treatment suspensions,
+- planned / actual capacity utilization.
+
+Κρίσιμη σημασιολογική διάκριση: occupied clock slots ≠ αριθμός ασθενών/συνεδριών. Shared-slot appointments μπορούν νόμιμα να έχουν περισσότερες συνεδρίες από occupied timeslots.
+
+Το AM χρησιμοποιήθηκε read-only για report proof. Το AQ είναι το τελικό native UI artifact όπου ο χρήστης επιβεβαίωσε εναλλαγή όλων των modes και παραμονή των κουμπιών.
+
+Artifacts:
+- UNIFIED_DAY_SAVE_UI_20261102_AM.xlsm — read-only report proof.
+- UNIFIED_THERAPIST_HISTORY_UI_20261102_AQ.xlsm — native UI proof.
+
+Πηγές:
+- H4_THERAPIST_HISTORY_REPORTS_CHECKPOINT_2026-11-02.md
+- H4_THERAPIST_HISTORY_REPORTS_GREEN_2026-11-02.md
+- CHECKPOINT_H4_THERAPIST_HISTORY_2026-11-03.md
+
+### 4.5 H5 — Ιστορικό συνεδριών ασθενών
+
+**NATIVE ACCEPTED / FROZEN**
+
+AX:
+- native first close για 2026-10-30,
+- 80 patient-session rows,
+- 16 therapist history rows,
+- v1 CURRENT_FINAL,
+- finalized event και τεχνικά history sheets veryHidden.
+
+AY:
+- native amendment v1 → v2,
+- previous patient/session rows 80,
+- current patient/session rows 80,
+- operational CURRENT_FINAL rows 80,
+- v1 preserved, v2 current.
+
+Τα AX και AY είναι ξεχωριστά immutable proofs.
+
+Πηγή: CHECKPOINT_H5_PATIENT_HISTORY_2026-11-03.md.
+
+### 4.6 H6 — Contextual Save Day UX
+
+**NATIVE ACCEPTED / FROZEN**
+
+Το AZ απέδειξε λειτουργικό contextual Save Day flow με v1 → v2. Το BB επιβεβαίωσε την τελική διάταξη:
+- Save & Exit παραμένει app-shell action,
+- το Save Day βρίσκεται στο MASTER,
+- δεν υπάρχουν παλιά close/amend/save controls στο DAILY_INPUT,
+- ο dispatcher υπάρχει,
+- ο χρήστης επιβεβαίωσε οπτικά τη διάταξη.
+
+Σημείωση scope: στο BB δεν εκτελέστηκε νέο save action. Η λειτουργική v1→v2 απόδειξη προέρχεται από το AZ, ενώ το BB αποδεικνύει την τελική διάταξη.
+
+Artifacts: UNIFIED_PATIENT_HISTORY_H6_20261103_AZ.xlsm και ..._BB.xlsm.
+
+Πηγές:
+- CHECKPOINT_H6_CLOSED_H7_STARTED_2026-11-03.md
+- CHECKPOINT_H6_MASTER_ONLY_SAVE_2026-11-03.md
+- CHECKPOINT_H6_UNIFIED_DAY_SAVE_UX_2026-11-03.md
+- PROJECT_HANDOFF_EVIDENCE_2026-11-03.md
+
+### 4.7 H7 — Ενοποίηση ιστορικών αναφορών και toolbar
+
+**PARTIAL ACCEPTANCE, LATER REFINED BY H8**
+
+Η σειρά BC / BD / BE περιλαμβάνει χρήσιμα διαγνωστικά:
+- BC: εγκατάσταση και αρχική οπτική παρατήρηση, όχι πλήρης integrated acceptance.
+- BD: persisted structure audit green, αλλά υπήρξαν intermittent Overall report error και ερωτήματα patient coverage.
+- Η σύγκριση PATIENTS registry 93 έναντι CURRENT_FINAL 77 distinct patients / 80 sessions απέδειξε ότι 16 registered patients δεν είχαν finalized session στο συγκεκριμένο test date. Δεν επιτρέπεται να δημιουργούνται πλασματικές συνεδρίες.
+- Οι IDs 18 και 22 υπήρχαν στα report rows· η απουσία τους από την οπτική αντίληψη δεν αποδείχθηκε ως data loss.
+- BI είχε installer και protection audit green, αλλά ο χρήστης απέρριψε το analytics UX.
+
+Το BF είναι το λειτουργικά αποδεκτό integrated H7 smoke:
+- 26 focused source tests passed in 4.87s,
+- integrated toolbar,
+- retained RefreshAll,
+- patient και therapist report entry points,
+- report modes,
+- previous-screen navigation,
+- independent H7 integrated read-only audit,
+- χειροκίνητη επιβεβαίωση χρήστη «όλα γίνανε σωστά».
+
+Το BF δεν σημαίνει ότι ολοκληρώθηκε η μεταγενέστερη απαίτηση για πλήρη analytics UX. Αυτή οδήγησε στο H8.
+
+Artifact: UNIFIED_PATIENT_HISTORY_H7_20261104_BF.xlsm.
+
+Πηγές:
+- CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md
+- CHECKPOINT_H7_BD_INTEGRATED_AUDIT_GREEN_2026-11-03.md
+- CHECKPOINT_H7_REGISTRY_93_VS_HISTORY_77_2026-11-04.md
+- CHECKPOINT_H7_REFRESHALL_RETAINED_AND_TOOLBAR_MIGRATION_2026-11-04.md
+- H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md
+
+### 4.8 H8 — Patient / therapist dashboards
+
+**NATIVE ACCEPTED / FROZEN FOR RECORDED SCOPE**
+
+Το BL έγινε αποδεκτό μετά από:
+- 74 passed in 4.55s source gate,
+- native install και persisted VBA checks,
+- independent protection / integrated UI audits,
+- χειροκίνητη επιβεβαίωση «όλα καλά».
+
+Αποδεκτό scope:
+- patient overview και selected-patient charts,
+- Προγραμματισμένες / Πραγματοποιημένες / Απουσίες,
+- active period-button styling,
+- sticky patient chart κατά το scroll,
+- τρία therapist dashboard panels με σαφή όρια διαθεσιμότητας,
+- report navigation / protection,
+- ένα τελικό RefreshAll success notification.
+
+Το τρίτο therapist panel δεν είναι πραγματικό quantitative attendance chart. Παραμένει ρητά «Μη διαθέσιμο ιστορικό απουσιών / εργασίμων» μέχρι να υπάρξει authoritative attendance source.
+
+Το BO synthetic history proof επιβεβαίωσε:
+- 25 service days,
+- 522 patient-session rows,
+- 150 therapist-day rows,
+- 150 synthetic attendance facts,
+- 25 finalization events,
+- cross-sheet consistency και unchanged source.
+
+Τα BM και BN απέτυχαν κατά το synthetic native seeding και διατηρούνται ως frozen diagnostics. Η τελική επιτυχία BO δεν μετατρέπει τα synthetic attendance facts σε πραγματικές παρουσίες.
+
+Artifacts:
+- UNIFIED_PATIENT_HISTORY_H8_20261107_BL.xlsm — accepted UI.
+- UNIFIED_H8_DEMO_HISTORY_20261108_BO.xlsm — synthetic history evidence.
+
+Πηγές:
+- H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md
+- H8_SYNTHETIC_HISTORY_DEMO_PLAN.md
+- PROJECT_STATUS.md, H8 appendices.
+
+### 4.9 H9 — Ιστορικό παρουσιών και εργασίμων θεραπευτών
+
+**SOURCE / READ-ONLY MODEL ONLY**
+
+Το H9 εντόπισε πραγματικό κενό στο υπάρχον schema: therapist/day workload δεν αποδεικνύει αν ο θεραπευτής ήταν υποχρεωμένος να εργαστεί μια συγκεκριμένη ημέρα. Η απουσία συνεδριών δεν ισοδυναμεί με απουσία θεραπευτή.
+
+Υλοποιήθηκε pure domain contract για PRESENT / ABSENT / NONWORKING, με provenance, reason και explicit expected-working-date calendar. Ο operator επιβεβαίωσε 7 passed in 0.98s για το pure-domain contract.
+
+Προστέθηκε read-only store reader με schema:
+SnapshotId, ServiceDate, TherapistId, Outcome, Source, ReasonCode.
+
+Δεν έχει αποδειχθεί:
+- live finalized attendance writer,
+- αυτόματη παραγωγή roster/calendar,
+- holiday/leave policy,
+- σύνδεση με day close / amendment writer,
+- native Excel install ή quantitative chart.
+
+Το H8 demo attendance sheet είναι illustrative synthetic evidence μόνο.
+
+Σημείωση ελέγχου αντιφατικών checkpoints: το H8 plan αναφέρει 13 passed in 8.33s για separate H9 model/read-only loader. Η μεταγενέστερη H9 contract αναφέρει 7 passed για το pure contract και μετά προσθέτει store tests που δηλώνονται ως pending. Μέχρι να βρεθεί το ακριβές νεότερο combined test output, δεν χαρακτηρίζεται ο store reader πλήρως verified.
+
+Πηγή: H9_THERAPIST_ATTENDANCE_HISTORY_CONTRACT.md.
+
+### 4.10 H10 — Therapist dashboard, management view και synthetic proofs
+
+**PARTIAL ACCEPTANCE / NOT FULLY ACCEPTED**
+
+Υπάρχουν τρεις διαφορετικές κατηγορίες H10 evidence:
+
+**Α. Therapist UI / charts**
+- CC native install, persisted VBA, history cross-sheet verification και strict capacity audit πέρασαν.
+- 25 synthetic days, 522 patient-session facts, 150 therapist/day facts, 150 synthetic attendance facts, 25 finalization events.
+- 150 therapist/day rows audited. Τα delivered sessions μπορούν να υπερβαίνουν το initial plan λόγω replacements, αλλά τα occupied clock slots πρέπει να αξιολογούνται χωριστά.
+- Ο χρήστης έστειλε screenshots και αποδέχθηκε οπτικά δύο συγκεκριμένες οθόνες: το Συνολικά therapist report και το internal MANAGEMENT_SUMMARY. Αυτό δεν ισοδυναμεί με πλήρη functional acceptance όλων των έξι periods, όλων των κουμπιών ή κάθε chart path.
+- Το δυναμικό therapist profile για 20+ θεραπευτές παραμένει design-only.
+
+**Β. Management-only standalone XLSX**
+- Υπάρχει ανεξάρτητο export path και σχεδιασμός για τέσσερα macro-free sheets με native shape hyperlinks, hidden headings/gridlines/tabs και KPI tiles.
+- Το export είναι ξεχωριστό artifact από το operational XLSM.
+- Η πλήρης privacy/readback/visual approval για ασφαλή κοινοποίηση δεν πρέπει να συναχθεί από screenshots ή source markers μόνο.
+
+**Γ. H10 synthetic native proof chain**
+- CC native read-only probe A: αποδεικνύει isolated native Excel open/close read-only, όχι writeback.
+- Native Save/reopen A: αποδεικνύει προσθήκη του DIOMIL_NATIVE_PROBE marker, Save/close/reopen, VBA preservation και unchanged synthetic history.
+- Recurring AssignmentID migration A: αποδεικνύει native persistence/readback 179 immutable AssignmentIDs.
+- Δεν αποδεικνύεται permanent recurring event append, authoritative transaction, rollback ή production migration.
+
+Το H10 therapist absence/working-day chart παραμένει unavailable χωρίς genuine finalized attendance facts. Δεν εμφανίζουμε 0 απουσίες από ελλιπή δεδομένα.
+
+Πηγές:
+- H10_THERAPIST_CHARTS_USER_REQUIREMENTS_20261108.md
+- H10_NEXT_SESSION_READ_FIRST_20261108.md
+- H10_BV_NATIVE_RUNBOOK_20261108.md
+- H10_BW_NATIVE_RUNBOOK_20261108.md
+- NATIVE_CC_READONLY_PROBE_20261112.md
+- NATIVE_CC_SYNTHETIC_SAVE_REOPEN_20261112.md
+- NATIVE_SYNTHETIC_RECURRING_ID_MIGRATION_20261112.md
+- AUTHORITATIVE_RESUME_20261112.md
+
+### 4.11 Outpatient recurring schedule
+
+**Κατάσταση: CREATE NATIVE GREEN, EDIT / CONFLICT / WORKLOAD DETAILS PARTIAL.**
+
+Η Implementation Map καταγράφει:
+- outpatient CREATE native green,
+- application-style schedule manager native-visible and usable,
+- stable same-row edit semantics implemented,
+- duplicate edit projection bug hardened και latest fresh native smoke appears correct,
+- workload-strip UI implemented in source αλλά awaiting focused/native verification,
+- separate outpatient conflict native gate still pending.
+
+Το OUTPATIENT_SCHEDULE είναι hidden/protected authoritative storage, όχι end-user worksheet. Το public edit flow πρέπει να χρησιμοποιεί business-facing manager και όχι row numbers.
+
+Πηγή: IMPLEMENTATION_MAP.md, ενότητα Outpatient recurring scheduling.
+
+### 4.12 Registries και entity registration
+
+**Κατάσταση: VALIDATED BACKENDS / PREVIEW WRITEBACK, ΟΧΙ ΠΛΗΡΗΣ ΕΝΙΑΙΑ NATIVE REGISTRATION ACCEPTANCE.**
+
+Υπάρχουν:
+- patient registry validation με stable PatientID,
+- therapist registry validation από SETTINGS,
+- dedicated STUDENTS A:H schema,
+- preview copy + native Excel writeback/readback για τις αντίστοιχες entity flows,
+- registration orchestrator και form specifications για patient / therapist / student.
+
+Το registration menu contract παραμένει UI-facing specification. Η formal registration αναφορά διευκρινίζει ότι το orchestration είναι backend plumbing και δεν προσθέτει από μόνο του νέα VBA UserForms στο binary XLSM ή automatic patient assignment.
+
+Πηγές:
+- FORMAL_ENTITY_REGISTRATION.md
+- REGISTRATION_MENU_CONTRACT.md
+- IMPLEMENTATION_MAP.md
+- student registry / transition specialist docs.
+
+### 4.13 Permanent recurring therapy changes
+
+<badge> SOURCE PLANNING + STABLE ID NATIVE PROOF; EVENT WRITE NOT PROVEN </badge>
+
+Έχουν υλοποιηθεί:
+- effective-dated recurring change domain projection,
+- read-only workbook preview με SHA/stale-row checks,
+- immutable AssignmentID binding,
+- synthetic-only migration plan,
+- native migration 179 AssignmentIDs,
+- read-only RECURRING_CHANGE_EVENTS parser,
+- source-SHA-bound in-memory append plan.
+
+Έχει καταγραφεί CI run 43314844755 με 1,652 full Python tests σε Windows και Linux για την αντίστοιχη source revision.
+
+Δεν έχει αποδειχθεί:
+- native append event σε workbook,
+- authoritative commit transaction,
+- compensating/reversal event rollback,
+- full operational VBA Apply UI,
+- real patient migration.
+
+Πηγή: AUTHORITATIVE_RESUME_20261112.md και IMPLEMENTATION_MAP.md.
+
+### 4.14 Real-source trial / admission
+
+**BLOCKED — NO ACCEPTED REAL-DATA IMPORTER**
+
+Υπάρχουν read-only tools:
+- trial_admission_gate,
+- preflight_trial_excel_sources,
+- audit_pilot_source_readiness,
+- trial_import_plan,
+- trial_weekly_projection.
+
+Το trial plan κάνει validation, hash binding και projection σε υπάρχον schema. Δεν γράφει XLSM και δεν είναι importer.
+
+Η αναφορά 2026-11-13 απαιτεί:
+- reviewed private source,
+- confirmed PatientID mapping,
+- μηδενικά unresolved holds και overlaps ή ξεχωριστή ρητά εγκεκριμένη quarantine policy,
+- exact shared-slot membership approval,
+- νέο κατάλληλο private candidate,
+- native writer, independent readback και privacy proof.
+
+Οι παλαιές μετρήσεις 61 held cells / 11 candidate overlaps είναι historical staging observations, όχι σημερινό validated census. Η real-data demo δεν έχει ολοκληρωθεί ή γίνει native accepted.
+
+Καμία πραγματική κλινική λίστα, patient row ή private workbook δεν πρέπει να ανέβει στο public repository ή σε public logs.
+
+Πηγή: REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md και AUTHORITATIVE_RESUME_20261112.md.
+
+### 4.15 Afternoon physiotherapy / pool / medical deferral
+
+**SOURCE GREEN ONLY — NATIVE PROOF BLOCKED BY PROVENANCE**
+
+Η πολιτική ορίζει:
+- pool ως πρωινή θεραπεία,
+- afternoon programme ως ξεχωριστή physiotherapy-only namespace,
+- PM fields αρχικά κενά,
+- ανεξάρτητα morning/afternoon conflict namespaces,
+- προσωρινή discharge/transfer ως patient-wide state,
+- medical deferral με σαφή scope: whole day, time window ή exact session,
+- καμία υπόθεση duration από start time,
+- preview και ρητή επιβεβαίωση των επηρεαζόμενων sessions.
+
+Στο active branch υπάρχουν pure policy, draft, read-only source schema και read-only patient form panel. Η πιο πρόσφατη επιβεβαιωμένη focused Windows suite ήταν 49 passed in 9.22s. Η πλήρης regression μετά από το VBA fixture fix ήταν 1,808 passed, 1 skipped, 0 failed σε 30.54s· μεταγενέστερη πλήρης regression μετά τον integrated structure auditor ήταν 1,813 passed, 1 skipped, 26 warnings.
+
+Δεν υπάρχει ακόμη:
+- native Excel save path για afternoon slots,
+- native acceptance του panel,
+- operational medical deferral UI / transaction,
+- rollback / amendment integration,
+- πλήρες synthetic integrated workbook για ασφαλές native smoke.
+
+Το native installer παραμένει gated επειδή δεν έχει ταυτοποιηθεί πλήρως synthetic integrated source με τα σωστά PatientProgramRuntime / frmPatientScheduling components. Το populated canonical workbook εξαιρείται.
+
+Πηγή: AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md.
+
+### 4.16 Worksheet protection
+
+**Κατάσταση: PARTIAL PROTECTION, BROAD RELEASE GATE OPEN.**
+
+Το BF read-only protection audit κατέγραψε:
+- 23 worksheets,
+- 18 unprotected,
+- 5 protected,
+- ProtectStructure=False,
+- ProtectWindows=False,
+- τα UsedRange cells να εμφανίζονται Locked=True δεν εμποδίζει edits όταν ProtectContents=False.
+
+Οι δύο report sheets προστατεύτηκαν στο H7/H8 chain και τα τεχνικά history sheets παραμένουν veryHidden/protected. Αυτό δεν είναι συνολική προστασία όλων των worksheets.
+
+Η τελική προστασία πρέπει να βασιστεί σε πλήρη χαρτογράφηση manual edit zones και όλων των VBA/Python write paths. Blanket locking χωρίς αυτή τη χαρτογράφηση μπορεί να σπάσει νόμιμες φόρμες και COM writers.
+
+Πηγές:
+- BACKLOG_FINAL_WORKSHEET_PROTECTION_2026-11-03.md
+- WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md
+- CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md
+
+### 4.17 Patient 15-day progress / evaluation
+
+**DESIGN ONLY**
+
+Το STATISTICS_HISTORY_DESIGN.md περιγράφει:
+- manual evaluation περίπου ανά 15 ημέρες,
+- append-only milestones,
+- question/goal, Από, Έως, outcome,
+- πράσινο = πρόοδος, γκρι = ουδέτερο, κόκκινο = επιδείνωση,
+- PatientID-linked trend που δεν αλλάζει όταν αλλάζει θεραπευτής/ώρα/κελί.
+
+Δεν υπάρχει native-accepted workflow στο evidence set που εξετάστηκε. Δεν πρέπει να δηλώνεται ως υλοποιημένο.
+
+### 4.18 Whole-workbook synthetic integrated test fixture
+
+**NOT CERTIFIED**
+
+Η πλήρης synthetic integration workbook παραμένει μη πιστοποιημένη.
+
+Το tracked Rehab_Center_System_v27_1.xlsm είναι populated clinical baseline και εξαιρείται από native write tests. Τα H8/H10 synthetic history datasets αποδεικνύουν συγκεκριμένα history ledgers και synthetic facts, όχι ότι κάθε patient/staff-bearing sheet, roster, hidden range, formula cache, named range και VBA form είναι synthetic και συνεπώς keyed.
+
+Η δομή τεσσάρων H10 υποψηφίων που ελέγχθηκε στις 15/11 έδειξε τρία distinct workbook fingerprints:
+- recurring IDs candidate,
+- native write probe candidate,
+- CC source / read-only probe pair, τα οποία είναι byte-identical.
+
+Τα τρία distinct artifacts είναι frozen evidence/reference files. Δεν επιλέχθηκε κανένα ως writable integrated baseline.
+
+---
+
+## 5. Test evidence — τι είναι το τελευταίο πραγματικά green
+
+### Full repository regression
+
+Η τελευταία πλήρης regression πριν από την προσθήκη του νέου VBA project inventory tool ήταν:
+- 1,813 passed,
+- 1 skipped,
+- 26 warnings,
+- exit 0.
+
+Αυτό είναι source regression, όχι native Excel acceptance.
+
+### Afternoon focused regression
+
+Η πιο πρόσφατη επιβεβαιωμένη focused suite για το afternoon branch ήταν:
+- 49 passed in 9.22s.
+
+Είναι source-only. Δεν υπήρξε native installer run.
+
+### Permanent recurring append-plan CI
+
+Η αναφορά καταγράφει CI run 43314844755 με:
+- 1,652 full Python tests σε Windows,
+- 1,652 full Python tests σε Linux.
+
+Δεν ήταν native Excel event append.
+
+### Νέο VBA project inventory tool
+
+Προστέθηκαν:
+- Python/tools/audit_vba_project_inventory.py
+- Tests/test_audit_vba_project_inventory.py
+- Documentation/H10_VBA_PROJECT_INVENTORY_READONLY_RUNBOOK_20261115.md
+
+Ο κώδικας προστέθηκε και σκληρύνθηκε μετά την τελευταία full regression των 1,813 tests. Τα νέα focused tests και η full regression μετά από αυτές τις αλλαγές δηλώνονται NOT RUN. Επομένως το 1,813 δεν μεταφέρεται αυτόματα στον νέο κώδικα.
+
+---
+
+## 6. Κανόνες για τα αποδεικτικά Excel
+
+- Κάθε GREEN native artifact παραμένει frozen και χρησιμοποιείται μόνο για read-only inspection.
+- Κάθε FAILED artifact παραμένει frozen diagnostic evidence.
+- Δεν γίνεται overwrite, repair-in-place ή δεύτερη εγκατάσταση στο ίδιο candidate.
+- Το production baseline Rehab_Center_System_v27_1.xlsm παραμένει immutable.
+- Τα H8/H10 attendance records είναι synthetic demo facts, όχι πραγματικές παρουσίες.
+- Το native Excel proof εκτελείται σε Windows με πραγματικό Excel. GitHub CI και mocked COM tests δεν το αντικαθιστούν.
+- Πριν από native write απαιτούνται source tests, provenance check, fresh unique destination, exclusive copy, native save/close/reopen και independent readback.
+- Δεν ανεβαίνουν πραγματικά patient data, ονόματα, raw schedules ή private workbooks σε public GitHub ή public logs.
+
+---
+
+## 7. Πρωτογενείς αναφορές ανά workstream
+
+### Κεντρικά handoffs / status
+- ONBOARDING.md
+- CURRENT_HANDOFF.md
+- AUTHORITATIVE_RESUME_20261112.md
+- PROJECT_STATUS.md
+- IMPLEMENTATION_MAP.md
+- DECISIONS.md
+- PROJECT_HANDOFF_EVIDENCE_2026-11-03.md
+- PROJECT_HANDOFF_NEXT_STEPS_2026-11-03.md
+
+### H2–H7
+- CLOSE_DAY_NATIVE_Z_PROOF_2026-11-01.md
+- DAY_AMENDMENT_NATIVE_AB_PROOF_2026-11-01.md
+- H4_THERAPIST_HISTORY_REPORTS_CHECKPOINT_2026-11-02.md
+- H4_THERAPIST_HISTORY_REPORTS_GREEN_2026-11-02.md
+- CHECKPOINT_H4_THERAPIST_HISTORY_2026-11-03.md
+- CHECKPOINT_H5_PATIENT_HISTORY_2026-11-03.md
+- CHECKPOINT_H6_CLOSED_H7_STARTED_2026-11-03.md
+- CHECKPOINT_H7_BF_MANUAL_ACCEPTANCE_AND_PROTECTION_NEXT_2026-11-04.md
+
+### H8–H10
+- H8_STATISTICS_DASHBOARD_OPERATOR_FEEDBACK_2026-11-07.md
+- H8_SYNTHETIC_HISTORY_DEMO_PLAN.md
+- H9_THERAPIST_ATTENDANCE_HISTORY_CONTRACT.md
+- H10_THERAPIST_CHARTS_USER_REQUIREMENTS_20261108.md
+- H10_NEXT_SESSION_READ_FIRST_20261108.md
+- NATIVE_CC_READONLY_PROBE_20261112.md
+- NATIVE_CC_SYNTHETIC_SAVE_REOPEN_20261112.md
+- NATIVE_SYNTHETIC_RECURRING_ID_MIGRATION_20261112.md
+
+### Real source / registration / afternoon
+- REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md
+- FORMAL_ENTITY_REGISTRATION.md
+- REGISTRATION_MENU_CONTRACT.md
+- AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md
+
+### Protection / architecture
+- BACKLOG_FINAL_WORKSHEET_PROTECTION_2026-11-03.md
+- WORKSHEET_PROTECTION_WRITE_PATH_MAP_2026-11-04.md
+- INTEGRATED_TEST_BASELINE_MATRIX_20261115.md
+
+### Recovery chronology
+Η σειρά RECOVERY_* διατηρεί τις διαγνωστικές αποτυχίες και τα fixes των native candidates. Οι τελικές accepted καταστάσεις προκύπτουν από τα νεότερα Z / AB / X proofs και τα αντίστοιχα CURRENT_HANDOFF appendices, όχι από την πρώτη εμφάνιση ενός παλιού «next step» σε ενδιάμεσο checkpoint.
+
+---
+
+
+## 7.1 Σημεία τεκμηρίωσης που χρειάζονται ενοποίηση
+
+Η απογραφή εντόπισε ορισμένες ασυμφωνίες ονοματοδοσίας/κατάστασης ανάμεσα σε παλιότερες αναφορές. Δεν τις διορθώνουμε σιωπηρά:
+
+1. **H2 Z filename:** το INTEGRATED_TEST_BASELINE_MATRIX_20261115.md αναφέρει UNIFIED_CLOSE_DAY_VERIFIED_PREVIEW_20261025_Z.xlsm, ενώ το CLOSE_DAY_NATIVE_Z_PROOF_2026-11-01.md και το CURRENT_HANDOFF.md αναφέρουν UNIFIED_CLOSE_DAY_HISTORY_20261101_Z.xlsm. Μπορεί να είναι διαφορετικά artifacts με ίδιο suffix. Χρειάζεται αντιστοίχιση με το τοπικό frozen-file ledger πριν επιλεγεί ένα ως canonical.
+2. **H3 AB filename:** η acceptance matrix αναφέρει UNIFIED_CLOSE_DAY_RECOVERY_20261101_AB.xlsm, ενώ το DAY_AMENDMENT_NATIVE_AB_PROOF_2026-11-01.md αναφέρει UNIFIED_DAY_AMENDMENT_20261101_AB.xlsm. Δεν θεωρούνται ταυτόσημα χωρίς hash/path reconciliation.
+3. **H9 test scope:** το H8 synthetic history plan αναφέρει 13 passed για H9 model/read-only loader, ενώ η H9 contract καταγράφει 7 passed για pure domain και στη συνέχεια προσθέτει store-reader tests ως pending. Χρειάζεται το ακριβές combined test log για να κλείσει η αμφιβολία.
+4. **H7 BI vs BF:** BI είχε persisted install/protection audits green, αλλά η analytics UX απορρίφθηκε. BF είναι το μεταγενέστερο functional integration acceptance. Το BI δεν πρέπει να εμφανίζεται ως ισοδύναμο με BF.
+5. **H10 visual vs functional acceptance:** τα CC screenshots αποδέχθηκαν δύο συγκεκριμένες οθόνες. Δεν αποδεικνύουν όλα τα period buttons, το πλήρες management XLSX export, κάθε report path ή real pilot readiness.
+
+Αυτά είναι documentation reconciliation tasks, όχι απόδειξη ότι τα αντίστοιχα λειτουργικά tests απέτυχαν. Μέχρι να συμφωνηθούν τα ακριβή filenames / logs, διατηρούμε και τις δύο πρωτογενείς αναφορές και δεν επαναχρησιμοποιούμε κανένα artifact.
+
+## 8. Προτεινόμενη σειρά από εδώ και πέρα
+
+1. **Κλείσιμο της απογραφής VBA**: run των δύο focused auditor test files, full repository regression και read-only native inventory των τριών distinct VBA projects. Καμία αλλαγή σε frozen workbooks.
+2. **VBA / installer ownership map**: αντιστοίχιση των components, UserForms, write surfaces και Python installers προς τα ήδη accepted workflows και την acceptance matrix.
+3. **Ορισμός full synthetic fixture**: σχεδιασμός deterministic synthetic cohort και πλήρης cross-sheet identity/provenance audit πριν δημιουργηθεί οποιοδήποτε integrated XLSM.
+4. **Κλείσιμο μηχανισμών με σαφή scope**: permanent event append/rollback/UI, H9 attendance writer/calendar, outpatient conflict/workload verification, afternoon save/medical deferral, global multi-absence optimizer.
+5. **Release hardening**: fine-grained worksheet protection, 15-day patient progress workflow, final management XLSX privacy/visual acceptance.
+6. **Real-source trial** μόνο αφού υπάρξει reviewed private source, explicit identity/slot approvals, supported native importer, independent readback και ξεχωριστή operator acceptance.
+
+Δεν προτείνεται να ξαναγίνουν ήδη accepted tests χωρίς νέο code change ή συγκεκριμένη νέα ένδειξη. Κάθε νέο test πρέπει να κλείνει συγκεκριμένο gap, όχι να επαναλαμβάνει απλώς το παλιό proof.
+
+---
+
+## 9. Τελικό συμπέρασμα
+
+Το Diomil δεν ξεκινά από το μηδέν. Έχει σημαντικό, πραγματικά αποδεδειγμένο κορμό καθημερινής λειτουργίας και ιστορικού. Οι αναφορές H2–H8 τεκμηριώνουν αρκετές ουσιαστικές native παραδόσεις.
+
+Ταυτόχρονα, δεν είναι ακόμη ολοκληρωμένη και αποδεκτή ενιαία εφαρμογή. Οι πιο μεγάλες διαφορές ανάμεσα στο σημερινό αποτέλεσμα και στον τελικό στόχο είναι:
+- full synthetic integrated workbook,
+- genuine therapist attendance history,
+- permanent recurring event transaction/rollback,
+- real-source trial importer,
+- full worksheet protection,
+- global replacement optimization,
+- afternoon operational integration,
+- 15-day patient progress.
+
+Αυτή είναι η σημερινή συγκεντρωτική εικόνα με βάση τις καταγεγραμμένες αποδείξεις της 15/11/2026. Οι επιμέρους αναφορές παραμένουν η πηγή αλήθειας για κάθε ακριβές test output, artifact και failure branch.
