@@ -1903,3 +1903,25 @@ if ($auditExitCode -ne 0) {
 ```
 
 If any candidate is missing, corrupt, or exceeds a scan cap, the combined run is nonzero by design. Do not change the candidate paths, repair the file, or substitute a different workbook without reviewing the manifest first. The four candidates remain unselected and are not authorized for any write/native installation. The tracked populated clinical baseline and all frozen acceptance artifacts remain excluded.
+
+
+## 2026-11-15 — Full regression after integrated workbook structure auditor
+
+Operator supplied the complete report `DIOMIL_FULL_REGRESSION_20261115_164649.txt`.
+
+Authoritative result from this exact report:
+- Collected: **1,814 tests**
+- Passed: **1,813**
+- Failed: **0**
+- Skipped: **1** — `Tests/test_afternoon_sheet_preview.py:68`, reason: symlinks unavailable on this Windows environment
+- Warnings: **26**
+- Duration: **39.46s**
+- Process exit code: **0**
+
+The report confirms `Tests/test_audit_integrated_workbook_structure.py` ran as part of the full suite and passed all five tests. The separately executed focused run had also reported **5 passed in 2.20s**.
+
+This establishes source-level Python regression GREEN for this revision. It does **not** establish native Excel acceptance, workbook candidate provenance, or whole-application synthetic integration.
+
+The uploaded artifact contains only the full regression output. No `DIOMIL_H10_STRUCTURE_*.txt` report has yet been received, so no conclusion is recorded about the four H10 workbook candidates. They remain unselected and untouched.
+
+Next operator action: run the already documented four-candidate read-only structural audit only (do not rerun the full regression), then upload `DIOMIL_H10_STRUCTURE_*.txt`. Review candidate worksheet visibility, data-bearing surfaces, formulas/cached-result coverage, package parts and VBA project fingerprints before any candidate is nominated. Keep the tracked populated clinical baseline and all frozen acceptance artifacts excluded.
