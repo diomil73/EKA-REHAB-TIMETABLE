@@ -470,3 +470,10 @@ After this proof, proceed to the full synthetic integration workbook design/buil
 The updated gate is operator-accepted: 45 focused tests passed; full regression 1,856 passed, 1 skipped, 26 warnings; all three distinct H10 candidates completed read-only VBA and structure audits, with source hashes unchanged and no workbook modified. The single skip is the Windows symlink limitation. The evidence bundle is `DIOMIL_H10_CALL_EDGE_BUNDLE_20261115_205003.txt` (private operator evidence; not a repository artifact).
 
 The real demo target is the operator-reviewed patient/treatment programme. The private source workbook and identity-review workbook are available in the conversation context; keep them private. The core source mapping is A:T, with additional afternoon/pool fields in U/V. Identity suggestions do not constitute approvals. No real-patient admission or native integrated demo is accepted. The next testable step is a synthetic A:V source-shaped fixture and strict parser/projection roundtrip against the existing trial admission/import planning modules.
+
+
+## 2026-11-15 — A:V real-source demo schema design
+
+Added `Documentation/TRIAL_SOURCE_SCHEMA_AND_IMPORT_DESIGN_20261115.md` as the current source-to-demo design contract. It records the operator's A:T mapping, the additional U/V afternoon/pool fields, the boundaries of the existing read-only admission/import-plan/weekly-projection modules, and the required architecture for source alignment, patient registry projection, full recurring schedule projection, synthetic end-to-end tests and later native Excel acceptance.
+
+Important unresolved rules are explicit rather than guessed: blank weekday semantics; missing A context handling; U/V operational scope; and fresh operator instructions for reclining replacement behavior at implementation time. The private identity review remains unapproved; no real-patient import or native integrated demo is authorized. Keep source workbooks and all patient-level facts outside GitHub.
