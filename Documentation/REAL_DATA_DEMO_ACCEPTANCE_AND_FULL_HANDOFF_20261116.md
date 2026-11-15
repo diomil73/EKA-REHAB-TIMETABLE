@@ -107,3 +107,7 @@ python Python\tools\audit_pilot_source_readiness.py --workbook "<PRIVATE_ELIGIBL
 ## 8. Τρέχουσα ετυμηγορία
 
 **REAL-DATA DEMO: NOT YET DELIVERED, NATIVE OPERATOR ACCEPTANCE PENDING.** Πρώτη προτεραιότητα η πλήρης, ακριβής, ιδιωτική αντιπαραβολή με το χειροκίνητο πρόγραμμα, όχι άλλο γενικό synthetic demo ή καλλωπισμός στατιστικών. Καμία ανάγκη να γράφει ο χρήστης συνεχώς «οκ» για κάθε μικρό engineering checkpoint.
+
+## AUTHORITATIVE LATEST RESUME 2026-11-16 — REAL-DATA BUSINESS DEMO
+
+**Additional admission blocker made explicit:** The present `project_trial_demo_sources` real A:V weekly projection is *inpatient-only*. Real outpatient appointments need separate, independently approved source/admission via the existing outpatient schedule machinery, with complete cross-specialty/time comparison. Do not claim that the inpatient A:V source already reconstructs all outpatient schedules. If any real outpatient commitments are absent, the whole operator-real-data evaluation is incomplete. The operator must see both types and their genuine appointments. The current `preflight_trial_excel_sources.py` public CLI is a restrictive gate; an otherwise valid empty DEMO shell may return a nonzero code `EMPTY_OR_MISSING_PATIENT_REGISTRY`, which must be handled using the dedicated internal `empty_demo_shell=True` contract rather than bypassing the safety check.
