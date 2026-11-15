@@ -1862,3 +1862,44 @@ Specific manifest traps and references:
 - `UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm` belongs to the frozen H10 therapist lineage; preserve it unchanged. The separate `UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm` is a different file and its name alone does not prove acceptance or suitability.
 - `UNIFIED_H8_DEMO_HISTORY_20261109_CA.xlsm` is a history demonstration artifact, not proof of a complete synthetic application roster.
 - The sole `.xlsx` entry is `DIOMIL_MANAGEMENT_BY_DEMO_20261108.xlsx`; its filename does not establish that it has passed the independent privacy/export audit required for a shareable management-only deliverable.
+
+## 2026-11-15 — Read-only whole-workbook structure auditor added
+
+Added:
+- `Python/tools/audit_integrated_workbook_structure.py`
+- `Tests/test_audit_integrated_workbook_structure.py`
+
+Purpose: non-identifying architecture inventory for one or more XLSM/XLSX candidates. It uses ZIP metadata plus two openpyxl read-only passes (formula view and cached-value view). It reports workbook SHA-256 and size, ZIP part categories, VBA project size/hash, defined-name count, worksheet names/visibility/dimensions, non-empty cell counts, formula counts, cached formula-result counts, and broad schema role hints for patient/staff/schedule/history/afternoon/pool/robotics/psychology/registry surfaces. It never prints cell values, formula text, cached values, patient/staff identifiers or clinical notes. It verifies the source file hash and size are unchanged after each audit. Conservative scan caps return exit code 3 and explicitly mark the inventory incomplete rather than silently accepting a partial scan.
+
+This is a **source-level read-only file inspection**, not native Excel COM inspection. It does not enumerate VBA component names/UserForm controls or prove the synthetic provenance of cell values. VBA is currently represented only by presence, byte length and SHA-256 of `xl/vbaProject.bin`; a separate read-only COM component inventory remains a later step.
+
+### Operator execution gate
+
+After pulling the latest branch, run the focused tests first:
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_audit_integrated_workbook_structure.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Structure auditor tests failed" }
+```
+
+If focused tests pass, inspect only the four H10 candidates from the metadata manifest. The script reads files through ZIP/openpyxl read-only APIs; it does not launch Excel or save workbooks. Save this larger output to TXT:
+
+```powershell
+$log = Join-Path $PWD ("DIOMIL_H10_STRUCTURE_{0}.txt" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
+python Python\tools\audit_integrated_workbook_structure.py `
+  "Excel\previews\UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm" `
+  "Excel\previews\UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm" `
+  "Excel\previews\UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm" `
+  "Excel\previews\UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm" *> $log
+$auditExitCode = $LASTEXITCODE
+"EXIT CODE: $auditExitCode" | Add-Content -LiteralPath $log
+Get-Content -LiteralPath $log -Tail 35
+if ($auditExitCode -ne 0) {
+    throw "SAFETY STOP: One or more workbook structure audits need review; upload the TXT."
+}
+```
+
+If any candidate is missing, corrupt, or exceeds a scan cap, the combined run is nonzero by design. Do not change the candidate paths, repair the file, or substitute a different workbook without reviewing the manifest first. The four candidates remain unselected and are not authorized for any write/native installation. The tracked populated clinical baseline and all frozen acceptance artifacts remain excluded.
