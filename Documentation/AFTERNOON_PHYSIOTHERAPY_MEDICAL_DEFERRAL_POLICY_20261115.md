@@ -393,3 +393,25 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: native afternoon proof failed" }
 ```
 
 The angle-bracket names are **placeholders** and MUST NOT be run verbatim. **Not authorized yet:** a source file has not been identified/verified in this branch. Native Excel save/reopen, VBA compilation and visible form acceptance remain pending. No afternoon write path, attendance migration, medical deferral scope UI or modification to MASTER label `ΦΘ` exists in this slice.
+
+## 2026-11-15 — 133-pass source checkpoint and native installer security hardening
+
+Operator confirmed `133 passed, 1 skipped in 11.38s` after the first minimal-installer source tests. The sole skipped test is the symlink test unavailable on their Windows machine. **This is not native Excel installation proof.**
+
+Subsequent source audit found a fail-open risk: the minimal installer had a wide `except Exception` block covering lookup of `PatientProgramRuntime`, `frmPatientScheduling`, VBA code inspection and the label. That could accidentally misinterpret **missing or inaccessible VBA modules** as a normal absent label and proceed toward mutation. Commit `db170d7` moves module/form lookup, source readback and source patch validation **outside** the missing-label exception guard. Only an error retrieving the optional label can be interpreted as missing; missing component or source mismatch halts the installer. This stricter behavior still needs local/native verification.
+
+The same commit sets `Application.AutomationSecurity = 3` (`msoAutomationSecurityForceDisable`) on both dedicated Excel instances **before** opening the disposable preview for editing and read-only verification, to avoid executing auto-open VBA macros during technical inspection. The separate Excel application sessions are closed after use; this is not a request to change the operator's Excel macro security globally. It is **not** evidence that native VBA compiles or that the form actually opens.
+
+`Tests/test_afternoon_minimal_native_installer.py` now includes checks for fail-closed VBA component access and forced macro disabling before both opens (commit `7e2a83c`). These newly added tests are not yet operator-confirmed green. Neither the source XLSM nor any frozen or real patient workbook has been touched.
+
+### Targeted fresh source regression
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_afternoon_minimal_native_installer.py Tests/test_afternoon_patient_readonly_vba.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_native_preflight.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon installer security tests failed" }
+```
+
+**No native command yet.** The next actual native test still requires a verified, fresh, integrated **synthetic disposable** workbook. The preflight and `--confirm-synthetic-disposable` flag do not guarantee provenance. Avoid using H10 frozen CC or production source. The intended test is the isolated minimal installer only, never the broad patient scheduling UI reinstall that refreshes MASTER. All current clinical operations remain unchanged.
