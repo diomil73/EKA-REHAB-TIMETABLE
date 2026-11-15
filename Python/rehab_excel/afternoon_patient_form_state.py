@@ -91,7 +91,7 @@ def afternoon_form_status(state: AfternoonPatientFormState) -> str:
         return "Απογευματινή ΦΘ: δεν έχει εγκατασταθεί ακόμη."
     if not state.slots:
         return "Απογευματινή ΦΘ: κενή. Δεν έχουν καταχωριστεί συνεδρίες."
-    return f"Απογευματινή ΦΘ: {len(state.slots)} καταχωρισμένες ημέρες."
+    return f"Απογευματινή ΦΘ: {len(state.slots)} καταχωρισμένες συνεδρίες."
 
 
 def afternoon_form_rows(state: AfternoonPatientFormState) -> tuple[tuple[str, str, str], ...]:
