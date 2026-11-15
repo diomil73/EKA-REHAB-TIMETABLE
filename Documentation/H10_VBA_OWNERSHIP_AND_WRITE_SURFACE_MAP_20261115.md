@@ -2,7 +2,7 @@
 
 Date: 2026-11-15
 Branch: work/afternoon-medical-scope-20261115
-Status: native inventory complete; ownership mapping preliminary; write-surface operator audit pending.
+Status: native inventory and sanitized write-surface audit complete for three distinct candidates; source ownership mapping partial; four native-only components remain for source-level behavior review.
 
 ## 1. Native inventory evidence
 
@@ -206,3 +206,20 @@ Unmatched-component investigation now has useful identities:
 Important audit limitation: procedure names and pattern matches identify ownership candidates, not full semantics. The two event procedures, Module6 helpers and one-line Module5 still require implementation-level review and caller/callee tracing. Do not mark the VBA ownership map fully closed yet. The inventory emits component names in escaped Unicode where applicable; no source text or cell values were printed.
 
 Next step: complete the remaining source-level trace for Workbook events, PATIENT_PLANNER.Worksheet_Change, Module6 and Module5 using tracked VBA generator/source where available, and record unresolved native-only code honestly. Do not modify source workbooks. The regression and read-only audit gate is green; proceed with documentation and static ownership analysis, not production workbook changes.
+
+
+## Current reconciliation — supersedes earlier no-pattern counts
+
+Evidence bundle: DIOMIL_VBA_SOURCE_REVIEW_20261115_193409.txt.
+
+Three distinct candidates completed the latest expanded native audit. Each produced 1,569 static operation-pattern matches, with ReadOnly=True, macros disabled, Excel events disabled, unchanged SHA-256, and no workbook modification. Full regression: 1,829 passed, 1 skipped, 26 warnings; focused gate: 24 passed. Calculation mode could not be switched to Manual due to a COM error; retain as a limitation.
+
+Do not conflate the two different counts:
+- **37 components unresolved by tracked-source ownership** in the 67-component inventory remains a generator/source-mapping gap (10 generic standard modules and 27 document modules). This is not the count of components with no operation-pattern match.
+- **8 components with no operation-pattern match** in each latest candidate are: ThisWorkbook, PATIENT_PLANNER worksheet module, Module6, Module5, modRegistrationMenu, modOutpatientSchedule, modOutpatientScheduleManager, and modSchedulingConflict. Four named UI/navigation modules have tracked source and have been reviewed. Four native-only components still require behavior review: ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6 helper implementations/consumers, and Module5's one line.
+
+The expanded detector now finds modDoubleBookingReview external file I/O, Python process launches and workbook close lifecycle. It must be included in the write/lifecycle ownership map even though its entry module does not directly write worksheet cells.
+
+The 1,569 matches per workbook are static source-pattern locations, not confirmed runtime writes or proof of call reachability. Native inventory/audit is complete; semantic behavior review and full synthetic integration acceptance are not.
+
+Next: inspect the four native-only components through a local, read-only, source-redacting diagnostic that reports only procedure identifiers, statement-category counts and per-procedure hashes; compare across all three candidates. No source workbook edits or saves.
