@@ -159,3 +159,10 @@ def test_bad_service_date_blocks_without_reading_workbook(tmp_path):
     path = _workbook(tmp_path)
     with pytest.raises(PatientExitSourceError, match="valid service date"):
         read_effective_schedule_for_date(path, "2026-11-18")
+
+
+def test_duplicate_registry_patient_id_blocks_lifecycle_source(tmp_path):
+    path = _workbook(tmp_path)
+    _edit(path, lambda wb: wb["PATIENTS"].cell(4, 1, "DEMO-P1"))
+    with pytest.raises(PatientExitSourceError, match="duplicate patient identities"):
+        read_patient_exits(path)
