@@ -1266,3 +1266,7 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon full source gate failed
 ```
 
 The expected number of tests is **greater than 101** if these 9 files are collected, but the authoritative result is the exact pytest output, not an invented target count. The one symlink skip may persist on Windows. Do not start native Excel COM installation until this full gate is green and an explicitly disposable, non-frozen input has been verified.
+
+## 2026-11-15 — 115-pass UI source suite; separate native candidate preflight
+
+Operator confirmed `115 passed, 1 skipped in 10.99s` across all nine afternoon source files. Added read-only structural XLSM candidate preflight, CLI and synthetic tests (see `Python/rehab_excel/afternoon_native_preflight.py`, `Python/tools/preflight_afternoon_native_candidate.py`, `Tests/test_afternoon_native_preflight.py`). These additions are **not locally tested yet**. The old patient scheduling installer refreshes MASTER and re-installs other VBA components; **do not invoke it merely to add afternoon read-only UI**. Only use future minimal, isolated native installation on newly verified disposable synthetic source. Exact next source test command, provenance caveats and native restrictions in `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`. No changes to patient data, production MASTER, frozen CC or morning clinical workflows.
