@@ -139,3 +139,29 @@ def test_wrong_programme_headers_stop_before_alignment(tmp_path):
         assert "headers differ" in str(exc)
     else:
         raise AssertionError("Expected source header safety stop")
+
+
+def test_private_cli_reports_only_aggregate_counts(tmp_path, capsys):
+    from tools.audit_trial_source_alignment import main
+
+    source, review = _inputs(tmp_path)
+    code = main(["--programme", str(source), "--review", str(review)])
+    output = capsys.readouterr().out
+    assert code == 0
+    assert "Patient rows checked: 1" in output
+    assert "SOURCE ALIGNMENT GREEN ONLY" in output
+    assert "DEMO PERSON" not in output
+    assert "WARD A" not in output
+    assert str(source) not in output
+    assert str(review) not in output
+
+
+def test_private_cli_returns_safety_stop_for_mismatch(tmp_path, capsys):
+    from tools.audit_trial_source_alignment import main
+
+    source, review = _inputs(tmp_path, review_name="WRONG PRIVATE NAME")
+    code = main(["--programme", str(source), "--review", str(review)])
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "PATIENT_SOURCE_ROW_OR_CONTEXT_MISMATCH" in output
+    assert "WRONG PRIVATE NAME" not in output
