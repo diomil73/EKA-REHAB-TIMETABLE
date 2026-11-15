@@ -134,6 +134,7 @@ def test_native_seeder_rejects_public_git_checkout_path(tmp_path):
 
 @pytest.mark.parametrize("sheet", [
     "OUTPATIENT_SCHEDULE", "DAILY_CHANGE_LEDGER", "STUDENTS", "SESSIONS",
+    "PATIENT_EXITS",
 ])
 def test_old_operational_sources_are_not_inherited_into_new_demo(tmp_path, sheet):
     path = _blank_shell(tmp_path)
@@ -141,6 +142,19 @@ def test_old_operational_sources_are_not_inherited_into_new_demo(tmp_path, sheet
     ws = wb.create_sheet(sheet)
     ws.append(["SampleHeader"])
     ws.append(["OLD SYNTHETIC RECORD"])
+    wb.save(path)
+    wb.close()
+    with pytest.raises(TrialDemoNativeSeedError, match="old operational records"):
+        assert_clean_native_demo_shell(path)
+
+
+def test_preexisting_patient_exit_events_block_new_demo_shell(tmp_path):
+    from rehab_excel.patient_exit_source import HEADERS as PATIENT_EXIT_HEADERS
+    path = _blank_shell(tmp_path)
+    wb = load_workbook(path, keep_vba=True)
+    sheet = wb.create_sheet("PATIENT_EXITS")
+    sheet.append(PATIENT_EXIT_HEADERS)
+    sheet.append(["DEMO-PATIENT", "inpatient_discharge", "2026-11-16", "DEMO"])
     wb.save(path)
     wb.close()
     with pytest.raises(TrialDemoNativeSeedError, match="old operational records"):
