@@ -1571,3 +1571,28 @@ if ($structureCode -ne 0) {
 ```
 
 Only this read-only structure audit needs to be rerun. Do not rerun regression, do not suppress all Python warnings inside the audit tool, do not open or save the candidates in Excel, and do not change candidate paths. The four workbooks remain unselected and untouched.
+
+
+## 2026-11-15 — Four-candidate H10 read-only structural audit completed; only final-candidate tail received
+
+Operator reports successful completion of the four-file invocation and supplied the tail of `DIOMIL_H10_STRUCTURE_20261115_165132.txt`:
+- Python exit code: **0**
+- `ALL CANDIDATE STRUCTURE AUDITS COMPLETE`
+- `SOURCE HASH UNCHANGED: YES`
+- `NO WORKBOOK WAS MODIFIED`
+
+The visible tail is the final candidate block in the invocation order, namely `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm`. Its visible structural metrics:
+- 25 worksheets; 36,883 scanned cells; 5 defined names.
+- VBA project: 1,305,600 bytes; SHA-256 `285b7f4aa20a195535d300928f26b2884255797c1817d4f2a7e32ac82b4033b9`.
+- Package: 11 drawings, 2 charts, 1 shared-strings part, 2 VML drawings; no external links, connections, query tables, pivots, slicers, ActiveX, embeddings or custom UI reported.
+- `PATIENT_PLANNER`: 2,745 formulas, 465 cached formula results.
+- `MASTER_SCHEDULE`: 1,021 formulas, 549 cached formula results.
+- `STATISTICS`: 43 formulas, 43 cached formula results.
+- `PATIENT_HISTORY_REPORT` is empty (`A1:A1`); `OUTPATIENT_SCHEDULE` contains only its header row.
+- `SESSIONS` is hidden; `_PY_LISTS`, `DAILY_CHANGE_LEDGER`, `THERAPIST_ATTENDANCE_HISTORY`, `FINALIZED_DAY_SNAPSHOTS`, `THERAPIST_DAY_HISTORY`, `PATIENT_SESSION_HISTORY`, and `DAY_HISTORY_EVENTS` include veryHidden/hidden data-bearing surfaces.
+- The broad heuristic marked `_PY_LISTS` as a patient/staff surface because it found role words in the first 30 rows. Treat this as a schema hint only, not proof that the lookup sheet contains patient records.
+- A low cached-result count does not prove formula corruption. It means the read-only package scan found fewer cached results than formula cells; actual Excel recalculation/display behavior requires a separate controlled native Excel check.
+
+**Critical limitation:** the supplied console tail contains only the final candidate's worksheet block. The complete four-candidate report has not yet been uploaded/inspected. Therefore no cross-candidate comparison or selection is possible. The four workbooks remain unselected and untouched. No candidate is certified synthetic or approved as the integrated test base.
+
+Next: obtain the full `DIOMIL_H10_STRUCTURE_20261115_165132.txt` file (not another tail excerpt), inspect all four candidate blocks, then compare their worksheet, formula/cache, package and VBA fingerprints against provenance/acceptance evidence. Keep all native Excel write/save operations and operational migrations prohibited at this stage.
