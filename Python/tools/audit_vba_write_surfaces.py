@@ -21,8 +21,8 @@ WRITE_LINE = re.compile(
     r"|\bDestination\s*:",
     re.IGNORECASE,
 )
-MAX_MATCHES_PER_COMPONENT = 200
-MAX_TOTAL_MATCHES = 3000
+MAX_MATCHES_PER_COMPONENT = 500
+MAX_TOTAL_MATCHES = 5000
 
 
 def _matches(lines: list[str]) -> list[tuple[int, str, str]]:
