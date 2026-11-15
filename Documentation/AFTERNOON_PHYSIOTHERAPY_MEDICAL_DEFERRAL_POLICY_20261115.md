@@ -129,3 +129,25 @@ The operator also explicitly required:
 - Proceed autonomously between actual gates; do not ask the operator to respond `οκ` after each increment. Ask only for local/native Excel tests, true clinical decisions, or unresolved ambiguities. Continue to commit docs/contingencies for each meaningful step.
 
 **Stop before a native build until the exact input is verified as a fresh synthetic full integrated workbook.** The existing `Python/tools/build_unified_preview.py` is not by itself evidence that every later H10 integration is present. Never repurpose frozen H10 CC, X/Z/AB/BF or original source as a disposable target. Keep unrelated changes isolated and do not merge this branch based solely on the 60 synthetic passes.
+
+## 2026-11-15 — Isolated patient-edit dry run (no workbook write)
+
+Added `Python/rehab_excel/afternoon_patient_edit_plan.py` and `Tests/test_afternoon_patient_edit_plan.py`.
+
+`prepare_afternoon_patient_edit` produces an immutable **before/after preview** for **exactly one confirmed patient** inside the independent `AFTERNOON_PHYSIO_SLOTS` namespace. It replaces the selected patient's proposed afternoon rows while preserving every other patient's rows and their relative order. It reports added/removed/unchanged counts, is stable on replay, and refuses malformed or duplicate rows. An empty edit that would remove an existing afternoon programme is **blocked unless the operator explicitly consents** (`allow_clear=True`). This is a pure planning contract, not patient UI, native Excel persistence, automatic import, or actual cancellation ledger.
+
+No change was made to `PATIENT_PLANNER`, `MASTER_SCHEDULE`, `DAILY_INPUT` or existing VBA; the established morning treatment label remains exactly `ΦΘ`, not `Πρωινή ΦΘ`. The technical schema's treatment is `ΦΘ` and the **separate sheet** is its programme discriminator. Never add a duplicate `ΦΘ` dictionary key to the current morning treatment form.
+
+**Unresolved clinical/engineering gate:** same-therapist same-time afternoon rows across different patients may represent approved group therapy, so the pure edit plan intentionally does not independently authorize those sessions. Clinical shared-slot membership approval and actual duration-aware collisions must be linked before enabling an operational writer.
+
+### Added local regression gate
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon patient edit source gate failed" }
+```
+
+The most recent **operator-confirmed** result remains `60 passed, 1 skipped in 3.29s` from before these two new files were committed. **Do not** count the new tests as passed until locally executed. No native Excel test is implied.
