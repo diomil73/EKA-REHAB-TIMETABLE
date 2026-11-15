@@ -34,7 +34,7 @@ _OPERATION = re.compile(
 
 
 _CALL_EDGE = re.compile(
-    r"^\\s+POSSIBLE_CALL_EDGE caller=(\\S+) line=(\\d+) callee=(\\S+)$"
+    r"^\s+POSSIBLE_CALL_EDGE caller=(\S+) line=(\d+) callee=(\S+)$"
 )
 
 
