@@ -131,11 +131,13 @@ def install_afternoon_minimal_preview(
         runtime_code, form_code = _module_text(runtime), _module_text(form)
         patch_afternoon_panel_text(runtime_code, form_code)
         designer = form.Designer
-        try:
-            existing_label = designer.Controls(PANEL_LABEL)
-        except Exception:
-            existing_label = None
-        if existing_label is not None:
+        # Enumerating controls differentiates a missing label from an inaccessible
+        # designer. A COM failure now stops installation instead of falling through.
+        existing_names = tuple(
+            str(designer.Controls(i).Name)
+            for i in range(0, int(designer.Controls.Count))
+        )
+        if PANEL_LABEL in existing_names:
             raise AfternoonMinimalInstallError("Already installed afternoon panel")
 
         ws = book.Worksheets.Add(After=book.Worksheets(book.Worksheets.Count))
