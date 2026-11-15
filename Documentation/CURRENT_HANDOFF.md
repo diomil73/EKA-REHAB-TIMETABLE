@@ -2121,3 +2121,7 @@ The audit lists 35 components with at least one candidate source-pattern match i
 The 1,396 matches per workbook are candidate source-pattern locations, not 1,396 confirmed runtime writes. The classifier separates Value/Value2/Formula access from direct assignment, but static matching cannot establish call reachability, runtime execution, indirect effects, or full write semantics. Do not modify native workbooks as part of this review.
 
 Next: finish the targeted review of the 9 non-empty unmatched components and inspect candidate categories in the 35 matched components, prioritizing direct cell writes, range/structure mutations, workbook saves, and protection changes. Keep the 23 zero-code components as inventory-only; do not treat them as unexplained executable code.
+
+### Reconciliation count clarification
+
+The 32-component no-match reconciliation (23 zero-code + 9 non-empty) is grounded in the 67-component inventory candidate and applies to the two 67-component reports. The CC read-only probe has 66 components and the same 35 matched components, so its arithmetic remainder is 31, not 32. Its candidate-specific component inventory has not yet been reconciled item-by-item; do not project the 23/9 breakdown onto that 66-component workbook. The two worksheet-module display-name aliases are normalized only when matching against the 67-component inventory.
