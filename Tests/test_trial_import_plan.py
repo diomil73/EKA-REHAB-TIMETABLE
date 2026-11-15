@@ -147,3 +147,30 @@ def test_legacy_plan_does_not_mistake_unbound_source_for_verified(tmp_path, monk
     assert plan.programme_sha256 is None
     with pytest.raises(planner.TrialImportPlanError, match="not bound"):
         plan.verify_sources(review, intake, programme=programme)
+
+
+def test_demo_shell_optin_requires_separately_verified_empty_intake(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    review, intake = _sources(tmp_path)
+    _enable(monkeypatch)
+    original = planner.inspect_native_pilot_inputs
+    monkeypatch.setattr(planner, "inspect_native_pilot_inputs", lambda **kwargs: {
+        "native_trial_permitted": True,
+        "empty_demo_shell_ready": kwargs.get("allow_empty_demo_shell") is True,
+        "review_patients": 1,
+        "verified_patient_ids": 1,
+        "proposed_weekly_slots": 1,
+    })
+    plan = planner.prepare_trial_import_plan(
+        review=review, intake=intake, empty_demo_shell=True,
+    )
+    assert plan.empty_demo_shell
+    assert plan.programme_sha256 is None
+    monkeypatch.setattr(planner, "inspect_native_pilot_inputs", lambda **kwargs: {
+        "native_trial_permitted": True,
+        "empty_demo_shell_ready": False,
+    })
+    with pytest.raises(planner.TrialImportPlanError, match="empty eligible shell"):
+        planner.prepare_trial_import_plan(
+            review=review, intake=intake, empty_demo_shell=True,
+        )
