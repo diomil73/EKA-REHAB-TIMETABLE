@@ -123,3 +123,45 @@ def review_afternoon_edit_plan(
     if not isinstance(plan, AfternoonEditPlan):
         raise AfternoonSharedSlotError("Validated afternoon edit plan required")
     return review_afternoon_shared_slots(plan.after, approvals)
+
+
+def review_afternoon_existing_scheduler_overlaps(
+    rows: Iterable[AfternoonSlot],
+    approvals: Iterable[SharedSlotApproval] = (),
+) -> SharedSlotGateReport:
+    """Apply the *existing* 45-minute ΦΘ overlap policy to afternoon only.
+
+    This is an adapter, NOT an alternate duration/overlap implementation.
+    Shared slots must have an identical start and an exact-membership approval;
+    staggered overlapping patients of the same therapist cannot be treated as
+    approved group members. No cross-programme checks, no Excel writes.
+    """
+    from rehab_excel.automatic_patient_schedule import _intervals_overlap
+
+    items = tuple(rows)
+    group_report = review_afternoon_shared_slots(items, approvals)
+    for index, left in enumerate(items):
+        for right in items[index + 1:]:
+            if left.weekday != right.weekday:
+                continue
+            if not _intervals_overlap(
+                left.start_time, left.treatment,
+                right.start_time, right.treatment,
+            ):
+                continue
+            same_patient = left.patient_id == right.patient_id
+            same_therapist = (
+                left.therapist.strip().casefold()
+                == right.therapist.strip().casefold()
+            )
+            if not same_patient and not same_therapist:
+                continue
+            exact_group_start = (
+                not same_patient and same_therapist
+                and left.start_time == right.start_time
+            )
+            if not exact_group_start:
+                raise AfternoonSharedSlotError(
+                    "SAFETY STOP: Existing scheduler reports afternoon overlap"
+                )
+    return group_report
