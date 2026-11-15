@@ -85,3 +85,13 @@ def test_duplicate_failed_audit_status_is_preserved(tmp_path, monkeypatch, capsy
     assert module.audit_many([first, duplicate]) == 2
     assert calls == ["first.xlsm"]
     assert "Original audit status: 2" in capsys.readouterr().out
+
+def test_native_inventory_reports_com_failure_stage_and_hresult_without_source():
+    source = inspect.getsource(module.audit_one)
+    assert 'stage = "starting isolated Excel instance"' in source
+    assert 'stage = "accessing VBA project object model"' in source
+    assert 'stage = "enumerating VBA components"' in source
+    assert "COM HRESULT:" in source
+    assert "COM DESCRIPTION:" in source
+    assert "VBA SOURCE TEXT" not in source
+    assert "CELL VALUES OR FORMULAS" not in source
