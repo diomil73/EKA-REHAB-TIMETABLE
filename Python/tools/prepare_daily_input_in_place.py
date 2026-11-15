@@ -14,6 +14,7 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from rehab_core.base_schedule import materialize_sessions_for_date  # noqa: E402
+from rehab_core.lifecycle import active_entries_on  # noqa: E402
 from rehab_core.daily_state import build_daily_session_states  # noqa: E402
 from rehab_excel.application_contract import assert_application_contract  # noqa: E402
 from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
@@ -25,6 +26,7 @@ from rehab_excel.master_daily_overlay import (  # noqa: E402
     compose_master_daily_overlay,
 )
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule  # noqa: E402
+from rehab_excel.patient_exit_source import read_patient_exits  # noqa: E402
 from rehab_excel.patient_centric_preview import build_patient_centric_preview_plan  # noqa: E402
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
 from rehab_excel.reader import read_settings  # noqa: E402
@@ -165,7 +167,12 @@ def prepare_daily_input_payload(
     target_date = _target_date(source)
     patients = read_patient_registry(source)
     settings = read_settings(source)
-    base_entries = read_unified_base_schedule(source)
+    # Apply explicit future discharge/program-end dates to the current day
+    # only. Never delete immutable recurring rows or past attendance.
+    base_entries = active_entries_on(
+        read_unified_base_schedule(source), target_date,
+        read_patient_exits(source, patients=patients),
+    )
     sessions = materialize_sessions_for_date(base_entries, target_date)
     daily = read_daily_input(
         source,
