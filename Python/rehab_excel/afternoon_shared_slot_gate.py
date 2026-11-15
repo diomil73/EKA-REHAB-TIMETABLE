@@ -106,3 +106,20 @@ def review_afternoon_shared_slots(
             "SAFETY STOP: Missing, stale or duplicate shared-slot approval"
         )
     return report
+
+
+def review_afternoon_edit_plan(
+    plan: "AfternoonEditPlan",
+    approvals: Iterable[SharedSlotApproval] = (),
+) -> SharedSlotGateReport:
+    """Review the entire post-edit schedule, never only the modified patient.
+
+    Any previously approved shared slot whose exact members have changed needs
+    fresh approval. This does not mutate the plan, accept operational bookings
+    or perform workbook I/O.
+    """
+    from rehab_excel.afternoon_patient_edit_plan import AfternoonEditPlan
+
+    if not isinstance(plan, AfternoonEditPlan):
+        raise AfternoonSharedSlotError("Validated afternoon edit plan required")
+    return review_afternoon_shared_slots(plan.after, approvals)
