@@ -141,3 +141,12 @@ The native pattern output names 13 explicit worksheet targets: `CONFLICT_LOG`, `
 To make the remaining event/normalizer analysis more specific without exposing raw source, the read-only auditor now records `POSSIBLE_CALL_EDGE caller=... line=... callee=...` for the eight no-pattern components. The callable names are collected exclusively from procedure declarations in the inspected VBA project, and string literals/comments are suppressed during matching. **These are candidate identifier references, not proved runtime calls or control flow.** New synthetic tests were added; both the code and tests are pending the next normal operator regression/native gate. This does not change any workbook or Trust Center setting.
 
 Next decision gate: reconcile `PATIENT_PLANNER.Worksheet_Change` candidate edges to tracked writer/refresh routines, examine `Module6` normalization callers, then design the fully synthetic integrated workbook builder in a brand-new path. The frozen H10 candidates remain immutable.
+
+
+## 2026-11-15 — call-edge reconciliation now covered by tests
+
+The targeted, source-redacted `POSSIBLE_CALL_EDGE` output was integrated into `Python/tools/verify_h10_vba_profile_reports.py`. The verifier now compares candidate references between all three distinct workbooks in addition to component metadata, operation matches and procedure fingerprints. New synthetic tests in `Tests/test_verify_h10_vba_profile_reports.py` exercise matching call edges and an intentionally divergent third-candidate edge. Quoted string literals and VBA comments are excluded during the native candidate extraction; the output is still only a *possible reference*, not proven runtime call execution.
+
+**Latest change test status:** the new call-edge extraction, verifier extension and regression assertions have been committed but have not yet been executed on the operator's Windows source checkout. The previous 1,832-pass full suite is not proof for these new commits. The previously uploaded native profile report did not yet include call-edge records, so it cannot establish the unknown PATIENT_PLANNER event's actual call targets.
+
+No additional Excel workbook was opened or saved during this GitHub-only update; previously frozen native evidence remains unchanged.
