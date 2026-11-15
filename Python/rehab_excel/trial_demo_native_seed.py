@@ -12,6 +12,7 @@ candidate until a human checks the interactive workflows.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections import Counter
 from hashlib import sha256
 from pathlib import Path
 import shutil
@@ -27,12 +28,15 @@ from rehab_excel.application_contract import assert_application_contract
 from rehab_excel.master_projection_writer import refresh_master_projection_in_place
 from rehab_excel.master_visual_style import apply_master_visual_style_in_place
 from rehab_excel.patient_planner_projection import planner_identity_formulas
+from rehab_excel.reader import read_base_schedule
 from rehab_excel.trial_demo_source_projection import (
     TrialDemoSourceProjection, project_trial_demo_sources,
 )
 from rehab_excel.trial_import_plan import TrialImportPlan
 from rehab_excel.trial_patient_registry_projection import ConfirmedClinicalFields
-from rehab_excel.weekly_slots_source import HEADERS as WEEKLY_HEADERS
+from rehab_excel.weekly_slots_source import (
+    HEADERS as WEEKLY_HEADERS, WEEKDAY_PATTERN,
+)
 from tools.audit_pilot_source_readiness import inspect_source
 
 
@@ -311,6 +315,28 @@ def _verify_seed_workbook(
                 raise TrialDemoNativeSeedError("PATIENT_PLANNER identity formulas differ")
     finally:
         wb.close()
+
+    # Independent operational readback through the SAME recurring schedule
+    # reader used by daily workload/replacement code, not just sheet equality.
+    expected_sessions = Counter(
+        (pid, treatment, WEEKDAY_PATTERN[day], clock, provider)
+        for pid, treatment, day, clock, provider, _source in
+        projection.weekly_slots.rows
+    )
+    try:
+        loaded_sessions = Counter(
+            (entry.patient_id, entry.treatment, entry.day_pattern,
+             entry.start_time, entry.therapist_id)
+            for entry in read_base_schedule(stage)
+        )
+    except Exception:
+        raise TrialDemoNativeSeedError(
+            "SAFETY STOP: native weekly entries cannot be read by daily engine"
+        ) from None
+    if loaded_sessions != expected_sessions:
+        raise TrialDemoNativeSeedError(
+            "SAFETY STOP: daily engine schedule differs from admitted source"
+        )
 
 
 def seed_trial_demo_workbook(
