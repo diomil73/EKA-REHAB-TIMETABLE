@@ -354,3 +354,42 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon structural preflight te
 ```
 
 For any future disposable native candidate, after provenance is independently confirmed, inspect structure only with `python Python/tools/preflight_afternoon_native_candidate.py --source "<FRESH_DISPOSABLE_SYNTHETIC_SOURCE>.xlsm"`. **Do not run this placeholder path verbatim.** The CLI neither creates nor modifies an XLSM and is not a go-ahead to install. Native preview source identity, no-op morning proof and comprehensive rollback remain mandatory. No operational afternoon saving or medical absence handling is enabled by this slice.
+
+## 2026-11-15 — Minimal isolated native Excel read-only panel preview (not yet run)
+
+Latest operator-confirmed **source** regression gate: **126 passed, 1 skipped in 10.34s** (the one skipped test uses Windows symlinks). This precedes the new minimal-installer code/tests below.
+
+New implementation:
+- `Python/rehab_excel/afternoon_minimal_native_installer.py` has `install_afternoon_minimal_preview(source, output)`. It validates the source's ZIP/worksheet structure and different, **nonexistent** destination, verifies source SHA-256, copies with exclusive file creation and opens **only the copy** in a separate native Excel instance. The source is never opened for edit.
+- Before mutation, it verifies existing `frmPatientScheduling` and `PatientProgramRuntime` VBA match the known source-level anchors. It adds only `AFTERNOON_PHYSIO_SLOTS` (five headers, zero data rows, `veryHidden`) and installs the independent `lblAfternoonState` read-only panel onto those already-existing components. It does **not** call broad patient-form installers, patient admission, any morning scheduling writer or MASTER-refresh macro.
+- It snapshots worksheet names, MASTER first 12 column widths and used-range values of `MASTER_SCHEDULE`, `PATIENT_PLANNER`, `PATIENTS`. It requires existing values and widths unchanged before save, then closes and reopens the output read-only in a second Excel instance to check the same invariants, new sheet content/visibility and exact VBA source changes.
+- On any native failure, leave the newly created output intact as diagnostic evidence, **never** rerun with the same output path. The exception output never intentionally exposes patient row values. This snapshot cannot by itself prove preservation of all workbook formatting, charts, controls, data validation, macros outside the two edited VBA components, or clinical correctness. Do not treat a passed preview as deployment proof.
+- `Python/tools/build_afternoon_minimal_panel_preview.py` provides explicit source/output CLI and requires `--confirm-synthetic-disposable`. This flag is an acknowledgement, **not** proof that the workbook contains no real patient data. Verify provenance separately.
+- `Tests/test_afternoon_minimal_native_installer.py` checks safe path behavior, independent worksheet baseline, refusal outside Windows, lack of broad installer/MASTER calls, readback contract and confirmation flag. The new tests are **not yet operator-confirmed green**.
+
+### Next source test gate, no Excel open
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py Tests/test_afternoon_patient_form_state.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_patient_readonly_vba.py Tests/test_afternoon_native_preflight.py Tests/test_afternoon_minimal_native_installer.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: minimal native installer source tests failed" }
+```
+
+### Future native proof, only after provenance verification
+
+Close all Excel sessions. Identify an actually **fresh, integrated, synthetic, disposable XLSM** known to contain the established patient form/runtime already and no real patient records. Do **not** choose frozen H10 CC, original/production clinical XLSM, source real XLSX, or older evidence files. Read-only structure check:
+
+```powershell
+python Python/tools/preflight_afternoon_native_candidate.py --source "<FRESH_SYNTHETIC_INTEGRATED>.xlsm"
+```
+
+This command is not a provenance guarantee. Only after verifying its path independently and after source tests pass, an authorized native smoke can use:
+
+```powershell
+python Python/tools/build_afternoon_minimal_panel_preview.py --source "<FRESH_SYNTHETIC_INTEGRATED>.xlsm" --output "<NEW_NEVER_USED_AFTERNOON_PANEL>.xlsm" --confirm-synthetic-disposable
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: native afternoon proof failed" }
+```
+
+The angle-bracket names are **placeholders** and MUST NOT be run verbatim. **Not authorized yet:** a source file has not been identified/verified in this branch. Native Excel save/reopen, VBA compilation and visible form acceptance remain pending. No afternoon write path, attendance migration, medical deferral scope UI or modification to MASTER label `ΦΘ` exists in this slice.
