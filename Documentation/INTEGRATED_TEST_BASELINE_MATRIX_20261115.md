@@ -104,3 +104,50 @@ For a verbose or lengthy test run, save the complete console output to a local t
 - `Documentation/H10_THERAPIST_CHARTS_USER_REQUIREMENTS_20261108.md`
 - `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`
 - `Documentation/AUTHORITATIVE_RESUME_20261112.md`
+
+
+## 2026-11-15 — Full repository regression: 1,806 passed; stale VBA-verifier fixture corrected
+
+Operator uploaded the complete Windows pytest log `DIOMIL_TEST_FULL_20261115_161242.txt`. It records:
+- 1,808 tests collected.
+- **1,806 passed, 1 failed, 1 skipped** in 36.72s.
+- 27 warnings.
+- Skip: `Tests/test_afternoon_sheet_preview.py:68`, symlinks unavailable on this Windows environment.
+- Sole failure: `Tests/test_patient_registration_scheduling_slice.py::test_patient_program_vba_verification_accepts_only_new_runtime_and_form`.
+
+### Root cause
+
+The implementation's `_verify_patient_program_vba()` correctly enforces the integrated afternoon read-only panel contract: form markers `RefreshAfternoonReadOnlyPanel`, `lblAfternoonState`, `Me.Height = 665`; runtime markers `LoadPatientAfternoonState`, `afternoon-state-vba`; and the actual `lblAfternoonState` designer control. The failing test's fake VBA components only represented the older morning-only form/runtime and had no Designer.Controls implementation. Thus the test fixture was stale after the PM panel was integrated; the log does not show an application runtime failure or a native Excel failure.
+
+### Correction committed, not yet rerun
+
+- `dc4e331`: updated the synthetic fake components to include the current PM form/runtime markers and designer label; added a negative regression proving that a missing designer label still fails closed.
+- `f30c32b`: clarified the verifier comment to describe the PM panel as part of the integrated form contract.
+
+No application installer logic or patient/workbook data was changed. No Excel workbook was opened or modified by this test-fixture correction. The full suite remains **not yet green** until the operator reruns it.
+
+### Next commands
+
+First run the focused test:
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_patient_registration_scheduling_slice.py -q
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Patient registration scheduling-slice test failed" }
+```
+
+If green, rerun the complete suite and preserve the full output to TXT only because this is a large result:
+
+```powershell
+$log = Join-Path $PWD ("DIOMIL_FULL_REGRESSION_{0}.txt" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
+python -m pytest -ra --tb=long *> $log
+$testExitCode = $LASTEXITCODE
+"EXIT CODE: $testExitCode" | Add-Content -LiteralPath $log
+Get-Item -LiteralPath $log | Select-Object FullName, Length
+Get-Content -LiteralPath $log -Tail 25
+if ($testExitCode -ne 0) { throw "SAFETY STOP: Full regression suite failed; inspect the TXT report" }
+```
+
+The `*> $log` redirection captures PowerShell success/error streams without Transcript. Capture `$LASTEXITCODE` immediately after pytest, before running other commands.
