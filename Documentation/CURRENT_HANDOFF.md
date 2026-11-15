@@ -2253,3 +2253,14 @@ The read-only VBA auditor now emits additional metadata for components with no o
 It does not emit VBA source lines, literals, patient names, cell values, or formulas. This is intended to compare the embedded implementations across the three native candidates and provide a safe structural profile for the four remaining native-only components (ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6, Module5).
 
 New regression tests cover source redaction, stable procedure hashes, profile counts and the emitted metadata contract. These latest profile changes have NOT yet been executed locally. The previously reported 24 focused passes / 1,829 full passes validate the preceding auditor revision, not this new profile revision. A fresh focused/full/native run is required before relying on the new profile output.
+
+
+## 2026-11-15 19:50 — PROCEDURE PROFILE GREEN; ThisWorkbook event ownership confirmed
+
+Primary acceptance report: `Documentation/H10_VBA_NATIVE_PROCEDURE_PROFILE_ACCEPTANCE_20261115.md`.
+
+Operator evidence: `DIOMIL_VBA_PROFILE_BUNDLE_20261115_195014.txt`, plus separate focused/full/native reports. Focused: **27 passed**. Full regression: **1,832 passed, 1 skipped, 26 warnings**. Three distinct H10 XLSMs: **all native read-only audits complete**, 1,569 source-pattern matches apiece, source hashes unchanged, no workbook modified. All three report identical structural records for **44 nonempty VBA components**; the 8 no-pattern components also share identical code-module fingerprints across candidates. This confirms only structural/observed-source consistency, not end-to-end runtime correctness.
+
+**New code-level reconciliation:** Native one-line `Workbook_Open`, `Workbook_Activate`, `Workbook_Deactivate`, `Workbook_SheetActivate` and `Workbook_BeforeClose` procedure-body SHA-256s were matched exactly against four-space-indented event calls in tracked `Python/rehab_excel/application_shell_vba.py::_EVENT_SPECS`. Their source owner and event-to-shell routing are now established. A new regression guard, `Tests/test_h10_native_workbook_event_hash_contract.py`, was committed, but has **not** yet run; the earlier 1,832-pass result predates it.
+
+`Module5` has a single reported line yet native normalized `CodeModule.Lines` output hashes to the SHA-256 of empty text; no callable procedure present. Do not delete it. Remaining native-only behavioral/call-graph scope: `PATIENT_PLANNER.Worksheet_Change` and `Module6.NormalizeTimeMS/NormalizePresenceMS`, plus review of their callers. Do not infer these semantics from names or hashes. Continue on tracked source and read-only structural evidence; do not change frozen XLSM files. The real-patient source admission and complete synthetic integration workbook are separate milestones.
