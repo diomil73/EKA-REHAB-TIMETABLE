@@ -62,3 +62,19 @@ Before switching, run `git status --short` and ensure tracked work is preserved.
 - Two sessions overlap within the same programme: apply the existing clinical/shared-session approval policy before operational rejection or admission.
 - Historical day is finalized: use amendment/version chain, not direct edit.
 - Any native save, restore or read-back failure: stop once, preserve evidence; no second attempt on the same smoke copy.
+
+## Existing patient-manager integration map (read-only source audit, 2026-11-15)
+
+- `Python/rehab_excel/patient_edit_form_vba.py`: edits patient identity/status/ward/doctor and hands off to patient-treatment programme. **Do not** put the afternoon triple into doctor/identity controls.
+- `Python/rehab_excel/patient_program_form_vba.py`: `frmPatientScheduling` loads per-treatment choices from `SETTINGS` using `LoadPatientProgramConfig`. It stores selected treatment/day/time/provider in treatment-keyed dictionaries; it is not partitioned by morning/afternoon. Adding a second treatment named `ΦΘ` to that list would collide with the existing morning selection. The SavePatientProgramAtomic path targets `PATIENT_PLANNER` and must NOT be reused to persist PM as a second copy of morning `ΦΘ`.
+- `Python/rehab_excel/patient_program_draft.py`: treatment catalogue comes from `settings.therapies`, while provider requirement for the legacy morning `ΦΘ` comes from `_REQUIRED_PROVIDER_TREATMENTS`. This means the existing pool must be checked in `SETTINGS` before claiming it appears in the form; the existing `Πισίνα` render and admission code are not by themselves proof of a visible choice.
+- `Python/rehab_excel/patient_program_master_render_vba.py`: confirmed current MASTER treatments include `Πισίνα` written to the established morning pool column (MASTER column 6). The doctor-under-patient presentation must stay as-is.
+- `Python/rehab_excel/patient_registration_scheduling_slice.py`: assembles the existing VBA form/runtime and saves the workbook. New PM support should use a distinct optional storage namespace and audited installer integration, not an in-place rewrite of this active stack before native acceptance.
+- `Python/rehab_excel/weekly_slots_source.py`: the morning pool is already an admitted treatment token, and this legacy weekly source has no programme discriminator. Adding afternoon `ΦΘ` to its existing six-column rows would lose namespace separation. Do not silently overload.
+- The new `patient_programme_draft.py` is a **separate pure model**, not a UI control and not a replacement for `patient_program_draft.py`; their distinct names are intentional. A future integration should explicitly bridge from forms into the policy, not confuse these modules.
+
+### Required next engineering slice
+
+Design and test a distinct, opt-in afternoon programme data store keyed by patient + weekday + time + physiotherapist; ensure zero auto-seeding from the real source and no effects on the existing morning planner, solver, MASTER layout, histories or conflict guard. Then add native form controls only after the source-level interface and rollback contract are audited. Avoid duplicate treatment identifiers by using a programme field/namespace rather than a new duplicate `ΦΘ` treatment name.
+
+This map is based on repository source inspection, not native Windows Excel behavior.
