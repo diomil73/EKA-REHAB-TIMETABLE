@@ -11,7 +11,6 @@ import argparse
 from hashlib import sha256
 from pathlib import Path
 import re
-import sys
 from zipfile import BadZipFile, ZipFile
 
 from openpyxl import load_workbook
@@ -47,6 +46,7 @@ ZIP_GROUPS = {
     "external_links": lambda n: n.casefold().startswith("xl/externallinks/"),
     "connections": lambda n: n.casefold() == "xl/connections.xml",
     "query_tables": lambda n: n.casefold().startswith("xl/querytables/"),
+    "tables": lambda n: n.casefold().startswith("xl/tables/"),
     "pivot_tables": lambda n: n.casefold().startswith("xl/pivottables/"),
     "pivot_caches": lambda n: n.casefold().startswith("xl/pivotcache/"),
     "slicers": lambda n: "slicer" in n.casefold(),
@@ -56,6 +56,9 @@ ZIP_GROUPS = {
     "embeddings": lambda n: n.casefold().startswith("xl/embeddings/"),
     "custom_ui": lambda n: n.casefold().startswith("customui/"),
     "comments": lambda n: "comment" in n.casefold(),
+    "shared_strings": lambda n: n.casefold() == "xl/sharedstrings.xml",
+    "media": lambda n: n.casefold().startswith("xl/media/"),
+    "custom_xml": lambda n: n.casefold().startswith("customxml/"),
     "vml_drawings": lambda n: n.casefold().startswith("xl/drawings/vml"),
     "external_workbook_links": lambda n: n.casefold().startswith("xl/externalLinks/".casefold()),
 }
@@ -104,8 +107,12 @@ def audit(path: Path) -> int:
         print("SAFETY STOP: Existing XLSM or XLSX file required.")
         return 2
 
-    before_hash = _sha256(path)
-    before_size = path.stat().st_size
+    try:
+        before_hash = _sha256(path)
+        before_size = path.stat().st_size
+    except OSError as exc:
+        print(f"SAFETY STOP: Cannot read source file ({type(exc).__name__}).")
+        return 2
     formulas_wb = None
     cached_wb = None
     incomplete: list[str] = []
@@ -140,6 +147,10 @@ def audit(path: Path) -> int:
         if zip_info["vba_project_sha256"]:
             print("VBA project SHA256:", zip_info["vba_project_sha256"])
         print("Defined names:", len(formulas_wb.defined_names))
+        calculation = getattr(formulas_wb, "calculation", None)
+        print("Calculation mode:", getattr(calculation, "calcMode", None))
+        print("Full calculation on load:", getattr(calculation, "fullCalcOnLoad", None))
+        print("Force full calculation:", getattr(calculation, "forceFullCalc", None))
         print("Worksheet count:", len(formulas_wb.worksheets))
         print("CELL VALUES, FORMULAS AND IDENTITIES ARE NOT PRINTED")
         print("")
@@ -227,8 +238,12 @@ def audit(path: Path) -> int:
         if formulas_wb is not None:
             formulas_wb.close()
 
-    after_hash = _sha256(path)
-    after_size = path.stat().st_size
+    try:
+        after_hash = _sha256(path)
+        after_size = path.stat().st_size
+    except OSError as exc:
+        print(f"SAFETY STOP: Cannot verify source after inspection ({type(exc).__name__}).")
+        return 2
     if (after_hash, after_size) != (before_hash, before_size):
         print("SAFETY STOP: Source workbook changed during read-only audit.")
         return 2
