@@ -159,3 +159,14 @@ def test_native_sessions_disable_automatic_workbook_macros():
     assert source.index("verifier.AutomationSecurity = 3") < source.index(
         'readonly = verifier.Workbooks.Open'
     )
+
+
+def test_native_source_readback_tolerates_only_line_endings_and_trailing_blank_lines():
+    from rehab_excel.afternoon_minimal_native_installer import _canonical_vba_source
+    assert _canonical_vba_source("Option Explicit\r\nSub Test()\r\nEnd Sub\r\n") == (
+        _canonical_vba_source("Option Explicit\nSub Test()\nEnd Sub\n\n")
+    )
+    assert _canonical_vba_source("A\rB") == "A\nB"
+    assert _canonical_vba_source("Sub A()\nEnd Sub") != (
+        _canonical_vba_source("Sub B()\nEnd Sub")
+    )
