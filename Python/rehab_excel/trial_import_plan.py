@@ -11,6 +11,7 @@ from pathlib import Path
 
 from rehab_core.programme_mapping import SourceWeeklyEntry
 from rehab_excel.trial_admission_gate import evaluate_trial_admission
+from rehab_excel.trial_source_alignment import audit_trial_source_alignment
 from tools.preflight_trial_excel_sources import inspect_native_pilot_inputs
 
 
@@ -35,18 +36,31 @@ class TrialImportPlan:
     patient_count: int
     weekday_slot_count: int
     entries: tuple[SourceWeeklyEntry, ...] = field(repr=False)
+    programme_sha256: str | None = None
 
-    def verify_sources(self, review: str | Path, intake: str | Path) -> None:
-        """Require both original files unchanged immediately before future use."""
+    def verify_sources(
+        self, review: str | Path, intake: str | Path,
+        *, programme: str | Path | None = None,
+    ) -> None:
+        """Require all source-bound input bytes unchanged before future use."""
         r, c = Path(review).resolve(), Path(intake).resolve()
         if not r.is_file() or not c.is_file():
             raise TrialImportPlanError("Trial input missing")
         if _digest(r) != self.review_sha256 or _digest(c) != self.intake_sha256:
             raise TrialImportPlanError("SAFETY STOP: stale trial input")
+        if self.programme_sha256 is not None:
+            if programme is None:
+                raise TrialImportPlanError("SAFETY STOP: bound programme source required")
+            p = Path(programme).resolve()
+            if p in (r, c) or not p.is_file() or _digest(p) != self.programme_sha256:
+                raise TrialImportPlanError("SAFETY STOP: stale programme source")
+        elif programme is not None:
+            raise TrialImportPlanError("SAFETY STOP: programme source is not bound")
 
 
 def prepare_trial_import_plan(
-    *, review: str | Path, intake: str | Path
+    *, review: str | Path, intake: str | Path,
+    programme: str | Path | None = None,
 ) -> TrialImportPlan:
     """Validate both private inputs and preserve the exact admitted placements.
 
@@ -58,8 +72,17 @@ def prepare_trial_import_plan(
         raise TrialImportPlanError("Separate review XLSX and pilot XLSM required")
     if not r.is_file() or not c.is_file():
         raise TrialImportPlanError("Trial input missing")
-    initial = (_digest(r), _digest(c))
+    p = Path(programme).resolve() if programme is not None else None
+    if p is not None and (
+        p.suffix.lower() != ".xlsx" or p in (r, c) or not p.is_file()
+    ):
+        raise TrialImportPlanError("Separate original programme XLSX required")
+    initial = (_digest(r), _digest(c), _digest(p) if p is not None else None)
     try:
+        if p is not None:
+            alignment = audit_trial_source_alignment(programme=p, review=r)
+            if not alignment.aligned:
+                raise TrialImportPlanError("SAFETY STOP: source alignment blocked")
         status = inspect_native_pilot_inputs(review=r, cc=c)
         if not status["native_trial_permitted"]:
             raise TrialImportPlanError("SAFETY STOP: trial admission is blocked")
@@ -78,8 +101,13 @@ def prepare_trial_import_plan(
             patient_count=admissions.verified_patient_ids,
             weekday_slot_count=len(admissions.admitted_entries),
             entries=tuple(admissions.admitted_entries),
+            programme_sha256=initial[2],
         )
     finally:
-        if (_digest(r), _digest(c)) != initial:
+        if (
+            not r.is_file() or not c.is_file()
+            or (p is not None and not p.is_file())
+            or (_digest(r), _digest(c), _digest(p) if p is not None else None) != initial
+        ):
             raise TrialImportPlanError("SAFETY STOP: source changed during planning")
     return plan
