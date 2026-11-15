@@ -707,3 +707,16 @@ Tracked source review clarifies five named components previously absent from the
 Source-contract regression tests exist for all five components. They do not replace native end-to-end acceptance.
 
 Generic Module5, Module6 and two non-empty worksheet/document modules remain unresolved. The auditor is extended to output procedure names and worksheet names for no-pattern components, without VBA source text, and to detect external file I/O, process launch and workbook close. A fresh operator run is required before this subtask can close.
+
+
+## Latest continuation gate — 2026-11-15
+
+The VBA auditor was further extended after the first targeted source review:
+- emits NO_PATTERN_MATCH_COMPONENT records with escaped component name, type, line count, worksheet name when applicable, and procedure identifiers only; it never prints source text;
+- detects external file create/write/delete/read, process launches, and ThisWorkbook.Close in addition to worksheet and workbook write surfaces;
+- excludes procedure declaration lines from operation matches;
+- recognizes .Run(...) calls with or without whitespace.
+
+New focused regression tests cover procedure inventory, external I/O/process/lifecycle classification, and declaration-line exclusion. These latest changes have not yet been executed on the operator's Windows/Excel machine. The previous 1,824-pass full regression and completed native audit predate these latest changes and must not be presented as validation of them.
+
+Next operator gate: pull branch work/afternoon-medical-scope-20261115; run Tests/test_audit_vba_write_surfaces.py and the existing integrated-structure/VBA-inventory tests; run full pytest; then rerun the sanitized audit on the same three distinct H10 candidates. Upload the focused/full regression logs and final write-surface report. The new report should expose procedure identifiers for the remaining unmatched non-empty components and separately classify the external file/process operations in modDoubleBookingReview. Preserve ReadOnly=True, disabled macros/events, unchanged source hashes and no workbook modifications.
