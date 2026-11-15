@@ -116,3 +116,32 @@ def test_rejects_tampered_operation_count(tmp_path):
                                   "Matched operations: 2")
     with pytest.raises(EvidenceError, match="matched-operations count mismatch"):
         verify_report(_write(tmp_path, blocks))
+
+
+
+def test_call_edge_metadata_reconciles(tmp_path):
+    blocks = _good_blocks()
+    for i, block in enumerate(blocks):
+        blocks[i] = block.replace(
+            "Matched operations: 1",
+            "  POSSIBLE_CALL_EDGE caller=Worksheet_Change line=12 "
+            "callee=RefreshTherapistDaily\\nMatched operations: 1",
+        )
+    result = verify_report(_write(tmp_path, blocks))
+    assert len(result[0]["call_edges"]) == 1
+    assert result[0]["call_edges"][0][-1] == "RefreshTherapistDaily"
+
+
+def test_call_edge_metadata_drift_is_rejected(tmp_path):
+    blocks = _good_blocks()
+    for i, block in enumerate(blocks):
+        blocks[i] = block.replace(
+            "Matched operations: 1",
+            "  POSSIBLE_CALL_EDGE caller=Worksheet_Change line=12 "
+            "callee=RefreshTherapistDaily\\nMatched operations: 1",
+        )
+    blocks[2] = blocks[2].replace(
+        "callee=RefreshTherapistDaily", "callee=RefreshMaster",
+    )
+    with pytest.raises(EvidenceError, match="possible-call-edge mismatch"):
+        verify_report(_write(tmp_path, blocks))
