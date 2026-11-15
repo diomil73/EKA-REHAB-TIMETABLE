@@ -81,3 +81,10 @@ The source context column A is blank on some patient rows, and the review workbo
 ## 7. Safety and evidence boundary
 
 No real patient row has been admitted by this design document. No real-data importer, writable destination, native Excel Save/reopen proof or integrated real-data demo has been produced. A positive source-only preflight is not a clinical approval or native acceptance. Keep source/review files, identity decisions, hashes and patient-level evidence private.
+
+
+## 2026-11-15 — source alignment tooling added and CI accepted
+
+The read-only provenance audit is now implemented in `trial_source_alignment.py`, with private local CLI `audit_trial_source_alignment.py` and synthetic tests. It compares source row/name/context and weekly source-cell references without printing identities or source paths. GitHub Actions run `43751221120` passed 200 focused tests on both operating systems and 1,869 full regression tests on both operating systems. This is source/test evidence only, not native Excel or import acceptance.
+
+The uploaded private source/review pair was separately cross-checked without exposing patient values: source-row/name/context and staged source-cell references aligned; blank A context remains blank. Identity approval and all source/conflict holds remain unresolved. The next implementation should bind the original programme hash into the import plan and add complete patient-registry projection before any native writer.
