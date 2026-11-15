@@ -85,3 +85,41 @@ def test_preflight_aborts_if_external_source_changes_during_scan(tmp_path, monke
     monkeypatch.setattr(gate, "inspect_source", concurrent_update)
     with pytest.raises(RuntimeError, match="input changed"):
         gate.inspect_native_pilot_inputs(review=review, cc=cc)
+
+
+def test_only_opted_in_empty_demo_shell_is_eligible(tmp_path, monkeypatch):
+    review, cc = _sources(tmp_path)
+    monkeypatch.setattr(gate, "evaluate_trial_admission", lambda path: _review(True))
+    monkeypatch.setattr(gate, "inspect_source", lambda path: {
+        **_master(("EMPTY_OR_MISSING_PATIENT_REGISTRY",)),
+        "patient_registry_rows": 0,
+    })
+    default = gate.inspect_native_pilot_inputs(review=review, cc=cc)
+    assert not default["native_trial_permitted"]
+    assert not default["empty_demo_shell_ready"]
+    optin = gate.inspect_native_pilot_inputs(
+        review=review, cc=cc, allow_empty_demo_shell=True,
+    )
+    assert optin["native_trial_permitted"]
+    assert optin["empty_demo_shell_ready"]
+
+
+def test_demo_shell_with_real_registry_or_history_never_qualifies(tmp_path, monkeypatch):
+    review, cc = _sources(tmp_path)
+    monkeypatch.setattr(gate, "evaluate_trial_admission", lambda path: _review(True))
+    monkeypatch.setattr(gate, "inspect_source", lambda path: {
+        **_master(("EMPTY_OR_MISSING_PATIENT_REGISTRY",)),
+        "patient_registry_rows": 1,
+    })
+    assert not gate.inspect_native_pilot_inputs(
+        review=review, cc=cc, allow_empty_demo_shell=True,
+    )["native_trial_permitted"]
+    monkeypatch.setattr(gate, "inspect_source", lambda path: {
+        **_master(("EMPTY_OR_MISSING_PATIENT_REGISTRY",
+                    "EXISTING_TEST_OR_UNKNOWN_HISTORY_REQUIRES_ISOLATION")),
+        "patient_registry_rows": 0,
+        "history_rows": 1,
+    })
+    assert not gate.inspect_native_pilot_inputs(
+        review=review, cc=cc, allow_empty_demo_shell=True,
+    )["native_trial_permitted"]
