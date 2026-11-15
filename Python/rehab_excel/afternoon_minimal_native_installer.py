@@ -143,7 +143,8 @@ def install_afternoon_minimal_preview(
             ws.Cells(1, i).Value = header
         ws.Visible = 2
         install_afternoon_readonly_panel(book.VBProject, position_control=_position)
-        if _baseline(book) != prior:
+        current = _baseline(book)
+        if current[0] != prior[0] + (SHEET_NAME,) or current[1:] != prior[1:]:
             raise AfternoonMinimalInstallError("Morning/Master/registry in-memory invariant changed")
         _confirm_panel(book, runtime_code, form_code)
         book.Save()
@@ -157,9 +158,10 @@ def install_afternoon_minimal_preview(
         verifier.DisplayAlerts = False
         verifier.EnableEvents = False
         readonly = verifier.Workbooks.Open(str(dst), UpdateLinks=0, ReadOnly=True)
-        if _baseline(readonly) != prior:
+        reopened = _baseline(readonly)
+        if reopened[1:] != prior[1:]:
             raise AfternoonMinimalInstallError("Source sheet values or MASTER widths changed after reopen")
-        if _roster(readonly) != prior[0] + (SHEET_NAME,):
+        if reopened[0] != prior[0] + (SHEET_NAME,):
             raise AfternoonMinimalInstallError("Unexpected sheet roster after reopen")
         _confirm_panel(readonly, runtime_code, form_code)
         if _hash(src) != original_sha:
