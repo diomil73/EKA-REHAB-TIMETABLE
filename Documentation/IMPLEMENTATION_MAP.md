@@ -259,3 +259,17 @@ Detailed component-to-generator/test ownership and the next read-only write-surf
 - Documentation/H10_VBA_OWNERSHIP_AND_WRITE_SURFACE_MAP_20261115.md
 
 Do not infer that generic modules or worksheet document modules are obsolete. Do not implement blanket sheet protection or build the final synthetic integration workbook until their event/write/protection surfaces are reconciled.
+
+
+## 2026-11-15 — real-source demo intake and latest H10 gate
+
+The expanded H10 gate is operator-accepted (45 focused; 1,856 full passed, 1 skipped, 26 warnings; 3/3 distinct native candidates read-only audited, hashes unchanged, no workbook modified). See the master delivery report and current handoff.
+
+The upcoming source-to-demo work should start by reviewing:
+- `Python/rehab_excel/trial_admission_gate.py`
+- `Python/tools/preflight_trial_excel_sources.py`
+- `Python/rehab_excel/trial_import_plan.py`
+- `Python/rehab_excel/trial_weekly_projection.py`
+- their focused tests and `Documentation/REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`
+
+Build a synthetic fixture matching the operator's A:T programme mapping plus U/V afternoon/pool fields. Keep real source workbooks private. The identity review is not an approval ledger; admission must remain fail-closed until explicit identity and conflict decisions.
