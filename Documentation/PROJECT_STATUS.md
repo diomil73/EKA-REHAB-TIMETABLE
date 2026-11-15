@@ -1412,3 +1412,22 @@ if ($testExitCode -ne 0) { throw "SAFETY STOP: Full regression suite failed; ins
 ```
 
 The `*> $log` redirection captures PowerShell success/error streams without Transcript. Capture `$LASTEXITCODE` immediately after pytest, before running other commands.
+
+
+## 2026-11-15 — FULL REPOSITORY REGRESSION GREEN AFTER FIXTURE UPDATE
+
+Operator reran the full suite after pulling the focused-test fixture correction.
+
+- Full command: `python -m pytest -ra --tb=long`
+- **1,808 passed, 1 skipped, 0 failed** in **30.54s**.
+- **EXIT CODE: 0**.
+- Skip: `Tests/test_afternoon_sheet_preview.py:68`, because symlinks are unavailable in the current Windows environment.
+- 26 warnings were reported. They include Python 3.14/openpyxl ZipFile deallocator warnings and an openpyxl Data Validation extension warning in the existing daily-input baseline audit. They did not fail the suite and should be assessed separately; do not perform broad cleanup or modify workbook files merely to silence warnings.
+
+The previous section titled “Correction committed, not yet rerun” is now superseded: the focused test passed **8 passed in 2.66s**, and the complete suite is now green. The stale fake VBA component fixture was updated to include the integrated afternoon panel contract and a negative test for a missing designer label.
+
+This is a **source regression GREEN** checkpoint only. It is not native Excel save/reopen proof, full integrated workbook provenance proof, nor manual end-to-end acceptance. No Excel workbook was opened or modified during this source-test correction and regression run.
+
+### Next safe project phase
+
+Proceed with the **full DIOMIL synthetic integration workbook** plan, not an afternoon-only preview. The immediate engineering task is a read-only architecture/data-surface audit of the current compatible application baseline: identify the exact workbook shell/component source and inventory every patient/staff-bearing sheet, hidden/veryHidden surface, named range, formula/cache, VBA component and linked identity/assignment/history table. Then design a deterministic synthetic roster and prove full-workbook synthetic provenance before any native installer or Excel write operation. Keep the accepted/frozen H2-H8 artifacts and populated operational workbook immutable.
