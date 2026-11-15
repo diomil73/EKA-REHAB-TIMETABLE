@@ -57,10 +57,13 @@ def audit_one(path: Path) -> tuple[int, str | None]:
     workbook = None
     complete = True
     status = 0
+    stage = "importing Excel COM client"
     try:
         import win32com.client  # type: ignore[import-not-found]
 
+        stage = "starting isolated Excel instance"
         excel = win32com.client.DispatchEx("Excel.Application")
+        stage = "configuring Excel security and read-only session"
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
@@ -70,6 +73,7 @@ def audit_one(path: Path) -> tuple[int, str | None]:
         # msoAutomationSecurityForceDisable: do not execute workbook macros.
         excel.AutomationSecurity = 3
 
+        stage = "opening workbook read-only"
         workbook = excel.Workbooks.Open(
             str(path),
             UpdateLinks=0,
@@ -77,16 +81,20 @@ def audit_one(path: Path) -> tuple[int, str | None]:
             AddToMru=False,
             IgnoreReadOnlyRecommended=True,
         )
+        stage = "verifying workbook read-only state"
         if not bool(workbook.ReadOnly):
             print("SAFETY STOP: workbook did not open read-only")
             status = 2
         else:
+            stage = "accessing VBA project object model"
             project = workbook.VBProject
+            stage = "checking VBA project protection"
             protection = int(project.Protection)
             if protection != 0:
                 print("SAFETY STOP: VBA project is locked; component inventory unavailable")
                 status = 2
             else:
+                stage = "enumerating VBA components"
                 components = project.VBComponents
                 count = int(components.Count)
                 print("DIOMIL NATIVE VBA PROJECT INVENTORY")
@@ -112,6 +120,7 @@ def audit_one(path: Path) -> tuple[int, str | None]:
                     )
 
                     if component_type == 3:
+                        stage = f"enumerating controls for UserForm {name}"
                         try:
                             controls = component.Designer.Controls
                             control_count = int(controls.Count)
@@ -140,7 +149,16 @@ def audit_one(path: Path) -> tuple[int, str | None]:
         print("SAFETY STOP: pywin32 is required for native Excel VBA inventory")
         status = 2
     except Exception as exc:
-        print(f"SAFETY STOP: native VBA inventory failed ({type(exc).__name__})")
+        print(
+            f"SAFETY STOP: native VBA inventory failed at stage={stage} "
+            f"({type(exc).__name__})"
+        )
+        hresult = getattr(exc, "hresult", None)
+        if isinstance(hresult, int):
+            print(f"COM HRESULT: 0x{hresult & 0xFFFFFFFF:08X}")
+        excepinfo = getattr(exc, "excepinfo", None)
+        if isinstance(excepinfo, tuple) and len(excepinfo) > 2 and excepinfo[2]:
+            print("COM DESCRIPTION:", str(excepinfo[2])[:500])
         status = 2
     finally:
         if workbook is not None:
