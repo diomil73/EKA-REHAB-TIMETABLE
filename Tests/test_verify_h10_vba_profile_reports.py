@@ -145,3 +145,12 @@ def test_call_edge_metadata_drift_is_rejected(tmp_path):
     )
     with pytest.raises(EvidenceError, match="possible-call-edge mismatch"):
         verify_report(_write(tmp_path, blocks))
+
+
+def test_call_edge_regex_matches_actual_auditor_output():
+    from tools.verify_h10_vba_profile_reports import _CALL_EDGE
+
+    example = "  POSSIBLE_CALL_EDGE caller=Worksheet_Change line=12 callee=RefreshTherapistDaily"
+    match = _CALL_EDGE.match(example)
+    assert match is not None
+    assert match.groups() == ("Worksheet_Change", "12", "RefreshTherapistDaily")
