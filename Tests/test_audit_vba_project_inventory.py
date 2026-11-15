@@ -15,6 +15,7 @@ def test_native_inventory_is_read_only_and_disables_macros_and_events():
     source = inspect.getsource(module.audit_one)
     assert "AutomationSecurity = 3" in source
     assert "EnableEvents = False" in source
+    assert "Calculation = -4135" in source
     assert "ReadOnly=True" in source
     assert "UpdateLinks=0" in source
     assert "workbook.Close(SaveChanges=False)" in source
@@ -65,3 +66,22 @@ def test_duplicate_audit_does_not_hide_a_failed_distinct_candidate(tmp_path, mon
     monkeypatch.setattr(module, "audit_one", fake_audit)
 
     assert module.audit_many([first, duplicate, other]) == 2
+
+
+
+def test_duplicate_failed_audit_status_is_preserved(tmp_path, monkeypatch, capsys):
+    first = tmp_path / "first.xlsm"
+    duplicate = tmp_path / "duplicate.xlsm"
+    first.write_bytes(b"same workbook bytes")
+    duplicate.write_bytes(b"same workbook bytes")
+    calls = []
+
+    def failed_audit(path):
+        calls.append(path.name)
+        return 2, None
+
+    monkeypatch.setattr(module, "audit_one", failed_audit)
+
+    assert module.audit_many([first, duplicate]) == 2
+    assert calls == ["first.xlsm"]
+    assert "Original audit status: 2" in capsys.readouterr().out
