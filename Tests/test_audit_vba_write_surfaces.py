@@ -86,3 +86,12 @@ def test_write_surface_audit_caps_cover_largest_native_module():
     # The native inventory found 265 write-surface matches in one report module.
     assert module.MAX_MATCHES_PER_COMPONENT >= 265
     assert module.MAX_TOTAL_MATCHES >= 1396
+
+
+def test_value_access_is_not_mislabeled_as_a_write():
+    assert module._operation("patientName = ws.Cells(rowIndex, 1).Value") == (
+        "cell_value_or_formula_access", None
+    )
+    assert module._operation("ws.Cells(rowIndex, 1).Value = patientName") == (
+        "cell_value_or_formula_write", None
+    )
