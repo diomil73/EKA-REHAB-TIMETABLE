@@ -214,3 +214,23 @@ The remaining valid work is `afternoon_slots_source.py`, `afternoon_patient_edit
 The MASTER treatment label must remain exactly `ΦΘ`, without the word `Πρωινή`; no MASTER width changes.
 
 Latest operator-confirmed focused checkpoint: **88 passed, 1 skipped in 3.66s**, predating the temporary interval implementation and its deletion. All native Excel gates remain pending.
+
+## 2026-11-15 — Existing overlap solver reused, not duplicated
+
+The existing native morning scheduler source `Python/rehab_excel/automatic_patient_schedule.py` implements `_intervals_overlap` for established ΦΘ duration. To address staggered afternoon sessions without another algorithm, `Python/rehab_excel/afternoon_shared_slot_gate.py` now provides `review_afternoon_existing_scheduler_overlaps`, which **calls that existing helper directly**. It first requires exact group membership using the existing afternoon approval gate, then blocks different-start overlap involving the same physiotherapist or patient; adjacent slots remain allowed. Exactly simultaneous, approved shared-group slots remain permissible. There are no morning rows in the adapter input, so same-clock morning/afternoon is not a collision.
+
+New synthetic cases were added to `Tests/test_afternoon_shared_slot_gate.py` for staggered, adjacent, exact group, different provider and patient conflict. This is a source-level adapter, **not** a second engine or Excel integration. The previously removed `afternoon_interval_gate.py` remains absent.
+
+**Critical:** the adapter explicitly reuses the existing 45-minute ΦΘ treatment duration. If afternoon session duration varies in actual clinical practice, do not enable operational saving until the duration policy has been approved and integrated with the authoritative scheduler. This read-only check does not grant clinical clearance, capacity approval, native Excel write permission, or patient import permission. Existing form VBA, MASTER columns and all real workbooks remain unchanged.
+
+Next focused check on the operator's Windows system:
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Existing scheduler reuse gate failed" }
+```
+
+Previously confirmed result before these adapter changes: **88 passed, 1 skipped in 3.66s**. Do not claim new tests passed until they run. Operator does **not** need to send separate `οκ` confirmations to advance from one safe code slice to the next.
