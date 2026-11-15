@@ -16,6 +16,11 @@ from rehab_excel.automatic_patient_schedule import (
 )
 from rehab_excel.patient_program_draft import build_patient_program_draft
 from rehab_excel.reader import read_base_schedule, read_settings
+from rehab_excel.afternoon_patient_form_state import (
+    read_afternoon_patient_form_state,
+    afternoon_form_rows,
+    afternoon_form_status,
+)
 
 
 STANDARD_TREATMENT_DURATION_MINUTES = 45
@@ -217,9 +222,22 @@ def _emit_completion(workbook: Path, patient_id: str, raw_requests: list[str]) -
         )
 
 
+def _emit_afternoon_state(workbook: Path, patient_id: str) -> None:
+    """Separate read-only afternoon protocol, never part of morning config/save.
+
+    Fixed PM_STATUS and PM_ROW records are not existing TREATMENT/CURRENT
+    records, so the morning form cannot mistake them for morning ΦΘ entries.
+    """
+    state = read_afternoon_patient_form_state(workbook, patient_id=patient_id)
+    print("\\t".join(("PM_STATUS", "1" if state.enabled else "0",
+                    _safe(afternoon_form_status(state)))))
+    for weekday, clock, therapist in afternoon_form_rows(state):
+        print("\\t".join(("PM_ROW", _safe(weekday), _safe(clock), _safe(therapist))))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Patient program editor runtime bridge")
-    parser.add_argument("command", choices=("config-vba", "complete-vba", "validate-vba"))
+    parser.add_argument("command", choices=("config-vba", "complete-vba", "validate-vba", "afternoon-state-vba"))
     parser.add_argument("workbook", type=Path)
     parser.add_argument("--patient-id", required=True)
     parser.add_argument("--request", action="append", default=[])
@@ -235,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
             _emit_completion(args.workbook, args.patient_id, args.request)
         elif args.command == "validate-vba":
             _emit_validation(args.patient_id, args.request)
+        elif args.command == "afternoon-state-vba":
+            _emit_afternoon_state(args.workbook, args.patient_id)
         return 0
     except Exception as exc:
         print("ERROR\t" + _safe(exc))
