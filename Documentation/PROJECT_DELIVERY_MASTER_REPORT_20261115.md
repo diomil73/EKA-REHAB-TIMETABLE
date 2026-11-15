@@ -664,3 +664,14 @@ SnapshotId, ServiceDate, TherapistId, Outcome, Source, ReasonCode.
 - 15-day patient progress.
 
 Αυτή είναι η σημερινή συγκεντρωτική εικόνα με βάση τις καταγεγραμμένες αποδείξεις της 15/11/2026. Οι επιμέρους αναφορές παραμένουν η πηγή αλήθειας για κάθε ακριβές test output, artifact και failure branch.
+
+
+---
+
+## 11. 2026-11-15 follow-up — native VBA inventory
+
+The native read-only VBA inventory subsequently completed for three distinct H10 candidate projects. Two contain 67 components each; the CC candidate contains 66. The fourth candidate is byte-identical to the CC candidate. All distinct candidate hashes remained unchanged and no workbook was modified. Manual Calculation mode was unavailable in the local Excel COM environment and was recorded as a warning.
+
+Thirty named application components have been mapped to tracked Python generators/installers. Thirty-seven components remain unresolved by source ownership: ten generic standard modules and 27 worksheet/document modules. The 66-component candidate is missing one zero-code-line document module whose exact identity is not recoverable from the captured Windows console encoding.
+
+The detailed mapping and next operator gate are in Documentation/H10_VBA_OWNERSHIP_AND_WRITE_SURFACE_MAP_20261115.md. The next required proof is the sanitized, read-only VBA write-surface audit for the three distinct candidates. This inventory does not certify any candidate as the complete synthetic integration workbook and does not authorize changes to frozen workbooks.
