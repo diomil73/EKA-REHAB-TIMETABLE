@@ -170,3 +170,15 @@ This is a **source regression GREEN** checkpoint only. It is not native Excel sa
 ### Next safe project phase
 
 Proceed with the **full DIOMIL synthetic integration workbook** plan, not an afternoon-only preview. The immediate engineering task is a read-only architecture/data-surface audit of the current compatible application baseline: identify the exact workbook shell/component source and inventory every patient/staff-bearing sheet, hidden/veryHidden surface, named range, formula/cache, VBA component and linked identity/assignment/history table. Then design a deterministic synthetic roster and prove full-workbook synthetic provenance before any native installer or Excel write operation. Keep the accepted/frozen H2-H8 artifacts and populated operational workbook immutable.
+
+
+## 8. Repository workbook-builder boundary discovered after the full regression
+
+Read-only source inspection of `Python/tools/build_unified_preview.py` and `Python/rehab_excel/application_contract.py` confirms that the existing `UNIFIED_APP_SMOKE` builder is **not** the requested complete DIOMIL test workbook. Its documented build sequence combines registration menu/forms, patient registration bridge, patient edit flow, outpatient schedule form, outpatient conflict guard, DAILY_INPUT, MASTER projection/navigation/visual styling. Its application contract checks a specific set of 25 VBA components plus `OUTPATIENT_SCHEDULE` and `DAILY_CHANGE_LEDGER`; it does not by itself prove integration of the complete H2-H8 history/dashboard workflows, all clinical scheduling mechanisms, all management exports, or the 15-day patient progress feature.
+
+The repository currently tracks only one binary Excel workbook: `Rehab_Center_System_v27_1.xlsm` (309,543 bytes in the reviewed tree). It is a populated clinical baseline and remains excluded from all synthetic fixture writes. There are no tracked XLSM/XLSX files under `Excel/` in this branch. The accepted/frozen previews referenced in the checkpoint matrix are local artifacts, not tracked repository files.
+
+Therefore:
+- Do not run `build_unified_preview.py` against the tracked baseline as a shortcut to the full synthetic test artifact.
+- Do not treat `UNIFIED_APP_SMOKE` or the H8 demo as the full application test workbook.
+- Next selection step is a read-only local manifest of all existing XLSM/XLSX candidates (full path, exact filename, size, last-write timestamp). Then cross-reference candidates with the native acceptance matrix and provenance evidence; do not open or modify any candidate during the manifest step.
