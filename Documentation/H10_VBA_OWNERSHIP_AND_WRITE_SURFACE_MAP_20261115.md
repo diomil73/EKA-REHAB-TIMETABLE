@@ -113,3 +113,12 @@ The write-surface report must end with VBA WRITE-SURFACE AUDIT COMPLETE and SOUR
 ## 7. Demo acceptance boundary
 
 The end goal remains a functional synthetic demo with the agreed patient/treatment source mapping, stable patient identities, real therapist/treatment/day/time relationships, and integrated daily operations. The actual patient source and identity mapping remain a separate private-data admission gate. This VBA inventory does not certify the workbook as a whole-program synthetic fixture and does not authorize patient-data import.
+
+
+## First write-surface audit result — 2026-11-15
+
+The uploaded 18:50 audit was safely incomplete on all three distinct candidates. The same module, modTherapistHistoryReport, contained 265 matched source lines, while the earlier auditor emitted only 200 per component. The reports printed 1,331 operations and marked output incomplete; component headers indicated 1,396 total matched operations. All three workbooks were opened read-only with macros/events disabled, their SHA-256 fingerprints remained unchanged, and no workbook was modified.
+
+The auditor cap has since been raised to 500 per component and 5,000 total. A regression test protects the known 265-per-component and 1,396-total inventory. The classifier now distinguishes direct Value/Value2/Formula assignment from read/access lines. This remains static source-pattern evidence and requires review before treating any candidate as a confirmed mutation.
+
+Rerun the focused tests, full regression, and all three distinct native candidates with the updated branch. Accept only complete, uncapped reports with unchanged source hashes.
