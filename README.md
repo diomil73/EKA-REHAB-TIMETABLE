@@ -36,3 +36,8 @@ Development order remains:
 - Real workbook writes use native Microsoft Excel/COM on Windows after the required safety checks.
 
 For current status, exact resume point and implementation ownership, follow the document map inside `Documentation/ONBOARDING.md`.
+
+
+## 2026-11-15 — Project-wide delivery register
+
+The consolidated, evidence-based project delivery report is `Documentation/PROJECT_DELIVERY_MASTER_REPORT_20261115.md`. It brings together the H2–H10 delivery evidence, Recovery track, outpatient/registration/recurring-change workstreams, real-source admission, afternoon scope, protection gates and remaining release blockers. It does not replace specialist proofs or change any frozen artifact. Use `Documentation/CURRENT_HANDOFF.md` for the exact next operator action.
