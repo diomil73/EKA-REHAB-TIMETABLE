@@ -33,6 +33,11 @@ _OPERATION = re.compile(
 )
 
 
+_CALL_EDGE = re.compile(
+    r"^\\s+POSSIBLE_CALL_EDGE caller=(\\S+) line=(\\d+) callee=(\\S+)$"
+)
+
+
 class EvidenceError(ValueError):
     """Incomplete, inconsistent or invalid read-only audit evidence."""
 
@@ -74,6 +79,7 @@ def _parse_block(block: str) -> dict:
     components: dict[str, tuple] = {}
     operations: list[tuple] = []
     profiles: list[tuple] = []
+    call_edges: list[tuple] = []
     component_name: str | None = None
     for line in rows:
         match = _COMPONENT.match(line)
@@ -102,6 +108,15 @@ def _parse_block(block: str) -> dict:
                  match.group(3), match.group(4) or "")
             )
             continue
+        match = _CALL_EDGE.match(line)
+        if match:
+            if component_name is None:
+                raise EvidenceError(f"{name}: call edge without component")
+            call_edges.append(
+                (component_name, match.group(1), int(match.group(2)),
+                 match.group(3))
+            )
+            continue
         match = _PROFILE.match(line)
         if match:
             if component_name is None:
@@ -122,6 +137,7 @@ def _parse_block(block: str) -> dict:
         "components": components,
         "operations": operations,
         "profiles": profiles,
+        "call_edges": call_edges,
         "operation_count": len(operations),
         "categories": Counter(item[3] for item in operations),
     }
@@ -143,6 +159,8 @@ def verify_report(path: Path) -> list[dict]:
             raise EvidenceError(f"{other['name']}: operation metadata mismatch")
         if baseline["profiles"] != other["profiles"]:
             raise EvidenceError(f"{other['name']}: procedure-profile fingerprint mismatch")
+        if baseline["call_edges"] != other["call_edges"]:
+            raise EvidenceError(f"{other['name']}: possible-call-edge mismatch")
     return reports
 
 
@@ -163,6 +181,7 @@ def main() -> int:
     print("Nonempty component metadata records:", len(baseline["components"]))
     print("Operation-pattern matches per workbook:", baseline["operation_count"])
     print("Procedure-profile hashes:", len(baseline["profiles"]))
+    print("Possible call-edge references:", len(baseline["call_edges"]))
     print("Native workbooks untouched: auditor evidence only")
     for category, count in sorted(baseline["categories"].items()):
         print(f"  {category}: {count}")
