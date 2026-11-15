@@ -74,10 +74,24 @@ if ($LASTEXITCODE -ne 0) {
 $env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
 
 # Focused tests for both read-only auditors.
-python -m pytest `
-  Tests/test_audit_integrated_workbook_structure.py `
-  Tests/test_audit_vba_project_inventory.py -q
-if ($LASTEXITCODE -ne 0) {
+$focusedLog = Join-Path $PWD (
+    "DIOMIL_FOCUSED_AUDIT_TESTS_{0}.txt" -f (Get-Date -Format "yyyyMMdd_HHmmss")
+)
+$previousEAP = $ErrorActionPreference
+try {
+    $ErrorActionPreference = "Continue"
+    python -m pytest `
+      Tests/test_audit_integrated_workbook_structure.py `
+      Tests/test_audit_vba_project_inventory.py -q *> $focusedLog
+    $focusedCode = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousEAP
+}
+"EXIT CODE: $focusedCode" | Add-Content -LiteralPath $focusedLog
+Get-Content -LiteralPath $focusedLog -Tail 18
+if ($focusedCode -ne 0) {
+    Write-Host "FOCUSED TEST REPORT: $focusedLog"
     throw "SAFETY STOP: Focused auditor tests failed"
 }
 
