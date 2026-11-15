@@ -2125,3 +2125,19 @@ Next: finish the targeted review of the 9 non-empty unmatched components and ins
 ### Reconciliation count clarification
 
 The 32-component no-match reconciliation (23 zero-code + 9 non-empty) is grounded in the 67-component inventory candidate and applies to the two 67-component reports. The CC read-only probe has 66 components and the same 35 matched components, so its arithmetic remainder is 31, not 32. Its candidate-specific component inventory has not yet been reconciled item-by-item; do not project the 23/9 breakdown onto that 66-component workbook. The two worksheet-module display-name aliases are normalized only when matching against the 67-component inventory.
+
+
+## 2026-11-15 — targeted source review of unmatched components
+
+Reviewed the tracked generators and regression tests for the named components that had no worksheet-write pattern:
+- modRegistrationMenu: ShowRegistrationMenu only displays frmRegistrationMenu modelessly. The UserForm routes to patient, therapist, student and outpatient UI. No direct worksheet writes in this module.
+- modOutpatientSchedule: ShowOutpatientScheduleForm only opens frmOutpatientSchedule. The form reads PATIENTS and SETTINGS, sends the request to outpatient_schedule_bridge_cli.py, receives a verified preview path and source SHA-256, then launches authoritative_commit_worker_cli.py. The actual workbook mutation is delegated to the Python preview/commit path, not performed by direct VBA cell assignments.
+- modOutpatientScheduleManager: entry macro opens the manager form. The form reads OUTPATIENT_SCHEDULE to display records and delegates create/edit to the outpatient form/edit module. Its own direct role is list/navigation, not schedule writeback.
+- modSchedulingConflict: modal confirmation dialog for therapist double-booking. Defaults to change/cancel; only returns the user's explicit Accepted decision. No workbook writes in this module.
+- modDoubleBookingReview: not a no-op. It deletes and writes temporary JSON/TSV request/response files, launches Python preparation/apply/authoritative-commit tools, and closes the source workbook before the authoritative worker commits and reopens it. This is an external file/process/workbook-lifecycle surface and the old worksheet-only detector missed it.
+
+Existing regression coverage was inspected: Tests/test_registration_menu_vba.py, Tests/test_double_booking_review_vba.py, Tests/test_outpatient_schedule_form_vba.py, Tests/test_outpatient_schedule_manager_vba.py and Tests/test_scheduling_conflict_popup_vba.py. These tests assert the UI contracts, bridge/worker wiring, source/preview separation and authoritative commit handoff. They are source-contract tests, not proof of a native end-to-end runtime click path in the H10 candidates.
+
+Module5 (1 code line), Module6 (26 lines), and two worksheet/document modules (19 and 12 lines) still require identity/procedure review. Their native VBA source is not available in the repository's tracked generator files. Do not guess their purpose. The next auditor revision reports procedure identifiers and worksheet names for every non-empty component with no current pattern match, without printing VBA source text. It also scans external file I/O, process launches and workbook close calls, in addition to worksheet mutation surfaces.
+
+Next operator gate: pull the latest branch; run focused auditor tests, full pytest regression, and the same three-candidate read-only native audit. Inspect the NO_PATTERN_MATCH_COMPONENT records, especially Module5, Module6 and the two worksheet modules. Preserve all workbook hashes.
