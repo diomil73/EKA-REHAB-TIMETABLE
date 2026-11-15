@@ -118,3 +118,13 @@ def test_native_installer_checks_source_and_reopen_without_patient_logging():
     assert "_roster(book)" in source
     assert "xlSheetVeryHidden" not in source or "ws.Visible = 2" in source
     assert "item.patient_id" not in source
+
+
+def test_cli_requires_explicit_disposable_synthetic_confirmation(tmp_path, capsys):
+    from tools.build_afternoon_minimal_panel_preview import main
+    source = tmp_path / "SYNTH_INPUT.xlsm"
+    source.write_bytes(b"synthetic")
+    output = tmp_path / "SHOULD_NOT_EXIST.xlsm"
+    assert main(["--source", str(source), "--output", str(output)]) == 2
+    assert not output.exists()
+    assert "SAFETY STOP" in capsys.readouterr().out
