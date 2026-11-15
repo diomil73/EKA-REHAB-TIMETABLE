@@ -88,3 +88,10 @@ No real patient row has been admitted by this design document. No real-data impo
 The read-only provenance audit is now implemented in `trial_source_alignment.py`, with private local CLI `audit_trial_source_alignment.py` and synthetic tests. It compares source row/name/context and weekly source-cell references without printing identities or source paths. GitHub Actions run `43751221120` passed 200 focused tests on both operating systems and 1,869 full regression tests on both operating systems. This is source/test evidence only, not native Excel or import acceptance.
 
 The uploaded private source/review pair was separately cross-checked without exposing patient values: source-row/name/context and staged source-cell references aligned; blank A context remains blank. Identity approval and all source/conflict holds remain unresolved. The next implementation should bind the original programme hash into the import plan and add complete patient-registry projection before any native writer.
+
+ 
+## 2026-11-15 — operator decision: weekday-only schedule and blank day cells
+
+Operator clarification: **there are no Saturday/Sunday treatments; the operating treatment week is Monday through Friday (ΔΕ–ΠΑ).** For source import interpretation, when a treatment's corresponding time/value is present but its weekday cell is blank, interpret that treatment as recurring Monday–Friday. Never generate Saturday or Sunday sessions. A missing treatment time/value means no session is created; do not create a weekday slot from a blank day cell alone.
+
+Implementation must keep this as an explicit source-import rule (pass `implicit_daily=True` only for the relevant source mapping when a treatment value exists and its day cell is blank), rather than changing the general parser default for unrelated callers. Add synthetic regression coverage for blank-day + present-time => exactly ΔΕ, ΤΡ, ΤΕ, ΠΕ, ΠΑ and zero weekend entries; blank-time + blank-day => zero entries. Preserve explicitly supplied weekday patterns unchanged.
