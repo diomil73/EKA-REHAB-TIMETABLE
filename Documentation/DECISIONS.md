@@ -343,3 +343,12 @@ Current source/test status remains **NOT RUN after these commits**. The prior 1,
 ## 2026-11-15 — Project-wide delivery register
 
 The consolidated, evidence-based project delivery report is `Documentation/PROJECT_DELIVERY_MASTER_REPORT_20261115.md`. It brings together the H2–H10 delivery evidence, Recovery track, outpatient/registration/recurring-change workstreams, real-source admission, afternoon scope, protection gates and remaining release blockers. It does not replace specialist proofs or change any frozen artifact. Use `Documentation/CURRENT_HANDOFF.md` for the exact next operator action.
+
+
+## 2026-11-15 — integrated demo source admission decisions
+
+- The target demo must be built from the operator's reviewed patient/treatment source and agreed mapping; a synthetic-only workbook is a test fixture, not the final demo target.
+- The source schema includes the supplied A:T mapping and additional U/V afternoon/pool fields. Do not silently omit U/V.
+- Identity matching suggestions, including exact-name suggestions, are not identity approval. No patient row may be activated/imported without explicit confirmation and conflict/source-hold resolution.
+- Private patient source/review workbooks and patient-level audit output must remain outside the public repository and public logs.
+- The engineering order is synthetic A:V fixture -> parser/projection tests -> isolated native write/readback design -> private admission review -> operator acceptance. Frozen H10 evidence workbooks remain immutable.
