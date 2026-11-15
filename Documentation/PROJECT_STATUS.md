@@ -1,16 +1,24 @@
 # Project Status
 
-Last updated: 2026-11-12
+Last updated: 2026-11-15
 
 ## Entry point
 
 New developers and new contexts start from `Documentation/ONBOARDING.md`. This file tracks milestone state, risks and immediate roadmap only.
 
-Branch: `work/history-statistics-rebuild`.
+Branch: `work/afternoon-medical-scope-20261115`.
 
-## Current stage
+## Current continuation — 2026-11-15
 
-Active milestone: **H7 report-protection correction, followed by final worksheet edit-protection hardening**.
+Active milestone: **H10 native VBA ownership reconciliation, followed by the sanitized write-surface audit and synthetic integration planning**.
+
+The native VBA inventory is complete for three distinct H10 candidate projects: 67, 67 and 66 components. The fourth candidate is byte-identical to the 66-component candidate. All three source hashes remained unchanged and no workbook was modified. Thirty named application components have preliminary tracked-source ownership; 37 generic/worksheet document components remain unresolved. The next operator gate is focused auditor tests, full source regression, then the sanitized read-only write-surface audit for the three distinct candidates. Do not begin blanket protection changes or synthetic workbook construction until this reconciliation is complete.
+
+Detailed continuation: `Documentation/CURRENT_HANDOFF.md`. Component map: `Documentation/H10_VBA_OWNERSHIP_AND_WRITE_SURFACE_MAP_20261115.md`.
+
+## Historical stage snapshot — 2026-11-12
+
+The following H7 protection status is retained as a historical snapshot from the previous status update, not as the active milestone.
 
 The operational scheduling/reconstruction and H2-H7 history/statistics functional slices have substantial native green evidence. H7's integrated toolbar, RefreshAll, patient and therapist report surfaces, report modes and previous-screen navigation were manually accepted on frozen disposable BF. The remaining immediate issue is not report functionality: the later BH protection audit exposed a patient-report installer protection regression. The source correction is committed, but the 33-test gate and fresh BI native proof are still pending.
 
