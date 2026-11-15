@@ -128,3 +128,9 @@ def test_malformed_native_form_with_crlf_still_fails_closed():
             PATIENT_PROGRAM_MODULE_CODE.replace("\n", "\r\n"),
             "Option Explicit\r\nNoMatchingFormMarker\r\n",
         )
+
+
+
+def test_overflow_label_describes_extra_sessions_not_days():
+    assert "... και άλλες συνεδρίες." in FORM_HELPER
+    assert "... και άλλες ημέρες." not in FORM_HELPER
