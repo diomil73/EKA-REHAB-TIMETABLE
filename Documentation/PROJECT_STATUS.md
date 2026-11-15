@@ -1729,3 +1729,10 @@ The expanded H10 call-edge gate is now **accepted**: 45 focused tests passed; fu
 The next product milestone is one integrated Excel demo based on the operator's reviewed patient/treatment source. The two required private source/review workbooks are already available in the conversation context and have been inspected locally. Keep them out of GitHub. The source programme uses the supplied A:T mapping plus U/V afternoon/pool fields. Identity suggestions are not approvals; patient identity and source conflict holds remain fail-closed. No real-data import or integrated real-data XLSM is accepted yet.
 
 Immediate engineering work: reconcile the source schema against the existing read-only trial admission/preflight/import-plan/weekly-projection modules; create a synthetic A:V source-shaped fixture; prove parser/projection roundtrip before implementing any native writer.
+
+
+## 2026-11-15 — A:V real-source demo schema design
+
+Added `Documentation/TRIAL_SOURCE_SCHEMA_AND_IMPORT_DESIGN_20261115.md` as the current source-to-demo design contract. It records the operator's A:T mapping, the additional U/V afternoon/pool fields, the boundaries of the existing read-only admission/import-plan/weekly-projection modules, and the required architecture for source alignment, patient registry projection, full recurring schedule projection, synthetic end-to-end tests and later native Excel acceptance.
+
+Important unresolved rules are explicit rather than guessed: blank weekday semantics; missing A context handling; U/V operational scope; and fresh operator instructions for reclining replacement behavior at implementation time. The private identity review remains unapproved; no real-patient import or native integrated demo is authorized. Keep source workbooks and all patient-level facts outside GitHub.
