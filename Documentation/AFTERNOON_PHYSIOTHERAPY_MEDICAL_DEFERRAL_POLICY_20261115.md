@@ -485,3 +485,22 @@ The H10 helper `prepare_h10_synthetic_only_source.py` isolates synthetic history
 - Real source workbook, populated canonical workbook, frozen H10 CC, MASTER and patient data: **untouched by this work**.
 
 Do not run the native installer or preflight against the tracked populated workbook merely because its XLSM structure is valid. Next step is to identify or deliberately create a fresh integrated disposable workbook whose entire patient roster and all relevant sheets are demonstrably synthetic, while retaining the exact compatible `PatientProgramRuntime` and `frmPatientScheduling` components. If no such candidate exists, build a dedicated synthetic fixture using a reviewed data-generation/scrubbing design first; do not sanitize or repurpose the populated canonical workbook ad hoc. Once provenance is established, run structural preflight, then use a never-before-existing output path with the minimal installer only. Preserve any failed output and never retry in place.
+
+### Read-only local inventory for a possible existing disposable candidate
+
+This lists filenames only; it does not open any workbook or establish provenance:
+
+```powershell
+$files = @()
+$files += Get-ChildItem -LiteralPath (Get-Location).Path -File -Filter "*.xlsm" -ErrorAction SilentlyContinue
+$previewRoot = Join-Path (Get-Location).Path "Excel\previews"
+if (Test-Path -LiteralPath $previewRoot) {
+    $files += Get-ChildItem -LiteralPath $previewRoot -File -Filter "*.xlsm" -Recurse -ErrorAction SilentlyContinue
+}
+$files |
+    Sort-Object FullName -Unique |
+    Select-Object @{Name="RelativePath";Expression={$_.FullName.Substring((Get-Location).Path.Length + 1)}}, Length, LastWriteTime |
+    Format-Table -AutoSize
+```
+
+Do not select a candidate based on its filename or XLSM structure alone. Its creation history must establish that the patient registry and all relevant patient-bearing sheets contain only synthetic data. Never upload or paste patient rows for this inventory.
