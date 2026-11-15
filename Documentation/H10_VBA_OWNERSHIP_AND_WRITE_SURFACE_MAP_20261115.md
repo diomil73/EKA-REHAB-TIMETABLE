@@ -152,3 +152,16 @@ Tracked-source review establishes the following:
 Related regression contracts: Tests/test_registration_menu_vba.py; Tests/test_double_booking_review_vba.py; Tests/test_outpatient_schedule_form_vba.py; Tests/test_outpatient_schedule_manager_vba.py; Tests/test_scheduling_conflict_popup_vba.py. These prove source-level contracts, not native end-to-end runtime acceptance.
 
 Still unresolved: generic Module5 (1 line), generic Module6 (26 lines), and two worksheet/document modules (19 and 12 lines). No tracked generator source has been found for them. A new sanitized auditor revision reports procedure identifiers and worksheet names for non-empty no-match components and detects external file I/O, process launch and workbook-close surfaces. Run the updated audit before assigning ownership.
+
+
+## Latest continuation gate — 2026-11-15
+
+The VBA auditor was further extended after the first targeted source review:
+- emits NO_PATTERN_MATCH_COMPONENT records with escaped component name, type, line count, worksheet name when applicable, and procedure identifiers only; it never prints source text;
+- detects external file create/write/delete/read, process launches, and ThisWorkbook.Close in addition to worksheet and workbook write surfaces;
+- excludes procedure declaration lines from operation matches;
+- recognizes .Run(...) calls with or without whitespace.
+
+New focused regression tests cover procedure inventory, external I/O/process/lifecycle classification, and declaration-line exclusion. These latest changes have not yet been executed on the operator's Windows/Excel machine. The previous 1,824-pass full regression and completed native audit predate these latest changes and must not be presented as validation of them.
+
+Next operator gate: pull branch work/afternoon-medical-scope-20261115; run Tests/test_audit_vba_write_surfaces.py and the existing integrated-structure/VBA-inventory tests; run full pytest; then rerun the sanitized audit on the same three distinct H10 candidates. Upload the focused/full regression logs and final write-surface report. The new report should expose procedure identifiers for the remaining unmatched non-empty components and separately classify the external file/process operations in modDoubleBookingReview. Preserve ReadOnly=True, disabled macros/events, unchanged source hashes and no workbook modifications.
