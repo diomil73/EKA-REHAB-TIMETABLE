@@ -9,6 +9,7 @@ from rehab_excel.master_projection_writer import (
     MasterProjectionWriteError,
     Win32ComMasterProjectionBackend,
     create_master_projection_preview,
+    refresh_master_projection_in_place,
 )
 
 
@@ -244,3 +245,34 @@ def test_master_refresh_preserves_existing_visual_shell_formats():
 def test_master_refresh_does_not_force_full_workbook_recalculation():
     source = inspect.getsource(Win32ComMasterProjectionBackend.apply)
     assert "CalculateFull" not in source
+
+
+def test_date_effective_master_writer_excludes_discharge_after_last_day(tmp_path):
+    from datetime import date
+    from rehab_excel.patient_exit_source import HEADERS as EXIT_HEADERS
+    from rehab_excel.patient_registry_source import read_patient_registry
+
+    source = _book(tmp_path)
+    wb = load_workbook(source)
+    sheet = wb.create_sheet("PATIENT_EXITS")
+    sheet.append(EXIT_HEADERS)
+    sheet.append(["2", "inpatient_discharge", date(2026, 11, 16), "SYNTHETIC"])
+    wb.save(source)
+    wb.close()
+
+    count = refresh_master_projection_in_place(
+        source, backend=_FakeBackend(), target_date=date(2026, 11, 17),
+    )
+    assert count == 2
+    wb = load_workbook(source, data_only=False)
+    try:
+        formulas = [
+            wb["MASTER_SCHEDULE"].cell(row, 3).value
+            for row in range(2, 7)
+        ]
+        assert "=PATIENT_PLANNER!C3" not in formulas
+        assert "=PATIENT_PLANNER!C4" in formulas
+        assert "=PATIENT_PLANNER!C2" in formulas
+    finally:
+        wb.close()
+    assert len(read_patient_registry(source)) == 3
