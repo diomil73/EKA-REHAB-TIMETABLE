@@ -28,7 +28,7 @@ from rehab_excel.application_contract import assert_application_contract
 from rehab_excel.master_projection_writer import refresh_master_projection_in_place
 from rehab_excel.master_visual_style import apply_master_visual_style_in_place
 from rehab_excel.patient_planner_projection import planner_identity_formulas
-from rehab_excel.reader import read_base_schedule
+from rehab_excel.outpatient_schedule_source import read_unified_base_schedule
 from rehab_excel.patient_registry_source import read_patient_registry
 from rehab_excel.trial_demo_source_projection import (
     TrialDemoSourceProjection, project_trial_demo_sources,
@@ -376,7 +376,7 @@ def _verify_seed_workbook(
         loaded_sessions = Counter(
             (entry.patient_id, entry.treatment, entry.day_pattern,
              entry.start_time, entry.therapist_id)
-            for entry in read_base_schedule(stage)
+            for entry in read_unified_base_schedule(stage)
         )
     except Exception:
         raise TrialDemoNativeSeedError(
