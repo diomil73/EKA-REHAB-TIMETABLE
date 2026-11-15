@@ -421,3 +421,23 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon installer security test
 An audit found that even catching only `Designer.Controls(PANEL_LABEL)` errors could hide a real COM permission failure as "label missing." Commit `d9fcb9c` now **enumerates all existing designer control names**; any failure to access the designer/control list propagates and halts installation. Only a successful enumeration not containing `lblAfternoonState` authorizes creating that optional label. The corresponding source test was updated in `894b485`. This supersedes the previous description of handling optional label lookup errors; there is now **no catch-all missing-label exception** in that preflight. Source/native acceptance is still pending.
 
 Do not equate a structural workbook preflight or source tests with a safe production install. The only allowed future native test remains a newly created, provenance-verified **synthetic disposable** workbook; the original MASTER and frozen H10 artifacts must not be used as mutation targets.
+
+## 2026-11-15 — 34-pass targeted checkpoint; VBA native newline normalization
+
+Operator confirmed **34 passed in 8.73s** for the four focused native-installer safety test modules. No skipped tests were reported for that focused run. This does **not** prove native Excel save/reopen or usable VBA.
+
+Source audit found a native integration hazard: VBA `CodeModule.Lines` commonly supplies **CRLF** line endings, whereas the repository’s Python VBA literal strings use LF. Previously `patch_afternoon_panel_text` matched a multi-line `LoadProgramConfiguration\nEnd Sub` marker with LF only, so a valid existing Windows VBA form could incorrectly throw a marker-missing safety stop. Commit `661c8e1` normalizes VBA source to LF **before** checking its known anchors. Unknown VBA versions still fail closed; nothing is installed through a fallback or guessed form version.
+
+The installer’s post-save source readback now compares normalized newline representations and ignores only extra trailing blank lines through `_canonical_vba_source` (commit `a2baae0`). This is deliberately not a broad whitespace-ignoring comparison: changed identifiers, VBA bodies, quotes and internal lines still fail. Tests: `Tests/test_afternoon_patient_readonly_vba.py` now covers native CRLF, CR and idempotence (commit `7c8ef65`), and `Tests/test_afternoon_minimal_native_installer.py` checks the readback canonicalizer (commit `db98fe6`). These **new tests have not yet been confirmed green** by the operator. No Excel file was opened by this code change.
+
+### Next focused safe source gate, no native Excel
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_afternoon_minimal_native_installer.py Tests/test_afternoon_patient_readonly_vba.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_native_preflight.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: native-VBA newline safety regression failed" }
+```
+
+If green, a future native proof still requires verifying a **newly created, truly synthetic, disposable integrated XLSM** with the expected pre-existing `PatientProgramRuntime` and `frmPatientScheduling`. The structural XLSM preflight, file extension, or CLI confirmation flag is not sufficient proof of synthetic provenance. Never run the native installer on the original clinical workbook, frozen H10 CC, a prior approved smoke, or the canonical MASTER. No afternoon PM write path or patient migration has been authorized.
