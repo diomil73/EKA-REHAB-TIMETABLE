@@ -81,6 +81,8 @@ def _parse_block(block: str) -> dict:
     profiles: list[tuple] = []
     call_edges: list[tuple] = []
     component_name: str | None = None
+    declared_match_counts: dict[str, int] = {}
+    observed_match_counts: Counter[str] = Counter()
     for line in rows:
         match = _COMPONENT.match(line)
         if match:
@@ -98,6 +100,15 @@ def _parse_block(block: str) -> dict:
                 int(match.group(3)),
                 fingerprint,
             )
+            if line.startswith("COMPONENT "):
+                matched_count = re.search(r"matched_operations=(\\d+)", line)
+                if matched_count is None:
+                    raise EvidenceError(
+                        f"{name}: missing component matched-operations count"
+                    )
+                declared_match_counts[component_name] = int(
+                    matched_count.group(1)
+                )
             continue
         match = _OPERATION.match(line)
         if match:
@@ -107,6 +118,7 @@ def _parse_block(block: str) -> dict:
                 (component_name, match.group(1), int(match.group(2)),
                  match.group(3), match.group(4) or "")
             )
+            observed_match_counts[component_name] += 1
             continue
         match = _CALL_EDGE.match(line)
         if match:
@@ -126,7 +138,22 @@ def _parse_block(block: str) -> dict:
                  int(match.group(3)), int(match.group(4)), match.group(5),
                  match.group(6))
             )
+            continue
+        # Unknown audit records are not silently dropped from an
+        # otherwise successful comparison.
+        if (
+            line.lstrip().startswith(
+                ("procedure=", "PROCEDURE_PROFILE", "POSSIBLE_CALL_EDGE")
+            )
+            or line.startswith(("COMPONENT ", "NO_PATTERN_MATCH_COMPONENT "))
+        ):
+            raise EvidenceError(f"{name}: malformed audit record")
 
+    for recorded_component, expected_count in declared_match_counts.items():
+        if observed_match_counts[recorded_component] != expected_count:
+            raise EvidenceError(
+                f"{name}: component match count mismatch: {recorded_component}"
+            )
     total_marker = re.findall(r"^Matched operations: (\d+)$", block, flags=re.MULTILINE)
     if len(total_marker) != 1 or int(total_marker[0]) != len(operations):
         raise EvidenceError(f"{name}: matched-operations count mismatch")
