@@ -48,6 +48,14 @@ def _procedure_names(lines: list[str]) -> list[str]:
 
 
 def _operation(line: str) -> tuple[str, str | None]:
+    if re.search(r"\\bKill\\s+|\\b(?:FileCopy|MkDir|RmDir)\\s+|\\bOpen\\s+.+\\s+For\\s+(?:Output|Append|Binary)\\b|\\b(?:Print|Put|Write)\\s*#|\\.(?:SaveToFile|DeleteFile)\\b|\\bWriteUtf8Text\\s*(?:\\(|\\b)", line, re.IGNORECASE):
+        return "external_file_write_or_delete", None
+    if re.search(r"\\bReadUtf8Text\\s*(?:\\(|\\b)|\\.(?:LoadFromFile|ReadText)\\b", line, re.IGNORECASE):
+        return "external_file_read", None
+    if re.search(r"\\bRunHidden\\s*(?:\\(|\\b)|WScript\\.Shell|\\.Run\\s+", line, re.IGNORECASE):
+        return "external_process_launch", None
+    if re.search(r"\\bThisWorkbook\\.Close\\b", line, re.IGNORECASE):
+        return "workbook_close", None
     sheet = re.search(r'\b(?:Worksheets|Sheets)\s*\(\s*"([^"]+)"', line, re.IGNORECASE)
     target = sheet.group(1) if sheet else None
     if re.search(r"\.\s*Unprotect\b", line, re.IGNORECASE):
