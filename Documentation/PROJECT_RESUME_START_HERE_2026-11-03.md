@@ -1,5 +1,9 @@
 # START HERE: Diomil / EKA-REHAB-TIMETABLE
 
+## 2026-11-16 — IMPORTANT: newer real-data DEMO priority
+
+This file preserves the **November 3 historical state**. It is superseded as today's starting point by `Documentation/ONBOARDING.md` and `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`. Current branch: `work/afternoon-medical-scope-20261115`; green engineering CI `9fcc6108` / `43769366651` (1.960 on Windows/Linux). The user explicitly requires an integrated **real current manual-data** pilot for practical comparison. Synthetic H8/CC files are test fixtures only, not the accepted operator DEMO. Native real-source workbook/operator workflow is NOT yet delivered. Preserve old H2-H10 historical proofs as they were.
+
 **Checkpoint date:** 2026-11-03  
 **Repository:** `diomil73/EKA-REHAB-TIMETABLE`  
 **Working branch:** `work/history-statistics-rebuild`  

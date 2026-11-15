@@ -1,5 +1,9 @@
 # Project Continuity Master — 2026-11-01
 
+## 2026-11-16 — IMPORTANT: newer real-data DEMO priority
+
+This November 1 continuity narrative remains historical architecture context, not the latest work order. Updated goal: private side-by-side operator testing of a **real current** manual source in one Diomil .xlsm, with actual patients, weekdays (Mon–Fri), times, treatments, therapists and workflows. Not synthetic-only. All real clinical data remain local/off public GitHub. New authoritative status, safety gates, remaining blockers and full delivery update: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md` and `Documentation/CURRENT_HANDOFF.md`. Existing frozen H checkpoints are not rewritten.
+
 This document is the authoritative continuity anchor for the EKA Rehab Timetable project.
 
 It exists so that a new ChatGPT conversation, developer, or long-gap return can resume without losing the accumulated technical knowledge, without repeating failed experiments, and without drifting away from the operational goals of the rehabilitation center.

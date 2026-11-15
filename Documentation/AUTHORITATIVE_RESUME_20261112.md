@@ -1,5 +1,9 @@
 # DIOMIL authoritative operator and developer handoff, 2026-11-12
 
+## 2026-11-16 — IMPORTANT: newer real-data DEMO priority
+
+This is a **historical checkpoint** at the former `work/history-statistics-rebuild` branch, not the latest operator instruction. Current branch: `work/afternoon-medical-scope-20261115`. The operator requires an evaluation XLSM using the **actual current manual patient/treatment/weekday/time/provider data**, not synthetic appointments. All private clinical data stay off GitHub. The most recently fully GREEN code-only CI was `9fcc6108` / `43769366651` (1.960 tests Windows/Linux); **no native real-data Excel pilot has been delivered**. For current status, blockers and complete handoff read `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`, then `Documentation/CURRENT_HANDOFF.md`. Do not execute obsolete commands here as active instructions.
+
 **READ THIS FIRST AFTER ONBOARDING.** This document consolidates the last verified results and active boundaries. Older dated H7/H8/H10 instructions are history, not commands to repeat. The current repository branch is `work/history-statistics-rebuild`.
 
 ## 1. Actual product target and priorities

@@ -1,5 +1,9 @@
 # READ FIRST — επόμενη κοινή συνεδρία για στατιστικά θεραπευτών
 
+## 2026-11-16 — IMPORTANT: newer real-data DEMO priority
+
+Preserved as H10 historic resume guidance only. **Do not prioritize another H10 synthetic proof ahead of the real-data evaluation workbook.** Current operator must compare a private, recent real manual source against the Diomil XLSM; random patient/time fixtures cannot establish acceptance. The current branch and latest green engineering CI are in `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`. No real-data native XLSM has been validated yet.
+
 **Ο χρήστης ζήτησε ρητά να καταγραφούν οι απαιτήσεις, ΟΧΙ να υλοποιηθούν σήμερα.** Μην επαναλαμβάνεις ερωτήσεις που έχουν απαντηθεί. Μην ξεκινάς Excel installation χωρίς source GREEN.
 
 ## Μοναδικός πλήρης οδηγός προδιαγραφών

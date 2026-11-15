@@ -1,5 +1,9 @@
 # H8/H9 Synthetic Multiweek History Demo
 
+## 2026-11-16 — IMPORTANT: newer real-data DEMO priority
+
+This H8 synthetic history plan is an **engineering regression fixture only**. Per the 2026-11-16 user instruction, do not offer or label it the evaluation DEMO. The user requires actual current private manual patient/time/therapy/provider records in a separate XLSM for side-by-side functional validation. H8 test history cannot be promoted to real delivered-care records. Detailed current contract and acceptance status: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`.
+
 Updated 2026-11-08. This is a **TEST-ONLY** workflow. Do not use these snapshots as clinical history or mix them into operational data.
 
 ## Objective
