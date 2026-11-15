@@ -218,6 +218,10 @@ def audit_trial_source_alignment(
                 if time_col not in {col for col, _ in refs}:
                     ref_mismatches += 1
                     continue
+                time_value = src.cell(source_row, ord(time_col) - 64).value
+                if not _clean(time_value):
+                    ref_mismatches += 1
+                    continue
                 refs_checked += len(refs)
 
             if schedule_identity_mismatches:
