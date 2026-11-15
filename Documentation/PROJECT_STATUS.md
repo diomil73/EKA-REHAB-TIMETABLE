@@ -1720,3 +1720,12 @@ Following the accepted 20:31 bundle, two further **read-only** analysis improvem
 **Validation boundary:** these new commits are after the accepted 38-focused / 1,854-full result and have not yet been run by the operator. They must not inherit that earlier GREEN. The next local action is one execution of the updated PowerShell gate with Excel closed. The new script still does not save or modify any XLSM.
 
 After this proof, proceed to the full synthetic integration workbook design/build. The real-source file named `DIOMIL_ΕΛΕΓΜΕΝΗ_ΜΕΤΑΦΟΡΑ_ΠΗΓΗΣ_ΠΡΟΣ_MASTER_20261112.xlsx` was not found among the currently available Project attachments; do not guess its local location or commit it. When the real-data admission milestone is reached, ask the operator to supply the reviewed source privately and follow `REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`. The A:T column mapping already supplied in the conversation is retained as the operator's source-schema reference; the reclining-treatment replacement rule still requires the operator's fresh clinical instructions at the point of implementation.
+
+
+## 2026-11-15 20:50 — latest operator gate and real-source demo intake
+
+The expanded H10 call-edge gate is now **accepted**: 45 focused tests passed; full regression 1,856 passed, 1 skipped, 26 warnings; three distinct H10 candidates completed read-only VBA and structure audits with unchanged source hashes and no workbook modifications. See the 20:50 evidence appendix in `CURRENT_HANDOFF.md` and `PROJECT_DELIVERY_MASTER_REPORT_20261115.md`.
+
+The next product milestone is one integrated Excel demo based on the operator's reviewed patient/treatment source. The two required private source/review workbooks are already available in the conversation context and have been inspected locally. Keep them out of GitHub. The source programme uses the supplied A:T mapping plus U/V afternoon/pool fields. Identity suggestions are not approvals; patient identity and source conflict holds remain fail-closed. No real-data import or integrated real-data XLSM is accepted yet.
+
+Immediate engineering work: reconcile the source schema against the existing read-only trial admission/preflight/import-plan/weekly-projection modules; create a synthetic A:V source-shaped fixture; prove parser/projection roundtrip before implementing any native writer.
