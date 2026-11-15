@@ -206,7 +206,7 @@ def test_joined_demo_projection_preserves_both_sheets_and_roundtrips(tmp_path):
         clinical_approvals=_approval(),
     )
     assert joined.patients == joined.patient_registry.patient_count == 1
-    assert joined.weekday_slots == joined.weekly_slots.row_count == 1
+    assert joined.weekday_slot_count == joined.weekly_slots.row_count == 1
     assert "DEMO-1" not in repr(joined)
     assert joined.patient_registry.rows[0][0] == joined.weekly_slots.rows[0][0]
     weekly = Workbook()
@@ -274,7 +274,7 @@ def test_source_parity_requires_all_five_days_when_source_day_is_blank(tmp_path)
         plan, programme=programme, review=review, intake=intake,
         clinical_approvals=_approval(),
     )
-    assert joined.weekday_slots == 5
+    assert joined.weekday_slot_count == 5
     assert [r[2] for r in joined.weekly_slots.rows] == [
         "ΔΕ", "ΤΡ", "ΤΕ", "ΠΕ", "ΠΑ",
     ]
