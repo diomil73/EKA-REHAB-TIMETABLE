@@ -317,3 +317,10 @@ The consolidated, evidence-based project delivery report is `Documentation/PROJE
 The 20:50 expanded H10 call-edge gate is accepted: 45 focused tests passed; full regression 1,856 passed / 1 skipped / 26 warnings; three distinct H10 workbooks completed read-only VBA and structure audits with unchanged hashes and no modifications. See `CURRENT_HANDOFF.md` and `PROJECT_DELIVERY_MASTER_REPORT_20261115.md`.
 
 The product target is a single functional Excel demo using the operator-reviewed patient/treatment source. The two private source and identity-review workbooks are already available in the conversation context. Do not ask for re-upload and do not commit either workbook or patient data. The operator's A:T mapping remains the core schema; U/V contain additional afternoon and pool fields. Identity suggestions are not approvals. Build and test the source-shaped parser/projection with synthetic data first; real-patient admission remains separately gated.
+
+
+## 2026-11-15 — A:V real-source demo schema design
+
+Added `Documentation/TRIAL_SOURCE_SCHEMA_AND_IMPORT_DESIGN_20261115.md` as the current source-to-demo design contract. It records the operator's A:T mapping, the additional U/V afternoon/pool fields, the boundaries of the existing read-only admission/import-plan/weekly-projection modules, and the required architecture for source alignment, patient registry projection, full recurring schedule projection, synthetic end-to-end tests and later native Excel acceptance.
+
+Important unresolved rules are explicit rather than guessed: blank weekday semantics; missing A context handling; U/V operational scope; and fresh operator instructions for reclining replacement behavior at implementation time. The private identity review remains unapproved; no real-patient import or native integrated demo is authorized. Keep source workbooks and all patient-level facts outside GitHub.
