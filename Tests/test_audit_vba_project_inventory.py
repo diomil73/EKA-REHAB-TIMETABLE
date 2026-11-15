@@ -16,6 +16,8 @@ def test_native_inventory_is_read_only_and_disables_macros_and_events():
     assert "AutomationSecurity = 3" in source
     assert "EnableEvents = False" in source
     assert "Calculation = -4135" in source
+    assert "manual calculation mode unavailable" in source
+    assert "calculation_manual" in source
     assert "ReadOnly=True" in source
     assert "UpdateLinks=0" in source
     assert "workbook.Close(SaveChanges=False)" in source
@@ -93,5 +95,6 @@ def test_native_inventory_reports_com_failure_stage_and_hresult_without_source()
     assert 'stage = "enumerating VBA components"' in source
     assert "COM HRESULT:" in source
     assert "COM DESCRIPTION:" in source
-    assert "VBA SOURCE TEXT" not in source
-    assert "CELL VALUES OR FORMULAS" not in source
+    assert "CodeModule.Lines(" not in source
+    assert ".Formula" not in source
+    assert "workbook.Save(" not in source
