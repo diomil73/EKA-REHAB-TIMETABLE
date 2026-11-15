@@ -125,7 +125,7 @@ def test_call_edge_metadata_reconciles(tmp_path):
         blocks[i] = block.replace(
             "Matched operations: 1",
             "  POSSIBLE_CALL_EDGE caller=Worksheet_Change line=12 "
-            "callee=RefreshTherapistDaily\\nMatched operations: 1",
+            "callee=RefreshTherapistDaily\nMatched operations: 1",
         )
     result = verify_report(_write(tmp_path, blocks))
     assert len(result[0]["call_edges"]) == 1
@@ -138,7 +138,7 @@ def test_call_edge_metadata_drift_is_rejected(tmp_path):
         blocks[i] = block.replace(
             "Matched operations: 1",
             "  POSSIBLE_CALL_EDGE caller=Worksheet_Change line=12 "
-            "callee=RefreshTherapistDaily\\nMatched operations: 1",
+            "callee=RefreshTherapistDaily\nMatched operations: 1",
         )
     blocks[2] = blocks[2].replace(
         "callee=RefreshTherapistDaily", "callee=RefreshMaster",
