@@ -99,3 +99,12 @@ def test_no_programme_label_change_in_morning_planner(tmp_path):
         assert "MASTER_SCHEDULE" not in book.sheetnames
     finally:
         book.close()
+
+
+def test_status_counts_sessions_not_days(tmp_path):
+    path = workbook_file(tmp_path, rows=[
+        ("SYNTH-P1", "ΦΘ", "ΔΕ", time(16), "SYNTH-PT1"),
+        ("SYNTH-P1", "ΦΘ", "ΔΕ", time(17), "SYNTH-PT1"),
+    ])
+    state = read_afternoon_patient_form_state(path, patient_id="SYNTH-P1")
+    assert afternoon_form_status(state) == "Απογευματινή ΦΘ: 2 καταχωρισμένες συνεδρίες."
