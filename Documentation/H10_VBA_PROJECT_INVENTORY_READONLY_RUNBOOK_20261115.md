@@ -156,3 +156,16 @@ The third/fourth pair should show a byte-identical duplicate skip. If the VBA pr
 ## Next engineering step after successful inventory
 
 Compare the component inventories across the three distinct VBA projects. Then map existing VBA write surfaces, UserForms and Python installers to the acceptance matrix. Only after this mapping should a new, unique, fully synthetic disposable workbook be designed/built. The frozen H10 files remain immutable and are not the final writable test workbook.
+
+
+## Follow-up after successful native inventory
+
+Once the operator has uploaded a report ending with ALL DISTINCT VBA PROJECT INVENTORIES COMPLETE, use Documentation/H10_VBA_OWNERSHIP_AND_WRITE_SURFACE_MAP_20261115.md as the reconciliation register.
+
+The next gate is:
+1. Focused tests: Tests/test_audit_integrated_workbook_structure.py, Tests/test_audit_vba_project_inventory.py and Tests/test_audit_vba_write_surfaces.py.
+2. Full source regression.
+3. Sanitized read-only VBA write-surface audit for the three distinct H10 candidates. The audit now accepts multiple workbook paths, skips byte-identical duplicates, disables macros/events, opens read-only, reports Unicode-safe component/worksheet names and operation metadata only, and verifies SHA-256 before/after.
+4. Reconcile all generic standard modules and worksheet/document modules before any protection implementation or synthetic integration build.
+
+Do not enable Trust Center / AccessVBOM, unlock a project, modify frozen workbooks, or treat the inventory as whole-workbook synthetic certification.
