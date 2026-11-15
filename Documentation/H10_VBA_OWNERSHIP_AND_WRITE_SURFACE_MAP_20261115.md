@@ -236,3 +236,12 @@ The read-only VBA auditor now emits additional metadata for components with no o
 It does not emit VBA source lines, literals, patient names, cell values, or formulas. This is intended to compare the embedded implementations across the three native candidates and provide a safe structural profile for the four remaining native-only components (ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6, Module5).
 
 New regression tests cover source redaction, stable procedure hashes, profile counts and the emitted metadata contract. These latest profile changes have NOT yet been executed locally. The previously reported 24 focused passes / 1,829 full passes validate the preceding auditor revision, not this new profile revision. A fresh focused/full/native run is required before relying on the new profile output.
+
+
+## Native procedure profile acceptance and corrected event ownership — 2026-11-15
+
+See `Documentation/H10_VBA_NATIVE_PROCEDURE_PROFILE_ACCEPTANCE_20261115.md` for the profile evidence matrix and exact hash-level comparison. Latest focused tests: **27 passed**; latest full regression: **1,832 passed, 1 skipped, 26 warnings**. All three distinct read-only XLSM audits completed with unchanged hashes and 1,569 static source-pattern matches per candidate. All **44 nonempty** component metadata/operation records were equal across all three candidate reports; this is not proof of whole-module byte equivalence for all matched components.
+
+**ThisWorkbook events resolved:** Tracked `Python/rehab_excel/application_shell_vba.py::_EVENT_SPECS` installs exactly the calls and one-line bodies found in each native workbook: `Workbook_Open` / `Workbook_Activate` → `EnterApplicationShell`; `Workbook_Deactivate` / `Workbook_BeforeClose` → `ExitApplicationShell`; `Workbook_SheetActivate` → `KeepApplicationShell`. Hashes were independently recomputed and matched for each body in all three candidates. Regression test committed at `Tests/test_h10_native_workbook_event_hash_contract.py`; its execution remains pending.
+
+`Module5` has no executable procedure, and its normalized code-module source hashes to the empty SHA-256 string. Its component is preserved unchanged. Remaining native-only semantic review: `PATIENT_PLANNER.Worksheet_Change` (23 body lines, branches and calls), and `Module6` normalizers; exact caller/side-effect semantics are not established. The project-wide 37 generator/source ownership gaps are a different inventory from eight no-pattern components, and neither should be silently marked complete.
