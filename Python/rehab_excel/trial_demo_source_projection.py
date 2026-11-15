@@ -25,7 +25,7 @@ class TrialDemoSourceProjection:
     patient_registry: TrialPatientRegistryProjection = field(repr=False)
     weekly_slots: TrialWeeklyProjection = field(repr=False)
     patients: int
-    weekday_slots: int
+    weekday_slot_count: int
 
 
 def project_trial_demo_sources(
@@ -59,5 +59,5 @@ def project_trial_demo_sources(
     return TrialDemoSourceProjection(
         patient_registry=patient_registry, weekly_slots=weekly,
         patients=patient_registry.patient_count,
-        weekday_slots=weekly.row_count,
+        weekday_slot_count=weekly.row_count,
     )
