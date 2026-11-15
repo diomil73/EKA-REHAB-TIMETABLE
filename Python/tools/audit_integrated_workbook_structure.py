@@ -22,7 +22,7 @@ MAX_TOTAL_CELLS = 3_000_000
 HEADER_SCAN_ROWS = 30
 VBA_UDF_NAMES = ("NormalizeTimeMS", "NormalizePresenceMS")
 VBA_UDF_PATTERNS = {
-    name: re.compile(rf"(?<![A-Za-z0-9_.]){re.escape(name)}\\s*\\(", re.IGNORECASE)
+    name: re.compile(rf"(?<![A-Za-z0-9_.]){re.escape(name)}\s*\(", re.IGNORECASE)
     for name in VBA_UDF_NAMES
 }
 
