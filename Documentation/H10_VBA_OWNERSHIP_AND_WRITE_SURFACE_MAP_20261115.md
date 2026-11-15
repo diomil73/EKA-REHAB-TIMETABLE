@@ -183,3 +183,26 @@ The same eight no-pattern components appear in each candidate: ThisWorkbook docu
 The modDoubleBookingReview external file/process/workbook-close behavior is now visible in the audit, confirming why the former worksheet-only scan was incomplete. Do not interpret the 1,569 pattern matches as 1,569 confirmed writes: the report includes accesses, reads, formatting/navigation, and writes. The classification is a static surface inventory, not runtime proof.
 
 Next: review the three remaining behavior-bearing no-pattern components (ThisWorkbook events, PATIENT_PLANNER Worksheet_Change, Module6 time/presence normalization); classify Module5; then consolidate component ownership, side-effect type, target sheets/files/processes, and test/native evidence into the master write-surface map. No further workbook mutation or native write trial is authorized by this audit.
+
+
+## Native VBA audit and regression results — 2026-11-15 19:34 UTC
+
+Operator uploaded DIOMIL_VBA_SOURCE_REVIEW_20261115_193409.txt. Evidence reviewed:
+- Focused tests: 24 passed in 2.50s.
+- Full pytest: 1,829 passed, 1 skipped, 26 warnings in 29.64s (1,830 collected).
+- Three distinct VBA candidates completed the read-only write-surface audit. Each reports ReadOnly=True, macros disabled before open, Excel events disabled, SOURCE HASH UNCHANGED: YES, and NO WORKBOOK WAS MODIFIED.
+- Candidate hashes: RECURRING_IDS = 4df997b6a5e5b0b56b37127ee00dd8710cc26c7c118f1742d58c9969bcbe7afa; NATIVE_WRITE = fa9765da7079137bcb1ff935c3d08bc84b409c8335f9cd719f3583b89e4fc67d; CC_NATIVE_READONLY_PROBE = 1bd5e58e905f91acb55e5a706cd8b4563b5a98c170a9ec60fe76c95617420b13. Candidate counts are 67, 67 and 66 VBA components respectively.
+- The separate native inventory reports Excel calculation mode could not be set to Manual because of a COM error. This is a warning, not a failed audit; retain it as an explicit limitation. ReadOnly and macro/event safeguards were confirmed.
+- The write-surface audit detects 1,569 matched operations in each candidate. Treat this as a static pattern inventory, not 1,569 proven mutations or a runtime execution trace.
+
+Unmatched-component investigation now has useful identities:
+- The 19-line DOCUMENT_MODULE is the workbook event module: Workbook_Open, Workbook_Activate, Workbook_Deactivate, Workbook_SheetActivate, Workbook_BeforeClose.
+- The 25-line worksheet document module maps to PATIENT_PLANNER and contains Worksheet_Change.
+- Module6 (26 lines) contains NormalizeTimeMS and NormalizePresenceMS. These are helper procedures with no current write-surface pattern match; inspect their actual implementation/consumers before assigning a stronger classification.
+- Module5 contains one code line and no recognized procedure.
+- modRegistrationMenu, modOutpatientSchedule, modOutpatientScheduleManager and modSchedulingConflict are now identified by entry procedure names and their source-level roles are documented in the targeted review.
+- modDoubleBookingReview is positively identified as an external side-effect orchestrator: temporary file create/delete/read/write, Python process launches and workbook close/reopen coordination. The scanner reports these explicitly (16 matches in the module), so it must be treated as a write/lifecycle owner even though it has no direct worksheet assignment in the entry module.
+
+Important audit limitation: procedure names and pattern matches identify ownership candidates, not full semantics. The two event procedures, Module6 helpers and one-line Module5 still require implementation-level review and caller/callee tracing. Do not mark the VBA ownership map fully closed yet. The inventory emits component names in escaped Unicode where applicable; no source text or cell values were printed.
+
+Next step: complete the remaining source-level trace for Workbook events, PATIENT_PLANNER.Worksheet_Change, Module6 and Module5 using tracked VBA generator/source where available, and record unresolved native-only code honestly. Do not modify source workbooks. The regression and read-only audit gate is green; proceed with documentation and static ownership analysis, not production workbook changes.
