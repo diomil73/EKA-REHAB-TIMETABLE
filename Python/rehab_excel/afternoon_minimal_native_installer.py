@@ -117,25 +117,26 @@ def install_afternoon_minimal_preview(
         excel.DisplayAlerts = False
         excel.EnableEvents = False
         excel.AskToUpdateLinks = False
+        # Disable auto-open macro execution while making a technical-only copy.
+        excel.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
         book = excel.Workbooks.Open(str(dst), UpdateLinks=0, ReadOnly=False)
         if bool(book.ReadOnly) or not bool(book.HasVBProject):
             raise AfternoonMinimalInstallError("Writable VBA workbook required")
         if SHEET_NAME in _roster(book):
             raise AfternoonMinimalInstallError("Existing afternoon sheet forbidden")
         prior = _baseline(book)
+        # Source code/access failures must NOT be mistaken for a missing label.
+        runtime = book.VBProject.VBComponents("PatientProgramRuntime")
+        form = book.VBProject.VBComponents("frmPatientScheduling")
+        runtime_code, form_code = _module_text(runtime), _module_text(form)
+        patch_afternoon_panel_text(runtime_code, form_code)
+        designer = form.Designer
         try:
-            runtime = book.VBProject.VBComponents("PatientProgramRuntime")
-            form = book.VBProject.VBComponents("frmPatientScheduling")
-            runtime_code, form_code = _module_text(runtime), _module_text(form)
-            # Preflight all source anchors before making any change.
-            patch_afternoon_panel_text(runtime_code, form_code)
-            form.Designer.Controls(PANEL_LABEL)
-            raise AfternoonMinimalInstallError("Already installed afternoon panel")
-        except AfternoonMinimalInstallError:
-            raise
+            existing_label = designer.Controls(PANEL_LABEL)
         except Exception:
-            # Normal first-install case: label does not exist.
-            pass
+            existing_label = None
+        if existing_label is not None:
+            raise AfternoonMinimalInstallError("Already installed afternoon panel")
 
         ws = book.Worksheets.Add(After=book.Worksheets(book.Worksheets.Count))
         ws.Name = SHEET_NAME
@@ -157,6 +158,7 @@ def install_afternoon_minimal_preview(
         verifier.Visible = False
         verifier.DisplayAlerts = False
         verifier.EnableEvents = False
+        verifier.AutomationSecurity = 3  # readback must never execute macros
         readonly = verifier.Workbooks.Open(str(dst), UpdateLinks=0, ReadOnly=True)
         reopened = _baseline(readonly)
         if reopened[1:] != prior[1:]:
