@@ -57,6 +57,11 @@ def _baseline(book) -> tuple:
     )
 
 
+def _canonical_vba_source(code: str) -> str:
+    """Ignore only native newline representation and trailing empty lines."""
+    return code.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
+
+
 def _confirm_panel(book, original_runtime: str, original_form: str) -> None:
     project = book.VBProject
     runtime = project.VBComponents("PatientProgramRuntime")
@@ -64,9 +69,9 @@ def _confirm_panel(book, original_runtime: str, original_form: str) -> None:
     expected_runtime, expected_form = patch_afternoon_panel_text(
         original_runtime, original_form
     )
-    if _module_text(runtime).replace("\r\n", "\n") != expected_runtime.replace("\r\n", "\n"):
+    if _canonical_vba_source(_module_text(runtime)) != _canonical_vba_source(expected_runtime):
         raise AfternoonMinimalInstallError("Afternoon runtime readback mismatch")
-    if _module_text(form).replace("\r\n", "\n") != expected_form.replace("\r\n", "\n"):
+    if _canonical_vba_source(_module_text(form)) != _canonical_vba_source(expected_form):
         raise AfternoonMinimalInstallError("Afternoon form code readback mismatch")
     label = form.Designer.Controls(PANEL_LABEL)
     if str(label.Caption) != "Απογευματινή ΦΘ: προβολή μόνο":
