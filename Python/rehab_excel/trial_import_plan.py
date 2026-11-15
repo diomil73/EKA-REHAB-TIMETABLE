@@ -37,6 +37,7 @@ class TrialImportPlan:
     weekday_slot_count: int
     entries: tuple[SourceWeeklyEntry, ...] = field(repr=False)
     programme_sha256: str | None = None
+    empty_demo_shell: bool = False
 
     def verify_sources(
         self, review: str | Path, intake: str | Path,
@@ -61,6 +62,7 @@ class TrialImportPlan:
 def prepare_trial_import_plan(
     *, review: str | Path, intake: str | Path,
     programme: str | Path | None = None,
+    *, empty_demo_shell: bool = False,
 ) -> TrialImportPlan:
     """Validate both private inputs and preserve the exact admitted placements.
 
@@ -83,7 +85,15 @@ def prepare_trial_import_plan(
             alignment = audit_trial_source_alignment(programme=p, review=r)
             if not alignment.aligned:
                 raise TrialImportPlanError("SAFETY STOP: source alignment blocked")
-        status = inspect_native_pilot_inputs(review=r, cc=c)
+        status = (
+            inspect_native_pilot_inputs(
+                review=r, cc=c, allow_empty_demo_shell=True,
+            )
+            if empty_demo_shell
+            else inspect_native_pilot_inputs(review=r, cc=c)
+        )
+        if empty_demo_shell and not status.get("empty_demo_shell_ready", False):
+            raise TrialImportPlanError("SAFETY STOP: demo requires an empty eligible shell")
         if not status["native_trial_permitted"]:
             raise TrialImportPlanError("SAFETY STOP: trial admission is blocked")
         admissions = evaluate_trial_admission(r)
@@ -102,6 +112,7 @@ def prepare_trial_import_plan(
             weekday_slot_count=len(admissions.admitted_entries),
             entries=tuple(admissions.admitted_entries),
             programme_sha256=initial[2],
+            empty_demo_shell=empty_demo_shell,
         )
     finally:
         if (
