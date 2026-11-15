@@ -69,6 +69,10 @@ def read_patient_exits(
     source = Path(path)
     patient_list = tuple(patients) if patients is not None else tuple(read_patient_registry(source))
     patient_by_id = {patient.patient_id: patient for patient in patient_list}
+    if len(patient_by_id) != len(patient_list) or len({
+        patient.patient_id.casefold() for patient in patient_list
+    }) != len(patient_list):
+        raise PatientExitSourceError("PATIENTS contains duplicate patient identities")
     wb = load_workbook(
         source, read_only=True, data_only=True,
         keep_vba=source.suffix.casefold() == ".xlsm",
