@@ -154,3 +154,31 @@ def test_call_edge_regex_matches_actual_auditor_output():
     match = _CALL_EDGE.match(example)
     assert match is not None
     assert match.groups() == ("Worksheet_Change", "12", "RefreshTherapistDaily")
+
+
+def test_rejects_component_count_mismatch_despite_correct_global_total(tmp_path):
+    blocks = _good_blocks()
+    blocks[1] = blocks[1].replace("matched_operations=1", "matched_operations=2")
+    with pytest.raises(EvidenceError, match="component match count mismatch"):
+        verify_report(_write(tmp_path, blocks))
+
+
+def test_rejects_malformed_call_edge_record(tmp_path):
+    blocks = _good_blocks()
+    blocks[2] = blocks[2].replace(
+        "Matched operations: 1",
+        "  POSSIBLE_CALL_EDGE caller=Worksheet_Change line=missing "
+        "callee=RefreshTherapistDaily\nMatched operations: 1",
+    )
+    with pytest.raises(EvidenceError, match="malformed audit record"):
+        verify_report(_write(tmp_path, blocks))
+
+
+def test_rejects_malformed_operation_record(tmp_path):
+    blocks = _good_blocks()
+    blocks[0] = blocks[0].replace(
+        "  procedure=Example line=3 operation=cell_value_or_formula_write",
+        "  procedure=Example line=broken operation=cell_value_or_formula_write",
+    )
+    with pytest.raises(EvidenceError, match="malformed audit record"):
+        verify_report(_write(tmp_path, blocks))
