@@ -200,3 +200,17 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: interval policy tests failed" }
 ```
 
 This gate runs synthetic data only and does not require opening Excel. Never claim full afternoon scheduling integration until an isolated, native Excel install/save/reopen proof has passed.
+
+## Correction — Reuse existing scheduler interval logic (2026-11-15)
+
+The user correctly identified duplicate engineering. A direct source audit confirmed that `Python/rehab_excel/automatic_patient_schedule.py` already implements `_intervals_overlap`, `_patient_conflict`, `_existing_patient_conflicts` and `_joint_conflict_reason`, with `STANDARD_TREATMENT_DURATION_MINUTES = 45` and `RECLINED_TREATMENT_DURATION_MINUTES = 30`. The existing patient-program VBA also contains a conflict dialog and validation integration. **Do not implement or retain a second standalone interval engine.**
+
+The provisional files `Python/rehab_excel/afternoon_interval_gate.py` and `Tests/test_afternoon_interval_gate.py` were immediately deleted from this feature branch. The historical commits remain in git history for audit only; **do not use their code or old test commands**. The prior documentation section titled "Explicit-duration overlap gate" is superseded by this correction, and any claimed implementation there should be treated as withdrawn. No new check in that deleted test file was run on the operator's computer.
+
+The remaining valid work is `afternoon_slots_source.py`, `afternoon_patient_edit_plan.py`, `afternoon_shared_slot_gate.py` and their tests: pure afternoon namespace and explicit same-start group-membership approval, not a replacement for existing overlap checks.
+
+**Integration objective:** reuse the authoritative duration/overlap algorithm from `automatic_patient_schedule.py`, apply it within the afternoon programme's isolated namespace without inadvertently colliding with morning slots, and preserve existing shared-group approval semantics. Prefer factoring a single tested shared helper if appropriate, with regression tests for morning behavior unchanged and afternoon overlap behavior isolated. Before assuming the 45-minute treatment duration applies operationally to every afternoon session, verify that it matches the existing clinic scheduling contract. The existing code is evidence of implemented defaults, not new authorization to alter clinical practice.
+
+The MASTER treatment label must remain exactly `ΦΘ`, without the word `Πρωινή`; no MASTER width changes.
+
+Latest operator-confirmed focused checkpoint: **88 passed, 1 skipped in 3.66s**, predating the temporary interval implementation and its deletion. All native Excel gates remain pending.
