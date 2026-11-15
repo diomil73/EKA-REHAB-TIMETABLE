@@ -38,7 +38,6 @@ def _matches(lines: list[str]) -> list[tuple[int, str, str]]:
 
 
 def _operation(line: str) -> tuple[str, str | None]:
-    lowered = line.lower()
     sheet = re.search(r'\b(?:Worksheets|Sheets)\s*\(\s*"([^"]+)"', line, re.IGNORECASE)
     target = sheet.group(1) if sheet else None
     if re.search(r"\.\s*Unprotect\b", line, re.IGNORECASE):
@@ -56,6 +55,10 @@ def _operation(line: str) -> tuple[str, str | None]:
     if target:
         return "worksheet_reference", target
     return "format_or_other_write", target
+
+
+def _safe_label(value: object) -> str:
+    return str(value).encode("unicode_escape").decode("ascii")
 
 
 def _fingerprint(path: Path) -> tuple[str, int]:
@@ -102,6 +105,10 @@ def audit(path: Path) -> int:
         else:
             components = workbook.VBProject.VBComponents
             count = int(components.Count)
+            worksheet_names = {
+                str(sheet.CodeName): str(sheet.Name)
+                for sheet in workbook.Worksheets
+            }
             print("VBA WRITE-SURFACE READ-ONLY AUDIT")
             print("Workbook:", path.name)
             print("ReadOnly: True")
@@ -121,9 +128,17 @@ def audit(path: Path) -> int:
                 matches = _matches(lines)
                 if not matches:
                     continue
+                component_name = str(component.Name)
+                sheet_name = worksheet_names.get(component_name)
+                sheet_suffix = (
+                    f" worksheet_name={_safe_label(sheet_name)}"
+                    if sheet_name is not None
+                    else ""
+                )
                 print(
-                    f"COMPONENT {component.Name}: type={int(component.Type)} "
-                    f"lines={line_count} matched_operations={len(matches)}"
+                    f"COMPONENT name={_safe_label(component_name)} "
+                    f"type={int(component.Type)} lines={line_count} "
+                    f"matched_operations={len(matches)}{sheet_suffix}"
                 )
                 for line_number, procedure, source in matches[:MAX_MATCHES_PER_COMPONENT]:
                     if total >= MAX_TOTAL_MATCHES:
