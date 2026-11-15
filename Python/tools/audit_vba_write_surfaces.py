@@ -55,6 +55,77 @@ def _procedure_names(lines: list[str]) -> list[str]:
     return names
 
 
+def _procedure_profiles(lines: list[str]) -> list[dict[str, object]]:
+    """Return source-redacted procedure structure and stable hashes.
+
+    No VBA source lines, literals, cell values, or formulas are returned.
+    """
+    profiles: list[dict[str, object]] = []
+    current_name: str | None = None
+    current_start = 0
+    body: list[str] = []
+
+    def finish(end_line: int) -> None:
+        if current_name is None:
+            return
+        categories = {
+            "assignments": 0,
+            "branches": 0,
+            "loops": 0,
+            "date_time": 0,
+            "event_target": 0,
+            "calls": 0,
+            "other": 0,
+        }
+        for item in body:
+            stripped = item.strip()
+            if not stripped or stripped.startswith("'"):
+                continue
+            if re.match(r"^(?:If|ElseIf|Else|Select Case|Case|End If)\\b", stripped, re.IGNORECASE):
+                categories["branches"] += 1
+            elif re.match(r"^(?:For|For Each|Next|Do|Loop|While|Wend)\\b", stripped, re.IGNORECASE):
+                categories["loops"] += 1
+            elif re.search(r"\\b(?:Date|Time|CDate|IsDate|Format|Hour|Minute|Second|NormalizeTimeMS|NormalizePresenceMS)\\b", stripped, re.IGNORECASE):
+                categories["date_time"] += 1
+            elif re.search(r"\\b(?:Target|Application|EnableEvents|Intersect)\\b", stripped, re.IGNORECASE):
+                categories["event_target"] += 1
+            elif re.match(r"^(?:Set\\s+|Let\\s+)?[A-Za-z_][A-Za-z0-9_.]*(?:\\([^)]*\\))?\\s*=(?!=|>)", stripped, re.IGNORECASE):
+                categories["assignments"] += 1
+            elif re.match(r"^(?:Call\\s+)?[A-Za-z_][A-Za-z0-9_.]*\\s*(?:\\(|$)", stripped, re.IGNORECASE):
+                categories["calls"] += 1
+            else:
+                categories["other"] += 1
+        normalized = "\\n".join(line.rstrip() for line in body).encode("utf-8")
+        profiles.append({
+            "name": current_name,
+            "start_line": current_start,
+            "end_line": end_line,
+            "body_lines": len(body),
+            "source_sha256": sha256(normalized).hexdigest(),
+            "categories": categories,
+        })
+
+    for number, line in enumerate(lines, start=1):
+        match = PROCEDURE.match(line)
+        if match:
+            finish(number - 1)
+            current_name = match.group(1)
+            current_start = number
+            body = []
+            continue
+        if current_name is not None:
+            if re.match(r"^\\s*End\\s+(?:Sub|Function|Property)\\b", line, re.IGNORECASE):
+                finish(number)
+                current_name = None
+                current_start = 0
+                body = []
+            else:
+                body.append(line)
+    if current_name is not None:
+        finish(len(lines))
+    return profiles
+
+
 def _operation(line: str) -> tuple[str, str | None]:
     if re.search(
         r"\bKill\s+|\b(?:FileCopy|MkDir|RmDir)\s+|\bOpen\s+.+\s+For\s+(?:Output|Append|Binary)\b|\b(?:Print|Put|Write)\s*#|\.(?:SaveToFile|DeleteFile)\b|\bWriteUtf8Text\s*(?:\(|\b)",
@@ -179,11 +250,24 @@ def audit(path: Path) -> int:
                         else ""
                     )
                     procedures = ",".join(procedure_names) if procedure_names else "(none)"
+                    component_hash = sha256("\\n".join(lines).encode("utf-8")).hexdigest()
                     print(
                         f"NO_PATTERN_MATCH_COMPONENT name={_safe_label(component_name)} "
                         f"type={int(component.Type)} lines={line_count}"
-                        f"{sheet_suffix} procedures={_safe_label(procedures)}"
+                        f"{sheet_suffix} procedures={_safe_label(procedures)} "
+                        f"component_sha256={component_hash}"
                     )
+                    for profile in _procedure_profiles(lines):
+                        category_text = ",".join(
+                            f"{key}:{value}" for key, value in profile["categories"].items()
+                        )
+                        print(
+                            f"  PROCEDURE_PROFILE name={_safe_label(profile['name'])} "
+                            f"lines={profile['start_line']}-{profile['end_line']} "
+                            f"body_lines={profile['body_lines']} "
+                            f"categories={category_text} "
+                            f"source_sha256={profile['source_sha256']}"
+                        )
                     continue
                 sheet_suffix = (
                     f" worksheet_name={_safe_label(sheet_name)}"
