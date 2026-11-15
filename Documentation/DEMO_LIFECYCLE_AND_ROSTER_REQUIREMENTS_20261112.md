@@ -239,3 +239,27 @@ no workbook write, provides no VBA action/rollback, and cannot approve a
 permanent clinical treatment change. Next implement a fresh synthetic-only
 event sheet installation, source-bound native transaction with independent
 readback and rollback, plus capacity guard over the entire effective schedule.
+
+## AUTHORITATIVE SCOPE CORRECTION: full DIOMIL synthetic integration workbook (2026-11-15)
+
+The target is **one complete, integrated DIOMIL test workbook**, not an afternoon-only XLSM or a standalone patient-panel test. The afternoon functionality is one component within the full application and must be integrated into the same whole-program test artifact.
+
+### Required shape of the test artifact
+
+- Preserve the full current application shell, workbook structure, VBA modules/forms, menus/navigation, buttons, formulas, named ranges, validations, formatting, protection rules, settings/configuration and all already-integrated workflows that belong to the current application baseline.
+- Use a **fully synthetic patient and staff cohort** throughout every patient-bearing or roster-bearing source: patient registry, inpatient planner, outpatient schedules, weekly-slot overlays, pool/robotics/psychology/other treatment sources, attendance/history ledgers, and any related identity/assignment/event tables. Every cross-sheet ID reference must reconcile. Do not leave real patient names, IDs, schedules, therapist/student identities, notes or clinical details behind in less-obvious sheets, hidden sheets, names, cached values or VBA-embedded data.
+- Include deterministic, varied synthetic scenarios so the full application can be exercised end to end: patient registration and editing, morning scheduling, pool, outpatient scheduling, afternoon physiotherapy (three columns: time/day/therapist, initially blank until synthetic PM scenarios are deliberately seeded), conflicts, patient/therapist absences and replacements, medical deferral (whole-day and time-scoped), return, program end/permanent discharge, therapist/student roster lifecycle, daily close/restore, history/statistics and management views wherever the current application supports them.
+- Keep the established clinical semantics: afternoon conflict checks apply **only among afternoon physiotherapy slots**, not against the morning schedule; pool remains part of the morning programme; whole-day medical deferral cancels all treatments, while a time-scoped deferral affects only the relevant appointment; an ordinary morning physiotherapy deferral does not automatically cancel an independently staffed afternoon physiotherapy session.
+- Test the complete integrated artifact through source gates, a fresh native Excel copy/save/reopen proof, independent read-only audits, and a staged manual end-to-end acceptance sequence. A green Python suite or an afternoon-only preview is not whole-program acceptance.
+
+### Provenance and build constraints
+
+- Do not use the tracked populated Rehab_Center_System_v27_1.xlsm, any real clinical workbook, frozen H8/H10 evidence, accepted/frozen smoke candidates, or production MASTER as a write target.
+- Existing H8/H10 synthetic history proves only the history scopes explicitly verified. verify_h8_synthetic_history.py checks that demo history rows reference IDs in the current registry; it does **not** prove that every current registry identity and every other patient-bearing sheet is synthetic. Therefore neither a history-verifier PASS nor a _DEMO_ filename alone certifies a whole-workbook synthetic roster.
+- Do not run build_afternoon_minimal_panel_preview.py as the end goal. That installer is a narrow, read-only afternoon-panel experiment and cannot satisfy the full-program objective by itself.
+- First audit the complete workbook's data-bearing surfaces and VBA dependencies; then create a new, deterministic, fully synthetic integrated fixture while preserving the full application structure. Use a fresh, never-before-existing output path for every native attempt. Freeze every failed native artifact; never retry, repair or overwrite it in place.
+- If no safe method exists to replace all patient/staff data while retaining all application components, stop and design/test a dedicated whole-workbook synthetic fixture builder. Never improvise by deleting rows or sanitizing a populated workbook ad hoc.
+
+### Current checkpoint
+
+The latest operator-reported afternoon source gate is **49 passed in 9.22s**. This is a green source-level checkpoint for the five targeted afternoon modules only. It does not prove the full DIOMIL workbook, native Excel integration, or manual acceptance. No native afternoon-only installer was run. The previous note about merely locating a workbook with frmPatientScheduling is superseded by this whole-program requirement.
