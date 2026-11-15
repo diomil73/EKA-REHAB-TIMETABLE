@@ -26,7 +26,7 @@ WRITE_LINE = re.compile(
     r"|\b(?:WriteUtf8Text|ReadUtf8Text|RunHidden)\s*(?:\(|\b)"
     r"|\bThisWorkbook\.Close\b"
     r"|WScript\.Shell"
-    r"|\.Run\s+",
+    r"|\.Run\s*(?:\(|\s)",
     re.IGNORECASE,
 )
 MAX_MATCHES_PER_COMPONENT = 500
@@ -69,7 +69,7 @@ def _operation(line: str) -> tuple[str, str | None]:
     ):
         return "external_file_read", None
     if re.search(
-        r"\bRunHidden\s*(?:\(|\b)|WScript\.Shell|\.Run\s+",
+        r"\bRunHidden\s*(?:\(|\b)|WScript\.Shell|\.Run\s*(?:\(|\s)",
         line,
         re.IGNORECASE,
     ):
