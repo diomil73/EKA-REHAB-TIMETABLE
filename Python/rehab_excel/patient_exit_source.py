@@ -156,3 +156,48 @@ def preview_patient_exit_from_workbook(
         last_active_date=last_active_date,
         entries=read_unified_base_schedule(path, patients=registered),
     )
+
+
+def verify_saved_patient_exit(
+    path: str | Path, *, patient_id: str,
+    kind: PatientExitKind, last_active_date: date,
+) -> int:
+    """Independent read-only re-open proof after a separate native Excel save.
+
+    Confirms the exact saved event, all original recurring assignments still
+    exist, and the exited patient's future effective assignments disappear.
+    Returns the number of preserved original recurring rows. No workbook write
+    and no patient details in diagnostics.
+    """
+    from hashlib import sha256
+
+    source = Path(path)
+    if not source.is_file() or not patient_id or not isinstance(kind, PatientExitKind):
+        raise PatientExitSourceError("Saved patient exit verification requires source and kind")
+    if not isinstance(last_active_date, date) or isinstance(last_active_date, datetime):
+        raise PatientExitSourceError("Saved patient exit verification requires an exact date")
+    before = sha256(source.read_bytes()).hexdigest()
+    patients = tuple(read_patient_registry(source))
+    events = read_patient_exits(source, patients=patients)
+    exact = [
+        event for event in events
+        if event.patient_id == patient_id
+        and event.kind == kind
+        and event.last_active_date == last_active_date
+    ]
+    if len(exact) != 1:
+        raise PatientExitSourceError("Saved patient exit event differs from confirmation")
+    entries = tuple(read_unified_base_schedule(source, patients=patients))
+    original = tuple(item for item in entries if item.patient_id == patient_id)
+    before_event = tuple(active_entries_on(entries, last_active_date, events))
+    after_event = tuple(active_entries_on(
+        entries, last_active_date.fromordinal(last_active_date.toordinal() + 1), events
+    ))
+    if (
+        len(tuple(item for item in before_event if item.patient_id == patient_id))
+        != len(original)
+        or any(item.patient_id == patient_id for item in after_event)
+        or sha256(source.read_bytes()).hexdigest() != before
+    ):
+        raise PatientExitSourceError("Saved exit changed original or future recurrence semantics")
+    return len(original)
