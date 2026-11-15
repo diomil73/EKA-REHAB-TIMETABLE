@@ -927,3 +927,10 @@ The previously referenced filename `DIOMIL_ΕΛΕΓΜΕΝΗ_ΜΕΤΑΦΟΡΑ_Π�
 3. Build a synthetic, source-shaped fixture and test the complete A:V parser/projection without real patient data.
 4. Close any remaining native-only VBA ownership questions and define the fresh integration candidate from a trusted source; never write into any frozen H10 proof workbook.
 5. Only after synthetic source-to-workbook roundtrip is proven, run the separate private identity/conflict admission gate and request operator decisions for unresolved clinical/source holds.
+
+
+## 2026-11-15 — A:V real-source demo schema design
+
+Added `Documentation/TRIAL_SOURCE_SCHEMA_AND_IMPORT_DESIGN_20261115.md` as the current source-to-demo design contract. It records the operator's A:T mapping, the additional U/V afternoon/pool fields, the boundaries of the existing read-only admission/import-plan/weekly-projection modules, and the required architecture for source alignment, patient registry projection, full recurring schedule projection, synthetic end-to-end tests and later native Excel acceptance.
+
+Important unresolved rules are explicit rather than guessed: blank weekday semantics; missing A context handling; U/V operational scope; and fresh operator instructions for reclining replacement behavior at implementation time. The private identity review remains unapproved; no real-patient import or native integrated demo is authorized. Keep source workbooks and all patient-level facts outside GitHub.
