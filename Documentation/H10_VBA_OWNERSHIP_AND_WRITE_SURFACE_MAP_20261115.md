@@ -223,3 +223,16 @@ The expanded detector now finds modDoubleBookingReview external file I/O, Python
 The 1,569 matches per workbook are static source-pattern locations, not confirmed runtime writes or proof of call reachability. Native inventory/audit is complete; semantic behavior review and full synthetic integration acceptance are not.
 
 Next: inspect the four native-only components through a local, read-only, source-redacting diagnostic that reports only procedure identifiers, statement-category counts and per-procedure hashes; compare across all three candidates. No source workbook edits or saves.
+
+
+## 2026-11-15 — source-redacted procedure profiling added
+
+The read-only VBA auditor now emits additional metadata for components with no operation-pattern match:
+- per-component SHA-256 fingerprint;
+- per-procedure SHA-256 fingerprint;
+- procedure line range and body-line count;
+- statement-category counts only (assignments, branches, loops, date/time operations, event/Target references, calls, other).
+
+It does not emit VBA source lines, literals, patient names, cell values, or formulas. This is intended to compare the embedded implementations across the three native candidates and provide a safe structural profile for the four remaining native-only components (ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6, Module5).
+
+New regression tests cover source redaction, stable procedure hashes, profile counts and the emitted metadata contract. These latest profile changes have NOT yet been executed locally. The previously reported 24 focused passes / 1,829 full passes validate the preceding auditor revision, not this new profile revision. A fresh focused/full/native run is required before relying on the new profile output.
