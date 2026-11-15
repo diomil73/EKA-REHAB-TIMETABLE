@@ -289,3 +289,10 @@ Following the accepted 20:31 bundle, two further **read-only** analysis improvem
 **Validation boundary:** these new commits are after the accepted 38-focused / 1,854-full result and have not yet been run by the operator. They must not inherit that earlier GREEN. The next local action is one execution of the updated PowerShell gate with Excel closed. The new script still does not save or modify any XLSM.
 
 After this proof, proceed to the full synthetic integration workbook design/build. The real-source file named `DIOMIL_ΕΛΕΓΜΕΝΗ_ΜΕΤΑΦΟΡΑ_ΠΗΓΗΣ_ΠΡΟΣ_MASTER_20261112.xlsx` was not found among the currently available Project attachments; do not guess its local location or commit it. When the real-data admission milestone is reached, ask the operator to supply the reviewed source privately and follow `REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`. The A:T column mapping already supplied in the conversation is retained as the operator's source-schema reference; the reclining-treatment replacement rule still requires the operator's fresh clinical instructions at the point of implementation.
+
+
+## 2026-11-15 20:50 — expanded call-edge gate accepted
+
+The expanded gate is now operator-verified, superseding the prior 20:40 pending status. Evidence bundle: `DIOMIL_H10_CALL_EDGE_BUNDLE_20261115_205003.txt` (private operator evidence). Focused tests: 45 passed. Full regression: 1,856 passed, 1 skipped, 26 warnings. All three distinct H10 candidates completed read-only VBA write-surface and workbook-structure audits; source hashes were unchanged and no workbook was modified. Cross-candidate verifier: GREEN; 44 component metadata records, 12 procedure-profile hashes, 1,027 possible static call-edge references. These are static references, not runtime execution proof. Formula references to the two scanned normalizers were zero across the three candidates.
+
+The next step is no longer rerunning the same gate. Proceed with documented source-level reconciliation and source-shaped synthetic integration design; preserve all H10 proof candidates frozen.
