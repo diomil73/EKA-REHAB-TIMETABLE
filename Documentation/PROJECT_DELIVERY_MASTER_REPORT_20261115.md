@@ -675,3 +675,10 @@ The native read-only VBA inventory subsequently completed for three distinct H10
 Thirty named application components have been mapped to tracked Python generators/installers. Thirty-seven components remain unresolved by source ownership: ten generic standard modules and 27 worksheet/document modules. The 66-component candidate is missing one zero-code-line document module whose exact identity is not recoverable from the captured Windows console encoding.
 
 The detailed mapping and next operator gate are in Documentation/H10_VBA_OWNERSHIP_AND_WRITE_SURFACE_MAP_20261115.md. The next required proof is the sanitized, read-only VBA write-surface audit for the three distinct candidates. This inventory does not certify any candidate as the complete synthetic integration workbook and does not authorize changes to frozen workbooks.
+
+
+## 12. 2026-11-15 write-surface audit follow-up
+
+The first uploaded write-surface audit safely opened all three distinct candidate workbooks read-only, with macros/events disabled, and verified unchanged source hashes. It did not complete: the prior 200-match per-component output cap truncated modTherapistHistoryReport, which contains 265 matched source lines. The audit returned INCOMPLETE for all three candidates and is not accepted as the final write-surface proof.
+
+The auditor was updated to 500 matches per component / 5,000 total, and its value-property classifier now distinguishes direct assignment from read/access. New regression coverage protects the known 265/1,396 match counts and read/write distinction. The operator must pull the latest branch, rerun focused tests and full regression, and regenerate the three read-only write-surface reports before source ownership reconciliation can be closed.
