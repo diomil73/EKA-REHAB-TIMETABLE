@@ -2240,3 +2240,16 @@ Still requiring source-level behavior review: ThisWorkbook event procedures, PAT
 Continue with source-level review of the four remaining native-only components. If their exact VBA text is not available in tracked source, create a narrowly scoped local diagnostic that emits only safe structural metadata (procedure names, statement-category counts, and per-procedure hashes), never source text, patient names, cell values or formulas. Then compare those signatures across the three candidates. Do not modify or save any candidate workbook.
 
 This section is the authoritative current resume and supersedes older CURRENT_HANDOFF branch/status statements and earlier H10 unresolved/no-pattern counts above. Historical entries remain as chronology, not as current instructions.
+
+
+## 2026-11-15 — source-redacted procedure profiling added
+
+The read-only VBA auditor now emits additional metadata for components with no operation-pattern match:
+- per-component SHA-256 fingerprint;
+- per-procedure SHA-256 fingerprint;
+- procedure line range and body-line count;
+- statement-category counts only (assignments, branches, loops, date/time operations, event/Target references, calls, other).
+
+It does not emit VBA source lines, literals, patient names, cell values, or formulas. This is intended to compare the embedded implementations across the three native candidates and provide a safe structural profile for the four remaining native-only components (ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6, Module5).
+
+New regression tests cover source redaction, stable procedure hashes, profile counts and the emitted metadata contract. These latest profile changes have NOT yet been executed locally. The previously reported 24 focused passes / 1,829 full passes validate the preceding auditor revision, not this new profile revision. A fresh focused/full/native run is required before relying on the new profile output.
