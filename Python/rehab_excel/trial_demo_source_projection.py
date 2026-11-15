@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Mapping
 
 from rehab_excel.trial_import_plan import TrialImportPlan
+from rehab_excel.trial_demo_source_reconciliation import reconcile_demo_source_weekdays
 from rehab_excel.trial_patient_registry_projection import (
     ConfirmedClinicalFields, TrialPatientRegistryProjection,
     project_trial_patient_registry,
@@ -38,6 +39,11 @@ def project_trial_demo_sources(
     never-existing output path, preserve VBA/history, and perform native readback.
     Neither this function nor any green synthetic test authorizes clinical use.
     """
+    # Identity/source-cell alignment alone is insufficient: the independently
+    # parsed source programme must equal every admitted weekly placement.
+    reconcile_demo_source_weekdays(
+        plan, programme=programme, review=review, intake=intake,
+    )
     patient_registry = project_trial_patient_registry(
         plan, programme=programme, review=review, intake=intake,
         clinical_approvals=clinical_approvals,
