@@ -98,3 +98,52 @@ def test_concurrent_input_change_aborts(tmp_path, monkeypatch):
     monkeypatch.setattr(planner, "inspect_native_pilot_inputs", mutate)
     with pytest.raises(planner.TrialImportPlanError, match="changed during planning"):
         planner.prepare_trial_import_plan(review=review, intake=intake)
+
+
+def test_original_programme_sha_is_bound_and_required_on_source_plan(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    review, intake = _sources(tmp_path)
+    programme = tmp_path / "original-programme.xlsx"
+    programme.write_bytes(b"synthetic-source-programme")
+    _enable(monkeypatch)
+    monkeypatch.setattr(
+        planner, "audit_trial_source_alignment",
+        lambda **kwargs: SimpleNamespace(aligned=True),
+    )
+    plan = planner.prepare_trial_import_plan(
+        review=review, intake=intake, programme=programme,
+    )
+    assert plan.programme_sha256 == planner._digest(programme)
+    plan.verify_sources(review, intake, programme=programme)
+    with pytest.raises(planner.TrialImportPlanError, match="bound programme"):
+        plan.verify_sources(review, intake)
+    programme.write_bytes(b"changed-original-programme")
+    with pytest.raises(planner.TrialImportPlanError, match="stale programme"):
+        plan.verify_sources(review, intake, programme=programme)
+
+
+def test_unaligned_original_programme_blocks_source_bound_plan(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    review, intake = _sources(tmp_path)
+    programme = tmp_path / "original-programme.xlsx"
+    programme.write_bytes(b"synthetic-programme")
+    _enable(monkeypatch)
+    monkeypatch.setattr(
+        planner, "audit_trial_source_alignment",
+        lambda **kwargs: SimpleNamespace(aligned=False),
+    )
+    with pytest.raises(planner.TrialImportPlanError, match="alignment blocked"):
+        planner.prepare_trial_import_plan(
+            review=review, intake=intake, programme=programme,
+        )
+
+
+def test_legacy_plan_does_not_mistake_unbound_source_for_verified(tmp_path, monkeypatch):
+    review, intake = _sources(tmp_path)
+    programme = tmp_path / "original-programme.xlsx"
+    programme.write_bytes(b"synthetic-programme")
+    _enable(monkeypatch)
+    plan = planner.prepare_trial_import_plan(review=review, intake=intake)
+    assert plan.programme_sha256 is None
+    with pytest.raises(planner.TrialImportPlanError, match="not bound"):
+        plan.verify_sources(review, intake, programme=programme)
