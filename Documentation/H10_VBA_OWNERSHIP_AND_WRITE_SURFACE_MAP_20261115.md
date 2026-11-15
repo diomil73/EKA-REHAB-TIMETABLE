@@ -133,3 +133,8 @@ The audit identified 35 components with at least one candidate source-pattern ma
 Per workbook, candidate operation counts are: worksheet_reference 80; cell_value_or_formula_access 373; cell_value_or_formula_write 282; range_or_structure_mutation 111; format_or_other_access_or_write 460; visibility_navigation_or_action_binding 30; workbook_save 26; protection_unprotect 17; protection_protect 17. Sum: 1,396. These are static candidate line classifications, not confirmed runtime writes. Review direct assignments, range/structure changes, save and protection calls before drawing ownership conclusions.
 
 Full regression: 1,824 passed, 1 skipped (symlinks unavailable on Windows), 26 warnings.
+
+
+### Reconciliation count clarification
+
+The 32-component no-match reconciliation (23 zero-code + 9 non-empty) is grounded in the 67-component inventory candidate and applies to the two 67-component reports. The CC read-only probe has 66 components and the same 35 matched components, so its arithmetic remainder is 31, not 32. Its candidate-specific component inventory has not yet been reconciled item-by-item; do not project the 23/9 breakdown onto that 66-component workbook. The two worksheet-module display-name aliases are normalized only when matching against the 67-component inventory.
