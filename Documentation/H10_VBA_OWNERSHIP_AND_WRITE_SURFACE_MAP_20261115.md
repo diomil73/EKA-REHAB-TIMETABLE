@@ -122,3 +122,14 @@ The uploaded 18:50 audit was safely incomplete on all three distinct candidates.
 The auditor cap has since been raised to 500 per component and 5,000 total. A regression test protects the known 265-per-component and 1,396-total inventory. The classifier now distinguishes direct Value/Value2/Formula assignment from read/access lines. This remains static source-pattern evidence and requires review before treating any candidate as a confirmed mutation.
 
 Rerun the focused tests, full regression, and all three distinct native candidates with the updated branch. Accept only complete, uncapped reports with unchanged source hashes.
+
+
+## Completed uncapped native audit — 2026-11-15
+
+The corrected auditor completed all three distinct candidates read-only with macros/events disabled and unchanged SHA-256 fingerprints. Each had 1,396 matched source lines and no output truncation. Component counts were 67, 67, and 66 respectively.
+
+The audit identified 35 components with at least one candidate source-pattern match per workbook. Inventory reconciliation normalizes two worksheet-module name encoding aliases (component 008 / worksheet 7 and component 061 / worksheet 22). This leaves 32 components with no matched operation pattern: 23 have zero code lines and 9 have non-empty code but no current detector match. No-match does not prove absence of side effects; the 9 non-empty components need targeted source review.
+
+Per workbook, candidate operation counts are: worksheet_reference 80; cell_value_or_formula_access 373; cell_value_or_formula_write 282; range_or_structure_mutation 111; format_or_other_access_or_write 460; visibility_navigation_or_action_binding 30; workbook_save 26; protection_unprotect 17; protection_protect 17. Sum: 1,396. These are static candidate line classifications, not confirmed runtime writes. Review direct assignments, range/structure changes, save and protection calls before drawing ownership conclusions.
+
+Full regression: 1,824 passed, 1 skipped (symlinks unavailable on Windows), 26 warnings.
