@@ -1673,3 +1673,25 @@ Operator confirmed `115 passed, 1 skipped in 10.99s` across all nine afternoon s
 ## 2026-11-15 — 126-pass checkpoint and isolated native panel-only preview
 
 Latest confirmed Windows focused source result: `126 passed, 1 skipped in 10.34s`. New separate minimal installer `Python/rehab_excel/afternoon_minimal_native_installer.py` and CLI `Python/tools/build_afternoon_minimal_panel_preview.py` add only the blank `AFTERNOON_PHYSIO_SLOTS` technical sheet and read-only `frmPatientScheduling` afternoon label to an **exclusively created** copy of a *verified synthetic disposable* integrated XLSM. No morning UI reinstall, no MASTER refresh, no source write. It checks source SHA, MASTER width, workbook sheet roster, three established sheet values, VBA exact source patch and native reopen. CLI requires `--confirm-synthetic-disposable` but the flag is not provenance proof. New `Tests/test_afternoon_minimal_native_installer.py` untested on operator Windows yet. Full source gate, future native procedure, forensic/rollback caveats and complete instructions in `Documentation/AFTERNOON_PHYSIOTHERAPY_MEDICAL_DEFERRAL_POLICY_20261115.md`. Do not run native CLI on any real or frozen workbook; no fresh synthetic source has yet been approved.
+
+## 2026-11-15 — 133-pass source checkpoint and native installer security hardening
+
+Operator confirmed `133 passed, 1 skipped in 11.38s` after the first minimal-installer source tests. The sole skipped test is the symlink test unavailable on their Windows machine. **This is not native Excel installation proof.**
+
+Subsequent source audit found a fail-open risk: the minimal installer had a wide `except Exception` block covering lookup of `PatientProgramRuntime`, `frmPatientScheduling`, VBA code inspection and the label. That could accidentally misinterpret **missing or inaccessible VBA modules** as a normal absent label and proceed toward mutation. Commit `db170d7` moves module/form lookup, source readback and source patch validation **outside** the missing-label exception guard. Only an error retrieving the optional label can be interpreted as missing; missing component or source mismatch halts the installer. This stricter behavior still needs local/native verification.
+
+The same commit sets `Application.AutomationSecurity = 3` (`msoAutomationSecurityForceDisable`) on both dedicated Excel instances **before** opening the disposable preview for editing and read-only verification, to avoid executing auto-open VBA macros during technical inspection. The separate Excel application sessions are closed after use; this is not a request to change the operator's Excel macro security globally. It is **not** evidence that native VBA compiles or that the form actually opens.
+
+`Tests/test_afternoon_minimal_native_installer.py` now includes checks for fail-closed VBA component access and forced macro disabling before both opens (commit `7e2a83c`). These newly added tests are not yet operator-confirmed green. Neither the source XLSM nor any frozen or real patient workbook has been touched.
+
+### Targeted fresh source regression
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_afternoon_minimal_native_installer.py Tests/test_afternoon_patient_readonly_vba.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_native_preflight.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon installer security tests failed" }
+```
+
+**No native command yet.** The next actual native test still requires a verified, fresh, integrated **synthetic disposable** workbook. The preflight and `--confirm-synthetic-disposable` flag do not guarantee provenance. Avoid using H10 frozen CC or production source. The intended test is the isolated minimal installer only, never the broad patient scheduling UI reinstall that refreshes MASTER. All current clinical operations remain unchanged.
