@@ -81,21 +81,21 @@ def _procedure_profiles(lines: list[str]) -> list[dict[str, object]]:
             stripped = item.strip()
             if not stripped or stripped.startswith("'"):
                 continue
-            if re.match(r"^(?:If|ElseIf|Else|Select Case|Case|End If)\\b", stripped, re.IGNORECASE):
+            if re.match(r"^(?:If|ElseIf|Else|Select Case|Case|End If)\b", stripped, re.IGNORECASE):
                 categories["branches"] += 1
-            elif re.match(r"^(?:For|For Each|Next|Do|Loop|While|Wend)\\b", stripped, re.IGNORECASE):
+            elif re.match(r"^(?:For|For Each|Next|Do|Loop|While|Wend)\b", stripped, re.IGNORECASE):
                 categories["loops"] += 1
-            elif re.search(r"\\b(?:Date|Time|CDate|IsDate|Format|Hour|Minute|Second|NormalizeTimeMS|NormalizePresenceMS)\\b", stripped, re.IGNORECASE):
+            elif re.search(r"\b(?:Date|Time|CDate|IsDate|Format|Hour|Minute|Second|NormalizeTimeMS|NormalizePresenceMS)\b", stripped, re.IGNORECASE):
                 categories["date_time"] += 1
-            elif re.search(r"\\b(?:Target|Application|EnableEvents|Intersect)\\b", stripped, re.IGNORECASE):
+            elif re.search(r"\b(?:Target|Application|EnableEvents|Intersect)\b", stripped, re.IGNORECASE):
                 categories["event_target"] += 1
-            elif re.match(r"^(?:Set\\s+|Let\\s+)?[A-Za-z_][A-Za-z0-9_.]*(?:\\([^)]*\\))?\\s*=(?!=|>)", stripped, re.IGNORECASE):
+            elif re.match(r"^(?:Set\s+|Let\s+)?[A-Za-z_][A-Za-z0-9_.]*(?:\([^)]*\))?\s*=(?!=|>)", stripped, re.IGNORECASE):
                 categories["assignments"] += 1
-            elif re.match(r"^(?:Call\\s+)?[A-Za-z_][A-Za-z0-9_.]*\\s*(?:\\(|$)", stripped, re.IGNORECASE):
+            elif re.match(r"^(?:Call\s+)?[A-Za-z_][A-Za-z0-9_.]*\s*(?:\(|$)", stripped, re.IGNORECASE):
                 categories["calls"] += 1
             else:
                 categories["other"] += 1
-        normalized = "\\n".join(line.rstrip() for line in body).encode("utf-8")
+        normalized = "\n".join(line.rstrip() for line in body).encode("utf-8")
         profiles.append({
             "name": current_name,
             "start_line": current_start,
@@ -114,7 +114,7 @@ def _procedure_profiles(lines: list[str]) -> list[dict[str, object]]:
             body = []
             continue
         if current_name is not None:
-            if re.match(r"^\\s*End\\s+(?:Sub|Function|Property)\\b", line, re.IGNORECASE):
+            if re.match(r"^\s*End\s+(?:Sub|Function|Property)\b", line, re.IGNORECASE):
                 finish(number)
                 current_name = None
                 current_start = 0
