@@ -81,16 +81,17 @@ def _parse_block(block: str) -> dict:
             component_name = match.group(1)
             if component_name in components:
                 raise EvidenceError(f"{name}: duplicate component: {component_name}")
+            fingerprint = None
+            if line.startswith("NO_PATTERN_MATCH_COMPONENT "):
+                match_hash = re.search(r"component_sha256=([0-9a-f]{64})$", line)
+                if match_hash is None:
+                    raise EvidenceError(f"{name}: missing no-match fingerprint")
+                fingerprint = match_hash.group(1)
             components[component_name] = (
                 int(match.group(2)),
                 int(match.group(3)),
-                # A no-match component must have a fingerprint.
-                re.search(r"component_sha256=([0-9a-f]{64})$", line).group(1)
-                if line.startswith("NO_PATTERN_MATCH_COMPONENT ")
-                else None,
+                fingerprint,
             )
-            if line.startswith("NO_PATTERN_MATCH_COMPONENT ") and components[component_name][2] is None:
-                raise EvidenceError(f"{name}: missing no-match fingerprint")
             continue
         match = _OPERATION.match(line)
         if match:
