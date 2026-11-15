@@ -98,3 +98,33 @@ def test_native_installer_verifies_afternoon_vba_and_designer_control():
     assert '"lblAfternoonState"' in source
     assert '"Me.Height = 665"' in source
     assert 'missing_afternoon_control' in source
+
+
+@pytest.mark.parametrize("ending", ["\r\n", "\r"])
+def test_native_vba_newlines_patch_same_as_repository_source(ending):
+    """Excel CodeModule.Lines may use CRLF; both source versions must agree."""
+    original = patch_afternoon_panel_text(
+        PATIENT_PROGRAM_MODULE_CODE, PATIENT_PROGRAM_FORM_CODE
+    )
+    runtime_native = PATIENT_PROGRAM_MODULE_CODE.replace("\n", ending)
+    form_native = PATIENT_PROGRAM_FORM_CODE.replace("\n", ending)
+    assert patch_afternoon_panel_text(runtime_native, form_native) == original
+
+
+def test_native_newline_patched_source_is_idempotent():
+    initial = patch_afternoon_panel_text(
+        PATIENT_PROGRAM_MODULE_CODE.replace("\n", "\r\n"),
+        PATIENT_PROGRAM_FORM_CODE.replace("\n", "\r\n"),
+    )
+    assert patch_afternoon_panel_text(
+        initial[0].replace("\n", "\r\n"),
+        initial[1].replace("\n", "\r\n"),
+    ) == initial
+
+
+def test_malformed_native_form_with_crlf_still_fails_closed():
+    with pytest.raises(RuntimeError):
+        patch_afternoon_panel_text(
+            PATIENT_PROGRAM_MODULE_CODE.replace("\n", "\r\n"),
+            "Option Explicit\r\nNoMatchingFormMarker\r\n",
+        )
