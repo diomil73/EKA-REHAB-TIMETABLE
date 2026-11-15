@@ -200,3 +200,48 @@ def test_unmatched_component_audit_emits_only_profile_metadata():
     assert "PROCEDURE_PROFILE" in source
     assert "component_sha256=" in source
     assert "_procedure_profiles(lines)" in source
+
+
+def test_possible_vba_call_edges_ignore_literals_and_comments():
+    lines = [
+        "Private Sub Worksheet_Change(ByVal Target As Range)",
+        "    If Target.CountLarge > 1 Then Exit Sub",
+        "    Call RefreshTherapistDaily",
+        '    message = "Call RestoreReturnedTherapists"',
+        "    ' Call ColorReplacementMarks",
+        "    If Not Intersect(Target, Range(\"A1\")) Is Nothing Then RefreshMaster",
+        "End Sub",
+    ]
+    assert module._possible_call_edges(
+        lines,
+        {
+            "RefreshTherapistDaily",
+            "RestoreReturnedTherapists",
+            "ColorReplacementMarks",
+            "RefreshMaster",
+        },
+    ) == [
+        ("Worksheet_Change", 3, "RefreshTherapistDaily"),
+        ("Worksheet_Change", 6, "RefreshMaster"),
+    ]
+
+
+def test_possible_vba_call_edges_are_candidates_not_execution_proofs():
+    lines = [
+        "Private Function NormalizeTimeMS(ByVal rawValue As Variant)",
+        "    NormalizeTimeMS = rawValue",
+        "End Function",
+        "Private Sub NextStep()",
+        '    s = "NormalizeTimeMS"',
+        "End Sub",
+    ]
+    assert module._possible_call_edges(lines, {"NormalizeTimeMS"}) == []
+
+
+def test_call_edge_auditor_does_not_print_source_lines():
+    source = inspect.getsource(module.audit)
+    assert "POSSIBLE_CALL_EDGE" in source
+    assert "_possible_call_edges" in source
+    assert "_safe_label(caller)" in source
+    assert "_safe_label(callee)" in source
+    assert "f\"  POSSIBLE_CALL_EDGE caller=" in source
