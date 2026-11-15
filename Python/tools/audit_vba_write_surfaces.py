@@ -39,19 +39,19 @@ def _matches(lines: list[str]) -> list[tuple[int, str, str]]:
 
 def _operation(line: str) -> tuple[str, str | None]:
     lowered = line.lower()
-    sheet = re.search(r'\\b(?:Worksheets|Sheets)\\s*\\(\\s*"([^"]+)"', line, re.IGNORECASE)
+    sheet = re.search(r'\b(?:Worksheets|Sheets)\s*\(\s*"([^"]+)"', line, re.IGNORECASE)
     target = sheet.group(1) if sheet else None
-    if re.search(r"\\.\\s*Unprotect\\b", line, re.IGNORECASE):
+    if re.search(r"\.\s*Unprotect\b", line, re.IGNORECASE):
         return "protection_unprotect", target
-    if re.search(r"\\.\\s*Protect\\b", line, re.IGNORECASE):
+    if re.search(r"\.\s*Protect\b", line, re.IGNORECASE):
         return "protection_protect", target
-    if re.search(r"\\b(?:ThisWorkbook|ActiveWorkbook)\\.(?:Save|SaveAs)\\b", line, re.IGNORECASE):
+    if re.search(r"\b(?:ThisWorkbook|ActiveWorkbook)\.(?:Save|SaveAs)\b", line, re.IGNORECASE):
         return "workbook_save", target
-    if re.search(r"\\.\\s*(?:ClearContents|Clear|Delete|Insert|Add|PasteSpecial|Copy)\\b", line, re.IGNORECASE):
+    if re.search(r"\.\s*(?:ClearContents|Clear|Delete|Insert|Add|PasteSpecial|Copy)\b", line, re.IGNORECASE):
         return "range_or_structure_mutation", target
-    if re.search(r"\\.\\s*(?:Value2?|Formula)\\b", line, re.IGNORECASE):
+    if re.search(r"\.\s*(?:Value2?|Formula)\b", line, re.IGNORECASE):
         return "cell_value_or_formula_write", target
-    if re.search(r"\\.\\s*(?:Visible|Hidden|ScrollArea|EnableSelection|OnAction)\\b", line, re.IGNORECASE):
+    if re.search(r"\.\s*(?:Visible|Hidden|ScrollArea|EnableSelection|OnAction)\b", line, re.IGNORECASE):
         return "visibility_navigation_or_action_binding", target
     if target:
         return "worksheet_reference", target
@@ -117,7 +117,7 @@ def audit(path: Path) -> int:
                 if line_count <= 0:
                     continue
                 raw = str(module.Lines(1, line_count))
-                lines = raw.replace("\\r\\n", "\\n").replace("\\r", "\\n").split("\\n")
+                lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n")
                 matches = _matches(lines)
                 if not matches:
                     continue
