@@ -441,3 +441,23 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: native-VBA newline safety regress
 ```
 
 If green, a future native proof still requires verifying a **newly created, truly synthetic, disposable integrated XLSM** with the expected pre-existing `PatientProgramRuntime` and `frmPatientScheduling`. The structural XLSM preflight, file extension, or CLI confirmation flag is not sufficient proof of synthetic provenance. Never run the native installer on the original clinical workbook, frozen H10 CC, a prior approved smoke, or the canonical MASTER. No afternoon PM write path or patient migration has been authorized.
+
+## 2026-11-15 — 39-pass source checkpoint; PM session wording and stronger native readback
+
+Operator confirmed **39 passed in 9.23s** for the four targeted safety modules, including the CRLF/LF source patch tests. This is source-only verification, not native Excel save/reopen or UI acceptance.
+
+Additional source review of the actual patient read path found a wording defect: status used the number of scheduled PM rows but called them "days"; two different sessions on one weekday would be mislabeled. Fixed the status to say **"καταχωρισμένες συνεδρίες"** and the VBA overflow suffix to **"... και άλλες συνεδρίες."** Commits `005c0b0`, `4879474`. Added tests for two distinct sessions on the same weekday and the overflow wording: `abe2ebf`, `93625cd`.
+
+Native preservation proof was also strengthened. The minimal installer previously compared only the first 12 MASTER column widths and cached values of MASTER/PATIENT_PLANNER/PATIENTS. It now captures **every column width in the MASTER UsedRange**, including its starting column and span, and compares both **Value2 and Formula** for each of those three existing sheets before save and after a separate read-only reopen. Commit `109d5ca`. Updated synthetic COM fixtures to assert the full width vector and formula snapshots and to isolate worksheet roster state per test: `6ba0fe7`, `1902596`. This still does not compare all formatting, names, charts, controls, validations or every other worksheet, so it remains a bounded preview invariant rather than a full forensic binary equivalence proof.
+
+### Next targeted Windows source gate (no Excel open)
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_afternoon_minimal_native_installer.py Tests/test_afternoon_patient_readonly_vba.py Tests/test_afternoon_patient_form_state.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_native_preflight.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: final afternoon read-only integration source gate failed" }
+```
+
+If green, we can move to identifying the native candidate, but **do not run the native installer yet**. A structurally valid XLSM plus `--confirm-synthetic-disposable` does not prove synthetic provenance. First identify a newly built integrated XLSM with synthetic-only patients and the exact existing `PatientProgramRuntime`/`frmPatientScheduling` components; exclude the real source, H10 frozen CC and all approved/frozen evidence. Then use a new, never-before-existing output path and the minimal installer only. The native result must be inspected manually and any failure output preserved; never retry in place. No afternoon scheduling write, medical-deferral control or migration is activated by this read-only panel.
