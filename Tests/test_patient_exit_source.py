@@ -9,6 +9,7 @@ from rehab_excel.outpatient_schedule_source import read_unified_base_schedule
 from rehab_excel.patient_exit_source import (
     HEADERS, PatientExitSourceError, preview_patient_exit_from_workbook,
     read_effective_schedule_for_date, read_patient_exits,
+    verify_saved_patient_exit,
 )
 from rehab_excel.patient_registry_source import read_patient_registry
 
@@ -166,3 +167,28 @@ def test_duplicate_registry_patient_id_blocks_lifecycle_source(tmp_path):
     _edit(path, lambda wb: wb["PATIENTS"].cell(4, 1, "DEMO-P1"))
     with pytest.raises(PatientExitSourceError, match="duplicate patient identities"):
         read_patient_exits(path)
+
+
+def test_independent_saved_exit_readback_preserves_weekly_source(tmp_path):
+    path = _workbook(tmp_path)
+    original = path.read_bytes()
+    count = verify_saved_patient_exit(
+        path, patient_id="DEMO-P1",
+        kind=PatientExitKind.INPATIENT_DISCHARGE,
+        last_active_date=date(2026, 11, 16),
+    )
+    assert count == 1
+    assert path.read_bytes() == original
+
+
+def test_saved_exit_readback_rejects_wrong_kind_or_date(tmp_path):
+    path = _workbook(tmp_path)
+    for kind, last_day in (
+        (PatientExitKind.OUTPATIENT_PROGRAM_END, date(2026, 11, 16)),
+        (PatientExitKind.INPATIENT_DISCHARGE, date(2026, 11, 17)),
+    ):
+        with pytest.raises(PatientExitSourceError, match="differs"):
+            verify_saved_patient_exit(
+                path, patient_id="DEMO-P1",
+                kind=kind, last_active_date=last_day,
+            )
