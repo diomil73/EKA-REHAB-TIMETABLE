@@ -234,3 +234,27 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Existing scheduler reuse gate fai
 ```
 
 Previously confirmed result before these adapter changes: **88 passed, 1 skipped in 3.66s**. Do not claim new tests passed until they run. Operator does **not** need to send separate `οκ` confirmations to advance from one safe code slice to the next.
+
+## 2026-11-15 — Read-only patient form state: verified separation prior to VBA patch
+
+Latest operator-confirmed focused suite: **93 passed, 1 skipped in 5.34s**. The sole skip was explicitly identified as `Tests/test_afternoon_sheet_preview.py:68: Symlinks unavailable`; no other skip or test failure.
+
+Added:
+- `Python/rehab_excel/afternoon_patient_form_state.py`: read-only adapter with `read_afternoon_patient_form_state(workbook_path, patient_id=...)`, `afternoon_form_status`, and `afternoon_form_rows`. Confirms the selected patient exists in the registry, examines only the separate `AFTERNOON_PHYSIO_SLOTS` source, and returns **that patient's** explicit weekday/time/physiotherapist rows without changing any workbook.
+- `Tests/test_afternoon_patient_form_state.py`: synthetic-only workbook regression suite for legacy no-sheet, header-only, two patient identities, malformed registry/schedule, fail-closed invalid rows and byte-identical source after reading.
+
+Legacy no-sheet status is **not installed**, not a writable empty schedule. Header-only PM sheet status is installed-but-empty with zero sessions. The adapter deliberately rejects malformed PM sheets rather than hiding invalid appointments. User-facing status messages are in Greek, but contain no real patient names; object `repr` excludes patient IDs. Actual therapist names may be shown only in a selected-patient interface, never committed to the public repository or logs.
+
+**Integration point found:** `frmPatientScheduling` / `PatientProgramRuntime` currently loads morning treatment keys from `Python/tools/patient_program_bridge.py` and saves using `SavePatientProgramAtomic` into `PATIENT_PLANNER`. Do not add duplicate `ΦΘ` to `lstTreatments` or route afternoon rows into this legacy morning saving function. The new read-only adapter is preparation for a distinct patient-facing afternoon section, not yet installed VBA UI and not an approved writer. Existing morning treatment solver and overlap helper must be reused without replacing the already working morning code.
+
+**Next source gate (no Excel installation):**
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py Tests/test_afternoon_patient_form_state.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: patient form read-only source tests failed" }
+```
+
+Do not build any native XLSM or touch the clinic's existing MASTER until the chosen synthetic source is confirmed suitable for a fresh disposable integration preview and the new UI has its own independent validated save/rollback contract. The MASTER header/cell still reads `ΦΘ` exactly and is not widened.
