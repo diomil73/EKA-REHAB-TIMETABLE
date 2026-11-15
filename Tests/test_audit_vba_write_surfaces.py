@@ -115,3 +115,31 @@ def test_unmatched_component_audit_reports_procedure_names_not_source():
     assert "NO_PATTERN_MATCH_COMPONENT" in source
     assert "_procedure_names(lines)" in source
     assert "procedure_names" in source
+
+
+def test_external_file_and_process_side_effects_are_classified():
+    assert module._operation('Kill requestPath') == ("external_file_write_or_delete", None)
+    assert module._operation('WriteUtf8Text requestPath, payload') == (
+        "external_file_write_or_delete", None
+    )
+    assert module._operation('responseText = ReadUtf8Text(responsePath)') == (
+        "external_file_read", None
+    )
+    assert module._operation('exitCode = RunHidden(commandLine)') == (
+        "external_process_launch", None
+    )
+    assert module._operation('ThisWorkbook.Close SaveChanges:=False') == (
+        "workbook_close", None
+    )
+
+
+def test_external_side_effect_patterns_are_scanned():
+    lines = [
+        "Private Sub Apply()",
+        "Kill requestPath",
+        "WriteUtf8Text requestPath, payload",
+        "exitCode = RunHidden(commandLine)",
+        "ThisWorkbook.Close SaveChanges:=False",
+        "End Sub",
+    ]
+    assert [item[2] for item in module._matches(lines)] == lines[1:5]
