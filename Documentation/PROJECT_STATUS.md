@@ -1356,3 +1356,12 @@ The target is **one complete, integrated DIOMIL test workbook**, not an afternoo
 ### Current checkpoint
 
 The latest operator-reported afternoon source gate is **49 passed in 9.22s**. This is a green source-level checkpoint for the five targeted afternoon modules only. It does not prove the full DIOMIL workbook, native Excel integration, or manual acceptance. No native afternoon-only installer was run. The previous note about merely locating a workbook with frmPatientScheduling is superseded by this whole-program requirement.
+
+
+## 2026-11-15 — Evidence-based baseline matrix and remaining scope clarification
+
+Created `Documentation/INTEGRATED_TEST_BASELINE_MATRIX_20261115.md` after reviewing the H2-H8 acceptance checkpoints, H8 dashboard feedback, H10 therapist chart requirements, `STATISTICS_HISTORY_DESIGN.md`, `AUTHORITATIVE_RESUME_20261112.md`, and the current afternoon branch handoff.
+
+Key distinction: most core daily mechanisms have substantial operator-confirmed native evidence (daily absence Apply/Restore, day close/amendment, therapist and patient session history, contextual day save, integrated reports). H8 dashboard artifact BL is manually accepted for its specifically recorded UI scope. This does **not** mean every analytics feature is complete. The patient 15-day progress/evaluation workflow remains design-only. H10 therapist charts/management have partial native/source evidence and later visual follow-ups; genuine therapist absence/working-day history is unavailable. Other explicitly open mechanisms remain global multi-absence optimization, permanent recurring-change native write/rollback/UI, real-source native importer/admission, and final worksheet protection classification. Afternoon read-only UI is source-green at 49/9.22s, but has no native Excel acceptance or save path.
+
+The matrix records exact accepted/frozen artifact names and scope boundaries, and is the guide for selecting component references when building the single full-application synthetic test workbook. Frozen proof files are evidence only, never writable build targets. No workbook was opened or modified in this documentation review.
