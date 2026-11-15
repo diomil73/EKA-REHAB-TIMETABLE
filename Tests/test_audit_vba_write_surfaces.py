@@ -143,3 +143,18 @@ def test_external_side_effect_patterns_are_scanned():
         "End Sub",
     ]
     assert [item[2] for item in module._matches(lines)] == lines[1:5]
+
+
+def test_side_effect_scan_does_not_count_procedure_declarations():
+    lines = [
+        "Private Function RunHidden(ByVal commandLine As String) As Long",
+        "    RunHidden = shell.Run(commandLine, 0, True)",
+        "End Function",
+        "Private Sub WriteUtf8Text(ByVal filePath As String, ByVal text As String)",
+        "    stream.SaveToFile filePath, 2",
+        "End Sub",
+    ]
+    assert [item[2] for item in module._matches(lines)] == [
+        "RunHidden = shell.Run(commandLine, 0, True)",
+        "stream.SaveToFile filePath, 2",
+    ]
