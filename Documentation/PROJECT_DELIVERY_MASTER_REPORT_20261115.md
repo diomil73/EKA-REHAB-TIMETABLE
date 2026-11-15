@@ -761,3 +761,17 @@ Unmatched-component investigation now has useful identities:
 Important audit limitation: procedure names and pattern matches identify ownership candidates, not full semantics. The two event procedures, Module6 helpers and one-line Module5 still require implementation-level review and caller/callee tracing. Do not mark the VBA ownership map fully closed yet. The inventory emits component names in escaped Unicode where applicable; no source text or cell values were printed.
 
 Next step: complete the remaining source-level trace for Workbook events, PATIENT_PLANNER.Worksheet_Change, Module6 and Module5 using tracked VBA generator/source where available, and record unresolved native-only code honestly. Do not modify source workbooks. The regression and read-only audit gate is green; proceed with documentation and static ownership analysis, not production workbook changes.
+
+
+## 2026-11-15 — H10 native VBA audit update
+
+The latest operator evidence bundle is DIOMIL_VBA_SOURCE_REVIEW_20261115_193409.txt:
+- Focused tests: 24 passed.
+- Full regression: 1,829 passed, 1 skipped, 26 warnings.
+- Three distinct H10 candidate workbooks completed the expanded native read-only VBA write-surface audit.
+- Each candidate produced 1,569 static source-pattern matches. ReadOnly=True, macros disabled before open, Excel events disabled, SHA-256 unchanged, and no workbook modified.
+- Calculation mode could not be set to Manual due to a COM error; recorded as a non-blocking limitation.
+
+The audit exposes external file I/O, process-launch and workbook-close lifecycle behavior in modDoubleBookingReview. It also identifies eight components with no operation-pattern match per candidate: ThisWorkbook events, PATIENT_PLANNER.Worksheet_Change, Module6 (NormalizeTimeMS/NormalizePresenceMS), Module5 (one line/no procedure), and four named UI/navigation entry modules. The four named UI modules were matched to tracked source and reviewed. The four native-only components still require behavior-level review.
+
+Important: 1,569 matches are static source-pattern locations, not confirmed runtime writes. The VBA inventory/audit gate is complete; source ownership mapping and semantic review remain partial. The full synthetic integrated workbook and actual patient-source admission are still separate, unaccepted milestones.
