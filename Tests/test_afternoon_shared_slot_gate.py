@@ -101,3 +101,36 @@ def test_patient_identifiers_not_disclosed_in_failure_message():
         )
     assert "SYNTH-P1" not in str(failure.value)
     assert "SYNTH-P2" not in str(failure.value)
+
+
+def test_edit_plan_requires_reapproval_when_new_patient_joins_existing_group():
+    from rehab_excel.afternoon_patient_edit_plan import prepare_afternoon_patient_edit
+    from rehab_excel.afternoon_shared_slot_gate import review_afternoon_edit_plan
+
+    current = (slot("SYNTH-P1"),)
+    plan = prepare_afternoon_patient_edit(
+        current, patient_id="SYNTH-P2", replacement_rows=(slot("SYNTH-P2"),),
+        known_patient_ids=("SYNTH-P1", "SYNTH-P2"),
+    )
+    with pytest.raises(AfternoonSharedSlotError):
+        review_afternoon_edit_plan(plan)
+    result = review_afternoon_edit_plan(
+        plan, (approval("SYNTH-P1", "SYNTH-P2"),)
+    )
+    assert result.ready
+
+
+def test_edit_plan_rejects_stale_approval_after_patient_removed():
+    from rehab_excel.afternoon_patient_edit_plan import prepare_afternoon_patient_edit
+    from rehab_excel.afternoon_shared_slot_gate import review_afternoon_edit_plan
+
+    current = (slot("SYNTH-P1"), slot("SYNTH-P2"))
+    plan = prepare_afternoon_patient_edit(
+        current, patient_id="SYNTH-P2", replacement_rows=(),
+        known_patient_ids=("SYNTH-P1", "SYNTH-P2"), allow_clear=True,
+    )
+    with pytest.raises(AfternoonSharedSlotError):
+        review_afternoon_edit_plan(
+            plan, (approval("SYNTH-P1", "SYNTH-P2"),)
+        )
+    assert review_afternoon_edit_plan(plan).ready
