@@ -2375,3 +2375,10 @@ The 20:40 expanded all-procedure call-edge/formula-UDF gate has now been execute
 **Product target reaffirmed:** one functional integrated Excel demo using the operator-reviewed patient/treatment source, not a disconnected synthetic statistics sample. The private source and identity-review workbooks are available as conversation uploads and were inspected locally; they must remain private and must not be committed. A:T is the supplied core mapping; U/V are additional afternoon/pool source fields. Identity proposals are not confirmations; no real-patient import is authorized.
 
 **Next engineering slice:** inspect and reconcile `trial_admission_gate.py`, `preflight_trial_excel_sources.py`, `trial_import_plan.py`, and `trial_weekly_projection.py` against a synthetic A:V source-shaped fixture. Implement/extend tests before any native writer. Keep unresolved identity/source/conflict holds fail-closed. Do not ask the operator to re-upload the two already available source files.
+
+
+## 2026-11-15 — A:V real-source demo schema design
+
+Added `Documentation/TRIAL_SOURCE_SCHEMA_AND_IMPORT_DESIGN_20261115.md` as the current source-to-demo design contract. It records the operator's A:T mapping, the additional U/V afternoon/pool fields, the boundaries of the existing read-only admission/import-plan/weekly-projection modules, and the required architecture for source alignment, patient registry projection, full recurring schedule projection, synthetic end-to-end tests and later native Excel acceptance.
+
+Important unresolved rules are explicit rather than guessed: blank weekday semantics; missing A context handling; U/V operational scope; and fresh operator instructions for reclining replacement behavior at implementation time. The private identity review remains unapproved; no real-patient import or native integrated demo is authorized. Keep source workbooks and all patient-level facts outside GitHub.
