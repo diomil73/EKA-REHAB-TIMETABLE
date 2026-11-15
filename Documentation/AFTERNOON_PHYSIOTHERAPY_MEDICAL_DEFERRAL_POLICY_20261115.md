@@ -330,3 +330,27 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon full source gate failed
 ```
 
 The expected number of tests is **greater than 101** if these 9 files are collected, but the authoritative result is the exact pytest output, not an invented target count. The one symlink skip may persist on Windows. Do not start native Excel COM installation until this full gate is green and an explicitly disposable, non-frozen input has been verified.
+
+## 2026-11-15 — Full source suite green; safe native source eligibility
+
+Operator confirmed **115 passed, 1 skipped in 10.99s** across all nine afternoon source regression files after the Greek subprocess encoding correction. The sole skipped symlink test is unavailable under current Windows settings. This is **not** native Excel compilation, macro proof, or clinical deployment authorization.
+
+A source architecture review after that green run identified that `_install_scheduling_ui` in `patient_registration_scheduling_slice.py` still re-installs the entire patient programme module/form, conflict hooks and MASTER renderer, refreshes existing patient programme cells on MASTER, and saves. **Do not run that broad installer solely to add the read-only PM panel to an existing canonical or frozen workbook.** Its risks are broader than the new PM read-only display. The safe path is to verify a truly disposable, fully integrated source and eventually use a separate minimal native panel installer with explicit untouched-sheet readback. The initial `build_afternoon_sheet_preview.py` creates only a header-only technical sheet and is likewise not a complete form/UI installation proof.
+
+Added isolated **read-only structural XLSM preflight**:
+- `Python/rehab_excel/afternoon_native_preflight.py` scans only the ZIP workbook roster and presence of `xl/vbaProject.bin` without opening Microsoft Excel, reading patient rows or saving. It checks presence of `PATIENTS`, `PATIENT_PLANNER`, `MASTER_SCHEDULE`, and stops if the PM technical sheet already exists (because this is a **first-install** candidate). It does not verify actual native VBA behavior, origin or macro security.
+- `Tests/test_afternoon_native_preflight.py` uses synthetic ZIPs, covers missing essential sheet/project, existing PM sheet, corrupt XML, duplicate roster and confirms input bytes unchanged.
+- `Python/tools/preflight_afternoon_native_candidate.py` is the read-only CLI.
+- **Do not mistakenly take a structurally green XLSM for a synthetic source**. The preflight cannot determine whether an XLSM contains real patient information or whether it is frozen evidence. Verify source provenance separately; never publish the contents or use frozen H10 CC/other approved evidence as disposable input.
+
+### Next Windows source gate (tests only, no Excel COM)
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py Tests/test_afternoon_patient_form_state.py Tests/test_afternoon_patient_bridge.py Tests/test_afternoon_patient_readonly_vba.py Tests/test_afternoon_native_preflight.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon structural preflight tests failed" }
+```
+
+For any future disposable native candidate, after provenance is independently confirmed, inspect structure only with `python Python/tools/preflight_afternoon_native_candidate.py --source "<FRESH_DISPOSABLE_SYNTHETIC_SOURCE>.xlsm"`. **Do not run this placeholder path verbatim.** The CLI neither creates nor modifies an XLSM and is not a go-ahead to install. Native preview source identity, no-op morning proof and comprehensive rollback remain mandatory. No operational afternoon saving or medical absence handling is enabled by this slice.
