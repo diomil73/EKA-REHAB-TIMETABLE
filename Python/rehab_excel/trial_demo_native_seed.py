@@ -28,6 +28,9 @@ from rehab_excel.application_contract import assert_application_contract
 from rehab_excel.master_projection_writer import refresh_master_projection_in_place
 from rehab_excel.master_visual_style import apply_master_visual_style_in_place
 from rehab_excel.patient_planner_projection import planner_identity_formulas
+from rehab_excel.trial_demo_planner_mirror import (
+    PLANNER_TREATMENT_HEADERS, choose_planner_demo_mirrors,
+)
 from rehab_excel.outpatient_schedule_source import read_unified_base_schedule
 from rehab_excel.patient_registry_source import read_patient_registry
 from rehab_excel.trial_demo_source_projection import (
@@ -218,6 +221,40 @@ class Win32ComTrialDemoSeedBackend:
                 for col, formula in enumerate(planner_identity_formulas(rownum), start=1):
                     planner.Cells(rownum, col).Formula = formula
 
+            # Mirror simple, lossless recurring times into the familiar
+            # PATIENT_PLANNER / MASTER UI, while detailed weekly slots remain
+            # authoritative for the scheduling/replacement engine.
+            planner_headers = {}
+            for col in range(1, int(planner.UsedRange.Columns.Count) + 1):
+                key = str(planner.Cells(1, col).Value2 or "").strip()
+                if key:
+                    planner_headers[key] = col
+            planner_row_by_id = {
+                str(item[0]): row for row, item in
+                enumerate(projection.patient_registry.rows, start=2)
+            }
+            for mirror in choose_planner_demo_mirrors(projection.weekly_slots.rows):
+                time_key, day_key, provider_key = PLANNER_TREATMENT_HEADERS[mirror.treatment]
+                fields = (time_key, day_key) + ((provider_key,) if provider_key else ())
+                if any(field not in planner_headers for field in fields):
+                    raise TrialDemoNativeSeedError(
+                        "Demo planner has missing treatment display columns"
+                    )
+                target_row = planner_row_by_id[mirror.patient_id]
+                targets = [planner.Cells(target_row, planner_headers[field]) for field in fields]
+                if any(cell.Value2 not in (None, "") for cell in targets):
+                    raise TrialDemoNativeSeedError(
+                        "Demo planner treatment target is already occupied"
+                    )
+                targets[0].NumberFormat = "hh:mm"
+                targets[0].Value = (
+                    mirror.start_time.hour * 3600 +
+                    mirror.start_time.minute * 60
+                ) / 86400
+                targets[1].Value = mirror.day_pattern
+                if provider_key:
+                    targets[2].Value = mirror.therapist
+
             try:
                 weekly = wb.Worksheets("PROGRAM_WEEKLY_SLOTS")
             except Exception:
@@ -331,6 +368,36 @@ def _verify_seed_workbook(
         for row in range(2, projection.patients + 2):
             if tuple(planner.cell(row, col).value for col in range(1, 6)) != planner_identity_formulas(row):
                 raise TrialDemoNativeSeedError("PATIENT_PLANNER identity formulas differ")
+        planner_headers = {
+            str(value).strip(): col for col, value in enumerate(
+                next(planner.iter_rows(min_row=1, max_row=1, values_only=True)),
+                start=1,
+            ) if value is not None
+        }
+        planner_rows = {
+            str(row[0]): i for i, row in
+            enumerate(projection.patient_registry.rows, start=2)
+        }
+        for mirror in choose_planner_demo_mirrors(projection.weekly_slots.rows):
+            time_key, day_key, provider_key = PLANNER_TREATMENT_HEADERS[mirror.treatment]
+            fields = (time_key, day_key) + ((provider_key,) if provider_key else ())
+            if any(field not in planner_headers for field in fields):
+                raise TrialDemoNativeSeedError("Native planner mirror columns missing")
+            row = planner_rows[mirror.patient_id]
+            if (
+                parse_clock(planner.cell(row, planner_headers[time_key]).value)
+                != mirror.start_time
+                or planner.cell(row, planner_headers[day_key]).value
+                != mirror.day_pattern
+                or (
+                    provider_key is not None
+                    and planner.cell(row, planner_headers[provider_key]).value
+                    != mirror.therapist
+                )
+            ):
+                raise TrialDemoNativeSeedError(
+                    "Native planner mirror differs from granular source"
+                )
     finally:
         wb.close()
 
