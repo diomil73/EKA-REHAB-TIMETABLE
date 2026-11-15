@@ -318,3 +318,10 @@ Current source/test status remains **NOT RUN after these commits**. The prior 1,
 ## 2026-11-15 — Project-wide delivery register
 
 The consolidated, evidence-based project delivery report is `Documentation/PROJECT_DELIVERY_MASTER_REPORT_20261115.md`. It brings together the H2–H10 delivery evidence, Recovery track, outpatient/registration/recurring-change workstreams, real-source admission, afternoon scope, protection gates and remaining release blockers. It does not replace specialist proofs or change any frozen artifact. Use `Documentation/CURRENT_HANDOFF.md` for the exact next operator action.
+
+
+## 2026-11-15 — H10 call-edge gate accepted; integrated demo source path clarified
+
+- Accepted expanded H10 read-only gate: 45 focused tests passed; full regression 1,856 passed, 1 skipped, 26 warnings; 3/3 distinct native candidates completed read-only VBA/structure audits with unchanged hashes and no workbook modification.
+- Confirmed the integrated demo target is the operator-reviewed source workbook and A:T mapping, retaining U/V afternoon/pool fields. Private source and identity-review workbooks remain outside GitHub; identity suggestions are not approvals.
+- Next: synthetic A:V source-shaped fixture and strict source parser/projection validation before any native writer.
