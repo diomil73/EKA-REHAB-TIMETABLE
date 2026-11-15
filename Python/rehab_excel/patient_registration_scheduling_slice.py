@@ -140,7 +140,32 @@ def _verify_patient_program_vba(vbproject) -> None:
         if marker in form_code or marker in runtime_code
     ]
 
-    if missing_form or missing_runtime or legacy_found:
+    # The optional PM panel must be present in BOTH form and runtime and
+    # must have its own designer control. Do not accept only a source patch.
+    afternoon_form_markers = (
+        "RefreshAfternoonReadOnlyPanel",
+        "lblAfternoonState",
+        "Me.Height = 665",
+    )
+    afternoon_runtime_markers = (
+        "LoadPatientAfternoonState",
+        "afternoon-state-vba",
+    )
+    missing_afternoon_form = [
+        marker for marker in afternoon_form_markers if marker not in form_code
+    ]
+    missing_afternoon_runtime = [
+        marker for marker in afternoon_runtime_markers if marker not in runtime_code
+    ]
+    try:
+        vbproject.VBComponents(PATIENT_PROGRAM_FORM_NAME).Designer.Controls(
+            "lblAfternoonState"
+        )
+        missing_afternoon_control = False
+    except Exception:
+        missing_afternoon_control = True
+
+    if missing_form or missing_runtime or legacy_found or missing_afternoon_form or missing_afternoon_runtime or missing_afternoon_control:
         details = []
         if missing_form:
             details.append("missing form markers: " + ", ".join(missing_form))
@@ -148,6 +173,12 @@ def _verify_patient_program_vba(vbproject) -> None:
             details.append("missing runtime markers: " + ", ".join(missing_runtime))
         if legacy_found:
             details.append("legacy markers still present: " + ", ".join(legacy_found))
+        if missing_afternoon_form:
+            details.append("missing afternoon form markers: " + ", ".join(missing_afternoon_form))
+        if missing_afternoon_runtime:
+            details.append("missing afternoon runtime markers: " + ", ".join(missing_afternoon_runtime))
+        if missing_afternoon_control:
+            details.append("missing afternoon read-only label control")
         raise RuntimeError("Patient-program VBA verification failed: " + "; ".join(details))
 
 
