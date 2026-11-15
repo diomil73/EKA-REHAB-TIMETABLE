@@ -138,3 +138,17 @@ Full regression: 1,824 passed, 1 skipped (symlinks unavailable on Windows), 26 w
 ### Reconciliation count clarification
 
 The 32-component no-match reconciliation (23 zero-code + 9 non-empty) is grounded in the 67-component inventory candidate and applies to the two 67-component reports. The CC read-only probe has 66 components and the same 35 matched components, so its arithmetic remainder is 31, not 32. Its candidate-specific component inventory has not yet been reconciled item-by-item; do not project the 23/9 breakdown onto that 66-component workbook. The two worksheet-module display-name aliases are normalized only when matching against the 67-component inventory.
+
+
+## Targeted source review of components without worksheet-write matches
+
+Tracked-source review establishes the following:
+- modRegistrationMenu: entry macro displays frmRegistrationMenu; form handlers route to patient, therapist, student and outpatient UI. No direct worksheet writes in the module.
+- modOutpatientSchedule: entry macro displays frmOutpatientSchedule. The form reads PATIENTS and SETTINGS, then submits a request to outpatient_schedule_bridge_cli.py. A preview and source SHA-256 are returned and passed to authoritative_commit_worker_cli.py. Actual workbook writeback is delegated to the Python preview/commit path.
+- modOutpatientScheduleManager: entry macro displays the manager form. The form reads OUTPATIENT_SCHEDULE and delegates create/edit actions to the outpatient form/edit modules.
+- modSchedulingConflict: modal therapist double-booking confirmation. Safe default is change/cancel; it returns an explicit Accepted decision. No direct workbook writes.
+- modDoubleBookingReview: performs external file I/O (temporary JSON/TSV creation/deletion), launches Python prepare/apply/authoritative-commit tools, and coordinates closing/reopening the workbook around authoritative commit. It is not a no-op; the previous worksheet-only scanner did not detect these external side effects.
+
+Related regression contracts: Tests/test_registration_menu_vba.py; Tests/test_double_booking_review_vba.py; Tests/test_outpatient_schedule_form_vba.py; Tests/test_outpatient_schedule_manager_vba.py; Tests/test_scheduling_conflict_popup_vba.py. These prove source-level contracts, not native end-to-end runtime acceptance.
+
+Still unresolved: generic Module5 (1 line), generic Module6 (26 lines), and two worksheet/document modules (19 and 12 lines). No tracked generator source has been found for them. A new sanitized auditor revision reports procedure identifiers and worksheet names for non-empty no-match components and detects external file I/O, process launch and workbook-close surfaces. Run the updated audit before assigning ownership.
