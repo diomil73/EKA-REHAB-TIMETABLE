@@ -84,3 +84,17 @@ def test_ui_installer_creates_separate_label_and_does_not_modify_master():
     assert "Forms.Label.1" in source
     assert "MASTER_SCHEDULE" not in source
     assert 'designer.Controls.Add("Forms.Label.1"' in source
+
+
+def test_native_installer_verifies_afternoon_vba_and_designer_control():
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "Python" / "rehab_excel" / "patient_registration_scheduling_slice.py"
+    ).read_text(encoding="utf-8")
+    assert '"RefreshAfternoonReadOnlyPanel"' in source
+    assert '"LoadPatientAfternoonState"' in source
+    assert '"afternoon-state-vba"' in source
+    assert 'Designer.Controls(' in source
+    assert '"lblAfternoonState"' in source
+    assert '"Me.Height = 665"' in source
+    assert 'missing_afternoon_control' in source
