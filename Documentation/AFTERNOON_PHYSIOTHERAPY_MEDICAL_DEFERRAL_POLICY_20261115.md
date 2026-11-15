@@ -151,3 +151,27 @@ if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: afternoon patient edit source gat
 ```
 
 The most recent **operator-confirmed** result remains `60 passed, 1 skipped in 3.29s` from before these two new files were committed. **Do not** count the new tests as passed until locally executed. No native Excel test is implied.
+
+## 2026-11-15 — Exact-member afternoon shared-slot review (new source gate)
+
+Operator-confirmed local tests for previous slice: **72 passed, 1 skipped in 4.06s**. This result predates the following new changes.
+
+- `Python/rehab_excel/afternoon_shared_slot_gate.py`: pure fail-closed shared physiotherapist slot gate. A group is keyed by normalized therapist + weekday + exact start clock. An approval requires the **complete and exact set of patient IDs**. Unapproved groups, duplicate approvals, partial memberships or stale approvals stop the gate. Error strings never include patient IDs. No VBA, Excel, real identities or workbook writes.
+- `review_afternoon_edit_plan(plan, approvals)` always inspects the **entire post-edit afternoon schedule**, not only the modified patient. Adding or removing a member invalidates old shared-slot membership approval and forces explicit new review.
+- `Tests/test_afternoon_shared_slot_gate.py`: synthetic tests for missing/exact/stale/duplicate approval, independent therapists and weekdays, patient-only duplicate slots, and approval invalidation during edit.
+
+**Critical limitation:** exact start-time membership approval is only a first-stage gate. Different start times with overlapping durations, clinical group capacity, therapist unavailability, therapist assignment rights and actual schedules remain separate admission requirements. No operational writer may rely on this gate alone. In particular, `validate_afternoon_rows` permits same-time therapist sharing for different patients only so this separate review can decide it, **not** because it is already authorized.
+
+No change is made to the existing MASTER label `ΦΘ`, morning planner treatment keys, DAILY_INPUT or patient UI.
+
+### Next focused local check (tests only)
+
+```powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Git pull failed" }
+$env:PYTHONPATH = (Join-Path (Get-Location).Path "Python")
+python -m pytest Tests/test_programme_scope_policy.py Tests/test_patient_programme_draft.py Tests/test_afternoon_slots_source.py Tests/test_afternoon_sheet_preview.py Tests/test_afternoon_patient_edit_plan.py Tests/test_afternoon_shared_slot_gate.py -q -rs
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: Afternoon source regression tests failed" }
+```
+
+The `-rs` option prints why one test was skipped; do not silently infer the reason from the previous summary. Only after this test gate and further source inspection should a newly named disposable native Excel copy be created. The code is still not a functioning afternoon patient form.
