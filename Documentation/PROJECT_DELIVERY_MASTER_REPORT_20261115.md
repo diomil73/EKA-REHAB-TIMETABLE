@@ -693,3 +693,8 @@ There are 35 components with at least one matched source-pattern line per candid
 The 1,396 matches are not confirmed runtime writes. Per-workbook category counts: worksheet references 80; value/formula accesses 373; direct value/formula writes 282; range/structure mutation candidates 111; format/other candidates 460; visibility/action binding 30; workbook saves 26; unprotect 17; protect 17.
 
 Full regression completed: 1,824 passed, 1 skipped, 26 warnings. The earlier "37 unresolved components" note is superseded; use 32 after accounting for the two worksheet-module name encoding aliases.
+
+
+### Reconciliation count clarification
+
+The 32-component no-match reconciliation (23 zero-code + 9 non-empty) is grounded in the 67-component inventory candidate and applies to the two 67-component reports. The CC read-only probe has 66 components and the same 35 matched components, so its arithmetic remainder is 31, not 32. Its candidate-specific component inventory has not yet been reconciled item-by-item; do not project the 23/9 breakdown onto that 66-component workbook. The two worksheet-module display-name aliases are normalized only when matching against the 67-component inventory.
