@@ -29,6 +29,7 @@ from rehab_excel.master_projection_writer import refresh_master_projection_in_pl
 from rehab_excel.master_visual_style import apply_master_visual_style_in_place
 from rehab_excel.patient_planner_projection import planner_identity_formulas
 from rehab_excel.reader import read_base_schedule
+from rehab_excel.patient_registry_source import read_patient_registry
 from rehab_excel.trial_demo_source_projection import (
     TrialDemoSourceProjection, project_trial_demo_sources,
 )
@@ -332,6 +333,37 @@ def _verify_seed_workbook(
                 raise TrialDemoNativeSeedError("PATIENT_PLANNER identity formulas differ")
     finally:
         wb.close()
+
+    # Independent registry readback through the production PATIENTS parser.
+    # This verifies type, MRN, doctor, room, infectious flag and status using
+    # the same interpretation that downstream application workflows consume.
+    try:
+        actual_patients = read_patient_registry(stage)
+    except Exception:
+        raise TrialDemoNativeSeedError(
+            "SAFETY STOP: native PATIENTS registry cannot be read by application"
+        ) from None
+    expected_patients = tuple(
+        (
+            str(row[0]), str(row[2]), row[1], row[3] == "Ν", row[4],
+            "INPATIENT" if row[5] == "Εσωτερικός" else "OUTPATIENT",
+            row[6], row[7],
+        )
+        for row in projection.patient_registry.rows
+    )
+    actual_patient_values = tuple(
+        (
+            patient.patient_id, patient.display_name, patient.room,
+            patient.infectious, patient.status,
+            patient.patient_type.value.upper(),
+            patient.hospital_mrn, patient.responsible_doctor,
+        )
+        for patient in actual_patients
+    )
+    if actual_patient_values != expected_patients:
+        raise TrialDemoNativeSeedError(
+            "SAFETY STOP: application PATIENTS reader differs from approved registry"
+        )
 
     # Independent operational readback through the SAME recurring schedule
     # reader used by daily workload/replacement code, not just sheet equality.
