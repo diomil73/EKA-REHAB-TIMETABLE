@@ -98,7 +98,9 @@ Private Function LedgerReady(ByVal exits As Worksheet, ByVal patients As Workshe
         If patientRow = 0 Then Exit Function
         If kind <> ExpectedExitKind(CStr(patients.Cells(patientRow, typeCol).Value2)) Then Exit Function
         lastValue = exits.Cells(rowNumber, 3).Value
-        If IsDate(lastValue) Then
+        If VarType(lastValue) = vbDate Then
+            parsed = CDate(lastValue)
+        ElseIf IsNumeric(lastValue) And VarType(lastValue) <> vbString Then
             parsed = CDate(lastValue)
         Else
             dateText = Trim$(CStr(lastValue))
@@ -148,6 +150,8 @@ Public Sub DemoPatientExitAction()
     Dim answer As VbMsgBoxResult, nBookings As Long
     Dim errText As String
     On Error GoTo Failed
+    oldEvents = Application.EnableEvents
+    oldScreen = Application.ScreenUpdating
 
     If InStr(1, ThisWorkbook.Name, "_DEMO_", vbTextCompare) = 0 Then
         MsgBox "Η ενέργεια επιτρέπεται μόνο σε ανεξάρτητο DEMO.", vbExclamation, "Diomil"
@@ -211,8 +215,6 @@ Public Sub DemoPatientExitAction()
         vbQuestion + vbYesNo + vbDefaultButton2, "Επιβεβαίωση εξιτηρίου")
     If answer <> vbYes Then Exit Sub
 
-    oldEvents = Application.EnableEvents
-    oldScreen = Application.ScreenUpdating
     Application.EnableEvents = False
     Application.ScreenUpdating = False
 
@@ -222,13 +224,13 @@ Public Sub DemoPatientExitAction()
             Err.Raise vbObjectError + 2991, , "Ο επόμενος στίχος εξιτηρίου δεν είναι κενός."
         End If
     Next rowNumber
+    written = True
     exits.Cells(exitRow, 1).NumberFormat = "@"
     exits.Cells(exitRow, 1).Value = patientId
     exits.Cells(exitRow, 2).Value = exitKind
     exits.Cells(exitRow, 3).NumberFormat = "yyyy-mm-dd"
     exits.Cells(exitRow, 3).Value = serviceEnd
     exits.Cells(exitRow, 4).Value = reason
-    written = True
     ThisWorkbook.Save
     If StrComp(Trim$(CStr(exits.Cells(exitRow, 1).Value2)), patientId, vbBinaryCompare) <> 0 Then
         Err.Raise vbObjectError + 2992, , "Το PatientID δεν διατηρήθηκε μετά την αποθήκευση."
