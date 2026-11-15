@@ -1,6 +1,6 @@
 # Current Handoff
 
-Last updated: 2026-11-12
+Last updated: 2026-11-15
 
 ## Mandatory read order for any new conversation or developer
 
@@ -2195,3 +2195,48 @@ Unmatched-component investigation now has useful identities:
 Important audit limitation: procedure names and pattern matches identify ownership candidates, not full semantics. The two event procedures, Module6 helpers and one-line Module5 still require implementation-level review and caller/callee tracing. Do not mark the VBA ownership map fully closed yet. The inventory emits component names in escaped Unicode where applicable; no source text or cell values were printed.
 
 Next step: complete the remaining source-level trace for Workbook events, PATIENT_PLANNER.Worksheet_Change, Module6 and Module5 using tracked VBA generator/source where available, and record unresolved native-only code honestly. Do not modify source workbooks. The regression and read-only audit gate is green; proceed with documentation and static ownership analysis, not production workbook changes.
+
+
+# AUTHORITATIVE LATEST RESUME — 2026-11-15 19:40 UTC
+
+Current branch: work/afternoon-medical-scope-20261115  
+Latest evidence bundle: DIOMIL_VBA_SOURCE_REVIEW_20261115_193409.txt
+
+## Latest verified gates
+
+- Focused tests: 24 passed.
+- Full pytest: 1,829 passed, 1 skipped, 26 warnings (1,830 collected).
+- Three distinct H10 candidates completed the sanitized native VBA write-surface audit.
+- Each candidate: ReadOnly=True; macros disabled before open; Excel events disabled; SOURCE HASH UNCHANGED: YES; NO WORKBOOK WAS MODIFIED.
+- Each candidate produced 1,569 static operation-pattern matches. These are source-pattern locations, not confirmed runtime writes.
+- Native inventory had one non-blocking limitation: Excel Calculation could not be switched to Manual because of a COM error. Preserve this warning in future summaries.
+
+## Current VBA reconciliation
+
+The latest sanitized report identifies the same eight no-pattern components in each candidate:
+1. ThisWorkbook document module (19 lines): Workbook_Open, Workbook_Activate, Workbook_Deactivate, Workbook_SheetActivate, Workbook_BeforeClose.
+2. PATIENT_PLANNER worksheet module (25 lines): Worksheet_Change.
+3. Module6 (26 lines): NormalizeTimeMS, NormalizePresenceMS.
+4. Module5 (1 line): no recognized procedure.
+5. modRegistrationMenu: ShowRegistrationMenu.
+6. modOutpatientSchedule: ShowOutpatientScheduleForm.
+7. modOutpatientScheduleManager: ShowOutpatientScheduleManager.
+8. modSchedulingConflict: ConfirmTherapistDoubleBooking.
+
+The four named UI/navigation modules have been matched to tracked generators and reviewed at source level. They are not direct worksheet-write procedures. modDoubleBookingReview is not among the no-pattern components in the latest run: its external file I/O, Python process launches and workbook close lifecycle are detected by the expanded audit.
+
+Still requiring source-level behavior review: ThisWorkbook event procedures, PATIENT_PLANNER.Worksheet_Change, Module6 helper implementations/consumers, and the one-line Module5 content. Procedure names alone do not establish semantics. The tracked repository does not currently provide their exact embedded VBA source as standalone source files. Do not infer or rewrite them from names.
+
+## Important status distinctions
+
+- Native inventory and sanitized write-surface audit: COMPLETE for the three distinct candidate workbooks.
+- Source ownership mapping: PARTIAL.
+- Runtime behavior/branch reachability proof: NOT ESTABLISHED by static source-pattern matching.
+- Full synthetic integrated demo: NOT YET ACCEPTED.
+- Actual patient-source admission and treatment mapping: separate controlled data gate; do not import private source data into a synthetic candidate without the agreed admission process.
+
+## Next action
+
+Continue with source-level review of the four remaining native-only components. If their exact VBA text is not available in tracked source, create a narrowly scoped local diagnostic that emits only safe structural metadata (procedure names, statement-category counts, and per-procedure hashes), never source text, patient names, cell values or formulas. Then compare those signatures across the three candidates. Do not modify or save any candidate workbook.
+
+This section is the authoritative current resume and supersedes older CURRENT_HANDOFF branch/status statements and earlier H10 unresolved/no-pattern counts above. Historical entries remain as chronology, not as current instructions.
