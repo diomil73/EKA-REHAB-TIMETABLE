@@ -43,17 +43,30 @@ def _roster(book) -> tuple[str, ...]:
     return tuple(str(book.Worksheets(i).Name) for i in range(1, int(book.Worksheets.Count) + 1))
 
 
+def _sheet_snapshot(worksheet) -> tuple:
+    """Capture formulas as well as cached values for an existing worksheet."""
+    used = worksheet.UsedRange
+    return (str(used.Address), used.Value2, used.Formula)
+
+
 def _baseline(book) -> tuple:
     """Conservative native worksheet invariants, no patient values in logs."""
     master = book.Worksheets("MASTER_SCHEDULE")
     planner = book.Worksheets("PATIENT_PLANNER")
     patients = book.Worksheets("PATIENTS")
+    master_used = master.UsedRange
+    first_column = int(master_used.Column)
+    column_count = int(master_used.Columns.Count)
+    master_widths = tuple(
+        float(master.Columns(index).ColumnWidth)
+        for index in range(first_column, first_column + column_count)
+    )
     return (
         _roster(book),
-        tuple(float(master.Columns(i).ColumnWidth) for i in range(1, 13)),
-        (master.UsedRange.Address, master.UsedRange.Value2),
-        (planner.UsedRange.Address, planner.UsedRange.Value2),
-        (patients.UsedRange.Address, patients.UsedRange.Value2),
+        (first_column, column_count, master_widths),
+        _sheet_snapshot(master),
+        _sheet_snapshot(planner),
+        _sheet_snapshot(patients),
     )
 
 
