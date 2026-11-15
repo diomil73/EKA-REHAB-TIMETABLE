@@ -138,9 +138,11 @@ def test_existing_vba_components_must_be_fetched_outside_missing_label_guard():
     ).read_text(encoding="utf-8")
     component_lookup = source.index('VBComponents("PatientProgramRuntime")', source.index("prior = _baseline(book)"))
     designer_lookup = source.index("designer = form.Designer", component_lookup)
-    missing_label_guard = source.index("try:\n            existing_label", designer_lookup)
-    assert component_lookup < designer_lookup < missing_label_guard
-    assert "except Exception:\n            existing_label = None" in source
+    control_enumeration = source.index("existing_names = tuple(", designer_lookup)
+    assert component_lookup < designer_lookup < control_enumeration
+    assert "int(designer.Controls.Count)" in source
+    assert "if PANEL_LABEL in existing_names:" in source
+    assert "existing_label = None" not in source
     assert "Already installed afternoon panel" in source
 
 
