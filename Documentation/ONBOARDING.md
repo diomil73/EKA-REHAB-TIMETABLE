@@ -310,3 +310,10 @@ Current source/test status remains **NOT RUN after these commits**. The prior 1,
 ## 2026-11-15 — Project-wide delivery register
 
 The consolidated, evidence-based project delivery report is `Documentation/PROJECT_DELIVERY_MASTER_REPORT_20261115.md`. It brings together the H2–H10 delivery evidence, Recovery track, outpatient/registration/recurring-change workstreams, real-source admission, afternoon scope, protection gates and remaining release blockers. It does not replace specialist proofs or change any frozen artifact. Use `Documentation/CURRENT_HANDOFF.md` for the exact next operator action.
+
+
+## 2026-11-15 — latest verified continuation and actual demo input boundary
+
+The 20:50 expanded H10 call-edge gate is accepted: 45 focused tests passed; full regression 1,856 passed / 1 skipped / 26 warnings; three distinct H10 workbooks completed read-only VBA and structure audits with unchanged hashes and no modifications. See `CURRENT_HANDOFF.md` and `PROJECT_DELIVERY_MASTER_REPORT_20261115.md`.
+
+The product target is a single functional Excel demo using the operator-reviewed patient/treatment source. The two private source and identity-review workbooks are already available in the conversation context. Do not ask for re-upload and do not commit either workbook or patient data. The operator's A:T mapping remains the core schema; U/V contain additional afternoon and pool fields. Identity suggestions are not approvals. Build and test the source-shaped parser/projection with synthetic data first; real-patient admission remains separately gated.
