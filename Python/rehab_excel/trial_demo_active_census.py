@@ -101,7 +101,7 @@ def census_formulas(
         last_active=(
             f'=IF(A{row}="","",IFERROR('
             f'INDEX(PATIENT_EXITS!$C:$C,'
-            f'MATCH(A{row},PATIENT_EXITS!$A:$A,0)),""))'
+            f'MATCH(A{row}&"",PATIENT_EXITS!$A:$A,0)),""))'
         ),
         status=(
             f'=IF(A{row}="","",IF(E{row}="","Ενεργός",'
