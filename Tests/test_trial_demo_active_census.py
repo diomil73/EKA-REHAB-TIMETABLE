@@ -15,7 +15,7 @@ def test_status_formulas_use_exact_patient_row_and_all_exit_rows():
     assert row.name == '=IF(PATIENTS!C17="","",PATIENTS!C17)'
     assert row.patient_type == '=IF(PATIENTS!C17="","",PATIENTS!I17)'
     assert row.room == '=IF(PATIENTS!C17="","",PATIENTS!B17)'
-    assert "MATCH(A17&"",PATIENT_EXITS!$A:$A,0)" in row.last_active
+    assert 'MATCH(A17&"",PATIENT_EXITS!$A:$A,0)' in row.last_active
     assert "INDEX(PATIENT_EXITS!$C:$C" in row.last_active
     assert 'IF(INT(E17)>=INT($H$2),"Ενεργός","Εξιτήριο / Λήξη")' in row.status
 
