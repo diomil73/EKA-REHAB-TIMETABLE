@@ -176,3 +176,48 @@ This establishes source-level Python regression GREEN for this revision. It does
 The uploaded artifact contains only the full regression output. No `DIOMIL_H10_STRUCTURE_*.txt` report has yet been received, so no conclusion is recorded about the four H10 workbook candidates. They remain unselected and untouched.
 
 Next operator action: run the already documented four-candidate read-only structural audit only (do not rerun the full regression), then upload `DIOMIL_H10_STRUCTURE_*.txt`. Review candidate worksheet visibility, data-bearing surfaces, formulas/cached-result coverage, package parts and VBA project fingerprints before any candidate is nominated. Keep the tracked populated clinical baseline and all frozen acceptance artifacts excluded.
+
+
+## 2026-11-15 — H10 structure audit invocation stopped by PowerShell stderr policy; retry command corrected
+
+The first four-candidate invocation produced `DIOMIL_H10_STRUCTURE_20261115_164733.txt` containing only `EXIT CODE: -1`. The console shows that PowerShell raised `NativeCommandError` when openpyxl emitted the non-fatal warning `Data Validation extension is not supported and will be removed`. The shell had `$ErrorActionPreference = "Stop"`, so native Python stderr interrupted the invocation. This is **not evidence that the structural auditor found a corrupt workbook or failed its structural checks**; no complete audit output was produced.
+
+The warning is emitted by openpyxl while reading legacy Excel data-validation extensions. The auditor uses read-only workbook loading and never saves the workbook. Do not interpret this warning as a workbook modification.
+
+### Corrected operator command (no tests need rerunning)
+
+Use a fresh report filename and temporarily set `$ErrorActionPreference = "Continue"` only around the native Python command, while keeping `*> $structureLog` to capture stdout and stderr. Restore the previous preference afterwards and read the actual Python `$LASTEXITCODE`:
+
+```powershell
+$structureLog = Join-Path $PWD (
+    "DIOMIL_H10_STRUCTURE_{0}.txt" -f
+    (Get-Date -Format "yyyyMMdd_HHmmss")
+)
+
+$previousEAP = $ErrorActionPreference
+try {
+    $ErrorActionPreference = "Continue"
+
+    python Python\tools\audit_integrated_workbook_structure.py `
+      "Excel\previews\UNIFIED_H10_DEMO_RECURRING_IDS_20261112_A.xlsm" `
+      "Excel\previews\UNIFIED_H10_DEMO_NATIVE_WRITE_20261112_A.xlsm" `
+      "Excel\previews\UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm" `
+      "Excel\previews\UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm" *> $structureLog
+
+    $structureCode = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousEAP
+}
+
+"PYTHON EXIT CODE: $structureCode" | Add-Content -LiteralPath $structureLog
+Get-Content -LiteralPath $structureLog -Tail 45
+Write-Host "STRUCTURE REPORT: $structureLog"
+Write-Host "PYTHON EXIT CODE: $structureCode"
+
+if ($structureCode -ne 0) {
+    throw "SAFETY STOP: Structural audit did not complete cleanly; upload the full TXT."
+}
+```
+
+Only this read-only structure audit needs to be rerun. Do not rerun regression, do not suppress all Python warnings inside the audit tool, do not open or save the candidates in Excel, and do not change candidate paths. The four workbooks remain unselected and untouched.
