@@ -253,8 +253,21 @@ def test_component_sha256_uses_newlines_not_literal_backslash_n():
     assert 'sha256("\\\\n".join(lines).encode("utf-8")).hexdigest()' not in source
 
 
-def test_normalizer_call_search_covers_modules_with_write_matches():
+def test_call_search_covers_all_declared_procedures_in_write_modules():
     source = inspect.getsource(module.audit)
-    assert 'if name.casefold() in {"normalizetimems", "normalizepresencems"}' in source
-    assert "lines, normalizer_names" in source
+    assert "lines, known_procedures" in source
+    assert "normalizer_names" not in source
     assert "POSSIBLE_CALL_EDGE" in source
+
+
+def test_possible_call_edges_capture_cross_procedure_reference():
+    lines = [
+        "Private Sub CheckSingleAssignment(ByVal rowNumber As Long)",
+        "    Call BuildBusyMapsForCheck",
+        "End Sub",
+        "Private Sub BuildBusyMapsForCheck()",
+        "End Sub",
+    ]
+    assert module._possible_call_edges(
+        lines, {"CheckSingleAssignment", "BuildBusyMapsForCheck"}
+    ) == [("CheckSingleAssignment", 2, "BuildBusyMapsForCheck")]
