@@ -182,3 +182,17 @@ Therefore:
 - Do not run `build_unified_preview.py` against the tracked baseline as a shortcut to the full synthetic test artifact.
 - Do not treat `UNIFIED_APP_SMOKE` or the H8 demo as the full application test workbook.
 - Next selection step is a read-only local manifest of all existing XLSM/XLSX candidates (full path, exact filename, size, last-write timestamp). Then cross-reference candidates with the native acceptance matrix and provenance evidence; do not open or modify any candidate during the manifest step.
+
+
+## 2026-11-15 — Local workbook inventory manifest generated; candidate review pending
+
+Operator generated the read-only PowerShell workbook manifest:
+
+- File: `DIOMIL_WORKBOOK_MANIFEST_20261115_162813.txt` at the repository root on the private Windows workstation.
+- Reported workbook count: **337**.
+- Search scope: repository root plus recursive `Excel`, `Preview`, and `Forensic_Backups` folders.
+- The manifest explicitly records: **NO WORKBOOK OPENED OR MODIFIED**.
+- The console excerpt begins with a truncated filename resembling `DIOMIL_FULL_REGRESSION_20261...`, but it is not enough to identify or approve a candidate.
+- Manifest contents have not yet been received for inspection. No workbook has been selected, opened, modified, or designated as the complete synthetic integration base.
+
+Next: obtain and inspect the exact manifest text, then classify candidates by filename, full path, extension, size and last-write time; compare only candidate metadata with the established acceptance/provenance records. Do not open or write any candidate during selection. Preserve the populated clinical baseline and all accepted/frozen artifacts.
