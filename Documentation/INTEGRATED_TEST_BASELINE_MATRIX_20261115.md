@@ -463,3 +463,10 @@ Following the accepted 20:31 bundle, two further **read-only** analysis improvem
 **Validation boundary:** these new commits are after the accepted 38-focused / 1,854-full result and have not yet been run by the operator. They must not inherit that earlier GREEN. The next local action is one execution of the updated PowerShell gate with Excel closed. The new script still does not save or modify any XLSM.
 
 After this proof, proceed to the full synthetic integration workbook design/build. The real-source file named `DIOMIL_ΕΛΕΓΜΕΝΗ_ΜΕΤΑΦΟΡΑ_ΠΗΓΗΣ_ΠΡΟΣ_MASTER_20261112.xlsx` was not found among the currently available Project attachments; do not guess its local location or commit it. When the real-data admission milestone is reached, ask the operator to supply the reviewed source privately and follow `REAL_SOURCE_DEMO_WEEKEND_GATE_20261113.md`. The A:T column mapping already supplied in the conversation is retained as the operator's source-schema reference; the reclining-treatment replacement rule still requires the operator's fresh clinical instructions at the point of implementation.
+
+
+## 2026-11-15 20:50 — accepted expanded H10 gate and demo source boundary
+
+The updated gate is operator-accepted: 45 focused tests passed; full regression 1,856 passed, 1 skipped, 26 warnings; all three distinct H10 candidates completed read-only VBA and structure audits, with source hashes unchanged and no workbook modified. The single skip is the Windows symlink limitation. The evidence bundle is `DIOMIL_H10_CALL_EDGE_BUNDLE_20261115_205003.txt` (private operator evidence; not a repository artifact).
+
+The real demo target is the operator-reviewed patient/treatment programme. The private source workbook and identity-review workbook are available in the conversation context; keep them private. The core source mapping is A:T, with additional afternoon/pool fields in U/V. Identity suggestions do not constitute approvals. No real-patient admission or native integrated demo is accepted. The next testable step is a synthetic A:V source-shaped fixture and strict parser/projection roundtrip against the existing trial admission/import planning modules.
