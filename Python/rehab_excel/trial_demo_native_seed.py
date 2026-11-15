@@ -294,7 +294,7 @@ def _verify_seed_workbook(
         if tuple(weekly.cell(1, col).value for col in range(1, 7)) != WEEKLY_HEADERS:
             raise TrialDemoNativeSeedError("Native weekly headers differ")
         actual_weekly = []
-        for row in range(2, projection.weekday_slots + 2):
+        for row in range(2, projection.weekday_slot_count + 2):
             values = tuple(weekly.cell(row, col).value for col in range(1, 7))
             actual_weekly.append((
                 str(values[0]), values[1], values[2], parse_clock(values[3]),
@@ -303,7 +303,7 @@ def _verify_seed_workbook(
         if tuple(actual_weekly) != projection.weekly_slots.rows:
             raise TrialDemoNativeSeedError("Native weekday slots differ from projection")
         view = wb["DEMO_WEEKLY_VIEW"]
-        if view.max_row < projection.weekday_slots + 1:
+        if view.max_row < projection.weekday_slot_count + 1:
             raise TrialDemoNativeSeedError("Full weekly demo view missing")
         planner = wb["PATIENT_PLANNER"]
         for row in range(2, projection.patients + 2):
@@ -375,7 +375,7 @@ def seed_trial_demo_workbook(
             raise TrialDemoNativeSeedError("SAFETY STOP: published copy mismatch")
     return TrialDemoNativeSeedReport(
         patient_count=projection.patients,
-        weekday_slot_count=projection.weekday_slots,
+        weekday_slot_count=projection.weekday_slot_count,
         source_unchanged=_digest(source) == before,
         verified_native_readback=True,
         output_path=str(destination),
