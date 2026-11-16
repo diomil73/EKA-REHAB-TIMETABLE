@@ -1,5 +1,14 @@
 # Current Handoff
 
+## 2026-11-17 — PRIVATE real manual + 12 Nov identity-proposal actual XLSX read-only proof (NO IMPORT)
+
+**The two operator-uploaded XLSX files were actually accessible and inspected read-only in this conversation**, superseding previous "names only/not accessible" statements. Exact source filename is `ΠΡΟΓΡΑΜΜΑΤΑ  ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26 .xlsx` (DOUBLE SPACE after ΠΡΟΓΡΑΜΜΑΤΑ and extra space before extension), explaining earlier `MANUAL_NAME_MATCH=False` and exact-name search 0. Partner file is `DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx`. SHA checks confirmed both file bytes unchanged. **No patient names/IDs/records, raw source paths or private input hashes committed to GitHub.**
+
+Actual-content aggregate evidence: source C:V schema matches; 106 matching reviewed patient rows, 764 proposed precise Monday-Friday treatments, zero provenance mismatches, 61 review holds, 11 overlap rows, 33 UNCONFIRMED old-ID suggestions, **zero confirmed PatientIDs**, 5 F reclining occurrences, 19 U legacy afternoon occurrences, zero V in `ΠΡΟΓΡΑΜΜΑ`. Two additional manual column-B rows are not reviewed patients and carry zero C:V treatments. The original source has an **auxiliary** `Εξωτερικοί Ασθενείς` sheet with 10 populated rows, but **NOT** the canonical approved `PATIENTS`/`OUTPATIENT_SCHEDULE` outpatient source. DO NOT assume those are 10 approved patients or sessions. Detailed privacy-safe counts and exact separate acceptance boundary: `Documentation/REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`.
+
+**Critical status:** these uploaded files ARE usable for read-only real-source alignment and approval preparation, but 0 identities confirmed plus F/U and 61/11 holds means **NOT ACCEPTED FOR NATIVE SEED**; no real-data Excel COM build, no end-to-end UI, no operator acceptance. The 10 Nov manual's clinical currency must be separately confirmed. Keep existing MASTER VBA normal registration/display unchanged. Next task is per-patient and per-special-cell clinical review in authorized private environment; never infer data or upload private actual workbook into Git. Note that the aggregate check is independent workbook inspection, **not** execution of the official operator CLI or Windows COM.
+
+
 ## 2026-11-17 — Operator read-only input discovery blocked (0 manual, 1 review)
 
 The user's second console log reports `MANUAL_FILES_FOUND=0`, `REVIEW_FILES_FOUND=1` after exact-filename recursive search of common Windows folders outside Git. The PowerShell safety stop was correct, but the user then separately ran `$p = $manualMatches[0]` and both read-only Python audit commands with **empty `$p`**. Each exited 2 at `argparse: --programme expected one argument`, before opening any workbook. These are *command argument errors*, NOT a finding about treatment fields or patient IDs. The original manual is still not located or inspected; the identity file is only a suggestion workbook.

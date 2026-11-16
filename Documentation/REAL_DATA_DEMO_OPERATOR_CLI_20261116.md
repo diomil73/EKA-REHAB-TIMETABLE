@@ -1,5 +1,12 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## Source naming correction after actual private upload — 2026-11-17
+
+Two XLSX files WERE uploaded into the private conversation and inspected independently, without modification. The REAL source filename is **`ΠΡΟΓΡΑΜΜΑΤΑ  ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26 .xlsx`**, including **two spaces between the first two words** and **one space before `.xlsx`**. That is why exact-name PowerShell searches returned zero and `MANUAL_NAME_MATCH=False` even when the correct workbook was selected. Do not rename or alter the original merely to satisfy an exact filename check. Use full file-picker selection or copy the exact filename, and validate source content/provenance instead.
+
+Aggregate actual file findings: 106 patient review rows, 764 weekday treatment proposals, zero source-reference mismatches, 33 merely suggested old IDs, 0 confirmed IDs, 61 review holds, 11 overlaps, F=5/U=19/V=0. The manual contains a noncanonical auxiliary `Εξωτερικοί Ασθενείς` sheet with 10 filled rows; it **cannot** be used automatically as approved `PATIENTS` + `OUTPATIENT_SCHEDULE`. Both uploaded sources were SHA-verified unchanged after independent inspection. See `Documentation/REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`. **Do not run `--build`** from these unconfirmed review proposals; private final clinical approvals and current-program sign-off are absent.
+
+
 ## Operator feedback: 0 manual filename / 1 identity proposal found (2026-11-17)
 
 The operator's next Windows PowerShell output confirms **MANUAL_FILES_FOUND=0** and **REVIEW_FILES_FOUND=1** when searching Documents/Desktop/Downloads/OneDrive for *exact* filenames outside the Git checkout. The safety stop correctly prevented any source-backed action. Because PowerShell continued accepting subsequent individually submitted commands after the terminating `throw`, `$p` was empty and both Python scripts emitted argparse `--programme: expected one argument` and exited 2. **Neither source audit ran**, so these exit codes are not evidence of bad source data, F/U/V or identity alignment. The review workbook's unique discovery is **not** clinical PatientID approval. No workbook changed.

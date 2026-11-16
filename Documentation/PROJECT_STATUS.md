@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-11-17 — Real uploaded source pair inspected read-only; original files intact
+
+The original real manual plus matching 12 Nov identity proposal were **actually uploaded and opened read-only**, superseding prior filename-only access blocker. The exact manual has a double space after ΠΡΟΓΡΑΜΜΑΤΑ and a space before the .xlsx extension; this accounts for Windows `MANUAL_NAME_MATCH=False`. Aggregate independent check: **106/106** identities point to original source rows, **764** weekly Mon-Fri proposals, no source provenance errors; however **0 explicit approved PatientIDs**, **33 merely proposed old IDs**, **61 held review entries**, **11 overlap proposals**, **5 F reclining rows**, **19 historic U afternoon rows**, **0 V**. The original auxiliary outpatient sheet has **10 populated rows but noncanonical headers**, therefore no independent outpatient admission. Both uploaded original file hashes were unchanged after reading. No real XLSM DEMO was generated.
+
+Privacy-safe full evidence: `Documentation/REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`. All outstanding approvals, source freshness check, Windows native Excel/COM/readback, and operator end-to-end acceptance stay red. Source/synthetic CI status pertains to code; it cannot approve the real clinical data.
+
+
 ## 2026-11-17 — Actual-input location gate pending, not a Python code regression
 
 Read actual operator logs: exact filename scan outside Git found 0 manual A:V workbooks and 1 PatientID suggestion XLSX. Correct safety stop, then subsequent individually pasted Python commands received blank `--programme`, emitting argparse exit 2 before source read. This does **not** invalidate the 2,029 green synthetic regressions or count as a real-data clinical check.
