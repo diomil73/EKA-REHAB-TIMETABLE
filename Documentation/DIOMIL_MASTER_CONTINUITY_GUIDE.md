@@ -1,5 +1,8 @@
 # DIOMIL | ΕΝΙΑΙΟΣ ΟΔΗΓΟΣ ΑΚΡΙΒΟΥΣ ΣΥΝΕΧΕΙΑΣ
 
+> **ΤΕΛΕΥΤΑΙΟ VERIFIED CLOUD CHECKPOINT 17/11/2026:** GitHub Actions [43980917796](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43980917796), code SHA `14d095367845cbf0c60aacf84d63c07bd303e899`: **2.040/2.040 Python pytest Windows και 2.040/2.040 Linux, 4/4 jobs SUCCESS**. Δύο νέες μικρές ενισχύσεις της πηγαίας ασφάλειας (6 fictional-only tests συνολικά), §4.7. Αφορά GitHub cloud code, **όχι** το PC, native XLSM ή κλινική αποδοχή. Η ρητή παύση προσωπικού PC στην §4.6 παραμένει σε ισχύ.
+
+
 > **ΜΟΝΑΔΙΚΟ ΚΕΝΤΡΙΚΟ ΑΡΧΕΙΟ.** Αν ο χρήστης γράψει «Βρες το αρχείο-οδηγό DIOMIL και συνέχισε ακριβώς εκεί που μείναμε», βρες αυτό το αρχείο στον **τρέχοντα** κλάδο GitHub, διάβασέ το ολόκληρο και συνέχισε από το **Κεφάλαιο 4**. Μη βασιστείς σε παλιές περιλήψεις ή ζητήσεις επανάληψη όσων ήδη αποδείχθηκαν. Τα παλιά checkpoints είναι ιστορικά, όχι ανταγωνιστικές οδηγίες.
 >
 > **Τέσσερα κεφάλαια μέσα στο ΙΔΙΟ αρχείο:** 1. Πού μείναμε και πραγματικά αποδεικτικά, 2. Επιχειρησιακοί κανόνες και υπάρχουσες αποδεκτές λειτουργίες, 3. Αρχιτεκτονική/ασφαλής μέθοδος, 4. Ακριβή επόμενα βήματα, κριτήρια demo και ενημέρωση οδηγού.
@@ -256,3 +259,23 @@
 6. ΜΟΝΟ σε full preflight GREEN: δημιουργία **νέου, μοναδικού και ιδιωτικού** §*_DEMO_*.xlsm§ σε Windows Excel/COM, native Save/Close/Reopen, independent reader/hash, μετά πλήρη σύγκριση ΔΕ–ΠΑ και δοκιμή των διαδρομών admissions/exit/absence/replacement/registries/history/protection/reset. Frozen baseline και παλιά πράσινα/fail artifacts αμετάβλητα.
 
 **ΑΚΡΙΒΕΣ ΣΗΜΕΙΟ ΣΥΝΕΧΕΙΑΣ ΚΑΤΑ ΤΟ MOBILE-ONLY MODE:** Μετά τα 2.034 cloud tests, συνεχίζουμε μόνο με ασφαλείς μη-κλινικές source-code εργασίες και ανάλυση του private review workflow/15 collisions, χωρίς απαίτηση πρόσβασης σε τοπικό PC. **Το πρώτο πραγματικό Windows Excel/COM και user acceptance μεταφέρονται στο τέλος, όταν ο χρήστης επιστρέψει και το δηλώσει ο ίδιος.**
+
+
+## 4.7 Νέος cloud-only κύκλος ασφάλειας review και εβδομαδιαίων PatientIDs — 17/11/2026
+
+**Αίτημα χρήστη:** «Συνέχισε ... με όποια τέστ δεν χρειάζεται να είναι στο pc μου». Πραγματοποιήθηκαν αποκλειστικά αλλαγές κώδικα και fictional-only tests στο GitHub. Καμία τοπική εντολή, πραγματικό patient data, Windows Excel/COM, αλλαγή MASTER ή αποδοχή DEMO. Τα tests εκτελέστηκαν σε **GitHub-hosted** Windows/Linux runners, όχι στον προσωπικό υπολογιστή.
+
+**Πρώτο commit:** [194bb419](https://github.com/diomil73/EKA-REHAB-TIMETABLE/commit/194bb419ee4210c73fa9e12b7a1a4ebc535dc4ba), αρχείο `trial_admission_gate.py` και `test_trial_admission_gate.py`.
+- Ξεχωριστή αυστηρή επιβεβαίωση **κάθε** παραπομπής original A:V cell στο εγκεκριμένο source row, την ειδικότητα και την υποχρεωτική source clock-column. Λανθασμένη γραμμή/στήλη, απουσία clock-column και διπλά references δεν γίνονται admissible.
+- Επιλογή ακριβώς του clock cell ως source provenance ανεξάρτητα από τη σειρά στην οποία δίνονται οι έγκυρες παραπομπές. Δεν επανερμηνεύεται η ώρα ή η ειδικότητα.
+- Μοναδική φυσική source row ανά ασθενή παγκοσμίως στο πρωτότυπο A:V, ανεξάρτητα από διαφορετικό clinic label. Μη ακέραιη, Boolean ή μη αριθμητική source row απορρίπτεται fail-closed.
+- **4 νέες test functions** με αποκλειστικά φανταστικά ονόματα/IDs, περιλαμβάνουν αρνητικά και θετικά controls και read-only input bytes.
+- GitHub [Actions 43980491249](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43980491249) **4/4 SUCCESS**, **2.038 passed Windows**, **2.038 passed Linux**.
+
+**Δεύτερο commit:** [14d09536](https://github.com/diomil73/EKA-REHAB-TIMETABLE/commit/14d095367845cbf0c60aacf84d63c07bd303e899), αρχεία `trial_weekly_projection.py` / `test_trial_weekly_projection.py`.
+- Επιβεβαιωμένες ταυτότητες που διαφέρουν μόνο σε πεζά/κεφαλαία δεν αντιμετωπίζονται ως διαφορετικά PatientIDs. Μη-text/unhashable ID απορρίπτεται με ελεγχόμενο `TrialWeeklyProjectionError`, όχι ανεξέλεγκτο `TypeError`.
+- **2 νέα fictional-only tests**. Τελικό GitHub [Actions 43980917796](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43980917796) στο ακριβές SHA: **2.040 passed Windows και 2.040 passed Linux, 4/4 jobs SUCCESS**. 24 pytest warnings ανά λειτουργικό, **0 test failures**. Κανένα εγκεκριμένο προηγούμενο native binary δεν μεταβλήθηκε.
+
+**Διατήρηση ορίων:** Οι πραγματικές 106 identities **0 confirmed**, 61 source holds, 15 collision groups (11 + 4), F=5/U=19/V=0, 30 context gaps, source freshness/outpatient canonical source, private clinical approvals, clean XLSM και operator native DEMO **όλα παραμένουν εκκρεμή**. Δεν επαναλάβαμε το αληθινό 106/764 source scan και δεν δημοσιεύσαμε private identifiers ή hashes. Οι συγκεκριμένες source αλλαγές αποτρέπουν λανθασμένη **μελλοντική** admission σε ανεξάρτητες συναρτήσεις, δεν αποδεικνύουν ότι το τρέχον review είναι έγκυρο.
+
+**Συνέχεια αποκλειστικά από κινητό:** Κρατάμε όλα τα steps με προσωπικό PC ως τελικό backlog της §4.6. Για επόμενα remote tests εξετάζουμε αν το source-only private review workflow διατηρεί τα 61/15/F/U holds αμετάβλητα και τα explicit identity decisions χωρίς προεπιλεγμένες εγκρίσεις. Οποιαδήποτε νέα πραγματική κλινική απόφαση ανήκει σε εξουσιοδοτημένο operator, όχι σε cloud tests.
