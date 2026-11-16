@@ -319,11 +319,15 @@ def test_special_formula_only_source_blocks_native_build_before_approval_read(
         cli, "read_private_clinical_approvals",
         lambda *_: pytest.fail("no clinical application on held original formulas"),
     )
+    # The independent source exists, so validation reaches the F/U/V gate.
+    # It must stop before any clinical approval or Excel mutation occurs.
+    outpatient = tmp_path / "SEPARATE_OUTPATIENTS.xlsx"
+    outpatient.write_bytes(b"synthetic standalone outpatient source")
     with pytest.raises(cli.RealDemoCommandError, match="F/U/V"):
         cli.run_private_trial(
             programme=p, review=r, shell=shell, approvals=approval,
             build=True, output=tmp_path / "DIOMIL_DEMO_HELD.xlsm",
-            outpatients=tmp_path / "SEPARATE_OUTPATIENTS.xlsx",
+            outpatients=outpatient,
         )
 
 
