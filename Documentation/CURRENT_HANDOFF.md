@@ -1,5 +1,14 @@
 # Current Handoff
 
+## 2026-11-17 — operator native Windows Git sync proof: local tools available (NOT real-source audit)
+
+Operator supplied actual PowerShell console output from `C:\Users\Dionysis\Documents\GitHub\EKA-REHAB-TIMETABLE`. The local branch `work/afternoon-medical-scope-20261115` was initially **155 commits behind** `origin/work/afternoon-medical-scope-20261115`. `git fetch origin` succeeded, followed by `git merge --ff-only origin/work/afternoon-medical-scope-20261115` **fast-forward** from `837d6e4` to `3b47567`, with 71 changed files. Local `git rev-parse --short HEAD` reported **3b47567** and `Test-Path` verified BOTH missing tools now exist: `Python/tools/audit_real_manual_specials.py=True` and `Python/tools/audit_trial_source_alignment.py=True`. Earlier Python [Errno 2] failures were from missing local scripts, **not** a failed scan of the patient sources.
+
+One isolated PowerShell `else` error appeared because the user entered `else` after completing a separate `if` command; the subsequent `git merge --ff-only` and both `Test-Path` checks were successful. No destructive Git reset/clean, patient workbook edit, import, native seed or clinical approval was performed. Public GitHub Actions at the prior head `3b47567` is GREEN (run 43965793601); it is distinct from this operator-side local tool presence proof.
+
+**Next strict operator gate:** locate the exact two identified `.xlsx` inputs **in approved private Windows storage outside Git**, run the **read-only** special-field F/U/V inventory and read-only original programme versus `ΠΡΟΤΑΣΕΙΣ` identity proposal alignment. Collect only aggregate counts/return codes; source names/PatientIDs remain private. `ΠΡΟΤΑΣΕΙΣ` is not automatic PatientID authorization; 10 Nov manual is a historical baseline and needs currency sign-off. Never execute private native `--build` from these names alone. Continue from the updated `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md` and existing source gates; do not ask to repeat the already-proven fetch/switch/merge.
+
+
 ## 2026-11-16 — Operator identified the historical A:V source and identity proposal filenames
 
 The operator explicitly identified two **private, local** source candidates (filenames only; contents were NOT shared or examined in this session):

@@ -1,5 +1,12 @@
 # Project Status
 
+## 2026-11-17 — native operator local checkout recovered (real-source audits still pending)
+
+Operator's actual Windows PowerShell output confirms `git fetch origin` + safe `git merge --ff-only` on `work/afternoon-medical-scope-20261115`, local commit **3b47567**, formerly 155 commits behind; both `audit_real_manual_specials.py` and `audit_trial_source_alignment.py` are now present (`Test-Path=True`). Prior `python can't open file` errors were local checkout drift only; the stray PowerShell `else` error did not block fast-forward. GitHub Actions run 43965793601 on 3b47567 is GREEN.
+
+**Next:** Read-only clinic-approved private local input discovery and source-level F/U/V plus source/review alignment audits. No actual patient records have been examined, no confirmed ID/clinical or separate outpatient native admission, no output XLSM, no operator five-day acceptance. The named original 10 Nov Excel is historical; the named 12 Nov `ΠΡΟΤΑΣΕΙΣ` review is not signed-off identity approval. Do not redo Git sync or imply the script-presence test is a real-data audit.
+
+
 ## 2026-11-16 — Real-source candidate filenames identified, actual bytes not yet admitted
 
 - Named manual: `ΠΡΟΓΡΑΜΜΑΤΑ ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx` (10 Nov 2026, historical snapshot).
