@@ -1,5 +1,13 @@
 # Project Status
 
+## 2026-11-17 — Actual-input location gate pending, not a Python code regression
+
+Read actual operator logs: exact filename scan outside Git found 0 manual A:V workbooks and 1 PatientID suggestion XLSX. Correct safety stop, then subsequent individually pasted Python commands received blank `--programme`, emitting argparse exit 2 before source read. This does **not** invalidate the 2,029 green synthetic regressions or count as a real-data clinical check.
+
+Updated `REAL_DATA_DEMO_OPERATOR_CLI_20261116.md` with one atomically guarded Windows file selection block that must choose both workbooks and hash-check read-only audits; local code is already present. Still pending: find actual manual, source currency, confirm proposal PatientIDs, F/U/V approvals, separate outpatient source, clean native XLSM shell, real COM build, daily UI and operator acceptance. Do not claim actual source scan or demo delivery.
+
+
+
 ## 2026-11-17 — native operator local checkout recovered (real-source audits still pending)
 
 Operator's actual Windows PowerShell output confirms `git fetch origin` + safe `git merge --ff-only` on `work/afternoon-medical-scope-20261115`, local commit **3b47567**, formerly 155 commits behind; both `audit_real_manual_specials.py` and `audit_trial_source_alignment.py` are now present (`Test-Path=True`). Prior `python can't open file` errors were local checkout drift only; the stray PowerShell `else` error did not block fast-forward. GitHub Actions run 43965793601 on 3b47567 is GREEN.

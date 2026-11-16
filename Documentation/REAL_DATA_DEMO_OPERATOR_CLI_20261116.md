@@ -1,5 +1,92 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## Operator feedback: 0 manual filename / 1 identity proposal found (2026-11-17)
+
+The operator's next Windows PowerShell output confirms **MANUAL_FILES_FOUND=0** and **REVIEW_FILES_FOUND=1** when searching Documents/Desktop/Downloads/OneDrive for *exact* filenames outside the Git checkout. The safety stop correctly prevented any source-backed action. Because PowerShell continued accepting subsequent individually submitted commands after the terminating `throw`, `$p` was empty and both Python scripts emitted argparse `--programme: expected one argument` and exited 2. **Neither source audit ran**, so these exit codes are not evidence of bad source data, F/U/V or identity alignment. The review workbook's unique discovery is **not** clinical PatientID approval. No workbook changed.
+
+**Safer immediate action, no Git pull needed:** use a **single** PowerShell `& { ... }` block. Pick the manual XLSX and review proposal XLSX using two Windows file-open dialogs, which avoids brittle recursive exact-name discovery. Validate both local files exist and are outside Git, and that the scripts exist; run only read-only checks, and print only aggregate counts, return codes and a Boolean filename check. A cancelled dialog exits the complete block and never invokes Python. A filename mismatch does **not** authorize the new file as the original source; any audit is diagnostics-only until origin/current-version proof. The 10 Nov manual is a historical baseline, not automatically the current operational sheet.
+
+```powershell
+& {
+    $ErrorActionPreference = "Stop"
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+
+        function Select-PrivateWorkbook([string]$title) {
+            $dialog = New-Object System.Windows.Forms.OpenFileDialog
+            try {
+                $dialog.Title = $title
+                $dialog.Filter = "Excel (*.xlsx)|*.xlsx"
+                $dialog.CheckFileExists = $true
+                $dialog.Multiselect = $false
+                $dialog.RestoreDirectory = $true
+                if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
+                    return $null
+                }
+                return $dialog.FileName
+            }
+            finally {
+                $dialog.Dispose()
+            }
+        }
+
+        $p = Select-PrivateWorkbook "Επίλεξε το πραγματικό χειροκίνητο πρόγραμμα 10-11-26"
+        if ([string]::IsNullOrWhiteSpace($p)) {
+            "STOP: MANUAL_NOT_SELECTED"
+            return
+        }
+        $r = Select-PrivateWorkbook "Επίλεξε το DIOMIL αρχείο προτάσεων ταυτοτήτων"
+        if ([string]::IsNullOrWhiteSpace($r)) {
+            "STOP: REVIEW_NOT_SELECTED"
+            return
+        }
+
+        $repo = (Resolve-Path -LiteralPath ".").Path.TrimEnd("\")
+        if (-not (Test-Path -LiteralPath ".\Python\tools\audit_real_manual_specials.py" -PathType Leaf) -or
+            -not (Test-Path -LiteralPath ".\Python\tools\audit_trial_source_alignment.py" -PathType Leaf)) {
+            throw "LOCAL_AUDIT_SCRIPTS_MISSING"
+        }
+        foreach ($file in @($p, $r)) {
+            $absolute = [System.IO.Path]::GetFullPath($file)
+            if (-not (Test-Path -LiteralPath $absolute -PathType Leaf) -or
+                $absolute.StartsWith($repo + "\", [StringComparison]::OrdinalIgnoreCase)) {
+                throw "PRIVATE_SOURCE_MISSING_OR_INSIDE_GIT"
+            }
+        }
+        if ($p -eq $r) { throw "SAME_SOURCE_SELECTED_TWICE" }
+
+        $expected = "ΠΡΟΓΡΑΜΜΑΤΑ ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx"
+        "MANUAL_ORIGINAL_NAME_MATCH=$([IO.Path]::GetFileName($p) -eq $expected)"
+        $manualHash = (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash
+        $reviewHash = (Get-FileHash -LiteralPath $r -Algorithm SHA256).Hash
+
+        python .\Python\tools\audit_real_manual_specials.py --programme "$p"
+        $specialExit = $LASTEXITCODE
+        if ($specialExit -notin @(0, 3)) { throw "SPECIAL_SOURCE_AUDIT_ERROR" }
+
+        python .\Python\tools\audit_trial_source_alignment.py --programme "$p" --review "$r"
+        $alignmentExit = $LASTEXITCODE
+
+        if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne $manualHash -or
+            (Get-FileHash -LiteralPath $r -Algorithm SHA256).Hash -ne $reviewHash) {
+            throw "SOURCE_HASH_CHANGED"
+        }
+        "SPECIAL_EXIT=$specialExit"
+        "ALIGNMENT_EXIT=$alignmentExit"
+        if ($specialExit -eq 3) { "F_U_V_CLINICAL_APPROVAL_REQUIRED" }
+        if ($alignmentExit -ne 0) { "SOURCE_REVIEW_ALIGNMENT_PENDING" }
+        "READ_ONLY_DIAGNOSTICS_COMPLETE_NOT_IMPORT_APPROVAL"
+    }
+    catch {
+        "SAFETY STOP: $($_.Exception.GetType().Name); no native import attempted"
+    }
+}
+```
+
+If Windows Forms selection is unavailable, **do not bypass source validation**; locate the private files in Explorer, then run an equivalently guarded atomic PowerShell block with explicitly selected paths. Never paste clinic/patient details or full paths into the chat. Do not add private workbook contents to GitHub. Update the first full practical DEMO only after separate PatientID approval, special field interpretation, current source verification, outpatient source approval and eligible clean native VBA shell are completed.
+
+
+
 ## Τοπικό PowerShell: scripts not found (2026-11-16)
 
 If the command fails with `python.exe: can't open file '...\\Python\\tools\\audit_real_manual_specials.py': [Errno 2]` or the same for `audit_trial_source_alignment.py`, the Python audit has **NOT run**. Exit code 2 is a missing local script and says nothing about the actual patient workbook. Both scripts exist in the GitHub branch `work/afternoon-medical-scope-20261115`. Do not copy one script out of context or run against an older branch; use the complete checked-out source tree.

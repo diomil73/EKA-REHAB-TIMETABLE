@@ -1,5 +1,15 @@
 # Current Handoff
 
+## 2026-11-17 — Operator read-only input discovery blocked (0 manual, 1 review)
+
+The user's second console log reports `MANUAL_FILES_FOUND=0`, `REVIEW_FILES_FOUND=1` after exact-filename recursive search of common Windows folders outside Git. The PowerShell safety stop was correct, but the user then separately ran `$p = $manualMatches[0]` and both read-only Python audit commands with **empty `$p`**. Each exited 2 at `argparse: --programme expected one argument`, before opening any workbook. These are *command argument errors*, NOT a finding about treatment fields or patient IDs. The original manual is still not located or inspected; the identity file is only a suggestion workbook.
+
+**Corrected operator flow:** the exact self-contained, guarded PowerShell `& {...}` file-picker audit is in `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md`. It displays two Windows XLSX selectors, refuses empty inputs and paths inside Git, executes read-only F/U/V and original/review alignment checks, checks SHA before/after, and emits only generic messages/aggregate counts. A `return` on cancel exits the *same* block, preventing downstream accidental calls. Filename mismatch is only a diagnostic; never confuse it with confirmed current source provenance.
+
+No source workbook, VBA, patient identity or real DEMO has been changed/admitted. The previously fixed local branch/script presence remains proven; **no new git sync required just to run the inline block**. Do not repeat failed exact-name directory scan; no untrusted guessing, synthetic replacement, source deletion or native `--build`. Next operator action: select both authorized local workbooks using the picker, then report aggregate code/exit values only.
+
+
+
 ## 2026-11-17 — operator native Windows Git sync proof: local tools available (NOT real-source audit)
 
 Operator supplied actual PowerShell console output from `C:\Users\Dionysis\Documents\GitHub\EKA-REHAB-TIMETABLE`. The local branch `work/afternoon-medical-scope-20261115` was initially **155 commits behind** `origin/work/afternoon-medical-scope-20261115`. `git fetch origin` succeeded, followed by `git merge --ff-only origin/work/afternoon-medical-scope-20261115` **fast-forward** from `837d6e4` to `3b47567`, with 71 changed files. Local `git rev-parse --short HEAD` reported **3b47567** and `Test-Path` verified BOTH missing tools now exist: `Python/tools/audit_real_manual_specials.py=True` and `Python/tools/audit_trial_source_alignment.py=True`. Earlier Python [Errno 2] failures were from missing local scripts, **not** a failed scan of the patient sources.
