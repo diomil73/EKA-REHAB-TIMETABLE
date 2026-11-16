@@ -9,6 +9,17 @@ from rehab_core.models import PatientType
 from tools import prepare_real_data_practice_demo as cli
 
 
+@pytest.fixture(autouse=True)
+def _mock_private_special_source_for_fake_bytes(monkeypatch):
+    # These tests use intentionally non-XLSX fake source bytes. The real
+    # original-F/U/V workbook audit is exercised independently in
+    # Tests/test_trial_special_fields_audit.py, never bypassed in production.
+    monkeypatch.setattr(
+        cli, "inspect_real_manual_special_fields",
+        lambda path: SimpleNamespace(unresolved_fields=0, orphan_rows=0),
+    )
+
+
 def _approvals(tmp_path, records=None):
     source = tmp_path / "PRIVATE_APPROVALS.json"
     if records is None:
@@ -260,4 +271,46 @@ def test_changed_private_approvals_during_native_build_not_accepted(
             programme=p, review=r, shell=shell, approvals=approval,
             output=tmp_path / "DIOMIL_DEMO_PRIVATE_B.xlsm",
             build=True,
+        )
+
+
+def test_special_fuv_approval_gate_blocks_even_preflight_before_any_native_action(
+    tmp_path, monkeypatch,
+):
+    p, r, shell, approval = _inputs(tmp_path)
+    monkeypatch.setattr(
+        cli, "inspect_real_manual_special_fields",
+        lambda path: SimpleNamespace(unresolved_fields=1, orphan_rows=0),
+    )
+    monkeypatch.setattr(
+        cli, "assert_clean_native_demo_shell",
+        lambda *_: pytest.fail("no shell processing if original F/U/V has holds"),
+    )
+    monkeypatch.setattr(
+        cli, "seed_trial_demo_workbook",
+        lambda *a, **kw: pytest.fail("no native seeding of unreviewed special rows"),
+    )
+    with pytest.raises(cli.RealDemoCommandError, match="F/U/V"):
+        cli.run_private_trial(
+            programme=p, review=r, shell=shell, approvals=approval,
+        )
+
+
+def test_special_formula_only_source_blocks_native_build_before_approval_read(
+    tmp_path, monkeypatch,
+):
+    p, r, shell, approval = _inputs(tmp_path)
+    monkeypatch.setattr(cli.sys, "platform", "win32")
+    monkeypatch.setattr(
+        cli, "inspect_real_manual_special_fields",
+        lambda path: SimpleNamespace(unresolved_fields=1, orphan_rows=1),
+    )
+    monkeypatch.setattr(
+        cli, "read_private_clinical_approvals",
+        lambda *_: pytest.fail("no clinical application on held original formulas"),
+    )
+    with pytest.raises(cli.RealDemoCommandError, match="F/U/V"):
+        cli.run_private_trial(
+            programme=p, review=r, shell=shell, approvals=approval,
+            build=True, output=tmp_path / "DIOMIL_DEMO_HELD.xlsm",
         )
