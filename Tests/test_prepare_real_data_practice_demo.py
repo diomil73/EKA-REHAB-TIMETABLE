@@ -210,6 +210,3 @@ def test_preflight_output_argument_without_build_is_rejected(tmp_path):
             output=tmp_path / "PRIVATE_DEMO_NEW.xlsm", build=False,
         )
 
-
-def test_no_real_clinical_data_or_paths_present_in_test_fixture():
-    assert "DEMO CLINIC" in _approvals.__code__.co_consts[0] if False else True
