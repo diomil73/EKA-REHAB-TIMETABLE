@@ -83,3 +83,21 @@ def test_plan_count_mismatch_stops():
     p = TrialImportPlan("a" * 64, "b" * 64, 1, 2, (_entry(),))
     with pytest.raises(TrialWeeklyProjectionError, match="count"):
         project_trial_weekly_rows(p, confirmed_inpatient_ids=("DEMO-1",))
+
+
+def test_same_speech_therapy_source_slot_cannot_be_imported_twice():
+    """Real-source pattern reproduced using fictional records ONLY.
+
+    Duplicate weekday/time/source-cell records are not silently collapsed
+    into one visit or counted as two independent appointments.
+    """
+    duplicate = _entry(
+        specialty="Λογο", day="ΤΕ", clock=time(11, 30),
+        provider=None, cell="J4",
+    )
+    with pytest.raises(TrialWeeklyProjectionError, match="collide"):
+        project_trial_weekly_rows(
+            _plan(duplicate, duplicate),
+            confirmed_inpatient_ids=("DEMO-1",),
+        )
+

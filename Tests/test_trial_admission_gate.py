@@ -194,3 +194,30 @@ def test_shared_approval_without_duplicate_member_ids(tmp_path):
     result = evaluate_trial_admission(path)
     assert not result.ready
     assert "invalid or duplicated approval" in " ".join(result.blockers)
+
+
+def test_identical_speech_therapy_proposals_fail_without_overlap_sheet_rows(tmp_path):
+    """Same-provenance repeated specialty is held even if overlap tab is empty."""
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    weekly = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    weekly.delete_rows(2)
+    fictional = [
+        "Α", 4, "DEMO PERSON", "ΛΟΓΟΘΕΡΑΠΕΙΑ", "ΤΕ", "11:30",
+        None, None, "J4 / K4 / L4", "FICTIONAL SOURCE",
+        "PROPOSED_EXACT_SOURCE",
+    ]
+    weekly.append(fictional)
+    weekly.append(fictional)
+    wb.save(path)
+    wb.close()
+
+    result = evaluate_trial_admission(path)
+    assert result.overlap_rows == 0
+    assert result.weekly_proposals == 2
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("duplicate slot detected" in reason for reason in result.blockers)
+
