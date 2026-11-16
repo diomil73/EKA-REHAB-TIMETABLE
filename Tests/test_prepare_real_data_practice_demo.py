@@ -210,3 +210,54 @@ def test_preflight_output_argument_without_build_is_rejected(tmp_path):
             output=tmp_path / "PRIVATE_DEMO_NEW.xlsm", build=False,
         )
 
+
+
+def test_changed_private_clinical_approval_bytes_stop_before_native_build(
+    tmp_path, monkeypatch,
+):
+    p, r, shell, approval = _inputs(tmp_path)
+    monkeypatch.setattr(cli, "assert_clean_native_demo_shell", lambda path: None)
+    class FakePlan:
+        def verify_sources(self, *args, **kwargs):
+            pass
+    def change_approval(**kwargs):
+        approval.write_bytes(approval.read_bytes() + b" ")
+        return FakePlan()
+    monkeypatch.setattr(cli, "prepare_trial_import_plan", change_approval)
+    monkeypatch.setattr(cli, "project_trial_demo_sources", lambda *a, **kw: (
+        SimpleNamespace(patients=2, weekday_slot_count=12)
+    ))
+    monkeypatch.setattr(cli, "seed_trial_demo_workbook", lambda *a, **kw: (
+        pytest.fail("changed clinical approval must never enter native seed")
+    ))
+    with pytest.raises(cli.RealDemoCommandError, match="changed"):
+        cli.run_private_trial(
+            programme=p, review=r, shell=shell, approvals=approval,
+        )
+
+
+def test_changed_private_approvals_during_native_build_not_accepted(
+    tmp_path, monkeypatch,
+):
+    p, r, shell, approval = _inputs(tmp_path)
+    monkeypatch.setattr(cli.sys, "platform", "win32")
+    monkeypatch.setattr(cli, "assert_clean_native_demo_shell", lambda path: None)
+    monkeypatch.setattr(cli, "prepare_trial_import_plan", lambda **kw: (
+        SimpleNamespace(verify_sources=lambda *a, **kw: None)
+    ))
+    monkeypatch.setattr(cli, "project_trial_demo_sources", lambda *a, **kw: (
+        SimpleNamespace(patients=2, weekday_slot_count=12)
+    ))
+    def unsafe_save(*a, **kw):
+        approval.write_bytes(approval.read_bytes() + b" ")
+        return SimpleNamespace(
+            patient_count=2, weekday_slot_count=12,
+            source_unchanged=True, verified_native_readback=True,
+        )
+    monkeypatch.setattr(cli, "seed_trial_demo_workbook", unsafe_save)
+    with pytest.raises(cli.RealDemoCommandError, match="changed"):
+        cli.run_private_trial(
+            programme=p, review=r, shell=shell, approvals=approval,
+            output=tmp_path / "DIOMIL_DEMO_PRIVATE_B.xlsm",
+            build=True,
+        )
