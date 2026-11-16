@@ -145,15 +145,18 @@ def inspect_private_outpatient_source(path: str | Path) -> PrivateOutpatientAudi
         days = 0
         counts = {patient.patient_id: 0 for patient in patients}
         for entry in recurring:
-            token = (
-                entry.patient_id.casefold(), entry.treatment.casefold(),
-                entry.start_time, tuple(sorted(parse_day_pattern(entry.day_pattern))),
-             )
-            if token in seen:
-                raise PrivateOutpatientSourceError(
-                    "Outpatient recurring schedule contains duplicate appointments"
+            # Two different source rows may contain intersecting weekday
+            # patterns. Detect each duplicate real appointment individually.
+            for weekday in parse_day_pattern(entry.day_pattern):
+                token = (
+                    entry.patient_id.casefold(), entry.treatment.casefold(),
+                    weekday, entry.start_time,
                 )
-            seen.add(token)
+                if token in seen:
+                    raise PrivateOutpatientSourceError(
+                        "Outpatient recurring schedule contains overlapping duplicates"
+                    )
+                seen.add(token)
             if entry.treatment == "ΦΘ" and not entry.therapist_id:
                 raise PrivateOutpatientSourceError(
                     "Outpatient physiotherapy requires an approved provider"
