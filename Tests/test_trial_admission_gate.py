@@ -221,3 +221,99 @@ def test_identical_speech_therapy_proposals_fail_without_overlap_sheet_rows(tmp_
     assert result.admitted_entries == ()
     assert any("duplicate slot detected" in reason for reason in result.blockers)
 
+
+def test_same_source_speech_duplicate_normalized_clock_forms_fail_without_overlap_tab(tmp_path):
+    """Fictional clone: 11:30 and Excel-styled 11.30 are ONE weekday slot."""
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    weekly = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    weekly.delete_rows(2)
+    first = [
+        "Α", 4, "DEMO PERSON", "ΛΟΓΟΘΕΡΑΠΕΙΑ", "ΤΕ", "11:30",
+        None, None, "J4 / K4 / L4", "FICTIONAL SOURCE",
+        "PROPOSED_EXACT_SOURCE",
+    ]
+    second = list(first)
+    second[5] = "11.30"
+    weekly.append(first)
+    weekly.append(second)
+    wb.save(path)
+    wb.close()
+    unchanged = path.read_bytes()
+
+    result = evaluate_trial_admission(path)
+
+    assert result.overlap_rows == 0
+    assert result.weekly_proposals == 2
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("duplicate slot detected" in reason for reason in result.blockers)
+    assert path.read_bytes() == unchanged
+
+
+def test_cross_specialty_same_patient_normalized_clock_requires_review_even_without_overlap_tab(
+    tmp_path,
+):
+    """Never rely solely on the manually populated ΕΠΙΚΑΛΥΨΕΙΣ tab."""
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    weekly = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    weekly.delete_rows(2)
+    weekly.append([
+        "Α", 4, "DEMO PERSON", "ΕΡΓΟΘΕΡΑΠΕΙΑ", "ΔΕ", "11:30",
+        None, None, "G4 / H4 / I4", "FICTIONAL",
+        "PROPOSED_EXACT_SOURCE",
+    ])
+    weekly.append([
+        "Α", 4, "DEMO PERSON", "ΛΟΓΟΘΕΡΑΠΕΙΑ", "ΔΕ", "11.30",
+        None, None, "J4 / K4 / L4", "FICTIONAL",
+        "PROPOSED_EXACT_SOURCE",
+    ])
+    wb.save(path)
+    wb.close()
+
+    result = evaluate_trial_admission(path)
+
+    assert result.overlap_rows == 0
+    assert result.weekly_proposals == 2
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("duplicate slot detected" in reason for reason in result.blockers)
+
+
+def test_distinct_patients_same_weekday_clock_with_different_services_not_false_overlap(
+    tmp_path,
+):
+    """Same clock is permissible for distinct patients without shared provider."""
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    patients = wb["ΑΣΘΕΝΕΙΣ"]
+    patients.append([5, "Α", "DEMO OTHER", "WARD", "DEMO-2", "CONFIRMED"])
+    weekly = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    weekly.delete_rows(2)
+    weekly.append([
+        "Α", 4, "DEMO PERSON", "ΛΟΓΟΘΕΡΑΠΕΙΑ", "ΤΕ", "11:30",
+        None, None, "J4 / K4 / L4", "FICTIONAL",
+        "PROPOSED_EXACT_SOURCE",
+    ])
+    weekly.append([
+        "Α", 5, "DEMO OTHER", "ΕΡΓΟΘΕΡΑΠΕΙΑ", "ΤΕ", "11.30",
+        None, None, "G5 / H5 / I5", "FICTIONAL",
+        "PROPOSED_EXACT_SOURCE",
+    ])
+    wb.save(path)
+    wb.close()
+
+    result = evaluate_trial_admission(path)
+
+    assert result.overlap_rows == 0
+    assert result.weekly_proposals == 2
+    assert result.verified_patient_ids == 2
+    assert result.ready
+    assert len(result.admitted_entries) == 2
