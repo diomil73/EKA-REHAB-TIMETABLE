@@ -1,5 +1,40 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## Τοπικό PowerShell: scripts not found (2026-11-16)
+
+If the command fails with `python.exe: can't open file '...\\Python\\tools\\audit_real_manual_specials.py': [Errno 2]` or the same for `audit_trial_source_alignment.py`, the Python audit has **NOT run**. Exit code 2 is a missing local script and says nothing about the actual patient workbook. Both scripts exist in the GitHub branch `work/afternoon-medical-scope-20261115`. Do not copy one script out of context or run against an older branch; use the complete checked-out source tree.
+
+**Preserving local edits:** Run from the local repository folder, **without `git reset --hard`, `git clean`, `git switch -f` or force updates**. The following stops when tracked local changes are present, fetches the canonical branch, tracks it if absent, and fast-forwards only. Untracked files are not deleted; if Git reports any collision, stop and inspect rather than force switching.
+
+```powershell
+$branch = "work/afternoon-medical-scope-20261115"
+if (@(git status --porcelain --untracked-files=no).Count -gt 0) {
+    throw "SAFETY STOP: local tracked work exists; preserve it before switching"
+}
+git fetch origin
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: git fetch failed" }
+
+git show-ref --verify --quiet "refs/heads/$branch"
+if ($LASTEXITCODE -eq 0) {
+    git switch "$branch"
+} else {
+    git switch --track "origin/$branch"
+}
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: git switch failed" }
+
+git merge --ff-only "origin/$branch"
+if ($LASTEXITCODE -ne 0) { throw "SAFETY STOP: branch has local divergent commits" }
+
+$first = Test-Path -LiteralPath ".\\Python\\tools\\audit_real_manual_specials.py" -PathType Leaf
+$second = Test-Path -LiteralPath ".\\Python\\tools\\audit_trial_source_alignment.py" -PathType Leaf
+if (-not ($first -and $second)) { throw "SAFETY STOP: audit scripts still missing" }
+"LOCAL AUDIT SCRIPTS AVAILABLE: YES"
+```
+
+Only after that read-only Git/source check, locate the **private** real workbooks using the exact operator filenames listed below. The example `C:\\PRIVATE_APPROVED_DIOMIL` is NOT their known actual folder; replace it with the real authorized folder and use `Test-Path -LiteralPath` for both inputs. Missing source input is a distinct failure; never paste patient data or path listings into GitHub. A candidate identity workbook bearing `ΠΡΟΤΑΣΕΙΣ` in its name remains **unconfirmed** until separately signed off.
+
+
+
 ## Exact source filenames provided by operator — read-only local first gate (2026-11-16)
 
 Two historic private input candidates are identified by **name only**, not yet by attached workbook bytes or an approved source hash. The second is a **suggestions** workbook, not automatically a confirmed PatientID review. The 10 Nov manual is a diagnostic baseline, not by itself proof of the current programme on 16 Nov.
