@@ -1,5 +1,11 @@
 # Current Handoff
 
+## 2026-11-17 — Strict all-764 appointment collision check found four MORE same-source duplicates
+
+Supplemental actual-source read-only reconciliation applied the existing strict collision key (original patient source row, weekday, normalized clock) across all 764 weekly proposals. It found **15 conflict groups total**: 11 cross-specialty same patient/time and **4 extra identical-source-cell same-specialty LOGOTHERAPY duplicates**, not captured by the review workbook's 11 `ΕΠΙΚΑΛΥΨΕΙΣ` rows. Four same-source-cell duplicate candidates must be reconciled privately against the original, **NEVER silently dropped or admitted twice**. All proposed clock values parse and all weekday tokens are Mon-Fri; mandatory ΦΘ/robotic providers are present at candidate level. This is **another blocker for native import**, distinct from 61 holds, 0 confirmed IDs, F/U, and noncanonical outpatient source. Full aggregate documented in `Documentation/REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`; no patient-level data or hashes disclosed.
+
+
+
 ## 2026-11-17 — PRIVATE real manual + 12 Nov identity-proposal actual XLSX read-only proof (NO IMPORT)
 
 **The two operator-uploaded XLSX files were actually accessible and inspected read-only in this conversation**, superseding previous "names only/not accessible" statements. Exact source filename is `ΠΡΟΓΡΑΜΜΑΤΑ  ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26 .xlsx` (DOUBLE SPACE after ΠΡΟΓΡΑΜΜΑΤΑ and extra space before extension), explaining earlier `MANUAL_NAME_MATCH=False` and exact-name search 0. Partner file is `DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx`. SHA checks confirmed both file bytes unchanged. **No patient names/IDs/records, raw source paths or private input hashes committed to GitHub.**

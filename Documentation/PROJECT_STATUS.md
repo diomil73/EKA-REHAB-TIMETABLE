@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-11-17 — Detailed slot collision audit expands the known review holds
+
+Private actual-source read-only scan found **15** candidate same-patient/weekday/normalized-time conflicts in 764 weekly rows: **11 cross-specialty** groups and **4 duplicate LOGOTHERAPY rows from identical source-cell provenance**. The review `ΕΠΙΚΑΛΥΨΕΙΣ` worksheet contains 11 rows and does not reflect the four additional same-specialty duplicates. These four cannot be automatically deduplicated or imported twice. Existing production `validate_weekly_entry_consistency` is fail-closed on all same-patient/day/time overlaps; correction/approval belongs to a new private review process, not the original manual or live workbook. No native demo or clinical approval was conducted. See `REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`.
+
+
+
 ## 2026-11-17 — Real uploaded source pair inspected read-only; original files intact
 
 The original real manual plus matching 12 Nov identity proposal were **actually uploaded and opened read-only**, superseding prior filename-only access blocker. The exact manual has a double space after ΠΡΟΓΡΑΜΜΑΤΑ and a space before the .xlsx extension; this accounts for Windows `MANUAL_NAME_MATCH=False`. Aggregate independent check: **106/106** identities point to original source rows, **764** weekly Mon-Fri proposals, no source provenance errors; however **0 explicit approved PatientIDs**, **33 merely proposed old IDs**, **61 held review entries**, **11 overlap proposals**, **5 F reclining rows**, **19 historic U afternoon rows**, **0 V**. The original auxiliary outpatient sheet has **10 populated rows but noncanonical headers**, therefore no independent outpatient admission. Both uploaded original file hashes were unchanged after reading. No real XLSM DEMO was generated.
