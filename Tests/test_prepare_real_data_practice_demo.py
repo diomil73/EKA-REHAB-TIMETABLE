@@ -158,9 +158,13 @@ def test_native_build_is_explicit_and_injects_only_approved_source(monkeypatch, 
             source_unchanged=True, verified_native_readback=True,
         )
     monkeypatch.setattr(cli, "seed_trial_demo_workbook", fake_seed)
+    monkeypatch.setattr(cli, "project_private_outpatient_source", lambda path: object())
+    monkeypatch.setattr(cli, "merge_trial_demo_outpatients", lambda projection, outpatient: projection)
+    outpatients = tmp_path / "PRIVATE_APPROVED_OUTPATIENTS.xlsx"
+    outpatients.write_bytes(b"fake test only")
     assert cli.run_private_trial(
         programme=p, review=r, shell=shell, approvals=approval,
-        output=destination, build=True,
+        output=destination, build=True, outpatients=outpatients,
     ) == (2, 12, True)
     assert calls == ["shell", "plan", "project", "hash", "native"]
 
@@ -170,10 +174,12 @@ def test_output_never_overwrites_and_must_stay_outside_git(tmp_path, monkeypatch
     monkeypatch.setattr(cli.sys, "platform", "win32")
     existing = tmp_path / "PRIVATE_DEMO_NEW.xlsm"
     existing.write_bytes(b"do not overwrite")
+    outpatient = tmp_path / "APPROVED_OUTPATIENTS.xlsx"
+    outpatient.write_bytes(b"fictional")
     with pytest.raises(cli.RealDemoCommandError, match="Unsafe"):
         cli.validate_private_paths(
             programme=p, review=r, shell=shell, approvals=approval,
-            output=existing, build=True,
+            output=existing, build=True, outpatients=outpatient,
         )
     git = tmp_path / "repo"
     git.mkdir()
@@ -182,7 +188,7 @@ def test_output_never_overwrites_and_must_stay_outside_git(tmp_path, monkeypatch
     with pytest.raises(cli.RealDemoCommandError, match="Unsafe"):
         cli.validate_private_paths(
             programme=p, review=r, shell=shell, approvals=approval,
-            output=embedded, build=True,
+            output=embedded, build=True, outpatients=outpatient,
         )
 
 
@@ -266,11 +272,15 @@ def test_changed_private_approvals_during_native_build_not_accepted(
             source_unchanged=True, verified_native_readback=True,
         )
     monkeypatch.setattr(cli, "seed_trial_demo_workbook", unsafe_save)
+    outpatient = tmp_path / "APPROVED_OUTPATIENTS.xlsx"
+    outpatient.write_bytes(b"synthetic only")
+    monkeypatch.setattr(cli, "project_private_outpatient_source", lambda path: object())
+    monkeypatch.setattr(cli, "merge_trial_demo_outpatients", lambda projection, outpatient: projection)
     with pytest.raises(cli.RealDemoCommandError, match="changed"):
         cli.run_private_trial(
             programme=p, review=r, shell=shell, approvals=approval,
             output=tmp_path / "DIOMIL_DEMO_PRIVATE_B.xlsm",
-            build=True,
+            build=True, outpatients=outpatient,
         )
 
 
@@ -313,4 +323,40 @@ def test_special_formula_only_source_blocks_native_build_before_approval_read(
         cli.run_private_trial(
             programme=p, review=r, shell=shell, approvals=approval,
             build=True, output=tmp_path / "DIOMIL_DEMO_HELD.xlsm",
+            outpatients=tmp_path / "SEPARATE_OUTPATIENTS.xlsx",
         )
+
+
+def test_private_native_build_requires_a_distinct_approved_outpatient_source(tmp_path):
+    p, r, shell, approval = _inputs(tmp_path)
+    with pytest.raises(cli.RealDemoCommandError, match="outpatients"):
+        cli.validate_private_paths(
+            programme=p, review=r, shell=shell, approvals=approval,
+            output=tmp_path / "DIOMIL_DEMO_REQUIRED.xlsm", build=True,
+        )
+
+
+def test_outpatient_source_cannot_reuse_inpatient_input_file(tmp_path):
+    p, r, shell, approval = _inputs(tmp_path)
+    with pytest.raises(cli.RealDemoCommandError, match="distinct"):
+        cli.validate_private_paths(
+            programme=p, review=r, shell=shell, approvals=approval,
+            output=None, build=False, outpatients=p,
+        )
+
+
+def test_private_outpatient_projection_not_called_when_source_absent(tmp_path, monkeypatch):
+    p, r, shell, approval = _inputs(tmp_path)
+    monkeypatch.setattr(cli, "assert_clean_native_demo_shell", lambda *_: None)
+    monkeypatch.setattr(cli, "prepare_trial_import_plan", lambda **kw: (
+        SimpleNamespace(verify_sources=lambda *a, **kw: None)
+    ))
+    monkeypatch.setattr(cli, "project_trial_demo_sources", lambda *a, **kw: (
+        SimpleNamespace(patients=1, weekday_slot_count=5)
+    ))
+    monkeypatch.setattr(cli, "project_private_outpatient_source", lambda *_: (
+        pytest.fail("No separate source means no outpatient inference")
+    ))
+    assert cli.run_private_trial(
+        programme=p, review=r, shell=shell, approvals=approval,
+    ) == (1, 5, False)

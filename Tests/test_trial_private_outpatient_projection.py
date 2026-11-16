@@ -57,17 +57,13 @@ def test_projection_preserves_existing_application_fields_and_exact_weekdays(tmp
     assert "FICTIONAL PATIENT" not in repr(result)
 
 
-@pytest.mark.parametrize("change", [
-    lambda wb: wb["PATIENTS"].cell(1, 10, "Unapproved"),
-    lambda wb: wb["OUTPATIENT_SCHEDULE"].cell(2, 7, "PRIVATE NOTE"),
-])
-def test_populated_unknown_metadata_fails_closed(tmp_path, change):
+def test_populated_unknown_metadata_fails_closed(tmp_path):
     source = _source(tmp_path)
-    _modify(source, change)
-    # Even non-populated unknown columns may be permitted for future export
-    # evolution; populated unknown clinical material must not be discarded.
-    if change.__code__.co_consts[-1] == "Unapproved":
-        _modify(source, lambda wb: wb["PATIENTS"].cell(2, 10, "DO NOT DROP"))
+    _modify(source, lambda wb: wb["PATIENTS"].cell(2, 10, "UNAPPROVED DETAIL"))
+    with pytest.raises(TrialPrivateOutpatientProjectionError):
+        project_private_outpatient_source(source)
+    source = _source(tmp_path)
+    _modify(source, lambda wb: wb["OUTPATIENT_SCHEDULE"].cell(2, 7, "PRIVATE NOTE"))
     with pytest.raises(TrialPrivateOutpatientProjectionError):
         project_private_outpatient_source(source)
 

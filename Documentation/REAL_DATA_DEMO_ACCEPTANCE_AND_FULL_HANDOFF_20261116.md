@@ -1,5 +1,13 @@
 # DIOMIL: πραγματικά δεδομένα, παράλληλη αξιολόγηση και πλήρης παράδοση (2026-11-16)
 
+## Source-level inpatient + outpatient bridge checkpoint (2026-11-16)
+
+The first concrete joining layer for a *separately institution-approved* outpatient `.xlsx` now exists. `trial_private_outpatient_projection.py` reads the established PATIENTS and OUTPATIENT_SCHEDULE sheets using the existing clinical source readers, maps their approved values without inventing inpatients, expands exact weekdays for the practice weekly view, preserves source-row provenance, and binds a stable SHA-256. `merge_trial_demo_outpatients` rejects cross-source PatientID collisions; the private real-data CLI accepts `--outpatients` for read-only admission and requires it for native `--build`. The native candidate writer uses the original OUTPATIENT_SCHEDULE schema, independently reopens/rechecks its rows and validates the *combined* effective weekday appointments through the unified daily engine. No new patient UI, custom treatment cells, or rebuilt MASTER renderer were introduced.
+
+**Acceptance boundary:** These code/test additions must pass CI at their exact new SHA before they are treated as source-regression green. This is **not a tested private actual XLSX**, an authorized source approval, a native Windows Excel/COM build, or an operator-accepted demo. The F/U/V hard-stop is unchanged; no public patient source is used. The source must reside off Git checkout and must not be the historical A:V inpatient file. Execute only private read-only audits before any native build. Full 1:1 operator parity, live in-session operations, actual-source approval and Save/Close/Reopen still required.
+
+
+
 ## Verified reconnection evidence, 2026-11-16
 
 A fresh direct GitHub read confirmed HEAD `b276f7b430c42cf1df46d791a122bfd2606dcf8f` on `work/afternoon-medical-scope-20261115`; [Actions run 43806683353](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43806683353) is successful (2,021 pytest Windows; 2,021 pytest Linux; all 4 CI jobs successful). This verifies existing code and synthetic safety checks only. It does not satisfy any private real-source, COM build, parity or operator-acceptance gate. In this connected environment only repository `Rehab_Center_System_v27_1.xlsm` was discoverable as an XLSM; it is an immutable historical baseline, not an approved, entirely empty DEMO shell. No actual current private A:V manual, approved identity mapping/clinical classifications, standalone approved outpatient export, or new real-data `*_DEMO_*.xlsm` were accessible or processed.

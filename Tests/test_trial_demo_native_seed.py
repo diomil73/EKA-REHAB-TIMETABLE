@@ -159,3 +159,15 @@ def test_preexisting_patient_exit_events_block_new_demo_shell(tmp_path):
     wb.close()
     with pytest.raises(TrialDemoNativeSeedError, match="old operational records"):
         assert_clean_native_demo_shell(path)
+
+
+def test_private_native_source_contains_explicit_outpatient_write_and_readback_contract():
+    import inspect
+    import rehab_excel.trial_demo_native_seed as seed
+    text = inspect.getsource(seed.Win32ComTrialDemoSeedBackend.write)
+    verify = inspect.getsource(seed._verify_seed_workbook)
+    assert 'Worksheets("OUTPATIENT_SCHEDULE")' in text
+    assert "projection.outpatient.appointment_rows" in text
+    assert "Native weekly view differs from approved sources" in verify
+    assert "Outpatient source readback differs" in verify
+    assert "read_unified_base_schedule(stage)" in verify

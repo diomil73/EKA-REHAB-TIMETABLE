@@ -15,6 +15,7 @@ from rehab_excel.trial_patient_registry_projection import (
     ConfirmedClinicalFields, TrialPatientRegistryProjection,
     project_trial_patient_registry,
 )
+from rehab_excel.trial_private_outpatient_projection import TrialPrivateOutpatientProjection
 from rehab_excel.trial_weekly_projection import (
     TrialWeeklyProjection, project_trial_weekly_rows,
 )
@@ -26,6 +27,46 @@ class TrialDemoSourceProjection:
     weekly_slots: TrialWeeklyProjection = field(repr=False)
     patients: int
     weekday_slot_count: int
+    outpatient: TrialPrivateOutpatientProjection | None = field(default=None, repr=False)
+
+
+def merge_trial_demo_outpatients(
+    inpatient: TrialDemoSourceProjection,
+    outpatient: TrialPrivateOutpatientProjection,
+) -> TrialDemoSourceProjection:
+    """Join independent approved sources without repeating IDs or mixing storage.
+
+    Inpatient weekly slots remain in PROGRAM_WEEKLY_SLOTS, whereas outpatient
+    rows use the existing OUTPATIENT_SCHEDULE. The result is still only an
+    in-memory read-only proposal, never a clinical approval.
+    """
+    if not isinstance(inpatient, TrialDemoSourceProjection) or not isinstance(
+        outpatient, TrialPrivateOutpatientProjection
+    ) or inpatient.outpatient is not None:
+        raise ValueError("Outpatient source join requires one clean original projection")
+    original = inpatient.patient_registry.rows
+    if any(row[5] != "Εσωτερικός" for row in original):
+        raise ValueError("Inpatient source contains non-inpatients")
+    if any(row[5] != "Εξωτερικός" for row in outpatient.patient_rows):
+        raise ValueError("Outpatient source contains non-outpatients")
+    rows = original + outpatient.patient_rows
+    keys = [str(row[0]).strip().casefold() for row in rows]
+    if not keys or any(not key for key in keys) or len(keys) != len(set(keys)):
+        raise ValueError("Duplicate or missing patient identities across sources")
+    if len(outpatient.patient_rows) != outpatient.patient_count or (
+        len(outpatient.appointment_rows) != outpatient.appointment_count
+        or len(outpatient.weekday_view_rows) != outpatient.weekday_slot_count
+    ):
+        raise ValueError("Outpatient source counts disagree")
+    registry = TrialPatientRegistryProjection(
+        inpatient.patient_registry.headers, rows, len(rows)
+    )
+    return TrialDemoSourceProjection(
+        patient_registry=registry, weekly_slots=inpatient.weekly_slots,
+        patients=len(rows),
+        weekday_slot_count=inpatient.weekday_slot_count + outpatient.weekday_slot_count,
+        outpatient=outpatient,
+    )
 
 
 def project_trial_demo_sources(

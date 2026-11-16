@@ -24,7 +24,10 @@ from rehab_excel.trial_demo_native_seed import (  # noqa: E402
     assert_clean_native_demo_shell, seed_trial_demo_workbook,
 )
 from rehab_excel.trial_demo_source_projection import (  # noqa: E402
-    project_trial_demo_sources,
+    project_trial_demo_sources, merge_trial_demo_outpatients,
+)
+from rehab_excel.trial_private_outpatient_projection import (  # noqa: E402
+    project_private_outpatient_source,
 )
 from rehab_excel.trial_import_plan import (  # noqa: E402
     prepare_trial_import_plan,
@@ -143,10 +146,17 @@ def _inside_git_checkout(path: Path) -> bool:
 def validate_private_paths(
     *, programme: Path, review: Path, shell: Path,
     approvals: Path, output: Path | None, build: bool,
+    outpatients: Path | None = None,
 ) -> None:
     """Ensure neither clinical sources nor final output occupy a Git tree."""
-    sources = (programme, review, shell, approvals)
-    extensions = (".xlsx", ".xlsx", ".xlsm", ".json")
+    if build and outpatients is None:
+        raise RealDemoCommandError("Full native real-data demo needs approved outpatients")
+    sources = (programme, review, shell, approvals) + (
+        (outpatients,) if outpatients is not None else ()
+    )
+    extensions = (".xlsx", ".xlsx", ".xlsm", ".json") + (
+        (".xlsx",) if outpatients is not None else ()
+    )
     if any(
         not source.is_file() or source.suffix.casefold() != extension
         or _inside_git_checkout(source)
@@ -178,11 +188,13 @@ def run_private_trial(
     *, programme: Path, review: Path, shell: Path,
     approvals: Path, output: Path | None = None,
     build: bool = False,
+    outpatients: Path | None = None,
 ) -> tuple[int, int, bool]:
     """Return non-identifying patient/weekday-slot counts and native flag."""
     validate_private_paths(
         programme=programme, review=review, shell=shell,
         approvals=approvals, output=output, build=build,
+        outpatients=outpatients,
     )
     # Mandatory before any clinical projection or native Excel write:
     # raw formula-only F/U/V cells must never pass data_only source parsing.
@@ -202,6 +214,9 @@ def run_private_trial(
         plan, programme=programme, review=review, intake=shell,
         clinical_approvals=clinical,
     )
+    if outpatients is not None:
+        separate_outpatients = project_private_outpatient_source(outpatients)
+        projection = merge_trial_demo_outpatients(projection, separate_outpatients)
     # No use of partial fixture rows: entire original A:V source is checked
     # through the production reconciliation gate above.
     plan.verify_sources(review, shell, programme=programme)
@@ -214,6 +229,7 @@ def run_private_trial(
     report = seed_trial_demo_workbook(
         plan, programme=programme, review=review, intake=shell,
         output=output, clinical_approvals=clinical,
+        outpatient_source=outpatients,
     )
     if _approval_digest(approvals) != clinical_before:
         # The sealed in-memory data and local JSON no longer agree. Preserve
@@ -232,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--review", required=True, type=Path)
     parser.add_argument("--shell", required=True, type=Path)
     parser.add_argument("--clinical-approvals", required=True, type=Path)
+    parser.add_argument("--outpatients", type=Path)
     parser.add_argument("--build", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
@@ -240,6 +257,7 @@ def main(argv: list[str] | None = None) -> int:
             programme=args.programme, review=args.review,
             shell=args.shell, approvals=args.clinical_approvals,
             output=args.output, build=args.build,
+            outpatients=args.outpatients,
         )
     except Exception as exc:
         # No traceback, exception message, source name, patient name, ID,
@@ -252,6 +270,10 @@ def main(argv: list[str] | None = None) -> int:
     ))
     print(f"Confirmed patients: {patients}")
     print(f"Exact Monday-Friday treatment placements: {slots}")
+    if args.outpatients is None:
+        print("Separate outpatient source: NOT PROVIDED; full DEMO is NOT eligible.")
+    else:
+        print("Separate outpatient source: AUDITED and included in source counts.")
     print("Source XLSX/review/clinical approvals and original XLSM unchanged: YES")
     if built:
         print("New isolated private DEMO created. OPERATOR ACCEPTANCE PENDING.")

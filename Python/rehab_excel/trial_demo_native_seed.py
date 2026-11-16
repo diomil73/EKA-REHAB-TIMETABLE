@@ -24,6 +24,7 @@ from zipfile import ZipFile
 from openpyxl import load_workbook
 
 from rehab_core.programme_mapping import parse_clock
+from rehab_core.day_patterns import parse_day_pattern
 from rehab_excel.application_contract import assert_application_contract
 from rehab_excel.master_projection_writer import refresh_master_projection_in_place
 from rehab_excel.master_visual_style import apply_master_visual_style_in_place
@@ -48,7 +49,12 @@ from rehab_excel.trial_demo_active_census import (
 )
 from rehab_excel.trial_demo_source_projection import (
     TrialDemoSourceProjection, project_trial_demo_sources,
+    merge_trial_demo_outpatients,
 )
+from rehab_excel.trial_private_outpatient_projection import (
+    project_private_outpatient_source,
+)
+from rehab_excel.outpatient_schedule_source import OUTPATIENT_REQUIRED_HEADERS
 from rehab_excel.trial_import_plan import TrialImportPlan
 from rehab_excel.trial_patient_registry_projection import ConfirmedClinicalFields
 from rehab_excel.weekly_slots_source import (
@@ -290,6 +296,36 @@ class Win32ComTrialDemoSeedBackend:
                         weekly.Cells(rownum, col).NumberFormat = "hh:mm"
                     weekly.Cells(rownum, col).Value = value
 
+
+            # Outpatients remain in their EXISTING authoritative sheet, not in
+            # the inpatient planner or PROGRAM_WEEKLY_SLOTS. This is the same
+            # source consumed by everyday workload and replacement logic.
+            if projection.outpatient is not None:
+                try:
+                    outpatient_ws = wb.Worksheets("OUTPATIENT_SCHEDULE")
+                except Exception:
+                    outpatient_ws = wb.Worksheets.Add(
+                        After=wb.Worksheets(wb.Worksheets.Count)
+                    )
+                    outpatient_ws.Name = "OUTPATIENT_SCHEDULE"
+                for col, header in enumerate(OUTPATIENT_REQUIRED_HEADERS, start=1):
+                    existing = str(outpatient_ws.Cells(1, col).Value2 or "").strip()
+                    if existing not in ("", header):
+                        raise TrialDemoNativeSeedError("Outpatient source header collision")
+                    outpatient_ws.Cells(1, col).Value = header
+                for rownum, values in enumerate(
+                    projection.outpatient.appointment_rows, start=2,
+                ):
+                    if outpatient_ws.Cells(rownum, 1).Value2 not in (None, ""):
+                        raise TrialDemoNativeSeedError("Outpatient booking target occupied")
+                    for col, value in enumerate(values, start=1):
+                        if col == 4:
+                            value = (
+                                value.hour * 3600 + value.minute * 60
+                            ) / 86400
+                            outpatient_ws.Cells(rownum, col).NumberFormat = "hh:mm"
+                        outpatient_ws.Cells(rownum, col).Value = value
+
             # Daily engine reads PROGRAM_WEEKLY_SLOTS, but the legacy MASTER
             # single-slot visual cells cannot losslessly display multiple
             # time/day variations. Provide an explicit uncompressed view.
@@ -308,12 +344,15 @@ class Win32ComTrialDemoSeedBackend:
             }
             for col, value in enumerate(view_headers, start=1):
                 view.Cells(1, col).Value = value
-            for rownum, record in enumerate(projection.weekly_slots.rows, start=2):
-                pid, treatment, weekday, start, therapist, source_cell = record
-                values = (
-                    pid, names[str(pid)], treatment, weekday, start, therapist,
-                    source_cell,
-                )
+            view_records = [
+                (pid, names[str(pid)], treatment, weekday, start, therapist, source_cell)
+                for pid, treatment, weekday, start, therapist, source_cell
+                in projection.weekly_slots.rows
+            ]
+            if projection.outpatient is not None:
+                view_records.extend(projection.outpatient.weekday_view_rows)
+            for rownum, values in enumerate(view_records, start=2):
+                start = values[4]
                 for col, value in enumerate(values, start=1):
                     if col == 5:
                         value = (start.hour * 3600 + start.minute * 60) / 86400
@@ -397,7 +436,7 @@ def _verify_seed_workbook(
         if tuple(weekly.cell(1, col).value for col in range(1, 7)) != WEEKLY_HEADERS:
             raise TrialDemoNativeSeedError("Native weekly headers differ")
         actual_weekly = []
-        for row in range(2, projection.weekday_slot_count + 2):
+        for row in range(2, projection.weekly_slots.row_count + 2):
             values = tuple(weekly.cell(row, col).value for col in range(1, 7))
             actual_weekly.append((
                 str(values[0]), values[1], values[2], parse_clock(values[3]),
@@ -408,6 +447,36 @@ def _verify_seed_workbook(
         view = wb["DEMO_WEEKLY_VIEW"]
         if view.max_row < projection.weekday_slot_count + 1:
             raise TrialDemoNativeSeedError("Full weekly demo view missing")
+        expected_view = [
+            (pid, next(r[2] for r in projection.patient_registry.rows if str(r[0]) == pid),
+             treatment, day, clock, provider, provenance)
+            for pid, treatment, day, clock, provider, provenance
+            in projection.weekly_slots.rows
+        ]
+        if projection.outpatient is not None:
+            expected_view.extend(projection.outpatient.weekday_view_rows)
+        for rownum, values in enumerate(expected_view, start=2):
+            actual = tuple(view.cell(rownum, col).value for col in range(1, 8))
+            if (
+                tuple(actual[:4]) != tuple(values[:4])
+                or parse_clock(actual[4]) != values[4]
+                or tuple(actual[5:]) != tuple(values[5:])
+            ):
+                raise TrialDemoNativeSeedError("Native weekly view differs from approved sources")
+        if projection.outpatient is not None:
+            if "OUTPATIENT_SCHEDULE" not in wb.sheetnames:
+                raise TrialDemoNativeSeedError("Outpatient schedule sheet missing")
+            outpatient_ws = wb["OUTPATIENT_SCHEDULE"]
+            if tuple(outpatient_ws.cell(1, col).value for col in range(1, 7)) != OUTPATIENT_REQUIRED_HEADERS:
+                raise TrialDemoNativeSeedError("Outpatient sheet contract changed")
+            if outpatient_ws.max_row != projection.outpatient.appointment_count + 1:
+                raise TrialDemoNativeSeedError("Outpatient booking count differs")
+            for rownum, values in enumerate(projection.outpatient.appointment_rows, start=2):
+                actual = tuple(outpatient_ws.cell(rownum, col).value for col in range(1, 7))
+                if (tuple(actual[:3]) != tuple(values[:3])
+                    or parse_clock(actual[3]) != values[3]
+                    or tuple(actual[4:]) != tuple(values[4:])):
+                    raise TrialDemoNativeSeedError("Outpatient source readback differs")
         planner = wb["PATIENT_PLANNER"]
         for row in range(2, projection.patients + 2):
             if tuple(planner.cell(row, col).value for col in range(1, 6)) != planner_identity_formulas(row):
@@ -478,16 +547,24 @@ def _verify_seed_workbook(
 
     # Independent operational readback through the SAME recurring schedule
     # reader used by daily workload/replacement code, not just sheet equality.
+    days = ("ΔΕ", "ΤΡ", "ΤΕ", "ΠΕ", "ΠΑ")
     expected_sessions = Counter(
-        (pid, treatment, WEEKDAY_PATTERN[day], clock, provider)
+        (pid, treatment, days.index(day), clock, provider)
         for pid, treatment, day, clock, provider, _source in
         projection.weekly_slots.rows
     )
+    if projection.outpatient is not None:
+        expected_sessions.update(
+            (pid, treatment, days.index(day), clock, provider)
+            for pid, _name, treatment, day, clock, provider, _source
+            in projection.outpatient.weekday_view_rows
+        )
     try:
         loaded_sessions = Counter(
-            (entry.patient_id, entry.treatment, entry.day_pattern,
+            (entry.patient_id, entry.treatment, int(day),
              entry.start_time, entry.therapist_id)
             for entry in read_unified_base_schedule(stage)
+            for day in parse_day_pattern(entry.day_pattern)
         )
     except Exception:
         raise TrialDemoNativeSeedError(
@@ -504,6 +581,7 @@ def seed_trial_demo_workbook(
     review: str | Path, intake: str | Path, output: str | Path,
     clinical_approvals: Mapping[tuple[str, int], ConfirmedClinicalFields],
     backend: TrialDemoSeedBackend | None = None,
+    outpatient_source: str | Path | None = None,
 ) -> TrialDemoNativeSeedReport:
     """Seed one uniquely named, private, fresh DEMO from an EMPTY eligible shell.
 
@@ -523,6 +601,8 @@ def seed_trial_demo_workbook(
         or not _private_output_target(destination)
     ):
         raise TrialDemoNativeSeedError("SAFETY STOP: unsafe demo output or source plan")
+    if backend is None and outpatient_source is None:
+        raise TrialDemoNativeSeedError("Full native DEMO requires approved outpatients")
     if backend is None and sys.platform != "win32":
         raise TrialDemoNativeSeedError("Windows Excel required for native seed")
 
@@ -531,6 +611,17 @@ def seed_trial_demo_workbook(
         plan, programme=p, review=r, intake=source,
         clinical_approvals=clinical_approvals,
     )
+    approved_outpatients = None
+    if outpatient_source is not None:
+        approved_outpatients = Path(outpatient_source).resolve()
+        if (
+            approved_outpatients in (p, r, source, destination)
+            or not _private_output_target(approved_outpatients)
+        ):
+            raise TrialDemoNativeSeedError("Unsafe outpatient source location")
+        projection = merge_trial_demo_outpatients(
+            projection, project_private_outpatient_source(approved_outpatients),
+        )
     plan.verify_sources(r, source, programme=p)
     # Never create an output inside a tracked repository or a shared production file.
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -564,6 +655,10 @@ def seed_trial_demo_workbook(
         plan.verify_sources(r, source, programme=p)
         if _digest(source) != before or destination.exists():
             raise TrialDemoNativeSeedError("SAFETY STOP: source changed or output occupied")
+        if approved_outpatients is not None and (
+            _digest(approved_outpatients) != projection.outpatient.source_sha256
+        ):
+            raise TrialDemoNativeSeedError("Separate outpatient source changed")
         published_by_this_call = False
         try:
             with destination.open("xb") as published:
@@ -575,6 +670,10 @@ def seed_trial_demo_workbook(
             plan.verify_sources(r, source, programme=p)
             if _digest(source) != before:
                 raise TrialDemoNativeSeedError("SAFETY STOP: intake shell changed")
+            if approved_outpatients is not None and (
+                _digest(approved_outpatients) != projection.outpatient.source_sha256
+            ):
+                raise TrialDemoNativeSeedError("Outpatient source changed before publication")
         except Exception:
             if published_by_this_call:
                 destination.unlink(missing_ok=True)
