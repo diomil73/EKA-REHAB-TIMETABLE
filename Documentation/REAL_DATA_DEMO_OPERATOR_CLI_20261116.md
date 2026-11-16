@@ -19,7 +19,7 @@
 - `eligible_empty_shell.xlsm`: πλήρες, αλλά **εντελώς κενό** κανονικό Diomil Excel με VBA, όλα τα κουμπιά/φύλλα και κανένα προηγούμενο ιστορικό/ασθενή.
 - `clinical_approvals.json`: **ιδιωτική, πλήρης, ρητά εγκεκριμένη** κλινική ταξινόμηση ανά (`clinic`, `source_row`) του ίδιου review. Μην αντιγράφετε μόνο ονοματεπώνυμα και υποθέτετε κλινικές πληροφορίες.
 
-Το JSON έχει ακριβώς την εξής σύνταξη, με **αποκλειστικά φανταστικές τιμές στο παράδειγμα**:
+Το JSON έχει ακριβώς την εξής σύνταξη, με **αποκλειστικά φανταστικές τιμές στο παράδειγμα**. Οι δύο ενδεικτικοί ασθενείς είναι εσωτερικοί, επειδή το τρέχον αρχικό A:V importer υποστηρίζει μόνο εγκεκριμένες εσωτερικές εγγραφές. Τα πραγματικά εξωτερικά προγράμματα απαιτούν ανεξάρτητη πηγή/εισαγωγή πριν θεωρηθεί πλήρης η σύγκριση:
 
 ```json
 {
@@ -38,9 +38,9 @@
     {
       "clinic": "DEMO CLINIC B",
       "source_row": 3,
-      "patient_type": "OUTPATIENT",
+      "patient_type": "INPATIENT",
       "infectious": false,
-      "room": null,
+      "room": "DEMO B02",
       "responsible_doctor": null,
       "hospital_mrn": null,
       "status": "Ενεργός"
@@ -56,14 +56,14 @@
 Σε **Windows**, με ενεργό το Python περιβάλλον του repo και εγκατεστημένες εξαρτήσεις, θέστε διαδρομές που δείχνουν σε **ιδιωτικό εξουσιοδοτημένο φάκελο, εκτός Git**. Οι τιμές είναι *placeholders*, ποτέ πραγματικά ονόματα/νοσηλεία σε δημοσιευμένο script.
 
 ```powershell
-$private = "C:\\PRIVATE_APPROVED_DIOMIL"
+$private = "C:\PRIVATE_APPROVED_DIOMIL"
 $programme = Join-Path $private "manual_current.xlsx"
 $review = Join-Path $private "review_confirmed.xlsx"
 $shell = Join-Path $private "eligible_empty_shell.xlsm"
 $approvals = Join-Path $private "clinical_approvals.json"
 
 # Πρώτα: πραγματικός πλήρης προέλεγχος ΧΩΡΙΣ αλλαγή XLSM.
-python Python\\tools\\prepare_real_data_practice_demo.py `
+python Python\tools\prepare_real_data_practice_demo.py `
   --programme "$programme" `
   --review "$review" `
   --shell "$shell" `
@@ -79,7 +79,7 @@ $newCandidate = Join-Path $private "DIOMIL_DEMO_PRIVATE_FIRST_A.xlsm"
 if (Test-Path -LiteralPath $newCandidate) {
     throw "STOP: this DEMO destination already exists"
 }
-python Python\\tools\\prepare_real_data_practice_demo.py `
+python Python\tools\prepare_real_data_practice_demo.py `
   --programme "$programme" `
   --review "$review" `
   --shell "$shell" `
@@ -101,3 +101,8 @@ if ($LASTEXITCODE -ne 0) {
 **Ανοιχτά:** F/U/V (30λεπτο ανακλινόμενο, απογευματινό, πισίνα), πηγαία outpatient υποδοχή από την κατάλληλη πηγή, πλήρες real-source agreement, ιδιωτικό approved review/clinical facts, χειροκίνητη native δοκιμή και full end-to-end acceptance. **Μην παρακάμπτετε blockers ούτε κατασκευάζετε ψεύτικες καταχωρίσεις**.
 
 Απόδειξη και συνολικό status: `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`. Αν κάποιο native build αποτύχει, **παγώστε** το αντίγραφο και τα ιδιωτικά διαγνωστικά, μην επαναδοκιμάσετε στο ίδιο output. Ενημερώστε τα live `CURRENT_HANDOFF`, `PROJECT_STATUS`, `PROJECT_DELIVERY_MASTER_REPORT` και acceptance matrix χωρίς τροποποίηση frozen H2–H10 αποδείξεων.
+
+
+### Έλεγχος αμεταβλητότητας κλινικών εγκρίσεων
+
+Η εντολή ελέγχει και SHA-256 του ιδιωτικού `clinical_approvals.json` πριν/μετά τον πλήρη προέλεγχο και μετά το native build. Αν αλλάξει έστω και ένα byte, κάνει **SAFETY STOP**. Εάν η αλλαγή διαπιστωθεί μετά από ήδη ολοκληρωμένη native δημιουργία, το απομονωμένο αποτέλεσμα **παγώνει και ΔΕΝ γίνεται αποδεκτό**. Δεν επαναχρησιμοποιούμε το ίδιο filename ούτε δημοσιεύουμε τις εγκρίσεις.
