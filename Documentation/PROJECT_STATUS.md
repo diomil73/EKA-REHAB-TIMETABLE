@@ -1,5 +1,17 @@
 # Project Status
 
+## Directly verified real-data DEMO gate — 2026-11-16
+
+- Latest GitHub branch checked: `work/afternoon-medical-scope-20261115`, HEAD `b276f7b430c42cf1df46d791a122bfd2606dcf8f` before this documentation-only checkpoint.
+- Verified [GitHub Actions run 43806683353](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43806683353): 2,021/2,021 Windows tests, 2,021/2,021 Linux tests, all four jobs successful. Source/synthetic verification only.
+- Existing daily VBA MASTER time/day/provider rendering: preserve, no identified need to repair it. Separate native bulk-seed rendering must be verified independently.
+- Private current manual/review/clinical approval/empty shell and approved outpatient source: not reachable from the connected environment; no real-data importer execution claimed.
+- F/U/V source admission (30-minute reclining, legacy afternoon not auto-importable, morning pool) and full separate outpatient merging remain explicit gates.
+- Finalized operational pilot with real patients, 1:1 weekday parity and Save/Close/Reopen: **NOT DELIVERED**.
+- Next: run private read-only special audit and independent outpatient source audit; resolve source holds and identity approvals; prepare an empty native XLSM; execute isolated build in Windows Excel/COM; test original programme parity and all previously approved operator workflows.
+- Protect immutability of baseline, actual manual and H2-H10 proof. Never publish patient-identifying source, output or logs to the public repo.
+
+
 ## 2026-11-16 — Executable private real-source DEMO preflight
 
 **New executable interface:** `Python/tools/prepare_real_data_practice_demo.py` and `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md`. Default operation is **read-only full real-source validation** for an authorized current A:V manual XLSX, confirmed review XLSX, entirely empty application-ready VBA XLSM and independently approved private `clinical_approvals.json`. Uses the strict production source alignment, all-patient approved ID check, original weekday/time/provider reconciliation, unresolved F/U/V stop gates, existing native shell checks and SHA-256 stability of the clinical-approval JSON. Every input must remain off Git checkout. No real patient name, ID, room, doctor, MRN, source path or clinical exception content is emitted to stdout/stderr on handled errors. `--build --output <PRIVATE_*_DEMO_*.xlsm>` is an *explicit* Windows + native Excel/COM, exclusive-new-file second step and repeats the same approval gates. **No real source file has been run; no real-data XLSM exists, and end-to-end practical acceptance is still pending.** Previous synthetic/H8 workbook results do not count as the operator's comparison. First actual action is an authorized private preflight with current manual and approved clinical review, not a random synthetic seed. Native failure or changed approvals after a native operation requires freezing the candidate, not treating it as accepted. See the dedicated operator CLI runbook for exact commands/JSON schema.
