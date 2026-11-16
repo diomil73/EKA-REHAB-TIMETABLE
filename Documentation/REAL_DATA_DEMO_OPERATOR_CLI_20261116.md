@@ -7,7 +7,7 @@ Two historic private input candidates are identified by **name only**, not yet b
 Use an institution-approved local folder **outside Git**. Replace only `$private` with the actual approved Windows folder. Do not echo paths, names, IDs or clinical rows to public issue trackers or chats. The following commands are intentionally **read-only** and do not create an XLSM:
 
 ```powershell
-$private = "C:\\PRIVATE_APPROVED_DIOMIL"  # EXAMPLE ONLY: private, outside Git
+$private = "C:\PRIVATE_APPROVED_DIOMIL"  # EXAMPLE ONLY: private, outside Git
 $programme = Join-Path $private "ΠΡΟΓΡΑΜΜΑΤΑ ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx"
 $review = Join-Path $private "DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx"
 
@@ -18,13 +18,13 @@ if (-not (Test-Path -LiteralPath $review -PathType Leaf)) {
     throw "SAFETY STOP: approved local identity-proposal workbook not found"
 }
 
-python .\\Python\\tools\\audit_real_manual_specials.py --programme "$programme"
+python .\Python\tools\audit_real_manual_specials.py --programme "$programme"
 $specialsExit = $LASTEXITCODE
 if ($specialsExit -notin @(0, 3)) {
     throw "SAFETY STOP: special-field source audit failed"
 }
 
-python .\\Python\\tools\\audit_trial_source_alignment.py `
+python .\Python\tools\audit_trial_source_alignment.py `
     --programme "$programme" --review "$review"
 $alignmentExit = $LASTEXITCODE
 if ($alignmentExit -ne 0) {
