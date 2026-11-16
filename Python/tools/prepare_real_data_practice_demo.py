@@ -32,6 +32,9 @@ from rehab_excel.trial_import_plan import (  # noqa: E402
 from rehab_excel.trial_patient_registry_projection import (  # noqa: E402
     ConfirmedClinicalFields,
 )
+from rehab_excel.trial_special_fields_audit import (  # noqa: E402
+    inspect_real_manual_special_fields,
+)
 
 
 APPROVAL_SCHEMA = "diomil-private-clinical-approvals-v1"
@@ -181,6 +184,13 @@ def run_private_trial(
         programme=programme, review=review, shell=shell,
         approvals=approvals, output=output, build=build,
     )
+    # Mandatory before any clinical projection or native Excel write:
+    # raw formula-only F/U/V cells must never pass data_only source parsing.
+    special_fields = inspect_real_manual_special_fields(programme)
+    if special_fields.unresolved_fields or special_fields.orphan_rows:
+        raise RealDemoCommandError(
+            "Special F/U/V source fields require independent approval"
+        )
     clinical_before = _approval_digest(approvals)
     clinical = read_private_clinical_approvals(approvals)
     assert_clean_native_demo_shell(shell)
