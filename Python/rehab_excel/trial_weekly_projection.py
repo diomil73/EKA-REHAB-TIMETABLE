@@ -38,12 +38,16 @@ def project_trial_weekly_rows(
     treatment admission into PATIENT_PLANNER. Never use as import authorization.
     """
     allowed_list = tuple(confirmed_inpatient_ids)
-    allowed = set(allowed_list)
+    # Check all types before set conversion, even when private input is malformed.
     if (
-        not allowed_list or len(allowed) != len(allowed_list)
+        not allowed_list
         or any(not isinstance(pid, str) or not pid.strip() for pid in allowed_list)
     ):
         raise TrialWeeklyProjectionError("Explicit unique inpatient IDs required")
+    # Identity uniqueness is case-insensitive, just as in the patient registry.
+    if len({pid.casefold() for pid in allowed_list}) != len(allowed_list):
+        raise TrialWeeklyProjectionError("Explicit unique inpatient IDs required")
+    allowed = set(allowed_list)
     if not plan.entries or len(plan.entries) != plan.weekday_slot_count:
         raise TrialWeeklyProjectionError("Source plan slot count mismatch")
 

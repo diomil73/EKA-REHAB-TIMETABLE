@@ -101,3 +101,19 @@ def test_same_speech_therapy_source_slot_cannot_be_imported_twice():
             confirmed_inpatient_ids=("DEMO-1",),
         )
 
+
+
+def test_casefold_approved_patient_id_duplicates_stop():
+    """Two case spellings of one stable PatientID cannot be two patients."""
+    with pytest.raises(TrialWeeklyProjectionError, match="unique"):
+        project_trial_weekly_rows(
+            _plan(_entry()), confirmed_inpatient_ids=("DEMO-1", "demo-1"),
+        )
+
+
+def test_nontext_unhashable_approved_patient_id_is_a_safe_stop():
+    """Malformed approval data must not trigger an uncontrolled set TypeError."""
+    with pytest.raises(TrialWeeklyProjectionError, match="unique"):
+        project_trial_weekly_rows(
+            _plan(_entry()), confirmed_inpatient_ids=("DEMO-1", ["BAD-ID"]),
+        )
