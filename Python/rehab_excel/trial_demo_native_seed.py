@@ -40,6 +40,9 @@ from rehab_excel.trial_demo_weekly_navigation import (
 from rehab_excel.trial_demo_patient_exit_vba import (
     install_demo_patient_exit_action, verify_demo_patient_exit_action,
 )
+from rehab_excel.trial_demo_master_display_bridge import (
+    refresh_private_demo_master_display, verify_private_demo_master_display,
+)
 from rehab_excel.trial_demo_active_census import (
     install_demo_active_census, verify_demo_active_census,
 )
@@ -546,6 +549,11 @@ def seed_trial_demo_workbook(
             # Existing proven native renderer, used only on the private stage.
             refresh_master_projection_in_place(stage)
             apply_master_visual_style_in_place(stage)
+            # The canonical MASTER projection templates carry one cell only.
+            # Restore the already-installed full time/day/provider renderer
+            # rather than redesigning patient cells or losing their contents.
+            refresh_private_demo_master_display(stage, projection)
+            verify_private_demo_master_display(stage, projection)
             _verify_seed_workbook(stage, projection)
             assert_application_contract(stage)
             verify_demo_weekly_navigation(stage)
