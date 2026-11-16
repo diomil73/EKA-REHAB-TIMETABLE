@@ -234,3 +234,25 @@
 Στην ίδια εργασία ενημέρωσε αυτό το ένα αρχείο και πρόσθεσε μικρούς pointers, όχι τέσσερα ανεξάρτητα status narratives. **Δεν** δημοσιεύουμε πραγματικά κλινικά δεδομένα, δεν παρακάμπτουμε STOP για να «βγει demo», δεν αγγίζουμε frozen XLSM. Το παλιό `3825085` και οι 2.031 tests είναι pre-guide verified baseline και όχι υποχρεωτικά το σημερινό HEAD.
 
 **Τελικός κανόνας:** Δεν ξαναψάχνουμε όσα έχουν αποδειχθεί, δεν εφευρίσκουμε clinical approvals, δεν ονομάζουμε demo πραγματικό πριν ολοκληρωθεί native/user acceptance.
+
+
+## 4.6 ΡΗΤΗ ΠΑΥΣΗ ΟΛΩΝ ΤΩΝ PC-DEPENDENT ΔΟΚΙΜΩΝ — 17/11/2026
+
+**ΝΕΑ ΟΔΗΓΙΑ ΧΡΗΣΤΗ:** «Κράτα αυτά τα τεστ που χρειάζονται το PC μου για το τέλος, θα μιλάμε από κινητή συσκευή μέχρι να επανέλθω στο PC. Όταν επιστρέψω, θα ενημερώσω». **ΜΗΝ ζητάς τώρα ούτε PowerShell commands, ούτε τοπικό git pull, ούτε χειρισμό native Excel, screenshots ή ιδιωτικές εγγραφές.** Επανενεργοποίησε το παρακάτω checklist αποκλειστικά όταν ο χρήστης πει ότι επέστρεψε στο PC. Αυτός ο κανόνας ισχύει για όλες τις επόμενες συνομιλίες, μέχρι νέα ρητή οδηγία.
+
+**ΤΙ ΜΠΟΡΕΙ ΝΑ ΓΙΝΕΤΑΙ ΑΥΤΟΝΟΜΑ ΕΝΩ Ο ΧΡΗΣΤΗΣ ΕΙΝΑΙ ΣΕ ΚΙΝΗΤΟ:** GitHub connector read/write, review των πραγματικών code paths, μικρές source-only διορθώσεις, **fictional** unit/regression tests, GitHub-hosted CI Windows/Linux, μη ταυτοποιητική επεξεργασία των ήδη εγκεκριμένων aggregate ευρημάτων, ενημέρωση του ενός αυτού οδηγού με commits/αποδείξεις. Hosted Windows runner ≠ προσωπικό PC του χειριστή· test success ≠ operator COM proof. Μην προγραμματίζεις εργασία στο προσωπικό PC και μην υποσχεθείς background delivery.
+
+**Επιβεβαιωμένο νέο cloud code checkpoint:**
+- Commit [6d6b831](https://github.com/diomil73/EKA-REHAB-TIMETABLE/commit/6d6b831433534c7421db60e0f1110d4a528723dc) προσθέτει **3 fictional-only regressions** σε §Tests/test_trial_admission_gate.py§: ίδιο source speech slot με αναπαραστάσεις ώρας §11:30§/§11.30§, cross-specialty ίδιος ασθενής/ώρα με κενό overlap tab, και αρνητικό control διαφορετικών ασθενών στην ίδια ώρα χωρίς ίδιο provider.
+- GitHub Actions [43978249084](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43978249084) στο ακριβές SHA **4/4 jobs SUCCESS**. Full tests: **2.034 passed Windows**, **2.034 passed Ubuntu**. Τα τελευταία tests πέρασαν· **δεν** έχει πραγματοποιηθεί native Excel/clinical confirmation.
+- Ο προηγούμενος οδηγός και τα πέντε γνωστά σημεία εισόδου συνδέονται με το ένα canonical αρχείο από commit §fe289b1§. Μην ξαναδημιουργήσεις τέσσερις χωριστούς οδηγούς.
+
+**ΕΝΙΑΙΟ BACKLOG ΓΙΑ ΟΤΑΝ ΕΠΙΣΤΡΕΨΕΙ Ο ΧΡΗΣΤΗΣ ΣΤΟ PC (όχι προς εκτέλεση τώρα):**
+1. Επαλήθευση/ασφαλής fast-forward του συγκεκριμένου local branch, μόνο μετά από status check· ποτέ force/reset/clean ή απώλεια τοπικών αλλαγών. Δεν είναι απαραίτητο να επαναληφθούν οι παλιοί έλεγχοι αν το PC ήδη συγχρονίστηκε.
+2. Επιλογή εγκεκριμένου **τρέχοντος**, όχι αυτόματα του 10/11 historical, manual A:V και κλινικά εγκεκριμένης review copy. Διατήρηση προτάσεων ξεχωριστά από confirmed IDs, χωρίς private data σε Git.
+3. Εξουσιοδοτημένη κλινική εξέταση 106 IDs, 61 holds, **15** conflict groups (11 + 4), 5 F και 19 U, ιστορικό V=0, 30 context gaps· καμία σιωπηλή απώλεια. Ιδιωτικό review copy, όχι overwriting originals. Η κλινική απόφαση **δεν** γίνεται αυτόματα από assistant.
+4. Ξεχωριστή αξιόπιστη outpatient πηγή §PATIENTS§ + §OUTPATIENT_SCHEDULE§, όχι η auxiliary 10-row λίστα, πλήρες §clinical_approvals.json§ και πραγματικά καθαρό eligible Excel/VBA shell. Και τα τρία παραμένουν ανοιχτά.
+5. Μόνο εφόσον όλα τα παραπάνω εγκριθούν: read-only authoritative §prepare_real_data_practice_demo.py§ preflight με §--outpatients§. Οποιοδήποτε safety stop σημαίνει **καμία** νέα native εγγραφή, όχι παράκαμψη.
+6. ΜΟΝΟ σε full preflight GREEN: δημιουργία **νέου, μοναδικού και ιδιωτικού** §*_DEMO_*.xlsm§ σε Windows Excel/COM, native Save/Close/Reopen, independent reader/hash, μετά πλήρη σύγκριση ΔΕ–ΠΑ και δοκιμή των διαδρομών admissions/exit/absence/replacement/registries/history/protection/reset. Frozen baseline και παλιά πράσινα/fail artifacts αμετάβλητα.
+
+**ΑΚΡΙΒΕΣ ΣΗΜΕΙΟ ΣΥΝΕΧΕΙΑΣ ΚΑΤΑ ΤΟ MOBILE-ONLY MODE:** Μετά τα 2.034 cloud tests, συνεχίζουμε μόνο με ασφαλείς μη-κλινικές source-code εργασίες και ανάλυση του private review workflow/15 collisions, χωρίς απαίτηση πρόσβασης σε τοπικό PC. **Το πρώτο πραγματικό Windows Excel/COM και user acceptance μεταφέρονται στο τέλος, όταν ο χρήστης επιστρέψει και το δηλώσει ο ίδιος.**
