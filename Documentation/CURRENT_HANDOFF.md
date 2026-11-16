@@ -1,5 +1,13 @@
 # Current Handoff
 
+## 2026-11-17 — Duplicate-same-source real-data finding covered by synthetic regression, CI GREEN
+
+The newly discovered real review shape (4 duplicate ΛΟΓΟΘΕΡΑΠΕΙΑ rows sharing the exact source cell, weekday and clock) is now covered by TWO new **fictional-only** regression tests: `Tests/test_trial_weekly_projection.py::test_same_speech_therapy_source_slot_cannot_be_imported_twice` and `Tests/test_trial_admission_gate.py::test_identical_speech_therapy_proposals_fail_without_overlap_sheet_rows`. These prove the existing fail-closed gates reject duplicates even when the review `ΕΠΙΚΑΛΥΨΕΙΣ` tab is empty. No production source or VBA change and no private patient data in tests.
+
+**Authoritative CI source-level gate:** SHA `6669489d28945808fcac38f288c8950e7fb55b40`, GitHub Actions [43971456352](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43971456352), **2,031 pytest passed in Ubuntu and 2,031 in Windows, 4/4 jobs GREEN**. This DOES NOT approve any of the real-data holds, IDs, additional clinical facts, outpatient source or native XLSM. No real patient workbook modified. The validated private aggregate report remains `Documentation/REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`.
+
+
+
 ## 2026-11-17 — Strict all-764 appointment collision check found four MORE same-source duplicates
 
 Supplemental actual-source read-only reconciliation applied the existing strict collision key (original patient source row, weekday, normalized clock) across all 764 weekly proposals. It found **15 conflict groups total**: 11 cross-specialty same patient/time and **4 extra identical-source-cell same-specialty LOGOTHERAPY duplicates**, not captured by the review workbook's 11 `ΕΠΙΚΑΛΥΨΕΙΣ` rows. Four same-source-cell duplicate candidates must be reconciled privately against the original, **NEVER silently dropped or admitted twice**. All proposed clock values parse and all weekday tokens are Mon-Fri; mandatory ΦΘ/robotic providers are present at candidate level. This is **another blocker for native import**, distinct from 61 holds, 0 confirmed IDs, F/U, and noncanonical outpatient source. Full aggregate documented in `Documentation/REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`; no patient-level data or hashes disclosed.

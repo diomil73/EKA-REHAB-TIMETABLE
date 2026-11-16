@@ -1,5 +1,11 @@
 # Project Status
 
+## 2026-11-17 — Real-data duplicate admission regression GREEN at 2,031 tests
+
+Added two fictional-only tests covering the actual observed class of four duplicate speech-therapy suggestions with the same source-cell provenance, including the scenario where the review overlap sheet is empty. Existing safe admission and weekly projection reject both; no silent deduplication and no clinical patient data embedded. GitHub Actions [43971456352](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43971456352) at SHA `6669489d28945808fcac38f288c8950e7fb55b40`: **2,031 passed Windows + 2,031 passed Ubuntu, all 4 jobs successful**. Private actual-source evidence is read-only; 0 confirmed PatientIDs, 61 holds, 11 cross-specialty overlaps + 4 same-source speech-therapy duplicates, F=5/U=19/V=0, noncanonical outpatient auxiliary sheet, actual native private DEMO and operator acceptance still pending.
+
+
+
 ## 2026-11-17 — Detailed slot collision audit expands the known review holds
 
 Private actual-source read-only scan found **15** candidate same-patient/weekday/normalized-time conflicts in 764 weekly rows: **11 cross-specialty** groups and **4 duplicate LOGOTHERAPY rows from identical source-cell provenance**. The review `ΕΠΙΚΑΛΥΨΕΙΣ` worksheet contains 11 rows and does not reflect the four additional same-specialty duplicates. These four cannot be automatically deduplicated or imported twice. Existing production `validate_weekly_entry_consistency` is fail-closed on all same-patient/day/time overlaps; correction/approval belongs to a new private review process, not the original manual or live workbook. No native demo or clinical approval was conducted. See `REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md`.
