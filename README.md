@@ -1,5 +1,11 @@
 # Rehab Center System
 
+
+## ΕΝΑΣ ΕΠΙΣΗΜΟΣ ΟΔΗΓΟΣ ΣΥΝΕΧΕΙΑΣ, 17/11/2026
+
+**ΠΡΩΤΗ ΑΝΑΓΝΩΣΗ:** [DIOMIL_MASTER_CONTINUITY_GUIDE.md](Documentation/DIOMIL_MASTER_CONTINUITY_GUIDE.md). Τέσσερα πλήρη κεφάλαια μέσα στο **ίδιο** αρχείο. Όταν ο χρήστης γράψει «βρες το αρχείο οδηγό» ή «ψάξε τα 4 αρχεία με οδηγίες», διάβασε αυτό, επιβεβαίωσε current branch HEAD και συνέχισε χωρίς να επαναλάβεις πράσινα τεστ ή τις σκαναρισμένες 106/764 προτάσεις. Baseline actual source 61 holds, **15** collisions (11+4), PatientIDs confirmed 0, F/U/V=5/19/0, separate outpatient + native real-data DEMO + operator acceptance PENDING. Green 2.031 tests/OS ≠ αποδεκτό real XLSM.
+
+
 ## 2026-11-16 — Executable private real-source DEMO preflight
 
 **New executable interface:** `Python/tools/prepare_real_data_practice_demo.py` and `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md`. Default operation is **read-only full real-source validation** for an authorized current A:V manual XLSX, confirmed review XLSX, entirely empty application-ready VBA XLSM and independently approved private `clinical_approvals.json`. Uses the strict production source alignment, all-patient approved ID check, original weekday/time/provider reconciliation, unresolved F/U/V stop gates, existing native shell checks and SHA-256 stability of the clinical-approval JSON. Every input must remain off Git checkout. No real patient name, ID, room, doctor, MRN, source path or clinical exception content is emitted to stdout/stderr on handled errors. `--build --output <PRIVATE_*_DEMO_*.xlsm>` is an *explicit* Windows + native Excel/COM, exclusive-new-file second step and repeats the same approval gates. **No real source file has been run; no real-data XLSM exists, and end-to-end practical acceptance is still pending.** Previous synthetic/H8 workbook results do not count as the operator's comparison. First actual action is an authorized private preflight with current manual and approved clinical review, not a random synthetic seed. Native failure or changed approvals after a native operation requires freezing the candidate, not treating it as accepted. See the dedicated operator CLI runbook for exact commands/JSON schema.

@@ -1,5 +1,11 @@
 # START HERE: Diomil / EKA-REHAB-TIMETABLE
 
+
+## ΕΝΑΣ ΕΠΙΣΗΜΟΣ ΟΔΗΓΟΣ ΣΥΝΕΧΕΙΑΣ, 17/11/2026
+
+**ΠΡΩΤΗ ΑΝΑΓΝΩΣΗ:** [DIOMIL_MASTER_CONTINUITY_GUIDE.md](DIOMIL_MASTER_CONTINUITY_GUIDE.md). Τέσσερα πλήρη κεφάλαια μέσα στο **ίδιο** αρχείο. Όταν ο χρήστης γράψει «βρες το αρχείο οδηγό» ή «ψάξε τα 4 αρχεία με οδηγίες», διάβασε αυτό, επιβεβαίωσε current branch HEAD και συνέχισε χωρίς να επαναλάβεις πράσινα τεστ ή τις σκαναρισμένες 106/764 προτάσεις. Baseline actual source 61 holds, **15** collisions (11+4), PatientIDs confirmed 0, F/U/V=5/19/0, separate outpatient + native real-data DEMO + operator acceptance PENDING. Green 2.031 tests/OS ≠ αποδεκτό real XLSM.
+
+
 ## 2026-11-16 — IMPORTANT: newer real-data DEMO priority
 
 This file preserves the **November 3 historical state**. It is superseded as today's starting point by `Documentation/ONBOARDING.md` and `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`. Current branch: `work/afternoon-medical-scope-20261115`; green engineering CI `9fcc6108` / `43769366651` (1.960 on Windows/Linux). The user explicitly requires an integrated **real current manual-data** pilot for practical comparison. Synthetic H8/CC files are test fixtures only, not the accepted operator DEMO. Native real-source workbook/operator workflow is NOT yet delivered. Preserve old H2-H10 historical proofs as they were.

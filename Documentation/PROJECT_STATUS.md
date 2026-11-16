@@ -1,5 +1,11 @@
 # Project Status
 
+
+## ΕΝΑΣ ΕΠΙΣΗΜΟΣ ΟΔΗΓΟΣ ΣΥΝΕΧΕΙΑΣ, 17/11/2026
+
+**ΠΡΩΤΗ ΑΝΑΓΝΩΣΗ:** [DIOMIL_MASTER_CONTINUITY_GUIDE.md](DIOMIL_MASTER_CONTINUITY_GUIDE.md). Τέσσερα πλήρη κεφάλαια μέσα στο **ίδιο** αρχείο. Όταν ο χρήστης γράψει «βρες το αρχείο οδηγό» ή «ψάξε τα 4 αρχεία με οδηγίες», διάβασε αυτό, επιβεβαίωσε current branch HEAD και συνέχισε χωρίς να επαναλάβεις πράσινα τεστ ή τις σκαναρισμένες 106/764 προτάσεις. Baseline actual source 61 holds, **15** collisions (11+4), PatientIDs confirmed 0, F/U/V=5/19/0, separate outpatient + native real-data DEMO + operator acceptance PENDING. Green 2.031 tests/OS ≠ αποδεκτό real XLSM.
+
+
 ## 2026-11-17 — Real-data duplicate admission regression GREEN at 2,031 tests
 
 Added two fictional-only tests covering the actual observed class of four duplicate speech-therapy suggestions with the same source-cell provenance, including the scenario where the review overlap sheet is empty. Existing safe admission and weekly projection reject both; no silent deduplication and no clinical patient data embedded. GitHub Actions [43971456352](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43971456352) at SHA `6669489d28945808fcac38f288c8950e7fb55b40`: **2,031 passed Windows + 2,031 passed Ubuntu, all 4 jobs successful**. Private actual-source evidence is read-only; 0 confirmed PatientIDs, 61 holds, 11 cross-specialty overlaps + 4 same-source speech-therapy duplicates, F=5/U=19/V=0, noncanonical outpatient auxiliary sheet, actual native private DEMO and operator acceptance still pending.

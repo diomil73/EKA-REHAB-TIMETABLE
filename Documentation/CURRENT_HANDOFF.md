@@ -1,5 +1,11 @@
 # Current Handoff
 
+
+## ΕΝΑΣ ΕΠΙΣΗΜΟΣ ΟΔΗΓΟΣ ΣΥΝΕΧΕΙΑΣ, 17/11/2026
+
+**ΠΡΩΤΗ ΑΝΑΓΝΩΣΗ:** [DIOMIL_MASTER_CONTINUITY_GUIDE.md](DIOMIL_MASTER_CONTINUITY_GUIDE.md). Τέσσερα πλήρη κεφάλαια μέσα στο **ίδιο** αρχείο. Όταν ο χρήστης γράψει «βρες το αρχείο οδηγό» ή «ψάξε τα 4 αρχεία με οδηγίες», διάβασε αυτό, επιβεβαίωσε current branch HEAD και συνέχισε χωρίς να επαναλάβεις πράσινα τεστ ή τις σκαναρισμένες 106/764 προτάσεις. Baseline actual source 61 holds, **15** collisions (11+4), PatientIDs confirmed 0, F/U/V=5/19/0, separate outpatient + native real-data DEMO + operator acceptance PENDING. Green 2.031 tests/OS ≠ αποδεκτό real XLSM.
+
+
 ## 2026-11-17 — Duplicate-same-source real-data finding covered by synthetic regression, CI GREEN
 
 The newly discovered real review shape (4 duplicate ΛΟΓΟΘΕΡΑΠΕΙΑ rows sharing the exact source cell, weekday and clock) is now covered by TWO new **fictional-only** regression tests: `Tests/test_trial_weekly_projection.py::test_same_speech_therapy_source_slot_cannot_be_imported_twice` and `Tests/test_trial_admission_gate.py::test_identical_speech_therapy_proposals_fail_without_overlap_sheet_rows`. These prove the existing fail-closed gates reject duplicates even when the review `ΕΠΙΚΑΛΥΨΕΙΣ` tab is empty. No production source or VBA change and no private patient data in tests.

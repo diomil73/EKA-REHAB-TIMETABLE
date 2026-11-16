@@ -1,5 +1,11 @@
 # Project Onboarding
 
+
+## ΕΝΑΣ ΕΠΙΣΗΜΟΣ ΟΔΗΓΟΣ ΣΥΝΕΧΕΙΑΣ, 17/11/2026
+
+**ΠΡΩΤΗ ΑΝΑΓΝΩΣΗ:** [DIOMIL_MASTER_CONTINUITY_GUIDE.md](DIOMIL_MASTER_CONTINUITY_GUIDE.md). Τέσσερα πλήρη κεφάλαια μέσα στο **ίδιο** αρχείο. Όταν ο χρήστης γράψει «βρες το αρχείο οδηγό» ή «ψάξε τα 4 αρχεία με οδηγίες», διάβασε αυτό, επιβεβαίωσε current branch HEAD και συνέχισε χωρίς να επαναλάβεις πράσινα τεστ ή τις σκαναρισμένες 106/764 προτάσεις. Baseline actual source 61 holds, **15** collisions (11+4), PatientIDs confirmed 0, F/U/V=5/19/0, separate outpatient + native real-data DEMO + operator acceptance PENDING. Green 2.031 tests/OS ≠ αποδεκτό real XLSM.
+
+
 ## Active real-source files actually inspected — 2026-11-17
 
 The two uploaded REAL XLSX attachments have now been independently opened **read-only**. The original file's actual name has extra spaces: `ΠΡΟΓΡΑΜΜΑΤΑ  ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26 .xlsx`; partner identity proposal is `DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx`. Content-verified 106 matching candidate source patients and 764 weekday entries, but 0 confirmed PatientIDs, F/U blockers 5/19, 61 holds, 11 overlaps, and a separate noncanonical 10-row auxiliary outpatient sheet. The originals were not changed. **This is a private real-source diagnostic success, NOT an authorization to write a demo or clinical production workbook.** Read the new detailed privacy-safe `Documentation/REAL_SOURCE_UPLOADED_PAIR_READONLY_AUDIT_20261117.md` before continuing. Current/private approvals, outpatient conversion and native Excel/COM acceptance remain pending.
