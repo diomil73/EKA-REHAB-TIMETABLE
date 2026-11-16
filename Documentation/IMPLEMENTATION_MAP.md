@@ -1,5 +1,17 @@
 # Implementation Map
 
+## Implementation owner: unified private real-source DEMO admission (2026-11-16)
+
+- `Python/rehab_excel/trial_private_outpatient_audit.py`: existing-schema read-only outpatient eligibility checks; does NOT import.
+- `Python/rehab_excel/trial_private_outpatient_projection.py`: independently audited private outpatient registry and appointment projection with source SHA, exact weekdays, and no unapproved extra columns.
+- `Python/rehab_excel/trial_demo_source_projection.py`: source-to-source PatientID collision gate and combined patient registry while preserving separate inpatient weekly and outpatient recurring schedule ownership.
+- `Python/tools/prepare_real_data_practice_demo.py`: read-only dual-source `--outpatients` gate; native `--build` requires that independent source.
+- `Python/rehab_excel/trial_demo_native_seed.py`: existing schema OUTPATIENT_SCHEDULE native COM write, combined weekly view, raw and production unified-schedule readbacks, original hash checks.
+- `Tests/test_trial_private_outpatient_projection.py`, `Tests/test_trial_private_outpatient_audit.py`, `Tests/test_prepare_real_data_practice_demo.py`, `Tests/test_trial_demo_native_seed.py`: fictional regression, path/identity guards, source-only vs native distinction.
+
+CI gate `70e1b88f6e3289bbc79fe411d4724e327622ff7f`, run 43809724956: 2,029 passing tests each on Windows/Linux, 4/4 jobs. **No actual private real-source native XLSM or operator acceptance.** Preserve daily MASTER VBA renderer; do not repurpose outpatient records into inpatient PATIENT_PLANNER. F/U/V mapping and active-MASTER discharge refresh remain independent open gates.
+
+
 ## 2026-11-16 — Executable private real-source DEMO preflight
 
 **New executable interface:** `Python/tools/prepare_real_data_practice_demo.py` and `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md`. Default operation is **read-only full real-source validation** for an authorized current A:V manual XLSX, confirmed review XLSX, entirely empty application-ready VBA XLSM and independently approved private `clinical_approvals.json`. Uses the strict production source alignment, all-patient approved ID check, original weekday/time/provider reconciliation, unresolved F/U/V stop gates, existing native shell checks and SHA-256 stability of the clinical-approval JSON. Every input must remain off Git checkout. No real patient name, ID, room, doctor, MRN, source path or clinical exception content is emitted to stdout/stderr on handled errors. `--build --output <PRIVATE_*_DEMO_*.xlsm>` is an *explicit* Windows + native Excel/COM, exclusive-new-file second step and repeats the same approval gates. **No real source file has been run; no real-data XLSM exists, and end-to-end practical acceptance is still pending.** Previous synthetic/H8 workbook results do not count as the operator's comparison. First actual action is an authorized private preflight with current manual and approved clinical review, not a random synthetic seed. Native failure or changed approvals after a native operation requires freezing the candidate, not treating it as accepted. See the dedicated operator CLI runbook for exact commands/JSON schema.

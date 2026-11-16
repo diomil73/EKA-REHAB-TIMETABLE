@@ -1,5 +1,14 @@
 # Current Handoff
 
+## AUTHORITATIVE RESUME — 2026-11-16: separate approved outpatients now joined in code
+
+The current working branch is `work/afternoon-medical-scope-20261115`. GitHub Actions run [43809724956](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43809724956) is GREEN at `70e1b88f6e3289bbc79fe411d4724e327622ff7f`: **2,029 pytest passed Windows; 2,029 pytest passed Linux; all 4 jobs successful**. This verifies code/synthetic contracts, **not a native private Excel candidate**. The earlier failing build test used a nonexistent fictional outpatient input and was corrected before this green run; no production VBA repair was needed.
+
+**New implementation:** `Python/rehab_excel/trial_private_outpatient_projection.py` projects a separately approved current PRIVATE outpatient XLSX with the existing PATIENTS and OUTPATIENT_SCHEDULE schemas, exact weekday/clock/provider rows, source provenance and SHA. `trial_demo_source_projection.merge_trial_demo_outpatients` fails closed for duplicate PatientIDs and never mixes outpatient rows into inpatient PROGRAM_WEEKLY_SLOTS. The private CLI accepts `--outpatients` on read-only preflight and requires it for explicit native build. The native seed writer now writes the established OUTPATIENT_SCHEDULE, exposes outpatient sessions in DEMO_WEEKLY_VIEW, verifies native cells, and independently reopens the combined daily schedule through the existing production unified reader. See `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md` for the updated command: previous examples missing `--outpatients` are superseded for full native build.
+
+**Still NOT DELIVERED:** no authorized CURRENT manual/review/clinical approvals, separately approved outpatient export, or eligible clean empty VBA shell were accessible in the connected runtime. The original A:V F/U/V special-treatment holds are unchanged; without their approved mapping the process MUST stop before building. No Windows Excel/COM run with real data, no side-by-side 1:1 operator week, no live Save/Close/Reopen and no final user acceptance occurred. Keep baseline and H2-H10 frozen. Next: private authorized source audits and approvals; resolve F/U/V semantics without silent omission; clean shell; private unique XLSM COM build and complete native/operator acceptance. Do not repeat the previous reconstruction or ask for decisions already locked in the guides.
+
+
 ## Verified GitHub reconnection checkpoint — 2026-11-16 (real-data DEMO)
 
 Direct connector inspection verified the authoritative branch `work/afternoon-medical-scope-20261115` at `b276f7b430c42cf1df46d791a122bfd2606dcf8f`. GitHub Actions run [43806683353](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43806683353) completed successfully for that exact SHA: **2,021 pytest passed on Windows**, **2,021 pytest passed on Linux**, and **all 4 CI jobs succeeded**. This is synthetic/source regression only, NOT native Excel/COM real-data proof.

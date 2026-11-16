@@ -1,5 +1,42 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## UPDATE 2026-11-16 — approved separate outpatient source required for native build
+
+This section **supersedes older full-build examples below that omit outpatient input**. Existing daily MASTER treatment renderer and approved UI stay unchanged. Source code CI at `70e1b88f6e3289bbc79fe411d4724e327622ff7f` is green (run 43809724956: 2,029 tests each Windows/Linux). No actual private source/native Excel candidate has been executed.
+
+Use only authorized, independently approved PRIVATE files in an on-premises Windows folder outside Git. First run the two separate READ-ONLY safety audits; a clean return from either one is diagnostic only, not proof of clinical admission:
+
+```powershell
+$private = "C:\\PRIVATE_APPROVED_DIOMIL"  # illustrative private path, NOT Git
+$manual = Join-Path $private "manual_current.xlsx"
+$review = Join-Path $private "review_confirmed.xlsx"
+$clinical = Join-Path $private "clinical_approvals.json"
+$shell = Join-Path $private "eligible_empty_shell.xlsm"
+$outpatients = Join-Path $private "outpatients_current.xlsx"
+python Python\\tools\\audit_real_manual_specials.py --programme "$manual"
+python Python\\tools\\audit_real_outpatient_source.py --source "$outpatients"
+```
+
+If special F/U/V (reclining, historical afternoon or pool) are present, **STOP** until separately authorized rules/record mapping and the complete real source are accepted. Never suppress the gate by deleting source cells. When no holds remain and the independent source/identity/clinical approvals are complete, run:
+
+```powershell
+python Python\\tools\\prepare_real_data_practice_demo.py `
+  --programme "$manual" --review "$review" --shell "$shell" `
+  --clinical-approvals "$clinical" --outpatients "$outpatients"
+if ($LASTEXITCODE -ne 0) { throw "STOP: private real-source preflight failed" }
+
+$newCandidate = Join-Path $private "DIOMIL_DEMO_PRIVATE_A.xlsm"
+if (Test-Path -LiteralPath $newCandidate) { throw "STOP: choose a NEW output" }
+python Python\\tools\\prepare_real_data_practice_demo.py `
+  --programme "$manual" --review "$review" --shell "$shell" `
+  --clinical-approvals "$clinical" --outpatients "$outpatients" `
+  --build --output "$newCandidate"
+if ($LASTEXITCODE -ne 0) { throw "STOP: DO NOT REUSE the candidate" }
+```
+
+**Build success is NOT operator acceptance**. Native Excel COM and 1:1 private five-day admission plus full workbook interaction and Save/Close/Reopen are separately required. Never paste patient IDs, room/doctor details or error dumps into public GitHub, chat, logs or CI. For CLI any exception emits only a generic error class. Operator must use a fresh current manual, not an old snapshot.
+
+
 **Τρέχουσα κατάσταση:** Υπάρχει πλέον **εκτελέσιμο CLI εργαλείο προελέγχου**, όχι ακόμη έτοιμο πραγματικό XLSM. Η δημιουργία με Microsoft Excel/COM δεν έχει εκτελεστεί ή επικυρωθεί στο ιδιωτικό Windows σύστημα. **Το demo αποδοχής απαιτεί πραγματικούς ασθενείς/θεραπείες/ώρες/θεραπευτές**, όχι συνθετικούς.
 
 ## Κώδικας

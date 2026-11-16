@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-11-16 — Dual-source real-data DEMO code gate GREEN (operator gate pending)
+
+- Working branch: `work/afternoon-medical-scope-20261115`; tested SHA `70e1b88f6e3289bbc79fe411d4724e327622ff7f`. [CI 43809724956](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43809724956): 2,029 pytest passed on Windows, 2,029 on Linux; 4/4 green.
+- Separate approved outpatient source projection, cross-source unique PatientID gate, private SHA, exact weekday view, original OUTPATIENT_SCHEDULE native writer/readback, and unified daily schedule comparison are now implemented at source/test level.
+- CLI accepts `--outpatients` for private read-only verification and requires it for native `--build`. Real clinic files remain off Git checkout and off GitHub. Existing MASTER rendering and daily VBA are preserved.
+- Current real-data DEMO status: **NOT CREATED/NOT DELIVERED**. F/U/V admissions unresolved; actual manual/review/clinical/outpatients/private clean XLSM unavailable here; no real native COM or operator acceptance.
+- Next gate: authorized operator runs local read-only F/U/V and outpatient audits with a fresh manual and approved review; address all source holds; produce new unique native Windows XLSM, complete original manual vs all appointments comparison, native UI flows and Save/Close/Reopen/restore. No false partial demo.
+
+
 ## Directly verified real-data DEMO gate — 2026-11-16
 
 - Latest GitHub branch checked: `work/afternoon-medical-scope-20261115`, HEAD `b276f7b430c42cf1df46d791a122bfd2606dcf8f` before this documentation-only checkpoint.

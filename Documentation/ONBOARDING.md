@@ -1,5 +1,12 @@
 # Project Onboarding
 
+## Active real-data practice demo code gate — 2026-11-16
+
+Use `work/afternoon-medical-scope-20261115`, not the October branch. The existing in-session VBA MASTER treatment renderer stays unchanged. The next build consumes two separately approved real sources: the fresh inpatient A:V original plus its confirmed review/clinical classification, and a *separate* current outpatient export with the existing PATIENTS and OUTPATIENT_SCHEDULE columns. Code is now joined and regression GREEN at `70e1b88f6e3289bbc79fe411d4724e327622ff7f` ([Actions 43809724956](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43809724956), 2,029 tests each on Windows/Linux). The operator CLI requires `--outpatients` on full `--build`; read-only checks can be run before all files are approved. Read `CURRENT_HANDOFF`, `REAL_DATA_DEMO_OPERATOR_CLI_20261116`, `REAL_MANUAL_SPECIAL_FIELDS_AUDIT_20261116`, and `REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116`.
+
+No patient-identifying source/output may be committed. The native actual-data XLSM and end-to-end real operator acceptance remain PENDING. F/U/V source holds must never be bypassed. Protect the original manual, the immutable baseline and all frozen H2-H10 proof artifacts.
+
+
 ## Current practice-DEMO orientation — 2026-11-16
 
 For the latest user goal (one real-data evaluation DEMO, **not** a synthetic showcase), work on `work/afternoon-medical-scope-20261115`, not the older `feature/outpatient-scheduling`. Read `Documentation/REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116.md`, `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md`, `Documentation/REAL_MANUAL_SPECIAL_FIELDS_AUDIT_20261116.md` and `Documentation/REAL_OUTPATIENT_SOURCE_EXISTING_SCHEMA_AUDIT_20261116.md` alongside this onboarding and CURRENT_HANDOFF. Direct GitHub verification at `b276f7b430c42cf1df46d791a122bfd2606dcf8f`: CI run 43806683353, 2,021 Windows tests + 2,021 Linux tests, 4/4 jobs GREEN. These are not real native/operator results.
