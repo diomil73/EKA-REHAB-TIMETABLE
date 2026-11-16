@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from hashlib import sha256
 from pathlib import Path
 import sys
 from typing import Mapping
@@ -120,6 +121,15 @@ def read_private_clinical_approvals(
     return result
 
 
+def _approval_digest(path: Path) -> str:
+    """Bind private clinical approval bytes to this invocation, no JSON output."""
+    digest = sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def _inside_git_checkout(path: Path) -> bool:
     resolved = path.resolve()
     return any((parent / ".git").exists() for parent in (
@@ -171,6 +181,7 @@ def run_private_trial(
         programme=programme, review=review, shell=shell,
         approvals=approvals, output=output, build=build,
     )
+    clinical_before = _approval_digest(approvals)
     clinical = read_private_clinical_approvals(approvals)
     assert_clean_native_demo_shell(shell)
     plan = prepare_trial_import_plan(
@@ -184,6 +195,8 @@ def run_private_trial(
     # No use of partial fixture rows: entire original A:V source is checked
     # through the production reconciliation gate above.
     plan.verify_sources(review, shell, programme=programme)
+    if _approval_digest(approvals) != clinical_before:
+        raise RealDemoCommandError("Private clinical approvals changed during preflight")
     if not build:
         return projection.patients, projection.weekday_slot_count, False
     # No clinical values or local path are printed, even after success.
@@ -192,6 +205,10 @@ def run_private_trial(
         plan, programme=programme, review=review, intake=shell,
         output=output, clinical_approvals=clinical,
     )
+    if _approval_digest(approvals) != clinical_before:
+        # The sealed in-memory data and local JSON no longer agree. Preserve
+        # the candidate for safe private review but DO NOT declare it accepted.
+        raise RealDemoCommandError("Clinical approvals changed during native build")
     if not report.verified_native_readback or not report.source_unchanged:
         raise RealDemoCommandError("Native DEMO verification incomplete")
     return report.patient_count, report.weekday_slot_count, True
