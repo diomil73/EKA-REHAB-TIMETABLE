@@ -17,7 +17,7 @@ from openpyxl import load_workbook
 from rehab_core.day_patterns import parse_day_pattern
 from rehab_core.models import PatientType
 from rehab_excel.outpatient_schedule_source import (
-    OUTPATIENT_REQUIRED_HEADERS, read_outpatient_schedule,
+    OUTPATIENT_REQUIRED_HEADERS, _patient_id, read_outpatient_schedule,
 )
 from rehab_excel.patient_registry_source import read_patient_registry
 
@@ -91,30 +91,32 @@ def inspect_private_outpatient_source(path: str | Path) -> PrivateOutpatientAudi
             raise PrivateOutpatientSourceError("Real outpatient source has no appointments")
         # Reject a row that has a name but no PatientID, or vice versa.
         ids = set()
-        names = set()
         for cells in wb["PATIENTS"].iter_rows(min_row=2, max_col=6):
             if not any(_nonblank(c.value) for c in cells):
                 continue
             pid, room, name, infectious, status, kind = (c.value for c in cells)
+            normalized_id = _patient_id(pid)
             if (
-                not _nonblank(pid) or not _nonblank(name)
-                or str(pid).strip().casefold() in ids
+                not normalized_id or not _nonblank(name)
+                or normalized_id.casefold() in ids
                 or not _nonblank(kind)
             ):
                 raise PrivateOutpatientSourceError(
                     "Outpatient registry has incomplete or duplicate identities"
                 )
-            ids.add(str(pid).strip().casefold())
-            if str(kind).strip().casefold() not in ("εξωτερικός", "εξωτερικη", "outpatient"):
-                raise PrivateOutpatientSourceError(
-                    "Outpatient approval source contains a non-outpatient identity"
-                )
+            ids.add(normalized_id.casefold())
+            # The existing patient registry reader owns all legitimate
+            # inpatient/outpatient label variants; no second parser here.
             if _nonblank(room) or str(infectious or "").strip().upper() in ("Ν", "N", "YES", "TRUE", "1"):
                 raise PrivateOutpatientSourceError(
                     "Outpatient clinical row is inconsistent with approved type"
                 )
         if len(ids) != patient_rows:
             raise PrivateOutpatientSourceError("Outpatient registry does not match rows")
+        if not source.is_file() or _hash(source) != before:
+            raise PrivateOutpatientSourceError(
+                "SAFETY STOP: source changed during raw outpatient inspection"
+            )
     except PrivateOutpatientSourceError:
         raise
     except Exception:
@@ -146,13 +148,16 @@ def inspect_private_outpatient_source(path: str | Path) -> PrivateOutpatientAudi
             token = (
                 entry.patient_id.casefold(), entry.treatment.casefold(),
                 entry.start_time, tuple(sorted(parse_day_pattern(entry.day_pattern))),
-                (entry.therapist_id or "").casefold(),
-            )
+             )
             if token in seen:
                 raise PrivateOutpatientSourceError(
                     "Outpatient recurring schedule contains duplicate appointments"
                 )
             seen.add(token)
+            if entry.treatment == "ΦΘ" and not entry.therapist_id:
+                raise PrivateOutpatientSourceError(
+                    "Outpatient physiotherapy requires an approved provider"
+                )
             counts[entry.patient_id] += 1
             days += len(parse_day_pattern(entry.day_pattern))
         if any(count == 0 for count in counts.values()):
