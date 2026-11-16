@@ -317,3 +317,84 @@ def test_distinct_patients_same_weekday_clock_with_different_services_not_false_
     assert result.verified_patient_ids == 2
     assert result.ready
     assert len(result.admitted_entries) == 2
+
+
+def test_source_reference_gate_rejects_wrong_columns_rows_missing_time_and_duplicate_cells(
+    tmp_path,
+):
+    """Standalone review approval must never promote an unrelated A:V cell."""
+    import pytest
+    from openpyxl import load_workbook
+
+    bad_references = (
+        "C5 / D5 / E5",  # Different original patient line.
+        "G4 / H4 / I4",  # Occupational therapy, not physiotherapy.
+        "D4 / E4",       # Missing the actual C time cell.
+        "C4 / C4 / E4",  # Repeated source provenance.
+        "C4 / D5 / E4",  # One plausible ref points to someone else.
+        "C4 / D4 / U4",  # Historical afternoon cannot accompany ΦΘ.
+        "E4 / D4",       # Therapist/day details are not a clock.
+    )
+    for original_cells in bad_references:
+        path = make_review(tmp_path)
+        wb = load_workbook(path)
+        wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]["I2"] = original_cells
+        wb.save(path)
+        wb.close()
+        unchanged = path.read_bytes()
+        result = evaluate_trial_admission(path)
+        assert not result.ready, original_cells
+        assert result.unadmitted_weekly_rows == 1
+        assert result.admitted_entries == ()
+        assert any("invalid source cell references" in item for item in result.blockers)
+        assert path.read_bytes() == unchanged
+
+
+def test_source_provenance_time_cell_selected_independent_of_ref_order(tmp_path):
+    """Original clock C4, not the first arbitrary D/E reference, is canonical."""
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]["I2"] = "E4 / D4 / C4"
+    wb.save(path)
+    wb.close()
+    unchanged = path.read_bytes()
+    result = evaluate_trial_admission(path)
+    assert result.ready
+    assert result.admitted_entries[0].source_cell == "C4"
+    assert path.read_bytes() == unchanged
+
+
+def test_global_source_row_cannot_claim_two_patients_under_different_clinics(tmp_path):
+    """One physical A:V source line has only one patient, regardless of clinic."""
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΑΣΘΕΝΕΙΣ"].append([4, "Β", "SECOND FICTIONAL PERSON", "WARD", "DEMO-2", "CONFIRMED"])
+    wb.save(path)
+    wb.close()
+    result = evaluate_trial_admission(path)
+    assert not result.ready
+    assert result.verified_patient_ids == 2
+    assert result.admitted_entries == ()
+    assert any("duplicate original source row" in item for item in result.blockers)
+    assert "SECOND FICTIONAL PERSON" not in repr(result)
+
+
+def test_invalid_or_boolean_original_source_row_does_not_admit(tmp_path):
+    """Wrong source-row types cannot be inferred into an authoritative identity."""
+    from openpyxl import load_workbook
+
+    for source_row in (True, "NOT-A-ROW", 4.5):
+        path = make_review(tmp_path)
+        wb = load_workbook(path)
+        wb["ΑΣΘΕΝΕΙΣ"]["A2"] = source_row
+        wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]["B2"] = source_row
+        wb.save(path)
+        wb.close()
+        result = evaluate_trial_admission(path)
+        assert not result.ready
+        assert result.admitted_entries == ()
+        assert any("invalid original source row" in item for item in result.blockers)

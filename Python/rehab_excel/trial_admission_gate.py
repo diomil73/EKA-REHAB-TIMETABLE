@@ -15,6 +15,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from rehab_excel.trial_source_alignment import TREATMENT_SOURCE_COLUMNS
 from rehab_core.programme_mapping import (
     ProgrammeMappingError,
     SourceWeeklyEntry,
@@ -45,7 +46,23 @@ SOURCE_TREATMENTS = {
     "ΑΝΑΚΛΙΝΟΜΕΝΟ": "Ανακλινόμενο",
     "ΠΙΣΙΝΑ": "Πισίνα",
 }
-SRC_CELL_RE = re.compile(r"\b([A-Z]{1,3}[1-9][0-9]*)\b")
+# The original programme has one global row index, irrespective of clinic.
+# Refuse non-time cells, references to another patient row and duplicate refs.
+SOURCE_TIME_COLUMNS = {
+    "ΦΘ": "C",
+    "ΑΝΑΚΛΙΝΟΜΕΝΟ": "F",
+    "ΕΡΓΟΘΕΡΑΠΕΙΑ": "G",
+    "ΛΟΓΟΘΕΡΑΠΕΙΑ": "J",
+    "ΨΥΧΟΛΟΓΙΑ": "M",
+    "ΕΦΑ": "P",
+    "ΡΟΜΠΟΤΙΚΗ": "R",
+    "ΠΙΣΙΝΑ": "V",
+}
+SOURCE_REF_COLUMNS = {
+    **TREATMENT_SOURCE_COLUMNS,
+    "ΠΙΣΙΝΑ": frozenset({"V"}),
+}
+SRC_CELL_RE = re.compile(r"\b([A-Z]{1,3})([1-9][0-9]*)\b")
 
 
 class TrialAdmissionError(ValueError):
@@ -71,6 +88,17 @@ class TrialAdmissionResult:
 
 def _text(value: Any) -> str:
     return "" if value is None else str(value).strip()
+
+
+def _source_row_number(value: Any) -> int | None:
+    """Accept only a positive integral original Excel row, not guessed IDs."""
+    if isinstance(value, bool):
+        return None
+    try:
+        number = int(value)
+        return number if number >= 2 and float(value) == number else None
+    except (TypeError, ValueError, OverflowError):
+        return None
 
 
 def _data_rows(ws, width: int):
@@ -100,6 +128,7 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
         patient_keys: dict[tuple[str, str, str], str] = {}
         verified_ids: list[str] = []
         seen_patient_rows: set[tuple[str, str]] = set()
+        seen_original_rows: set[int] = set()
         blockers: list[str] = []
         for excel_row, row in patients:
             source_row, clinic, name, _ward, patient_id, confirmation = row
@@ -108,6 +137,13 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
             if not all(key):
                 blockers.append(f"Patient staging row {excel_row}: missing source identity")
                 continue
+            source_number = _source_row_number(source_row)
+            if source_number is None:
+                blockers.append(f"Patient staging row {excel_row}: invalid original source row")
+            elif source_number in seen_original_rows:
+                blockers.append(f"Patient staging row {excel_row}: duplicate original source row")
+            else:
+                seen_original_rows.add(source_number)
             if location in seen_patient_rows:
                 blockers.append(f"Patient staging row {excel_row}: duplicate clinic/source row")
             seen_patient_rows.add(location)
@@ -143,9 +179,24 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
                 unadmitted += 1
                 continue
             treatment = SOURCE_TREATMENTS.get(_text(specialty))
-            match = SRC_CELL_RE.search(_text(cells))
-            if treatment is None or _text(day) not in WEEKDAYS or match is None:
-                blockers.append(f"Weekly staging row {excel_row}: unsupported specialty, day or source cell")
+            if treatment is None or _text(day) not in WEEKDAYS:
+                blockers.append(f"Weekly staging row {excel_row}: unsupported specialty or day")
+                unadmitted += 1
+                continue
+            original_number = _source_row_number(source_row)
+            references = SRC_CELL_RE.findall(_text(cells).upper())
+            allowed_columns = SOURCE_REF_COLUMNS[_text(specialty)]
+            time_column = SOURCE_TIME_COLUMNS[_text(specialty)]
+            if (
+                original_number is None or not references
+                or len(references) != len(set(references))
+                or (time_column, str(original_number)) not in references
+                or any(
+                    column not in allowed_columns or int(number) != original_number
+                    for column, number in references
+                )
+            ):
+                blockers.append(f"Weekly staging row {excel_row}: invalid source cell references")
                 unadmitted += 1
                 continue
             provider = _text(required_name) if treatment in {"ΦΘ", "Ρομποτικό"} else _text(optional_name)
@@ -160,7 +211,7 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
                     weekday=_text(day),
                     start_time=parse_clock(clock),
                     therapist_name=provider or None,
-                    source_cell=match.group(1),
+                    source_cell=f"{time_column}{original_number}",
                 ))
             except (ProgrammeMappingError, ValueError):
                 blockers.append(f"Weekly staging row {excel_row}: malformed weekday slot")
