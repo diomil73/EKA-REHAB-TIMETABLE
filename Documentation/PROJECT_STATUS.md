@@ -1,5 +1,14 @@
 # Project Status
 
+## 2026-11-16 — Real-source candidate filenames identified, actual bytes not yet admitted
+
+- Named manual: `ΠΡΟΓΡΑΜΜΑΤΑ ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx` (10 Nov 2026, historical snapshot).
+- Named patient-ID proposal: `DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx` (12 Nov 2026, candidate suggestions, **not assumed approved**).
+- The exact XLSX files were **not available** in the connected conversation, available Library spreadsheet listing or public GitHub repository during this check; only their names were confirmed. No actual patient rows, sheet schema, hashes, F/U/V counts or approval statuses were inspected, and no real native XLSM was created.
+- Operator next action: local read-only special-field inventory and source/review provenance alignment in an approved PRIVATE Windows directory, using the exact filenames; then explicitly confirm PatientIDs and obtain current manual/independent outpatient sources. The existing code-level integration stays GREEN (2,029 Windows and Linux, run 43809955230), which does not establish operator/native acceptance.
+- Do not use the historical 10/11 snapshot as the current service-week truth without checking freshness. Preserve the manual, baseline, existing MASTER rendering and frozen H2-H10.
+
+
 ## 2026-11-16 — Dual-source real-data DEMO code gate GREEN (operator gate pending)
 
 - Working branch: `work/afternoon-medical-scope-20261115`; tested SHA `70e1b88f6e3289bbc79fe411d4724e327622ff7f`. [CI 43809724956](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43809724956): 2,029 pytest passed on Windows, 2,029 on Linux; 4/4 green.

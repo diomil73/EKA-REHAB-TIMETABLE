@@ -1,5 +1,19 @@
 # Current Handoff
 
+## 2026-11-16 — Operator identified the historical A:V source and identity proposal filenames
+
+The operator explicitly identified two **private, local** source candidates (filenames only; contents were NOT shared or examined in this session):
+
+1. `ΠΡΟΓΡΑΜΜΑΤΑ ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx` — actual manual patient-treatment programme, dated **2026-11-10**.
+2. `DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx` — **identity proposals**, dated **2026-11-12**, **NOT a signed/confirmed identity approval solely by filename**.
+
+Directly checked conversation/Project files, available Library XLSX metadata and GitHub repository contents; neither exact source was available as a readable/uploaded current workbook in the connected environment. No patient source rows were read, no real-data seed was executed, no native Excel demo was built. The 10 Nov snapshot is an **historical baseline** for alignment/diagnostics; for the practical acceptance week, the institution must confirm that it is still current or provide a fresh read-only manual snapshot. Do not silently substitute a synthetic file or claim identity matches are signed off.
+
+**Next local operation** in institution-controlled Windows storage outside Git: confirm both files exist; run `Python/tools/audit_real_manual_specials.py` against the 10/11 actual manual and `Python/tools/audit_trial_source_alignment.py` against the named manual + review proposal. Capture ONLY non-identifying aggregate console summaries/return codes. F/U/V remaining populated is a deliberate blocker; successful source alignment is **not** PatientID confirmation. Continue with independent per-patient identity confirmation, current manual version and separate current outpatient source, then only the other existing admission/Excel/COM gates. Exact filename-specific commands: `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md`.
+
+Handoff and scope preserved: branch `work/afternoon-medical-scope-20261115`, latest known all-green code gate `bd14eec` / GitHub run 43809955230 (2,029 pytest Windows and Linux, 4/4 jobs); operator actual-data/native acceptance remains PENDING. No original manual, production baseline, frozen H2-H10 or existing VBA render was modified.
+
+
 ## AUTHORITATIVE RESUME — 2026-11-16: separate approved outpatients now joined in code
 
 The current working branch is `work/afternoon-medical-scope-20261115`. GitHub Actions run [43809724956](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43809724956) is GREEN at `70e1b88f6e3289bbc79fe411d4724e327622ff7f`: **2,029 pytest passed Windows; 2,029 pytest passed Linux; all 4 jobs successful**. This verifies code/synthetic contracts, **not a native private Excel candidate**. The earlier failing build test used a nonexistent fictional outpatient input and was corrected before this green run; no production VBA repair was needed.

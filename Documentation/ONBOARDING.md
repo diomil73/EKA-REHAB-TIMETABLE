@@ -1,5 +1,10 @@
 # Project Onboarding
 
+## Filename-level real source identification — 2026-11-16
+
+The operator has identified `ΠΡΟΓΡΑΜΜΑΤΑ ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx` (original manual A:V snapshot, 10 Nov 2026) and `DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx` (identity suggestions from 12 Nov 2026). These names are now the diagnostic locator, **not proof of access to their bytes, current freshness or independent PatientID approval**. Read `Documentation/REAL_DATA_DEMO_OPERATOR_CLI_20261116.md` for the exact non-identifying, read-only Windows commands. No original clinical workbook was imported or altered in the GitHub-only environment. All established MASTER/VBA rendering remains unchanged, and native/real-data/operator acceptance is still pending.
+
+
 ## Active real-data practice demo code gate — 2026-11-16
 
 Use `work/afternoon-medical-scope-20261115`, not the October branch. The existing in-session VBA MASTER treatment renderer stays unchanged. The next build consumes two separately approved real sources: the fresh inpatient A:V original plus its confirmed review/clinical classification, and a *separate* current outpatient export with the existing PATIENTS and OUTPATIENT_SCHEDULE columns. Code is now joined and regression GREEN at `70e1b88f6e3289bbc79fe411d4724e327622ff7f` ([Actions 43809724956](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/43809724956), 2,029 tests each on Windows/Linux). The operator CLI requires `--outpatients` on full `--build`; read-only checks can be run before all files are approved. Read `CURRENT_HANDOFF`, `REAL_DATA_DEMO_OPERATOR_CLI_20261116`, `REAL_MANUAL_SPECIAL_FIELDS_AUDIT_20261116`, and `REAL_DATA_DEMO_ACCEPTANCE_AND_FULL_HANDOFF_20261116`.

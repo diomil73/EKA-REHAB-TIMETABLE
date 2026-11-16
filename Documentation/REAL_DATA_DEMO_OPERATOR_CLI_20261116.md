@@ -1,5 +1,47 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## Exact source filenames provided by operator — read-only local first gate (2026-11-16)
+
+Two historic private input candidates are identified by **name only**, not yet by attached workbook bytes or an approved source hash. The second is a **suggestions** workbook, not automatically a confirmed PatientID review. The 10 Nov manual is a diagnostic baseline, not by itself proof of the current programme on 16 Nov.
+
+Use an institution-approved local folder **outside Git**. Replace only `$private` with the actual approved Windows folder. Do not echo paths, names, IDs or clinical rows to public issue trackers or chats. The following commands are intentionally **read-only** and do not create an XLSM:
+
+```powershell
+$private = "C:\\PRIVATE_APPROVED_DIOMIL"  # EXAMPLE ONLY: private, outside Git
+$programme = Join-Path $private "ΠΡΟΓΡΑΜΜΑΤΑ ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26.xlsx"
+$review = Join-Path $private "DIOMIL_ΕΛΕΓΧΟΣ_ΤΑΥΤΟΤΗΤΩΝ_ΠΡΟΤΑΣΕΙΣ_20261112.xlsx"
+
+if (-not (Test-Path -LiteralPath $programme -PathType Leaf)) {
+    throw "SAFETY STOP: approved local manual snapshot not found"
+}
+if (-not (Test-Path -LiteralPath $review -PathType Leaf)) {
+    throw "SAFETY STOP: approved local identity-proposal workbook not found"
+}
+
+python .\\Python\\tools\\audit_real_manual_specials.py --programme "$programme"
+$specialsExit = $LASTEXITCODE
+if ($specialsExit -notin @(0, 3)) {
+    throw "SAFETY STOP: special-field source audit failed"
+}
+
+python .\\Python\\tools\\audit_trial_source_alignment.py `
+    --programme "$programme" --review "$review"
+$alignmentExit = $LASTEXITCODE
+if ($alignmentExit -ne 0) {
+    throw "SAFETY STOP: actual manual and identity-proposal sources do not align"
+}
+
+if ($specialsExit -eq 3) {
+    "BLOCKED: F/U/V real therapy fields require approved clinical scheduling mapping"
+}
+"READ-ONLY CHECKS COMPLETE: identity proposals still require independent confirmation"
+```
+
+Run from the local checked-out repository root after selecting/pulling the correct `work/afternoon-medical-scope-20261115` branch. The alignment checker prints **non-identifying aggregate counts and issue codes**, not a patient record. If the review proposal has not been normalized to the final admitted schema, it may be rejected; do not bypass the gate or edit the original file just to make the tool pass. If any script fails, retain the private source files unchanged and report only its error class, return code and aggregate statistics.
+
+**Never run `prepare_real_data_practice_demo.py --build` from the historical pair alone.** The first full native candidate still requires a currently approved manual, independently confirmed patient IDs/weekly placements and clinical facts, resolved F/U/V, a separate approved current outpatient source, and a new eligible empty native VBA XLSM. Prior examples using `review_confirmed.xlsx` remain conditional until the actual review has been approved; renaming a suggestions workbook does not confer approval.
+
+
 ## UPDATE 2026-11-16 — approved separate outpatient source required for native build
 
 This section **supersedes older full-build examples below that omit outpatient input**. Existing daily MASTER treatment renderer and approved UI stay unchanged. Source code CI at `70e1b88f6e3289bbc79fe411d4724e327622ff7f` is green (run 43809724956: 2,029 tests each Windows/Linux). No actual private source/native Excel candidate has been executed.
