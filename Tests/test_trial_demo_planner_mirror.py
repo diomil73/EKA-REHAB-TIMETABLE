@@ -64,10 +64,16 @@ def test_multiple_slots_on_same_day_are_not_collapsed():
     assert result == ()
 
 
-def test_unsupported_treatment_remains_only_in_granular_view():
-    assert choose_planner_demo_mirrors(
-        [row("DEMO-1", "Πισίνα", "ΔΕ", "09:00", provider=None)]
-    ) == ()
+@pytest.mark.parametrize("treatment", ["Πισίνα", "Ανακλινόμενο"])
+def test_morning_specials_use_established_planner_fields(treatment):
+    [item] = choose_planner_demo_mirrors(
+        [row("DEMO-1", treatment, "ΔΕ", "09:00", provider=None),
+         row("DEMO-1", treatment, "ΤΕ", "09:00", provider=None)]
+    )
+    assert item.day_pattern == "Δε-Τε"
+    assert item.start_time == time(9)
+    assert item.therapist is None
+    assert PLANNER_TREATMENT_HEADERS[treatment] == (f"{treatment}_Ώρα", f"{treatment}_Ημέρες", None)
 
 
 def test_multiple_patients_and_specialties_are_kept_independent():

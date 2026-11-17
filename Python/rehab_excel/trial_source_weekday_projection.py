@@ -10,10 +10,10 @@ blocks the entire row rather than silently dropping a treatment.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any, Sequence, Mapping
 
 from rehab_core.programme_mapping import (
-    ProgrammeMappingError, SourceWeeklyEntry, make_weekly_entries,
+    ProgrammeMappingError, SourceWeeklyEntry, make_weekly_entries, parse_clock, WEEKDAYS,
 )
 
 
@@ -58,6 +58,7 @@ def _value(source: Sequence[Any], column: str) -> Any:
 def preview_source_weekdays(
     *, source_row: int, columns: Sequence[Any], confirmed_patient_id: str,
     historical_afternoon_acknowledged: bool = False,
+    approved_morning_days: Mapping[str, tuple[str, ...]] | None = None,
 ) -> TrialSourceWeekdayPreview:
     """Expand only supported A:V weekday slots, without creating appointments.
 
@@ -66,9 +67,8 @@ def preview_source_weekdays(
     Blank clocks never generate sessions, even when weekdays are present.
     Such incomplete cells are retained as safety blockers rather than lost.
 
-    F (reclining, 30 min) and U/V (afternoon/pool) are deliberately held
-    until their separate operational contracts are implemented. The caller
-    must independently verify the confirmed ID, source row and source hash.
+    F/V require source-bound weekday and service approval; U is never a
+    session. The caller verifies the identity and source hash.
     """
     if (
         not isinstance(source_row, int) or isinstance(source_row, bool)
@@ -109,7 +109,35 @@ def preview_source_weekdays(
         if _present(_value(columns, column)):
             if column == "U" and historical_afternoon_acknowledged is True:
                 continue  # Explicitly excluded; never converted into a session.
+            if column in {"F", "V"}:
+                address = f"{column}{source_row}"
+                days = (approved_morning_days or {}).get(address)
+                if (isinstance(days, tuple) and days and len(set(days)) == len(days)
+                        and all(day in WEEKDAYS for day in days)):
+                    try:
+                        clock = parse_clock(_value(columns, column))
+                        if column == "F" and clock.hour * 60 + clock.minute + 30 > 1440:
+                            raise ValueError("Reclining interval exceeds day")
+                        candidates.extend(SourceWeeklyEntry(
+                            confirmed_patient_id, "Ανακλινόμενο" if column == "F" else "Πισίνα",
+                            day, clock, None, address,
+                        ) for day in days)
+                        continue
+                    except (ProgrammeMappingError, TypeError, ValueError):
+                        pass
             blockers.append(reason)
+
+    # Do not infer durations of other treatments; authorized review must
+    # establish full interval compatibility. The known reclining interval
+    # must not contain any other start time on that patient's same day.
+    for entry in candidates:
+        if entry.treatment != "Ανακλινόμενο":
+            continue
+        start = entry.start_time.hour * 60 + entry.start_time.minute
+        if any(other is not entry and other.weekday == entry.weekday
+               and start <= other.start_time.hour * 60 + other.start_time.minute < start + 30
+               for other in candidates):
+            blockers.append("RECLINING_INTERVAL_CONFLICT")
 
     # Never produce a partial apparently importable schedule.
     return TrialSourceWeekdayPreview(

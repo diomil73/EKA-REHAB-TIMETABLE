@@ -39,7 +39,7 @@ from rehab_excel.trial_patient_registry_projection import (  # noqa: E402
     ConfirmedClinicalFields,
 )
 from rehab_excel.trial_special_fields_audit import (  # noqa: E402
-    inspect_real_manual_special_fields, verify_legacy_afternoon_scope,
+    inspect_real_manual_special_fields, verify_legacy_afternoon_scope, verify_morning_special_scope,
 )
 
 
@@ -210,14 +210,18 @@ def run_private_trial(
     # raw formula-only F/U/V cells must never pass data_only source parsing.
     special_fields = inspect_real_manual_special_fields(programme)
     if special_fields.orphan_rows or (
-        special_fields.unresolved_fields
-        and (special_fields.reclining_rows or special_fields.pool_rows
-             or special_fields.formula_fields)
+        special_fields.unresolved_fields and special_fields.formula_fields
     ):
         raise RealDemoCommandError(
             "Special F/U/V source fields require independent approval"
         )
     if special_fields.unresolved_fields:
+        try:
+            verify_morning_special_scope(programme=programme, review=review)
+        except ValueError:
+            raise RealDemoCommandError(
+                "Special F/U/V source fields require independent approval"
+            ) from None
         try:
             verify_legacy_afternoon_scope(programme=programme, review=review)
         except ValueError:

@@ -18,7 +18,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
-from rehab_core.programme_mapping import ProgrammeMappingError, parse_clock
+from rehab_core.programme_mapping import ProgrammeMappingError, parse_clock, WEEKDAYS
 from rehab_excel.trial_source_alignment import (
     PROGRAMME_HEADERS, PROGRAMME_SHEET, _headers_match,
 )
@@ -240,3 +240,74 @@ def verify_legacy_afternoon_scope(*, programme, review) -> frozenset[int]:
         if (_digest(p), _digest(r)) != original:
             raise SpecialFieldsAuditError("Source changed during historical afternoon scope verification")
     return frozenset(approved)
+
+
+MORNING_SPECIAL_SHEET = "ΕΓΚΡΙΣΕΙΣ_ΠΕΔΙΩΝ_FV"
+MORNING_SPECIAL_HEADERS = ("SourceCell", "ProgrammeSHA256", "Weekdays", "Decision")
+MORNING_SPECIAL_DECISION = "APPROVED_MORNING_SERVICE_SLOT"
+
+
+def verify_morning_special_scope(*, programme, review):
+    """Verify exact F/V source-cell weekday and service approval.
+
+    The authorized reviewer confirms actual service/resource availability and
+    full interval compatibility. Preserve the original clock, never infer a
+    named provider for the existing providerless F/V planner fields.
+    """
+    p, r = Path(programme).resolve(), Path(review).resolve()
+    if p == r or any(not x.is_file() or x.suffix.casefold() != ".xlsx" for x in (p, r)):
+        raise SpecialFieldsAuditError("Separate original and review XLSX required")
+    original = (_digest(p), _digest(r))
+    source = staged = None
+    expected, approved = set(), {}
+    try:
+        source = load_workbook(p, read_only=True, data_only=False)
+        staged = load_workbook(r, read_only=True, data_only=False)
+        ws = source[PROGRAMME_SHEET]
+        if not _headers_match(ws, PROGRAMME_HEADERS, start_col=3):
+            raise SpecialFieldsAuditError("Manual A:V column contract differs")
+        for number, cells in enumerate(ws.iter_rows(min_row=2, max_col=22), start=2):
+            for letter, col in (("F", 6), ("V", 22)):
+                cell = cells[col - 1]
+                if not _filled(cell.value):
+                    continue
+                if (cell.data_type in {"f", "e"} or cells[1].data_type in {"f", "e"}
+                        or not _filled(cells[1].value)):
+                    raise SpecialFieldsAuditError("Unsafe or orphaned morning special cell")
+                clock = parse_clock(cell.value)
+                if letter == "F" and clock.hour * 60 + clock.minute + 30 > 1440:
+                    raise SpecialFieldsAuditError("Reclining interval exceeds day")
+                expected.add(f"{letter}{number}")
+        if MORNING_SPECIAL_SHEET in staged.sheetnames:
+            ws = staged[MORNING_SPECIAL_SHEET]
+            if tuple(ws.cell(1, col).value for col in range(1, 5)) != MORNING_SPECIAL_HEADERS:
+                raise SpecialFieldsAuditError("Morning special approval header mismatch")
+            for cells in ws.iter_rows(min_row=2):
+                if not any(_filled(cell.value) for cell in cells):
+                    continue
+                if (len(cells) < 4 or any(cell.data_type in {"f", "e"} for cell in cells)
+                        or any(_filled(cell.value) for cell in cells[4:])):
+                    raise SpecialFieldsAuditError("Morning special approval must be literal")
+                address, digest, day_text, decision = (cell.value for cell in cells[:4])
+                days = tuple(day_text.split("-")) if isinstance(day_text, str) else ()
+                if (not isinstance(address, str) or address not in expected
+                        or address in approved or digest != original[0]
+                        or decision != MORNING_SPECIAL_DECISION
+                        or not days or any(day not in WEEKDAYS for day in days)
+                        or len(set(days)) != len(days)):
+                    raise SpecialFieldsAuditError("Invalid or stale morning special approval")
+                approved[address] = tuple(day for day in WEEKDAYS if day in days)
+        if approved.keys() != expected:
+            raise SpecialFieldsAuditError("Morning F/V cells require exact independent review")
+    except SpecialFieldsAuditError:
+        raise
+    except Exception:
+        raise SpecialFieldsAuditError("Cannot verify private morning special scope") from None
+    finally:
+        if source is not None:
+            source.close()
+        if staged is not None:
+            staged.close()
+        if (_digest(p), _digest(r)) != original:
+            raise SpecialFieldsAuditError("Source changed during morning special scope verification")
+    return approved

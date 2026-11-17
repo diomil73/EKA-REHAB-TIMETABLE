@@ -467,3 +467,65 @@ def test_acknowledged_u_does_not_clear_reclining_hold(tmp_path):
     )
     with pytest.raises(TrialDemoSourceReconciliationError, match="independent review"):
         reconcile_demo_source_weekdays(updated, programme=source, review=review, intake=intake)
+
+
+def _morning_special_fixture(tmp_path, *, letter="F", day="ΔΕ", clock="10:00", decision="APPROVED_MORNING_SERVICE_SLOT", stale=False):
+    from rehab_excel.trial_special_fields_audit import MORNING_SPECIAL_SHEET, MORNING_SPECIAL_HEADERS
+    from rehab_core.programme_mapping import parse_clock
+    plan, source, review, intake = _fixture(tmp_path)
+    wb = load_workbook(source)
+    wb["ΠΡΟΓΡΑΜΜΑ"][f"{letter}4"] = clock
+    wb.save(source)
+    wb.close()
+    digest = sha256(source.read_bytes()).hexdigest()
+    wb = load_workbook(review)
+    sheet = wb.create_sheet(MORNING_SPECIAL_SHEET)
+    sheet.append(MORNING_SPECIAL_HEADERS)
+    sheet.append([f"{letter}4", "a"*64 if stale else digest, day, decision])
+    specialty, treatment = {"F": ("ΑΝΑΚΛΙΝΟΜΕΝΟ", "Ανακλινόμενο"), "V": ("ΠΙΣΙΝΑ", "Πισίνα")}[letter]
+    entry = SourceWeeklyEntry("DEMO-1", treatment, "ΔΕ", parse_clock(clock), None, f"{letter}4")
+    wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"].append([
+        "CLINIC-A", 4, "DEMO PERSON", specialty, "ΔΕ", clock, None, None,
+        f"{letter}4", "Fictional", "PROPOSED_EXACT_SOURCE",
+    ])
+    wb.save(review)
+    wb.close()
+    plan = TrialImportPlan(
+        sha256(review.read_bytes()).hexdigest(), plan.intake_sha256, 1, 2,
+        (*plan.entries, entry), programme_sha256=digest,
+    )
+    return plan, source, review, intake
+
+
+@pytest.mark.parametrize("letter", ["F", "V"])
+def test_approved_morning_special_roundtrips_in_existing_weekly_schema(tmp_path, letter):
+    from rehab_excel.trial_demo_source_projection import project_trial_demo_sources
+    from rehab_excel.weekly_slots_source import read_weekly_slots_sheet
+    from rehab_excel.trial_demo_planner_mirror import choose_planner_demo_mirrors
+    plan, source, review, intake = _morning_special_fixture(tmp_path, letter=letter)
+    before = source.read_bytes(), review.read_bytes()
+    result = project_trial_demo_sources(plan, programme=source, review=review, intake=intake,
+                                        clinical_approvals=_approval())
+    wb = Workbook()
+    ws = wb.active
+    ws.append(result.weekly_slots.headers)
+    for row in result.weekly_slots.rows:
+        ws.append(row)
+    actual = read_weekly_slots_sheet(ws, inpatient_ids={"DEMO-1"})
+    wb.close()
+    assert len(actual) == 2 and actual[1].therapist_id is None
+    assert actual[1].start_time == time(10)
+    assert actual[1].treatment == plan.entries[1].treatment
+    assert len(choose_planner_demo_mirrors(result.weekly_slots.rows)) == 2
+    assert (source.read_bytes(), review.read_bytes()) == before
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"day": "ΣΑ"}, {"decision": "PENDING"}, {"stale": True}, {"day": "ΤΡ"},
+    {"clock": "09:15"},
+])
+def test_morning_special_invalid_decision_or_reclining_interval_stops(tmp_path, kwargs):
+    from rehab_excel.trial_demo_source_reconciliation import reconcile_demo_source_weekdays, TrialDemoSourceReconciliationError
+    plan, source, review, intake = _morning_special_fixture(tmp_path, **kwargs)
+    with pytest.raises(TrialDemoSourceReconciliationError):
+        reconcile_demo_source_weekdays(plan, programme=source, review=review, intake=intake)

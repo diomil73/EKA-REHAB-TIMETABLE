@@ -45,6 +45,7 @@ TREATMENT_SOURCE_COLUMNS = {
     "ΨΥΧΟΛΟΓΙΑ": frozenset({"M", "N", "O"}),
     "ΕΦΑ": frozenset({"P", "Q"}),
     "ΡΟΜΠΟΤΙΚΗ": frozenset({"R", "S", "T"}),
+    "ΠΙΣΙΝΑ": frozenset({"V"}),
 }
 _CELL_RE = re.compile(r"([A-Z]{1,3})([1-9][0-9]*)")
 
@@ -213,7 +214,7 @@ def audit_trial_source_alignment(
                 time_col = {
                     "ΦΘ": "C", "ΑΝΑΚΛΙΝΟΜΕΝΟ": "F",
                     "ΕΡΓΟΘΕΡΑΠΕΙΑ": "G", "ΛΟΓΟΘΕΡΑΠΕΙΑ": "J",
-                    "ΨΥΧΟΛΟΓΙΑ": "M", "ΕΦΑ": "P", "ΡΟΜΠΟΤΙΚΗ": "R",
+                    "ΨΥΧΟΛΟΓΙΑ": "M", "ΕΦΑ": "P", "ΡΟΜΠΟΤΙΚΗ": "R", "ΠΙΣΙΝΑ": "V",
                 }[specialty]
                 if time_col not in {col for col, _ in refs}:
                     ref_mismatches += 1

@@ -17,6 +17,8 @@ from rehab_excel.weekly_slots_source import WEEKDAY_PATTERN
 # Exact workbook column labels, unchanged from the original planning UI.
 PLANNER_TREATMENT_HEADERS: dict[str, tuple[str, str, str | None]] = {
     "ΦΘ": ("ΦΘ_Ώρα", "ΦΘ_Ημέρες", "ΦΘ_Θεραπευτής"),
+    "Ανακλινόμενο": ("Ανακλινόμενο_Ώρα", "Ανακλινόμενο_Ημέρες", None),
+    "Πισίνα": ("Πισίνα_Ώρα", "Πισίνα_Ημέρες", None),
     "Ρομποτικό": ("Ρομποτικό_Ώρα", "Ρομποτικό_Ημέρες", "Ρομποτικό_Θεραπευτής"),
     "Εργο": ("Εργο_Ώρα", "Εργο_Ημέρες", "Εργο_Θεραπευτής"),
     "Λογο": ("Λογο_Ώρα", "Λογο_Ημέρες", "Λογο_Θεραπευτής"),
