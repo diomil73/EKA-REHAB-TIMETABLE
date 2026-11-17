@@ -316,3 +316,83 @@ def test_source_parity_blocks_unmapped_afternoon_without_partial_schedule(tmp_pa
         reconcile_demo_source_weekdays(
             updated, programme=programme, review=review, intake=intake,
         )
+
+
+def _rebind_programme_after_edit(fixture, updates):
+    """Simulate a new source snapshot, not a stale-hash failure."""
+    plan, programme, review, intake = fixture
+    wb = load_workbook(programme)
+    sheet = wb["ΠΡΟΓΡΑΜΜΑ"]
+    for address, value in updates.items():
+        sheet[address] = value
+    wb.save(programme)
+    wb.close()
+    updated = TrialImportPlan(
+        plan.review_sha256, plan.intake_sha256,
+        plan.patient_count, plan.weekday_slot_count, plan.entries,
+        sha256(programme.read_bytes()).hexdigest(),
+    )
+    return updated, programme, review, intake
+
+
+def test_source_parity_detects_entire_patient_row_omitted_from_review(tmp_path):
+    from rehab_excel.trial_demo_source_reconciliation import (
+        TrialDemoSourceReconciliationError, reconcile_demo_source_weekdays,
+    )
+
+    plan, programme, review, intake = _rebind_programme_after_edit(
+        _fixture(tmp_path), {
+            "B5": "FICTIONAL OMITTED PERSON", "G5": "10:30", "H5": "ΤΡ",
+        },
+    )
+    before = programme.read_bytes(), review.read_bytes(), intake.read_bytes()
+    with pytest.raises(TrialDemoSourceReconciliationError, match="missing from approved review") as err:
+        reconcile_demo_source_weekdays(plan, programme=programme, review=review, intake=intake)
+    assert "FICTIONAL OMITTED PERSON" not in str(err.value)
+    assert (programme.read_bytes(), review.read_bytes(), intake.read_bytes()) == before
+
+
+def test_source_parity_detects_orphan_day_or_provider_without_patient(tmp_path):
+    from rehab_excel.trial_demo_source_reconciliation import (
+        TrialDemoSourceReconciliationError, reconcile_demo_source_weekdays,
+    )
+
+    plan, programme, review, intake = _rebind_programme_after_edit(
+        _fixture(tmp_path), {"H5": "ΠΕ"},
+    )
+    with pytest.raises(TrialDemoSourceReconciliationError, match="missing from approved review"):
+        reconcile_demo_source_weekdays(plan, programme=programme, review=review, intake=intake)
+
+
+@pytest.mark.parametrize("address, value", [
+    ("G5", "=TIME(10,30,0)"),  # Formula-only unreviewed original row.
+    ("G4", "=TIME(10,30,0)"),  # Formula-only extra treatment on reviewed row.
+    ("J4", "#REF!"),           # Error value cannot be admitted or skipped.
+])
+def test_source_parity_stops_uncertain_raw_original_treatment_cells(tmp_path, address, value):
+    from rehab_excel.trial_demo_source_reconciliation import (
+        TrialDemoSourceReconciliationError, reconcile_demo_source_weekdays,
+    )
+
+    plan, programme, review, intake = _rebind_programme_after_edit(
+        _fixture(tmp_path), {address: value},
+    )
+    before = programme.read_bytes()
+    with pytest.raises(TrialDemoSourceReconciliationError, match="formula or Excel error"):
+        reconcile_demo_source_weekdays(plan, programme=programme, review=review, intake=intake)
+    assert programme.read_bytes() == before
+
+
+def test_source_parity_allows_nontherapy_text_row_without_inventing_patient(tmp_path):
+    """A label/note in A:B alone is not an authorized patient or treatment."""
+    from rehab_excel.trial_demo_source_reconciliation import reconcile_demo_source_weekdays
+
+    plan, programme, review, intake = _rebind_programme_after_edit(
+        _fixture(tmp_path), {"B5": "FICTIONAL SECTION NOTE"},
+    )
+    result = reconcile_demo_source_weekdays(
+        plan, programme=programme, review=review, intake=intake,
+    )
+    assert result.patient_rows == 1
+    assert result.weekday_slots == 1
+    assert result.source_fields_held == 0

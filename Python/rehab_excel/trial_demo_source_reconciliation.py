@@ -73,7 +73,7 @@ def reconcile_demo_source_weekdays(
                 "Source row and cell reference alignment is not valid"
             )
 
-        src_book = load_workbook(programme, read_only=True, data_only=True)
+        src_book = load_workbook(programme, read_only=True, data_only=False)
         try:
             review_book = load_workbook(review, read_only=True, data_only=True)
             try:
@@ -88,6 +88,24 @@ def reconcile_demo_source_weekdays(
                     raise TrialDemoSourceReconciliationError(
                         "Source or review header schema has changed"
                     )
+                # Check coverage against the whole original A:V worksheet, not
+                # merely the subset of patients appearing in the review copy.
+                # A missing row with any C:V content is a hold, including
+                # day/provider-only cells and orphan rows without a patient.
+                # Formula/error cells must be resolved explicitly; a missing
+                # cached formula value must never look like an empty treatment.
+                active_source_rows: set[int] = set()
+                for number, cells in enumerate(
+                    src.iter_rows(min_row=2, max_col=SOURCE_WIDTH), start=2,
+                ):
+                    therapy_cells = cells[2:]
+                    if any(cell.data_type in {"f", "e"} for cell in therapy_cells):
+                        raise TrialDemoSourceReconciliationError(
+                            "Original A:V formula or Excel error requires independent review"
+                        )
+                    if any(_text(cell.value) for cell in therapy_cells):
+                        active_source_rows.add(number)
+
                 candidates = []
                 seen_ids: set[str] = set()
                 seen_source_rows: set[int] = set()
@@ -128,6 +146,10 @@ def reconcile_demo_source_weekdays(
                         )
                     candidates.extend(proposed.entries)
 
+                if active_source_rows.difference(seen_source_rows):
+                    raise TrialDemoSourceReconciliationError(
+                        "Original A:V treatment rows are missing from approved review"
+                    )
                 if patient_count != plan.patient_count:
                     raise TrialDemoSourceReconciliationError(
                         "Admitted patient scope differs from original source"
