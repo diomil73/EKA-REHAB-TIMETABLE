@@ -43,7 +43,7 @@ def read_weekly_slots_sheet(
     if not allowed:
         raise WeeklySlotsSourceError("No authoritative inpatient registry available")
     raw_entries: list[SourceWeeklyEntry] = []
-    seen_addresses: set[tuple[str, str, str, str]] = set()
+    seen_addresses: set[tuple[str, str, str, str, time | None]] = set()
     for row_number, values in enumerate(
         worksheet.iter_rows(min_row=2, max_col=6, values_only=True), start=2
     ):
@@ -73,7 +73,8 @@ def read_weekly_slots_sheet(
             raise WeeklySlotsSourceError(
                 f"Weekly slot row {row_number}: malformed source data"
             ) from exc
-        duplicate_key = (patient_id, treatment, weekday, source_cell)
+        duplicate_key = (patient_id, treatment, weekday, source_cell,
+                         parsed_time if treatment == "ΕΦΑ" else None)
         if duplicate_key in seen_addresses:
             raise WeeklySlotsSourceError(f"Weekly slot row {row_number}: duplicate source entry")
         seen_addresses.add(duplicate_key)
