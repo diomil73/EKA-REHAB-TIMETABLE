@@ -398,3 +398,101 @@ def test_invalid_or_boolean_original_source_row_does_not_admit(tmp_path):
         assert not result.ready
         assert result.admitted_entries == ()
         assert any("invalid original source row" in item for item in result.blockers)
+
+
+def test_formula_only_hold_is_not_silently_lost(tmp_path):
+    """A formula with no cached value must still count as an unresolved row."""
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΕΓΓΡΑΦΕΣ_ΠΡΟΣ_ΕΛΕΓΧΟ"]["E2"] = '="FICTIONAL SECRET HOLD"'
+    wb.save(path)
+    wb.close()
+    original = path.read_bytes()
+
+    result = evaluate_trial_admission(path)
+
+    assert result.unresolved_source_rows == 1
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("formula or Excel error" in reason for reason in result.blockers)
+    assert "FICTIONAL SECRET HOLD" not in repr(result)
+    assert path.read_bytes() == original
+
+
+def test_formula_only_overlap_is_not_silently_lost(tmp_path):
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΕΠΙΚΑΛΥΨΕΙΣ"]["F2"] = '="FICTIONAL OVERLAP"'
+    wb.save(path)
+    wb.close()
+    original = path.read_bytes()
+
+    result = evaluate_trial_admission(path)
+
+    assert result.overlap_rows == 1
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("formula or Excel error" in reason for reason in result.blockers)
+    assert path.read_bytes() == original
+
+
+def test_formula_generated_confirmation_is_not_explicit_operator_approval(tmp_path):
+    from openpyxl import load_workbook
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΑΣΘΕΝΕΙΣ"]["F2"] = '="CONFIRMED"'
+    wb.save(path)
+    wb.close()
+
+    result = evaluate_trial_admission(path)
+
+    assert result.verified_patient_ids == 0
+    assert result.unadmitted_weekly_rows == 1
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("formula or Excel error" in reason for reason in result.blockers)
+
+
+def test_unconfirmed_id_with_proposed_weekly_rows_counts_as_unadmitted(tmp_path):
+    """A manually filled ID is not enough without the explicit decision."""
+    path = make_review(tmp_path, confirm=False)
+    result = evaluate_trial_admission(path)
+    assert result.verified_patient_ids == 0
+    assert result.weekly_proposals == 1
+    assert result.unadmitted_weekly_rows == 1
+    assert result.admitted_entries == ()
+    assert not result.ready
+
+
+def test_excel_error_in_shared_review_never_passes_as_empty(tmp_path):
+    from openpyxl import load_workbook
+    from rehab_excel.trial_admission_gate import SHARED_HEADERS, SOURCE_SHARED_SHEET
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    sheet = wb.create_sheet(SOURCE_SHARED_SHEET)
+    sheet.append(SHARED_HEADERS)
+    sheet["E2"] = "#REF!"
+    wb.save(path)
+    wb.close()
+
+    result = evaluate_trial_admission(path)
+
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("formula or Excel error" in reason for reason in result.blockers)
+    assert "#REF!" not in repr(result)
+
+
+def test_clean_positive_admission_repr_does_not_expose_private_entries(tmp_path):
+    """Approved placements are available privately, not in default diagnostics."""
+    result = evaluate_trial_admission(make_review(tmp_path))
+    assert result.ready
+    assert result.admitted_entries[0].patient_id == "DEMO-1"
+    assert "DEMO-1" not in repr(result)
+    assert "DEMO THERAPIST" not in repr(result)

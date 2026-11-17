@@ -8,7 +8,7 @@ native-Windows Excel trial import; it is NOT evidence of an import.
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 from typing import Any
@@ -78,7 +78,7 @@ class TrialAdmissionResult:
     unresolved_source_rows: int
     overlap_rows: int
     duplicate_ids: int
-    admitted_entries: tuple[SourceWeeklyEntry, ...]
+    admitted_entries: tuple[SourceWeeklyEntry, ...] = field(repr=False)
     blockers: tuple[str, ...]
 
     @property
@@ -101,12 +101,24 @@ def _source_row_number(value: Any) -> int | None:
         return None
 
 
-def _data_rows(ws, width: int):
-    for number, values in enumerate(
-        ws.iter_rows(min_row=2, max_col=width, values_only=True), start=2
+def _data_rows(ws, width: int, *, blockers: list[str]):
+    """Count raw rows, even if a formula has no cached/displayed value.
+
+    Review approvals are explicit literal values. Neither formulas nor Excel
+    error cells may serve as clinical decisions or make held rows disappear.
+    Mask unsafe cell content before parsing, keeping the row for diagnostics.
+    """
+    for number, cells in enumerate(
+        ws.iter_rows(min_row=2, max_col=width), start=2
     ):
-        if any(_text(value) for value in values):
-            yield number, values
+        unsafe = tuple(cell.data_type in {"f", "e"} for cell in cells)
+        if any(unsafe):
+            blockers.append(f"Review row {number}: formula or Excel error in admission fields")
+        if any(unsafe) or any(_text(cell.value) for cell in cells):
+            yield number, tuple(
+                None if invalid else cell.value
+                for cell, invalid in zip(cells, unsafe)
+            )
 
 
 def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
@@ -115,21 +127,22 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
     The exact source row and hospital ward are used locally to join identities;
     names are cross-checked but never printed or included in the response.
     """
-    wb = load_workbook(path, read_only=True, data_only=True)
+    wb = load_workbook(path, read_only=True, data_only=False)
     try:
         missing = REQUIRED_SHEETS.difference(wb.sheetnames)
         if missing:
             raise TrialAdmissionError("Missing review sheets: " + ", ".join(sorted(missing)))
-        patients = tuple(_data_rows(wb[SOURCE_PATIENT_SHEET], 6))
-        proposals = tuple(_data_rows(wb[SOURCE_WEEKLY_SHEET], 11))
-        holds = tuple(_data_rows(wb[SOURCE_HOLDS_SHEET], 7))
-        overlaps = tuple(_data_rows(wb[SOURCE_OVERLAP_SHEET], 7))
+        blockers: list[str] = []
+        patients = tuple(_data_rows(wb[SOURCE_PATIENT_SHEET], 6, blockers=blockers))
+        proposals = tuple(_data_rows(wb[SOURCE_WEEKLY_SHEET], 11, blockers=blockers))
+        holds = tuple(_data_rows(wb[SOURCE_HOLDS_SHEET], 7, blockers=blockers))
+        overlaps = tuple(_data_rows(wb[SOURCE_OVERLAP_SHEET], 7, blockers=blockers))
 
         patient_keys: dict[tuple[str, str, str], str] = {}
         verified_ids: list[str] = []
         seen_patient_rows: set[tuple[str, str]] = set()
         seen_original_rows: set[int] = set()
-        blockers: list[str] = []
+        seen_identities: set[tuple[str, str, str]] = set()
         for excel_row, row in patients:
             source_row, clinic, name, _ward, patient_id, confirmation = row
             key = (_text(clinic), _text(source_row), _text(name))
@@ -147,11 +160,12 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
             if location in seen_patient_rows:
                 blockers.append(f"Patient staging row {excel_row}: duplicate clinic/source row")
             seen_patient_rows.add(location)
-            if key in patient_keys:
+            if key in seen_identities:
                 blockers.append(f"Patient staging row {excel_row}: repeated source identity")
-            patient_keys[key] = _text(patient_id)
+            seen_identities.add(key)
             if not _text(patient_id) or _text(confirmation).upper() not in CONFIRMED_MARKERS:
                 continue
+            patient_keys[key] = _text(patient_id)
             verified_ids.append(_text(patient_id))
 
         duplicate_ids = len(verified_ids) - len({x.casefold() for x in verified_ids})
@@ -238,7 +252,7 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
                 if headers != SHARED_HEADERS:
                     blockers.append("Shared-slot approval sheet headers are invalid")
                 else:
-                    for approval_row, values in _data_rows(sheet, 5):
+                    for approval_row, values in _data_rows(sheet, 5, blockers=blockers):
                         provider, weekday, clock, ids, decision = values
                         try:
                             key = (_text(provider).casefold(), _text(weekday),
