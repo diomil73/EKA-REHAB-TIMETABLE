@@ -311,3 +311,65 @@ def verify_morning_special_scope(*, programme, review):
         if (_digest(p), _digest(r)) != original:
             raise SpecialFieldsAuditError("Source changed during morning special scope verification")
     return approved
+
+UNTIMED_SCOPE_SHEET = "ΕΓΚΡΙΣΕΙΣ_ΧΩΡΙΣ_ΩΡΑ"
+UNTIMED_SCOPE_HEADERS = ("SourceCell", "ProgrammeSHA256", "Decision")
+
+
+def verify_untimed_legacy_scope(*, programme, review) -> frozenset[str]:
+    """Recognize only explicitly acknowledged occupational marks and untimed psychology.
+
+    Acknowledgment is source-bound, never a clinical appointment or an
+    authorization to change any original field. Missing decisions remain
+    blockers in the weekday projection.
+    """
+    p, r = Path(programme).resolve(), Path(review).resolve()
+    if p == r or any(not x.is_file() or x.suffix.casefold() != ".xlsx" for x in (p, r)):
+        raise SpecialFieldsAuditError("Separate original and review XLSX required")
+    original = (_digest(p), _digest(r))
+    source = staged = None
+    allowed, approved = {}, set()
+    try:
+        source = load_workbook(p, read_only=True, data_only=False)
+        staged = load_workbook(r, read_only=True, data_only=False)
+        ws = source[PROGRAMME_SHEET]
+        if not _headers_match(ws, PROGRAMME_HEADERS, start_col=3):
+            raise SpecialFieldsAuditError("Manual A:V column contract differs")
+        for number, cells in enumerate(ws.iter_rows(min_row=2, max_col=15), start=2):
+            if not _filled(cells[1].value) or cells[1].data_type in {"f", "e"}:
+                continue
+            if (cells[6].value == "*" and
+                    all(c.data_type not in {"f", "e"} for c in cells[6:9])):
+                allowed[f"G{number}"] = "IGNORE_OCCUPATIONAL_MARK"
+            if (not _filled(cells[12].value)
+                    and any(_filled(c.value) for c in cells[13:15])
+                    and all(c.data_type not in {"f", "e"} for c in cells[12:15])):
+                allowed[f"M{number}"] = "PSYCHOLOGY_TIME_PENDING"
+        if UNTIMED_SCOPE_SHEET in staged.sheetnames:
+            scope = staged[UNTIMED_SCOPE_SHEET]
+            if tuple(scope.cell(1, i).value for i in range(1, 4)) != UNTIMED_SCOPE_HEADERS:
+                raise SpecialFieldsAuditError("Untimed scope header mismatch")
+            for cells in scope.iter_rows(min_row=2, min_col=1, max_col=max(3, scope.max_column or 3)):
+                if not any(_filled(c.value) or c.data_type in {"f", "e"} for c in cells):
+                    continue
+                if (any(c.data_type in {"f", "e"} for c in cells)
+                        or any(_filled(c.value) for c in cells[3:])):
+                    raise SpecialFieldsAuditError("Untimed scope must be literal")
+                address, digest, decision = (c.value for c in cells[:3])
+                if (not isinstance(address, str) or address in approved
+                        or digest != original[0] or address not in allowed
+                        or decision != allowed[address]):
+                    raise SpecialFieldsAuditError("Invalid or stale untimed disposition")
+                approved.add(address)
+    except SpecialFieldsAuditError:
+        raise
+    except Exception:
+        raise SpecialFieldsAuditError("Cannot verify private untimed scope") from None
+    finally:
+        if source is not None:
+            source.close()
+        if staged is not None:
+            staged.close()
+        if (_digest(p), _digest(r)) != original:
+            raise SpecialFieldsAuditError("Source changed during untimed scope verification")
+    return frozenset(approved)
