@@ -139,3 +139,27 @@ def test_ambiguous_or_invalid_tonos_clock_remains_blocked(clock):
     result = preview(G=clock, H="ΤΡ-ΠΕ", I="DEMO STAFF")
     assert result.entries == ()
     assert result.blockers == ("UNPARSEABLE_TREATMENT_G",)
+
+def test_efa_distinct_same_day_times_preserve_both_slots():
+    result = preview(P="08:00/09:00", Q="ΔΕ-ΤΕ/ΤΕ")
+    assert result.blockers == ()
+    assert [(x.weekday, x.start_time, x.source_cell) for x in result.entries] == [
+        ("ΔΕ", time(8), "P4"), ("ΤΕ", time(8), "P4"), ("ΤΕ", time(9), "P4")
+    ]
+
+
+@pytest.mark.parametrize("clock,days", [
+    ("08:00/08:00", "ΔΕ/ΔΕ"),
+    ("08:00", "ΔΕ/ΔΕ"),
+    ("08:00", "ΔΕ-ΔΕ"),
+])
+def test_efa_duplicate_exact_slots_still_block(clock, days):
+    result = preview(P=clock, Q=days)
+    assert result.entries == ()
+    assert result.blockers == ("UNPARSEABLE_TREATMENT_P",)
+
+
+def test_other_specialties_keep_existing_repeat_day_guard():
+    result = preview(G="08:00/09:00", H="ΔΕ/ΔΕ")
+    assert result.entries == ()
+    assert result.blockers == ("UNPARSEABLE_TREATMENT_G",)
