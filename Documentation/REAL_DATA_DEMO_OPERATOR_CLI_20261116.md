@@ -1,5 +1,71 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## CURRENT RUNBOOK — τελική σειρά προετοιμασίας και native DEMO (17/11/2026)
+
+Authoritative practical sequence, supersedes older commands in this file. See canonical guide §4.16 for the complete six-input table, clinical/identity/hold/FV/U/shared approvals, and acceptance checklist. Cloud documentation preparation complete; actual source approvals/native build NOT done. Do not run anything until user explicitly returns to the PC.
+
+**A. PC return only:** safely synchronize `work/afternoon-medical-scope-20261115` without force/reset/clean, tracked changes preserved. Use the branch-aware fast-forward procedure below if needed. Confirm true current sources, not automatically historical files. Use existing source audits only as needed for a specific blocker. Prepare the private review and approvals according to §4.16. A private checklist can be generated once for the selected exact pair (new output, prior evidence unchanged):
+
+```powershell
+# All paths here are EXAMPLES. Set to real authorized files outside Git.
+$private = "C:\PRIVATE_APPROVED_DIOMIL"
+$programme = Join-Path $private "manual_current.xlsx"
+$proposalReview = Join-Path $private "review_proposals.xlsx"
+$checklist = Join-Path $private "review_checklist_NEW.xlsx"
+python .\Python\tools\prepare_trial_review_checklist.py --programme "$programme" --review "$proposalReview" --output "$checklist"
+# exit 0 = inventory only, not approval. Do not overwrite an existing checklist.
+```
+
+**B. After independent actual approvals**, all six final inputs must exist and be distinct/private. The provider schedule binds final programme/review/shell/outpatients hashes; prepare it last. Do NOT run the following with placeholders, incomplete clinical approval, or unconfirmed review. Run one complete block from the correct repo root. This is read-only, not a build.
+
+```powershell
+& {
+    $ErrorActionPreference = "Stop"
+    $private = "C:\PRIVATE_APPROVED_DIOMIL" # replace with actual private folder
+    $p = Join-Path $private "manual_current.xlsx"
+    $r = Join-Path $private "review_confirmed.xlsx"
+    $s = Join-Path $private "eligible_empty_shell.xlsm"
+    $c = Join-Path $private "clinical_approvals.json"
+    $o = Join-Path $private "outpatients_current.xlsx"
+    $v = Join-Path $private "provider_schedule.json"
+    foreach ($f in @($p,$r,$s,$c,$o,$v)) {
+        if (-not (Test-Path -LiteralPath $f -PathType Leaf)) { throw "STOP: missing required approved input" }
+    }
+    $args6 = @("--programme",$p,"--review",$r,"--shell",$s,"--clinical-approvals",$c,"--outpatients",$o,"--provider-schedule",$v)
+    python .\Python\tools\prepare_real_data_practice_demo.py @args6
+    if ($LASTEXITCODE -ne 0) { throw "STOP: private full preflight failed" }
+}
+```
+
+Require explicit **DIOMIL PRIVATE REAL-SOURCE READ-ONLY PREFLIGHT GREEN**, all sources included, unchanged, and no XLSM written. Partial diagnostic exit 0 without provider snapshot is not GREEN. Do not publish input paths/hashes or patient records. Use the ordinary CLI privacy-safe failure class; never bypass a safety stop. If needed diagnose the precise reason locally (see the relevant contract section), leave originals unchanged.
+
+**C. Only after verified full GREEN and authorized user decision to build**: use the identical six input paths in one new block, repeat preflight (native builder revalidates), and choose a unique unused private output. Native Windows Excel and pywin32 required. Do not run output commands against frozen baseline, accepted or failed candidate.
+
+```powershell
+& {
+    $ErrorActionPreference = "Stop"
+    # Same actual folder and same 6 approved inputs as successful full preflight.
+    $private = "C:\PRIVATE_APPROVED_DIOMIL" # replace with actual private folder
+    $args6 = @(
+        "--programme",(Join-Path $private "manual_current.xlsx"),
+        "--review",(Join-Path $private "review_confirmed.xlsx"),
+        "--shell",(Join-Path $private "eligible_empty_shell.xlsm"),
+        "--clinical-approvals",(Join-Path $private "clinical_approvals.json"),
+        "--outpatients",(Join-Path $private "outpatients_current.xlsx"),
+        "--provider-schedule",(Join-Path $private "provider_schedule.json")
+    )
+    $destination = Join-Path $private ("DIOMIL_DEMO_PRIVATE_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".xlsm")
+    if (Test-Path -LiteralPath $destination) { throw "STOP: choose a new output" }
+    python .\Python\tools\prepare_real_data_practice_demo.py @args6
+    if ($LASTEXITCODE -ne 0) { throw "STOP: full preflight failed" }
+    python .\Python\tools\prepare_real_data_practice_demo.py @args6 --build --output "$destination"
+    if ($LASTEXITCODE -ne 0) { throw "STOP: preserve any candidate; do not retry in place" }
+}
+```
+
+Expected native success is `NATIVE DEMO CANDIDATE VERIFIED` and `OPERATOR ACCEPTANCE PENDING`, not deployment. The initial PM source is `AFTERNOON_PHYSIO_SLOTS`, header-only veryHidden, with independent raw reopen checks; any pre-existing rows/formulas/errors or invalid schema/visibility in the original shell stop. Never clear it to qualify. The separate PM source does not install writable PM UI or complete medical deferral/history; see guide for implementation/acceptance gaps. Independently validate every source and functional path before operator acceptance. No real source/native build has been executed by this checkpoint.
+
+
 ## UPDATE 2026-11-17 — F/V morning service source approvals
 
 This supersedes the previous unconditional F/V stop **only** for independently authorized source-specific decisions. In the same private approved review revision use a sheet `ΕΓΚΡΙΣΕΙΣ_ΠΕΔΙΩΝ_FV`, exact headers `SourceCell, ProgrammeSHA256, Weekdays, Decision`. One literal row for every populated original F/V cell, with its exact address, original programme SHA256, explicit hyphen-separated canonical weekdays (ΔΕ-ΤΡ-ΤΕ-ΠΕ-ΠΑ, only approved subset) and `APPROVED_MORNING_SERVICE_SLOT`. Approval requires the actual service/resource operating hours, capacity and full interval clinical compatibility (including known 30-minute reclining and its relationship with ΦΘ), not just an available clock or a candidate proposal. No inferred day/provider/duration; exact original source clock remains authoritative. No blank-weekday default for F/V. Existing planner F/V have no therapist column. Ensure matching confirmed weekly review rows with F or V source-cell provenance, original time, approved day and no invented provider; no unresolved holds, duplicates or overlapping sessions. U uses the separate non-import acknowledgment below. Formula/error/orphan/stale/missing/extra decisions stop. All other gates including provider snapshot remain required. Never delete source cells to pass. The 30-minute F interval checks other treatment starts within it, but does not establish complete durations/resource availability; this must be independently reviewed. These steps have not been run on real private files, and no actual approval has been created. Still mobile-only; do not request PC execution yet. Master guide §4.14.

@@ -1,5 +1,10 @@
 # DIOMIL: πραγματικά δεδομένα, παράλληλη αξιολόγηση και πλήρης παράδοση (2026-11-16)
 
+## Current acceptance handoff — 17/11/2026
+
+The canonical continuity guide **§4.16** is the current single preparation checklist, superseding obsolete blanket F/U/V holds and incomplete CLI examples. The operator CLI runbook's first section contains the exact six-input invocation. Verified source commit 94db7c4, [Actions 44102691014](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/44102691014), 2,113 passing tests per Windows/Linux, 4/4 jobs. No actual approvals or native candidate. Preparation instructions complete; actual approval, build and functional acceptance remain pending and PC-only. F/V explicit source-bound morning approvals and U explicit non-import acknowledgment are supported; the new PM source starts empty. Full writable afternoon UI and operational deferral/persistence/history must not be inferred from pure contracts or initialization. Do not claim an accepted real-data DEMO until all applicable acceptance paths are implemented and passed. Historical evidence below is preserved.
+
+
 ## Source-level inpatient + outpatient bridge checkpoint (2026-11-16)
 
 The first concrete joining layer for a *separately institution-approved* outpatient `.xlsx` now exists. `trial_private_outpatient_projection.py` reads the established PATIENTS and OUTPATIENT_SCHEDULE sheets using the existing clinical source readers, maps their approved values without inventing inpatients, expands exact weekdays for the practice weekly view, preserves source-row provenance, and binds a stable SHA-256. `merge_trial_demo_outpatients` rejects cross-source PatientID collisions; the private real-data CLI accepts `--outpatients` for read-only admission and requires it for native `--build`. The native candidate writer uses the original OUTPATIENT_SCHEDULE schema, independently reopens/rechecks its rows and validates the *combined* effective weekday appointments through the unified daily engine. No new patient UI, custom treatment cells, or rebuilt MASTER renderer were introduced.
