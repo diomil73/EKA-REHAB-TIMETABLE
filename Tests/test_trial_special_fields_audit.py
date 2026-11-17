@@ -166,3 +166,62 @@ def test_unexpected_workbook_error_is_privacy_sanitized(tmp_path, monkeypatch):
     with pytest.raises(SpecialFieldsAuditError, match="Cannot inspect") as err:
         inspect_real_manual_special_fields(path)
     assert "PRIVATE SECRET" not in str(err.value)
+
+def _untimed_scope_fixture(tmp_path):
+    from hashlib import sha256
+    from rehab_excel.trial_special_fields_audit import (
+        UNTIMED_SCOPE_SHEET, UNTIMED_SCOPE_HEADERS,
+    )
+    p = _manual(tmp_path)
+    _edit(p, lambda ws: (setattr(ws["G2"], "value", "*"),
+                         setattr(ws["N2"], "value", "ΔΕ"),
+                         setattr(ws["O2"], "value", "DEMO PSYCH")))
+    review = tmp_path / "review.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = UNTIMED_SCOPE_SHEET
+    ws.append(UNTIMED_SCOPE_HEADERS)
+    digest = sha256(p.read_bytes()).hexdigest()
+    ws.append(["G2", digest, "IGNORE_OCCUPATIONAL_MARK"])
+    ws.append(["M2", digest, "PSYCHOLOGY_TIME_PENDING"])
+    wb.save(review)
+    wb.close()
+    return p, review
+
+
+def test_untimed_scope_requires_exact_original_and_is_read_only(tmp_path):
+    from rehab_excel.trial_special_fields_audit import verify_untimed_legacy_scope
+    p, review = _untimed_scope_fixture(tmp_path)
+    before = p.read_bytes(), review.read_bytes()
+    assert verify_untimed_legacy_scope(programme=p, review=review) == frozenset({"G2", "M2"})
+    assert (p.read_bytes(), review.read_bytes()) == before
+
+
+@pytest.mark.parametrize("column,value", [
+    ("A2", "C2"), ("A2", "G3"), ("B2", "stale"),
+    ("C2", "PSYCHOLOGY_TIME_PENDING"), ("C2", "=1+1"),
+    ("D2", "unexpected"),
+])
+def test_untimed_scope_refuses_inexact_or_unsafe_decisions(tmp_path, column, value):
+    from rehab_excel.trial_special_fields_audit import verify_untimed_legacy_scope
+    p, r = _untimed_scope_fixture(tmp_path)
+    wb = load_workbook(r)
+    wb.active[column] = value
+    wb.save(r)
+    wb.close()
+    with pytest.raises(SpecialFieldsAuditError):
+        verify_untimed_legacy_scope(programme=p, review=r)
+
+
+def test_untimed_scope_cannot_acknowledge_real_clock(tmp_path):
+    from hashlib import sha256
+    from rehab_excel.trial_special_fields_audit import verify_untimed_legacy_scope
+    p, r = _untimed_scope_fixture(tmp_path)
+    _edit(p, lambda ws: setattr(ws["M2"], "value", "10:00"))
+    wb = load_workbook(r)
+    for row in (2, 3):
+        wb.active.cell(row, 2).value = sha256(p.read_bytes()).hexdigest()
+    wb.save(r)
+    wb.close()
+    with pytest.raises(SpecialFieldsAuditError):
+        verify_untimed_legacy_scope(programme=p, review=r)
