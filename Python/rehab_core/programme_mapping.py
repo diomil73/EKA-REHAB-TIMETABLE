@@ -68,6 +68,9 @@ def parse_clock(value: Any) -> time:
         hour = int(raw)
         if hour < 24:
             return time(hour)
+    # Greek keyboard tonos is accepted only between hour and two minute digits.
+    if re.fullmatch(r"[0-9]{1,2}\u0384[0-9]{2}", raw):
+        raw = raw.replace("\u0384", ":")
     match = re.fullmatch(r"(\d{1,2})[.:](\d{1,2})", raw)
     if match:
         hour, minute = int(match.group(1)), int(match.group(2))
