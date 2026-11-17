@@ -142,6 +142,7 @@ def inspect_private_outpatient_source(path: str | Path) -> PrivateOutpatientAudi
                 "Outpatient appointments were silently skipped by the production reader"
             )
         seen = set()
+        patient_slots = set()
         days = 0
         counts = {patient.patient_id: 0 for patient in patients}
         for entry in recurring:
@@ -157,6 +158,12 @@ def inspect_private_outpatient_source(path: str | Path) -> PrivateOutpatientAudi
                         "Outpatient recurring schedule contains overlapping duplicates"
                     )
                 seen.add(token)
+                patient_slot = (entry.patient_id.casefold(), weekday, entry.start_time)
+                if patient_slot in patient_slots:
+                    raise PrivateOutpatientSourceError(
+                        "Outpatient patient has simultaneous treatments requiring review"
+                    )
+                patient_slots.add(patient_slot)
             if entry.treatment == "ΦΘ" and not entry.therapist_id:
                 raise PrivateOutpatientSourceError(
                     "Outpatient physiotherapy requires an approved provider"

@@ -58,6 +58,37 @@ def merge_trial_demo_outpatients(
         or len(outpatient.weekday_view_rows) != outpatient.weekday_slot_count
     ):
         raise ValueError("Outpatient source counts disagree")
+    # The inpatient-only admission step may already have approved an exact
+    # shared-provider membership. Preserve that existing group. However, the
+    # separate outpatient file contains no cross-source approval mechanism;
+    # neither an outpatient joining that group nor two outpatient patients
+    # sharing a provider slot are implicitly approved merely by merging files.
+    # Compare the actual provider labels consumed by the daily reader, using
+    # only case/whitespace normalization; do not infer aliases or identities.
+    def provider_slot(provider, day, clock):
+        return (str(provider).strip().casefold(), day, clock)
+
+    inpatient_provider_slots = {
+        provider_slot(provider, day, clock)
+        for _pid, _treatment, day, clock, provider, _source in inpatient.weekly_slots.rows
+        if provider
+    }
+    outpatient_provider_slots = set()
+    outpatient_patient_slots = set()
+    for pid, _name, _treatment, day, clock, provider, _source in outpatient.weekday_view_rows:
+        patient_slot = (str(pid).strip().casefold(), day, clock)
+        if patient_slot in outpatient_patient_slots:
+            raise ValueError("Outpatient simultaneous treatments require independent review")
+        outpatient_patient_slots.add(patient_slot)
+        if not provider:
+            continue
+        key = provider_slot(provider, day, clock)
+        if key in inpatient_provider_slots or key in outpatient_provider_slots:
+            raise ValueError(
+                "Outpatient provider slot requires explicit shared-slot approval"
+            )
+        outpatient_provider_slots.add(key)
+
     registry = TrialPatientRegistryProjection(
         inpatient.patient_registry.headers, rows, len(rows)
     )

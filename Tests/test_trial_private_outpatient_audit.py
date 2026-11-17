@@ -181,3 +181,25 @@ def test_actual_workbook_unchanged_under_failed_audit(tmp_path):
     with pytest.raises(PrivateOutpatientSourceError):
         inspect_private_outpatient_source(source)
     assert source.read_bytes() == before
+
+
+def test_outpatient_cross_specialty_collision_detected_even_with_different_provider(tmp_path):
+    source = _fixture(tmp_path)
+    _edit(source, lambda wb: wb["OUTPATIENT_SCHEDULE"].append(
+        ("DEMO-O1", "SYNTHETIC PERSON", "Εργο", "09:15", "Τε", None),
+    ))
+    original = source.read_bytes()
+    with pytest.raises(PrivateOutpatientSourceError, match="simultaneous treatments") as err:
+        inspect_private_outpatient_source(source)
+    assert "DEMO-O1" not in str(err.value)
+    assert source.read_bytes() == original
+
+
+def test_outpatient_same_clock_different_weekdays_is_not_patient_collision(tmp_path):
+    source = _fixture(tmp_path)
+    _edit(source, lambda wb: wb["OUTPATIENT_SCHEDULE"].append(
+        ("DEMO-O1", "SYNTHETIC PERSON", "Εργο", "09:15", "Τρ-Πε", None),
+    ))
+    report = inspect_private_outpatient_source(source)
+    assert report.recurring_treatments == 3
+    assert report.weekday_placements == 7
