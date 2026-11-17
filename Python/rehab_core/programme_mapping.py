@@ -200,20 +200,35 @@ def make_weekly_entries(
 
 def validate_weekly_entry_consistency(
     entries: tuple[SourceWeeklyEntry, ...] | list[SourceWeeklyEntry],
+    *,
+    confirmed_combined_slots: frozenset[frozenset[SourceWeeklyEntry]] = frozenset(),
 ) -> None:
-    """Block patient cross-specialty clock collisions and divergent duplicate records.
+    """Reject collisions unless the exact two-entry combined slot is confirmed.
 
-    Same-weekday same-clock rows for the same patient are held for review,
-    even if the service label is the same, rather than counted twice.
+    The caller must obtain explicit, source-bound operator confirmation.
+    No implicit exception is granted by matching providers alone; stale
+    confirmations and third appointments fail closed.
     """
-    by_patient_day_time: dict[tuple[str, str, time], SourceWeeklyEntry] = {}
+    from .recurring_conflicts import _provider_key
+
+    groups: dict[tuple[str, str, time], list[SourceWeeklyEntry]] = {}
     for entry in entries:
-        key = (entry.patient_id, entry.weekday, entry.start_time)
-        if key in by_patient_day_time:
-            previous = by_patient_day_time[key]
-            raise ProgrammeMappingError(
-                "Potential patient slot overlap between "
-                f"{previous.source_cell} and {entry.source_cell} "
-                f"for {entry.patient_id} {entry.weekday} {entry.start_time:%H:%M}"
-            )
-        by_patient_day_time[key] = entry
+        groups.setdefault((entry.patient_id, entry.weekday, entry.start_time), []).append(entry)
+
+    used = set()
+    for group in groups.values():
+        if len(group) == 1:
+            continue
+        pair = frozenset(group)
+        providers = {_provider_key(item.therapist_name) for item in group}
+        if (
+            len(group) == len(pair) == 2
+            and {item.treatment for item in group} == {"ΦΘ", "Ρομποτικό"}
+            and len(providers) == 1 and "" not in providers
+            and pair in confirmed_combined_slots
+        ):
+            used.add(pair)
+            continue
+        raise ProgrammeMappingError("Potential patient slot overlap without exact confirmation")
+    if used != confirmed_combined_slots:
+        raise ProgrammeMappingError("Stale or unmatched combined slot confirmation")
