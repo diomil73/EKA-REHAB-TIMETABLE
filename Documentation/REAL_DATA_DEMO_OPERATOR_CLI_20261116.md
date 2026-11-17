@@ -1,5 +1,30 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## UPDATE 2026-11-17 — approved provider schedule required for full preflight and native build
+
+This section supersedes older build examples below that omit `--provider-schedule`. Mobile-only work: do NOT request these PC steps until the operator says they are back at the PC. No real provider availability or shared membership has been approved by this code. The previous workbook/UI and complementary weekday pair rule remain intact (ΔΕ-ΤΕ-ΠΑ / ΤΡ-ΠΕ at the same clock = one weekly visual slot; no same-day overlap).
+
+The technical snapshot is a **private**, separate JSON generated only from institution-approved availability and explicit decisions for the exact source versions. Never use guessed clocks, never use patient booking rows as proof of provider availability, never publish the JSON or its hashes. This is not a new operational UI or a replacement of the existing capacity and double-booking engine. The approved clock list's size must reflect the provider's approved actual distinct-slot capacity for each weekday. An empty list is explicitly unavailable; missing provider/day limits cannot be treated as available.
+```json
+{
+  "schema": "diomil-private-provider-schedule-v1",
+  "sources": {
+    "programme": "<actual lowercase SHA256 of approved programme>",
+    "review": "<actual lowercase SHA256 of approved review>",
+    "shell": "<actual lowercase SHA256 of approved empty shell>",
+    "outpatients": "<actual lowercase SHA256 of approved outpatient workbook>"
+  },
+  "availability": [
+    {"provider": "FICTIONAL PROVIDER", "weekday": "ΔΕ", "times": ["09:15", "10:15"], "decision": "APPROVED"}
+  ],
+  "shared_slots": []
+}
+```
+Illustration only: the placeholders are intentionally invalid; the example is not a complete schedule or an approval. Real provider labels must correspond to the source and known operational identities. Include every provider/day with named bookings. Canonical weekdays ΔΕ, ΤΡ, ΤΕ, ΠΕ, ΠΑ; literal HH:MM clocks. An approved mixed/outpatient same-day, same-provider, same-clock exception (never for complementary weekdays) uses exactly `{"provider":"FICTIONAL PROVIDER","weekday":"ΔΕ","time":"09:15","patient_ids":["FICTIONAL-IN","FICTIONAL-OUT"],"decision":"APPROVED_SHARED"}` in shared_slots. All and only actual members of every such group; no stale/extraneous approvals, no duplicated canonical key. Inpatient-only approval sheet still applies separately. The bulk check does not record new operational exception events; verify the existing operational exception workflow during native acceptance.
+
+For the **future local run only**, append `--provider-schedule "$providerSchedule"` to both previously shown `prepare_real_data_practice_demo.py` invocations, where `$providerSchedule` is the actual approved private JSON path. Without it, read-only source checks may return 0 but output is **PARTIAL READ-ONLY SOURCE CHECK; FULL PREFLIGHT PENDING**. Do not use that return code alone as full release authorization. Full native build refuses absent or stale snapshot. Use the same source files and approved snapshot for both invocations. There is no real source snapshot or full native XLSM acceptance yet. See canonical continuity guide §4.12.
+
+
 ## Source naming correction after actual private upload — 2026-11-17
 
 Two XLSX files WERE uploaded into the private conversation and inspected independently, without modification. The REAL source filename is **`ΠΡΟΓΡΑΜΜΑΤΑ  ΘΕΡΑΠΕΙΩΝ ΑΣΘΕΝΩΝ 10-11-26 .xlsx`**, including **two spaces between the first two words** and **one space before `.xlsx`**. That is why exact-name PowerShell searches returned zero and `MANUAL_NAME_MATCH=False` even when the correct workbook was selected. Do not rename or alter the original merely to satisfy an exact filename check. Use full file-picker selection or copy the exact filename, and validate source content/provenance instead.
