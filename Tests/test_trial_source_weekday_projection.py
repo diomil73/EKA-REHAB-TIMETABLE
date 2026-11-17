@@ -122,3 +122,20 @@ def test_bad_source_shape_or_missing_confirmed_id_fails_closed():
             source_row=4, columns=source_row(C="09:30"),
             confirmed_patient_id="",
         )
+
+@pytest.mark.parametrize("clock", ["9\u038415", "09\u038415", "09:15", "09.15", "09,15"])
+def test_clock_separator_variants_preserve_exact_weekday_and_source(clock):
+    result = preview(G=clock, H="ΤΡ-ΠΕ", I="DEMO STAFF")
+    assert result.blockers == ()
+    assert [(x.weekday, x.start_time, x.source_cell, x.therapist_name)
+            for x in result.entries] == [
+        (day, time(9, 15), "G4", "DEMO STAFF") for day in ("ΤΡ", "ΠΕ")
+    ]
+
+
+@pytest.mark.parametrize("clock", ["*", "9\u03841", "9\u038460", "24\u038415",
+                                  "9\u038415*", "9\u0384\u038415"])
+def test_ambiguous_or_invalid_tonos_clock_remains_blocked(clock):
+    result = preview(G=clock, H="ΤΡ-ΠΕ", I="DEMO STAFF")
+    assert result.entries == ()
+    assert result.blockers == ("UNPARSEABLE_TREATMENT_G",)
