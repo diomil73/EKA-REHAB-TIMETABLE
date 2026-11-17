@@ -56,7 +56,8 @@ def _value(source: Sequence[Any], column: str) -> Any:
 
 
 def preview_source_weekdays(
-    *, source_row: int, columns: Sequence[Any], confirmed_patient_id: str
+    *, source_row: int, columns: Sequence[Any], confirmed_patient_id: str,
+    historical_afternoon_acknowledged: bool = False,
 ) -> TrialSourceWeekdayPreview:
     """Expand only supported A:V weekday slots, without creating appointments.
 
@@ -106,6 +107,8 @@ def preview_source_weekdays(
         ("V", "POOL_UNMAPPED"),
     ):
         if _present(_value(columns, column)):
+            if column == "U" and historical_afternoon_acknowledged is True:
+                continue  # Explicitly excluded; never converted into a session.
             blockers.append(reason)
 
     # Never produce a partial apparently importable schedule.

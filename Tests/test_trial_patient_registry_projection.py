@@ -396,3 +396,74 @@ def test_source_parity_allows_nontherapy_text_row_without_inventing_patient(tmp_
     assert result.patient_rows == 1
     assert result.weekday_slots == 1
     assert result.source_fields_held == 0
+
+
+def _legacy_afternoon_fixture(tmp_path, *, address="U4", decision="ACKNOWLEDGED_NOT_IMPORTED", duplicate=False, stale=False):
+    from rehab_excel.trial_special_fields_audit import AFTERNOON_SCOPE_SHEET, AFTERNOON_SCOPE_HEADERS
+    plan, source, review, intake = _fixture(tmp_path)
+    wb = load_workbook(source)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["U4"] = "HISTORICAL FICTIONAL NOT FOR IMPORT"
+    wb.save(source)
+    wb.close()
+    digest = sha256(source.read_bytes()).hexdigest()
+    wb = load_workbook(review)
+    sheet = wb.create_sheet(AFTERNOON_SCOPE_SHEET)
+    sheet.append(AFTERNOON_SCOPE_HEADERS)
+    sheet.append([address, "a"*64 if stale else digest, decision])
+    if duplicate:
+        sheet.append([address, digest, decision])
+    wb.save(review)
+    wb.close()
+    plan = TrialImportPlan(
+        sha256(review.read_bytes()).hexdigest(), plan.intake_sha256, 1, 1,
+        plan.entries, programme_sha256=digest,
+    )
+    return plan, source, review, intake
+
+
+def test_acknowledged_legacy_u_keeps_original_and_creates_no_afternoon_therapy(tmp_path):
+    from rehab_excel.trial_demo_source_reconciliation import reconcile_demo_source_weekdays
+    from rehab_excel.trial_demo_source_projection import project_trial_demo_sources
+    plan, source, review, intake = _legacy_afternoon_fixture(tmp_path)
+    before = source.read_bytes(), review.read_bytes()
+    result = reconcile_demo_source_weekdays(plan, programme=source, review=review, intake=intake)
+    assert result.weekday_slots == 1
+    projection = project_trial_demo_sources(
+        plan, programme=source, review=review, intake=intake, clinical_approvals=_approval(),
+    )
+    assert len(projection.weekly_slots.rows) == 1
+    assert projection.weekly_slots.rows[0][1] == "ΦΘ"
+    assert projection.weekly_slots.rows[0][-1] == "C4"
+    assert (source.read_bytes(), review.read_bytes()) == before
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"address": "U5"}, {"decision": "PENDING"}, {"duplicate": True}, {"stale": True},
+    {"decision": '=IF(1=1,"ACKNOWLEDGED_NOT_IMPORTED","")'},
+])
+def test_unresolved_stale_or_nonliteral_u_scope_blocks_admission(tmp_path, kwargs):
+    from rehab_excel.trial_demo_source_reconciliation import reconcile_demo_source_weekdays, TrialDemoSourceReconciliationError
+    plan, source, review, intake = _legacy_afternoon_fixture(tmp_path, **kwargs)
+    with pytest.raises(TrialDemoSourceReconciliationError, match="independent review"):
+        reconcile_demo_source_weekdays(plan, programme=source, review=review, intake=intake)
+
+
+def test_acknowledged_u_does_not_clear_reclining_hold(tmp_path):
+    from rehab_excel.trial_demo_source_reconciliation import reconcile_demo_source_weekdays, TrialDemoSourceReconciliationError
+    from rehab_excel.trial_special_fields_audit import AFTERNOON_SCOPE_SHEET
+    plan, source, review, intake = _legacy_afternoon_fixture(tmp_path)
+    wb = load_workbook(source)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["F4"] = "11:00"
+    wb.save(source)
+    wb.close()
+    digest = sha256(source.read_bytes()).hexdigest()
+    wb = load_workbook(review)
+    wb[AFTERNOON_SCOPE_SHEET]["B2"] = digest
+    wb.save(review)
+    wb.close()
+    updated = TrialImportPlan(
+        sha256(review.read_bytes()).hexdigest(), plan.intake_sha256, 1, 1,
+        plan.entries, programme_sha256=digest,
+    )
+    with pytest.raises(TrialDemoSourceReconciliationError, match="independent review"):
+        reconcile_demo_source_weekdays(updated, programme=source, review=review, intake=intake)

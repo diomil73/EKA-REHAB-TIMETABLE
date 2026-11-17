@@ -302,7 +302,7 @@ def test_special_fuv_approval_gate_blocks_even_preflight_before_any_native_actio
     p, r, shell, approval = _inputs(tmp_path)
     monkeypatch.setattr(
         cli, "inspect_real_manual_special_fields",
-        lambda path: SimpleNamespace(unresolved_fields=1, orphan_rows=0),
+        lambda path: SimpleNamespace(unresolved_fields=1, orphan_rows=0, reclining_rows=1, pool_rows=0, formula_fields=0),
     )
     monkeypatch.setattr(
         cli, "assert_clean_native_demo_shell",

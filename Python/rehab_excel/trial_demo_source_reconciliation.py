@@ -17,6 +17,7 @@ from openpyxl import load_workbook
 
 from rehab_excel.trial_admission_gate import CONFIRMED_MARKERS
 from rehab_excel.trial_import_plan import TrialImportPlan
+from rehab_excel.trial_special_fields_audit import verify_legacy_afternoon_scope
 from rehab_excel.trial_source_alignment import (
     PATIENT_HEADERS, PATIENT_SHEET, PROGRAMME_HEADERS, PROGRAMME_SHEET,
     audit_trial_source_alignment,
@@ -106,6 +107,12 @@ def reconcile_demo_source_weekdays(
                     if any(_text(cell.value) for cell in therapy_cells):
                         active_source_rows.add(number)
 
+                try:
+                    historical_rows = verify_legacy_afternoon_scope(programme=programme, review=review)
+                except ValueError:
+                    raise TrialDemoSourceReconciliationError(
+                        "Historical afternoon scope requires independent review"
+                    ) from None
                 candidates = []
                 seen_ids: set[str] = set()
                 seen_source_rows: set[int] = set()
@@ -139,6 +146,7 @@ def reconcile_demo_source_weekdays(
                     proposed = preview_source_weekdays(
                         source_row=number, columns=values,
                         confirmed_patient_id=pid,
+                        historical_afternoon_acknowledged=number in historical_rows,
                     )
                     if proposed.blockers:
                         raise TrialDemoSourceReconciliationError(

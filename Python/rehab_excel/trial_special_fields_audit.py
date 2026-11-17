@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+import re
 from typing import Any
 
 from openpyxl import load_workbook
@@ -168,3 +169,74 @@ def inspect_real_manual_special_fields(path: str | Path) -> SpecialFieldsAudit:
         orphan_rows=orphans,
         source_unchanged=True,
     )
+
+
+AFTERNOON_SCOPE_SHEET = "ΕΓΚΡΙΣΕΙΣ_ΠΕΔΙΟΥ_U"
+AFTERNOON_SCOPE_HEADERS = ("SourceCell", "ProgrammeSHA256", "Decision")
+AFTERNOON_SCOPE_DECISION = "ACKNOWLEDGED_NOT_IMPORTED"
+
+
+def verify_legacy_afternoon_scope(*, programme, review) -> frozenset[int]:
+    """Verify an explicit, exact, source-bound non-import disposition of U.
+
+    No afternoon appointments are created and no F/V holds are cleared.
+    """
+    p, r = Path(programme).resolve(), Path(review).resolve()
+    if p == r or any(not x.is_file() or x.suffix.casefold() != ".xlsx" for x in (p, r)):
+        raise SpecialFieldsAuditError("Separate original and review XLSX required")
+    original = (_digest(p), _digest(r))
+    source = review_book = None
+    expected, approved = set(), set()
+    try:
+        source = load_workbook(p, read_only=True, data_only=False)
+        review_book = load_workbook(r, read_only=True, data_only=False)
+        ws = source[PROGRAMME_SHEET]
+        if not _headers_match(ws, PROGRAMME_HEADERS, start_col=3):
+            raise SpecialFieldsAuditError("Manual A:V column contract differs")
+        for number, cells in enumerate(ws.iter_rows(min_row=2, max_col=21), start=2):
+            patient, historical = cells[1], cells[20]
+            if not _filled(historical.value):
+                continue
+            if (
+                historical.data_type in {"f", "e"}
+                or patient.data_type in {"f", "e"} or not _filled(patient.value)
+            ):
+                raise SpecialFieldsAuditError("Unsafe or orphaned historical afternoon cell")
+            expected.add(number)
+        if AFTERNOON_SCOPE_SHEET in review_book.sheetnames:
+            scope = review_book[AFTERNOON_SCOPE_SHEET]
+            if tuple(scope.cell(1, i).value for i in range(1, 4)) != AFTERNOON_SCOPE_HEADERS:
+                raise SpecialFieldsAuditError("Historical afternoon scope headers differ")
+            for cells in scope.iter_rows(min_row=2):
+                if not any(_filled(cell.value) for cell in cells):
+                    continue
+                if (
+                    len(cells) < 3 or any(cell.data_type in {"f", "e"} for cell in cells)
+                    or any(_filled(cell.value) for cell in cells[3:])
+                ):
+                    raise SpecialFieldsAuditError("Historical afternoon scope must be literal")
+                address, digest, decision = (cell.value for cell in cells[:3])
+                if (
+                    not isinstance(address, str)
+                    or not re.fullmatch(r"U[1-9][0-9]*", address)
+                    or digest != original[0] or decision != AFTERNOON_SCOPE_DECISION
+                ):
+                    raise SpecialFieldsAuditError("Invalid or stale historical afternoon acknowledgment")
+                number = int(address[1:])
+                if number in approved:
+                    raise SpecialFieldsAuditError("Duplicate historical afternoon acknowledgment")
+                approved.add(number)
+        if expected != approved:
+            raise SpecialFieldsAuditError("Historical afternoon cells require exact scope acknowledgment")
+    except SpecialFieldsAuditError:
+        raise
+    except Exception:
+        raise SpecialFieldsAuditError("Cannot verify historical afternoon scope safely") from None
+    finally:
+        if source is not None:
+            source.close()
+        if review_book is not None:
+            review_book.close()
+        if (_digest(p), _digest(r)) != original:
+            raise SpecialFieldsAuditError("Source changed during historical afternoon scope verification")
+    return frozenset(approved)
