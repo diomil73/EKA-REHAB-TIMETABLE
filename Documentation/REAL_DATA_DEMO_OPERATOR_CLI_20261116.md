@@ -1,5 +1,10 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## PC RETURN — 17/11/2026
+
+Ο χειριστής δήλωσε «Επέστρεψα στο PC». Η mobile-only παύση έληξε· αρχίζουμε αποκλειστικά με ασφαλή local sync και ιδιωτική επιλογή programme/review + μία νέα checklist εφόσον χρειάζεται, σύμφωνα με [ενιαίο οδηγό §4.17](DIOMIL_MASTER_CONTINUITY_GUIDE.md). Καμία νέα τοπική επιτυχία, κλινική έγκριση ή native COM δημιουργία δεν έχει ακόμη επιβεβαιωθεί. Οι έξι τελικές πηγές του current runbook παραμένουν υποχρεωτικές. Μην επαναλάβεις παλιά diagnostics ή ολόκληρο pytest χωρίς συγκεκριμένο λόγο.
+
+
 ## CURRENT RUNBOOK — τελική σειρά προετοιμασίας και native DEMO (17/11/2026)
 
 Authoritative practical sequence, supersedes older commands in this file. See canonical guide §4.16 for the complete six-input table, clinical/identity/hold/FV/U/shared approvals, and acceptance checklist. Cloud documentation preparation complete; actual source approvals/native build NOT done. Do not run anything until user explicitly returns to the PC.
