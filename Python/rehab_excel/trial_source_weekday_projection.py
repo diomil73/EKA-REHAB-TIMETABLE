@@ -59,6 +59,7 @@ def preview_source_weekdays(
     *, source_row: int, columns: Sequence[Any], confirmed_patient_id: str,
     historical_afternoon_acknowledged: bool = False,
     approved_morning_days: Mapping[str, tuple[str, ...]] | None = None,
+    acknowledged_untimed_fields: frozenset[str] = frozenset(),
 ) -> TrialSourceWeekdayPreview:
     """Expand only supported A:V weekday slots, without creating appointments.
 
@@ -84,6 +85,14 @@ def preview_source_weekdays(
         clock = _value(columns, clock_col)
         days = _value(columns, day_col)
         provider = _value(columns, provider_col) if provider_col else None
+        address = f"{clock_col}{source_row}"
+        if address in acknowledged_untimed_fields:
+            if ((clock_col == "G" and clock == "*")
+                    or (clock_col == "M" and not _present(clock)
+                        and (_present(days) or _present(provider)))):
+                continue  # No timed slot; original and private decision ledger retained.
+            blockers.append(f"INVALID_UNTIMED_DISPOSITION_{clock_col}")
+            continue
         if not _present(clock):
             if _present(days) or _present(provider):
                 blockers.append(f"MISSING_CLOCK_{clock_col}")
