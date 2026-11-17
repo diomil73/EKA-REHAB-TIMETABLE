@@ -527,3 +527,7 @@ Commits `42245da`, `429139c`, `fa214f1`: επέκταση υφιστάμενων
 ## 4.40 Ανεξάρτητη ομαδοποίηση R5 — 17/11/2026
 
 Ο χειριστής επιβεβαίωσε παραλαβή R5. Read-only OOXML grouping όλων των 846 weekly proposals: 18 patient/day/exact-start groups, 36 συμμετέχουσες γραμμές έναντι 28 HOLD_CONFLICT flags, 10 distinct source patients. 83 provider/day/exact-start groups με πάνω από έναν ασθενή μέσω ανεξάρτητης accent/case/alphanumeric normalization, όχι canonical provider validation ή capacity proof. Καμία αυθαίρετη αφαίρεση ή μετακίνηση. Επόμενο: ιδιωτική ομαδοποιημένη λίστα αποφάσεων, διάκριση πραγματικά ταυτόσημων διπλοεγγραφών από διακριτές θεραπείες, αναθεώρηση flags με exact membership και source-bound approvals. R5 δεν τροποποιήθηκε. Native DEMO PENDING.
+
+## 4.41 Ιδιωτικό συγκεντρωτικό φύλλο αποφάσεων — 17/11/2026
+
+Δημιουργήθηκε το ξεχωριστό ιδιωτικό DIOMIL_ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ_20261117.xlsx από read-only OOXML ανάγνωση R5, με artifact_tool, φύλλα ΟΔΗΓΙΕΣ, ΑΣΘΕΝΕΙΣ_ΕΠΙΚΑΛΥΨΕΙΣ (18 ομάδες, δύο εγγραφές ανά ομάδα, 4 ίδιας ειδικότητας), ΚΟΙΝΑ_SLOTS (83 ομάδες, ακριβή μέλη/πηγές). Κίτρινα πεδία και dropdown αποφάσεων. ZIP integrity και αριθμός γραμμών επαληθεύτηκαν, R5 SHA unchanged. Δεν εκτελέστηκε visual render/full value-by-value readback, καμία αυτόματη έγκριση. Ομαδοποίηση κοινών slots ενδεικτική, όχι provider registry/capacity verification. Παραδόθηκε ιδιωτικά, όχι στο repo. Ζητείται πρώτα επίλυση 18 patient collisions, όχι μαζική αποδοχή των 83 ομάδων. Παραμένουν οι υπόλοιπες gates του §4.39. Native DEMO PENDING.
