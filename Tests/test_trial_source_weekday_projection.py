@@ -163,3 +163,30 @@ def test_other_specialties_keep_existing_repeat_day_guard():
     result = preview(G="08:00/09:00", H="ΔΕ/ΔΕ")
     assert result.entries == ()
     assert result.blockers == ("UNPARSEABLE_TREATMENT_G",)
+
+def test_explicit_untimed_dispositions_keep_other_timed_treatments():
+    result = preview_source_weekdays(
+        source_row=4, confirmed_patient_id="DEMO-1",
+        columns=source_row(C="08:00", D="ΔΕ", E="DEMO STAFF",
+                           G="*", N="ΤΡ", O="DEMO PSYCH"),
+        acknowledged_untimed_fields=frozenset({"G4", "M4"}),
+    )
+    assert result.blockers == ()
+    assert [(x.treatment, x.start_time) for x in result.entries] == [
+        ("ΦΘ", time(8))
+    ]
+
+
+@pytest.mark.parametrize("cells,address", [
+    ({"C": "*"}, "C4"),
+    ({"G": "08:00", "H": "ΔΕ"}, "G4"),
+    ({"M": "08:00", "N": "ΔΕ"}, "M4"),
+    ({"G": "*"}, "G5"),
+])
+def test_untimed_disposition_never_suppresses_timed_or_wrong_source(cells, address):
+    result = preview_source_weekdays(
+        source_row=4, confirmed_patient_id="DEMO-1", columns=source_row(**cells),
+        acknowledged_untimed_fields=frozenset({address}),
+    )
+    assert result.entries == ()
+    assert result.blockers
