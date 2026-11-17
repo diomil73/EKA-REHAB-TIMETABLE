@@ -190,3 +190,34 @@ def test_untimed_disposition_never_suppresses_timed_or_wrong_source(cells, addre
     )
     assert result.entries == ()
     assert result.blockers
+
+def test_combined_weekly_slot_requires_exact_operator_confirmation():
+    from dataclasses import replace
+    from rehab_core.programme_mapping import (
+        SourceWeeklyEntry, ProgrammeMappingError, validate_weekly_entry_consistency,
+    )
+    a = SourceWeeklyEntry("DEMO-1", "ΦΘ", "ΔΕ", time(8), "DEMO STAFF", "C4")
+    b = SourceWeeklyEntry("DEMO-1", "Ρομποτικό", "ΔΕ", time(8), "DEMO STAFF", "R4")
+    approval = frozenset({frozenset({a, b})})
+    with pytest.raises(ProgrammeMappingError):
+        validate_weekly_entry_consistency([a, b])
+    validate_weekly_entry_consistency([a, b], confirmed_combined_slots=approval)
+    for entries in ([a], [a, b, a], [a, replace(b, therapist_name="OTHER")],
+                    [a, replace(b, source_cell="R5")],
+                    [a, replace(b, treatment="Εργο")]):
+        with pytest.raises(ProgrammeMappingError):
+            validate_weekly_entry_consistency(entries, confirmed_combined_slots=approval)
+
+
+def test_even_explicit_confirmation_cannot_override_wrong_specialty_or_provider():
+    from dataclasses import replace
+    from rehab_core.programme_mapping import (
+        SourceWeeklyEntry, ProgrammeMappingError, validate_weekly_entry_consistency,
+    )
+    a = SourceWeeklyEntry("DEMO-1", "ΦΘ", "ΔΕ", time(8), "DEMO STAFF", "C4")
+    b = SourceWeeklyEntry("DEMO-1", "Ρομποτικό", "ΔΕ", time(8), "DEMO STAFF", "R4")
+    for other in (replace(b, therapist_name="OTHER"), replace(b, therapist_name=None),
+                  replace(b, treatment="Εργο"), replace(b, treatment="ΦΘ")):
+        with pytest.raises(ProgrammeMappingError):
+            validate_weekly_entry_consistency(
+                [a, other], confirmed_combined_slots=frozenset({frozenset({a, other})}))
