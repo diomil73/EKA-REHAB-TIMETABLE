@@ -26,6 +26,9 @@ from openpyxl import load_workbook
 from rehab_core.programme_mapping import parse_clock
 from rehab_core.day_patterns import parse_day_pattern
 from rehab_excel.application_contract import assert_application_contract
+from rehab_excel.afternoon_slots_source import (
+    SHEET_NAME as AFTERNOON_SHEET, HEADERS as AFTERNOON_HEADERS,
+)
 from rehab_excel.master_projection_writer import refresh_master_projection_in_place
 from rehab_excel.master_visual_style import apply_master_visual_style_in_place
 from rehab_excel.patient_planner_projection import planner_identity_formulas
@@ -103,6 +106,43 @@ def _private_output_target(output: Path) -> bool:
                    (output.parent, *output.parent.parents))
 
 
+def _assert_empty_afternoon_source(book, *, required: bool) -> None:
+    """Raw readback of the separate PM source, including formula-only rows."""
+    if AFTERNOON_SHEET not in book.sheetnames:
+        if required:
+            raise TrialDemoNativeSeedError("Independent afternoon source missing")
+        return
+    sheet = book[AFTERNOON_SHEET]
+    if (
+        tuple(sheet.cell(1, col).value for col in range(1, 6)) != AFTERNOON_HEADERS
+        or sheet.sheet_state != "veryHidden"
+        or (sheet.max_column > 5 and any(
+            sheet.cell(1, col).value is not None for col in range(6, sheet.max_column + 1)
+        ))
+    ):
+        raise TrialDemoNativeSeedError("Independent afternoon source schema/visibility differs")
+    if any(cell.value is not None or cell.data_type in {"f", "e"}
+           for row in sheet.iter_rows(min_row=2) for cell in row):
+        raise TrialDemoNativeSeedError("Demo shell contains old afternoon records")
+
+
+def _initialize_empty_afternoon_source(book) -> None:
+    """Create only the established technical sheet; never clear or copy slots."""
+    names = {str(book.Worksheets(i).Name) for i in range(1, int(book.Worksheets.Count) + 1)}
+    if AFTERNOON_SHEET in names:
+        # The original was already checked raw before staging. Reuse it.
+        sheet = book.Worksheets(AFTERNOON_SHEET)
+        if (tuple(sheet.Cells(1, i).Value2 for i in range(1, 6)) != AFTERNOON_HEADERS
+                or int(sheet.Visible) != 2):
+            raise TrialDemoNativeSeedError("Independent afternoon source schema/visibility differs")
+        return
+    sheet = book.Worksheets.Add(After=book.Worksheets(book.Worksheets.Count))
+    sheet.Name = AFTERNOON_SHEET
+    for col, header in enumerate(AFTERNOON_HEADERS, 1):
+        sheet.Cells(1, col).Value = header
+    sheet.Visible = 2
+
+
 def assert_clean_native_demo_shell(intake: str | Path) -> None:
     """Inspect the source WITHOUT saving it; refuse any existing patient data.
 
@@ -170,6 +210,7 @@ def assert_clean_native_demo_shell(intake: str | Path) -> None:
                         raise TrialDemoNativeSeedError(
                             "Demo shell contains old operational records"
                         )
+            _assert_empty_afternoon_source(wb, required=False)
             if "PROGRAM_WEEKLY_SLOTS" in wb.sheetnames:
                 weekly = wb["PROGRAM_WEEKLY_SLOTS"]
                 if tuple(weekly.cell(1, i).value for i in range(1, 7)) != WEEKLY_HEADERS:
@@ -329,6 +370,9 @@ class Win32ComTrialDemoSeedBackend:
                             outpatient_ws.Cells(rownum, col).NumberFormat = "hh:mm"
                         outpatient_ws.Cells(rownum, col).Value = value
 
+            # U is historical only. No morning row is copied into PM.
+            _initialize_empty_afternoon_source(wb)
+
             # Daily engine reads PROGRAM_WEEKLY_SLOTS, but the legacy MASTER
             # single-slot visual cells cannot losslessly display multiple
             # time/day variations. Provide an explicit uncompressed view.
@@ -415,6 +459,7 @@ def _verify_seed_workbook(
     try:
         if not {"PATIENTS", "PATIENT_PLANNER", "PROGRAM_WEEKLY_SLOTS", "DEMO_WEEKLY_VIEW", "PATIENT_EXITS"}.issubset(wb.sheetnames):
             raise TrialDemoNativeSeedError("Native output missing required sheets")
+        _assert_empty_afternoon_source(wb, required=True)
         exit_sheet = wb["PATIENT_EXITS"]
         if tuple(exit_sheet.cell(1, col).value for col in range(1, 5)) != PATIENT_EXIT_HEADERS:
             raise TrialDemoNativeSeedError("Patient exits ledger missing or malformed")

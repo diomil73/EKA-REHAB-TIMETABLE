@@ -171,3 +171,74 @@ def test_private_native_source_contains_explicit_outpatient_write_and_readback_c
     assert "Native weekly view differs from approved sources" in verify
     assert "Outpatient source readback differs" in verify
     assert "read_unified_base_schedule(stage)" in verify
+
+
+def _with_pm_sheet(path, *, state="veryHidden", header=None, extra=None):
+    from rehab_excel.afternoon_slots_source import SHEET_NAME, HEADERS
+    wb = load_workbook(path, keep_vba=True)
+    sheet = wb.create_sheet(SHEET_NAME)
+    sheet.append(HEADERS if header is None else header)
+    sheet.sheet_state = state
+    if extra is not None:
+        address, value = extra
+        sheet[address] = value
+    wb.save(path)
+    wb.close()
+
+
+def test_clean_shell_accepts_existing_empty_canonical_afternoon_source(tmp_path):
+    path = _blank_shell(tmp_path)
+    _with_pm_sheet(path)
+    before = path.read_bytes()
+    assert_clean_native_demo_shell(path)
+    assert before == path.read_bytes()
+
+
+@pytest.mark.parametrize("extra", [
+    ("A2", "FICTIONAL OLD PATIENT"),
+    ("D18", "=TIME(17,30,0)"),
+    ("G20", "FICTIONAL EXTRA STATE"),
+    ("C7", "#REF!"),
+])
+def test_old_afternoon_state_blocks_clean_shell_even_outside_first_row(tmp_path, extra):
+    path = _blank_shell(tmp_path)
+    _with_pm_sheet(path, extra=extra)
+    before = path.read_bytes()
+    with pytest.raises(TrialDemoNativeSeedError, match="old afternoon records"):
+        assert_clean_native_demo_shell(path)
+    assert before == path.read_bytes()
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"state": "visible"}, {"header": ["Wrong"]}, {"extra": ("G1", "UNKNOWN")},
+])
+def test_existing_invalid_afternoon_schema_is_not_repaired(tmp_path, kwargs):
+    path = _blank_shell(tmp_path)
+    _with_pm_sheet(path, **kwargs)
+    with pytest.raises(TrialDemoNativeSeedError, match="schema/visibility"):
+        assert_clean_native_demo_shell(path)
+
+
+def test_readback_requires_independent_empty_afternoon_source():
+    from rehab_excel.trial_demo_native_seed import _assert_empty_afternoon_source
+    from rehab_excel.afternoon_slots_source import SHEET_NAME, HEADERS, read_afternoon_slots_sheet
+    book = Workbook()
+    with pytest.raises(TrialDemoNativeSeedError, match="source missing"):
+        _assert_empty_afternoon_source(book, required=True)
+    sheet = book.create_sheet(SHEET_NAME)
+    sheet.append(HEADERS)
+    sheet.sheet_state = "veryHidden"
+    _assert_empty_afternoon_source(book, required=True)
+    assert read_afternoon_slots_sheet(sheet, known_patient_ids={"FICTIONAL-1"}) == ()
+    sheet["E8"] = "FICTIONAL PROVIDER"
+    with pytest.raises(TrialDemoNativeSeedError, match="old afternoon records"):
+        _assert_empty_afternoon_source(book, required=True)
+    book.close()
+
+
+def test_native_seed_wires_empty_pm_initialization_and_readback():
+    import inspect
+    import rehab_excel.trial_demo_native_seed as seed
+    assert "_initialize_empty_afternoon_source(wb)" in inspect.getsource(seed.Win32ComTrialDemoSeedBackend.write)
+    assert "_assert_empty_afternoon_source(wb, required=True)" in inspect.getsource(seed._verify_seed_workbook)
+    assert "sheet.Visible = 2" in inspect.getsource(seed._initialize_empty_afternoon_source)
