@@ -82,7 +82,8 @@ def parse_clock(value: Any) -> time:
     raise ProgrammeMappingError(f"Unrecognized clock: {raw!r}")
 
 
-def parse_weekday_groups(value: Any, *, implicit_daily: bool = False) -> tuple[tuple[str, ...], ...]:
+def parse_weekday_groups(value: Any, *, implicit_daily: bool = False,
+                         allow_cross_group_repeat: bool = False) -> tuple[tuple[str, ...], ...]:
     raw = _day_text(value)
     if not raw:
         if implicit_daily:
@@ -98,7 +99,7 @@ def parse_weekday_groups(value: Any, *, implicit_daily: bool = False) -> tuple[t
             if token not in ALIASES:
                 raise ProgrammeMappingError(f"Unknown weekday token: {token!r}")
             weekday = ALIASES[token]
-            if weekday in seen:
+            if weekday in days or (weekday in seen and not allow_cross_group_repeat):
                 raise ProgrammeMappingError(f"Duplicate weekday: {weekday}")
             seen.add(weekday)
             days.append(weekday)
@@ -115,6 +116,7 @@ def split_weekly_cell(
     therapist: Any = None,
     requires_therapist: bool = False,
     implicit_daily: bool = False,
+    allow_distinct_same_day: bool = False,
 ) -> tuple[WeekdaySlot, ...]:
     """Map slash-separated fields positionally; do not guess mismatched cardinalities.
 
@@ -125,7 +127,8 @@ def split_weekly_cell(
         raise ProgrammeMappingError("Missing clock time")
     raw_clocks = _text(clock).split("/") if isinstance(clock, str) else [clock]
     parsed_times = [parse_clock(value) for value in raw_clocks]
-    groups = parse_weekday_groups(weekdays, implicit_daily=implicit_daily)
+    groups = parse_weekday_groups(weekdays, implicit_daily=implicit_daily,
+                                  allow_cross_group_repeat=allow_distinct_same_day)
     names = [x.strip() for x in _text(therapist).split("/")] if _text(therapist) else []
     if requires_therapist and (not names or any(not name for name in names)):
         raise ProgrammeMappingError("Named therapist required for ΦΘ / Ρομποτική")
@@ -135,10 +138,15 @@ def split_weekly_cell(
     if names and len(names) not in (1, group_count):
         raise ProgrammeMappingError("Provider/day groups are not positionally aligned")
     result = []
+    seen_slots = set()
     for index, days in enumerate(groups):
         clock_value = parsed_times[0] if len(parsed_times) == 1 else parsed_times[index]
         name = (names[0] if len(names) == 1 else names[index]) if names else None
         for weekday in days:
+            key = (weekday, clock_value)
+            if key in seen_slots:
+                raise ProgrammeMappingError("Duplicate weekday/time slot")
+            seen_slots.add(key)
             result.append(WeekdaySlot(weekday, clock_value, name))
     return tuple(result)
 
@@ -179,6 +187,7 @@ def make_weekly_entries(
     slots = split_weekly_cell(
         clock=clock, weekdays=weekdays, therapist=therapist,
         requires_therapist=required, implicit_daily=implicit_daily,
+        allow_distinct_same_day=treatment == "ΕΦΑ",
     )
     return tuple(
         SourceWeeklyEntry(
