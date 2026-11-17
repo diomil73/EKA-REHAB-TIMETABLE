@@ -496,3 +496,57 @@ def test_clean_positive_admission_repr_does_not_expose_private_entries(tmp_path)
     assert result.admitted_entries[0].patient_id == "DEMO-1"
     assert "DEMO-1" not in repr(result)
     assert "DEMO THERAPIST" not in repr(result)
+
+
+def test_recurring_provider_label_variants_require_same_exact_shared_approval(tmp_path):
+    from openpyxl import load_workbook
+    from rehab_excel.trial_admission_gate import SOURCE_SHARED_SHEET, SHARED_HEADERS
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΑΣΘΕΝΕΙΣ"].append([5, "Α", "FICTIONAL PEER", "WARD", "DEMO-2", "CONFIRMED"])
+    weekly = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    weekly["G2"] = "ΔΟΚΙΜΉ. Α"
+    weekly.append([
+        "Α", 5, "FICTIONAL PEER", "ΦΘ", "ΔΕ", "11:30",
+        "δοκιμη α", None, "C5 / D5 / E5", "FICTIONAL", "PROPOSED_EXACT_SOURCE",
+    ])
+    wb.save(path)
+    wb.close()
+    blocked = evaluate_trial_admission(path)
+    assert not blocked.ready
+    assert any("unapproved shared provider" in x for x in blocked.blockers)
+    wb = load_workbook(path)
+    approval = wb.create_sheet(SOURCE_SHARED_SHEET)
+    approval.append(SHARED_HEADERS)
+    approval.append(["ΔοκιμήΑ", "ΔΕ", "11:30", "DEMO-1|DEMO-2", "APPROVED_SHARED"])
+    wb.save(path)
+    wb.close()
+    before = path.read_bytes()
+    result = evaluate_trial_admission(path)
+    assert result.ready
+    assert len(result.admitted_entries) == 2
+    assert path.read_bytes() == before
+
+
+def test_normalized_duplicate_shared_approvals_fail_closed(tmp_path):
+    from openpyxl import load_workbook
+    from rehab_excel.trial_admission_gate import SOURCE_SHARED_SHEET, SHARED_HEADERS
+
+    path = make_review(tmp_path)
+    wb = load_workbook(path)
+    wb["ΑΣΘΕΝΕΙΣ"].append([5, "Α", "FICTIONAL PEER", "WARD", "DEMO-2", "CONFIRMED"])
+    weekly = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    weekly["G2"] = "ΔΟΚΙΜΉ. Α"
+    weekly.append(["Α", 5, "FICTIONAL PEER", "ΦΘ", "ΔΕ", "11:30",
+                   "δοκιμη α", None, "C5 / D5 / E5", "FICTIONAL", "PROPOSED_EXACT_SOURCE"])
+    approval = wb.create_sheet(SOURCE_SHARED_SHEET)
+    approval.append(SHARED_HEADERS)
+    for name in ("ΔοκιμήΑ", "δοκιμη. α"):
+        approval.append([name, "ΔΕ", "11:30", "DEMO-1|DEMO-2", "APPROVED_SHARED"])
+    wb.save(path)
+    wb.close()
+    result = evaluate_trial_admission(path)
+    assert not result.ready
+    assert any("invalid or duplicated approval" in x for x in result.blockers)
+    assert result.admitted_entries == ()

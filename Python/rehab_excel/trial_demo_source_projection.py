@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
+from rehab_core.recurring_conflicts import _provider_key
 
 from rehab_excel.trial_import_plan import TrialImportPlan
 from rehab_excel.trial_demo_source_reconciliation import reconcile_demo_source_weekdays
@@ -63,10 +64,13 @@ def merge_trial_demo_outpatients(
     # separate outpatient file contains no cross-source approval mechanism;
     # neither an outpatient joining that group nor two outpatient patients
     # sharing a provider slot are implicitly approved merely by merging files.
-    # Compare the actual provider labels consumed by the daily reader, using
-    # only case/whitespace normalization; do not infer aliases or identities.
+    # Reuse the established native-recurring conflict normalization, including
+    # Greek accents, final sigma, spaces and periods. Do not infer other aliases.
     def provider_slot(provider, day, clock):
-        return (str(provider).strip().casefold(), day, clock)
+        key = _provider_key(provider)
+        if not key:
+            raise ValueError("Provider label cannot be resolved by recurring conflict rules")
+        return (key, day, clock)
 
     inpatient_provider_slots = {
         provider_slot(provider, day, clock)

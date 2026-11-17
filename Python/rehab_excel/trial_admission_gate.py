@@ -14,6 +14,7 @@ import re
 from typing import Any
 
 from openpyxl import load_workbook
+from rehab_core.recurring_conflicts import _provider_key
 
 from rehab_excel.trial_source_alignment import TREATMENT_SOURCE_COLUMNS
 from rehab_core.programme_mapping import (
@@ -241,7 +242,10 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
             names_by_key: dict[tuple[str, str, object], str] = {}
             for item in admitted:
                 if item.therapist_name:
-                    key = (item.therapist_name.casefold(), item.weekday, item.start_time)
+                    key = (_provider_key(item.therapist_name), item.weekday, item.start_time)
+                    if not key[0]:
+                        blockers.append("Provider label cannot be resolved by recurring conflict rules")
+                        continue
                     actual_groups.setdefault(key, set()).add(item.patient_id)
                     names_by_key[key] = item.therapist_name
 
@@ -255,7 +259,7 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
                     for approval_row, values in _data_rows(sheet, 5, blockers=blockers):
                         provider, weekday, clock, ids, decision = values
                         try:
-                            key = (_text(provider).casefold(), _text(weekday),
+                            key = (_provider_key(_text(provider)), _text(weekday),
                                    parse_clock(clock))
                         except (ProgrammeMappingError, TypeError, ValueError):
                             blockers.append(

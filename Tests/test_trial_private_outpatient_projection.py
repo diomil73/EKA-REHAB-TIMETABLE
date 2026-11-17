@@ -158,3 +158,59 @@ def test_existing_approved_inpatient_group_is_not_rejected_or_expanded(tmp_path)
         merge_trial_demo_outpatients(
             _inpatient_projection(approved_shared=True), outpatient,
         )
+
+
+def test_mixed_source_merge_uses_existing_greek_provider_label_normalization(tmp_path):
+    from rehab_excel.trial_demo_source_projection import merge_trial_demo_outpatients
+
+    source = _source(tmp_path)
+    _modify(source, lambda wb: setattr(wb["OUTPATIENT_SCHEDULE"]["F2"], "value", "Δοκιμή. Α"))
+    outpatient = project_private_outpatient_source(source)
+    with pytest.raises(ValueError, match="explicit shared-slot approval"):
+        merge_trial_demo_outpatients(_inpatient_projection(provider="δοκιμηα"), outpatient)
+
+
+def test_capacity_audit_counts_distinct_clock_slots_not_patients(tmp_path):
+    from rehab_excel.trial_demo_source_projection import merge_trial_demo_outpatients
+    from rehab_excel.trial_provider_capacity import audit_trial_provider_capacity
+
+    inpatient = _inpatient_projection(day="ΤΡ", approved_shared=True)
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    combined = merge_trial_demo_outpatients(inpatient, outpatient)
+    report = audit_trial_provider_capacity(combined, approved_limits={
+        ("demo.t", day): 1 for day in ("ΔΕ", "ΤΡ", "ΤΕ", "ΠΑ")
+    })
+    assert report.named_provider_capacity_clear
+    assert report.named_provider_placements == 5
+    assert report.occupied_distinct_slots == 4
+    assert report.unassigned_placements == 2
+    assert "DEMO" not in repr(report)
+
+
+def test_capacity_audit_uses_actual_day_limit_and_no_default(tmp_path):
+    from datetime import time
+    from rehab_excel.trial_demo_source_projection import merge_trial_demo_outpatients
+    from rehab_excel.trial_provider_capacity import audit_trial_provider_capacity
+
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    combined = merge_trial_demo_outpatients(_inpatient_projection(clock=time(9, 45)), outpatient)
+    report = audit_trial_provider_capacity(combined, approved_limits={
+        ("DEMO T", "ΔΕ"): 1, ("DEMO T", "ΤΕ"): 0,
+    })
+    assert not report.named_provider_capacity_clear
+    assert report.exceeded_limit_days == 2
+    assert report.missing_limit_days == 1
+    assert report.occupied_distinct_slots == 4
+
+
+@pytest.mark.parametrize("limits", [
+    {("DEMO T", "ΔΕ"): True},
+    {("DEMO T", "ΔΕ"): -1},
+    {("DEMO T", "ΣΑ"): 6},
+    {("DEMO T", "ΔΕ"): 1, ("demo.t", "ΔΕ"): 2},
+])
+def test_capacity_audit_rejects_ambiguous_or_invalid_limits(limits):
+    from rehab_excel.trial_provider_capacity import audit_trial_provider_capacity, TrialProviderCapacityError
+
+    with pytest.raises(TrialProviderCapacityError):
+        audit_trial_provider_capacity(_inpatient_projection(), approved_limits=limits)
