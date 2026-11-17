@@ -1,5 +1,10 @@
 # DIOMIL: πραγματικά δεδομένα και τοπική προετοιμασία DEMO (2026-11-16)
 
+## UPDATE 2026-11-17 — historical U cells: explicit non-import acknowledgment
+
+This supersedes earlier statements requiring U to be empty. Never delete or rewrite historical U cells merely to pass a gate. On an independently authorized **private review revision**, create `ΕΓΚΡΙΣΕΙΣ_ΠΕΔΙΟΥ_U` with exact headers `SourceCell`, `ProgrammeSHA256`, `Decision`. Exactly one literal row for each populated original U cell, with its original cell address, SHA256 of the entire exact original programme file, and `ACKNOWLEDGED_NOT_IMPORTED`. Do not guess or auto-approve decisions. Missing/surplus/stale/duplicate/formula/error/orphan entries are rejected; original source unchanged. The actual 19 historical U entries have not been acknowledged by this code run. No historical U becomes a morning or afternoon session. F/V and all other source/clinical/native gates remain mandatory. Standalone special audit still inventories U as a review item, not a full admission verdict. See master continuity guide §4.13. This update supersedes the U-only part of earlier blanket F/U/V stops; nothing else changes.
+
+
 ## UPDATE 2026-11-17 — approved provider schedule required for full preflight and native build
 
 This section supersedes older build examples below that omit `--provider-schedule`. Mobile-only work: do NOT request these PC steps until the operator says they are back at the PC. No real provider availability or shared membership has been approved by this code. The previous workbook/UI and complementary weekday pair rule remain intact (ΔΕ-ΤΕ-ΠΑ / ΤΡ-ΠΕ at the same clock = one weekly visual slot; no same-day overlap).
