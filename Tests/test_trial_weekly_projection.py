@@ -117,3 +117,20 @@ def test_nontext_unhashable_approved_patient_id_is_a_safe_stop():
         project_trial_weekly_rows(
             _plan(_entry()), confirmed_inpatient_ids=("DEMO-1", ["BAD-ID"]),
         )
+
+def test_efa_same_day_distinct_times_survive_weekly_reader():
+    entries = (_entry(specialty="ΕΦΑ", provider=None, cell="P4", clock=time(8)),
+               _entry(specialty="ΕΦΑ", provider=None, cell="P4", clock=time(9)))
+    projection = project_trial_weekly_rows(
+        _plan(*entries), confirmed_inpatient_ids=("DEMO-1",))
+    wb = Workbook()
+    try:
+        ws = wb.active
+        ws.append(HEADERS)
+        for row in projection.rows:
+            ws.append(row)
+        result = read_weekly_slots_sheet(ws, inpatient_ids={"DEMO-1"})
+        assert [x.start_time for x in result] == [time(8), time(9)]
+        assert all(x.day_pattern == "Δε" for x in result)
+    finally:
+        wb.close()
