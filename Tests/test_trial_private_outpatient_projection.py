@@ -214,3 +214,114 @@ def test_capacity_audit_rejects_ambiguous_or_invalid_limits(limits):
 
     with pytest.raises(TrialProviderCapacityError):
         audit_trial_provider_capacity(_inpatient_projection(), approved_limits=limits)
+
+
+def _provider_snapshot(tmp_path, outpatient, *, shared=None, monday=None):
+    import json
+    from types import SimpleNamespace
+    from rehab_excel.trial_provider_schedule import SCHEMA
+    plan = SimpleNamespace(programme_sha256="a"*64, review_sha256="b"*64, intake_sha256="c"*64)
+    path = tmp_path / "PRIVATE_PROVIDER_SCHEDULE.json"
+    slots = [{"provider": "DEMO T", "weekday": day, "times": ["09:15"], "decision": "APPROVED"}
+             for day in ("ΔΕ", "ΤΡ", "ΤΕ", "ΠΕ", "ΠΑ")]
+    if monday is not None:
+        slots[0]["times"] = monday
+    data = {"schema": SCHEMA,
+            "sources": {"programme": plan.programme_sha256, "review": plan.review_sha256,
+                        "shell": plan.intake_sha256, "outpatients": outpatient.source_sha256},
+            "availability": slots, "shared_slots": shared or []}
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return plan, path
+
+
+def test_provider_snapshot_preserves_complementary_days_as_one_clock_per_day(tmp_path):
+    from rehab_excel.trial_provider_schedule import read_private_provider_schedule, merge_with_approved_provider_schedule
+
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    inpatient = _inpatient_projection(day="ΤΡ")
+    plan, path = _provider_snapshot(tmp_path, outpatient)
+    result = merge_with_approved_provider_schedule(
+        inpatient, outpatient, plan=plan, schedule=read_private_provider_schedule(path)
+    )
+    assert result.patients == 2
+    assert result.weekday_slot_count == 6
+
+
+def test_exact_mixed_membership_can_be_explicitly_approved(tmp_path):
+    from rehab_excel.trial_provider_schedule import read_private_provider_schedule, merge_with_approved_provider_schedule
+
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    shared = [{"provider": "DEMO T", "weekday": "ΔΕ", "time": "09:15",
+               "patient_ids": ["IN-1", "OUT-1"], "decision": "APPROVED_SHARED"}]
+    plan, path = _provider_snapshot(tmp_path, outpatient, shared=shared)
+    before = path.read_bytes()
+    result = merge_with_approved_provider_schedule(
+        _inpatient_projection(), outpatient, plan=plan, schedule=read_private_provider_schedule(path),
+    )
+    assert result.patients == 2 and result.weekday_slot_count == 6
+    assert path.read_bytes() == before
+
+
+def test_partial_mixed_membership_cannot_extend_approved_group(tmp_path):
+    from rehab_excel.trial_provider_schedule import read_private_provider_schedule, merge_with_approved_provider_schedule
+
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    shared = [{"provider": "DEMO T", "weekday": "ΔΕ", "time": "09:15",
+               "patient_ids": ["IN-1", "OUT-1"], "decision": "APPROVED_SHARED"}]
+    plan, path = _provider_snapshot(tmp_path, outpatient, shared=shared)
+    with pytest.raises(ValueError, match="explicit shared-slot approval"):
+        merge_with_approved_provider_schedule(
+            _inpatient_projection(approved_shared=True), outpatient,
+            plan=plan, schedule=read_private_provider_schedule(path),
+        )
+
+
+def test_stale_provider_snapshot_cannot_authorize_changed_source(tmp_path):
+    from rehab_excel.trial_provider_schedule import (
+        read_private_provider_schedule, merge_with_approved_provider_schedule, TrialProviderScheduleError,
+    )
+
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    plan, path = _provider_snapshot(tmp_path, outpatient)
+    schedule = read_private_provider_schedule(path)
+    plan.review_sha256 = "d"*64
+    with pytest.raises(TrialProviderScheduleError, match="different sources"):
+        merge_with_approved_provider_schedule(_inpatient_projection(day="ΤΡ"), outpatient, plan=plan, schedule=schedule)
+
+
+def test_available_clock_not_just_number_of_available_slots(tmp_path):
+    from rehab_excel.trial_provider_schedule import (
+        read_private_provider_schedule, merge_with_approved_provider_schedule, TrialProviderScheduleError,
+    )
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    plan, path = _provider_snapshot(tmp_path, outpatient, monday=["10:15"])
+    with pytest.raises(TrialProviderScheduleError, match="not explicitly available"):
+        merge_with_approved_provider_schedule(
+            _inpatient_projection(day="ΤΡ"), outpatient, plan=plan, schedule=read_private_provider_schedule(path)
+        )
+
+
+def test_stale_shared_decision_not_reused_for_complementary_days(tmp_path):
+    from rehab_excel.trial_provider_schedule import read_private_provider_schedule, merge_with_approved_provider_schedule
+
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    shared = [{"provider": "DEMO T", "weekday": "ΔΕ", "time": "09:15",
+               "patient_ids": ["IN-1", "OUT-1"], "decision": "APPROVED_SHARED"}]
+    plan, path = _provider_snapshot(tmp_path, outpatient, shared=shared)
+    with pytest.raises(ValueError, match="Stale or mismatched"):
+        merge_with_approved_provider_schedule(
+            _inpatient_projection(day="ΤΡ"), outpatient, plan=plan, schedule=read_private_provider_schedule(path)
+        )
+
+
+@pytest.mark.parametrize("decision", ["PENDING", "", True])
+def test_availability_requires_literal_explicit_approval(tmp_path, decision):
+    import json
+    from rehab_excel.trial_provider_schedule import read_private_provider_schedule, TrialProviderScheduleError
+    outpatient = project_private_outpatient_source(_source(tmp_path))
+    _, path = _provider_snapshot(tmp_path, outpatient)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["availability"][0]["decision"] = decision
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(TrialProviderScheduleError, match="Explicit availability"):
+        read_private_provider_schedule(path)

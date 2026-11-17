@@ -131,9 +131,19 @@ def test_preflight_only_writes_no_native_workbook(tmp_path, monkeypatch):
     assert calls == ["shell", "plan", "project", "hash"]
 
 
+def _fake_schedule(tmp_path, monkeypatch):
+    path = tmp_path / "PRIVATE_PROVIDER_SCHEDULE.json"
+    path.write_bytes(b"fictional mock schedule")
+    policy = object()
+    monkeypatch.setattr(cli, "read_private_provider_schedule", lambda *_: policy)
+    monkeypatch.setattr(cli, "merge_with_approved_provider_schedule", lambda projection, *a, **kw: projection)
+    return path, policy
+
+
 def test_native_build_is_explicit_and_injects_only_approved_source(monkeypatch, tmp_path):
     p, r, shell, approval = _inputs(tmp_path)
     destination = tmp_path / "PRIVATE_DEMO_NEW.xlsm"
+    schedule, policy = _fake_schedule(tmp_path, monkeypatch)
     calls = []
     class FakePlan:
         def verify_sources(self, *args, **kwargs):
@@ -152,6 +162,7 @@ def test_native_build_is_explicit_and_injects_only_approved_source(monkeypatch, 
         assert kw["intake"] == shell
         assert kw["output"] == destination
         assert len(kw["clinical_approvals"]) == 2
+        assert kw["provider_schedule"] is policy
         calls.append("native")
         return SimpleNamespace(
             patient_count=2, weekday_slot_count=12,
@@ -164,7 +175,7 @@ def test_native_build_is_explicit_and_injects_only_approved_source(monkeypatch, 
     outpatients.write_bytes(b"fake test only")
     assert cli.run_private_trial(
         programme=p, review=r, shell=shell, approvals=approval,
-        output=destination, build=True, outpatients=outpatients,
+        output=destination, build=True, outpatients=outpatients, provider_schedule=schedule,
     ) == (2, 12, True)
     assert calls == ["shell", "plan", "project", "hash", "native"]
 
@@ -274,13 +285,14 @@ def test_changed_private_approvals_during_native_build_not_accepted(
     monkeypatch.setattr(cli, "seed_trial_demo_workbook", unsafe_save)
     outpatient = tmp_path / "APPROVED_OUTPATIENTS.xlsx"
     outpatient.write_bytes(b"synthetic only")
+    schedule, _ = _fake_schedule(tmp_path, monkeypatch)
     monkeypatch.setattr(cli, "project_private_outpatient_source", lambda path: object())
     monkeypatch.setattr(cli, "merge_trial_demo_outpatients", lambda projection, outpatient: projection)
     with pytest.raises(cli.RealDemoCommandError, match="changed"):
         cli.run_private_trial(
             programme=p, review=r, shell=shell, approvals=approval,
             output=tmp_path / "DIOMIL_DEMO_PRIVATE_B.xlsm",
-            build=True, outpatients=outpatient,
+            build=True, outpatients=outpatient, provider_schedule=schedule,
         )
 
 
@@ -364,3 +376,16 @@ def test_private_outpatient_projection_not_called_when_source_absent(tmp_path, m
     assert cli.run_private_trial(
         programme=p, review=r, shell=shell, approvals=approval,
     ) == (1, 5, False)
+
+
+def test_native_build_without_provider_schedule_is_blocked_before_projection(tmp_path, monkeypatch):
+    p, r, shell, approval = _inputs(tmp_path)
+    outpatient = tmp_path / "PRIVATE_OUTPATIENTS.xlsx"
+    outpatient.write_bytes(b"fictional")
+    monkeypatch.setattr(cli.sys, "platform", "win32")
+    monkeypatch.setattr(cli, "assert_clean_native_demo_shell", lambda *_: pytest.fail("missing schedule must stop"))
+    with pytest.raises(cli.RealDemoCommandError, match="approved provider schedule"):
+        cli.run_private_trial(
+            programme=p, review=r, shell=shell, approvals=approval, outpatients=outpatient,
+            build=True, output=tmp_path / "PRIVATE_DEMO_NEW.xlsm",
+        )

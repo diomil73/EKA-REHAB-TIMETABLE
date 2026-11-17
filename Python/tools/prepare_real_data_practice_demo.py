@@ -29,6 +29,9 @@ from rehab_excel.trial_demo_source_projection import (  # noqa: E402
 from rehab_excel.trial_private_outpatient_projection import (  # noqa: E402
     project_private_outpatient_source,
 )
+from rehab_excel.trial_provider_schedule import (  # noqa: E402
+    read_private_provider_schedule, merge_with_approved_provider_schedule,
+)
 from rehab_excel.trial_import_plan import (  # noqa: E402
     prepare_trial_import_plan,
 )
@@ -147,6 +150,7 @@ def validate_private_paths(
     *, programme: Path, review: Path, shell: Path,
     approvals: Path, output: Path | None, build: bool,
     outpatients: Path | None = None,
+    provider_schedule: Path | None = None,
 ) -> None:
     """Ensure neither clinical sources nor final output occupy a Git tree."""
     if build and outpatients is None:
@@ -157,6 +161,11 @@ def validate_private_paths(
     extensions = (".xlsx", ".xlsx", ".xlsm", ".json") + (
         (".xlsx",) if outpatients is not None else ()
     )
+    if provider_schedule is not None:
+        if outpatients is None:
+            raise RealDemoCommandError("Provider schedule requires separate outpatient source")
+        sources += (provider_schedule,)
+        extensions += (".json",)
     if any(
         not source.is_file() or source.suffix.casefold() != extension
         or _inside_git_checkout(source)
@@ -189,12 +198,13 @@ def run_private_trial(
     approvals: Path, output: Path | None = None,
     build: bool = False,
     outpatients: Path | None = None,
+    provider_schedule: Path | None = None,
 ) -> tuple[int, int, bool]:
     """Return non-identifying patient/weekday-slot counts and native flag."""
     validate_private_paths(
         programme=programme, review=review, shell=shell,
         approvals=approvals, output=output, build=build,
-        outpatients=outpatients,
+        outpatients=outpatients, provider_schedule=provider_schedule,
     )
     # Mandatory before any clinical projection or native Excel write:
     # raw formula-only F/U/V cells must never pass data_only source parsing.
@@ -203,7 +213,11 @@ def run_private_trial(
         raise RealDemoCommandError(
             "Special F/U/V source fields require independent approval"
         )
+    if build and provider_schedule is None:
+        raise RealDemoCommandError("Full native DEMO requires approved provider schedule")
     clinical_before = _approval_digest(approvals)
+    schedule_before = _approval_digest(provider_schedule) if provider_schedule is not None else None
+    schedule = read_private_provider_schedule(provider_schedule) if provider_schedule is not None else None
     clinical = read_private_clinical_approvals(approvals)
     assert_clean_native_demo_shell(shell)
     plan = prepare_trial_import_plan(
@@ -216,12 +230,19 @@ def run_private_trial(
     )
     if outpatients is not None:
         separate_outpatients = project_private_outpatient_source(outpatients)
-        projection = merge_trial_demo_outpatients(projection, separate_outpatients)
+        if schedule is None:
+            projection = merge_trial_demo_outpatients(projection, separate_outpatients)
+        else:
+            projection = merge_with_approved_provider_schedule(
+                projection, separate_outpatients, plan=plan, schedule=schedule,
+            )
     # No use of partial fixture rows: entire original A:V source is checked
     # through the production reconciliation gate above.
     plan.verify_sources(review, shell, programme=programme)
     if _approval_digest(approvals) != clinical_before:
         raise RealDemoCommandError("Private clinical approvals changed during preflight")
+    if provider_schedule is not None and _approval_digest(provider_schedule) != schedule_before:
+        raise RealDemoCommandError("Private provider schedule changed during preflight")
     if not build:
         return projection.patients, projection.weekday_slot_count, False
     # No clinical values or local path are printed, even after success.
@@ -229,12 +250,14 @@ def run_private_trial(
     report = seed_trial_demo_workbook(
         plan, programme=programme, review=review, intake=shell,
         output=output, clinical_approvals=clinical,
-        outpatient_source=outpatients,
+        outpatient_source=outpatients, provider_schedule=schedule,
     )
     if _approval_digest(approvals) != clinical_before:
         # The sealed in-memory data and local JSON no longer agree. Preserve
         # the candidate for safe private review but DO NOT declare it accepted.
         raise RealDemoCommandError("Clinical approvals changed during native build")
+    if provider_schedule is not None and _approval_digest(provider_schedule) != schedule_before:
+        raise RealDemoCommandError("Private provider schedule changed during native build")
     if not report.verified_native_readback or not report.source_unchanged:
         raise RealDemoCommandError("Native DEMO verification incomplete")
     return report.patient_count, report.weekday_slot_count, True
@@ -249,6 +272,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--shell", required=True, type=Path)
     parser.add_argument("--clinical-approvals", required=True, type=Path)
     parser.add_argument("--outpatients", type=Path)
+    parser.add_argument("--provider-schedule", type=Path)
     parser.add_argument("--build", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
@@ -257,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
             programme=args.programme, review=args.review,
             shell=args.shell, approvals=args.clinical_approvals,
             output=args.output, build=args.build,
-            outpatients=args.outpatients,
+            outpatients=args.outpatients, provider_schedule=args.provider_schedule,
         )
     except Exception as exc:
         # No traceback, exception message, source name, patient name, ID,
@@ -266,7 +290,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print("DIOMIL PRIVATE REAL-SOURCE " + (
         "NATIVE DEMO CANDIDATE VERIFIED" if built
-        else "READ-ONLY PREFLIGHT GREEN"
+        else ("READ-ONLY PREFLIGHT GREEN" if args.provider_schedule is not None
+              else "PARTIAL READ-ONLY SOURCE CHECK; FULL PREFLIGHT PENDING")
     ))
     print(f"Confirmed patients: {patients}")
     print(f"Exact Monday-Friday treatment placements: {slots}")
@@ -274,6 +299,10 @@ def main(argv: list[str] | None = None) -> int:
         print("Separate outpatient source: NOT PROVIDED; full DEMO is NOT eligible.")
     else:
         print("Separate outpatient source: AUDITED and included in source counts.")
+    if args.provider_schedule is None:
+        print("Provider schedule: NOT PROVIDED; full DEMO is NOT eligible.")
+    else:
+        print("Provider schedule: source-bound named clock/capacity and shared membership checked.")
     print("Source XLSX/review/clinical approvals and original XLSM unchanged: YES")
     if built:
         print("New isolated private DEMO created. OPERATOR ACCEPTANCE PENDING.")

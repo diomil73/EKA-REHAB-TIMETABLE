@@ -56,6 +56,9 @@ from rehab_excel.trial_private_outpatient_projection import (
 )
 from rehab_excel.outpatient_schedule_source import OUTPATIENT_REQUIRED_HEADERS
 from rehab_excel.trial_import_plan import TrialImportPlan
+from rehab_excel.trial_provider_schedule import (
+    TrialProviderSchedule, merge_with_approved_provider_schedule,
+)
 from rehab_excel.trial_patient_registry_projection import ConfirmedClinicalFields
 from rehab_excel.weekly_slots_source import (
     HEADERS as WEEKLY_HEADERS, WEEKDAY_PATTERN,
@@ -582,6 +585,7 @@ def seed_trial_demo_workbook(
     clinical_approvals: Mapping[tuple[str, int], ConfirmedClinicalFields],
     backend: TrialDemoSeedBackend | None = None,
     outpatient_source: str | Path | None = None,
+    provider_schedule: TrialProviderSchedule | None = None,
 ) -> TrialDemoNativeSeedReport:
     """Seed one uniquely named, private, fresh DEMO from an EMPTY eligible shell.
 
@@ -603,6 +607,8 @@ def seed_trial_demo_workbook(
         raise TrialDemoNativeSeedError("SAFETY STOP: unsafe demo output or source plan")
     if backend is None and outpatient_source is None:
         raise TrialDemoNativeSeedError("Full native DEMO requires approved outpatients")
+    if backend is None and provider_schedule is None:
+        raise TrialDemoNativeSeedError("Full native DEMO requires approved provider schedule")
     if backend is None and sys.platform != "win32":
         raise TrialDemoNativeSeedError("Windows Excel required for native seed")
 
@@ -619,9 +625,15 @@ def seed_trial_demo_workbook(
             or not _private_output_target(approved_outpatients)
         ):
             raise TrialDemoNativeSeedError("Unsafe outpatient source location")
-        projection = merge_trial_demo_outpatients(
-            projection, project_private_outpatient_source(approved_outpatients),
-        )
+        outpatient = project_private_outpatient_source(approved_outpatients)
+        if provider_schedule is not None:
+            projection = merge_with_approved_provider_schedule(
+                projection, outpatient, plan=plan, schedule=provider_schedule,
+            )
+        else:
+            # Structural synthetic backend tests only; the real native path
+            # requires the source-bound provider snapshot above.
+            projection = merge_trial_demo_outpatients(projection, outpatient)
     plan.verify_sources(r, source, programme=p)
     # Never create an output inside a tracked repository or a shared production file.
     destination.parent.mkdir(parents=True, exist_ok=True)

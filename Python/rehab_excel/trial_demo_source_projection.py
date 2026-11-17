@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from datetime import time
 from typing import Mapping
 from rehab_core.recurring_conflicts import _provider_key
 
@@ -34,6 +35,8 @@ class TrialDemoSourceProjection:
 def merge_trial_demo_outpatients(
     inpatient: TrialDemoSourceProjection,
     outpatient: TrialPrivateOutpatientProjection,
+    *,
+    shared_approvals: Mapping[tuple[str, str, time], frozenset[str]] | None = None,
 ) -> TrialDemoSourceProjection:
     """Join independent approved sources without repeating IDs or mixing storage.
 
@@ -59,11 +62,9 @@ def merge_trial_demo_outpatients(
         or len(outpatient.weekday_view_rows) != outpatient.weekday_slot_count
     ):
         raise ValueError("Outpatient source counts disagree")
-    # The inpatient-only admission step may already have approved an exact
-    # shared-provider membership. Preserve that existing group. However, the
-    # separate outpatient file contains no cross-source approval mechanism;
-    # neither an outpatient joining that group nor two outpatient patients
-    # sharing a provider slot are implicitly approved merely by merging files.
+    # Inpatient-only groups have already been checked by admission. For any
+    # group that contains an outpatient, require the separately approved exact
+    # membership of the merged slot. No approval is inferred from the sources.
     # Reuse the established native-recurring conflict normalization, including
     # Greek accents, final sigma, spaces and periods. Do not infer other aliases.
     def provider_slot(provider, day, clock):
@@ -72,12 +73,12 @@ def merge_trial_demo_outpatients(
             raise ValueError("Provider label cannot be resolved by recurring conflict rules")
         return (key, day, clock)
 
-    inpatient_provider_slots = {
-        provider_slot(provider, day, clock)
-        for _pid, _treatment, day, clock, provider, _source in inpatient.weekly_slots.rows
-        if provider
-    }
+    all_members = {}
     outpatient_provider_slots = set()
+    for pid, _treatment, day, clock, provider, _source in inpatient.weekly_slots.rows:
+        if provider:
+            key = provider_slot(provider, day, clock)
+            all_members.setdefault(key, set()).add(pid)
     outpatient_patient_slots = set()
     for pid, _name, _treatment, day, clock, provider, _source in outpatient.weekday_view_rows:
         patient_slot = (str(pid).strip().casefold(), day, clock)
@@ -87,11 +88,32 @@ def merge_trial_demo_outpatients(
         if not provider:
             continue
         key = provider_slot(provider, day, clock)
-        if key in inpatient_provider_slots or key in outpatient_provider_slots:
-            raise ValueError(
-                "Outpatient provider slot requires explicit shared-slot approval"
-            )
+        all_members.setdefault(key, set()).add(pid)
         outpatient_provider_slots.add(key)
+
+    approved = {}
+    for key, members in (shared_approvals or {}).items():
+        if (
+            not isinstance(key, tuple) or len(key) != 3
+            or not isinstance(key[0], str)
+            or key[1] not in ("ΔΕ", "ΤΡ", "ΤΕ", "ΠΕ", "ΠΑ")
+            or not isinstance(key[2], time)
+            or not isinstance(members, frozenset) or len(members) < 2
+            or any(not isinstance(pid, str) or not pid.strip() for pid in members)
+        ):
+            raise ValueError("Invalid explicit shared-slot approval")
+        normalized = provider_slot(*key)
+        if normalized in approved:
+            raise ValueError("Duplicate explicit shared-slot approval")
+        approved[normalized] = members
+    shared = {
+        key: frozenset(all_members[key])
+        for key in outpatient_provider_slots if len(all_members[key]) > 1
+    }
+    if any(approved.get(key) != members for key, members in shared.items()):
+        raise ValueError("Outpatient provider slot requires explicit shared-slot approval")
+    if approved != shared:
+        raise ValueError("Stale or mismatched explicit shared-slot approval")
 
     registry = TrialPatientRegistryProjection(
         inpatient.patient_registry.headers, rows, len(rows)
