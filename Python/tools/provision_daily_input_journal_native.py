@@ -14,8 +14,10 @@ import sys
 from zipfile import BadZipFile, ZipFile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+PYTHON_ROOT = REPO_ROOT / "Python"
+for import_root in (REPO_ROOT, PYTHON_ROOT):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from Python.tools.prepare_native_probe_copy import create_probe_copy, ProbeCopyError
 from rehab_excel.daily_input_journal import JOURNAL_HEADERS, JOURNAL_SHEET
@@ -58,7 +60,7 @@ def _worksheet_snapshot(workbook) -> tuple[tuple[str, int], ...]:
     return tuple(result)
 
 
-def _verify_native_journal(workbook, expected_original_sheets: tuple[tuple[str, int], ...]) -> None:
+def _verify_native_journal(workbook, expected_original_sheets: tuple[tuple[str, int], ...], expected_rows: tuple[tuple, ...]) -> None:
     observed = _worksheet_snapshot(workbook)
     original_names = {name for name, _ in expected_original_sheets}
     observed_original = tuple(item for item in observed if item[0] in original_names)
@@ -73,8 +75,8 @@ def _verify_native_journal(workbook, expected_original_sheets: tuple[tuple[str, 
         raise NativeJournalProvisionError("Journal worksheet is not protected")
     if tuple(ws.Cells(1, col).Value2 for col in range(1, 6)) != JOURNAL_HEADERS:
         raise NativeJournalProvisionError("Journal headers failed native reopen readback")
-    if read_native_journal_rows(ws) != ():
-        raise NativeJournalProvisionError("New journal must be empty; unexpected records found")
+    if read_native_journal_rows(ws) != expected_rows:
+        raise NativeJournalProvisionError("Journal history changed during native save/reopen")
 
 
 def provision_daily_input_journal(
@@ -130,7 +132,8 @@ def provision_daily_input_journal(
         if any(name == JOURNAL_SHEET for name, _ in baseline_sheets):
             # Existing journal is validated by ensure(); do not replace or clear it.
             pass
-        ensure_daily_input_journal_sheet(workbook)
+        journal_sheet = ensure_daily_input_journal_sheet(workbook)
+        expected_journal_rows = read_native_journal_rows(journal_sheet)
         workbook.Save()
         workbook.Close(SaveChanges=False)
         workbook = None
@@ -145,7 +148,7 @@ def provision_daily_input_journal(
         )
         if not bool(workbook.ReadOnly):
             raise NativeJournalProvisionError("Verification reopen was not read-only")
-        _verify_native_journal(workbook, baseline_sheets)
+        _verify_native_journal(workbook, baseline_sheets, expected_journal_rows)
         workbook.Close(SaveChanges=False)
         workbook = None
         app.Quit()
