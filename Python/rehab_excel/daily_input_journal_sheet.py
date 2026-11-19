@@ -58,12 +58,15 @@ def read_native_journal_rows(ws) -> tuple[tuple, ...]:
 
 def ensure_daily_input_journal_sheet(workbook):
     """Create an empty protected/veryHidden sheet, or validate without mutation."""
-    try:
-        ws = workbook.Worksheets(JOURNAL_SHEET)
-        exists = True
-    except Exception:
-        ws = None
-        exists = False
+    # Enumerate explicitly instead of treating every COM lookup error as
+    # "sheet missing". A disconnected/invalid Excel session must fail closed.
+    ws = None
+    for index in range(1, int(workbook.Worksheets.Count) + 1):
+        candidate = workbook.Worksheets(index)
+        if str(candidate.Name) == JOURNAL_SHEET:
+            ws = candidate
+            break
+    exists = ws is not None
 
     if not exists:
         ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
