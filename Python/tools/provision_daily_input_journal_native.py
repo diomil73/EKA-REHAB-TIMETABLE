@@ -112,7 +112,6 @@ def provision_daily_input_journal(
         create_probe_copy(source, output)
         created_copy = True
         stage = "verify source unchanged after copy"
-        stage = "verify source and VBA hashes after provisioning"
         if _file_sha256(source) != source_hash:
             raise NativeJournalProvisionError("Source changed during isolated-copy creation")
 
@@ -128,7 +127,6 @@ def provision_daily_input_journal(
         app.AskToUpdateLinks = False
 
         stage = "open disposable workbook for provisioning"
-        stage = "reopen disposable workbook read-only"
         workbook = app.Workbooks.Open(
             str(output), UpdateLinks=0, ReadOnly=False,
             AddToMru=False, IgnoreReadOnlyRecommended=True,
@@ -154,6 +152,7 @@ def provision_daily_input_journal(
             raise NativeJournalProvisionError("VBA project binary changed during journal provisioning")
 
         # Independent native reopen, read-only. Reopen does not execute macros.
+        stage = "reopen disposable workbook read-only"
         workbook = app.Workbooks.Open(
             str(output), UpdateLinks=0, ReadOnly=True,
             AddToMru=False, IgnoreReadOnlyRecommended=True,
@@ -168,6 +167,7 @@ def provision_daily_input_journal(
         app.Quit()
         app = None
 
+        stage = "verify final source and VBA hashes"
         if _file_sha256(source) != source_hash:
             raise NativeJournalProvisionError("Source workbook changed during native provisioning")
         if _vba_sha256(output) != source_vba_hash:
