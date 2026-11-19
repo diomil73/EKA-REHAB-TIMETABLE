@@ -19,7 +19,7 @@ for import_root in (REPO_ROOT, PYTHON_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-from Python.tools.prepare_native_probe_copy import create_probe_copy, ProbeCopyError
+from Python.tools.prepare_native_probe_copy import create_probe_copy
 from rehab_excel.daily_input_journal import JOURNAL_HEADERS, JOURNAL_SHEET
 from rehab_excel.daily_input_journal_sheet import (
     ensure_daily_input_journal_sheet,
@@ -164,7 +164,7 @@ def provision_daily_input_journal(
             "vba_preserved": True,
             "native_save_reopen_verified": True,
             "journal_veryhidden_protected": True,
-            "journal_empty": True,
+            "journal_empty": len(expected_journal_rows) == 0,
             "operational_hooks_installed": False,
         }
     except Exception:
@@ -200,7 +200,8 @@ def main(argv: list[str] | None = None) -> int:
     print("Source unchanged: YES")
     print("VBA project preserved: YES")
     print("Excel save/close/reopen readback: GREEN")
-    print("Journal veryHidden + protected + empty: YES")
+    print("Journal veryHidden + protected: YES")
+    print("Journal empty: " + ("YES" if result["journal_empty"] else "NO (existing history preserved)"))
     print("Apply/Restore hooks installed: NO")
     print("This is a technical probe copy, not an operational workbook.")
     return 0
