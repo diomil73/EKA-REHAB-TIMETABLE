@@ -116,10 +116,12 @@ def build_daily_session_states(
     replacements = tuple(replacements)
     cancellations = tuple(cancellations)
     replacement_by_session = {
-        replacement.target_session_id: replacement for replacement in replacements
+        (replacement.target_session_id, replacement.replacement_date): replacement
+        for replacement in replacements
     }
     cancellation_by_session = {
-        cancellation.target_session_id: cancellation for cancellation in cancellations
+        (cancellation.target_session_id, cancellation.cancellation_date): cancellation
+        for cancellation in cancellations
     }
 
     states: list[DailySessionState] = []
@@ -128,7 +130,7 @@ def build_daily_session_states(
         if target_date is not None and session.session_date != target_date:
             continue
 
-        cancellation = cancellation_by_session.get(session.session_id)
+        cancellation = cancellation_by_session.get((session.session_id, session.session_date))
         if cancellation is not None and cancellation.applies_to(session):
             states.append(
                 DailySessionState(
@@ -170,7 +172,7 @@ def build_daily_session_states(
             )
             continue
 
-        replacement = replacement_by_session.get(session.session_id)
+        replacement = replacement_by_session.get((session.session_id, session.session_date))
         if replacement is not None:
             replacement_patient_absence = _covering_absence(
                 kind=AbsenceKind.PATIENT,
