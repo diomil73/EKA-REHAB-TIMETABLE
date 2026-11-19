@@ -81,6 +81,11 @@ class Sheets:
         self.workbook = workbook
 
     def __call__(self, name):
+        if isinstance(name, int):
+            values = list(self.workbook.sheets.values())
+            if name < 1 or name > len(values):
+                raise KeyError(name)
+            return values[name - 1]
         if name not in self.workbook.sheets:
             raise KeyError(name)
         return self.workbook.sheets[name]
@@ -97,7 +102,7 @@ class Sheets:
 
 class FakeWorkbook:
     def __init__(self):
-        self.sheets = {}
+        self.sheets = {"Sheet1": FakeSheet("Sheet1")}
         self.Worksheets = Sheets(self)
         self.saved = 0
 
