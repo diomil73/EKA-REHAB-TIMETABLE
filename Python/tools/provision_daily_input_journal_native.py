@@ -107,13 +107,18 @@ def provision_daily_input_journal(
     created_copy = False
     app = None
     workbook = None
+    stage = "create isolated copy"
     try:
         create_probe_copy(source, output)
         created_copy = True
+        stage = "verify source unchanged after copy"
+        stage = "verify source and VBA hashes after provisioning"
         if _file_sha256(source) != source_hash:
             raise NativeJournalProvisionError("Source changed during isolated-copy creation")
 
+        stage = "start isolated Excel instance"
         app = excel_factory()
+        stage = "configure isolated Excel instance"
         # Disable macros before either writable or verification open.
         app.AutomationSecurity = FORCE_DISABLE_MACROS
         app.Visible = False
@@ -122,22 +127,29 @@ def provision_daily_input_journal(
         app.EnableEvents = False
         app.AskToUpdateLinks = False
 
+        stage = "open disposable workbook for provisioning"
+        stage = "reopen disposable workbook read-only"
         workbook = app.Workbooks.Open(
             str(output), UpdateLinks=0, ReadOnly=False,
             AddToMru=False, IgnoreReadOnlyRecommended=True,
         )
         if bool(workbook.ReadOnly):
             raise NativeJournalProvisionError("Excel opened disposable copy read-only")
+        stage = "inspect original worksheet roster"
         baseline_sheets = _worksheet_snapshot(workbook)
         if any(name == JOURNAL_SHEET for name, _ in baseline_sheets):
             # Existing journal is validated by ensure(); do not replace or clear it.
             pass
+        stage = "create or validate protected journal sheet"
         journal_sheet = ensure_daily_input_journal_sheet(workbook)
         expected_journal_rows = read_native_journal_rows(journal_sheet)
+        stage = "save disposable workbook in native Excel"
         workbook.Save()
+        stage = "close provisioned workbook"
         workbook.Close(SaveChanges=False)
         workbook = None
 
+        stage = "verify VBA project after native save"
         if _vba_sha256(output) != source_vba_hash:
             raise NativeJournalProvisionError("VBA project binary changed during journal provisioning")
 
@@ -148,7 +160,9 @@ def provision_daily_input_journal(
         )
         if not bool(workbook.ReadOnly):
             raise NativeJournalProvisionError("Verification reopen was not read-only")
+        stage = "verify native journal and original worksheet readback"
         _verify_native_journal(workbook, baseline_sheets, expected_journal_rows)
+        stage = "close verification workbook and Excel"
         workbook.Close(SaveChanges=False)
         workbook = None
         app.Quit()
@@ -167,7 +181,7 @@ def provision_daily_input_journal(
             "journal_empty": len(expected_journal_rows) == 0,
             "operational_hooks_installed": False,
         }
-    except Exception:
+    except Exception as exc:
         if workbook is not None:
             try:
                 workbook.Close(SaveChanges=False)
@@ -180,7 +194,11 @@ def provision_daily_input_journal(
                 pass
         if created_copy:
             output.unlink(missing_ok=True)
-        raise
+        message = str(exc).replace(str(source), "<SOURCE>").replace(str(output), "<OUTPUT>")
+        message = " ".join(message.split())[:500] or "(no diagnostic message supplied)"
+        raise NativeJournalProvisionError(
+            f"Stage={stage}; cause={type(exc).__name__}; detail={message}"
+        ) from exc
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -193,7 +211,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = provision_daily_input_journal(args.source, args.output)
     except Exception as exc:
+        detail = " ".join(str(exc).split())[:700]
         print(f"SAFETY STOP: Native journal provisioning failed ({type(exc).__name__}).")
+        print(f"DIAGNOSTIC: {detail}")
         return 2
     print("DAILY_INPUT JOURNAL NATIVE PROVISION OK")
     print("Disposable copy created: YES")
