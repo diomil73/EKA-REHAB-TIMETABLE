@@ -177,3 +177,62 @@ def test_finalization_validates_header_inputs_before_persistence():
             finalized_at=FINALIZED_AT,
             approved_exception_count=-1,
         )
+
+def test_two_open_days_keep_separate_confirmed_replacements_and_cancellations():
+    from dataclasses import replace
+    from datetime import timedelta
+
+    tomorrow = DAY + timedelta(days=1)
+    # Deliberately reuse a logical ID to check explicit date isolation, even
+    # though normal materialized session IDs already include the date.
+    a = _session("S1", "P1", "T1", 8, 30)
+    b = _session("S2", "P2", "T2", 9, 15)
+    sessions = (a, b, replace(a, session_date=tomorrow),
+                replace(b, session_date=tomorrow))
+    r1 = ReplacementAssignment("R1", "S1", "P1", "T1", "T3", DAY, time(10))
+    r2 = ReplacementAssignment("R2", "S1", "P1", "T1", "T4", tomorrow, time(11))
+    c1 = DailySessionCancellation("C1", "S2", DAY, SessionCancellationKind.PATIENT_NO_SHOW)
+    c2 = DailySessionCancellation("C2", "S2", tomorrow, SessionCancellationKind.DEPARTMENT_POSTPONED)
+
+    def view(day, absences=()):
+        return build_daily_session_states(
+            sessions, absences=absences, replacements=[r1, r2],
+            cancellations=[c1, c2], target_date=day,
+        )
+
+    today_before = view(DAY)
+    tomorrow_before = view(tomorrow)
+    assert [(s.replacement_id, s.cancellation_id) for s in today_before] == [
+        ("R1", None), (None, "C1")]
+    assert [(s.replacement_id, s.cancellation_id) for s in tomorrow_before] == [
+        ("R2", None), (None, "C2")]
+    assert view(DAY) == today_before
+    late = DailyAbsence(AbsenceKind.PATIENT, "P1", DAY)
+    assert view(DAY, [late])[0].status.value == "patient_absent"
+    assert view(tomorrow, [late]) == tomorrow_before
+    assert sessions[0] == a
+    result = build_finalized_day_snapshot(
+        view(DAY, [late]), snapshot_id="today-final",
+        service_date=DAY, finalized_at=FINALIZED_AT,
+    )
+    assert result.patient_absence_count == 1
+    assert result.cancellation_count == 1
+    assert view(tomorrow, [late]) == tomorrow_before
+
+
+def test_future_date_is_never_finalized_even_with_complete_plan():
+    from dataclasses import replace
+    from datetime import timedelta
+
+    future = DAY + timedelta(days=1)
+    states = build_daily_session_states([
+        replace(_session("FUTURE", "P1", "T1", 8, 30), session_date=future)])
+    with pytest.raises(DayFinalizationError, match="future service date"):
+        build_finalized_day_snapshot(
+            states, snapshot_id="not-performed", service_date=future,
+            finalized_at=FINALIZED_AT,
+        )
+    assert build_finalized_day_snapshot(
+        states, snapshot_id="next-day-final", service_date=future,
+        finalized_at=FINALIZED_AT + timedelta(days=1),
+    ).final_session_count == 1
