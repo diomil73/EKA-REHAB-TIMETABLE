@@ -84,3 +84,95 @@ def verify_switch_storage_readback(workbook, expected: VerifiedSwitchInputs):
             or archive_rows(read_archive_sheet(raw)) != expected.draft_rows
             or applied_archive_rows(read_applied_archive(workbook[APPLIED_SHEET])) != expected.applied_rows):
         raise DailyInputDaySwitchError("Date-switch storage readback mismatch")
+
+
+@dataclass(frozen=True)
+class SwitchDayContext:
+    service_date: date
+    base_entries: tuple = field(repr=False)
+    sessions: tuple = field(repr=False)
+    replacements: tuple = field(repr=False)
+
+
+@dataclass(frozen=True)
+class SwitchSourceContext:
+    patients: tuple = field(repr=False)
+    therapist_names: tuple = field(repr=False)
+    replacement_record_dates: frozenset[date] = field(repr=False)
+    outgoing: SwitchDayContext = field(repr=False)
+    incoming: SwitchDayContext = field(repr=False)
+
+
+def read_switch_source_context(path, source_date, target_date):
+    """Use the same canonical readers as ordinary ApplyDailyInputPreview."""
+    from rehab_core.base_schedule import materialize_sessions_for_date
+    from rehab_core.lifecycle import active_entries_on
+    from .daily_replacement_facts import read_daily_replacement_fact_rows, read_daily_replacement_facts
+    from .outpatient_schedule_source import read_unified_base_schedule
+    from .patient_exit_source import read_patient_exits
+    from .patient_registry_source import read_patient_registry
+    from .reader import read_settings
+
+    patients = tuple(read_patient_registry(path))
+    settings = read_settings(path)
+    entries = tuple(read_unified_base_schedule(path))
+    exits = tuple(read_patient_exits(path, patients=patients))
+    records = read_daily_replacement_fact_rows(path, include_restored=True)
+
+    def day_context(day):
+        active = tuple(active_entries_on(entries, day, exits))
+        sessions = tuple(materialize_sessions_for_date(active, day))
+        replacements = read_daily_replacement_facts(path, sessions=sessions, target_date=day)
+        return SwitchDayContext(day, active, sessions, replacements)
+
+    return SwitchSourceContext(patients, tuple(settings.therapist_names),
+                               frozenset(f.replacement_date for f in records),
+                               day_context(source_date), day_context(target_date))
+
+
+@dataclass(frozen=True)
+class PreparedVerifiedDaySwitch:
+    source_sha256: str = field(repr=False)
+    verified: VerifiedSwitchInputs = field(repr=False)
+    context: SwitchSourceContext = field(repr=False)
+
+
+def prepare_verified_open_day_switch(workbook_path, *, expected_current_date, target_date,
+                                     initialize_new_target=False):
+    """Source-bound read-only preparation for the native transaction.
+
+    Existing archives must already have been installed with genuine applied
+    evidence. This never auto-provisions an archive or promotes legacy drafts.
+    Replacement facts are checked against materialized base sessions by their
+    existing reader. Availability/exception revalidation and view rebuild
+    are still required before actual native application.
+    """
+    from pathlib import Path
+    from openpyxl import load_workbook
+    from .authoritative_commit import file_sha256
+    from .daily_input_switch_preparation import prepare_open_day_switch
+
+    path = Path(workbook_path).resolve()
+    prepared = prepare_open_day_switch(path, expected_current_date=expected_current_date,
+                                       target_date=target_date)
+    context = read_switch_source_context(path, expected_current_date, target_date)
+    if (context.outgoing.service_date != expected_current_date
+            or context.incoming.service_date != target_date):
+        raise DailyInputDaySwitchError("Date-switch context does not match selected dates")
+    wb = load_workbook(path, read_only=False, data_only=False)
+    try:
+        if any(name not in wb.sheetnames for name in (APPLIED_SHEET, "DAILY_CHANGE_LEDGER")):
+            raise DailyInputDaySwitchError("Missing applied archive or canonical daily change ledger")
+        verified = verify_switch_inputs(
+            plan=prepared.day_plan, applied_grids=read_applied_archive(wb[APPLIED_SHEET]),
+            ledger_sheet=wb["DAILY_CHANGE_LEDGER"], patients=context.patients,
+            sessions=(*context.outgoing.sessions, *context.incoming.sessions),
+            therapist_names=context.therapist_names,
+            replacement_record_dates=context.replacement_record_dates,
+            initialize_new_target=initialize_new_target,
+        )
+    finally:
+        wb.close()
+    if file_sha256(path) != prepared.source_sha256:
+        raise DailyInputDaySwitchError("Source changed during verified date-switch preparation")
+    return PreparedVerifiedDaySwitch(prepared.source_sha256, verified, context)
