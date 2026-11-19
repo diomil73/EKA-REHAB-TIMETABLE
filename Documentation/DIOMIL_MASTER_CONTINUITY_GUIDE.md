@@ -751,3 +751,11 @@ Commits:
 ## 4.56 Τοπική επιτυχία lifecycle tests — 20/11/2026
 
 Ο χειριστής εκτέλεσε στο τοπικό Windows checkout `python -m pytest Tests/test_daily_input_operation.py -q`: **17 passed in 2.24s**. Επιβεβαιώθηκε το pure state-transition contract μαζί με τον πρόσθετο ρητό guard `rollback_verified=True`. Αυτό δεν είναι ακόμη test durable persistence ή native VBA orchestration. Επόμενο: append-only journal codec με canonical serialization, per-entry SHA-256, αυστηρή ακολουθία revisions και reconstruction μέσω του ίδιου transition validator. Θα παραμείνει αρχικά pure Python contract + tests· μετά απαιτείται σύνδεση σε protected veryHidden worksheet και native VBA save/readback. Δεν αλλάζει ακόμη operational workbook.
+
+## 4.57 Append-only DAILY_INPUT journal codec — 20/11/2026
+
+Προστέθηκαν `Python/rehab_excel/daily_input_journal.py` και `Tests/test_daily_input_journal.py`.
+
+Το journal contract ορίζει το `DAILY_INPUT_JOURNAL` με σταθερές στήλες `OperationID, Revision, Phase, PayloadSHA256, Payload`. Κάθε revision αποθηκεύεται ως canonical JSON payload με SHA-256 checksum και version prefix. Το codec είναι append-only: επιτρέπει μόνο το αμέσως επόμενο revision που εγκρίνει το `advance_daily_input_operation`, απορρίπτει τροποποιημένο/χαμένο/διπλό/αναδιατεταγμένο revision, αλλαγή operation identity, metadata mismatch και checksum corruption. Επαναφορά της πλήρους ακολουθίας ελέγχει ξανά όλες τις νόμιμες μεταβάσεις. Exact retry της ίδιας τρέχουσας κατάστασης είναι idempotent. Το readback συγκρίνει όλο το ιστορικό, όχι μόνο την τελευταία γραμμή.
+
+**Όριο:** pure codec και tests μόνο. Δεν δημιουργεί/γράφει/προστατεύει worksheet, δεν κάνει native Excel save/reopen και δεν είναι ακόμη συνδεδεμένο με Apply/Restore. Το SHA-256 ανιχνεύει αλλοίωση, δεν αποτελεί υπογραφή ή έλεγχο εξουσιοδότησης. Επόμενο είναι να εκτελεστούν τοπικά μαζί τα `Tests/test_daily_input_operation.py` και `Tests/test_daily_input_journal.py` και μετά να σχεδιαστεί ο native worksheet writer/readback adapter. Μην εντάξεις ακόμη το JOURNAL στο REQUIRED_APP_SHEETS και μην εγκαταστήσεις VBA hook πριν ολοκληρωθούν τα tests και το schema/protection review.
