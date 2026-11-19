@@ -96,8 +96,9 @@ def archive_rows(drafts):
         raise DailyInputDaySwitchError("Duplicate draft date")
     rows = []
     for draft in sorted(drafts, key=lambda d: d.service_date):
-        raw = json.dumps([[[_encode(v) for v in row] for row in grid]
-                          for grid in (draft.therapist_rows, draft.patient_rows)],
+        raw = json.dumps([draft.service_date.isoformat(),
+                          [[[_encode(v) for v in row] for row in grid]
+                           for grid in (draft.therapist_rows, draft.patient_rows)]],
                          ensure_ascii=True, allow_nan=False, separators=(",", ":")).encode("ascii")
         payload = b64encode(raw).decode("ascii")
         chunks = [payload[i:i + CHUNK] for i in range(0, len(payload), CHUNK)]
@@ -130,7 +131,10 @@ def decode_archive_rows(rows):
             raw = b64decode("".join(parts[i] for i in range(1, total + 1)), validate=True)
             if sha256(raw).hexdigest() != digest:
                 raise ValueError("Archive digest mismatch")
-            grids = json.loads(raw)
+            record = json.loads(raw)
+            if type(record) is not list or len(record) != 2 or record[0] != day:
+                raise ValueError("Archive payload date mismatch")
+            grids = record[1]
             if type(grids) is not list or len(grids) != 2:
                 raise ValueError("Invalid archive grid count")
             if any(type(grid) is not list or any(type(row) is not list for row in grid)
