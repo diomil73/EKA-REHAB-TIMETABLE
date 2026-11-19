@@ -146,3 +146,77 @@ def test_post_save_mismatch_blocks_transaction(case):
             verify_switch_storage_readback(wb, verified)
     finally:
         wb.close()
+
+
+def prepared_source(tmp_path):
+    from rehab_excel.daily_input_verified_switch import SwitchDayContext, SwitchSourceContext
+
+    args = arguments()
+    verified = verify_switch_inputs(**args)
+    wb = workbook_for(replace(verified, incoming=verified.outgoing))
+    ledger = wb.create_sheet("DAILY_CHANGE_LEDGER")
+    for row in args["ledger_sheet"].values:
+        ledger.append(row)
+    path = tmp_path / "synthetic.xlsm"
+    wb.save(path)
+    wb.close()
+    sessions = args["sessions"]
+    context = SwitchSourceContext(tuple(args["patients"]), (), frozenset(),
+        SwitchDayContext(DAY, (), (sessions[0],), ()),
+        SwitchDayContext(NEXT, (), (sessions[1],), ()))
+    return path, context, verified
+
+
+def test_source_bound_verified_preparation(tmp_path, monkeypatch):
+    from hashlib import sha256
+    from rehab_excel import daily_input_verified_switch as module
+
+    path, context, verified = prepared_source(tmp_path)
+    monkeypatch.setattr(module, "read_switch_source_context", lambda *args: context)
+    before = path.read_bytes()
+    actual = module.prepare_verified_open_day_switch(path, expected_current_date=DAY, target_date=NEXT)
+    assert actual.source_sha256 == sha256(before).hexdigest()
+    assert actual.verified.applied_rows == verified.applied_rows
+    assert actual.verified.draft_rows == verified.draft_rows
+    assert path.read_bytes() == before
+
+
+def test_source_bound_preparation_rejects_wrong_context(tmp_path, monkeypatch):
+    from rehab_excel import daily_input_verified_switch as module
+
+    path, context, _ = prepared_source(tmp_path)
+    monkeypatch.setattr(module, "read_switch_source_context", lambda *args: replace(context, incoming=context.outgoing))
+    with pytest.raises(DailyInputDaySwitchError, match="context"):
+        module.prepare_verified_open_day_switch(path, expected_current_date=DAY, target_date=NEXT)
+
+
+def test_source_bound_preparation_rejects_missing_applied_archive(tmp_path, monkeypatch):
+    from rehab_excel import daily_input_verified_switch as module
+
+    path, context, _ = prepared_source(tmp_path)
+    wb = load_workbook(path)
+    del wb[APPLIED_SHEET]
+    wb.save(path)
+    wb.close()
+    before = path.read_bytes()
+    monkeypatch.setattr(module, "read_switch_source_context", lambda *args: context)
+    with pytest.raises(DailyInputDaySwitchError, match="Missing applied archive"):
+        module.prepare_verified_open_day_switch(path, expected_current_date=DAY, target_date=NEXT)
+    assert path.read_bytes() == before
+
+
+def test_source_bound_preparation_rejects_concurrent_saved_edit(tmp_path, monkeypatch):
+    from rehab_excel import daily_input_verified_switch as module
+
+    path, context, _ = prepared_source(tmp_path)
+
+    def concurrent_save(*args):
+        wb = load_workbook(path)
+        wb["DAILY_INPUT"]["F7"] = "late edit"
+        wb.save(path)
+        wb.close()
+        return context
+
+    monkeypatch.setattr(module, "read_switch_source_context", concurrent_save)
+    with pytest.raises(DailyInputDaySwitchError, match="Source changed"):
+        module.prepare_verified_open_day_switch(path, expected_current_date=DAY, target_date=NEXT)
