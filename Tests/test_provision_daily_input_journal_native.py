@@ -32,7 +32,10 @@ def test_native_failure_removes_only_its_disposable_copy_and_preserves_source(tm
     def fail_to_start_excel():
         raise RuntimeError("synthetic Excel startup failure")
 
-    with pytest.raises(RuntimeError, match="startup failure"):
+    with pytest.raises(
+        NativeJournalProvisionError,
+        match=r"Stage=start isolated Excel instance; cause=RuntimeError; detail=synthetic Excel startup failure",
+    ):
         provision_daily_input_journal(source, output, excel_factory=fail_to_start_excel)
 
     assert source.read_bytes() == before
@@ -47,3 +50,21 @@ def test_existing_output_is_never_overwritten(tmp_path):
     with pytest.raises(NativeJournalProvisionError, match="refusing overwrite"):
         provision_daily_input_journal(source, output, excel_factory=lambda: None)
     assert output.read_bytes() == b"operator-owned"
+    
+def test_failure_diagnostic_redacts_local_source_and_output_paths(tmp_path):
+    source = tmp_path / "private-source.xlsm"
+    output = tmp_path / "private-output.xlsm"
+    make_xlsm(source)
+
+    def fail_to_start_excel():
+        raise RuntimeError(f"cannot start for {source} and {output}")
+
+    with pytest.raises(NativeJournalProvisionError) as caught:
+        provision_daily_input_journal(source, output, excel_factory=fail_to_start_excel)
+    message = str(caught.value)
+    assert "Stage=start isolated Excel instance" in message
+    assert "<SOURCE>" in message
+    assert "<OUTPUT>" in message
+    assert str(source) not in message
+    assert str(output) not in message
+    assert not output.exists()
