@@ -25,6 +25,11 @@ Public Sub SaveOperationalDay()
     rawDate = ws.Range("B2").Value
     If Not IsDate(rawDate) Then GoTo SafetyStop
     serviceDate = DateValue(CDate(rawDate))
+    If serviceDate > Date Then
+        MsgBox "Η μελλοντική ημέρα είναι πρόγραμμα, όχι πραγματοποιημένες θεραπείες." & vbCrLf & _
+               "Δεν έγινε οριστικοποίηση.", vbExclamation, "Αποθήκευση ημέρας"
+        Exit Sub
+    End If
 
     On Error Resume Next
     Set history = ThisWorkbook.Worksheets("FINALIZED_DAY_SNAPSHOTS")
