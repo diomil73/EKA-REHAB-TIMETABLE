@@ -34,7 +34,7 @@ def read_native_journal_rows(ws) -> tuple[tuple, ...]:
     headers = tuple(_cell_value(ws, 1, col) for col in range(1, 6))
     if headers != JOURNAL_HEADERS:
         raise DailyInputJournalSheetError("Invalid DAILY_INPUT journal worksheet headers")
-    last_row = int(ws.Cells(ws.Rows.Count, 1).End(-4162).Row)  # xlUp
+    last_row = max(int(ws.Cells(ws.Rows.Count, col).End(-4162).Row) for col in range(1, 6))  # xlUp
     rows = []
     for row in range(2, last_row + 1):
         values = tuple(_cell_value(ws, row, col) for col in range(1, 6))
