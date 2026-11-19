@@ -74,6 +74,14 @@ def _decode_row(row) -> DailyInputOperation:
         }
         if set(value) != expected_keys:
             raise ValueError("unexpected journal payload schema")
+        string_fields = (
+            "operation_id", "source_sha256", "service_date", "phase",
+            "failure_code", "failure_detail", "operator_resolution",
+        )
+        if any(type(value[key]) is not str for key in string_fields):
+            raise ValueError("journal text fields must be strings")
+        if type(value["revision"]) is not int or type(value["rollback_verified"]) is not bool:
+            raise ValueError("journal revision/rollback types are invalid")
         operation = DailyInputOperation(
             operation_id=value["operation_id"],
             source_sha256=value["source_sha256"],
@@ -85,7 +93,7 @@ def _decode_row(row) -> DailyInputOperation:
             operator_resolution=value["operator_resolution"],
             rollback_verified=value["rollback_verified"],
         )
-    except (ValueError, TypeError, KeyError, DailyInputOperationError) as exc:
+    except (ValueError, TypeError, KeyError, AttributeError, DailyInputOperationError) as exc:
         raise DailyInputJournalError("Invalid DAILY_INPUT journal payload") from exc
     if (operation.operation_id, operation.revision, operation.phase.value) != (
         operation_id, revision, phase
