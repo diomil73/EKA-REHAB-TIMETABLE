@@ -568,3 +568,87 @@ Read-only source inspection του branch: models.py (Session.session_date, Dail
 **Πραγματική εκτέλεση:** direct git fetch στο test container απέτυχε DNS. Ανασυστάθηκαν προσωρινά τα συγκεκριμένα οκτώ Python source/test files από το connector, ελέγχθηκαν με git hash-object και ταυτίστηκαν ακριβώς με τα GitHub blob SHAs: models 91306a4, daily_state 5a3cfbc, daily_statistics c6878b06, day_finalization 2a7b29b, orphan_resolution 73b838c, test_day_finalization 54a35e4, daily_input_day_switch b6ea425, test_daily_input_day_switch 7b47ed2. Minimal empty package initializers στο isolated runtime, όχι πλήρες checkout. `python -m pytest test_day_finalization.py test_daily_input_day_switch.py -q`: **19 passed in 0.06s**, 6+13, source-only, όχι full suite/CI/native. Workflow runs/combined status για 9c2d9b9 επέστρεψαν κενά· no CI GREEN claim. Όλα fictional, κανένα real workbook τροποποιημένο.
 
 **Επόμενο ακριβές engineering:** read-only capture/validation literal editable zones από actual DAILY_INPUT spec, immutable source-date archive μέσα στο ίδιο workbook (να εξεταστεί reuse υπάρχοντος ledger χωρίς loss semantics, όχι νέο ανεξάρτητο XLSM), verified exact-date archive load και transactional native apply/rollback. Συνδυασμός με υπάρχον date-keyed ACTIVE replacements/restore/ledger και projection rebuild για clean/changed dates, ημερομηνιακή συνέπεια MASTER/DAILY_INPUT/THERAPIST_DAILY, επιλογή/μετάβαση από finalized προς open day χωρίς ιστορική μετάλλαξη. Προτού χαρακτηριστεί native accepted, full focused regressions/CI, νέα isolated Windows synthetic workbook και end-to-end proof §4.44, όχι επανάληψη frozen tests. Ο χρήστης δεν απαιτείται να εκτελέσει κάτι τώρα. R6 admission/combined exception pending παραμένουν χωριστά. Native DEMO PENDING.
+
+
+## 4.46 Διαγράμματα ροής παράλληλου ημερήσιου προγραμματισμού — 19/11/2026
+
+Ο χειριστής ζήτησε τα αντίστοιχα πρακτικά flowcharts για τις §§4.44–4.45. Στον κεντρικό οδηγό, PROJECT_DELIVERY_MASTER_REPORT_20261115 και CURRENT_HANDOFF δεν βρέθηκαν ειδικά flowcharts για αυτό το νέο σενάριο. Τα ακόλουθα είναι **προτεινόμενα, δεσμευμένα με τα υπάρχοντα contracts διαγράμματα υλοποίησης/acceptance, όχι απόδειξη ολοκληρωμένης native λειτουργίας**. Η επιλογή ακριβούς μορφής controls, διαλόγων και storage schema μένει προς υλοποίηση/επαλήθευση. Μία authoritative εφαρμογή XLSM, όχι διαφορετικά workbook ανά ημέρα.
+
+### A. Αλλαγή επιλεγμένης ημερομηνίας (MASTER)
+```mermaid
+flowchart TD
+    A["MASTER: ενεργή ημερομηνία και κατάσταση"] --> B["Σήμερα / Επόμενη εργάσιμη / Άλλη ημερομηνία"]
+    B --> C{"Διαφορετική ημερομηνία;"}
+    C -->|Όχι| A
+    C -->|Ναι| D{"Εκκρεμούν μη αποθηκευμένες αλλαγές;"}
+    D -->|Ναι| E{"Εφαρμογή ή αποθήκευση πρόχειρου ή ακύρωση μετάβασης"}
+    E -->|Ακύρωση| A
+    E -->|Εφαρμογή ή πρόχειρο| F["Έλεγχος τρέχουσας ημερομηνίας, layout, source hash και κατάστασης"]
+    D -->|Όχι| F
+    F --> G{"Στόχος ήδη οριστικοποιημένος;"}
+    G -->|Ναι| H["Ιστορική προβολή χωρίς εγγραφή / ξεχωριστή amendment route"]
+    G -->|Όχι| I["Ανάκτηση ημερήσιου draft και τελευταίων επιβεβαιωμένων facts ή καθαρού overlay"]
+    I --> J["Επανυπολογισμός με ισχύον recurring, census, roster, absences, replacements"]
+    J --> K{"Νέες συγκρούσεις ή stale επιβεβαιώσεις;"}
+    K -->|Ναι| L["Εμφάνιση εκκρεμοτήτων, καμία σιωπηλή διαγραφή ή έγκριση"]
+    K -->|Όχι| M["Προετοιμασία date-specific προβολών"]
+    L --> M
+    M --> N["Atomic native apply / semantic readback / save"]
+    N --> O{"Επιτυχία;"}
+    O -->|Ναι| P["MASTER + DAILY_INPUT + THERAPIST_DAILY ίδια ημερομηνία"]
+    O -->|Όχι| Q["Rollback στην προγενέστερη κατάσταση, διατήρηση drafts και σαφές μήνυμα"]
+```
+
+Ο μηχανισμός open-only του §4.45 καλύπτει μόνο το pure plan για δύο μη οριστικοποιημένες ημερομηνίες. Η ιστορική προβολή/μετάβαση από κλειστή σε ανοικτή απαιτεί ξεχωριστό read-only/transaction route. Μη αποθηκευμένο ή ημιτελές input δεν εξισώνεται με εγκεκριμένη λειτουργική αλλαγή: πρέπει να διατηρηθούν τα raw editable δεδομένα και η τελευταία επιβεβαιωμένη effective κατάσταση, χωρίς αυτόματη ενεργοποίηση μη έγκυρης γραμμής. Αν αποτύχει validation ή persistence, δεν αλλάζει η ενεργή ημερομηνία. Καμία αυτόματη finalization στην εναλλαγή. Weekend shortcut: επόμενη εργάσιμη ΔΕ–ΠΑ, το ακριβές label/holiday behaviour μένει προς επιβεβαίωση.
+
+### B. Προετοιμασία μελλοντικής ημέρας και εφαρμογή
+```mermaid
+flowchart TD
+    A["Επιλογή μελλοντικής εργάσιμης ημερομηνίας"] --> B["Φόρτωση ισχύοντος εβδομαδιαίου προγράμματος και αποθηκευμένου overlay"]
+    B --> C["DAILY_INPUT: γνωστές άδειες / εξετάσεις / προσωρινές απουσίες"]
+    C --> D{"Έγκυρες καταχωρίσεις;"}
+    D -->|Όχι| E["Διόρθωση ή αποθήκευση μη εφαρμοσμένου πρόχειρου"]
+    E --> C
+    D -->|Ναι| F["Υπάρχων μηχανισμός ημερήσιας προβολής και προτάσεων ΦΘ"]
+    F --> G{"Χρειάζεται εξαίρεση ή παραμένει εκκρεμότητα;"}
+    G -->|Ναι| H["Ρητή επιβεβαίωση μόνο επιτρεπτής εξαίρεσης ή διατήρηση εκκρεμότητας"]
+    G -->|Όχι| I["Προεπισκόπηση και επιβεβαίωση επιλογών"]
+    H --> I
+    I --> J["Αποθήκευση προγράμματος ανά service date και verified readback"]
+    J --> K["Επιστροφή στο Σήμερα χωρίς αλλαγή σημερινών facts"]
+```
+
+Χρήση υπαρχόντων solver, capacity, recurring/patient conflict, double-booking confirmation και replacement facts με τις ήδη ισχύουσες δικλίδες, όχι νέος ανεξάρτητος scheduler. Η συνήθης αποθήκευση μελλοντικού προγράμματος δεν καταγράφει attendance, CURRENT_FINAL ή DAY_FINALIZED. Εκκρεμής μη επιλυμένη συνεδρία παραμένει εμφανής, όχι αυτόματα ακυρωμένη. Μελλοντικό μη παρατηρημένο no-show δεν δηλώνεται ως πραγματοποιημένο γεγονός. Οι μόνιμες αλλαγές και πραγματικά εξιτήρια έχουν χωριστή date-effective σημασιολογία.
+
+### C. Έναρξη νέας πραγματικής ημέρας και οριστικοποίηση
+```mermaid
+flowchart TD
+    A["Άνοιγμα DIOMIL ή επιλογή Σήμερα"] --> B["Πραγματική τοπική ημερομηνία"]
+    B --> C{"Υπάρχει οριστικοποιημένο ιστορικό;"}
+    C -->|Ναι| D["Ιστορική προβολή / ρητή amendment route"]
+    C -->|Όχι| E["Ανάκτηση αποθηκευμένου προγράμματος ή αρχικοποίηση από recurring"]
+    E --> F["Έλεγχος επίκαιρου census, αναθέσεων, διαθεσιμότητας και εξαιρέσεων"]
+    F --> G["Διατήρηση προηγούμενων έγκυρων επιλογών και επισήμανση νέων συγκρούσεων"]
+    G --> H["Έκτακτες αλλαγές / επιβεβαιώσεις με τον υπάρχοντα ημερήσιο μηχανισμό"]
+    H --> I{"Ο χρήστης ζητά οριστικοποίηση;"}
+    I -->|Όχι| J["Αποθήκευση προγράμματος / συνέχεια εργασίας"]
+    J --> H
+    I -->|Ναι| K{"Σωστή ημερομηνία και πλήρη έγκυρα αποτελέσματα;"}
+    K -->|Όχι| H
+    K -->|Ναι| L["Υπάρχων CloseOperationalDay / verified history"]
+    L --> M["CURRENT_FINAL μόνο για τη συγκεκριμένη service date"]
+```
+
+Η πραγματική ημερομηνία ανοίγματος δεν ταυτίζεται με την επιλεγμένη ημερομηνία επεξεργασίας. Εκκρεμής προηγούμενη ημέρα δεν κλείνει αυτόματα κατά την αλλαγή ημέρας. Όλα τα μελλοντικά drafts και confirmed overlays παραμένουν ανεπηρέαστα. Μελλοντικό service date απορρίπτεται από τον ήδη προστεθέντα source guard (§4.45); επιβεβαίωση ολοκλήρωσης πραγματικής ημέρας εξακολουθεί να απαιτείται.
+
+### D. Τεχνικό state/ownership και κρίσιμη συναλλαγή
+
+- Recurring/registry/date-effective events: υφιστάμενη authoritative πηγή.
+- Raw DAILY_INPUT ανά service date: αποθήκευση/ανάκτηση χωρίς απώλεια literal πεδίων και ακριβούς row identity. Δεν αντικαθιστά confirmed facts.
+- Confirmed ημερήσια facts/approved exceptions: υφιστάμενα date-keyed ledgers ή στοχευμένη lossless επέκτασή τους. Καμία διπλή πηγή αλήθειας ή γενική έγκριση.
+- Operational προβολές: παράγονται ξανά από την ενεργή ημερομηνία και την effective κατάσταση. Ποτέ authoritative αντίγραφο ωρών από rendered cells.
+- Historical facts: immutable finalized snapshots και υπάρχουσα versioned amendment route.
+
+Η αλλαγή ημερομηνίας απαιτεί atomic validation → prepare → apply → persisted readback → commit, αλλιώς rollback χωρίς απώλεια του outgoing draft. Restore row/selected/all περιορίζεται στην επιλεγμένη ημερομηνία και στα ακριβή change IDs. Απαιτούνται δοκιμές εναλλαγής clean/dirty, failure injection, save/reopen, σήμερα-only finalization, history read-only, επόμενη εργάσιμη, late αλλαγές σε census/provider, stale approvals, προστασία unresolved drafts και συμφωνία ημερομηνιών σε όλα τα operational views. Δεν πρέπει να δεσμευτεί πραγματικό slot από πρόχειρη μη επιβεβαιωμένη καταχώριση.
+
+**Κατάσταση:** η παρούσα ενότητα προσθέτει μόνο τεκμηρίωση των ροών, όχι νέο code/test/native proof. Παραμένουν οι 19 πραγματικά εκτελεσμένοι focused source-only έλεγχοι του §4.45. Επόμενο engineering: read-only capture/store/readback raw DAILY_INPUT zones και διαχωρισμός draft/confirmed, με επαναχρησιμοποίηση των existing ledgers, πριν date navigation/UI. R6 import ξεχωριστά pending. Native DEMO PENDING.
