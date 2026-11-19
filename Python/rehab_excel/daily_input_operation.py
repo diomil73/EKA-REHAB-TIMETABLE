@@ -71,6 +71,7 @@ class DailyInputOperation:
     failure_code: str = ""
     failure_detail: str = ""
     operator_resolution: str = ""
+    rollback_verified: bool = False
 
     def __post_init__(self) -> None:
         if not self.operation_id.strip():
@@ -87,6 +88,10 @@ class DailyInputOperation:
             raise DailyInputOperationError("FAILED requires a failure_code")
         if self.phase == DailyInputOperationPhase.ROLLED_BACK and not self.failure_code.strip():
             raise DailyInputOperationError("ROLLED_BACK requires retained failure evidence")
+        if self.phase == DailyInputOperationPhase.ROLLED_BACK and not self.rollback_verified:
+            raise DailyInputOperationError("ROLLED_BACK requires verified rollback evidence")
+        if self.rollback_verified and self.phase != DailyInputOperationPhase.ROLLED_BACK:
+            raise DailyInputOperationError("rollback_verified is only valid in ROLLED_BACK")
         if self.phase == DailyInputOperationPhase.PENDING_OPERATOR_DECISION and self.operator_resolution:
             raise DailyInputOperationError("pending decision cannot already have a resolution")
         if self.operator_resolution and self.phase not in {
@@ -115,6 +120,7 @@ def advance_daily_input_operation(
     operator_resolution: str = "",
     failure_code: str = "",
     failure_detail: str = "",
+    rollback_verified: bool = False,
 ) -> DailyInputOperation:
     """Return the next state; exact retries are idempotent, conflicting retries fail.
 
@@ -127,6 +133,7 @@ def advance_daily_input_operation(
             operator_resolution == operation.operator_resolution
             and failure_code == operation.failure_code
             and failure_detail == operation.failure_detail
+            and rollback_verified == operation.rollback_verified
         ):
             return operation
         raise DailyInputOperationError("Conflicting replay for the current operation phase")
@@ -158,7 +165,10 @@ def advance_daily_input_operation(
     elif target == DailyInputOperationPhase.ROLLED_BACK:
         if operation.phase != DailyInputOperationPhase.FAILED:
             raise DailyInputOperationError("Rollback is only valid after FAILED")
-    elif operator_resolution or failure_code or failure_detail:
+        if not rollback_verified:
+            raise DailyInputOperationError("ROLLED_BACK requires verified rollback evidence")
+        changes["rollback_verified"] = True
+    elif operator_resolution or failure_code or failure_detail or rollback_verified:
         raise DailyInputOperationError("Unexpected transition metadata")
 
     return replace(operation, **changes)
