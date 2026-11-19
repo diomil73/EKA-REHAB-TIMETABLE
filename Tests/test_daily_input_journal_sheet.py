@@ -11,10 +11,16 @@ from rehab_excel.daily_input_journal_sheet import (
 
 
 class Cell:
-    def __init__(self, value=None):
-        self.Value2 = value
+    def __init__(self, sheet, row, col):
+        self.sheet, self.row, self.col = sheet, row, col
+        self.Value2 = None
         self.HasFormula = False
-        self.Text = "" if value is None else str(value)
+        self.Text = ""
+
+    def End(self, direction):
+        populated = [r for (r, c), cell in self.sheet.values.items()
+                     if c == self.col and cell.Value2 is not None]
+        return EndCell(max(populated, default=1))
 
 
 class EndCell:
@@ -38,7 +44,7 @@ class Cells:
         self.Rows = SimpleNamespace(Count=1000)
 
     def __call__(self, row, col):
-        return self.sheet.values.setdefault((row, col), Cell())
+        return self.sheet.values.setdefault((row, col), Cell(self.sheet, row, col))
 
     def __getitem__(self, key):
         raise AssertionError("Unexpected indexed access")
