@@ -70,7 +70,10 @@ def test_failed_operation_requires_verified_rollback_before_terminal_state():
     assert not value.is_terminal
     with pytest.raises(DailyInputOperationError, match="Illegal"):
         advance(operation(), Phase.ROLLED_BACK)
-    value = advance(value, Phase.ROLLED_BACK)
+    with pytest.raises(DailyInputOperationError, match="verified rollback"):
+        advance(value, Phase.ROLLED_BACK)
+    value = advance(value, Phase.ROLLED_BACK, rollback_verified=True)
+    assert value.rollback_verified
     assert value.is_terminal
     assert not value.may_report_success
     assert value.failure_code == "REFRESH_FAILED"
@@ -118,7 +121,7 @@ def test_no_success_shortcut_or_transition_out_of_terminal_state():
                 current = advance(current, phase)
         else:
             current = advance(current, Phase.FAILED, failure_code="X")
-            current = advance(current, Phase.ROLLED_BACK)
+            current = advance(current, Phase.ROLLED_BACK, rollback_verified=True)
         with pytest.raises(DailyInputOperationError, match="Terminal"):
             advance(current, Phase.FAILED, failure_code="again")
 
