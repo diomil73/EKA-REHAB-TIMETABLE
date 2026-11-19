@@ -154,3 +154,11 @@ def test_visible_or_unprotected_existing_journal_fails_closed():
         wb.sheets[JOURNAL_SHEET] = ws
         with pytest.raises(DailyInputJournalSheetError):
             ensure_daily_input_journal_sheet(wb)
+
+def test_rejects_partial_trailing_row_even_when_operation_id_column_is_blank():
+    ws = FakeSheet()
+    for col, value in enumerate(JOURNAL_HEADERS, 1):
+        ws.Write(1, col, value)
+    ws.Write(2, 5, "orphan payload")
+    with pytest.raises(DailyInputJournalSheetError, match="Partial row"):
+        read_native_journal_rows(ws)
