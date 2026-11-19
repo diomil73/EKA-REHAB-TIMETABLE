@@ -87,3 +87,17 @@ def test_journal_requires_valid_rollback_state():
     rows = append_operation_journal(rows, failed)
     rows = append_operation_journal(rows, rolled)
     assert decode_operation_journal(rows)[-1].rollback_verified
+
+def test_rejects_malformed_payload_field_types():
+    import json
+    from hashlib import sha256
+
+    row = list(append_operation_journal((), op())[0])
+    payload = json.loads(row[4].split(":", 1)[1])
+    payload["service_date"] = ["not", "a", "string"]
+    raw = json.dumps(payload, ensure_ascii=True, allow_nan=False,
+                     sort_keys=True, separators=(",", ":"))
+    row[3] = sha256(("diomil-journal-v1:" + raw).encode("ascii")).hexdigest()
+    row[4] = "diomil-journal-v1:" + raw
+    with pytest.raises(DailyInputJournalError, match="payload"):
+        decode_operation_journal((tuple(row),))
