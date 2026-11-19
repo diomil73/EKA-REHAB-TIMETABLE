@@ -7,6 +7,7 @@ from rehab_excel.daily_input_journal import (
     append_operation_journal,
     decode_operation_journal,
     verify_operation_journal_readback,
+    _row,
 )
 
 
@@ -43,19 +44,9 @@ def test_rejects_non_prepared_first_entry():
 
 def test_rejects_missing_revision():
     first = op()
-    third = advance_daily_input_operation(
-        advance_daily_input_operation(first, Phase.INPUT_AND_LEDGER_COMMITTED),
-        Phase.PROJECTIONS_VERIFIED,
-    )
-    rows = append_operation_journal((), first) + ((
-        third.operation_id, third.revision, third.phase.value,
-        __import__("hashlib").sha256(("diomil-journal-v1:" + __import__(
-            "rehab_excel.daily_input_journal", fromlist=["_payload"]
-        )._payload(third)).encode("ascii")).hexdigest(),
-        "diomil-journal-v1:" + __import__(
-            "rehab_excel.daily_input_journal", fromlist=["_payload"]
-        )._payload(third),
-    ),)
+    committed = advance_daily_input_operation(first, Phase.INPUT_AND_LEDGER_COMMITTED)
+    third = advance_daily_input_operation(committed, Phase.PROJECTIONS_VERIFIED)
+    rows = append_operation_journal((), first) + (_row(third),)
     with pytest.raises(DailyInputJournalError, match="revision"):
         decode_operation_journal(rows)
 
