@@ -69,6 +69,8 @@ def build_finalized_day_snapshot(
         raise DayFinalizationError("snapshot version must be at least 1")
     if finalized_at.tzinfo is None or finalized_at.utcoffset() is None:
         raise DayFinalizationError("finalized_at must include a timezone offset")
+    if service_date > finalized_at.date():
+        raise DayFinalizationError("Cannot finalize a future service date")
     if planned_session_count is not None and planned_session_count < 0:
         raise DayFinalizationError("planned_session_count cannot be negative")
     if approved_exception_count < 0:
