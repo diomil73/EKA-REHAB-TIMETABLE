@@ -38,7 +38,7 @@ class Cells:
         self.Rows = SimpleNamespace(Count=1000)
 
     def __call__(self, row, col):
-        return self.sheet.Cells(row, col)
+        return self.sheet.values.setdefault((row, col), Cell())
 
     def __getitem__(self, key):
         raise AssertionError("Unexpected indexed access")
@@ -56,9 +56,6 @@ class FakeSheet:
 
     def __call__(self, row, col):
         return self.Cells(row, col)
-
-    def Cells(self, row, col):
-        return self.values.setdefault((row, col), Cell())
 
     @property
     def Rows(self):
