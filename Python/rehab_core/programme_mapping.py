@@ -229,6 +229,14 @@ def validate_weekly_entry_consistency(
         ):
             used.add(pair)
             continue
-        raise ProgrammeMappingError("Potential patient slot overlap without exact confirmation")
+        source_cells = sorted({item.source_cell for item in group})
+        if len(source_cells) == 2:
+            source_detail = f"{source_cells[0]} and {source_cells[1]}"
+        else:
+            source_detail = ", ".join(source_cells)
+        raise ProgrammeMappingError(
+            f"Patient slot conflict between {source_detail}; "
+            "potential overlap without exact confirmation"
+        )
     if used != confirmed_combined_slots:
         raise ProgrammeMappingError("Stale or unmatched combined slot confirmation")
