@@ -45,6 +45,8 @@ def capture_daily_input(ws, *, parse_date):
     p1, p2 = _area(ws, "PY_PATIENTS")
     if t1 != 7 or t2 < t1 or p1 != t2 + 5 or p2 < p1:
         raise DailyInputDaySwitchError("Unexpected DAILY_INPUT row layout")
+    if max(ws.max_row, p2) > 10000:
+        raise DailyInputDaySwitchError("DAILY_INPUT used area needs explicit layout review")
     for row, headers in (
         (t1 - 1, ("Θεραπευτής", "Όλη ημέρα", "Από", "Έως", "Αιτία", "Σχόλιο")),
         (p1 - 1, ("Ασθενής", "Όλη ημέρα", "Ώρα", "Κατάσταση", "Σχόλιο")),
@@ -54,8 +56,6 @@ def capture_daily_input(ws, *, parse_date):
     for row in ws.iter_rows(min_row=t2 + 1, max_row=p1 - 3, max_col=6):
         if any(_value(c) is not None for c in row):
             raise DailyInputDaySwitchError("Unexpected input outside therapist rows")
-    if ws.max_row > 10000:
-        raise DailyInputDaySwitchError("DAILY_INPUT used area needs explicit layout review")
     if ws.max_row > p2:
         for row in ws.iter_rows(min_row=p2 + 1, max_col=5):
             if any(_value(c) is not None for c in row):
