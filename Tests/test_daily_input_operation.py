@@ -68,7 +68,7 @@ def test_pending_decision_rejects_ambiguous_or_unfinished_resolution(resolution)
 def test_failed_operation_requires_verified_rollback_before_terminal_state():
     value = advance(operation(), Phase.FAILED, failure_code="REFRESH_FAILED", failure_detail="test")
     assert not value.is_terminal
-    with pytest.raises(DailyInputOperationError, match="Rollback"):
+    with pytest.raises(DailyInputOperationError, match="Illegal"):
         advance(operation(), Phase.ROLLED_BACK)
     value = advance(value, Phase.ROLLED_BACK)
     assert value.is_terminal
