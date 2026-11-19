@@ -132,3 +132,35 @@ def test_duplicate_draft_and_archive_formula_rejected():
     ws["E2"] = "=1+1"
     with pytest.raises(DailyInputDaySwitchError):
         read_archive_sheet(ws)
+
+def test_archive_survives_synthetic_xlsx_serialization():
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    original = drafts()
+    wb = Workbook()
+    ws = wb.create_sheet(ARCHIVE_SHEET)
+    ws.sheet_state = "veryHidden"
+    ws.protection.sheet = True
+    ws.append(HEADERS)
+    for row in archive_rows(original):
+        ws.append(row)
+    buffer = BytesIO()
+    wb.save(buffer)
+    wb.close()
+    buffer.seek(0)
+    reopened = load_workbook(buffer, data_only=False)
+    try:
+        archive = reopened[ARCHIVE_SHEET]
+        assert archive.sheet_state == "veryHidden"
+        assert archive.protection.sheet
+        assert archive_rows(read_archive_sheet(archive)) == archive_rows(original)
+    finally:
+        reopened.close()
+
+
+def test_excessive_declared_validation_range_rejected_before_grid_capture():
+    ws = sheet()
+    ws.data_validations.dataValidation[1].sqref = "A13:A1048576"
+    with pytest.raises(DailyInputDaySwitchError, match="explicit layout review"):
+        capture(ws)
