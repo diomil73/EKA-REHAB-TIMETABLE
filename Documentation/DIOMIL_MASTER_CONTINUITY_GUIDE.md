@@ -818,3 +818,11 @@ Commits:
 ## 4.63 Επιλογή πηγής για το πρώτο native journal smoke — 20/11/2026
 
 Για την πρώτη τεχνική δοκιμή επιλέγεται ως source το ήδη γνωστό disposable/demo candidate `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm`, που χρησιμοποιήθηκε και στην προηγούμενη οπτική επιθεώρηση μέσω `prepare_native_probe_copy.py`. Δεν είναι η νέα τελική demo έκδοση ούτε operational workbook· χρησιμοποιείται αποκλειστικά ως βάση για νέο timestamped probe copy. Δεν χρησιμοποιείται το πραγματικό MASTER ή το `DIOMIL_REVIEW_TECHNICAL_DRAFT_20261117.xlsx`. Αν το source λείπει, είναι ανοιχτό/κλειδωμένο ή δεν περνά τους αρχικούς ελέγχους VBA/XLSM, STOP χωρίς εναλλακτική αυτόματη επιλογή αρχείου. Το native smoke δεν εγκαθιστά afternoon sheet, δεν αλλάζει υπάρχον VBA components και δεν προσθέτει hooks.
+
+## 4.64 Native journal provision failure: diagnostic instrumentation — 20/11/2026
+
+Η πρώτη native εκτέλεση σταμάτησε με `SAFETY STOP: Native journal provisioning failed (NativeJournalProvisionError)`, exit code 2. Η προηγούμενη έκδοση του CLI έκρυβε την αιτία και τύπωνε μόνο τον τύπο exception. Δεν προκύπτει ακόμη σε ποιο στάδιο απέτυχε. Δεν επιτρέπεται επανάληψη native smoke μέχρι να γίνει η διάγνωση.
+
+Προστέθηκε stage-aware, sanitized diagnostic στο `Python/tools/provision_daily_input_journal_native.py`. Η αποτυχία πλέον αναφέρει `Stage`, αρχικό exception type και περιορισμένο μήνυμα, με redaction των source/output local paths. Τα στάδια διαχωρίζουν copy, Excel startup/configuration, writable open, worksheet enumeration, sheet provisioning, native save/close, VBA hash, read-only reopen, readback και final hash checks. Το failure cleanup εξακολουθεί να κλείνει Excel/workbook και να διαγράφει μόνο το disposable output που δημιούργησε η ίδια εκτέλεση.
+
+Το test για synthetic Excel startup failure ενημερώθηκε να ελέγχει stage/cause, και προστέθηκε test redaction τοπικών paths. Commits `b439191`, `63d2893`, `4b730a9`. Εκκρεμεί τοπική εκτέλεση των τεσσάρων test files. Μόνο μετά από green suite επιτρέπεται νέα native εκτέλεση, με νέο timestamped output και χωρίς αλλαγή source.
