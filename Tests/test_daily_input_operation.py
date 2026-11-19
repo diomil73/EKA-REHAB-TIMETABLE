@@ -136,3 +136,14 @@ def test_operation_identity_and_source_hash_are_mandatory():
 def test_pending_state_cannot_claim_resolution():
     with pytest.raises(DailyInputOperationError, match="pending decision"):
         replace(operation(), phase=Phase.PENDING_OPERATOR_DECISION, operator_resolution="manual_completed")
+
+def test_rolled_back_requires_explicit_verified_rollback_marker():
+    with pytest.raises(DailyInputOperationError, match="verified rollback evidence"):
+        replace(operation(), phase=Phase.ROLLED_BACK, failure_code="X")
+    with pytest.raises(DailyInputOperationError, match="only valid in ROLLED_BACK"):
+        replace(operation(), rollback_verified=True)
+
+
+def test_rollback_marker_cannot_be_attached_to_success_transition():
+    with pytest.raises(DailyInputOperationError, match="Unexpected transition metadata"):
+        advance(operation(), Phase.INPUT_AND_LEDGER_COMMITTED, rollback_verified=True)
