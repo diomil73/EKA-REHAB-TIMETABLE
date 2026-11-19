@@ -781,3 +781,22 @@ Commits:
 Ο χειριστής επανέλαβε τα `Tests/test_daily_input_operation.py`, `Tests/test_daily_input_journal.py` και `Tests/test_daily_input_journal_sheet.py` μετά τη διόρθωση του test double: **33 passed in 2.60s, PYTEST_EXIT_CODE=0**. Επιβεβαιώθηκε το pure lifecycle contract, το append-only/checksummed journal codec και το COM worksheet provision/readback contract με mocked Excel object model. Αυτό δεν αποτελεί ακόμη πραγματικό Excel COM/native XLSM proof, ούτε durable append event, ούτε Apply/Restore integration.
 
 Επόμενη εργασία: σχεδιασμός disposable-copy provisioner με `prepare_native_probe_copy.py` ως πρότυπο, έλεγχος macro/VBA preservation, δημιουργία `DAILY_INPUT_JOURNAL` μόνο σε αντίγραφο, save-close-reopen και ανεξάρτητο readback της veryHidden/protected κατάστασης και των headers. Πριν από provisioner πρέπει να ελεγχθούν τα υφιστάμενα native install/verification conventions και να διασφαλιστεί ότι καμία υπάρχουσα operational sheet ή defined name δεν μεταβάλλεται. Δεν προστίθεται ακόμη το journal στα required application sheets και δεν συνδέεται με Apply.
+
+## 4.61 Native journal provisioner: disposable XLSM copy only — 20/11/2026
+
+Προστέθηκε `Python/tools/provision_daily_input_journal_native.py` και `Tests/test_provision_daily_input_journal_native.py`. Ο provisioner:
+
+- απαιτεί διαφορετικά source/output `.xlsm` και αρνείται overwrite υπάρχοντος output,
+- δημιουργεί αποκλειστικά byte-exact copy με το υπάρχον `prepare_native_probe_copy.py`,
+- ελέγχει ότι υπάρχει VBA project και κρατά SHA-256 του `xl/vbaProject.bin`,
+- ξεκινά ξεχωριστό Excel COM instance και θέτει `AutomationSecurity=3` πριν ανοίξει workbook,
+- ανοίγει μόνο το αντίγραφο writable, καταγράφει αρχικά worksheet names/order/visibility, δημιουργεί ή ελέγχει το journal χωρίς να διαγράφει υπάρχον history,
+- αποθηκεύει, κλείνει και ξανανοίγει το αντίγραφο read-only,
+- ελέγχει original sheet order/visibility, μοναδικό veryHidden journal, protection, headers, πλήρες journal readback και αμετάβλητο VBA project binary,
+- κλείνει Excel και ελέγχει ξανά ότι το source hash δεν άλλαξε.
+
+Σε αποτυχία κλείνει workbook/Excel και διαγράφει μόνο το output copy που δημιούργησε η ίδια η εκτέλεση. Δεν γράφει journal events και δεν εγκαθιστά Apply/Restore hooks. Αν υπάρχει ήδη έγκυρο journal, συγκρίνει το πλήρες history μετά το reopen αντί να απαιτεί να είναι κενό.
+
+Πρόσθετη διόρθωση στο `daily_input_journal_sheet.py`: η ύπαρξη sheet ελέγχεται με enumeration, όχι με broad `except Exception` γύρω από COM lookup. Έτσι σφάλμα/αποσύνδεση COM δεν παρερμηνεύεται ως απουσία φύλλου και δεν οδηγεί σε τυφλό Add. Commit sequence: `a2602a6`, `7bf82fd`, `04a01d6`, `e9690cf`, `a801b68`.
+
+**Verification status:** ο provisioner και τα νέα boundary tests δεν έχουν ακόμη εκτελεστεί στο τοπικό checkout. Πριν από οποιαδήποτε native Excel εκτέλεση, τρέχουν τα τέσσερα test files `test_daily_input_operation.py`, `test_daily_input_journal.py`, `test_daily_input_journal_sheet.py`, `test_provision_daily_input_journal_native.py`. Μόνο αν περάσουν, θα δοθεί εντολή για disposable-copy native smoke. Το αρχικό source workbook δεν ανοίγεται/δεν αλλάζει και το probe output δεν είναι operational workbook.
