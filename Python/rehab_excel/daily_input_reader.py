@@ -368,3 +368,57 @@ def _interpret_daily_input(
         cancellations=tuple(cancellations),
         source_changes=tuple(changes),
     )
+
+@dataclass(frozen=True)
+class _LiteralCell:
+    value: object
+
+
+class _LiteralDailyInputSheet:
+    """Minimal read-only worksheet interface preserving exact Excel row IDs."""
+
+    def __init__(self, draft):
+        self._cells = {(2, 2): draft.service_date}
+        therapist_header = 6
+        patient_header = therapist_header + len(draft.therapist_rows) + 4
+        for header, values in (
+            (therapist_header, ("Θεραπευτής", "Όλη ημέρα", "Από", "Έως", "Αιτία", "Σχόλιο")),
+            (patient_header, ("Ασθενής", "Όλη ημέρα", "Ώρα", "Κατάσταση", "Σχόλιο")),
+        ):
+            for col, value in enumerate(values, 1):
+                self._cells[header, col] = value
+        for header, grid in ((therapist_header, draft.therapist_rows),
+                             (patient_header, draft.patient_rows)):
+            for row, values in enumerate(grid, header + 1):
+                for col, value in enumerate(values, 1):
+                    self._cells[row, col] = value
+        self.max_row = patient_header + len(draft.patient_rows)
+
+    def cell(self, row, col):
+        return _LiteralCell(self._cells.get((row, col)))
+
+    def __getitem__(self, key):
+        if key != "B2":
+            raise KeyError(key)
+        return self.cell(2, 2)
+
+
+def interpret_daily_input_grid(
+    draft, *, patients: Iterable[Patient], sessions: Iterable[Session],
+    therapist_names: Iterable[str] = (), ignore_rows: Iterable[int] = (),
+    allow_empty: bool = False,
+) -> DailyInputReadResult:
+    """Validate archived literal inputs by the same rules as DAILY_INPUT.
+
+    This is interpretation only, not approval. For operational reconstruction,
+    callers must supply the last successfully applied grid, never an
+    unconfirmed draft. Row identifiers remain identical to the native form.
+    """
+    from .daily_input_day_switch import DailyInputDayDraft
+    if not isinstance(draft, DailyInputDayDraft):
+        raise DailyInputReadError("Expected literal daily input grid")
+    return _interpret_daily_input(
+        _LiteralDailyInputSheet(draft), patient_list=list(patients),
+        session_list=list(sessions), therapist_name_list=tuple(therapist_names),
+        ignored={int(row) for row in ignore_rows}, allow_empty=allow_empty,
+    )
