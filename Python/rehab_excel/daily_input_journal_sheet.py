@@ -70,8 +70,8 @@ def ensure_daily_input_journal_sheet(workbook):
         ws.Name = JOURNAL_SHEET
         for column, header in enumerate(JOURNAL_HEADERS, start=1):
             ws.Cells(1, column).Value2 = header
-        ws.Protect(DrawingObjects=True, Contents=True, Scenarios=True, UserInterfaceOnly=True)
-        ws.EnableSelection = 0  # xlNoSelection
+        ws.Protect(DrawingObjects=True, Contents=True, Scenarios=True)
+        ws.EnableSelection = -4142  # xlNoSelection
         ws.Visible = 2  # xlSheetVeryHidden
         workbook.Save()
 
