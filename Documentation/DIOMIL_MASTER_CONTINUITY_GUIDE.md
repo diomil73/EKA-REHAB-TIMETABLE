@@ -731,3 +731,19 @@ Commits:
 **Επόμενη υλοποίηση (στενό και ασφαλές scope):** πριν προστεθεί applied archive, να σχεδιαστεί ένα explicit top-level DAILY_INPUT operation state machine με φάσεις `PREPARED → INPUT_AND_LEDGER_COMMITTED → PROJECTIONS_VERIFIED → REPLACEMENTS_RESOLVED → APPLIED_ARCHIVE_VERIFIED → COMPLETE`, με `FAILED/ROLLED_BACK` και `PENDING_OPERATOR_DECISION` όπου απαιτείται. Να διατηρείται recovery evidence έως το τέλος της ροής, να είναι idempotent στα recursive review callbacks, και να μην ανακοινώνεται success/complete πριν επαληθευτούν όλα τα υποχρεωτικά στάδια. Οι υπάρχοντες local transactions παραμένουν ως inner guards, όχι ως απόδειξη end-to-end atomicity. Να οριστούν ρητά οι επιτρεπτές τελικές καταστάσεις όταν ο χειριστής επιλέγει manual review ή ακυρώνει την πρόταση.
 
 **Σημείο που απαιτεί συμμετοχή χειριστή:** μετά την υλοποίηση και τα unit/source tests, χρειάζεται πραγματικό Windows + Excel native smoke σε φρέσκο αντίγραφο, με ελεγχόμενα synthetic data: (α) patient absence χωρίς replacement, (β) therapist absence με automatic replacement, (γ) therapist absence με `review_required` και manual decision, (δ) injected failure στο refresh, (ε) injected failure μετά την εγγραφή replacement fact αλλά πριν το final projection, (στ) Restore patient/cancellation και Restore replacement. Σε κάθε περίπτωση θα ελεγχθούν workbook reopen, VBA preservation, source rows, ledger, replacement facts, applied archive, MASTER και THERAPIST_DAILY, και ακριβές rollback. Δεν θα χρησιμοποιηθούν πραγματικά δεδομένα ασθενών. Ο χειριστής θα εκτελέσει μόνο τις εντολές/smoke που θα δοθούν όταν ο κώδικας είναι έτοιμος.
+
+## 4.55 Πρώτο καθαρό DAILY_INPUT lifecycle contract — 20/11/2026
+
+Προστέθηκε το `Python/rehab_excel/daily_input_operation.py` και το `Tests/test_daily_input_operation.py`.
+
+Το νέο module ορίζει καθαρά, χωρίς side effects, τα νόμιμα στάδια μιας ενιαίας λειτουργίας:
+
+`PREPARED → INPUT_AND_LEDGER_COMMITTED → PROJECTIONS_VERIFIED → REPLACEMENTS_RESOLVED → APPLIED_ARCHIVE_VERIFIED → COMPLETE`
+
+Επιτρέπει επίσης `PENDING_OPERATOR_DECISION` πριν την επίλυση αναπληρώσεων, `FAILED` με υποχρεωτικό failure code και `ROLLED_BACK` μόνο μετά από FAILED. Η επιτυχία επιτρέπεται να αναφερθεί μόνο στο `COMPLETE`. Το pending review δεν είναι επιτυχία ούτε τελική ακύρωση: η απόφαση πρέπει να καταγραφεί ρητά ως `automatic_accepted` ή `manual_completed`. Ακύρωση της συνολικής λειτουργίας απαιτεί αποδεδειγμένο rollback, όχι απλή αλλαγή status.
+
+Περιλαμβάνονται guards για υποχρεωτικό operation id, source SHA-256, service date, revision counter, απαγόρευση shortcuts, terminal-state immutability και idempotent exact replay. Συγκρουόμενη επανάληψη απορρίπτεται.
+
+**Περιορισμός που πρέπει να μείνει απολύτως σαφής:** αυτή είναι η pure lifecycle/state-transition contract και τα unit tests της. Δεν έχει ακόμη συνδεθεί με `modDailyInputAction`, `modGlobalReplacementAction`, `ApplyDailyChangeRestorePayload`, replacement restore ή native applied-archive persistence/readback. Δεν δημιουργεί ακόμη durable journal και δεν αποδεικνύει atomicity. Δεν αλλάζει την υφιστάμενη συμπεριφορά του workbook. Η επόμενη υλοποίηση πρέπει να προσθέσει durable journal και orchestrator, να κρατά SaveCopyAs/recovery evidence μέχρι το terminal result, και να κάνει readback όλων των affected sheets πριν από κάθε phase transition. Το `ROLLED_BACK` επιτρέπεται μόνο αφού το rollback itself έχει επαληθευτεί.
+
+Το `pyproject.toml` απαιτεί Python >=3.11, άρα το `StrEnum` του module είναι συμβατό με το δηλωμένο runtime. Το νέο test file προστέθηκε, αλλά δεν εκτελέστηκε σε αυτό το περιβάλλον: δεν υπάρχει διαθέσιμο checkout/runtime του repository μέσω του GitHub connector. Πριν συνεχιστεί η native integration, να εκτελεστεί στο τοπικό checkout: `python -m pytest Tests/test_daily_input_operation.py -q`. Δεν απαιτείται ακόμη smoke στο Excel.
