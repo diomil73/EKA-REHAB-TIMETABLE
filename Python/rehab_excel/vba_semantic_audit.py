@@ -73,7 +73,10 @@ def audit_vba_components(workbook) -> tuple[VbaComponentEvidence, ...]:
                 suffix = {1: ".bas", 2: ".cls", 3: ".frm", 100: ".cls"}.get(kind)
                 if suffix is None:
                     raise VbaSemanticAuditError("Unknown VBA component type")
-                export = root / f"component_{index}{suffix}"
+                # Use a stable export basename across workbook saves. VBA UserForm
+                # .frm metadata may contain the accompanying .frx filename.
+                stable_id = sha256(name.casefold().encode("utf-8")).hexdigest()[:24]
+                export = root / f"component_{stable_id}{suffix}"
                 component.Export(str(export))
                 if not export.is_file():
                     raise VbaSemanticAuditError("VBA component export missing")
@@ -111,8 +114,23 @@ def assert_vba_semantics_preserved(
     if (not previous or len(previous) != len(before)
             or len(current) != len(after)):
         raise VbaSemanticAuditError("Missing or duplicate VBA component identities")
-    if any(current.get(key) != item for key, item in previous.items()):
-        raise VbaSemanticAuditError("Preexisting VBA component code/resource changed")
+    changes = {"missing": 0, "identity": 0, "code": 0, "export": 0, "resource": 0}
+    for key, old in previous.items():
+        new = current.get(key)
+        if new is None:
+            changes["missing"] += 1
+            continue
+        if old.name != new.name or old.component_type != new.component_type:
+            changes["identity"] += 1
+        if old.code_digest != new.code_digest:
+            changes["code"] += 1
+        if old.export_digest != new.export_digest:
+            changes["export"] += 1
+        if old.companion_digest != new.companion_digest:
+            changes["resource"] += 1
+    if any(changes.values()):
+        detail = " ".join(f"{kind}={count}" for kind, count in changes.items())
+        raise VbaSemanticAuditError("Preexisting VBA component mismatch: " + detail)
     added = set(current) - set(previous)
     if bool(added) != expect_new_document:
         raise VbaSemanticAuditError("Unexpected journal component addition/missing addition")
