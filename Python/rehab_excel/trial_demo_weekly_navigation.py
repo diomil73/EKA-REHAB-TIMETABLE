@@ -102,12 +102,19 @@ def verify_demo_weekly_navigation(workbook_path: str | Path) -> None:
     book = None
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
+        # This verifier INSPECTS stored button/VBA contracts; it must never
+        # run the workbook startup macros used in normal, trusted UI sessions.
+        excel.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
+        excel.AskToUpdateLinks = False
         book = excel.Workbooks.Open(
             str(Path(workbook_path).resolve()), UpdateLinks=0, ReadOnly=True,
+            AddToMru=False, IgnoreReadOnlyRecommended=True,
         )
+        if not bool(book.ReadOnly):
+            raise DemoWeeklyNavigationError("Native verification workbook unexpectedly writable")
         module = book.VBProject.VBComponents(DEMO_NAV_MODULE)
         code = module.CodeModule.Lines(1, module.CodeModule.CountOfLines)
         if "Public Sub OpenDemoWeeklyView()" not in code:
