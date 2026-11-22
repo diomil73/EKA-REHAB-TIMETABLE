@@ -75,7 +75,14 @@ def _property(owner, name, *, mandatory=False, context="designer"):
                 f"Required {context} property {name} inaccessible"
             ) from None
         return ("UNSUPPORTED",)
-    except UserFormDesignerAuditError:
+    except UserFormDesignerAuditError as exc:
+        # Keep strict scalar validation, but identify the static, allowlisted
+        # property that failed. Never include the underlying COM value/type,
+        # which may contain private form content.
+        if str(exc) == "Unsupported designer property type":
+            raise UserFormDesignerAuditError(
+                f"{context} property {name} unsupported scalar type"
+            ) from None
         raise
     except Exception as exc:
         # DISP_E_MEMBERNOTFOUND is normal for controls of another MSForms type.
@@ -125,7 +132,7 @@ def _properties(obj, names, *, required=(), context="designer"):
         data[name] = _property(obj, name, mandatory=name in required, context=context)
     font = _collection(obj, "Font")
     if font is not None:
-        data["Font"] = {name: _property(font, name) for name in _FONT_PROPERTIES}
+        data["Font"] = {name: _property(font, name, context="font") for name in _FONT_PROPERTIES}
     else:
         data["Font"] = "UNSUPPORTED"
     return data
