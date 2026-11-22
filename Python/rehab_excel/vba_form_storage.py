@@ -116,3 +116,29 @@ def assert_form_storage_preserved(before, after) -> int:
         summary = " ".join(f"{key}={value}" for key, value in changes.items())
         raise VbaFormStorageError("Embedded UserForm storage stream mismatch: " + summary)
     return len(before)
+
+def stream_change_categories(before, after) -> dict[str, int]:
+    """Diagnostic-only changed stream totals by known OLE stream class.
+
+    The names of custom streams, controls and UserForms are not exposed.
+    Each changed stream is grouped into f, o or other.
+    """
+    original = dict(before)
+    current = dict(after)
+    if len(original) != len(before) or len(current) != len(after):
+        raise VbaFormStorageError("Ambiguous UserForm evidence identities")
+    result = {"form_f_changed": 0, "form_o_changed": 0, "other_streams_changed": 0}
+    for name in original.keys() & current.keys():
+        old = dict(original[name])
+        new = dict(current[name])
+        if len(old) != len(original[name]) or len(new) != len(current[name]):
+            raise VbaFormStorageError("Ambiguous UserForm evidence stream identities")
+        for path in old.keys() & new.keys():
+            if old[path] != new[path]:
+                label = (
+                    "form_f_changed" if path == "f" else
+                    "form_o_changed" if path == "o" else
+                    "other_streams_changed"
+                )
+                result[label] += 1
+    return result
