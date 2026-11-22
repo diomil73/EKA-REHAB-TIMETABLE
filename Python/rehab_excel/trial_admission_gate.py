@@ -124,6 +124,140 @@ def _data_rows(ws, width: int, *, blockers: list[str]):
             )
 
 
+
+R6_DECISIONS_SHEET = "ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"
+R6_DECISION_HEADERS = (
+    "Απόφαση", "Γραμμή R5", "Γραμμή πηγής", "Ασθενής",
+    "Ειδικότητα", "Πριν ημέρα", "Πριν ώρα", "Πριν ΦΘ/Ρομπ.",
+    "Πριν όνομα", "Κελιά", "Πριν κατάσταση", "Μετά ημέρα",
+    "Μετά ώρα", "Μετά όνομα", "Μετά κατάσταση",
+)
+R6_LEDGER_RETAINED = frozenset({
+    "PROPOSED_OPERATOR_CORRECTION", "HOLD_APPROVED_COMBINED",
+    "HOLD_RESCHEDULE",
+})
+R6_LEDGER_EXCLUDED = "EXCLUDED_FROM_DRAFT"
+
+
+def _r6_exact_refs(raw: object) -> tuple[tuple[str, str], ...]:
+    """Accept complete, explicit source cell addresses, not a fuzzy regex match."""
+    tokens = [part.strip() for part in _text(raw).upper().split("/")]
+    if not tokens or any(
+        re.fullmatch(r"[A-Z]{1,3}[1-9][0-9]*", token) is None
+        for token in tokens
+    ):
+        return ()
+    return tuple(SRC_CELL_RE.findall(token)[0] for token in tokens)
+
+
+def _audit_r6_decision_readback(wb, proposals, blockers: list[str]) -> None:
+    """Cross-check recorded R6 after-values against the final weekly view.
+
+    This checks ledger completeness and multiplicity ONLY. It neither approves
+    corrected clinical slots nor permits held/combined entries to be imported.
+    Original A:V source interpretation remains an independent mandatory gate.
+    """
+    if R6_DECISIONS_SHEET not in wb.sheetnames:
+        return  # Backwards compatibility: non-R6 reviews retain strict admission.
+
+    ledger = wb[R6_DECISIONS_SHEET]
+    if tuple(ledger.cell(1, i).value for i in range(1, 16)) != R6_DECISION_HEADERS:
+        blockers.append("R6 decision ledger headers differ from the approved schema")
+        return
+
+    def key(source, name, specialty, weekday, clock, refs, state):
+        source_num = _source_row_number(source)
+        refs_exact = _r6_exact_refs(refs)
+        if source_num is None or not refs_exact:
+            return None
+        try:
+            normalized_clock = parse_clock(clock)
+        except (ProgrammeMappingError, TypeError, ValueError):
+            return None
+        return (
+            source_num, _text(name), _text(specialty), _text(weekday),
+            normalized_clock, refs_exact, _text(state),
+        )
+
+    weekly: dict[tuple, list[tuple[int, tuple]]] = {}
+    controlled_weekly_rows: set[int] = set()
+    for number, values in proposals:
+        state = _text(values[10])
+        if state not in R6_LEDGER_RETAINED:
+            continue
+        controlled_weekly_rows.add(number)
+        item_key = key(
+            values[1], values[2], values[3], values[4],
+            values[5], values[8], state,
+        )
+        if item_key is None:
+            blockers.append(f"R6 weekly decision row {number}: invalid source provenance")
+            continue
+        weekly.setdefault(item_key, []).append((number, values))
+
+    seen_r5: set[int] = set()
+    matched: set[int] = set()
+    for number, values in _data_rows(ledger, 15, blockers=blockers):
+        (
+            decision, r5_row, source, name, specialty,
+            before_day, before_clock, before_physio, before_optional,
+            refs, before_state, after_day, after_clock, after_name, state,
+        ) = values
+        state = _text(state)
+        r5 = _source_row_number(r5_row)
+        if (
+            not _text(decision) or r5 is None or r5 in seen_r5
+            or _source_row_number(source) is None or not _text(name)
+            or not _text(specialty) or not _r6_exact_refs(refs)
+            or not _text(before_state) or not _text(before_day)
+        ):
+            blockers.append(f"R6 decision ledger row {number}: incomplete or repeated provenance")
+            continue
+        seen_r5.add(r5)
+        if state == R6_LEDGER_EXCLUDED:
+            if any(_text(v) for v in (after_day, after_clock, after_name)):
+                blockers.append(f"R6 decision ledger row {number}: excluded entry has after-values")
+            continue
+        if state not in R6_LEDGER_RETAINED or not _text(after_day):
+            blockers.append(f"R6 decision ledger row {number}: unsupported disposition")
+            continue
+        after_key = key(
+            source, name, specialty, after_day, after_clock, refs, state,
+        )
+        matching = weekly.get(after_key, []) if after_key is not None else []
+        if len(matching) != 1 or matching[0][0] in matched:
+            blockers.append(f"R6 decision ledger row {number}: after-values not unique in weekly review")
+            continue
+        weekly_row, final_values = matching[0]
+        actual_provider = (
+            final_values[6] if _text(specialty) in {"ΦΘ", "ΡΟΜΠΟΤΙΚΗ"}
+            else final_values[7]
+        )
+        if _text(after_name) != _text(actual_provider):
+            blockers.append(f"R6 decision ledger row {number}: after-provider differs")
+            continue
+        if state == "HOLD_APPROVED_COMBINED":
+            # An approved combined slot is a preserved original placement,
+            # not permission to shift its day, time or therapist.
+            try:
+                unchanged_time = parse_clock(before_clock) == parse_clock(after_clock)
+            except (ProgrammeMappingError, TypeError, ValueError):
+                unchanged_time = False
+            if (
+                _text(before_day) != _text(after_day)
+                or not unchanged_time
+                or _text(before_physio) != _text(after_name)
+                or _text(specialty) not in {"ΦΘ", "ΡΟΜΠΟΤΙΚΗ"}
+            ):
+                blockers.append(f"R6 decision ledger row {number}: combined original was altered")
+                continue
+        matched.add(weekly_row)
+
+    missing = len(controlled_weekly_rows - matched)
+    if missing:
+        blockers.append(f"{missing} R6 corrected/combined/held weekly rows lack exact ledger readback")
+
+
 def evaluate_trial_admission(
     path: str | Path, *, programme: str | Path | None = None,
 ) -> TrialAdmissionResult:
@@ -151,6 +285,7 @@ def evaluate_trial_admission(
         proposals = tuple(_data_rows(wb[SOURCE_WEEKLY_SHEET], 11, blockers=blockers))
         holds = tuple(_data_rows(wb[SOURCE_HOLDS_SHEET], 7, blockers=blockers))
         overlaps = tuple(_data_rows(wb[SOURCE_OVERLAP_SHEET], 7, blockers=blockers))
+        _audit_r6_decision_readback(wb, proposals, blockers)
 
         patient_keys: dict[tuple[str, str, str], str] = {}
         verified_ids: list[str] = []
