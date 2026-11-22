@@ -301,12 +301,19 @@ def verify_demo_patient_exit_action(path: str | Path) -> None:
     wb = None
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
+        # This verifier INSPECTS stored button/VBA contracts; it must never
+        # run the workbook startup macros used in normal, trusted UI sessions.
+        excel.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
+        excel.AskToUpdateLinks = False
         wb = excel.Workbooks.Open(
             str(Path(path).resolve()), UpdateLinks=0, ReadOnly=True,
+            AddToMru=False, IgnoreReadOnlyRecommended=True,
         )
+        if not bool(wb.ReadOnly):
+            raise DemoPatientExitVbaError("Native verification workbook unexpectedly writable")
         module = wb.VBProject.VBComponents(MODULE_NAME)
         text = str(module.CodeModule.Lines(
             1, int(module.CodeModule.CountOfLines),
