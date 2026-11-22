@@ -165,3 +165,135 @@ def test_cli_prints_only_aggregate_counts(tmp_path, capsys):
     assert "PRIVATE FICTIONAL" not in msg
     assert str(p) not in msg
     assert str(out) not in msg
+
+
+
+def _fictional_r6_review_checklist(tmp_path, *, unresolved_speech=False):
+    """Original A:V and R6 review with only synthetic identity/provider data."""
+    from rehab_excel.trial_admission_gate import (
+        R6_DECISION_HEADERS, R6_ACTIVE_OVERLAPS_HEADERS,
+        R6_COMBINED_DECISION, R6_PENDING_SPEECH_DECISION,
+    )
+    p, review, out = _fixture(tmp_path)
+    book = load_workbook(p)
+    original = book["ΠΡΟΓΡΑΜΜΑ"]
+    for col, value in (
+        ("C3", "09:30"), ("D3", "ΔΕ"), ("E3", "DEMO TEAM"),
+        ("R3", "09:30"), ("S3", "ΔΕ"), ("T3", "DEMO TEAM"),
+    ):
+        original[col] = value
+    if unresolved_speech:
+        for col, value in (
+            ("C2", "11:30"), ("D2", "ΔΕ"), ("E2", "DEMO TEAM"),
+            ("J2", "11:30"), ("K2", "ΔΕ"), ("L2", "DEMO SPEECH"),
+        ):
+            original[col] = value
+    book.save(p)
+    book.close()
+    book = load_workbook(review)
+    weekly = book[SOURCE_WEEKLY_SHEET]
+    weekly.delete_rows(2, weekly.max_row - 1)
+    for specialty, refs in (
+        ("ΦΘ", "C3 / D3 / E3"),
+        ("ΡΟΜΠΟΤΙΚΗ", "R3 / S3 / T3"),
+    ):
+        weekly.append([
+            "A", 3, "PRIVATE FICTIONAL B", specialty, "ΔΕ", "09:30",
+            "DEMO TEAM", None, refs, "FICTIONAL",
+            "HOLD_APPROVED_COMBINED",
+        ])
+    ledger = book.create_sheet("ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ")
+    ledger.append(R6_DECISION_HEADERS)
+    for index, specialty, refs in (
+        (1, "ΦΘ", "C3 / D3 / E3"),
+        (2, "ΡΟΜΠΟΤΙΚΗ", "R3 / S3 / T3"),
+    ):
+        ledger.append([
+            "FICTIONAL COMBINED DECISION", index + 20, 3,
+            "PRIVATE FICTIONAL B", specialty,
+            "ΔΕ", "09:30", "DEMO TEAM", None, refs,
+            "HOLD_CONFLICT", "ΔΕ", "09:30", "DEMO TEAM",
+            "HOLD_APPROVED_COMBINED",
+        ])
+    active = book.create_sheet("ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ")
+    active.append(R6_ACTIVE_OVERLAPS_HEADERS)
+    active.append([
+        3, "PRIVATE FICTIONAL B", "ΔΕ", "09:30",
+        "ΦΘ + ΡΟΜΠΟΤΙΚΗ",
+        "C3 / D3 / E3 / R3 / S3 / T3", R6_COMBINED_DECISION,
+    ])
+    if unresolved_speech:
+        weekly.append([
+            "A", 2, "PRIVATE FICTIONAL A", "ΦΘ", "ΔΕ", "11:30",
+            "DEMO TEAM", None, "C2 / D2 / E2", "FICTIONAL", "HOLD_CONFLICT",
+        ])
+        weekly.append([
+            "A", 2, "PRIVATE FICTIONAL A", "ΛΟΓΟΘΕΡΑΠΕΙΑ", "ΔΕ", "11:30",
+            None, "DEMO SPEECH", "J2 / K2 / L2", "FICTIONAL",
+            "HOLD_RESCHEDULE",
+        ])
+        ledger.append([
+            "FICTIONAL PENDING SPEECH", 23, 2, "PRIVATE FICTIONAL A",
+            "ΛΟΓΟΘΕΡΑΠΕΙΑ", "ΔΕ", "11:30", None, "DEMO SPEECH",
+            "J2 / K2 / L2", "HOLD_CONFLICT",
+            "ΔΕ", "11:30", "DEMO SPEECH", "HOLD_RESCHEDULE",
+        ])
+        active.append([
+            2, "PRIVATE FICTIONAL A", "ΔΕ", "11:30",
+            "ΦΘ + ΛΟΓΟΘΕΡΑΠΕΙΑ",
+            "C2 / D2 / E2 / J2 / K2 / L2", R6_PENDING_SPEECH_DECISION,
+        ])
+    book.save(review)
+    book.close()
+    return p, review, out
+
+
+def test_r6_checklist_only_counts_real_pending_active_groups(tmp_path):
+    from rehab_excel.trial_review_checklist import TASK_SHEET
+    p, review, out = _fictional_r6_review_checklist(
+        tmp_path, unresolved_speech=True,
+    )
+    original = p.read_bytes(), review.read_bytes()
+    counts = create_private_review_checklist(
+        programme=p, review=review, output=out,
+    )
+    assert counts.get("ACTIVE_OVERLAP") == 1
+    assert counts.get("REPORTED_OVERLAP", 0) == 0
+    assert counts.get("CROSS_SPECIALTY", 0) == 0
+    assert counts.get("WEEKLY", 0) == 0
+    assert counts.get("IDENTITY") == 1  # still unconfirmed patient ID
+    assert (p.read_bytes(), review.read_bytes()) == original
+    result = load_workbook(out, read_only=True)
+    try:
+        tasks = list(result[TASK_SHEET].iter_rows(min_row=2, values_only=True))
+        assert sum(row[0] == "ACTIVE_OVERLAP" for row in tasks) == 1
+        assert all(
+            "PRIVATE FICTIONAL" not in str(row) and "DEMO TEAM" not in str(row)
+            for row in tasks
+        )
+    finally:
+        result.close()
+
+
+def test_r6_reviewed_combined_pair_is_not_an_unresolved_task(tmp_path):
+    p, review, out = _fictional_r6_review_checklist(tmp_path)
+    counts = create_private_review_checklist(
+        programme=p, review=review, output=out,
+    )
+    assert counts.get("ACTIVE_OVERLAP", 0) == 0
+    assert counts.get("REPORTED_OVERLAP", 0) == 0
+    assert counts.get("CROSS_SPECIALTY", 0) == 0
+    assert counts.get("WEEKLY", 0) == 0
+
+
+def test_r6_checklist_rejects_changed_original_combined_provider(tmp_path):
+    p, review, out = _fictional_r6_review_checklist(tmp_path)
+    source = load_workbook(p)
+    source["ΠΡΟΓΡΑΜΜΑ"]["T3"] = "FICTIONAL CHANGED PROVIDER"
+    source.save(p)
+    source.close()
+    with pytest.raises(TrialReviewChecklistError, match="source proof"):
+        create_private_review_checklist(
+            programme=p, review=review, output=out,
+        )
+    assert not out.exists()
