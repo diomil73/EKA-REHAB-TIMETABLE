@@ -88,12 +88,14 @@ def test_benign_xlsm_binary_reserialization_with_unchanged_components_is_allowed
     ) == 3
 
 
-@pytest.mark.parametrize("case", ["source", "resource", "missing", "unexpected", "journal-code", "journal-type"])
+@pytest.mark.parametrize("case", ["source", "export", "resource", "missing", "unexpected", "journal-code", "journal-type"])
 def test_semantic_audit_fails_on_real_vba_changes(case):
     before = audit_vba_components(baseline())
     components = baseline().VBProject.VBComponents.components
     if case == "source":
         components[0].CodeModule = FakeCodeModule("Public Sub Replace()\nEnd Sub")
+    elif case == "export":
+        components[0].export_bytes = b"changed-exported-component"
     elif case == "resource":
         components[2].resource = b"changed-image"
     elif case == "missing":
