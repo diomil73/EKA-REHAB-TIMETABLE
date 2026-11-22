@@ -1594,3 +1594,14 @@ DIAGNOSTIC_EXIT_CODE=2
 and immediately record `DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE`. A native pass proves the limited Excel protected sheet stage/save/reopen behavior only. It **does not** implement operational Apply/Restore, guarantee rollback of all operational sheets, waive strict `assert_form_storage_preserved` in production journal provisioner, or authorize any patient migration.
 
 **Next after that new native gate:** Integrate a real persistent journal with the canonical VBA Apply/Restore transaction and independent rollback/Save/Close/Reopen/readback, preserving approval blockers and source privacy. Do not duplicate the existing ledger or invent new patient data.
+
+
+## 4.131 Verified synthetic journal staging CI 4/4, single native trial next (23/11/2026)
+
+**Exact code+tests+§4.130 documentation SHA:** `cb42fbd0933ac11746d87e0fcb2b1084c229ccc6`, [GitHub Actions run 45075972497](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45075972497) completed **SUCCESS 4/4**: full legacy/current Python regression on both Ubuntu and Windows, and synthetic Python safety on both Ubuntu and Windows. All checks were read on the exact SHA, rather than extrapolated from earlier successful commits. The staged journal writer and opt-in fictional native trial now have synthetic code/contract evidence only. No actual new native journaling write/reopen occurred on the operator machine at this checkpoint.
+
+**Precise next action:** After safe `git pull --ff-only origin work/afternoon-medical-scope-20261115`, run **once** on the existing trusted isolated synthetic `$demo`:
+`python Python/tools/diagnose_excel_journal_vs_noedit_ole.py --source $demo --designer-readback --trial-fictional-revisions`
+followed by `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected on genuine success: `Fictional journal revisions saved/reopened: 3`, `Source untouched: YES`, and `DIAGNOSTIC_EXIT_CODE=0`, plus the usual form inventory/Designer and source-relative footprint diagnostics. All macros/events/links are disabled before opening, and only disposable copies are saved and removed. Do not run with real patient sources; do not treat even an exit 0 as clinical/production Apply/Restore, operational journal installation, or blanket OLE binary resource approval. The earlier strict `assert_form_storage_preserved` production gate remains unchanged.
+
+**No unnecessary repeats:** §§4.125–4.129 previously green read-only/no-edit comparisons and §4.128 synthetic suites are not rerun. Any failure from this new isolated fictional trial is a new targeted SAFETY STOP, not permission to relax guards.
