@@ -17,8 +17,14 @@ for item in (ROOT, ROOT / "Python"):
 
 from Python.tools.prepare_native_probe_copy import create_probe_copy
 from Python.tools.provision_daily_input_journal_native import _file_sha256
-from rehab_excel.daily_input_journal import JOURNAL_SHEET
-from rehab_excel.daily_input_journal_sheet import ensure_daily_input_journal_sheet
+from rehab_excel.daily_input_journal import JOURNAL_SHEET, append_operation_journal
+from rehab_excel.daily_input_journal_sheet import (
+    ensure_daily_input_journal_sheet, append_native_operation_revision,
+    read_native_journal_rows,
+)
+from rehab_excel.daily_input_operation import (
+    DailyInputOperation, DailyInputOperationPhase, advance_daily_input_operation,
+)
 from rehab_excel.vba_form_storage import (
     form_storage_evidence, compare_form_storage_evidence, stream_change_categories,
     assert_matching_source_relative_change_footprints,
@@ -33,7 +39,26 @@ class SaveComparisonError(RuntimeError):
     pass
 
 
-def _save_copy(copy: Path, *, add_journal: bool, excel_factory, designer_readback=False):
+def _fictional_journal_states():
+    """Fixture-only lifecycle. No real patient identifiers or clinical facts."""
+    first = DailyInputOperation(
+        operation_id="FICTIONAL-NATIVE-JOURNAL-TRIAL",
+        source_sha256="0" * 64,
+        service_date="2000-01-03",
+    )
+    failure = advance_daily_input_operation(
+        first, DailyInputOperationPhase.FAILED, failure_code="FICTIONAL_PROBE",
+    )
+    restored = advance_daily_input_operation(
+        failure, DailyInputOperationPhase.ROLLED_BACK, rollback_verified=True,
+    )
+    return first, failure, restored
+
+
+def _save_copy(
+    copy: Path, *, add_journal: bool, excel_factory,
+    designer_readback=False, trial_fictional_revisions=False,
+):
     app = None
     book = None
     try:
@@ -60,17 +85,26 @@ def _save_copy(copy: Path, *, add_journal: bool, excel_factory, designer_readbac
             audit_userform_designers(book, expected_form_names=forms)
             if designer_readback else ()
         )
+        staged_rows = ()
         if add_journal:
             if any(str(book.Worksheets(i).Name) == JOURNAL_SHEET
                    for i in range(1, int(book.Worksheets.Count) + 1)):
                 raise SaveComparisonError("Journal already present in source")
-            ensure_daily_input_journal_sheet(book)
+            journal_sheet = ensure_daily_input_journal_sheet(book)
+            if trial_fictional_revisions:
+                for operation in _fictional_journal_states():
+                    if not append_native_operation_revision(book, operation):
+                        raise SaveComparisonError("Fictional journal revision was not appended")
+                staged_rows = read_native_journal_rows(journal_sheet)
+                if len(staged_rows) != 3:
+                    raise SaveComparisonError("Fictional journal staging incomplete")
+                book.Save()
         else:
             book.Save()
         book.Close(SaveChanges=False)
         book = None
         saved_designer = ()
-        if designer_readback:
+        if designer_readback or trial_fictional_revisions:
             # Reopen only the disposable copy. Never trigger macros, events or
             # another save. Compare each workbook against its own baseline.
             book = app.Workbooks.Open(
@@ -79,13 +113,20 @@ def _save_copy(copy: Path, *, add_journal: bool, excel_factory, designer_readbac
             )
             if not bool(book.ReadOnly):
                 raise SaveComparisonError("Designer verification reopen was not read-only")
-            saved_designer = audit_userform_designers(
-                book, expected_form_names=forms,
-            )
-            assert_userform_designers_preserved(baseline_designer, saved_designer)
+            if designer_readback:
+                saved_designer = audit_userform_designers(
+                    book, expected_form_names=forms,
+                )
+                assert_userform_designers_preserved(baseline_designer, saved_designer)
+            if trial_fictional_revisions:
+                saved_journal = book.Worksheets(JOURNAL_SHEET)
+                if int(saved_journal.Visible) != 2 or not bool(saved_journal.ProtectContents):
+                    raise SaveComparisonError("Reopened fictional journal not protected/veryHidden")
+                if read_native_journal_rows(saved_journal) != staged_rows:
+                    raise SaveComparisonError("Fictional journal changed on native reopen")
             book.Close(SaveChanges=False)
             book = None
-        return forms, saved_designer
+        return forms, saved_designer, len(staged_rows)
     finally:
         if book is not None:
             try:
@@ -101,8 +142,10 @@ def _save_copy(copy: Path, *, add_journal: bool, excel_factory, designer_readbac
 
 def compare_noedit_and_journal_saves(
     source_path: Path, *, excel_factory=None, control_only=False,
-    designer_readback=False,
+    designer_readback=False, trial_fictional_revisions=False,
 ):
+    if trial_fictional_revisions and (control_only or not designer_readback):
+        raise SaveComparisonError("Fictional journal trial requires journal and designer readback")
     source = Path(source_path).resolve()
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
         raise SaveComparisonError("Existing demo XLSM source required")
@@ -123,14 +166,15 @@ def compare_noedit_and_journal_saves(
             create_probe_copy(source, noedit)
             create_probe_copy(source, journal)
             stage = "save no-edit control"
-            control_forms, control_designers = _save_copy(
+            control_forms, control_designers, _ = _save_copy(
                 noedit, add_journal=False, excel_factory=excel_factory,
                 designer_readback=designer_readback,
             )
             stage = "save second control without edits" if control_only else "save journal trial"
-            journal_forms, journal_designers = _save_copy(
+            journal_forms, journal_designers, verified_trial_rows = _save_copy(
                 journal, add_journal=not control_only, excel_factory=excel_factory,
                 designer_readback=designer_readback,
+                trial_fictional_revisions=trial_fictional_revisions,
             )
             if sorted(x.casefold() for x in control_forms) != sorted(x.casefold() for x in journal_forms):
                 raise SaveComparisonError("UserForm inventory differs between controls")
@@ -155,7 +199,8 @@ def compare_noedit_and_journal_saves(
         return {"form_count": len(control_forms), "differences": changes, "categories": categories,
                 "designer_forms_verified": len(control_designers) if designer_readback else None,
                 "comparison": "NO-EDIT vs NO-EDIT" if control_only else "NO-EDIT vs JOURNAL",
-                "source_relative_footprint_streams": matching_changed_streams}
+                "source_relative_footprint_streams": matching_changed_streams,
+                "fictional_revisions_verified": verified_trial_rows}
     except Exception as exc:
         detail = " ".join(str(exc).replace(str(source), "<SOURCE>").split())[:300]
         raise SaveComparisonError(f"Stage={stage}; cause={type(exc).__name__}; detail={detail}") from exc
@@ -168,11 +213,14 @@ def main(argv=None) -> int:
                         help="Compare two independent no-edit saves; never install journal")
     parser.add_argument("--designer-readback", action="store_true",
                         help="Verify both disposable UserForm designer trees; diagnostic only")
+    parser.add_argument("--trial-fictional-revisions", action="store_true",
+                        help="On journal disposable copy only, stage/reopen 3 synthetic rollback revisions")
     args = parser.parse_args(argv)
     try:
         result = compare_noedit_and_journal_saves(
             args.source, control_only=args.control_only,
             designer_readback=args.designer_readback,
+            trial_fictional_revisions=args.trial_fictional_revisions,
         )
     except Exception as exc:
         print("SAFETY STOP: NO-EDIT / JOURNAL COMPARISON FAILED")
@@ -191,6 +239,9 @@ def main(argv=None) -> int:
     print("Source-relative OLE change footprint matched: YES")
     print(f"Source-relative changed stream identities matched: {result['source_relative_footprint_streams']}")
     print("Not binary/resource preservation approval")
+    if result["fictional_revisions_verified"]:
+        print(f"Fictional journal revisions saved/reopened: {result['fictional_revisions_verified']}")
+        print("Synthetic journal only: no operational Apply/Restore executed")
     print("Source untouched: YES")
     print("Both temporary copies removed; no operational workbook created")
     print("DIAGNOSTIC ONLY: a zero or nonzero comparison is not an integrity approval")
