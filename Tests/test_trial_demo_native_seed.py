@@ -304,13 +304,13 @@ def _fictional_full_provider_schedule_snapshot(
         programme_sha256="c" * 64,
     )
     approved_shared = tuple(
-        ("DEMO STAFF", "ΔΕ", clock, frozenset(members))
+        ("demostaff", "ΔΕ", clock, frozenset(members))
         for members in shared_members
     )
     schedule = TrialProviderSchedule(
         ("c" * 64, "a" * 64, "b" * 64, "d" * 64),
-        (("DEMO STAFF", "ΔΕ", frozenset({clock})),
-         ("DEMO STAFF", "ΤΡ", frozenset({time(10, 0)}))),
+        (("demostaff", "ΔΕ", frozenset({clock})),
+         ("demostaff", "ΤΡ", frozenset({time(10, 0)}))),
         approved_shared,
     )
     return inpatient, outpatient, source_plan, schedule
