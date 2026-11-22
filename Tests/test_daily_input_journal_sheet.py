@@ -325,3 +325,31 @@ def test_native_journal_refuses_unprotected_or_visible_sheet():
             append_native_operation_revision(wb, _prepared_operation())
         setattr(ws, attr, True if attr == "ProtectContents" else 2)
     assert wb.saved == 0
+
+
+def test_native_journal_appends_second_operation_only_after_verified_terminal():
+    wb, ws = _workbook_with_empty_journal()
+    original = _prepared_operation()
+    failed = advance_daily_input_operation(
+        original, DailyInputOperationPhase.FAILED, failure_code="FICTIONAL"
+    )
+    next_op = DailyInputOperation(
+        "FICTIONAL-SECOND", "b" * 64, "2026-11-23",
+    )
+    assert append_native_operation_revision(wb, original)
+    assert append_native_operation_revision(wb, failed)
+    with pytest.raises(DailyInputJournalSheetError, match="transition rejected"):
+        append_native_operation_revision(wb, next_op)
+    rolled = advance_daily_input_operation(
+        failed, DailyInputOperationPhase.ROLLED_BACK, rollback_verified=True
+    )
+    assert append_native_operation_revision(wb, rolled)
+    assert append_native_operation_revision(wb, next_op)
+    second_failed = advance_daily_input_operation(
+        next_op, DailyInputOperationPhase.FAILED, failure_code="FICTIONAL"
+    )
+    assert append_native_operation_revision(wb, second_failed)
+    assert decode_operation_journal(read_native_journal_rows(ws)) == (
+        original, failed, rolled, next_op, second_failed,
+    )
+    assert ws.Visible == 2 and ws.ProtectContents and wb.saved == 0
