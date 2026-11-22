@@ -11,7 +11,9 @@ from .daily_input_journal import (
     JOURNAL_SHEET,
     DailyInputJournalError,
     decode_operation_journal,
+    append_operation_journal,
 )
+from .daily_input_operation import DailyInputOperation
 
 
 class DailyInputJournalSheetError(RuntimeError):
@@ -92,3 +94,84 @@ def ensure_daily_input_journal_sheet(workbook):
         if tuple(_cell_value(ws, 1, col) for col in range(1, 6)) != JOURNAL_HEADERS:
             raise DailyInputJournalSheetError("New journal header readback mismatch")
     return ws
+
+
+def append_native_operation_revision(workbook, operation: DailyInputOperation) -> bool:
+    """Stage ONE validated revision in a pre-existing journal, without saving.
+
+    Intended only inside a larger, rollback-aware Apply/Restore transaction.
+    Returns True for a newly staged revision; False for an exact idempotent
+    retry. Never creates a journal, opens a workbook, saves, runs VBA, or
+    reports clinical success. The caller must independently verify durability
+    across Save/Close/Reopen and restore operational state on any failure.
+    """
+    try:
+        if bool(workbook.ReadOnly):
+            raise DailyInputJournalSheetError("Journal append requires writable disposable workbook")
+        ws = workbook.Worksheets(JOURNAL_SHEET)
+    except DailyInputJournalSheetError:
+        raise
+    except Exception:
+        raise DailyInputJournalSheetError("Existing journal sheet unavailable") from None
+
+    if (str(ws.Name) != JOURNAL_SHEET or int(ws.Visible) != 2
+            or not bool(ws.ProtectContents)):
+        raise DailyInputJournalSheetError("Existing journal must be protected and veryHidden")
+
+    before = read_native_journal_rows(ws)
+    try:
+        expected = append_operation_journal(before, operation)
+    except DailyInputJournalError:
+        raise DailyInputJournalSheetError("Journal operation transition rejected") from None
+    if expected == before:
+        return False  # No mutation or protection toggling on exact retry.
+
+    row_index = len(before) + 2
+    if row_index > int(ws.Rows.Count):
+        raise DailyInputJournalSheetError("Journal worksheet row limit reached")
+    if any(_cell_value(ws, row_index, col) is not None for col in range(1, 6)):
+        raise DailyInputJournalSheetError("Journal append target is not empty")
+
+    touched = False
+    try:
+        ws.Unprotect()
+        if bool(ws.ProtectContents):
+            raise DailyInputJournalSheetError("Journal could not be unprotected")
+        for column, value in enumerate(expected[-1], start=1):
+            # Mark touched before writing, since a setter may partially succeed.
+            touched = True
+            ws.Cells(row_index, column).Value2 = value
+        ws.Protect(DrawingObjects=True, Contents=True, Scenarios=True)
+        if not bool(ws.ProtectContents):
+            raise DailyInputJournalSheetError("Journal could not be reprotected")
+        if read_native_journal_rows(ws) != expected:
+            raise DailyInputJournalSheetError("Journal staged revision readback mismatch")
+        return True
+    except Exception:
+        # A failed attempt must not leave a partial revision as usable history.
+        # Only the new target row may be cleared; prior revisions are immutable.
+        rollback_verified = False
+        try:
+            if touched:
+                if bool(ws.ProtectContents):
+                    ws.Unprotect()
+                if bool(ws.ProtectContents):
+                    raise DailyInputJournalSheetError("Journal rollback cannot unlock sheet")
+                for column in range(1, 6):
+                    ws.Cells(row_index, column).ClearContents()
+            if not bool(ws.ProtectContents):
+                ws.Protect(DrawingObjects=True, Contents=True, Scenarios=True)
+            rollback_verified = (
+                bool(ws.ProtectContents)
+                and int(ws.Visible) == 2
+                and read_native_journal_rows(ws) == before
+            )
+        except Exception:
+            rollback_verified = False
+        if rollback_verified:
+            raise DailyInputJournalSheetError(
+                "Journal staging failed; previous history restored and verified"
+            ) from None
+        raise DailyInputJournalSheetError(
+            "Journal staging failed; rollback or protection unverified"
+        ) from None
