@@ -98,6 +98,21 @@ def _property(owner, name, *, mandatory=False, context="designer"):
         # All other COM errors, including project access errors, fail closed.
         if not mandatory and getattr(exc, "hresult", None) == -2147352573:
             return ("UNSUPPORTED",)
+        # pywin32 sometimes wraps a missing optional MSForms RowSource
+        # member inside DISP_E_EXCEPTION, with DISP_E_MEMBERNOTFOUND as
+        # EXCEPINFO.scode. Treat ONLY that exact pair as unsupported.
+        # Never suppress other RowSource errors or mandatory properties.
+        if not mandatory and context == "control" and name == "RowSource":
+            details = getattr(exc, "excepinfo", None)
+            if (
+                type(getattr(exc, "hresult", None)) is int
+                and (exc.hresult & 0xffffffff) == 0x80020009
+                and type(details) in (tuple, list)
+                and len(details) >= 6
+                and type(details[5]) is int
+                and (details[5] & 0xffffffff) == 0x80020003
+            ):
+                return ("UNSUPPORTED",)
         # RowSource may raise a COM exception rather than mean "unsupported".
         # Capture numeric HRESULT/EXCEPINFO scode only; never the exception
         # description, source, argument values or private control identities.
