@@ -26,8 +26,13 @@ from rehab_excel.daily_input_journal_sheet import (
     read_native_journal_rows,
 )
 from rehab_excel.vba_semantic_audit import (
+    FORM_TYPE,
     audit_vba_components,
     assert_vba_semantics_preserved,
+)
+from rehab_excel.vba_form_storage import (
+    form_storage_evidence,
+    assert_form_storage_preserved,
 )
 
 
@@ -144,6 +149,12 @@ def provision_daily_input_journal(
         baseline_sheets = _worksheet_snapshot(workbook)
         stage = "audit baseline VBA component exports"
         baseline_vba = audit_vba_components(workbook)
+        form_names = tuple(item.name for item in baseline_vba
+                           if item.component_type == FORM_TYPE)
+        stage = "audit original embedded UserForm OLE streams"
+        original_form_storages = (
+            form_storage_evidence(source, form_names) if form_names else ()
+        )
         if any(name == JOURNAL_SHEET for name, _ in baseline_sheets):
             # Existing journal is validated by ensure(); do not replace or clear it.
             pass
@@ -173,10 +184,18 @@ def provision_daily_input_journal(
         _verify_native_journal(workbook, baseline_sheets, expected_journal_rows)
         stage = "audit saved VBA modules and resources"
         post_save_vba = audit_vba_components(workbook)
+        stage = "verify saved embedded UserForm OLE streams"
+        saved_form_storages = (
+            form_storage_evidence(output, form_names) if form_names else ()
+        )
+        if form_names:
+            assert_form_storage_preserved(original_form_storages, saved_form_storages)
+        stage = "compare VBA modules after independent form resource verification"
         protected_modules = assert_vba_semantics_preserved(
             baseline_vba, post_save_vba,
             journal_codename=journal_codename,
             expect_new_document=new_journal,
+            independently_verified_form_storages=bool(form_names),
         )
         stage = "close verification workbook and Excel"
         workbook.Close(SaveChanges=False)
@@ -194,6 +213,7 @@ def provision_daily_input_journal(
             "source_unchanged": True,
             "vba_preserved": True,
             "vba_original_components_verified": protected_modules,
+            "vba_form_storages_verified": len(form_names),
             "vba_binary_identical": post_save_vba_hash == source_vba_hash,
             "native_save_reopen_verified": True,
             "journal_veryhidden_protected": True,
@@ -239,6 +259,7 @@ def main(argv: list[str] | None = None) -> int:
     print("Source unchanged: YES")
     print("Original VBA component code/resources preserved: YES")
     print(f"Verified original VBA components: {result['vba_original_components_verified']}")
+    print(f"Original UserForm OLE storages verified: {result['vba_form_storages_verified']}")
     print("VBA binary byte-identical: " + ("YES" if result["vba_binary_identical"] else "NO (metadata changed; semantic audit passed)"))
     print("Excel save/close/reopen readback: GREEN")
     print("Journal veryHidden + protected: YES")
