@@ -257,3 +257,90 @@ def test_source_relative_footprint_mismatch_stops_even_with_same_total_change_co
     assert "frmsynthetic" not in str(caught.value)
     assert source.read_bytes() == baseline_bytes
     assert list(tmp_path.iterdir()) == [source]
+
+
+def test_native_fictional_journal_trial_stages_reopens_and_never_touches_source(
+    tmp_path, monkeypatch,
+):
+    """Opt-in synthetic revision path does not run VBA or save original."""
+    from types import SimpleNamespace
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    original = source.read_bytes()
+    apps = []
+    staged = []
+
+    class TrialSheets(FakeSheets):
+        def __init__(self, book):
+            self.book = book
+
+        def __call__(self, index):
+            if index == probe.JOURNAL_SHEET:
+                return self.book.journal
+            return super().__call__(index)
+
+    def factory():
+        app = FakeApp()
+        app.book.Worksheets = TrialSheets(app.book)
+        apps.append(app)
+        return app
+
+    def install(book):
+        book.journal = SimpleNamespace(
+            Name=probe.JOURNAL_SHEET, Visible=2, ProtectContents=True,
+        )
+        return book.journal
+
+    def stage(book, operation):
+        assert book.ReadOnly is False
+        assert book.journal.ProtectContents is True
+        staged.append(operation)
+        return True
+
+    rows = tuple(("FICTIONAL", i, "FAKE", "digest", "payload") for i in range(3))
+    monkeypatch.setattr(probe, "audit_vba_components", lambda wb: evidence())
+    monkeypatch.setattr(probe, "ensure_daily_input_journal_sheet", install)
+    monkeypatch.setattr(probe, "append_native_operation_revision", stage)
+    monkeypatch.setattr(probe, "read_native_journal_rows", lambda ws: rows)
+    monkeypatch.setattr(
+        probe, "audit_userform_designers",
+        lambda wb, *, expected_form_names: next(signatures),
+    )
+    signatures = _designer_signatures("same", "same", "same", "same")
+    monkeypatch.setattr(
+        probe, "form_storage_evidence",
+        lambda path, forms: (("frmsynthetic", (("f", "same"), ("o", "same"))),),
+    )
+
+    result = probe.compare_noedit_and_journal_saves(
+        source, excel_factory=factory, designer_readback=True,
+        trial_fictional_revisions=True,
+    )
+    assert result["fictional_revisions_verified"] == 3
+    assert [operation.phase.value for operation in staged] == [
+        "PREPARED", "FAILED", "ROLLED_BACK",
+    ]
+    assert len(apps) == 2
+    assert [app.book.saves for app in apps] == [1, 1]
+    assert all([args["ReadOnly"] for args in app.open_args] == [False, True] for app in apps)
+    assert source.read_bytes() == original
+    assert list(tmp_path.iterdir()) == [source]
+
+
+def test_fictional_journal_trial_requires_independent_journal_designer_readback(
+    tmp_path,
+):
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    with pytest.raises(probe.SaveComparisonError, match="requires journal and designer"):
+        probe.compare_noedit_and_journal_saves(
+            source, excel_factory=FakeApp,
+            control_only=True, designer_readback=True,
+            trial_fictional_revisions=True,
+        )
+    with pytest.raises(probe.SaveComparisonError, match="requires journal and designer"):
+        probe.compare_noedit_and_journal_saves(
+            source, excel_factory=FakeApp,
+            trial_fictional_revisions=True,
+        )
+    assert list(tmp_path.iterdir()) == [source]
