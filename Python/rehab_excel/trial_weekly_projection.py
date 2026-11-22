@@ -30,12 +30,15 @@ class TrialWeeklyProjection:
 
 
 def project_trial_weekly_rows(
-    plan: TrialImportPlan, *, confirmed_inpatient_ids: Iterable[str]
+    plan: TrialImportPlan, *, confirmed_inpatient_ids: Iterable[str],
+    confirmed_combined_slots: frozenset[frozenset[SourceWeeklyEntry]] = frozenset(),
 ) -> TrialWeeklyProjection:
     """Prepare exact PROGRAM_WEEKLY_SLOTS rows, without writing any Excel file.
 
     This only covers the weekly schedule sheet, not patient demographics or
     treatment admission into PATIENT_PLANNER. Never use as import authorization.
+    Exact source-bound combined-slot approvals must be supplied by an upstream
+    independently verified admission gate. The default remains strictly closed.
     """
     allowed_list = tuple(confirmed_inpatient_ids)
     # Check all types before set conversion, even when private input is malformed.
@@ -52,7 +55,9 @@ def project_trial_weekly_rows(
         raise TrialWeeklyProjectionError("Source plan slot count mismatch")
 
     try:
-        validate_weekly_entry_consistency(list(plan.entries))
+        validate_weekly_entry_consistency(
+            list(plan.entries), confirmed_combined_slots=confirmed_combined_slots,
+        )
     except ProgrammeMappingError as exc:
         raise TrialWeeklyProjectionError("Source entries collide") from exc
 
