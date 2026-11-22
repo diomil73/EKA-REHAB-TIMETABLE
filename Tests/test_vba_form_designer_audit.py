@@ -457,3 +457,36 @@ def test_rowsource_exception_on_mandatory_control_geometry_does_not_get_waived()
     workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
     with pytest.raises(UserFormDesignerAuditError, match="control property Width COM access failed"):
         snapshot(workbook)
+
+
+@pytest.mark.parametrize("outer,inner", [
+    (-2147352567, -2147352573),
+    (-2147352567, -2146827284),
+    (-2147352567, None),
+])
+def test_controlsource_com_error_reports_only_numeric_codes_and_fails_closed(outer, inner):
+    workbook = sample()
+    original = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+
+    class PrivateComError(Exception):
+        hresult = outer
+        excepinfo = (0, "SECRET SOURCE", "PRIVATE PATIENT", None, 0, inner)
+
+    class Proxy:
+        def __getattr__(self, name):
+            if name == "ControlSource":
+                raise PrivateComError("PRIVATE VALUE")
+            return getattr(original, name)
+
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
+    with pytest.raises(UserFormDesignerAuditError) as caught:
+        snapshot(workbook)
+    diagnostic = str(caught.value)
+    assert diagnostic.startswith(
+        "control property ControlSource COM access failed; HRESULT=0x80020009"
+    )
+    if inner is None:
+        assert "SCODE=" not in diagnostic
+    else:
+        assert f"SCODE=0x{inner & 0xffffffff:08X}" in diagnostic
+    assert all(secret not in diagnostic for secret in ("SECRET", "PRIVATE", "cmdSave"))
