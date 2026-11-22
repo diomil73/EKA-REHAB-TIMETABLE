@@ -455,3 +455,35 @@ def test_r6_group_source_to_approved_plan_full_reconciliation(tmp_path, monkeypa
         reconciliation.reconcile_demo_source_weekdays(
             plan, programme=programme, review=reviewed, intake=intake,
         )
+
+
+
+def test_r6_operator_ref_duplication_is_not_authoritative():
+    """Even a ledger matching a tampered weekly row cannot duplicate source refs."""
+    from rehab_excel.trial_demo_source_reconciliation import (
+        _source_bound_r6_corrected_groups, TrialDemoSourceReconciliationError,
+    )
+    source, review = _fictional_r6_operator_group()
+    try:
+        for row in (2, 3):
+            review["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"][f"I{row}"] = "G4 / H4 / I4 / G4"
+            review["ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"][f"J{row}"] = "G4 / H4 / I4 / G4"
+        with pytest.raises(TrialDemoSourceReconciliationError, match="references"):
+            _source_bound_r6_corrected_groups(review, source.active)
+    finally:
+        source.close()
+        review.close()
+
+
+def test_r6_formula_generated_operator_clock_is_not_a_decision():
+    from rehab_excel.trial_demo_source_reconciliation import (
+        _source_bound_r6_corrected_groups, TrialDemoSourceReconciliationError,
+    )
+    source, review = _fictional_r6_operator_group()
+    try:
+        review["ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"]["M2"] = "=TIME(8,30,0)"
+        with pytest.raises(TrialDemoSourceReconciliationError, match="ledger"):
+            _source_bound_r6_corrected_groups(review, source.active)
+    finally:
+        source.close()
+        review.close()
