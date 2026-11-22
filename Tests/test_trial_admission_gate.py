@@ -682,3 +682,85 @@ def test_r6_decision_readback_rejects_missing_or_duplicate_ledger_row(tmp_path):
     book.close()
     missing = evaluate_trial_admission(path)
     assert any("R6 corrected/combined/held" in item for item in missing.blockers)
+
+
+def _fictional_r6_active_pair():
+    """R6-shaped weekly/active rows, fictional identities and no approvals by guess."""
+    from rehab_excel.trial_admission_gate import (
+        R6_ACTIVE_OVERLAPS_HEADERS, R6_COMBINED_DECISION, R6_DECISION_HEADERS,
+    )
+    wb = Workbook()
+    wb.active.title = "ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"
+    wb.active.append(R6_DECISION_HEADERS)
+    active = wb.create_sheet("ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ")
+    active.append(R6_ACTIVE_OVERLAPS_HEADERS)
+    active.append([
+        4, "DEMO PERSON", "ΔΕ", "11:30", "ΦΘ + ΡΟΜΠΟΤΙΚΗ",
+        "C4 / D4 / E4 / R4 / S4 / T4", R6_COMBINED_DECISION,
+    ])
+    proposals = (
+        (2, ("Α", 4, "DEMO PERSON", "ΦΘ", "ΔΕ", "11:30",
+             "DEMO PROVIDER", None, "C4 / D4 / E4", "FICTIONAL", "HOLD_APPROVED_COMBINED")),
+        (3, ("Α", 4, "DEMO PERSON", "ΡΟΜΠΟΤΙΚΗ", "ΔΕ", "11:30",
+             "DEMO PROVIDER", None, "R4 / S4 / T4", "FICTIONAL", "HOLD_APPROVED_COMBINED")),
+    )
+    return wb, proposals
+
+
+def test_r6_active_approved_pair_does_not_reopen_historical_overlap():
+    """Only the exact active group counts; old conflict history stays archived."""
+    from rehab_excel.trial_admission_gate import _audit_r6_active_overlaps
+    wb, proposals = _fictional_r6_active_pair()
+    try:
+        blockers = []
+        assert _audit_r6_active_overlaps(wb, proposals, blockers) == 0
+        assert blockers == []
+    finally:
+        wb.close()
+
+
+def test_r6_active_changed_refs_or_missing_active_sheet_fail_closed():
+    from rehab_excel.trial_admission_gate import _audit_r6_active_overlaps
+    wb, proposals = _fictional_r6_active_pair()
+    try:
+        wb["ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ"]["F2"] = "C4 / D4 / E4 / R4 / S4"
+        blockers = []
+        assert _audit_r6_active_overlaps(wb, proposals, blockers) == 0
+        assert any("R6 active-overlap" in message for message in blockers)
+        wb.remove(wb["ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ"])
+        blockers.clear()
+        assert _audit_r6_active_overlaps(wb, proposals, blockers) is None
+        assert any("missing" in message for message in blockers)
+    finally:
+        wb.close()
+
+
+def test_r6_active_speech_conflict_still_blocks_even_with_approved_pairs():
+    from rehab_excel.trial_admission_gate import (
+        _audit_r6_active_overlaps, R6_PENDING_SPEECH_DECISION,
+    )
+    wb, combined = _fictional_r6_active_pair()
+    try:
+        pending = (
+            (4, ("Α", 5, "DEMO OTHER", "ΦΘ", "ΤΡ", "09:15",
+                 "DEMO PROVIDER TWO", None, "C5 / D5 / E5",
+                 "FICTIONAL", "HOLD_CONFLICT")),
+            (5, ("Α", 5, "DEMO OTHER", "ΛΟΓΟΘΕΡΑΠΕΙΑ", "ΤΡ", "09:15",
+                 None, "DEMO SPEECH", "J5 / K5 / L5",
+                 "FICTIONAL", "HOLD_RESCHEDULE")),
+        )
+        sheet = wb["ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ"]
+        sheet.append([
+            5, "DEMO OTHER", "ΤΡ", "09:15",
+            "ΦΘ + ΛΟΓΟΘΕΡΑΠΕΙΑ",
+            "C5 / D5 / E5 / J5 / K5 / L5", R6_PENDING_SPEECH_DECISION,
+        ])
+        blockers = []
+        assert _audit_r6_active_overlaps(wb, combined + pending, blockers) == 1
+        assert blockers == []
+        sheet["G3"] = "FICTIONAL FALSE APPROVAL"
+        blockers = []
+        assert _audit_r6_active_overlaps(wb, combined + pending, blockers) == 1
+        assert any("unresolved state differs" in message for message in blockers)
+    finally:
+        wb.close()
