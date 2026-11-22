@@ -103,11 +103,14 @@ def assert_vba_semantics_preserved(
     *,
     journal_codename: str | None,
     expect_new_document: bool,
+    independently_verified_form_storages: bool = False,
 ) -> int:
     """Require original components untouched plus one empty journal document.
 
     Returns the original component count on success. Any additional component,
-    missing original, changed source or resource fails closed.
+    missing original, or changed source/export fails closed. Exported UserForm
+    FRX differences may be disregarded only if the caller first verified the
+    complete embedded OLE UserForm streams, independently of the export API.
     """
     previous = {entry.name.casefold(): entry for entry in before}
     current = {entry.name.casefold(): entry for entry in after}
@@ -127,7 +130,8 @@ def assert_vba_semantics_preserved(
         if old.export_digest != new.export_digest:
             changes["export"] += 1
         if old.companion_digest != new.companion_digest:
-            changes["resource"] += 1
+            if not independently_verified_form_storages or old.component_type != FORM_TYPE:
+                changes["resource"] += 1
     if any(changes.values()):
         detail = " ".join(f"{kind}={count}" for kind, count in changes.items())
         raise VbaSemanticAuditError("Preexisting VBA component mismatch: " + detail)
