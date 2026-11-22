@@ -143,6 +143,11 @@ class Win32ComMasterProjectionBackend:
             border.Weight = 2
             border.Color = self.palette.infectious_yellow
 
+    @staticmethod
+    def _apply_identity_header_style(ws, header_row: int) -> None:
+        """A header never inherits the infectious patient-row highlight."""
+        ws.Range(f"B{header_row}:C{header_row}").Interior.Color = HEADER_COLORS["identity"]
+
     def _apply_noninfectious_identity_style(self, row_range) -> None:
         """Neutralize infectious styling inherited from a template row.
 
@@ -255,11 +260,8 @@ class Win32ComMasterProjectionBackend:
                 else:
                     self._apply_noninfectious_identity_style(identity_range)
 
-            # Header is not a patient row; never inherit the infectious yellow
-            # used exclusively for B:C of explicitly flagged patients.
-            ws.Range(f"B{template_row - 1}:C{template_row - 1}").Interior.Color = (
-                HEADER_COLORS["identity"]
-            )
+            # Always restore the neutral header after body projection.
+            self._apply_identity_header_style(ws, template_row - 1)
 
             workbook.Application.CutCopyMode = False
             # Verification checks the written formulas and identities directly;
