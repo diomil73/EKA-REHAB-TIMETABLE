@@ -136,7 +136,8 @@ def _source_bound_r6_corrected_groups(review_book, src):
             ) from None
         before = []
         for decision in decisions:
-            if frozenset(_r6_exact_refs(decision[9])) != expected_refs:
+            original_refs = _r6_exact_refs(decision[9])
+            if len(original_refs) != len(columns) or frozenset(original_refs) != expected_refs:
                 raise TrialDemoSourceReconciliationError(
                     "R6 operator correction has wrong original cell references"
                 )
@@ -192,9 +193,11 @@ def _source_bound_r6_corrected_groups(review_book, src):
         final_rows = []
         seen_slots = set()
         for row in final_group:
+            row_refs = _r6_exact_refs(row[8])
             if (
                 _text(row[10]) not in {_R6_CORRECTED, _R6_UNCHANGED}
-                or frozenset(_r6_exact_refs(row[8])) != expected_refs
+                or len(row_refs) != len(columns)
+                or frozenset(row_refs) != expected_refs
                 or _text(row[4]) not in WEEKDAYS
                 or _text(row[7]) == ""
             ):
@@ -282,7 +285,9 @@ def reconcile_demo_source_weekdays(
 
         src_book = load_workbook(programme, read_only=True, data_only=False)
         try:
-            review_book = load_workbook(review, read_only=True, data_only=True)
+            # Formula-bearing decisions must be visible to the existing
+            # _data_rows fail-closed checker; cached formula values are not approvals.
+            review_book = load_workbook(review, read_only=True, data_only=False)
             try:
                 src = src_book[PROGRAMME_SHEET]
                 patients = review_book[PATIENT_SHEET]
