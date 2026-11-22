@@ -383,3 +383,75 @@ def test_r6_operator_original_clock_or_ledger_missing_blocks_group():
     finally:
         source.close()
         review.close()
+
+
+
+def test_r6_group_source_to_approved_plan_full_reconciliation(tmp_path, monkeypatch):
+    """Fictional end-to-end read-only Counter check, including a newly added day."""
+    from openpyxl import load_workbook
+    from rehab_core.programme_mapping import SourceWeeklyEntry
+    from rehab_excel.trial_import_plan import TrialImportPlan, _digest
+    from rehab_excel.trial_source_alignment import (
+        PROGRAMME_HEADERS, PATIENT_HEADERS, WEEKLY_HEADERS,
+    )
+    from rehab_excel import trial_demo_source_reconciliation as reconciliation
+
+    source, review = _fictional_r6_operator_group(new_day=True)
+    src = source.active
+    src["A1"], src["B1"] = "ΘΑΛΑΜΟΣ", "ΑΣΘΕΝΗΣ"
+    for col, header in enumerate(PROGRAMME_HEADERS, 3):
+        src.cell(1, col, header)
+    src["A4"], src["B4"] = "WARD", "DEMO PERSON"
+    for col, header in enumerate(WEEKLY_HEADERS, 1):
+        review["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"].cell(1, col, header)
+    patients = review.create_sheet("ΑΣΘΕΝΕΙΣ")
+    patients.append(PATIENT_HEADERS)
+    patients.append([4, "Α", "DEMO PERSON", "WARD", "DEMO-1", "CONFIRMED"])
+
+    programme = tmp_path / "programme.xlsx"
+    reviewed = tmp_path / "review.xlsx"
+    intake = tmp_path / "fictional-intake.xlsm"
+    source.save(programme)
+    review.save(reviewed)
+    source.close()
+    review.close()
+    intake.write_bytes(b"fictional read-only intake reference")
+    before = (programme.read_bytes(), reviewed.read_bytes(), intake.read_bytes())
+    # No F, U, V or untimed fields exist in this fictional source.
+    monkeypatch.setattr(
+        reconciliation, "verify_legacy_afternoon_scope",
+        lambda **kwargs: frozenset(),
+    )
+    monkeypatch.setattr(
+        reconciliation, "verify_morning_special_scope",
+        lambda **kwargs: {},
+    )
+    monkeypatch.setattr(
+        reconciliation, "verify_untimed_legacy_scope",
+        lambda **kwargs: frozenset(),
+    )
+    approved = tuple(
+        SourceWeeklyEntry(
+            "DEMO-1", "Εργο", day, time(8, 30), "NEW STAFF", "G4",
+        )
+        for day in ("ΔΕ", "ΤΕ", "ΠΑ")
+    )
+    plan = TrialImportPlan(
+        _digest(reviewed), _digest(intake), 1, 3,
+        approved, _digest(programme),
+    )
+    summary = reconciliation.reconcile_demo_source_weekdays(
+        plan, programme=programme, review=reviewed, intake=intake,
+    )
+    assert (summary.patient_rows, summary.weekday_slots, summary.source_fields_held) == (1, 3, 0)
+    assert (programme.read_bytes(), reviewed.read_bytes(), intake.read_bytes()) == before
+
+    # A stale primitive original programme must never justify the same plan.
+    source_changed = load_workbook(programme)
+    source_changed["ΠΡΟΓΡΑΜΜΑ"]["G4"] = "10:00"
+    source_changed.save(programme)
+    source_changed.close()
+    with pytest.raises(reconciliation.TrialDemoSourceReconciliationError):
+        reconciliation.reconcile_demo_source_weekdays(
+            plan, programme=programme, review=reviewed, intake=intake,
+        )
