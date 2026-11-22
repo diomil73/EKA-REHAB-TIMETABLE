@@ -209,7 +209,14 @@ def _audit_r6_decision_readback(wb, proposals, blockers: list[str]) -> None:
             not _text(decision) or r5 is None or r5 in seen_r5
             or _source_row_number(source) is None or not _text(name)
             or not _text(specialty) or not _r6_exact_refs(refs)
-            or not _text(before_state) or not _text(before_day)
+            or not _text(before_day)
+            or not (
+                _text(before_state)
+                or (
+                    state == "PROPOSED_OPERATOR_CORRECTION"
+                    and "νέα ημέρα" in _text(decision).casefold()
+                )
+            )
         ):
             blockers.append(f"R6 decision ledger row {number}: incomplete or repeated provenance")
             continue
