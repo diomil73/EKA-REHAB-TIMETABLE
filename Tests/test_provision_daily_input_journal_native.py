@@ -68,3 +68,16 @@ def test_failure_diagnostic_redacts_local_source_and_output_paths(tmp_path):
     assert str(source) not in message
     assert str(output) not in message
     assert not output.exists()
+
+def test_provisioner_requires_signature_guard_and_semantic_reopen_comparison():
+    from inspect import getsource
+    from Python.tools.provision_daily_input_journal_native import provision_daily_input_journal
+
+    code = getsource(provision_daily_input_journal)
+    assert "workbook.VBASigned" in code
+    assert code.index("workbook.VBASigned") < code.index("ensure_daily_input_journal_sheet")
+    assert "baseline_vba = audit_vba_components(workbook)" in code
+    assert "post_save_vba = audit_vba_components(workbook)" in code
+    assert "assert_vba_semantics_preserved(" in code
+    assert "post_save_vba_hash == source_vba_hash" in code
+    assert 'if _vba_sha256(output) != source_vba_hash:' not in code
