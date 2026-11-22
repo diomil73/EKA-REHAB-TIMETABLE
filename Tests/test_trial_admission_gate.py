@@ -614,3 +614,71 @@ def test_original_source_bound_legacy_reference_clock_mismatch_fails_closed(tmp_
     assert not blocked.ready
     assert blocked.admitted_entries == ()
     assert "source-aligned" in " ".join(blocked.blockers)
+
+
+def _fictional_r6_decision_review(tmp_path):
+    """A real-R6-shaped decision, with no real names or admission approval."""
+    from openpyxl import load_workbook
+    from rehab_excel.trial_admission_gate import R6_DECISION_HEADERS
+
+    path = make_review(tmp_path)
+    book = load_workbook(path)
+    weekly = book["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    weekly["D2"] = "ΕΡΓΟΘΕΡΑΠΕΙΑ"
+    weekly["G2"] = None
+    weekly["H2"] = "DEMO THERAPIST"
+    weekly["I2"] = "G4 / H4 / I4"
+    weekly["K2"] = "PROPOSED_OPERATOR_CORRECTION"
+    ledger = book.create_sheet("ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ")
+    ledger.append(R6_DECISION_HEADERS)
+    ledger.append([
+        "FICTIONAL OPERATOR CORRECTION", 25, 4, "DEMO PERSON",
+        "ΕΡΓΟΘΕΡΑΠΕΙΑ", "ΤΡ", "11:30", None, "DEMO THERAPIST",
+        "G4 / H4 / I4", "PROPOSED_EXACT_SOURCE",
+        "ΔΕ", "11:30", "DEMO THERAPIST",
+        "PROPOSED_OPERATOR_CORRECTION",
+    ])
+    book.save(path)
+    book.close()
+    return path
+
+
+def test_r6_decision_readback_is_exact_but_not_admission(tmp_path):
+    path = _fictional_r6_decision_review(tmp_path)
+    original = path.read_bytes()
+    result = evaluate_trial_admission(path)
+    assert not result.ready  # no automatic clinical approval by the ledger
+    assert result.admitted_entries == ()
+    assert not any("R6 decision" in reason for reason in result.blockers)
+    assert path.read_bytes() == original
+
+
+def test_r6_decision_readback_rejects_changed_after_value(tmp_path):
+    from openpyxl import load_workbook
+    path = _fictional_r6_decision_review(tmp_path)
+    book = load_workbook(path)
+    book["ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"]["M2"] = "12:30"
+    book.save(path)
+    book.close()
+    result = evaluate_trial_admission(path)
+    assert not result.ready
+    assert result.admitted_entries == ()
+    assert any("R6 decision" in reason for reason in result.blockers)
+
+
+def test_r6_decision_readback_rejects_missing_or_duplicate_ledger_row(tmp_path):
+    from openpyxl import load_workbook
+    path = _fictional_r6_decision_review(tmp_path)
+    book = load_workbook(path)
+    ledger = book["ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"]
+    ledger.append([cell.value for cell in ledger[2]])
+    book.save(path)
+    book.close()
+    duplicate = evaluate_trial_admission(path)
+    assert any("R6 decision" in item for item in duplicate.blockers)
+    book = load_workbook(path)
+    book["ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"].delete_rows(2, 2)
+    book.save(path)
+    book.close()
+    missing = evaluate_trial_admission(path)
+    assert any("R6 corrected/combined/held" in item for item in missing.blockers)
