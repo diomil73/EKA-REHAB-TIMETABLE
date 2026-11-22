@@ -142,3 +142,44 @@ def stream_change_categories(before, after) -> dict[str, int]:
                 )
                 result[label] += 1
     return result
+
+
+def assert_matching_source_relative_change_footprints(source, noedit, journal) -> int:
+    """Compare *which* OLE streams changed relative to the same original.
+
+    Counts alone can mask one stream changing in the no-edit control and a
+    different stream changing in the journal trial. This check requires the
+    exact source-relative changed-stream identities to match per form.
+    It does NOT compare changed stream bytes, prove binary preservation,
+    or authorize ignoring strict OLE/resource integrity checks.
+    """
+    def normalized(snapshot):
+        forms = {}
+        for name, streams in snapshot:
+            if name in forms:
+                raise VbaFormStorageError("Ambiguous UserForm evidence identities")
+            entries = {}
+            for path, digest in streams:
+                if path in entries:
+                    raise VbaFormStorageError("Ambiguous UserForm evidence stream identities")
+                entries[path] = digest
+            forms[name] = entries
+        return forms
+
+    original = normalized(source)
+    left = normalized(noedit)
+    right = normalized(journal)
+    if not original or original.keys() != left.keys() or original.keys() != right.keys():
+        raise VbaFormStorageError("UserForm footprint inventory differs")
+    matched_changes = 0
+    for name, streams in original.items():
+        noedit_streams = left[name]
+        journal_streams = right[name]
+        if streams.keys() != noedit_streams.keys() or streams.keys() != journal_streams.keys():
+            raise VbaFormStorageError("UserForm footprint stream inventory differs")
+        changed_noedit = {key for key in streams if streams[key] != noedit_streams[key]}
+        changed_journal = {key for key in streams if streams[key] != journal_streams[key]}
+        if changed_noedit != changed_journal:
+            raise VbaFormStorageError("Journal and no-edit change footprints differ")
+        matched_changes += len(changed_noedit)
+    return matched_changes
