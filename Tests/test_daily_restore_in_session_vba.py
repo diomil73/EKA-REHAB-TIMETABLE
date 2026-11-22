@@ -86,3 +86,20 @@ def test_ledger_reason_uses_greek_business_label_for_legacy_technical_reasons():
 def test_transformer_requires_known_bridge_markers():
     with pytest.raises(ValueError, match="markers were not found"):
         build_in_session_ledger_vba("Option Explicit")
+
+
+def test_in_session_failure_does_not_delete_recovery_snapshot_or_claim_success():
+    transformed = build_in_session_ledger_vba(VBA_CODE)
+    block = transformed.split("Private Sub ApplyAuthoritativeRestorePreview", 1)[1].split(
+        "Private Function ElapsedRestoreSeconds", 1
+    )[0]
+    assert "ApplyError:" in block
+    assert "Resume RollbackAttempt" in block
+    assert "RollbackAttempt:" in block
+    assert "On Error GoTo RollbackFailed" in block
+    assert "RollbackFailed:" in block
+    assert "Resume RollbackUnverified" in block
+    assert "RollbackUnverified:" in block
+    assert "Μην συνεχίσετε καταχωρίσεις" in block
+    assert "Kill rollbackPath" not in block.split("ApplyError:", 1)[1]
+    assert "ThisWorkbook.Save" in block.split("RollbackAttempt:", 1)[1]
