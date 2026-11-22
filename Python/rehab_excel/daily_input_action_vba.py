@@ -121,6 +121,9 @@ Public Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As 
     Dim errorNumber As Long, currentPatchIndex As Long
 
     On Error GoTo ApplyError
+    ' Restore Excel UI state even if validation fails before the patch loop.
+    previousEvents = Application.EnableEvents
+    previousScreenUpdating = Application.ScreenUpdating
 
     currentPhase = "read payload"
     rawText = ReadUtf8Text(payloadPath)
@@ -172,7 +175,11 @@ ApplyExit:
     Application.ScreenUpdating = previousScreenUpdating
     Application.EnableEvents = previousEvents
     On Error Resume Next
-    If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then Kill rollbackPath
+    ' On failed Apply, retain the local rollback copy for recovery. Even a
+    ' completed copy-back is not independent verification of the full workbook.
+    If ApplyValidatedDailyInputPayload Then
+        If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then Kill rollbackPath
+    End If
     On Error GoTo 0
     Exit Function
 
@@ -181,16 +188,34 @@ ApplyError:
     errorText = Err.Description
     On Error Resume Next
     WriteDailyInputDiagnostic errorNumber, errorText, currentPhase, currentPatchIndex, currentSheet, currentCell
+    ' Resume exits the active VBA error handler before attempting rollback.
+    ' A rollback error must not be silently swallowed by On Error Resume Next.
+    Resume RollbackAttempt
+
+RollbackAttempt:
+    On Error GoTo RollbackFailed
     If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then
         RestorePatchesFromRollback rollbackPath, lines
         ThisWorkbook.Save
     End If
-    On Error GoTo 0
+    GoTo RollbackUnverified
+
+RollbackFailed:
+    ' Rollback/copy-back or its Save failed. Preserve the backup file.
+    Resume RollbackUnverified
+
+RollbackUnverified:
+    On Error Resume Next
     Application.ScreenUpdating = previousScreenUpdating
     Application.EnableEvents = previousEvents
-    MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε και οι αλλαγές αναιρέθηκαν." & vbCrLf & _
-           "Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Ημερήσια κατάσταση"
-    Resume ApplyExit
+    On Error GoTo 0
+    ' Copy-back alone is NOT proof of restored formulas, styles, ledger,
+    ' replacement facts, or a durable transaction after Save/Close/Reopen.
+    MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε." & vbCrLf & _
+           "Δεν έχει επαληθευτεί πλήρης επαναφορά των αλλαγών." & vbCrLf & _
+           "Μην συνεχίσετε καταχωρίσεις. Επικοινωνήστε με τον διαχειριστή.", _
+           vbCritical, "Ημερήσια κατάσταση"
+    GoTo ApplyExit
 End Function
 
 
