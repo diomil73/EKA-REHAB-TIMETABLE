@@ -120,8 +120,11 @@ Private Function PersistReplacementPayload(ByVal payloadPath As String, ByVal ap
     Dim suspensionRows As Collection
     Dim rollbackPath As String, phase As String, target As String
     Dim previousEvents As Boolean, previousScreenUpdating As Boolean
+    Dim failureNumber As Long, failureMessage As String
 
     On Error GoTo PersistError
+    previousEvents = Application.EnableEvents
+    previousScreenUpdating = Application.ScreenUpdating
     phase = "read payload"
     rawText = ReadUtf8Text(payloadPath)
     lines = Split(Replace(rawText, vbCr, ""), vbLf)
@@ -191,26 +194,44 @@ NextLine:
 
 PersistRollback:
     phase = "rollback after projection failure"
-    GoTo PersistError
+    Err.Raise vbObjectError + 2513, , "Replacement projection was not applied"
 
 PersistError:
+    failureNumber = Err.Number
+    failureMessage = Err.Description
+    Resume RecoveryAttempt
+
+RecoveryAttempt:
     target = ""
-    WriteReplacementDiagnostic Err.Number, Err.Description, phase, target
     On Error Resume Next
+    WriteReplacementDiagnostic failureNumber, failureMessage, phase, target
+    On Error GoTo RecoveryFailed
     If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then
         RestoreReplacementTransaction rollbackPath, replacementLines, suspensionRows, patchLines, factCreated, factStartRow, factRows
         ThisWorkbook.Save
     End If
-    On Error GoTo 0
-    MsgBox "Οι αναπληρώσεις δεν εφαρμόστηκαν και οι αλλαγές αναιρέθηκαν." & vbCrLf & _
-           "Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Αναπληρώσεις"
+    GoTo RecoveryUnverified
+
+RecoveryFailed:
+    Resume RecoveryUnverified
+
+RecoveryUnverified:
+    ' Copy-back is not independently verified recovery, even if Save returned.
+    MsgBox "Οι αναπληρώσεις δεν ολοκληρώθηκαν." & vbCrLf & _
+           "Δεν έχει επαληθευτεί πλήρης επαναφορά των αλλαγών." & vbCrLf & _
+           "Μην συνεχίσετε καταχωρίσεις. Επικοινωνήστε με τον διαχειριστή.", _
+           vbCritical, "Αναπληρώσεις"
+    GoTo PersistExit
 
 PersistExit:
     Application.ScreenUpdating = previousScreenUpdating
     Application.EnableEvents = previousEvents
     On Error Resume Next
     If Len(patchPath) > 0 And Dir$(patchPath) <> "" Then Kill patchPath
-    If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then Kill rollbackPath
+    ' Preserve local recovery evidence whenever replacement commit fails.
+    If PersistReplacementPayload Then
+        If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then Kill rollbackPath
+    End If
     On Error GoTo 0
 End Function
 
