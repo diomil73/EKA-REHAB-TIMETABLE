@@ -19,7 +19,8 @@ Public Sub ApplyDailyInputPreview()
     Dim commandLine As String, responseText As String
     Dim exitCode As Long, replacementsNeeded As Long
     Dim currentPhase As String, backendError As String
-    Dim previousEvents As Boolean
+    Dim previousEvents As Boolean, transactionRollbackPath As String
+    Dim transactionStarted As Boolean, transactionComplete As Boolean
 
     On Error GoTo ActionError
     previousEvents = Application.EnableEvents
@@ -72,33 +73,59 @@ Public Sub ApplyDailyInputPreview()
         GoTo CleanUp
     End If
 
+    ' A full-workbook recovery snapshot must survive all downstream phases.
+    ' The inner patch/replacement backups do NOT cover a late refresh failure.
+    currentPhase = "capture complete operation rollback"
+    transactionRollbackPath = Environ$("TEMP") & "\\eka_daily_operation_rollback_" & _
+                              Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Timer * 100) & ".xlsm"
+    ThisWorkbook.SaveCopyAs transactionRollbackPath
+    transactionStarted = True
+
     currentPhase = "apply payload"
     If Not ApplyValidatedDailyInputPayload(payloadPath) Then
         PreserveDailyInputFailureArtifacts payloadPath, responsePath
-        GoTo CleanUp
+        GoTo IncompleteApply
     End If
     currentPhase = "refresh operational views"
-    If Not RefreshOperationalViews() Then GoTo CleanUp
+    If Not RefreshOperationalViews() Then GoTo IncompleteApply
 
     replacementsNeeded = JsonLongValue(responseText, "replacement_sessions_needed")
     If replacementsNeeded > 0 Then
         currentPhase = "resolve replacements"
-        If ResolveDailyReplacementsInPlace() Then
-            currentPhase = "refresh after replacements"
-            If Not RefreshOperationalViews() Then GoTo CleanUp
-            MsgBox "Η ημερήσια κατάσταση και οι αναπληρώσεις εφαρμόστηκαν επιτυχώς.", _
-                   vbInformation, "Ημερήσια κατάσταση"
-            GoToMaster
-        End If
+        If Not ResolveDailyReplacementsInPlace() Then GoTo IncompleteApply
+        currentPhase = "refresh after replacements"
+        If Not RefreshOperationalViews() Then GoTo IncompleteApply
+    End If
+
+    currentPhase = "save after all dependent steps"
+    ThisWorkbook.Save
+    transactionComplete = True
+    If replacementsNeeded > 0 Then
+        MsgBox "Η ημερήσια κατάσταση και οι αναπληρώσεις εφαρμόστηκαν επιτυχώς.", _
+               vbInformation, "Ημερήσια κατάσταση"
     Else
         MsgBox "Η ημερήσια κατάσταση εφαρμόστηκε επιτυχώς.", vbInformation, "Ημερήσια κατάσταση"
-        GoToMaster
     End If
+    GoToMaster
+    GoTo CleanUp
+
+IncompleteApply:
+    ' No claim of rollback or of a completed day. Keep the entire-operation
+    ' snapshot if a dependent refresh or replacement decision is still pending.
+    MsgBox "Η συνολική εφαρμογή της ημερήσιας κατάστασης δεν ολοκληρώθηκε." & vbCrLf & _
+           "Ενδέχεται να έχουν αποθηκευτεί μερικές αλλαγές." & vbCrLf & _
+           "Μην ξεκινήσετε νέα εφαρμογή πριν ελεγχθεί η κατάσταση.", _
+           vbCritical, "Ημερήσια κατάσταση"
+    GoTo CleanUp
 
 CleanUp:
     Application.StatusBar = False
     Application.EnableEvents = previousEvents
     On Error Resume Next
+    ' The operation-level backup is released only after the last Save succeeds.
+    If transactionStarted And transactionComplete Then
+        If Len(transactionRollbackPath) > 0 And Dir$(transactionRollbackPath) <> "" Then Kill transactionRollbackPath
+    End If
     If Len(payloadPath) > 0 And Dir$(payloadPath) <> "" Then Kill payloadPath
     If Len(responsePath) > 0 And Dir$(responsePath) <> "" Then Kill responsePath
     On Error GoTo 0
@@ -108,8 +135,15 @@ ActionError:
     Application.StatusBar = False
     Application.EnableEvents = previousEvents
     WriteDailyInputDiagnostic Err.Number, Err.Description, currentPhase, 0, "", ""
-    MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε. Δοκιμάστε ξανά. Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
-           vbCritical, "Ημερήσια κατάσταση"
+    If transactionStarted Then
+        MsgBox "Η συνολική εφαρμογή δεν ολοκληρώθηκε." & vbCrLf & _
+               "Δεν έχει επαληθευτεί η κατάσταση του αρχείου." & vbCrLf & _
+               "Μην συνεχίσετε καταχωρίσεις. Επικοινωνήστε με τον διαχειριστή.", _
+               vbCritical, "Ημερήσια κατάσταση"
+    Else
+        MsgBox "Η ημερήσια κατάσταση δεν εφαρμόστηκε. Δοκιμάστε ξανά. Αν το πρόβλημα συνεχιστεί, επικοινωνήστε με τον διαχειριστή.", _
+               vbCritical, "Ημερήσια κατάσταση"
+    End If
     Resume CleanUp
 End Sub
 
