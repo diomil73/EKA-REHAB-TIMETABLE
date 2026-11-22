@@ -38,6 +38,9 @@ class TrialImportPlan:
     entries: tuple[SourceWeeklyEntry, ...] = field(repr=False)
     programme_sha256: str | None = None
     empty_demo_shell: bool = False
+    confirmed_combined_slots: frozenset[frozenset[SourceWeeklyEntry]] = field(
+        default_factory=frozenset, repr=False,
+    )
 
     def verify_sources(
         self, review: str | Path, intake: str | Path,
@@ -119,6 +122,9 @@ def prepare_trial_import_plan(
             entries=tuple(admissions.admitted_entries),
             programme_sha256=initial[2],
             empty_demo_shell=empty_demo_shell,
+            confirmed_combined_slots=getattr(
+                admissions, "confirmed_combined_slots", frozenset(),
+            ),
         )
     finally:
         if (
