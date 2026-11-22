@@ -32,6 +32,15 @@ TASK_HEADERS = (
     "Κατάσταση ελέγχου", "Σημειώσεις χειριστή",
 )
 PENDING = "ΕΚΚΡΕΜΕΙ"
+R6_PENDING_SHARED_SHEET = "ΚΟΙΝΑ_SLOTS_ΠΡΟΣ_ΕΛΕΓΧΟ"
+R6_PENDING_SHARED_HEADERS = (
+    "Γραμμή ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ", "Γραμμή πηγής", "Ημέρα",
+    "Ώρα", "Κατάσταση",
+)
+R6_PENDING_SHARED_STATES = frozenset({
+    "ΕΚΚΡΕΜΕΙ ΕΓΚΡΙΣΗ",
+    "ΝΕΑ ΟΜΑΔΑ — ΑΠΑΙΤΕΙΤΑΙ ΕΓΚΡΙΣΗ",
+})
 
 
 class TrialReviewChecklistError(ValueError):
@@ -172,6 +181,63 @@ def create_private_review_checklist(*, programme, review, output):
                     "R6 decision/active review source proof is incomplete"
                 )
             r6_approved_pair_rows = {frozenset(pair) for pair in r6_pairs}
+
+            # The R6 shared-slot triage retains row numbers from older R5
+            # proposals. Match ONLY original global row + exact day/clock
+            # against the current weekly view; a stale Excel row index is
+            # never authoritative and cannot approve a shared provider slot.
+            if R6_PENDING_SHARED_SHEET not in rev.sheetnames:
+                raise TrialReviewChecklistError(
+                    "R6 shared-provider review sheet is missing"
+                )
+            pending_shared = rev[R6_PENDING_SHARED_SHEET]
+            if tuple(
+                pending_shared.cell(1, col).value for col in range(1, 6)
+            ) != R6_PENDING_SHARED_HEADERS:
+                raise TrialReviewChecklistError(
+                    "R6 shared-provider review schema changed"
+                )
+            actual_by_source_slot = defaultdict(list)
+            for current_row, values in proposed_values:
+                original_number = _row_number(values[1])
+                try:
+                    current_clock = parse_clock(values[5])
+                except (ValueError, TypeError, OverflowError):
+                    continue
+                if original_number is not None and _text(values[4]) in WEEKDAYS:
+                    actual_by_source_slot[
+                        (original_number, _text(values[4]), current_clock)
+                    ].append(current_row)
+            linked_current = set()
+            for number, cells in _rows(pending_shared, 5):
+                old_row, source_row, day, raw_clock, state = (
+                    cell.value for cell in cells
+                )
+                try:
+                    current_key = (
+                        _row_number(source_row), _text(day), parse_clock(raw_clock),
+                    )
+                except (ValueError, TypeError, OverflowError):
+                    raise TrialReviewChecklistError(
+                        "R6 shared-provider reference has invalid clock"
+                    ) from None
+                linked = actual_by_source_slot.get(current_key, ())
+                if (
+                    _unsafe(cells) or _row_number(old_row) is None
+                    or current_key[0] is None or current_key[1] not in WEEKDAYS
+                    or _text(state) not in R6_PENDING_SHARED_STATES
+                    or len(linked) != 1 or linked[0] in linked_current
+                ):
+                    raise TrialReviewChecklistError(
+                        "R6 shared-provider reference is stale or ambiguous"
+                    )
+                linked_current.add(linked[0])
+                task(
+                    "SHARED_PROVIDER", R6_PENDING_SHARED_SHEET,
+                    f"{number} → {SOURCE_WEEKLY_SHEET}!{linked[0]}",
+                    "EXPLICIT_SHARED_MEMBERSHIP_REVIEW",
+                )
+
             active = rev[R6_ACTIVE_OVERLAPS_SHEET]
             for number, cells in _rows(active, 7):
                 source, _name, weekday, raw_clock, _treatments, _refs, state = (
