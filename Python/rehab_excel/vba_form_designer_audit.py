@@ -11,6 +11,7 @@ Errors and results report counts only; private form/control values stay in RAM.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from hashlib import sha256
 import json
 
@@ -68,7 +69,15 @@ def _scalar(value):
 
 def _property(owner, name, *, mandatory=False, context="designer"):
     try:
-        return ("VALUE", _scalar(getattr(owner, name)))
+        value = getattr(owner, name)
+        # Some Windows COM/pywin32 IFont.Size values are Decimal rather than
+        # float. Only this explicit font field accepts that representation.
+        # Keep the same bounded, finite 12-significant-digit scalar digest.
+        if context == "font" and name == "Size" and type(value) is Decimal:
+            if not value.is_finite() or not (Decimal("-1e12") < value < Decimal("1e12")):
+                raise UserFormDesignerAuditError("Non-finite designer number")
+            return ("VALUE", format(float(value), ".12g"))
+        return ("VALUE", _scalar(value))
     except AttributeError:
         if mandatory:
             raise UserFormDesignerAuditError(
