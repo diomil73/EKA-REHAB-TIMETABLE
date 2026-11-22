@@ -68,3 +68,30 @@ def test_global_replacement_operator_messages_hide_internal_details():
     assert "worker" not in messages
     assert "preview" not in messages
     assert "hash" not in messages
+
+
+def test_replacement_transaction_preserves_recovery_copy_and_fails_closed():
+    source = GLOBAL_REPLACEMENT_MODULE_CODE
+    block = source.split("Private Function PersistReplacementPayload", 1)[1].split(
+        "Private Function PersistReplacementFacts", 1
+    )[0]
+    assert "Resume RecoveryAttempt" in block
+    assert "On Error GoTo RecoveryFailed" in block
+    assert "Resume RecoveryUnverified" in block
+    assert "Err.Raise vbObjectError + 2513" in block
+    assert "Δεν έχει επαληθευτεί πλήρης επαναφορά" in block
+    assert "Μην συνεχίσετε καταχωρίσεις" in block
+    assert "οι αλλαγές αναιρέθηκαν" not in block
+    assert "previousEvents = Application.EnableEvents" in block.split(
+        'phase = "read payload"', 1
+    )[0]
+    assert "previousScreenUpdating = Application.ScreenUpdating" in block.split(
+        'phase = "read payload"', 1
+    )[0]
+    cleanup = block.split("PersistExit:", 1)[1]
+    assert "If PersistReplacementPayload Then" in cleanup
+    assert cleanup.index("If PersistReplacementPayload Then") < cleanup.index("Kill rollbackPath")
+    assert "Kill rollbackPath" not in block.split("RecoveryAttempt:", 1)[1].split(
+        "PersistExit:", 1
+    )[0]
+    assert "PersistReplacementPayload = True" in block
