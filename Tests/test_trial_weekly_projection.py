@@ -134,3 +134,46 @@ def test_efa_same_day_distinct_times_survive_weekly_reader():
         assert all(x.day_pattern == "Δε" for x in result)
     finally:
         wb.close()
+
+
+def test_exact_confirmed_physio_robotic_pair_survives_weekly_projection():
+    """Fictional R6-shaped case: only the exact confirmed pair may coexist."""
+    physio = _entry(specialty="ΦΘ", cell="C4")
+    robotic = _entry(specialty="Ρομποτικό", cell="R4")
+    plan = _plan(physio, robotic)
+
+    with pytest.raises(TrialWeeklyProjectionError, match="collide"):
+        project_trial_weekly_rows(plan, confirmed_inpatient_ids=("DEMO-1",))
+
+    projection = project_trial_weekly_rows(
+        plan,
+        confirmed_inpatient_ids=("DEMO-1",),
+        confirmed_combined_slots=frozenset({frozenset({physio, robotic})}),
+    )
+    assert projection.row_count == 2
+    assert {row[1] for row in projection.rows} == {"ΦΘ", "Ρομποτικό"}
+
+
+def test_stale_combined_slot_confirmation_stops_weekly_projection():
+    """An exact approval must not silently authorize a changed time or day."""
+    physio = _entry(specialty="ΦΘ", cell="C4")
+    robotic = _entry(specialty="Ρομποτικό", cell="R4")
+    changed = _entry(specialty="Ρομποτικό", cell="R4", clock=time(10, 0))
+    with pytest.raises(TrialWeeklyProjectionError, match="collide"):
+        project_trial_weekly_rows(
+            _plan(physio, changed),
+            confirmed_inpatient_ids=("DEMO-1",),
+            confirmed_combined_slots=frozenset({frozenset({physio, robotic})}),
+        )
+
+
+def test_approved_pair_does_not_authorize_third_same_time_therapy():
+    physio = _entry(specialty="ΦΘ", cell="C4")
+    robotic = _entry(specialty="Ρομποτικό", cell="R4")
+    speech = _entry(specialty="Λογο", cell="J4", provider=None)
+    with pytest.raises(TrialWeeklyProjectionError, match="collide"):
+        project_trial_weekly_rows(
+            _plan(physio, robotic, speech),
+            confirmed_inpatient_ids=("DEMO-1",),
+            confirmed_combined_slots=frozenset({frozenset({physio, robotic})}),
+        )
