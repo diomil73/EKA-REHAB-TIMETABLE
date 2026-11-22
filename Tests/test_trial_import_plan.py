@@ -207,3 +207,48 @@ def test_original_programme_is_forwarded_to_existing_preflight_and_admission(tmp
     assert plan.weekday_slot_count == 1
     assert seen == [("preflight", programme.resolve()), ("admission", programme.resolve())]
     plan.verify_sources(review, intake, programme=programme)
+
+
+
+def test_source_bound_combined_approval_flows_from_admission_into_weekly_projection(
+    tmp_path, monkeypatch,
+):
+    """The immutable plan, not the caller, carries exact reviewed membership."""
+    from rehab_excel.trial_weekly_projection import project_trial_weekly_rows
+    review, intake = _sources(tmp_path)
+    programme = tmp_path / "fictional-original.xlsx"
+    programme.write_bytes(b"fictional-source")
+    physio = _entry()
+    robotic = SourceWeeklyEntry(
+        "DEMO-1", "Ρομποτικό", "ΔΕ", time(11, 30),
+        "DEMO THERAPIST", "R4",
+    )
+    membership = frozenset({frozenset({physio, robotic})})
+    monkeypatch.setattr(
+        planner, "audit_trial_source_alignment",
+        lambda **kwargs: SimpleNamespace(aligned=True),
+    )
+    monkeypatch.setattr(
+        planner, "inspect_native_pilot_inputs",
+        lambda **kwargs: {
+            "native_trial_permitted": True, "review_patients": 1,
+            "verified_patient_ids": 1, "proposed_weekly_slots": 2,
+        },
+    )
+    monkeypatch.setattr(
+        planner, "evaluate_trial_admission",
+        lambda path, **kwargs: SimpleNamespace(
+            ready=True, admitted_entries=(physio, robotic),
+            candidate_patients=1, verified_patient_ids=1,
+            confirmed_combined_slots=membership,
+        ),
+    )
+    plan = planner.prepare_trial_import_plan(
+        review=review, intake=intake, programme=programme,
+    )
+    assert plan.programme_sha256 is not None
+    assert plan.confirmed_combined_slots == membership
+    assert project_trial_weekly_rows(
+        plan, confirmed_inpatient_ids=("DEMO-1",),
+    ).row_count == 2
+    assert "DEMO THERAPIST" not in repr(plan)
