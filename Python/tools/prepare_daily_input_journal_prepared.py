@@ -184,8 +184,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--payload", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
+    created_output = False
+    output = args.output.resolve()
     try:
-        output = args.output.resolve()
         if output in {args.input.resolve(), args.preparation_response.resolve(), args.payload.resolve()}:
             raise PreparedJournalPreflightError("Output overlaps preflight input")
         if output.exists():
@@ -195,12 +196,19 @@ def main(argv: list[str] | None = None) -> int:
         )
         # Exclusive create: never replace a prior proposed operation record.
         with output.open("x", encoding="utf-8") as handle:
+            created_output = True
             json.dump(record, handle, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
             handle.write("\n")
-        if file_sha256(args.input) != record["source_sha256"]:
-            output.unlink(missing_ok=True)
-            raise PreparedJournalPreflightError("Source changed before handoff completion")
+        if (file_sha256(args.input) != record["source_sha256"]
+                or file_sha256(args.payload) != record["payload_sha256"]):
+            raise PreparedJournalPreflightError("Source or payload changed before handoff completion")
     except Exception:
+        # Clean up only output that this invocation created, not an older handoff.
+        if created_output:
+            try:
+                output.unlink(missing_ok=True)
+            except OSError:
+                pass
         # No data-bearing exception messages or paths on stdout/stderr.
         print("SAFETY STOP: DAILY_INPUT PREPARED PREFLIGHT FAILED")
         return 2
