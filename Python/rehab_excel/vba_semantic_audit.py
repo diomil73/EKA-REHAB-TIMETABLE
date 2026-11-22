@@ -99,6 +99,7 @@ def assert_vba_semantics_preserved(
     after: tuple[VbaComponentEvidence, ...],
     *,
     journal_codename: str | None,
+    expect_new_document: bool,
 ) -> int:
     """Require original components untouched plus one empty journal document.
 
@@ -113,6 +114,8 @@ def assert_vba_semantics_preserved(
     if any(current.get(key) != item for key, item in previous.items()):
         raise VbaSemanticAuditError("Preexisting VBA component code/resource changed")
     added = set(current) - set(previous)
+    if bool(added) != expect_new_document:
+        raise VbaSemanticAuditError("Unexpected journal component addition/missing addition")
     if added:
         if len(added) != 1 or not journal_codename or added != {journal_codename.casefold()}:
             raise VbaSemanticAuditError("Unexpected added VBA component")
