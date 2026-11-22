@@ -33,6 +33,7 @@ class PreparedJournalReadbackError(RuntimeError):
 def verify_prepared_reopen(
     reopened_xlsm: str | Path,
     handoff: dict[str, object],
+    payload_path: str | Path,
 ) -> None:
     """Require exactly one proposed PREPARED row appended to unchanged history."""
     expected_fields = {
@@ -64,8 +65,13 @@ def verify_prepared_reopen(
         raise PreparedJournalReadbackError("Prepared operation identity invalid") from None
 
     path = Path(reopened_xlsm).resolve()
+    payload = Path(payload_path).resolve()
     if path.suffix.casefold() != ".xlsm" or not path.is_file():
         raise PreparedJournalReadbackError("Reopened workbook unavailable")
+    if payload == path or not payload.is_file():
+        raise PreparedJournalReadbackError("Prepared payload unavailable")
+    if file_sha256(payload) != handoff["payload_sha256"]:
+        raise PreparedJournalReadbackError("Prepared payload changed")
     before_hash = file_sha256(path)
     workbook = None
     try:
@@ -86,6 +92,8 @@ def verify_prepared_reopen(
             workbook.close()
     if file_sha256(path) != before_hash:
         raise PreparedJournalReadbackError("Reopened workbook changed during readback")
+    if file_sha256(payload) != handoff["payload_sha256"]:
+        raise PreparedJournalReadbackError("Prepared payload changed during readback")
 
     prefix_length = handoff["existing_journal_rows"]
     if len(rows) != prefix_length + 1:
@@ -105,12 +113,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only PREPARED journal Save/Reopen proof.")
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--handoff", required=True, type=Path)
+    parser.add_argument("--payload", required=True, type=Path)
     args = parser.parse_args(argv)
     try:
-        if args.input.resolve() == args.handoff.resolve():
+        if len({args.input.resolve(), args.handoff.resolve(), args.payload.resolve()}) != 3:
             raise PreparedJournalReadbackError("Readback paths overlap")
         record = json.loads(args.handoff.read_text(encoding="utf-8"))
-        verify_prepared_reopen(args.input, record)
+        verify_prepared_reopen(args.input, record, args.payload)
     except Exception:
         print("SAFETY STOP: DAILY_INPUT PREPARED READBACK FAILED")
         return 2
