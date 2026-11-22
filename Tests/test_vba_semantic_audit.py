@@ -197,3 +197,31 @@ def test_diagnostic_reports_only_mismatch_category_counts(case, expected):
     assert expected in str(caught.value)
     assert "modDaily" not in str(caught.value)
     assert "frmDaily" not in str(caught.value)
+
+def test_form_frx_export_variation_needs_independent_raw_ole_proof():
+    prior = audit_vba_components(baseline())
+    components = baseline().VBProject.VBComponents.components
+    components[2].resource = b"randomly re-exported"
+    current = audit_vba_components(FakeBook(components))
+
+    with pytest.raises(VbaSemanticAuditError, match="resource=1"):
+        assert_vba_semantics_preserved(
+            prior, current, journal_codename=None, expect_new_document=False,
+        )
+    assert assert_vba_semantics_preserved(
+        prior, current, journal_codename=None, expect_new_document=False,
+        independently_verified_form_storages=True,
+    ) == 3
+
+
+def test_independent_form_proof_does_not_ignore_module_export_or_code_changes():
+    prior = audit_vba_components(baseline())
+    components = baseline().VBProject.VBComponents.components
+    components[2].resource = b"randomly re-exported"
+    components[0].export_bytes = b"changed VBA module"
+    current = audit_vba_components(FakeBook(components))
+    with pytest.raises(VbaSemanticAuditError, match="export=1"):
+        assert_vba_semantics_preserved(
+            prior, current, journal_codename=None, expect_new_document=False,
+            independently_verified_form_storages=True,
+        )
