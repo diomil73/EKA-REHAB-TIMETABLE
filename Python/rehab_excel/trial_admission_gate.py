@@ -258,6 +258,105 @@ def _audit_r6_decision_readback(wb, proposals, blockers: list[str]) -> None:
         blockers.append(f"{missing} R6 corrected/combined/held weekly rows lack exact ledger readback")
 
 
+
+R6_ACTIVE_OVERLAPS_SHEET = "ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ"
+R6_ACTIVE_OVERLAPS_HEADERS = (
+    "Γραμμή", "Ασθενής", "Ημέρα", "Ώρα", "Ειδικότητες",
+    "Κελιά", "Κατάσταση",
+)
+R6_COMBINED_DECISION = "ΕΓΚΕΚΡΙΜΕΝΟΣ ΣΥΝΔΥΑΣΜΟΣ — ΕΚΚΡΕΜΕΙ ΚΩΔΙΚΑΣ"
+R6_PENDING_SPEECH_DECISION = "ΕΚΚΡΕΜΕΙ ΝΕΑ ΩΡΑ Λ/Θ"
+
+
+def _audit_r6_active_overlaps(wb, proposals, blockers: list[str]) -> int | None:
+    """Match the R6 active sheet to *all* held weekly collisions, 1:1.
+
+    A valid approval status is not an admission or confirmed PatientID.
+    The historical overlap list is never silently deleted or reinterpreted.
+    """
+    if R6_DECISIONS_SHEET not in wb.sheetnames:
+        return None  # Original review format retains the old overlap policy.
+    if R6_ACTIVE_OVERLAPS_SHEET not in wb.sheetnames:
+        blockers.append("R6 active-overlap review sheet is missing")
+        return None
+    active = wb[R6_ACTIVE_OVERLAPS_SHEET]
+    if tuple(active.cell(1, col).value for col in range(1, 8)) != R6_ACTIVE_OVERLAPS_HEADERS:
+        blockers.append("R6 active-overlap headers differ from the reviewed schema")
+        return None
+
+    controlled = {
+        "HOLD_APPROVED_COMBINED", "HOLD_CONFLICT", "HOLD_RESCHEDULE",
+    }
+    groups: dict[tuple, list[tuple]] = {}
+    for number, values in proposals:
+        if _text(values[10]) not in controlled:
+            continue
+        src_num = _source_row_number(values[1])
+        try:
+            clock = parse_clock(values[5])
+        except (ProgrammeMappingError, TypeError, ValueError):
+            clock = None
+        if src_num is None or clock is None or not _text(values[2]):
+            blockers.append(f"R6 held weekly row {number}: invalid overlap identity")
+            continue
+        key = (src_num, _text(values[2]), _text(values[4]), clock)
+        groups.setdefault(key, []).append(values)
+
+    seen: set[tuple] = set()
+    unresolved = 0
+    for number, values in _data_rows(active, 7, blockers=blockers):
+        src_row, name, day, clock_raw, specialties, refs_raw, disposition = values
+        src_num = _source_row_number(src_row)
+        try:
+            clock = parse_clock(clock_raw)
+        except (ProgrammeMappingError, TypeError, ValueError):
+            clock = None
+        key = (src_num, _text(name), _text(day), clock)
+        group = groups.get(key, ())
+        exact_refs = _r6_exact_refs(refs_raw)
+        expected_refs = []
+        for proposal in group:
+            expected_refs.extend(_r6_exact_refs(proposal[8]))
+        expected_specialties = frozenset(_text(proposal[3]) for proposal in group)
+        actual_specialties = frozenset(
+            part.strip() for part in _text(specialties).split("+")
+        )
+        statuses = frozenset(_text(proposal[10]) for proposal in group)
+        if (
+            src_num is None or not _text(name) or day not in WEEKDAYS
+            or clock is None or key in seen or len(group) != 2
+            or not exact_refs or len(exact_refs) != len(set(exact_refs))
+            or set(exact_refs) != set(expected_refs)
+            or len(expected_refs) != len(set(expected_refs))
+            or expected_specialties != actual_specialties
+        ):
+            blockers.append(f"R6 active-overlap row {number}: not an exact weekly group")
+            continue
+        seen.add(key)
+        if statuses == {"HOLD_APPROVED_COMBINED"}:
+            providers = {
+                _provider_key(_text(proposal[6])) for proposal in group
+            }
+            if (
+                _text(disposition) != R6_COMBINED_DECISION
+                or expected_specialties != {"ΦΘ", "ΡΟΜΠΟΤΙΚΗ"}
+                or len(providers) != 1 or "" in providers
+            ):
+                blockers.append(f"R6 active-overlap row {number}: combined pair differs")
+        elif statuses == {"HOLD_CONFLICT", "HOLD_RESCHEDULE"}:
+            if _text(disposition) != R6_PENDING_SPEECH_DECISION:
+                blockers.append(f"R6 active-overlap row {number}: unresolved state differs")
+            unresolved += 1
+        else:
+            blockers.append(f"R6 active-overlap row {number}: unsupported weekly hold states")
+
+    if seen != set(groups):
+        blockers.append(
+            f"{len(set(groups) - seen)} R6 held weekly groups lack exact active-overlap review"
+        )
+    return unresolved
+
+
 def evaluate_trial_admission(
     path: str | Path, *, programme: str | Path | None = None,
 ) -> TrialAdmissionResult:
@@ -286,6 +385,7 @@ def evaluate_trial_admission(
         holds = tuple(_data_rows(wb[SOURCE_HOLDS_SHEET], 7, blockers=blockers))
         overlaps = tuple(_data_rows(wb[SOURCE_OVERLAP_SHEET], 7, blockers=blockers))
         _audit_r6_decision_readback(wb, proposals, blockers)
+        r6_unresolved_overlaps = _audit_r6_active_overlaps(wb, proposals, blockers)
 
         patient_keys: dict[tuple[str, str, str], str] = {}
         verified_ids: list[str] = []
@@ -326,7 +426,10 @@ def evaluate_trial_admission(
             )
         if holds:
             blockers.append(f"{len(holds)} unresolved source cells")
-        if overlaps:
+        if R6_DECISIONS_SHEET in wb.sheetnames:
+            if r6_unresolved_overlaps is not None and r6_unresolved_overlaps:
+                blockers.append(f"{r6_unresolved_overlaps} unresolved active R6 overlap groups")
+        elif overlaps:
             blockers.append(f"{len(overlaps)} cross-specialty overlap review rows")
 
         admitted: list[SourceWeeklyEntry] = []
@@ -474,7 +577,11 @@ def evaluate_trial_admission(
             weekly_proposals=len(proposals),
             unadmitted_weekly_rows=unadmitted,
             unresolved_source_rows=len(holds),
-            overlap_rows=len(overlaps),
+            overlap_rows=(
+                r6_unresolved_overlaps
+                if R6_DECISIONS_SHEET in wb.sheetnames and r6_unresolved_overlaps is not None
+                else len(overlaps)
+            ),
             duplicate_ids=duplicate_ids,
             admitted_entries=tuple(admitted) if not blockers else (),
             blockers=tuple(blockers),
