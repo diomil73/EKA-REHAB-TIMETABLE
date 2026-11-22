@@ -636,10 +636,15 @@ def evaluate_trial_admission(
                 unadmitted += 1
                 continue
             provider = _text(required_name) if treatment in {"ΦΘ", "Ρομποτικό"} else _text(optional_name)
+            try:
+                proposed_clock = parse_clock(clock)
+            except (ProgrammeMappingError, TypeError, ValueError):
+                blockers.append(f"Weekly staging row {excel_row}: malformed clock")
+                unadmitted += 1
+                continue
             if status == "PROPOSED_OPERATOR_CORRECTION" and (
-                original_number, treatment, _text(day), parse_clock(clock)
-                if _text(clock) else None, provider,
-                f"{time_column}{original_number}",
+                original_number, treatment, _text(day), proposed_clock,
+                provider, f"{time_column}{original_number}",
             ) not in corrected_verified:
                 blockers.append(f"Weekly staging row {excel_row}: correction not source-bound")
                 unadmitted += 1
