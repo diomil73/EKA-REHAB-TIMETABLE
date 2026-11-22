@@ -32,6 +32,7 @@ def _digest(path: Path) -> str:
 
 def inspect_native_pilot_inputs(
     *, review: Path, cc: Path, allow_empty_demo_shell: bool = False,
+    programme: Path | None = None,
 ) -> dict[str, object]:
     """Return non-identifying preflight counts; always verify source hashes."""
     review, cc = review.resolve(), cc.resolve()
@@ -39,12 +40,21 @@ def inspect_native_pilot_inputs(
         raise ValueError("Two distinct review.xlsx and cc.xlsm inputs are required")
     if not review.is_file() or not cc.is_file():
         raise ValueError("One or more pilot inputs are missing")
-    before = (_digest(review), _digest(cc))
+    programme = Path(programme).resolve() if programme is not None else None
+    if programme is not None and (
+        programme.suffix.lower() != ".xlsx" or not programme.is_file()
+        or programme in (review, cc)
+    ):
+        raise ValueError("Separate original programme XLSX required")
+    before = (_digest(review), _digest(cc), _digest(programme) if programme else None)
     try:
-        gate = evaluate_trial_admission(review)
+        gate = (
+            evaluate_trial_admission(review, programme=programme)
+            if programme is not None else evaluate_trial_admission(review)
+        )
         master = inspect_source(cc)
     finally:
-        if before != (_digest(review), _digest(cc)):
+        if before != (_digest(review), _digest(cc), _digest(programme) if programme else None):
             raise RuntimeError("SAFETY STOP: an input changed during read-only preflight")
     # Do not include raw gate blockers, which may contain row provenance.
     gate_ready = gate.ready
