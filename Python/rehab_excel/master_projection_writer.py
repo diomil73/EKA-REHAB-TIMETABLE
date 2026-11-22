@@ -16,7 +16,7 @@ from .master_projection import (
     remap_master_formula,
 )
 from .native_excel import NativeStylePalette, excel_rgb
-from .master_visual_style import BODY_COLORS, ROW_SEPARATOR_GRAY, SOFT_VERTICAL_GRAY
+from .master_visual_style import HEADER_COLORS, BODY_COLORS, ROW_SEPARATOR_GRAY, SOFT_VERTICAL_GRAY
 
 
 class MasterProjectionWriteError(RuntimeError):
@@ -254,6 +254,12 @@ class Win32ComMasterProjectionBackend:
                     self._apply_infectious_style(identity_range)
                 else:
                     self._apply_noninfectious_identity_style(identity_range)
+
+            # Header is not a patient row; never inherit the infectious yellow
+            # used exclusively for B:C of explicitly flagged patients.
+            ws.Range(f"B{template_row - 1}:C{template_row - 1}").Interior.Color = (
+                HEADER_COLORS["identity"]
+            )
 
             workbook.Application.CutCopyMode = False
             # Verification checks the written formulas and identities directly;
