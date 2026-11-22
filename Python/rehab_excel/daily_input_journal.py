@@ -105,7 +105,13 @@ def _decode_row(row) -> DailyInputOperation:
 
 
 def decode_operation_journal(rows) -> tuple[DailyInputOperation, ...]:
-    """Validate every immutable revision and reconstruct its legal transition chain."""
+    """Validate the entire append-only history, including sequential operations.
+
+    One operation cannot be replaced, interleaved or restarted. A new unique
+    operation may start at revision zero only after the previous one has
+    reached COMPLETE or verified ROLLED_BACK. An interrupted/FAILED/PENDING
+    operation blocks new operations until its own legal resolution.
+    """
     try:
         records = tuple(_decode_row(row) for row in rows)
         if not records:
@@ -113,13 +119,27 @@ def decode_operation_journal(rows) -> tuple[DailyInputOperation, ...]:
         first = records[0]
         if first.phase != DailyInputOperationPhase.PREPARED or first.revision != 0:
             raise DailyInputJournalError("Journal must begin with PREPARED revision 0")
-        if any(record.operation_id != first.operation_id for record in records):
-            raise DailyInputJournalError("Mixed operation IDs in one journal history")
-        if any(record.source_sha256 != first.source_sha256
-               or record.service_date != first.service_date for record in records):
-            raise DailyInputJournalError("Operation identity changed inside journal history")
         current = first
+        used_ids = {first.operation_id}
         for candidate in records[1:]:
+            if candidate.operation_id != current.operation_id:
+                if not current.is_terminal:
+                    raise DailyInputJournalError(
+                        "Cannot begin another operation before prior terminal verification"
+                    )
+                if candidate.operation_id in used_ids:
+                    raise DailyInputJournalError("Journal operation ID cannot be reused")
+                if candidate.phase != DailyInputOperationPhase.PREPARED or candidate.revision != 0:
+                    raise DailyInputJournalError(
+                        "Each new operation must begin with PREPARED revision 0"
+                    )
+                used_ids.add(candidate.operation_id)
+                current = candidate
+                continue
+
+            if (candidate.source_sha256 != current.source_sha256
+                    or candidate.service_date != current.service_date):
+                raise DailyInputJournalError("Operation identity changed inside journal history")
             if candidate.revision != current.revision + 1:
                 raise DailyInputJournalError("Missing, duplicated, or reordered journal revision")
             kwargs = {}
@@ -152,7 +172,14 @@ def append_operation_journal(rows, operation: DailyInputOperation) -> tuple[tupl
     if operation == current:
         return existing_rows
     if operation.operation_id != current.operation_id:
-        raise DailyInputJournalError("Cannot append a different operation to this journal")
+        if not current.is_terminal:
+            raise DailyInputJournalError(
+                "Cannot append a different operation until prior terminal verification"
+            )
+        if operation.phase != DailyInputOperationPhase.PREPARED or operation.revision != 0:
+            raise DailyInputJournalError("New operation must start with PREPARED revision 0")
+        if any(record.operation_id == operation.operation_id for record in history):
+            raise DailyInputJournalError("Journal operation ID cannot be reused")
     candidate_rows = existing_rows + (_row(operation),)
     decoded = decode_operation_journal(candidate_rows)
     if decoded[-1] != operation:
