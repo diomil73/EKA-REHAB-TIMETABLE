@@ -16,7 +16,9 @@ from typing import Any
 from openpyxl import load_workbook
 from rehab_core.recurring_conflicts import _provider_key
 
-from rehab_excel.trial_source_alignment import TREATMENT_SOURCE_COLUMNS
+from rehab_excel.trial_source_alignment import (
+    TREATMENT_SOURCE_COLUMNS, audit_trial_source_alignment,
+)
 from rehab_core.programme_mapping import (
     ProgrammeMappingError,
     SourceWeeklyEntry,
@@ -122,18 +124,29 @@ def _data_rows(ws, width: int, *, blockers: list[str]):
             )
 
 
-def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
+def evaluate_trial_admission(
+    path: str | Path, *, programme: str | Path | None = None,
+) -> TrialAdmissionResult:
     """Perform full review, returning aggregate blockers without clinical names.
 
     The exact source row and hospital ward are used locally to join identities;
     names are cross-checked but never printed or included in the response.
     """
+    # A complete original-source audit is mandatory before interpreting any
+    # legacy shorthand. Without it, existing strict admission is unchanged.
+    source_aligned = False
+    if programme is not None:
+        source_aligned = audit_trial_source_alignment(
+            programme=programme, review=path,
+        ).aligned
     wb = load_workbook(path, read_only=True, data_only=False)
     try:
         missing = REQUIRED_SHEETS.difference(wb.sheetnames)
         if missing:
             raise TrialAdmissionError("Missing review sheets: " + ", ".join(sorted(missing)))
         blockers: list[str] = []
+        if programme is not None and not source_aligned:
+            blockers.append("Original programme and review are not source-aligned")
         patients = tuple(_data_rows(wb[SOURCE_PATIENT_SHEET], 6, blockers=blockers))
         proposals = tuple(_data_rows(wb[SOURCE_WEEKLY_SHEET], 11, blockers=blockers))
         holds = tuple(_data_rows(wb[SOURCE_HOLDS_SHEET], 7, blockers=blockers))
@@ -199,7 +212,25 @@ def evaluate_trial_admission(path: str | Path) -> TrialAdmissionResult:
                 unadmitted += 1
                 continue
             original_number = _source_row_number(source_row)
-            references = SRC_CELL_RE.findall(_text(cells).upper())
+            reference_text = _text(cells).upper()
+            # The audited shorthand is unambiguous only for these exact
+            # specialty column groups and the original, matching clock.
+            # The independent source audit establishes all identity/clock
+            # facts before we expand it to conventional full references.
+            shorthand = {
+                "ΕΡΓΟΘΕΡΑΠΕΙΑ": "G/H/I",
+                "ΨΥΧΟΛΟΓΙΑ": "M/N/O",
+            }
+            if (
+                programme is not None and source_aligned
+                and reference_text == shorthand.get(_text(specialty))
+                and original_number is not None
+            ):
+                reference_text = " / ".join(
+                    f"{column}{original_number}"
+                    for column in reference_text.split("/")
+                )
+            references = SRC_CELL_RE.findall(reference_text)
             allowed_columns = SOURCE_REF_COLUMNS[_text(specialty)]
             time_column = SOURCE_TIME_COLUMNS[_text(specialty)]
             if (
