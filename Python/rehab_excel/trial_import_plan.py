@@ -88,15 +88,21 @@ def prepare_trial_import_plan(
         status = (
             inspect_native_pilot_inputs(
                 review=r, cc=c, allow_empty_demo_shell=True,
+                **({"programme": p} if p is not None else {}),
             )
             if empty_demo_shell
-            else inspect_native_pilot_inputs(review=r, cc=c)
+            else inspect_native_pilot_inputs(
+                review=r, cc=c, **({"programme": p} if p is not None else {}),
+            )
         )
         if empty_demo_shell and not status.get("empty_demo_shell_ready", False):
             raise TrialImportPlanError("SAFETY STOP: demo requires an empty eligible shell")
         if not status["native_trial_permitted"]:
             raise TrialImportPlanError("SAFETY STOP: trial admission is blocked")
-        admissions = evaluate_trial_admission(r)
+        admissions = (
+            evaluate_trial_admission(r, programme=p)
+            if p is not None else evaluate_trial_admission(r)
+        )
         if not admissions.ready or not admissions.admitted_entries:
             raise TrialImportPlanError("SAFETY STOP: no fully approved schedule")
         if (
