@@ -149,7 +149,7 @@ def merge_with_approved_provider_schedule(inpatient, outpatient, *, plan, schedu
     }
     if shared != exact_shared:
         raise TrialProviderScheduleError(
-            "Every multi-patient provider slot requires exact approved membership"
+            "Stale or mismatched explicit shared-slot approval: exact approved membership required for every multi-patient provider slot"
         )
     # Reuse the existing outpatient collision gate with just its own scope.
     # Passing inpatient-only approvals to it would be a false surplus approval.
