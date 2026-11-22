@@ -98,8 +98,21 @@ def _property(owner, name, *, mandatory=False, context="designer"):
         # All other COM errors, including project access errors, fail closed.
         if not mandatory and getattr(exc, "hresult", None) == -2147352573:
             return ("UNSUPPORTED",)
+        # RowSource may raise a COM exception rather than mean "unsupported".
+        # Capture numeric HRESULT/EXCEPINFO scode only; never the exception
+        # description, source, argument values or private control identities.
+        code_suffix = ""
+        if context == "control" and name == "RowSource":
+            hresult = getattr(exc, "hresult", None)
+            if type(hresult) is int:
+                code_suffix = f"; HRESULT=0x{hresult & 0xffffffff:08X}"
+            details = getattr(exc, "excepinfo", None)
+            if type(details) in (tuple, list) and len(details) >= 6:
+                scode = details[5]
+                if type(scode) is int:
+                    code_suffix += f"; SCODE=0x{scode & 0xffffffff:08X}"
         raise UserFormDesignerAuditError(
-            f"{context} property {name} COM access failed"
+            f"{context} property {name} COM access failed{code_suffix}"
         ) from None
 
 
