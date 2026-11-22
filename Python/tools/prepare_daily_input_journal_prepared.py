@@ -79,6 +79,15 @@ def _existing_journal_rows(book) -> tuple[tuple, ...]:
     return tuple(rows)
 
 
+def journal_prefix_sha256(rows: tuple[tuple, ...]) -> str:
+    """Detect accidental changes to any earlier journal row, not authenticity."""
+    canonical = json.dumps(
+        [list(row) for row in rows],
+        ensure_ascii=True, allow_nan=False, separators=(",", ":"),
+    )
+    return sha256(("diomil-journal-history-v1:" + canonical).encode("ascii")).hexdigest()
+
+
 def prepare_prepared_handoff(
     source_path: str | Path,
     preparation_response_path: str | Path,
@@ -163,6 +172,7 @@ def prepare_prepared_handoff(
         "source_sha256": source_hash,
         "payload_sha256": payload_hash,
         "existing_journal_rows": len(before),
+        "journal_prefix_sha256": journal_prefix_sha256(before),
         "prepared_row": list(expected[-1]),
     }
 
