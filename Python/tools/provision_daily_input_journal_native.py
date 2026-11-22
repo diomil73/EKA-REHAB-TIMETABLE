@@ -137,6 +137,9 @@ def provision_daily_input_journal(
         )
         if bool(workbook.ReadOnly):
             raise NativeJournalProvisionError("Excel opened disposable copy read-only")
+        stage = "verify unsigned source VBA project"
+        if bool(workbook.VBASigned):
+            raise NativeJournalProvisionError("Signed VBA project: sheet insertion would invalidate signature")
         stage = "inspect original worksheet roster"
         baseline_sheets = _worksheet_snapshot(workbook)
         stage = "audit baseline VBA component exports"
