@@ -16,6 +16,7 @@ from .master_projection import (
     remap_master_formula,
 )
 from .native_excel import NativeStylePalette, excel_rgb
+from .master_visual_style import BODY_COLORS, ROW_SEPARATOR_GRAY, SOFT_VERTICAL_GRAY
 
 
 class MasterProjectionWriteError(RuntimeError):
@@ -142,6 +143,20 @@ class Win32ComMasterProjectionBackend:
             border.Weight = 2
             border.Color = self.palette.infectious_yellow
 
+    def _apply_noninfectious_identity_style(self, row_range) -> None:
+        """Neutralize infectious styling inherited from a template row.
+
+        Only yellow infectious borders are changed. Other borders, formatting,
+        values and formulas are preserved.
+        """
+        row_range.Interior.Color = BODY_COLORS["identity"]
+        for edge in (7, 8, 9, 10):
+            border = row_range.Borders(edge)
+            if int(border.Color) != self.palette.infectious_yellow:
+                continue
+            border.Color = ROW_SEPARATOR_GRAY if edge == 9 else SOFT_VERTICAL_GRAY
+            border.Weight = 2 if edge == 9 else 1
+
     @staticmethod
     def _render_patient_identity(cell, item: MasterProjectionRow) -> None:
         doctor = str(item.responsible_doctor or "").strip()
@@ -234,8 +249,11 @@ class Win32ComMasterProjectionBackend:
 
                 self._render_patient_identity(ws.Cells(row, 3), item)
 
+                identity_range = ws.Range(f"B{row}:C{row}")
                 if item.infectious:
-                    self._apply_infectious_style(ws.Range(f"B{row}:C{row}"))
+                    self._apply_infectious_style(identity_range)
+                else:
+                    self._apply_noninfectious_identity_style(identity_range)
 
             workbook.Application.CutCopyMode = False
             # Verification checks the written formulas and identities directly;
