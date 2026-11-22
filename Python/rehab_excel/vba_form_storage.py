@@ -10,7 +10,7 @@ from __future__ import annotations
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
-from zipfile import ZipFile, BadZipFile
+from zipfile import ZipFile
 
 
 class VbaFormStorageError(RuntimeError):
@@ -70,8 +70,8 @@ def form_storage_evidence(
         return tuple(sorted(evidence))
     except VbaFormStorageError:
         raise
-    except (BadZipFile, KeyError, OSError, ValueError, TypeError) as exc:
-        raise VbaFormStorageError("Unable to parse source VBA UserForm OLE storage") from exc
+    except Exception as exc:
+        raise VbaFormStorageError("Unable to parse VBA UserForm OLE storage") from exc
 
 
 def assert_form_storage_preserved(before, after) -> int:
