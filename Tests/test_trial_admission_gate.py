@@ -764,3 +764,149 @@ def test_r6_active_speech_conflict_still_blocks_even_with_approved_pairs():
         assert any("unresolved state differs" in message for message in blockers)
     finally:
         wb.close()
+
+
+def _fictional_original_bound_r6(tmp_path, *, combined):
+    """Complete private A:V/R6 interface, fictional patient/provider only."""
+    from openpyxl import Workbook, load_workbook
+    from rehab_excel.trial_source_alignment import (
+        PROGRAMME_HEADERS, PATIENT_HEADERS, WEEKLY_HEADERS,
+    )
+    from rehab_excel.trial_admission_gate import (
+        R6_DECISION_HEADERS, R6_ACTIVE_OVERLAPS_HEADERS, R6_COMBINED_DECISION,
+    )
+
+    review = make_review(tmp_path)
+    book = load_workbook(review)
+    patients = book["ΑΣΘΕΝΕΙΣ"]
+    weekly = book["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    for index, header in enumerate(PATIENT_HEADERS, 1):
+        patients.cell(1, index, header)
+    for index, header in enumerate(WEEKLY_HEADERS, 1):
+        weekly.cell(1, index, header)
+    ledger = book.create_sheet("ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ")
+    ledger.append(R6_DECISION_HEADERS)
+    active = book.create_sheet("ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ")
+    active.append(R6_ACTIVE_OVERLAPS_HEADERS)
+
+    original = Workbook()
+    src = original.active
+    src.title = "ΠΡΟΓΡΑΜΜΑ"
+    src["A1"], src["B1"] = "ΘΑΛΑΜΟΣ", "ΑΣΘΕΝΗΣ"
+    for index, header in enumerate(PROGRAMME_HEADERS, 3):
+        src.cell(1, index, header)
+    src["A4"], src["B4"] = "WARD", "DEMO PERSON"
+    if combined:
+        weekly["K2"] = "HOLD_APPROVED_COMBINED"
+        weekly.append([
+            "Α", 4, "DEMO PERSON", "ΡΟΜΠΟΤΙΚΗ", "ΔΕ", "11:30",
+            "DEMO THERAPIST", None, "R4 / S4 / T4",
+            "FICTIONAL", "HOLD_APPROVED_COMBINED",
+        ])
+        for specialty, refs, r5 in (
+            ("ΦΘ", "C4 / D4 / E4", 21),
+            ("ΡΟΜΠΟΤΙΚΗ", "R4 / S4 / T4", 22),
+        ):
+            ledger.append([
+                "FICTIONAL CONFIRMED PAIR", r5, 4, "DEMO PERSON",
+                specialty, "ΔΕ", "11:30", "DEMO THERAPIST",
+                None, refs, "HOLD_CONFLICT",
+                "ΔΕ", "11:30", "DEMO THERAPIST", "HOLD_APPROVED_COMBINED",
+            ])
+        active.append([
+            4, "DEMO PERSON", "ΔΕ", "11:30", "ΦΘ + ΡΟΜΠΟΤΙΚΗ",
+            "C4 / D4 / E4 / R4 / S4 / T4", R6_COMBINED_DECISION,
+        ])
+        src["C4"], src["D4"], src["E4"] = 11.5 / 24, "ΔΕ", "DEMO THERAPIST"
+        src["R4"], src["S4"], src["T4"] = "11:30", "ΔΕ", "DEMO THERAPIST"
+    else:
+        weekly["D2"], weekly["E2"], weekly["F2"] = (
+            "ΕΡΓΟΘΕΡΑΠΕΙΑ", "ΤΕ", "10:30",
+        )
+        weekly["G2"], weekly["H2"] = None, "DEMO THERAPIST"
+        weekly["I2"], weekly["K2"] = (
+            "G4 / H4 / I4", "PROPOSED_OPERATOR_CORRECTION",
+        )
+        ledger.append([
+            "FICTIONAL OPERATOR CHANGE", 21, 4, "DEMO PERSON",
+            "ΕΡΓΟΘΕΡΑΠΕΙΑ", "ΤΡ", "11:30", None, "DEMO THERAPIST",
+            "G4 / H4 / I4", "HOLD_CONFLICT",
+            "ΤΕ", "10:30", "DEMO THERAPIST",
+            "PROPOSED_OPERATOR_CORRECTION",
+        ])
+        src["G4"], src["H4"], src["I4"] = (
+            "11:30", "ΤΡ", "DEMO THERAPIST",
+        )
+    programme = tmp_path / "original_manual.xlsx"
+    original.save(programme)
+    book.save(review)
+    original.close()
+    book.close()
+    return programme, review
+
+
+def test_original_r6_source_bound_pair_survives_through_plan_and_weekly_projection(tmp_path):
+    from rehab_excel.trial_import_plan import TrialImportPlan
+    from rehab_excel.trial_weekly_projection import (
+        TrialWeeklyProjectionError, project_trial_weekly_rows,
+    )
+    import pytest
+    programme, review = _fictional_original_bound_r6(tmp_path, combined=True)
+    unchanged = programme.read_bytes(), review.read_bytes()
+    without = evaluate_trial_admission(review)
+    assert not without.ready
+    assert without.admitted_entries == ()
+
+    result = evaluate_trial_admission(review, programme=programme)
+    assert result.ready
+    assert len(result.admitted_entries) == 2
+    assert len(result.confirmed_combined_slots) == 1
+    plan = TrialImportPlan(
+        "a" * 64, "b" * 64, 1, 2, result.admitted_entries,
+        programme_sha256="c" * 64,
+        confirmed_combined_slots=result.confirmed_combined_slots,
+    )
+    projected = project_trial_weekly_rows(
+        plan, confirmed_inpatient_ids=("DEMO-1",),
+    )
+    assert projected.row_count == 2
+    assert {entry[1] for entry in projected.rows} == {"ΦΘ", "Ρομποτικό"}
+    with pytest.raises(TrialWeeklyProjectionError, match="Combined approval differs"):
+        project_trial_weekly_rows(
+            plan, confirmed_inpatient_ids=("DEMO-1",),
+            confirmed_combined_slots=frozenset({
+                frozenset({next(iter(result.admitted_entries))})
+            }),
+        )
+    assert (programme.read_bytes(), review.read_bytes()) == unchanged
+
+
+def test_original_r6_source_bound_pair_rejects_changed_original_provider(tmp_path):
+    from openpyxl import load_workbook
+    programme, review = _fictional_original_bound_r6(tmp_path, combined=True)
+    original = load_workbook(programme)
+    original["ΠΡΟΓΡΑΜΜΑ"]["T4"] = "UNAPPROVED PROVIDER"
+    original.save(programme)
+    original.close()
+    result = evaluate_trial_admission(review, programme=programme)
+    assert not result.ready
+    assert result.confirmed_combined_slots == frozenset()
+    assert result.admitted_entries == ()
+    assert any("original A:V slot differs" in b for b in result.blockers)
+
+
+def test_original_r6_corrected_group_admitted_only_with_source_bound_ledger(tmp_path):
+    programme, review = _fictional_original_bound_r6(tmp_path, combined=False)
+    unchanged = programme.read_bytes(), review.read_bytes()
+    without = evaluate_trial_admission(review)
+    assert not without.ready
+    assert without.admitted_entries == ()
+    result = evaluate_trial_admission(review, programme=programme)
+    assert result.ready
+    assert len(result.admitted_entries) == 1
+    entry = result.admitted_entries[0]
+    assert (entry.treatment, entry.weekday, entry.start_time, entry.source_cell) == (
+        "Εργο", "ΤΕ", time(10, 30), "G4",
+    )
+    assert result.confirmed_combined_slots == frozenset()
+    assert (programme.read_bytes(), review.read_bytes()) == unchanged
