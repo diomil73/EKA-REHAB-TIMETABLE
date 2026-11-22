@@ -115,3 +115,37 @@ def test_comparison_refuses_signed_project_and_cleans_up(tmp_path, monkeypatch):
     assert apps[0].book.closed == [{"SaveChanges": False}]
     assert apps[0].quits == 1
     assert list(tmp_path.iterdir()) == [source]
+
+
+def test_control_only_saves_two_workbooks_without_installing_journal(tmp_path, monkeypatch):
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    original = source.read_bytes()
+    apps = []
+    def factory():
+        app = FakeApp()
+        apps.append(app)
+        return app
+    monkeypatch.setattr(probe, "audit_vba_components", lambda wb: evidence())
+    def forbidden_install(book):
+        raise AssertionError("Control-only must never install a journal")
+    monkeypatch.setattr(probe, "ensure_daily_input_journal_sheet", forbidden_install)
+    streams = iter([
+        (("frmsynthetic", (("f", "before"), ("o", "before"))),),
+        (("frmsynthetic", (("f", "after"), ("o", "after"))),),
+    ])
+    monkeypatch.setattr(probe, "form_storage_evidence", lambda path, forms: next(streams))
+    result = probe.compare_noedit_and_journal_saves(
+        source, excel_factory=factory, control_only=True,
+    )
+    assert result["comparison"] == "NO-EDIT vs NO-EDIT"
+    assert result["differences"]["streams_changed"] == 2
+    assert result["categories"] == {
+        "form_f_changed": 1, "form_o_changed": 1, "other_streams_changed": 0,
+    }
+    assert len(apps) == 2
+    assert [app.book.saves for app in apps] == [1, 1]
+    assert all(app.book.closed == [{"SaveChanges": False}] for app in apps)
+    assert all(app.quits == 1 for app in apps)
+    assert source.read_bytes() == original
+    assert list(tmp_path.iterdir()) == [source]
