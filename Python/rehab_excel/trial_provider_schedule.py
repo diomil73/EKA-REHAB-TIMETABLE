@@ -126,7 +126,39 @@ def merge_with_approved_provider_schedule(inpatient, outpatient, *, plan, schedu
     shared = {(provider, day, clock): members for provider, day, clock, members in schedule.shared_slots}
     if len(available) != len(schedule.available_slots) or len(shared) != len(schedule.shared_slots):
         raise TrialProviderScheduleError("Duplicate schedule decisions")
-    combined = merge_trial_demo_outpatients(inpatient, outpatient, shared_approvals=shared)
+    # The existing outpatient merger validates only shared groups touching an
+    # outpatient. Independently confirmed INPATIENT-only groups must also have
+    # exact membership, or they could reach native Excel without authorization.
+    # Use the same operational provider identity normalization as both readers.
+    all_provider_members: dict[tuple[str, str, time], set[str]] = {}
+    outpatient_keys: set[tuple[str, str, time]] = set()
+    for pid, _treatment, day, clock, provider, _source in inpatient.weekly_slots.rows:
+        if provider:
+            all_provider_members.setdefault(
+                (_provider_key(provider), day, clock), set(),
+            ).add(pid)
+    for pid, _name, _treatment, day, clock, provider, _source in outpatient.weekday_view_rows:
+        if provider:
+            key = (_provider_key(provider), day, clock)
+            outpatient_keys.add(key)
+            all_provider_members.setdefault(key, set()).add(pid)
+
+    exact_shared = {
+        key: frozenset(members)
+        for key, members in all_provider_members.items() if len(members) > 1
+    }
+    if shared != exact_shared:
+        raise TrialProviderScheduleError(
+            "Every multi-patient provider slot requires exact approved membership"
+        )
+    # Reuse the existing outpatient collision gate with just its own scope.
+    # Passing inpatient-only approvals to it would be a false surplus approval.
+    outpatient_shared = {
+        key: members for key, members in shared.items() if key in outpatient_keys
+    }
+    combined = merge_trial_demo_outpatients(
+        inpatient, outpatient, shared_approvals=outpatient_shared,
+    )
     placements = [
         (day, clock, provider)
         for _pid, _treatment, day, clock, provider, _source in combined.weekly_slots.rows
