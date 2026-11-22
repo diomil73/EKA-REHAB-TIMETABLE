@@ -39,7 +39,7 @@ class SaveComparisonError(RuntimeError):
     pass
 
 
-def _fictional_journal_states():
+def _fictional_journal_states(*, sequential=False):
     """Fixture-only lifecycle. No real patient identifiers or clinical facts."""
     first = DailyInputOperation(
         operation_id="FICTIONAL-NATIVE-JOURNAL-TRIAL",
@@ -52,12 +52,27 @@ def _fictional_journal_states():
     restored = advance_daily_input_operation(
         failure, DailyInputOperationPhase.ROLLED_BACK, rollback_verified=True,
     )
-    return first, failure, restored
+    if not sequential:
+        return first, failure, restored
+    # Same journal worksheet: a new operation after verified terminal state.
+    second = DailyInputOperation(
+        operation_id="FICTIONAL-NATIVE-JOURNAL-TRIAL-02",
+        source_sha256="1" * 64,
+        service_date="2000-01-04",
+    )
+    second_failed = advance_daily_input_operation(
+        second, DailyInputOperationPhase.FAILED, failure_code="FICTIONAL_PROBE",
+    )
+    second_restored = advance_daily_input_operation(
+        second_failed, DailyInputOperationPhase.ROLLED_BACK, rollback_verified=True,
+    )
+    return first, failure, restored, second, second_failed, second_restored
 
 
 def _save_copy(
     copy: Path, *, add_journal: bool, excel_factory,
     designer_readback=False, trial_fictional_revisions=False,
+    trial_sequential_operations=False,
 ):
     app = None
     book = None
@@ -92,11 +107,14 @@ def _save_copy(
                 raise SaveComparisonError("Journal already present in source")
             journal_sheet = ensure_daily_input_journal_sheet(book)
             if trial_fictional_revisions:
-                for operation in _fictional_journal_states():
+                for operation in _fictional_journal_states(
+                    sequential=trial_sequential_operations,
+                ):
                     if not append_native_operation_revision(book, operation):
                         raise SaveComparisonError("Fictional journal revision was not appended")
                 staged_rows = read_native_journal_rows(journal_sheet)
-                if len(staged_rows) != 3:
+                expected_count = 6 if trial_sequential_operations else 3
+                if len(staged_rows) != expected_count:
                     raise SaveComparisonError("Fictional journal staging incomplete")
                 book.Save()
         else:
@@ -143,7 +161,10 @@ def _save_copy(
 def compare_noedit_and_journal_saves(
     source_path: Path, *, excel_factory=None, control_only=False,
     designer_readback=False, trial_fictional_revisions=False,
+    trial_sequential_operations=False,
 ):
+    if trial_sequential_operations and not trial_fictional_revisions:
+        raise SaveComparisonError("Sequential trial requires fictional revisions")
     if trial_fictional_revisions and (control_only or not designer_readback):
         raise SaveComparisonError("Fictional journal trial requires journal and designer readback")
     source = Path(source_path).resolve()
@@ -175,6 +196,7 @@ def compare_noedit_and_journal_saves(
                 journal, add_journal=not control_only, excel_factory=excel_factory,
                 designer_readback=designer_readback,
                 trial_fictional_revisions=trial_fictional_revisions,
+                trial_sequential_operations=trial_sequential_operations,
             )
             if sorted(x.casefold() for x in control_forms) != sorted(x.casefold() for x in journal_forms):
                 raise SaveComparisonError("UserForm inventory differs between controls")
@@ -215,12 +237,15 @@ def main(argv=None) -> int:
                         help="Verify both disposable UserForm designer trees; diagnostic only")
     parser.add_argument("--trial-fictional-revisions", action="store_true",
                         help="On journal disposable copy only, stage/reopen 3 synthetic rollback revisions")
+    parser.add_argument("--trial-sequential-operations", action="store_true",
+                        help="With fictional revisions, additionally stage a second unique terminal operation")
     args = parser.parse_args(argv)
     try:
         result = compare_noedit_and_journal_saves(
             args.source, control_only=args.control_only,
             designer_readback=args.designer_readback,
             trial_fictional_revisions=args.trial_fictional_revisions,
+            trial_sequential_operations=args.trial_sequential_operations,
         )
     except Exception as exc:
         print("SAFETY STOP: NO-EDIT / JOURNAL COMPARISON FAILED")
