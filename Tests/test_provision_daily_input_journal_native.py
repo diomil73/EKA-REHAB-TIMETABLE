@@ -81,3 +81,17 @@ def test_provisioner_requires_signature_guard_and_semantic_reopen_comparison():
     assert "assert_vba_semantics_preserved(" in code
     assert "post_save_vba_hash == source_vba_hash" in code
     assert 'if _vba_sha256(output) != source_vba_hash:' not in code
+
+def test_native_provisioner_requires_raw_form_stream_proof_before_allowing_frx_variation():
+    from inspect import getsource
+    from Python.tools.provision_daily_input_journal_native import provision_daily_input_journal
+
+    code = getsource(provision_daily_input_journal)
+    assert 'original_form_storages = (' in code
+    assert 'form_storage_evidence(source, form_names)' in code
+    assert 'form_storage_evidence(output, form_names)' in code
+    assert 'assert_form_storage_preserved(original_form_storages, saved_form_storages)' in code
+    assert code.index('assert_form_storage_preserved(') < code.index(
+        'independently_verified_form_storages=bool(form_names)'
+    )
+    assert 'audit_vba_components(workbook)' in code
