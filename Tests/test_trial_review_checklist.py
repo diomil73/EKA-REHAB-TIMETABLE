@@ -350,3 +350,80 @@ def test_r6_shared_pending_stale_source_clock_refuses_checklist(tmp_path):
     with pytest.raises(TrialReviewChecklistError, match="stale or ambiguous"):
         create_private_review_checklist(programme=p, review=review, output=out)
     assert not out.exists()
+
+
+def _add_fictional_cross_patient_provider_row(
+    programme, review, *, weekday="ΔΕ", provider="demo.team",
+):
+    """Adds one SECOND source patient to the existing combined fixture."""
+    source = load_workbook(programme)
+    manual = source["ΠΡΟΓΡΑΜΜΑ"]
+    manual["A4"], manual["B4"] = "FICTIONAL WARD", "FICTIONAL THIRD PATIENT"
+    manual["C4"], manual["D4"], manual["E4"] = "09:30", weekday, provider
+    source.save(programme)
+    source.close()
+    wb = load_workbook(review)
+    wb[SOURCE_PATIENT_SHEET].append([
+        4, "A", "FICTIONAL THIRD PATIENT", "FICTIONAL WARD",
+        None, "ΕΚΚΡΕΜΕΙ",
+    ])
+    weekly = wb[SOURCE_WEEKLY_SHEET]
+    weekly.append([
+        "A", 4, "FICTIONAL THIRD PATIENT", "ΦΘ", weekday,
+        "09:30", provider, None, "C4 / D4 / E4",
+        "FICTIONAL", "PROPOSED_EXACT_SOURCE",
+    ])
+    row = weekly.max_row
+    wb.save(review)
+    wb.close()
+    return row
+
+
+def test_r6_all_multi_patient_provider_groups_are_inventoried(tmp_path):
+    """Combined ΦΘ+robot one patient plus a second patient is ONE group."""
+    p, review, out = _fictional_r6_review_checklist(tmp_path)
+    row = _add_fictional_cross_patient_provider_row(p, review)
+    before = p.read_bytes(), review.read_bytes()
+    counts = create_private_review_checklist(programme=p, review=review, output=out)
+    assert counts.get("SHARED_PROVIDER_GROUP") == 1
+    assert counts.get("SHARED_PROVIDER", 0) == 0  # no historic triage row required
+    check = load_workbook(out, read_only=True)
+    try:
+        tasks = [v for v in check[TASK_SHEET].iter_rows(min_row=2, values_only=True)
+                 if v[0] == "SHARED_PROVIDER_GROUP"]
+        assert len(tasks) == 1
+        assert tasks[0][2] == f"2,3,{row}"
+        for private_value in ("FICTIONAL THIRD PATIENT", "DEMO TEAM", "09:30"):
+            assert private_value not in repr(tasks)
+    finally:
+        check.close()
+    assert (p.read_bytes(), review.read_bytes()) == before
+
+
+def test_r6_provider_group_requires_same_day_time_and_distinct_source_patient(tmp_path):
+    p, review, out = _fictional_r6_review_checklist(tmp_path)
+    _add_fictional_cross_patient_provider_row(p, review, weekday="ΤΡ")
+    counts = create_private_review_checklist(programme=p, review=review, output=out)
+    assert counts.get("SHARED_PROVIDER_GROUP", 0) == 0
+
+
+def test_r6_provider_group_and_historical_triage_are_both_visible(tmp_path):
+    """One R5 referral cannot hide all members of an actual shared group."""
+    p, review, out = _fictional_r6_review_checklist(tmp_path)
+    row = _add_fictional_cross_patient_provider_row(p, review)
+    wb = load_workbook(review)
+    wb["ΚΟΙΝΑ_SLOTS_ΠΡΟΣ_ΕΛΕΓΧΟ"].append([
+        788, 4, "ΔΕ", "09:30", "ΕΚΚΡΕΜΕΙ ΕΓΚΡΙΣΗ",
+    ])
+    wb.save(review)
+    wb.close()
+    counts = create_private_review_checklist(programme=p, review=review, output=out)
+    assert counts.get("SHARED_PROVIDER_GROUP") == 1
+    assert counts.get("SHARED_PROVIDER") == 1
+    check = load_workbook(out, read_only=True)
+    try:
+        tasks = [v for v in check[TASK_SHEET].iter_rows(min_row=2, values_only=True)]
+        assert any(v[0] == "SHARED_PROVIDER_GROUP" and v[2] == f"2,3,{row}" for v in tasks)
+        assert any(v[0] == "SHARED_PROVIDER" and f"!{row}" in v[2] for v in tasks)
+    finally:
+        check.close()
