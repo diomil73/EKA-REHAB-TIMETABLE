@@ -550,3 +550,67 @@ def test_normalized_duplicate_shared_approvals_fail_closed(tmp_path):
     assert not result.ready
     assert any("invalid or duplicated approval" in x for x in result.blockers)
     assert result.admitted_entries == ()
+
+
+def _make_source_bound_legacy_review(tmp_path, *, specialty="ΕΡΓΟΘΕΡΑΠΕΙΑ"):
+    """Only fictional rows, with the exact existing source-alignment schema."""
+    from openpyxl import load_workbook
+    from rehab_excel.trial_source_alignment import PROGRAMME_HEADERS, PATIENT_HEADERS
+
+    review = make_review(tmp_path)
+    wb = load_workbook(review)
+    ws = wb["ΑΣΘΕΝΕΙΣ"]
+    for col, header in enumerate(PATIENT_HEADERS, 1):
+        ws.cell(1, col, header)
+    weekly = wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]
+    if specialty == "ΕΡΓΟΘΕΡΑΠΕΙΑ":
+        weekly["D2"], weekly["G2"], weekly["H2"], weekly["I2"] = (
+            specialty, None, "DEMO STAFF", "G/H/I"
+        )
+    else:
+        weekly["D2"], weekly["G2"], weekly["H2"], weekly["I2"] = (
+            specialty, None, "DEMO STAFF", "M/N/O"
+        )
+    wb.save(review)
+    wb.close()
+
+    programme = tmp_path / "manual.xlsx"
+    src = Workbook()
+    sheet = src.active
+    sheet.title = "ΠΡΟΓΡΑΜΜΑ"
+    sheet.append(["ΘΑΛΑΜΟΣ", "ΑΣΘΕΝΗΣ", *PROGRAMME_HEADERS])
+    sheet.cell(4, 1, "WARD")
+    sheet.cell(4, 2, "DEMO PERSON")
+    sheet.cell(4, 7 if specialty == "ΕΡΓΟΘΕΡΑΠΕΙΑ" else 13, "11:30")
+    src.save(programme)
+    src.close()
+    return programme, review
+
+
+def test_original_source_bound_legacy_reference_admission(tmp_path):
+    programme, review = _make_source_bound_legacy_review(tmp_path)
+    before = programme.read_bytes(), review.read_bytes()
+    without_source = evaluate_trial_admission(review)
+    assert not without_source.ready
+    assert without_source.admitted_entries == ()
+    with_source = evaluate_trial_admission(review, programme=programme)
+    assert with_source.ready
+    assert len(with_source.admitted_entries) == 1
+    assert with_source.admitted_entries[0].source_cell == "G4"
+    assert (programme.read_bytes(), review.read_bytes()) == before
+
+
+def test_original_source_bound_legacy_reference_clock_mismatch_fails_closed(tmp_path):
+    from openpyxl import load_workbook
+    programme, review = _make_source_bound_legacy_review(tmp_path, specialty="ΨΥΧΟΛΟΓΙΑ")
+    approved = evaluate_trial_admission(review, programme=programme)
+    assert approved.ready
+    assert approved.admitted_entries[0].source_cell == "M4"
+    source = load_workbook(programme)
+    source["ΠΡΟΓΡΑΜΜΑ"]["M4"] = "12:30"
+    source.save(programme)
+    source.close()
+    blocked = evaluate_trial_admission(review, programme=programme)
+    assert not blocked.ready
+    assert blocked.admitted_entries == ()
+    assert "source-aligned" in " ".join(blocked.blockers)
