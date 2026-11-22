@@ -38,6 +38,8 @@ class FakeApp:
 
     def Open(self, path, **kwargs):
         self.open_args.append(kwargs)
+        # A native read-only reopen must be distinguishable from writable Save.
+        self.book.ReadOnly = bool(kwargs.get("ReadOnly", False))
         return self.book
 
     def Quit(self):
@@ -147,5 +149,85 @@ def test_control_only_saves_two_workbooks_without_installing_journal(tmp_path, m
     assert [app.book.saves for app in apps] == [1, 1]
     assert all(app.book.closed == [{"SaveChanges": False}] for app in apps)
     assert all(app.quits == 1 for app in apps)
+    assert source.read_bytes() == original
+    assert list(tmp_path.iterdir()) == [source]
+
+
+def _designer_signatures(*digests):
+    from rehab_excel.vba_form_designer_audit import UserFormDesignerEvidence
+    return iter([
+        (UserFormDesignerEvidence("frmsynthetic", digest, 4),)
+        for digest in digests
+    ])
+
+
+def test_native_designer_readback_matches_both_isolated_reopens(tmp_path, monkeypatch):
+    """Each copy reopens read-only; no form is instantiated or source saved."""
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    before = source.read_bytes()
+    apps = []
+
+    def factory():
+        instance = FakeApp()
+        apps.append(instance)
+        return instance
+
+    monkeypatch.setattr(probe, "audit_vba_components", lambda wb: evidence())
+    monkeypatch.setattr(
+        probe, "audit_userform_designers",
+        lambda wb, *, expected_form_names: next(signatures),
+    )
+    monkeypatch.setattr(
+        probe, "form_storage_evidence",
+        lambda path, names: (("frmsynthetic", (("f", "A"), ("o", "B"))),),
+    )
+    def forbidden_journal(workbook):
+        raise AssertionError("Control-only must not create a journal")
+    monkeypatch.setattr(probe, "ensure_daily_input_journal_sheet", forbidden_journal)
+    signatures = _designer_signatures("same", "same", "same", "same")
+
+    result = probe.compare_noedit_and_journal_saves(
+        source, excel_factory=factory, control_only=True,
+        designer_readback=True,
+    )
+    assert result["designer_forms_verified"] == 1
+    assert result["differences"]["streams_changed"] == 0
+    assert len(apps) == 2
+    assert [len(app.open_args) for app in apps] == [2, 2]
+    assert all([args["ReadOnly"] for args in app.open_args] == [False, True] for app in apps)
+    assert all(app.book.closed == [{"SaveChanges": False}, {"SaveChanges": False}] for app in apps)
+    assert [app.book.saves for app in apps] == [1, 1]
+    assert all(app.quits == 1 for app in apps)
+    assert source.read_bytes() == before
+    assert list(tmp_path.iterdir()) == [source]
+
+
+@pytest.mark.parametrize("signatures,expected_stage", [
+    (("baseline", "mutated", "baseline", "baseline"), "save no-edit control"),
+    (("baseline", "baseline", "other", "other"), "cross-save UserForm designer"),
+])
+def test_native_designer_delta_refuses_trial_without_mutating_source(
+    tmp_path, monkeypatch, signatures, expected_stage,
+):
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    original = source.read_bytes()
+    iterator = _designer_signatures(*signatures)
+    monkeypatch.setattr(probe, "audit_vba_components", lambda wb: evidence())
+    monkeypatch.setattr(
+        probe, "audit_userform_designers",
+        lambda wb, *, expected_form_names: next(iterator),
+    )
+    monkeypatch.setattr(probe, "ensure_daily_input_journal_sheet", lambda wb: None)
+    monkeypatch.setattr(
+        probe, "form_storage_evidence",
+        lambda path, names: (("frmsynthetic", (("f", "same"),)),),
+    )
+    with pytest.raises(probe.SaveComparisonError, match=expected_stage) as caught:
+        probe.compare_noedit_and_journal_saves(
+            source, excel_factory=FakeApp, designer_readback=True,
+        )
+    assert "frmsynthetic" not in str(caught.value)
     assert source.read_bytes() == original
     assert list(tmp_path.iterdir()) == [source]
