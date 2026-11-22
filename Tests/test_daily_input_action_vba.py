@@ -148,3 +148,45 @@ def test_daily_input_native_failure_writes_hidden_temp_diagnostic_only():
     assert 'Print #handle, "sheet=" & sheetName' in source
     assert 'Print #handle, "cell=" & cellAddress' in source
     assert "eka_daily_input_last_error.log" not in messages
+
+
+def test_failed_apply_never_claims_verified_rollback_and_retains_backup():
+    """Safety regression: a failed copy-back cannot report success or erase evidence."""
+    source = DAILY_INPUT_MODULE_CODE
+    function = source.split("Public Function ApplyValidatedDailyInputPayload", 1)[1]
+    function = function.split("Private Sub PreserveDailyInputFailureArtifacts", 1)[0]
+    assert "Resume RollbackAttempt" in function
+    assert "RollbackAttempt:" in function
+    assert "On Error GoTo RollbackFailed" in function
+    assert "RollbackFailed:" in function
+    assert "Resume RollbackUnverified" in function
+    assert "RollbackUnverified:" in function
+    assert "Δεν έχει επαληθευτεί πλήρης επαναφορά" in function
+    assert "Μην συνεχίσετε καταχωρίσεις" in function
+    assert "οι αλλαγές αναιρέθηκαν" not in function
+    assert "If ApplyValidatedDailyInputPayload Then" in function
+    assert "If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> \"\" Then Kill rollbackPath" in function
+    cleanup = function.split("ApplyExit:", 1)[1].split("ApplyError:", 1)[0]
+    assert cleanup.index("If ApplyValidatedDailyInputPayload Then") < cleanup.index("Kill rollbackPath")
+    assert "Kill rollbackPath" not in function.split("ApplyError:", 1)[1]
+    assert "previousEvents = Application.EnableEvents" in function.split('currentPhase = "read payload"', 1)[0]
+    assert "previousScreenUpdating = Application.ScreenUpdating" in function.split(
+        'currentPhase = "read payload"', 1
+    )[0]
+
+
+def test_canonical_ledger_patch_remains_inside_guarded_rollback_attempt():
+    from rehab_excel.daily_change_ledger_in_place_vba import patch_daily_input_for_ledger
+
+    patched = patch_daily_input_for_ledger(DAILY_INPUT_MODULE_CODE)
+    rollback = patched.split("RollbackAttempt:", 1)[1].split("RollbackFailed:", 1)[0]
+    assert rollback.index("On Error GoTo RollbackFailed") < rollback.index(
+        "RestorePatchesFromRollback rollbackPath, lines"
+    )
+    assert rollback.index("RestorePatchesFromRollback rollbackPath, lines") < rollback.index(
+        "RestoreDailyChangeLedgerFromRollback rollbackPath"
+    )
+    assert rollback.index("RestoreDailyChangeLedgerFromRollback rollbackPath") < rollback.index(
+        "ThisWorkbook.Save"
+    )
+    assert "Δεν έχει επαληθευτεί πλήρης επαναφορά" in patched
