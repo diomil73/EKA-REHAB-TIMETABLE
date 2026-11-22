@@ -12,6 +12,7 @@ import re
 import unicodedata
 
 from openpyxl import load_workbook
+from rehab_core.programme_mapping import ProgrammeMappingError, parse_clock
 
 
 PROGRAMME_SHEET = "ΠΡΟΓΡΑΜΜΑ"
@@ -203,6 +204,26 @@ def audit_trial_source_alignment(
                     unsupported += 1
                     continue
                 cell_text = _clean(values[8]).upper()
+                # R6 legacy shorthand is recognized ONLY by this independent
+                # original-source audit, never as an unbound admission approval.
+                # Both exact legacy spellings are complete specialty column
+                # groups; no partial/mixed/malformed shorthand is accepted.
+                legacy_groups = {
+                    "ΕΡΓΟΘΕΡΑΠΕΙΑ": ("G/H/I", ("G", "H", "I")),
+                    "ΨΥΧΟΛΟΓΙΑ": ("M/N/O", ("M", "N", "O")),
+                }
+                legacy = legacy_groups.get(specialty)
+                if legacy is not None and cell_text == legacy[0]:
+                    source_clock = src.cell(source_row, ord(legacy[1][0]) - 64).value
+                    try:
+                        clock_matches = parse_clock(values[5]) == parse_clock(source_clock)
+                    except (ProgrammeMappingError, TypeError, ValueError):
+                        clock_matches = False
+                    if not clock_matches:
+                        ref_mismatches += 1
+                        continue
+                    refs_checked += len(legacy[1])
+                    continue
                 refs = _CELL_RE.findall(cell_text)
                 addresses = [f"{col}{row}" for col, row in refs]
                 if not refs or len(addresses) != len(set(addresses)):
