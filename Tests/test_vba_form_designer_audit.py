@@ -265,3 +265,41 @@ def test_unexpected_com_property_failure_is_not_treated_as_unsupported():
     ) as result:
         snapshot(workbook)
     assert "fictional private" not in str(result.value)
+
+
+@pytest.mark.parametrize("target", ["form", "control", "font"])
+def test_unsupported_scalar_diagnostic_identifies_only_static_property(target):
+    """Never serialize COM object type, repr, form name, or clinical content."""
+    workbook = sample()
+    designer = workbook.VBProject.VBComponents.Item(1).Designer
+
+    class PrivateObject:
+        def __repr__(self):
+            return "SECRET PATIENT CONTENT"
+
+    if target == "form":
+        designer.Caption = PrivateObject()
+        expected = "form property Caption unsupported scalar type"
+    elif target == "control":
+        designer.Controls.Item(0).Caption = PrivateObject()
+        expected = "control property Caption unsupported scalar type"
+    else:
+        designer.Font.Size = PrivateObject()
+        expected = "font property Size unsupported scalar type"
+
+    with pytest.raises(UserFormDesignerAuditError) as caught:
+        snapshot(workbook)
+    message = str(caught.value)
+    assert message == expected
+    assert "SECRET" not in message
+    assert "frmFictional" not in message
+
+
+def test_required_geometry_with_unsupported_scalar_remains_fail_closed():
+    workbook = sample()
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0).Width = object()
+    with pytest.raises(
+        UserFormDesignerAuditError,
+        match="control property Width unsupported scalar type",
+    ):
+        snapshot(workbook)
