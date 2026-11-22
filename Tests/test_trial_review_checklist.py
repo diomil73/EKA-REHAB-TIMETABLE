@@ -215,6 +215,11 @@ def _fictional_r6_review_checklist(tmp_path, *, unresolved_speech=False):
             "HOLD_CONFLICT", "ΔΕ", "09:30", "DEMO TEAM",
             "HOLD_APPROVED_COMBINED",
         ])
+    shared = book.create_sheet("ΚΟΙΝΑ_SLOTS_ΠΡΟΣ_ΕΛΕΓΧΟ")
+    shared.append((
+        "Γραμμή ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ", "Γραμμή πηγής", "Ημέρα",
+        "Ώρα", "Κατάσταση",
+    ))
     active = book.create_sheet("ΕΝΕΡΓΕΣ_ΕΠΙΚΑΛΥΨΕΙΣ")
     active.append(R6_ACTIVE_OVERLAPS_HEADERS)
     active.append([
@@ -296,4 +301,52 @@ def test_r6_checklist_rejects_changed_original_combined_provider(tmp_path):
         create_private_review_checklist(
             programme=p, review=review, output=out,
         )
+    assert not out.exists()
+
+
+
+def test_r6_shared_pending_old_row_remaps_to_current_weekly_without_false_approval(tmp_path):
+    from rehab_excel.trial_review_checklist import TASK_SHEET
+    p, review, out = _fictional_r6_review_checklist(tmp_path)
+    book = load_workbook(review)
+    weekly = book[SOURCE_WEEKLY_SHEET]
+    weekly.append([
+        "A", 2, "PRIVATE FICTIONAL A", "ΛΟΓΟΘΕΡΑΠΕΙΑ",
+        "ΔΕ", "11:30", None, None, "J2 / K2 / L2",
+        "FICTIONAL", "PROPOSED_EXACT_SOURCE",
+    ])
+    current_row = weekly.max_row
+    shared = book["ΚΟΙΝΑ_SLOTS_ΠΡΟΣ_ΕΛΕΓΧΟ"]
+    shared.append([
+        799, 2, "ΔΕ", "11:30", "ΕΚΚΡΕΜΕΙ ΕΓΚΡΙΣΗ",
+    ])  # R5 index is deliberately unrelated to the current weekly row.
+    book.save(review)
+    book.close()
+    before = p.read_bytes(), review.read_bytes()
+
+    counts = create_private_review_checklist(programme=p, review=review, output=out)
+    assert counts.get("SHARED_PROVIDER") == 1
+    assert counts.get("IDENTITY") == 1
+    result = load_workbook(out, read_only=True)
+    try:
+        tasks = list(result[TASK_SHEET].iter_rows(min_row=2, values_only=True))
+        shared_tasks = [v for v in tasks if v[0] == "SHARED_PROVIDER"]
+        assert len(shared_tasks) == 1
+        assert f"{SOURCE_WEEKLY_SHEET}!{current_row}" in shared_tasks[0][2]
+        assert "799" not in shared_tasks[0][2]
+    finally:
+        result.close()
+    assert (p.read_bytes(), review.read_bytes()) == before
+
+
+def test_r6_shared_pending_stale_source_clock_refuses_checklist(tmp_path):
+    p, review, out = _fictional_r6_review_checklist(tmp_path)
+    book = load_workbook(review)
+    book["ΚΟΙΝΑ_SLOTS_ΠΡΟΣ_ΕΛΕΓΧΟ"].append([
+        799, 2, "ΔΕ", "16:45", "ΕΚΚΡΕΜΕΙ ΕΓΚΡΙΣΗ",
+    ])
+    book.save(review)
+    book.close()
+    with pytest.raises(TrialReviewChecklistError, match="stale or ambiguous"):
+        create_private_review_checklist(programme=p, review=review, output=out)
     assert not out.exists()
