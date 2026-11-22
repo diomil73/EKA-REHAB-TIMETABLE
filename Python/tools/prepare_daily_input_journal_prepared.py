@@ -59,9 +59,9 @@ def _existing_journal_rows(book) -> tuple[tuple, ...]:
     # Read all populated cells in the contract columns, then reject any
     # internal blank/partial row instead of silently skipping corruption.
     last = max(
-        (ws.max_row if any(ws.cell(r, col).value is not None for col in range(1, 6))
-         else 1)
-        for r in range(1, ws.max_row + 1)
+        (r for r in range(1, ws.max_row + 1)
+         if any(ws.cell(r, col).value is not None for col in range(1, 6))),
+        default=1,
     )
     rows = []
     for row_index in range(2, last + 1):
