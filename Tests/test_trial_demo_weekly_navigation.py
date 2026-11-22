@@ -148,3 +148,38 @@ def test_weekly_navigation_respects_hidden_tabs_and_restores_application_shell()
     assert 'Worksheets("DEMO_WEEKLY_VIEW").Activate' in VBA_CODE
     assert "KeepApplicationShell" in VBA_CODE
     assert "Public Sub OpenDemoWeeklyView()" in VBA_CODE
+
+
+
+def test_native_demo_readback_verifiers_disable_macros_before_open():
+    """Stored UI diagnostics must not execute startup macros accidentally.
+
+    These are NOT the interactive operator workflows, which require trusted
+    macros enabled and are independently tested in real native Excel.
+    """
+    import inspect
+    from rehab_excel import (
+        trial_demo_weekly_navigation as weekly,
+        trial_demo_patient_exit_vba as exits,
+        trial_demo_active_census as census,
+    )
+
+    for verifier in (
+        weekly.verify_demo_weekly_navigation,
+        exits.verify_demo_patient_exit_action,
+        census.verify_demo_active_census,
+    ):
+        code = inspect.getsource(verifier)
+        security = code.index("excel.AutomationSecurity = 3")
+        opening = code.index("excel.Workbooks.Open(")
+        assert security < opening
+        assert code.index("excel.EnableEvents = False") < opening
+        assert code.index("excel.AskToUpdateLinks = False") < opening
+        assert "ReadOnly=True" in code
+        assert "UpdateLinks=0" in code
+        assert "AddToMru=False" in code
+        assert "IgnoreReadOnlyRecommended=True" in code
+        assert ".ReadOnly):" in code
+        assert "SaveChanges=False" in code
+        assert "excel.Run(" not in code
+        assert "book.Save(" not in code and "wb.Save(" not in code
