@@ -460,9 +460,9 @@ def test_rowsource_exception_on_mandatory_control_geometry_does_not_get_waived()
 
 
 @pytest.mark.parametrize("outer,inner", [
-    (-2147352567, -2147352573),
     (-2147352567, -2146827284),
     (-2147352567, None),
+    (-2147352567, -2147352572),
 ])
 def test_controlsource_com_error_reports_only_numeric_codes_and_fails_closed(outer, inner):
     workbook = sample()
@@ -490,3 +490,51 @@ def test_controlsource_com_error_reports_only_numeric_codes_and_fails_closed(out
     else:
         assert f"SCODE=0x{inner & 0xffffffff:08X}" in diagnostic
     assert all(secret not in diagnostic for secret in ("SECRET", "PRIVATE", "cmdSave"))
+
+
+def test_controlsource_exact_nested_membernotfound_is_optional_unsupported():
+    workbook = sample()
+    original = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+    baseline = snapshot(workbook)
+
+    class MissingOptionalMember(Exception):
+        hresult = -2147352567
+        excepinfo = (0, "SECRET SOURCE", "PRIVATE PATIENT", None, 0, -2147352573)
+
+    class Proxy:
+        def __getattr__(self, name):
+            if name == "ControlSource":
+                raise MissingOptionalMember("PRIVATE VALUE")
+            return getattr(original, name)
+
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
+    assert assert_userform_designers_preserved(baseline, snapshot(workbook)) == 1
+
+
+def test_controlsource_exact_inner_code_with_wrong_outer_still_stops():
+    workbook = sample()
+    original = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+
+    class WrongOuterCode(Exception):
+        hresult = -2147352566
+        excepinfo = (0, "SECRET SOURCE", "PRIVATE PATIENT", None, 0, -2147352573)
+
+    class Proxy:
+        def __getattr__(self, name):
+            if name == "ControlSource":
+                raise WrongOuterCode("PRIVATE VALUE")
+            return getattr(original, name)
+
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
+    with pytest.raises(UserFormDesignerAuditError, match="ControlSource COM access failed") as caught:
+        snapshot(workbook)
+    assert "PRIVATE" not in str(caught.value)
+    assert "SECRET" not in str(caught.value)
+
+
+def test_readable_controlsource_change_remains_detectable():
+    before = snapshot()
+    workbook = sample()
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0).ControlSource = "FICTITIOUS!A1"
+    with pytest.raises(UserFormDesignerAuditError, match="changed=1"):
+        assert_userform_designers_preserved(before, snapshot(workbook))
