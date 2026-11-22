@@ -75,7 +75,7 @@ def _save_copy(copy: Path, *, add_journal: bool, excel_factory):
                 pass
 
 
-def compare_noedit_and_journal_saves(source_path: Path, *, excel_factory=None):
+def compare_noedit_and_journal_saves(source_path: Path, *, excel_factory=None, control_only=False):
     source = Path(source_path).resolve()
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
         raise SaveComparisonError("Existing demo XLSM source required")
@@ -97,8 +97,8 @@ def compare_noedit_and_journal_saves(source_path: Path, *, excel_factory=None):
             create_probe_copy(source, journal)
             stage = "save no-edit control"
             control_forms = _save_copy(noedit, add_journal=False, excel_factory=excel_factory)
-            stage = "save journal trial"
-            journal_forms = _save_copy(journal, add_journal=True, excel_factory=excel_factory)
+            stage = "save second control without edits" if control_only else "save journal trial"
+            journal_forms = _save_copy(journal, add_journal=not control_only, excel_factory=excel_factory)
             if sorted(x.casefold() for x in control_forms) != sorted(x.casefold() for x in journal_forms):
                 raise SaveComparisonError("UserForm inventory differs between controls")
             stage = "compare embedded OLE streams"
@@ -109,7 +109,8 @@ def compare_noedit_and_journal_saves(source_path: Path, *, excel_factory=None):
         stage = "verify original unchanged"
         if _file_sha256(source) != before:
             raise SaveComparisonError("Source changed during comparative probe")
-        return {"form_count": len(control_forms), "differences": changes, "categories": categories}
+        return {"form_count": len(control_forms), "differences": changes, "categories": categories,
+                "comparison": "NO-EDIT vs NO-EDIT" if control_only else "NO-EDIT vs JOURNAL"}
     except Exception as exc:
         detail = " ".join(str(exc).replace(str(source), "<SOURCE>").split())[:300]
         raise SaveComparisonError(f"Stage={stage}; cause={type(exc).__name__}; detail={detail}") from exc
@@ -118,14 +119,17 @@ def compare_noedit_and_journal_saves(source_path: Path, *, excel_factory=None):
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Diagnostic: Excel no-edit vs journal save, temporary copies only")
     parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--control-only", action="store_true",
+                        help="Compare two independent no-edit saves; never install journal")
     args = parser.parse_args(argv)
     try:
-        result = compare_noedit_and_journal_saves(args.source)
+        result = compare_noedit_and_journal_saves(args.source, control_only=args.control_only)
     except Exception as exc:
         print("SAFETY STOP: NO-EDIT / JOURNAL COMPARISON FAILED")
         print("DIAGNOSTIC: " + " ".join(str(exc).split())[:500])
         return 2
-    print("EXCEL NO-EDIT VS JOURNAL SAVE COMPARISON COMPLETED")
+    print("EXCEL INDEPENDENT SAVE COMPARISON COMPLETED")
+    print("Comparison: " + result["comparison"])
     print(f"UserForms compared: {result['form_count']}")
     for name, count in result["differences"].items():
         print(f"{name}={count}")
@@ -133,7 +137,7 @@ def main(argv=None) -> int:
         print(f"{name}={count}")
     print("Source untouched: YES")
     print("Both temporary copies removed; no operational workbook created")
-    print("DIAGNOSTIC ONLY: equality does not prove semantic integrity")
+    print("DIAGNOSTIC ONLY: a zero or nonzero comparison is not an integrity approval")
     return 0
 
 
