@@ -113,11 +113,11 @@ def _property(owner, name, *, mandatory=False, context="designer"):
                 and (details[5] & 0xffffffff) == 0x80020003
             ):
                 return ("UNSUPPORTED",)
-        # RowSource may raise a COM exception rather than mean "unsupported".
-        # Capture numeric HRESULT/EXCEPINFO scode only; never the exception
-        # description, source, argument values or private control identities.
+        # Binding properties can raise COM exceptions rather than mean
+        # "unsupported". Capture numeric HRESULT/EXCEPINFO scode only;
+        # never exception descriptions, range references, or control names.
         code_suffix = ""
-        if context == "control" and name == "RowSource":
+        if context == "control" and name in ("RowSource", "ControlSource"):
             hresult = getattr(exc, "hresult", None)
             if type(hresult) is int:
                 code_suffix = f"; HRESULT=0x{hresult & 0xffffffff:08X}"
