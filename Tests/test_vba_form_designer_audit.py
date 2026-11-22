@@ -303,3 +303,41 @@ def test_required_geometry_with_unsupported_scalar_remains_fail_closed():
         match="control property Width unsupported scalar type",
     ):
         snapshot(workbook)
+
+
+@pytest.mark.parametrize("value", ["10.0", "10.000000000000", "10"])
+def test_com_decimal_font_size_matches_float_designer_snapshot(value):
+    """COM's IFont.Size may arrive as Decimal; same size means same digest."""
+    from decimal import Decimal
+    baseline = snapshot()
+    workbook = sample()
+    workbook.VBProject.VBComponents.Item(1).Designer.Font.Size = Decimal(value)
+    assert assert_userform_designers_preserved(baseline, snapshot(workbook)) == 1
+
+
+def test_com_decimal_font_size_change_is_detected():
+    from decimal import Decimal
+    before = snapshot()
+    workbook = sample()
+    workbook.VBProject.VBComponents.Item(1).Designer.Font.Size = Decimal("10.5")
+    with pytest.raises(UserFormDesignerAuditError, match="changed=1"):
+        assert_userform_designers_preserved(before, snapshot(workbook))
+
+
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity", "1e30"])
+def test_com_decimal_font_size_nonfinite_or_out_of_bounds_stops(value):
+    from decimal import Decimal
+    workbook = sample()
+    workbook.VBProject.VBComponents.Item(1).Designer.Font.Size = Decimal(value)
+    with pytest.raises(UserFormDesignerAuditError, match="Non-finite designer number"):
+        snapshot(workbook)
+
+
+def test_decimal_other_than_font_size_remains_rejected():
+    from decimal import Decimal
+    workbook = sample()
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0).Left = Decimal("10")
+    with pytest.raises(
+        UserFormDesignerAuditError, match="control property Left unsupported scalar type"
+    ):
+        snapshot(workbook)
