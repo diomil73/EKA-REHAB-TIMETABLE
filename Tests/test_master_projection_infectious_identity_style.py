@@ -1,7 +1,7 @@
 """MASTER identity fill must not inherit infectious formatting from template."""
 from rehab_excel.master_projection_writer import Win32ComMasterProjectionBackend
 from rehab_excel.master_visual_style import (
-    BODY_COLORS, ROW_SEPARATOR_GRAY, SOFT_VERTICAL_GRAY,
+    HEADER_COLORS, BODY_COLORS, ROW_SEPARATOR_GRAY, SOFT_VERTICAL_GRAY,
 )
 
 
@@ -55,3 +55,17 @@ def test_infectious_styling_remains_distinct_and_unchanged():
     yellow = backend.palette.infectious_yellow
     assert row.Interior.Color == yellow
     assert all(row.Borders(edge).Color == yellow for edge in (7, 8, 9, 10))
+
+
+def test_master_header_uses_neutral_identity_color_independent_of_patient_flag():
+    class Sheet:
+        def __init__(self):
+            self.calls = []
+            self.header = Range(0x00FFFF, {})
+        def Range(self, address):
+            self.calls.append(address)
+            return self.header
+    ws = Sheet()
+    Win32ComMasterProjectionBackend._apply_identity_header_style(ws, 5)
+    assert ws.calls == ["B5:C5"]
+    assert ws.header.Interior.Color == HEADER_COLORS["identity"]
