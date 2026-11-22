@@ -170,9 +170,14 @@ ApplyExit:
 
 ApplyError:
     errorText = Err.Description
+    ' Exit the active handler before the recovery leg can raise its own error.
+    Resume RollbackAttempt
+
+RollbackAttempt:
     On Error Resume Next
     If Not previewWorkbook Is Nothing Then previewWorkbook.Close SaveChanges:=False
     Set previewWorkbook = Nothing
+    On Error GoTo RollbackFailed
 
     If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then
         Set rollbackWorkbook = Application.Workbooks.Open( _
@@ -183,15 +188,25 @@ ApplyError:
         ThisWorkbook.Save
         rollbackWorkbook.Close SaveChanges:=False
         Set rollbackWorkbook = Nothing
-        Kill rollbackPath
+        ' Never delete an attempted recovery snapshot on a failed transaction.
+        ' An in-session copy-back is not independent Save/Close/Reopen proof.
     End If
-    On Error GoTo 0
+    GoTo RollbackUnverified
 
+RollbackFailed:
+    Resume RollbackUnverified
+
+RollbackUnverified:
+    On Error Resume Next
+    If Not rollbackWorkbook Is Nothing Then rollbackWorkbook.Close SaveChanges:=False
     Application.Calculation = previousCalculation
     Application.DisplayAlerts = previousAlerts
     Application.ScreenUpdating = previousScreenUpdating
     Application.EnableEvents = previousEvents
-    Err.Raise vbObjectError + 2910, "ApplyAuthoritativeRestorePreview", errorText
+    On Error GoTo 0
+    Err.Raise vbObjectError + 2910, "ApplyAuthoritativeRestorePreview", _
+              "Η επαναφορά απέτυχε. Δεν επιβεβαιώθηκε πλήρης αποκατάσταση. " & _
+              "Μην συνεχίσετε καταχωρίσεις. Επικοινωνήστε με τον διαχειριστή."
 End Sub
 
 Private Function ElapsedRestoreSeconds(ByVal startedAt As Double) As Double
