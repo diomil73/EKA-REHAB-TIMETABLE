@@ -17,7 +17,7 @@ for item in (ROOT, ROOT / "Python"):
 
 from Python.tools.prepare_native_probe_copy import create_probe_copy
 from Python.tools.provision_daily_input_journal_native import _file_sha256
-from rehab_excel.daily_input_journal import JOURNAL_SHEET, append_operation_journal
+from rehab_excel.daily_input_journal import JOURNAL_SHEET
 from rehab_excel.daily_input_journal_sheet import (
     ensure_daily_input_journal_sheet, append_native_operation_revision,
     read_native_journal_rows,
