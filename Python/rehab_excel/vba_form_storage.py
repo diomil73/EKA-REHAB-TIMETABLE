@@ -74,8 +74,45 @@ def form_storage_evidence(
         raise VbaFormStorageError("Unable to parse VBA UserForm OLE storage") from exc
 
 
+def compare_form_storage_evidence(before, after) -> dict[str, int]:
+    """Count stream-level differences without exposing component IDs or data.
+
+    This is diagnostic only. No mismatch is considered safe or ignored.
+    """
+    original = dict(before)
+    current = dict(after)
+    if len(original) != len(before) or len(current) != len(after):
+        raise VbaFormStorageError("Ambiguous UserForm evidence identities")
+    stats = {
+        "forms_missing": len(original.keys() - current.keys()),
+        "forms_added": len(current.keys() - original.keys()),
+        "streams_missing": 0,
+        "streams_added": 0,
+        "streams_changed": 0,
+        "forms_with_changed_streams": 0,
+    }
+    for form in original.keys() & current.keys():
+        old = dict(original[form])
+        new = dict(current[form])
+        if len(old) != len(original[form]) or len(new) != len(current[form]):
+            raise VbaFormStorageError("Ambiguous UserForm evidence stream identities")
+        missing = len(old.keys() - new.keys())
+        added = len(new.keys() - old.keys())
+        changed = sum(old[key] != new[key] for key in old.keys() & new.keys())
+        stats["streams_missing"] += missing
+        stats["streams_added"] += added
+        stats["streams_changed"] += changed
+        if missing or added or changed:
+            stats["forms_with_changed_streams"] += 1
+    return stats
+
+
 def assert_form_storage_preserved(before, after) -> int:
     """Require exactly the same UserForm storages and stream bytes."""
-    if not before or before != after:
-        raise VbaFormStorageError("Embedded UserForm storage stream mismatch")
+    if not before:
+        raise VbaFormStorageError("Empty UserForm OLE evidence")
+    changes = compare_form_storage_evidence(before, after)
+    if any(changes.values()):
+        summary = " ".join(f"{key}={value}" for key, value in changes.items())
+        raise VbaFormStorageError("Embedded UserForm storage stream mismatch: " + summary)
     return len(before)
