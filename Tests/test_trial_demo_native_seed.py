@@ -242,3 +242,157 @@ def test_native_seed_wires_empty_pm_initialization_and_readback():
     assert "_initialize_empty_afternoon_source(wb)" in inspect.getsource(seed.Win32ComTrialDemoSeedBackend.write)
     assert "_assert_empty_afternoon_source(wb, required=True)" in inspect.getsource(seed._verify_seed_workbook)
     assert "sheet.Visible = 2" in inspect.getsource(seed._initialize_empty_afternoon_source)
+
+
+def _fictional_full_provider_schedule_snapshot(
+    *, shared_members=(), outpatient_conflict=False, same_patient_combined=False,
+):
+    """All records are fabricated. Source-bound clinical approvals stay explicit."""
+    from rehab_excel.trial_provider_schedule import TrialProviderSchedule
+    from rehab_excel.trial_demo_source_projection import TrialDemoSourceProjection
+    from rehab_excel.trial_patient_registry_projection import (
+        PATIENTS_HEADERS, TrialPatientRegistryProjection,
+    )
+    from rehab_excel.trial_private_outpatient_projection import (
+        TrialPrivateOutpatientProjection,
+    )
+    from rehab_excel.trial_weekly_projection import TrialWeeklyProjection
+
+    def row(pid, patient_type):
+        return (pid, None, "SYNTHETIC PERSON", "Ο", None,
+                patient_type, None, None, "FICTIONAL")
+
+    inpatient_patients = (
+        row("DEMO-A", "Εσωτερικός"), row("DEMO-B", "Εσωτερικός"),
+    )
+    outpatient_patients = (row("DEMO-O", "Εξωτερικός"),)
+    clock = time(9, 30)
+    in_rows = [
+        ("DEMO-A", "ΦΘ", "ΔΕ", clock, "DEMO STAFF", "C4"),
+        ("DEMO-B", "ΦΘ", "ΔΕ", clock, "Demo.Staff", "C5"),
+    ]
+    if same_patient_combined:
+        in_rows.append(
+            ("DEMO-A", "Ρομποτικό", "ΔΕ", clock, "DEMO STAFF", "R4")
+        )
+    out_day = "ΔΕ" if outpatient_conflict else "ΤΡ"
+    out_time = clock if outpatient_conflict else time(10, 0)
+    outpatient_weekly = (
+        ("DEMO-O", "SYNTHETIC PERSON", "Εργο", out_day,
+         out_time, "DEMO STAFF", "OUT:2"),
+    )
+    inpatient = TrialDemoSourceProjection(
+        TrialPatientRegistryProjection(
+            PATIENTS_HEADERS, inpatient_patients, len(inpatient_patients),
+        ),
+        TrialWeeklyProjection(
+            ("PatientID", "Θεραπεία", "Ημέρα", "Ώρα",
+             "Θεραπευτής", "Πηγή"),
+            tuple(in_rows), len(in_rows),
+        ),
+        len(inpatient_patients), len(in_rows),
+    )
+    outpatient = TrialPrivateOutpatientProjection(
+        "d" * 64, outpatient_patients,
+        (("DEMO-O", "SYNTHETIC PERSON", "Εργο",
+          out_time, out_day, "DEMO STAFF"),),
+        outpatient_weekly,
+        1, 1, 1,
+    )
+    source_plan = TrialImportPlan(
+        "a" * 64, "b" * 64, 2, len(in_rows), (),
+        programme_sha256="c" * 64,
+    )
+    approved_shared = tuple(
+        ("DEMO STAFF", "ΔΕ", clock, frozenset(members))
+        for members in shared_members
+    )
+    schedule = TrialProviderSchedule(
+        ("c" * 64, "a" * 64, "b" * 64, "d" * 64),
+        (("DEMO STAFF", "ΔΕ", frozenset({clock})),
+         ("DEMO STAFF", "ΤΡ", frozenset({time(10, 0)}))),
+        approved_shared,
+    )
+    return inpatient, outpatient, source_plan, schedule
+
+
+def test_private_provider_schedule_requires_all_inpatient_shared_member_approvals():
+    from rehab_excel.trial_provider_schedule import (
+        TrialProviderScheduleError, merge_with_approved_provider_schedule,
+    )
+    inpatient, outpatient, plan, absent = (
+        _fictional_full_provider_schedule_snapshot()
+    )
+    with pytest.raises(TrialProviderScheduleError, match="exact approved membership"):
+        merge_with_approved_provider_schedule(
+            inpatient, outpatient, plan=plan, schedule=absent,
+        )
+    inp, out, approved_plan, approved = (
+        _fictional_full_provider_schedule_snapshot(
+            shared_members=(("DEMO-A", "DEMO-B"),),
+        )
+    )
+    combined = merge_with_approved_provider_schedule(
+        inp, out, plan=approved_plan, schedule=approved,
+    )
+    assert combined.patients == 3
+    assert combined.weekday_slot_count == 3
+    assert combined.outpatient is out
+
+
+def test_private_provider_schedule_requires_exact_not_stale_membership():
+    from rehab_excel.trial_provider_schedule import (
+        TrialProviderScheduleError, merge_with_approved_provider_schedule,
+    )
+    for members in (
+        (("DEMO-A", "DEMO-O"),),
+        (("DEMO-A", "DEMO-B", "DEMO-O"),),
+    ):
+        inp, out, plan, schedule = _fictional_full_provider_schedule_snapshot(
+            shared_members=members,
+        )
+        with pytest.raises(TrialProviderScheduleError, match="exact approved membership"):
+            merge_with_approved_provider_schedule(
+                inp, out, plan=plan, schedule=schedule,
+            )
+
+
+def test_private_provider_schedule_combined_pair_same_patient_counts_once():
+    from rehab_excel.trial_provider_schedule import (
+        merge_with_approved_provider_schedule,
+    )
+    inp, out, plan, schedule = _fictional_full_provider_schedule_snapshot(
+        shared_members=(("DEMO-A", "DEMO-B"),),
+        same_patient_combined=True,
+    )
+    combined = merge_with_approved_provider_schedule(
+        inp, out, plan=plan, schedule=schedule,
+    )
+    assert combined.weekday_slot_count == 4
+
+
+def test_private_provider_schedule_preserves_inpatient_outpatient_shared_gate():
+    from rehab_excel.trial_provider_schedule import (
+        TrialProviderScheduleError, merge_with_approved_provider_schedule,
+    )
+    inp, out, plan, missing_outpatient = (
+        _fictional_full_provider_schedule_snapshot(
+            shared_members=(("DEMO-A", "DEMO-B"),),
+            outpatient_conflict=True,
+        )
+    )
+    with pytest.raises(TrialProviderScheduleError, match="exact approved membership"):
+        merge_with_approved_provider_schedule(
+            inp, out, plan=plan, schedule=missing_outpatient,
+        )
+    # Source schedule permits at most one approval per provider/day/time.
+    # The precise three-patient group is required rather than a second entry.
+    inp, out, plan, approved = _fictional_full_provider_schedule_snapshot(
+        shared_members=(("DEMO-A", "DEMO-B", "DEMO-O"),),
+        outpatient_conflict=True,
+    )
+    merged = merge_with_approved_provider_schedule(
+        inp, out, plan=plan, schedule=approved,
+    )
+    assert merged.patients == 3
+    assert merged.weekday_slot_count == 3
