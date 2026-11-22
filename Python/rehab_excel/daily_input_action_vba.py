@@ -186,14 +186,14 @@ ApplyExit:
 ApplyError:
     errorNumber = Err.Number
     errorText = Err.Description
-    On Error Resume Next
-    WriteDailyInputDiagnostic errorNumber, errorText, currentPhase, currentPatchIndex, currentSheet, currentCell
     ' Resume exits the active VBA error handler before attempting rollback.
-    ' A rollback error must not be silently swallowed by On Error Resume Next.
     Resume RollbackAttempt
 
 RollbackAttempt:
+    On Error Resume Next
+    WriteDailyInputDiagnostic errorNumber, errorText, currentPhase, currentPatchIndex, currentSheet, currentCell
     On Error GoTo RollbackFailed
+    ' A rollback error must never be silently swallowed.
     If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then
         RestorePatchesFromRollback rollbackPath, lines
         ThisWorkbook.Save
