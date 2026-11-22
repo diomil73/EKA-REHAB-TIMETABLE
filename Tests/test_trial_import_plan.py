@@ -32,7 +32,7 @@ def _enable(monkeypatch, *, blocked=False, mismatch=False):
     monkeypatch.setattr(planner, "inspect_native_pilot_inputs", inspect)
     monkeypatch.setattr(
         planner, "evaluate_trial_admission",
-        lambda path: SimpleNamespace(
+        lambda path, **kwargs: SimpleNamespace(
             ready=True, admitted_entries=(_entry(),),
             candidate_patients=1, verified_patient_ids=1,
         ),
@@ -174,3 +174,36 @@ def test_demo_shell_optin_requires_separately_verified_empty_intake(tmp_path, mo
         planner.prepare_trial_import_plan(
             review=review, intake=intake, empty_demo_shell=True,
         )
+
+
+def test_original_programme_is_forwarded_to_existing_preflight_and_admission(tmp_path, monkeypatch):
+    """Source-bound shorthand must not be lost between the two existing gates."""
+    review, intake = _sources(tmp_path)
+    programme = tmp_path / "original-programme.xlsx"
+    programme.write_bytes(b"fictional-source-only")
+    seen = []
+
+    monkeypatch.setattr(
+        planner, "audit_trial_source_alignment",
+        lambda **kwargs: SimpleNamespace(aligned=True),
+    )
+    def preflight(**kwargs):
+        seen.append(("preflight", kwargs.get("programme")))
+        return {
+            "native_trial_permitted": True, "review_patients": 1,
+            "verified_patient_ids": 1, "proposed_weekly_slots": 1,
+        }
+    def admission(path, *, programme=None):
+        seen.append(("admission", programme))
+        return SimpleNamespace(
+            ready=True, admitted_entries=(_entry(),),
+            candidate_patients=1, verified_patient_ids=1,
+        )
+    monkeypatch.setattr(planner, "inspect_native_pilot_inputs", preflight)
+    monkeypatch.setattr(planner, "evaluate_trial_admission", admission)
+    plan = planner.prepare_trial_import_plan(
+        review=review, intake=intake, programme=programme,
+    )
+    assert plan.weekday_slot_count == 1
+    assert seen == [("preflight", programme.resolve()), ("admission", programme.resolve())]
+    plan.verify_sources(review, intake, programme=programme)
