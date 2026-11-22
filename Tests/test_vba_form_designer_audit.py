@@ -389,3 +389,71 @@ def test_rowsource_unknown_com_failure_stays_fail_closed_without_leaking_excepti
     with pytest.raises(UserFormDesignerAuditError) as result:
         snapshot(workbook)
     assert str(result.value) == "control property RowSource COM access failed"
+
+
+def test_rowsource_exact_nested_membernotfound_is_optional_unsupported():
+    workbook = sample()
+    first = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+    baseline = snapshot(workbook)
+
+    class MissingOptionalComMember(Exception):
+        hresult = -2147352567  # DISP_E_EXCEPTION
+        excepinfo = (0, "PRIVATE", "PRIVATE", None, 0, -2147352573)
+
+    class Proxy:
+        def __getattr__(self, key):
+            if key == "RowSource":
+                raise MissingOptionalComMember("PRIVATE VALUE")
+            return getattr(first, key)
+
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
+    # Absence is represented identically to a genuinely unsupported member.
+    assert assert_userform_designers_preserved(baseline, snapshot(workbook)) == 1
+
+
+@pytest.mark.parametrize("outer, inner", [
+    (-2147352567, -2146827284),
+    (-2147352573, -2147352573),
+    (-2147352567, -2147352572),
+])
+def test_rowsource_other_nested_com_codes_still_stop(outer, inner):
+    workbook = sample()
+    first = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+
+    class UnexpectedComError(Exception):
+        hresult = outer
+        excepinfo = (0, "PRIVATE", "PRIVATE", None, 0, inner)
+
+    class Proxy:
+        def __getattr__(self, key):
+            if key == "RowSource":
+                raise UnexpectedComError("PRIVATE DATA")
+            return getattr(first, key)
+
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
+    if outer == -2147352573:
+        # Existing top-level missing-member case is also safely unsupported.
+        snapshot(workbook)
+    else:
+        with pytest.raises(UserFormDesignerAuditError, match="RowSource COM access failed") as result:
+            snapshot(workbook)
+        assert "PRIVATE" not in str(result.value)
+
+
+def test_rowsource_exception_on_mandatory_control_geometry_does_not_get_waived():
+    workbook = sample()
+    first = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+
+    class MissingComMember(Exception):
+        hresult = -2147352567
+        excepinfo = (0, "PRIVATE", "PRIVATE", None, 0, -2147352573)
+
+    class Proxy:
+        def __getattr__(self, key):
+            if key == "Width":
+                raise MissingComMember("PRIVATE")
+            return getattr(first, key)
+
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
+    with pytest.raises(UserFormDesignerAuditError, match="control property Width COM access failed"):
+        snapshot(workbook)
