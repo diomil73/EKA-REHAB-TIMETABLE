@@ -204,10 +204,18 @@ def verify_demo_active_census(path: str | Path, *, patient_rows: int) -> None:
     wb = None
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
+        # This is a stored-button/VBA verifier, not interactive UI execution.
+        excel.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.EnableEvents = False
-        wb = excel.Workbooks.Open(str(Path(path).resolve()), UpdateLinks=0, ReadOnly=True)
+        excel.AskToUpdateLinks = False
+        wb = excel.Workbooks.Open(
+            str(Path(path).resolve()), UpdateLinks=0, ReadOnly=True,
+            AddToMru=False, IgnoreReadOnlyRecommended=True,
+        )
+        if not bool(wb.ReadOnly):
+            raise DemoActiveCensusError("Native verification workbook unexpectedly writable")
         module = wb.VBProject.VBComponents(MODULE_NAME)
         code = str(module.CodeModule.Lines(
             1, int(module.CodeModule.CountOfLines)
