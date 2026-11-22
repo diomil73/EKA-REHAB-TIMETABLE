@@ -17,13 +17,13 @@ from openpyxl import load_workbook
 from rehab_core.recurring_conflicts import _provider_key
 
 from rehab_excel.trial_source_alignment import (
-    TREATMENT_SOURCE_COLUMNS, audit_trial_source_alignment,
+    TREATMENT_SOURCE_COLUMNS, PROGRAMME_SHEET, audit_trial_source_alignment,
 )
 from rehab_core.programme_mapping import (
     ProgrammeMappingError,
     SourceWeeklyEntry,
     WEEKDAYS,
-    parse_clock,
+    parse_clock, make_weekly_entries,
     validate_weekly_entry_consistency,
 )
 
@@ -83,6 +83,9 @@ class TrialAdmissionResult:
     duplicate_ids: int
     admitted_entries: tuple[SourceWeeklyEntry, ...] = field(repr=False)
     blockers: tuple[str, ...]
+    confirmed_combined_slots: frozenset[frozenset[SourceWeeklyEntry]] = field(
+        default_factory=frozenset, repr=False,
+    )
 
     @property
     def ready(self) -> bool:
@@ -364,6 +367,130 @@ def _audit_r6_active_overlaps(wb, proposals, blockers: list[str]) -> int | None:
     return unresolved
 
 
+
+def _verify_source_bound_r6_statuses(
+    *, programme: str | Path, wb, proposals, blockers: list[str],
+) -> tuple[set[tuple], tuple[frozenset[int], ...]]:
+    """Verify R6 corrected groups and exact combined pairs against original A:V.
+
+    This is strictly an original-source proof, not PatientID/provider approval.
+    Any absent/mutated source or ledger fails closed; all data stay local.
+    """
+    # Late import reuses the already-existing complete-group reconciliation
+    # without adding a second source parser or a module-import cycle.
+    from rehab_excel.trial_demo_source_reconciliation import (
+        _source_bound_r6_corrected_groups,
+        TrialDemoSourceReconciliationError,
+    )
+
+    original = load_workbook(programme, read_only=True, data_only=False)
+    try:
+        src = original[PROGRAMME_SHEET]
+        try:
+            groups = _source_bound_r6_corrected_groups(wb, src)
+        except (TrialDemoSourceReconciliationError, KeyError, TypeError, ValueError):
+            blockers.append("R6 corrected original-source groups require independent review")
+            groups = {}
+        corrected = {
+            (source_row, treatment, day, clock, provider, source_cell)
+            for (source_row, _), entries in groups.items()
+            for treatment, day, clock, provider, source_cell in entries
+        }
+        active = wb[R6_ACTIVE_OVERLAPS_SHEET]
+        weekly_groups: dict[tuple, list[tuple[int, tuple]]] = {}
+        for number, values in proposals:
+            if _text(values[10]) != "HOLD_APPROVED_COMBINED":
+                continue
+            source_row = _source_row_number(values[1])
+            try:
+                clock = parse_clock(values[5])
+            except (ProgrammeMappingError, TypeError, ValueError):
+                clock = None
+            if source_row is None or clock is None:
+                blockers.append(f"R6 combined weekly row {number}: invalid source slot")
+                continue
+            key = (source_row, _text(values[2]), _text(values[4]), clock)
+            weekly_groups.setdefault(key, []).append((number, values))
+
+        pairs: list[frozenset[int]] = []
+        for number, values in _data_rows(active, 7, blockers=blockers):
+            source_row, name, day, raw_clock, _, _, decision = values
+            if _text(decision) != R6_COMBINED_DECISION:
+                continue
+            row_num = _source_row_number(source_row)
+            try:
+                clock = parse_clock(raw_clock)
+            except (ProgrammeMappingError, TypeError, ValueError):
+                clock = None
+            key = (row_num, _text(name), _text(day), clock)
+            members = weekly_groups.get(key, ())
+            if row_num is None or clock is None or len(members) != 2:
+                blockers.append(f"R6 combined active row {number}: source membership changed")
+                continue
+            if (
+                {_text(member[3]) for _, member in members}
+                != {"ΦΘ", "ΡΟΜΠΟΤΙΚΗ"}
+                or any(_text(member[10]) != "HOLD_APPROVED_COMBINED"
+                       for _, member in members)
+            ):
+                blockers.append(f"R6 combined active row {number}: invalid treatment pair")
+                continue
+            pair_valid = True
+            for _, member in members:
+                specialty = _text(member[3])
+                treatment = SOURCE_TREATMENTS[specialty]
+                clock_col, day_col, staff_col = (
+                    ("C", "D", "E") if specialty == "ΦΘ"
+                    else ("R", "S", "T")
+                )
+                original_cells = [
+                    src.cell(row_num, ord(col) - 64)
+                    for col in (clock_col, day_col, staff_col)
+                ]
+                if any(cell.data_type in {"f", "e"} for cell in original_cells):
+                    pair_valid = False
+                    break
+                source_clock, source_days, source_provider = [
+                    cell.value for cell in original_cells
+                ]
+                try:
+                    source_candidates = make_weekly_entries(
+                        patient_id="SOURCE-BOUND-CHECK",
+                        treatment=treatment, source_cell=f"{clock_col}{row_num}",
+                        clock=source_clock, weekdays=source_days,
+                        therapist=source_provider,
+                        implicit_daily=not _text(source_days),
+                    )
+                except (ProgrammeMappingError, TypeError, ValueError):
+                    pair_valid = False
+                    break
+                if sum(
+                    entry.weekday == _text(member[4])
+                    and entry.start_time == clock
+                    and _provider_key(entry.therapist_name)
+                        == _provider_key(_text(member[6]))
+                    for entry in source_candidates
+                ) != 1:
+                    pair_valid = False
+                    break
+            if not pair_valid:
+                blockers.append(f"R6 combined active row {number}: original A:V slot differs")
+                continue
+            pairs.append(frozenset(member_number for member_number, _ in members))
+
+        if (
+            len(set(pairs)) != len(pairs)
+            or set().union(*pairs) != {
+                number for member_rows in weekly_groups.values()
+                for number, _ in member_rows
+            }
+        ):
+            blockers.append("R6 combined approvals have stale or incomplete source coverage")
+        return corrected, tuple(pairs)
+    finally:
+        original.close()
+
+
 def evaluate_trial_admission(
     path: str | Path, *, programme: str | Path | None = None,
 ) -> TrialAdmissionResult:
@@ -393,6 +520,15 @@ def evaluate_trial_admission(
         overlaps = tuple(_data_rows(wb[SOURCE_OVERLAP_SHEET], 7, blockers=blockers))
         _audit_r6_decision_readback(wb, proposals, blockers)
         r6_unresolved_overlaps = _audit_r6_active_overlaps(wb, proposals, blockers)
+        corrected_verified: set[tuple] = set()
+        exact_combined_rows: tuple[frozenset[int], ...] = ()
+        if programme is not None and source_aligned and R6_DECISIONS_SHEET in wb.sheetnames:
+            try:
+                corrected_verified, exact_combined_rows = _verify_source_bound_r6_statuses(
+                    programme=programme, wb=wb, proposals=proposals, blockers=blockers,
+                )
+            except (OSError, KeyError, ValueError, TypeError):
+                blockers.append("R6 original source could not verify corrected/combined slots")
 
         patient_keys: dict[tuple[str, str, str], str] = {}
         verified_ids: list[str] = []
@@ -440,6 +576,8 @@ def evaluate_trial_admission(
             blockers.append(f"{len(overlaps)} cross-specialty overlap review rows")
 
         admitted: list[SourceWeeklyEntry] = []
+        admitted_by_review_row: dict[int, SourceWeeklyEntry] = {}
+        approved_combined_rows = set().union(*exact_combined_rows)
         unadmitted = 0
         for excel_row, row in proposals:
             clinic, source_row, name, specialty, day, clock, required_name, optional_name, cells, _raw, state = row
@@ -448,7 +586,14 @@ def evaluate_trial_admission(
             if not patient_id:
                 unadmitted += 1
                 continue
-            if _text(state) != "PROPOSED_EXACT_SOURCE":
+            status = _text(state)
+            if status not in {
+                "PROPOSED_EXACT_SOURCE", "PROPOSED_OPERATOR_CORRECTION",
+                "HOLD_APPROVED_COMBINED",
+            }:
+                unadmitted += 1
+                continue
+            if status == "HOLD_APPROVED_COMBINED" and excel_row not in approved_combined_rows:
                 unadmitted += 1
                 continue
             treatment = SOURCE_TREATMENTS.get(_text(specialty))
@@ -491,25 +636,46 @@ def evaluate_trial_admission(
                 unadmitted += 1
                 continue
             provider = _text(required_name) if treatment in {"ΦΘ", "Ρομποτικό"} else _text(optional_name)
+            if status == "PROPOSED_OPERATOR_CORRECTION" and (
+                original_number, treatment, _text(day), parse_clock(clock)
+                if _text(clock) else None, provider,
+                f"{time_column}{original_number}",
+            ) not in corrected_verified:
+                blockers.append(f"Weekly staging row {excel_row}: correction not source-bound")
+                unadmitted += 1
+                continue
             if treatment in {"ΦΘ", "Ρομποτικό"} and not provider:
                 blockers.append(f"Weekly staging row {excel_row}: mandatory provider missing")
                 unadmitted += 1
                 continue
             try:
-                admitted.append(SourceWeeklyEntry(
+                entry = SourceWeeklyEntry(
                     patient_id=patient_id,
                     treatment=treatment,
                     weekday=_text(day),
                     start_time=parse_clock(clock),
                     therapist_name=provider or None,
                     source_cell=f"{time_column}{original_number}",
-                ))
+                )
+                admitted.append(entry)
+                admitted_by_review_row[excel_row] = entry
             except (ProgrammeMappingError, ValueError):
                 blockers.append(f"Weekly staging row {excel_row}: malformed weekday slot")
                 unadmitted += 1
 
         if unadmitted:
             blockers.append(f"{unadmitted} weekly proposals cannot be admitted")
+        approved_combined: frozenset[frozenset[SourceWeeklyEntry]] = frozenset()
+        if exact_combined_rows:
+            if any(not pair.issubset(admitted_by_review_row) for pair in exact_combined_rows):
+                blockers.append("R6 combined pairs contain unadmitted reviewed rows")
+            else:
+                approved_combined = frozenset(
+                    frozenset(admitted_by_review_row[index] for index in pair)
+                    for pair in exact_combined_rows
+                )
+                if len(approved_combined) != len(exact_combined_rows):
+                    blockers.append("R6 combined pair membership is duplicated")
         if admitted:
             # Explicit *exact membership* approval is required for shared
             # therapist slots. Approved patient IDs are never stored in GitHub,
@@ -573,7 +739,9 @@ def evaluate_trial_admission(
             if stale:
                 blockers.append(f"{stale} stale or mismatched shared-slot approvals")
             try:
-                validate_weekly_entry_consistency(admitted)
+                validate_weekly_entry_consistency(
+                    admitted, confirmed_combined_slots=approved_combined,
+                )
             except ProgrammeMappingError:
                 blockers.append("Patient cross-specialty duplicate slot detected")
         if not patients or not proposals:
@@ -592,6 +760,7 @@ def evaluate_trial_admission(
             duplicate_ids=duplicate_ids,
             admitted_entries=tuple(admitted) if not blockers else (),
             blockers=tuple(blockers),
+            confirmed_combined_slots=approved_combined if not blockers else frozenset(),
         )
     finally:
         wb.close()
