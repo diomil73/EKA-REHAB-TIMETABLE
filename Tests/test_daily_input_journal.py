@@ -101,3 +101,105 @@ def test_rejects_malformed_payload_field_types():
     row[4] = "diomil-journal-v1:" + raw
     with pytest.raises(DailyInputJournalError, match="payload"):
         decode_operation_journal((tuple(row),))
+
+
+def _completed(operation):
+    states = [operation]
+    for phase in (
+        Phase.INPUT_AND_LEDGER_COMMITTED,
+        Phase.PROJECTIONS_VERIFIED,
+        Phase.REPLACEMENTS_RESOLVED,
+        Phase.APPLIED_ARCHIVE_VERIFIED,
+        Phase.COMPLETE,
+    ):
+        states.append(advance_daily_input_operation(states[-1], phase))
+    return tuple(states)
+
+
+def test_sequential_completed_operations_keep_full_original_history():
+    prior = _completed(op())
+    next_start = DailyInputOperation("op-2", "b" * 64, "2026-11-23")
+    next_end = _completed(next_start)
+    rows = ()
+    for state in (*prior, *next_end):
+        rows = append_operation_journal(rows, state)
+    assert decode_operation_journal(rows) == (*prior, *next_end)
+    assert verify_operation_journal_readback(rows, rows) == (*prior, *next_end)
+    assert append_operation_journal(rows, next_end[-1]) == rows
+
+
+def test_second_operation_allowed_after_verified_rolled_back():
+    first = op()
+    failed = advance_daily_input_operation(first, Phase.FAILED, failure_code="FICTIONAL")
+    rolled = advance_daily_input_operation(failed, Phase.ROLLED_BACK, rollback_verified=True)
+    rows = ()
+    for state in (first, failed, rolled):
+        rows = append_operation_journal(rows, state)
+    second = DailyInputOperation("op-2", "b" * 64, "2026-11-24")
+    rows = append_operation_journal(rows, second)
+    assert decode_operation_journal(rows) == (first, failed, rolled, second)
+
+
+@pytest.mark.parametrize("terminal_gap", ["PREPARED", "FAILED", "PENDING_OPERATOR_DECISION"])
+def test_second_operation_blocked_while_prior_unresolved(terminal_gap):
+    first = op()
+    if terminal_gap == "FAILED":
+        first = advance_daily_input_operation(first, Phase.FAILED, failure_code="FICTIONAL")
+    elif terminal_gap == "PENDING_OPERATOR_DECISION":
+        first = advance_daily_input_operation(first, Phase.INPUT_AND_LEDGER_COMMITTED)
+        first = advance_daily_input_operation(first, Phase.PROJECTIONS_VERIFIED)
+        first = advance_daily_input_operation(first, Phase.PENDING_OPERATOR_DECISION)
+    other = DailyInputOperation("op-2", "b" * 64, "2026-11-24")
+    with pytest.raises(DailyInputJournalError, match="different operation|prior terminal"):
+        append_operation_journal((_row(first),) if terminal_gap == "PREPARED"
+                                 else _rows_to_state(first), other)
+
+
+def _rows_to_state(target):
+    """Create the exact legal prefix needed for a nonterminal test."""
+    rows = append_operation_journal((), op())
+    if target.phase == Phase.FAILED:
+        return append_operation_journal(rows, target)
+    if target.phase == Phase.PENDING_OPERATOR_DECISION:
+        states = _completed(op())
+        for state in states[1:3]:
+            rows = append_operation_journal(rows, state)
+        return append_operation_journal(
+            rows, advance_daily_input_operation(states[2], Phase.PENDING_OPERATOR_DECISION)
+        )
+    return rows
+
+
+def test_operation_id_cannot_be_reused_after_other_completed_operation():
+    first = _completed(op())
+    second = _completed(DailyInputOperation("op-2", "b" * 64, "2026-11-24"))
+    rows = ()
+    for state in (*first, *second):
+        rows = append_operation_journal(rows, state)
+    with pytest.raises(DailyInputJournalError, match="cannot be reused"):
+        append_operation_journal(rows, op())
+    with pytest.raises(DailyInputJournalError, match="cannot be reused"):
+        decode_operation_journal((*rows, _row(op())))
+
+
+def test_new_operation_requires_prepared_revision_zero_and_no_history_edit():
+    rows = ()
+    for state in _completed(op()):
+        rows = append_operation_journal(rows, state)
+    next_op = DailyInputOperation("op-2", "b" * 64, "2026-11-24")
+    later = advance_daily_input_operation(next_op, Phase.INPUT_AND_LEDGER_COMMITTED)
+    with pytest.raises(DailyInputJournalError, match="PREPARED revision 0"):
+        append_operation_journal(rows, later)
+    with pytest.raises(DailyInputJournalError, match="PREPARED revision 0"):
+        decode_operation_journal((*rows, _row(later)))
+    assert decode_operation_journal(rows) == _completed(op())
+    with pytest.raises(DailyInputJournalError, match="readback"):
+        verify_operation_journal_readback(rows, (*rows, _row(next_op)))
+
+
+def test_sequence_decoder_rejects_unterminated_transition_even_after_recovery():
+    first = op()
+    failed = advance_daily_input_operation(first, Phase.FAILED, failure_code="FICTIONAL")
+    next_op = DailyInputOperation("op-2", "b" * 64, "2026-11-24")
+    with pytest.raises(DailyInputJournalError, match="prior terminal"):
+        decode_operation_journal((_row(first), _row(failed), _row(next_op)))
