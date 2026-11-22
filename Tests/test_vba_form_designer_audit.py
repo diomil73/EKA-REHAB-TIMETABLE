@@ -22,6 +22,12 @@ class Items:
         return self.data[index]
 
 
+class VbaItems(Items):
+    """VBComponents is one-based; MSForms Controls and Pages are zero-based."""
+    def Item(self, index):
+        return self.data[index - 1]
+
+
 def control(name, *, caption="Synthetic", controls=None, pages=None, **other):
     item = SimpleNamespace(
         Name=name, Caption=caption, Left=10.0, Top=15.0,
@@ -48,7 +54,7 @@ def form(name, *, caption="Fictional scheduler", controls=()):
 
 def book(*components, protection=0):
     return SimpleNamespace(VBProject=SimpleNamespace(
-        Protection=protection, VBComponents=Items(*components),
+        Protection=protection, VBComponents=VbaItems(*components),
     ))
 
 
@@ -96,7 +102,7 @@ def test_unchanged_nested_form_design_snapshots_compare_exactly():
 def test_form_designer_readback_rejects_ui_mutations_without_exposing_data(change):
     old = snapshot()
     workbook = sample()
-    frm = workbook.VBProject.VBComponents.Item(0).Designer
+    frm = workbook.VBProject.VBComponents.Item(1).Designer
     items = frm.Controls.data
     if change == "form-caption":
         frm.Caption = "Private clinical label"
@@ -143,18 +149,18 @@ def test_form_source_inventory_mismatch_fails_closed():
 
 def test_inaccessible_or_malformed_control_and_nested_collection_stops_audit():
     obj = sample()
-    designer = obj.VBProject.VBComponents.Item(0).Designer
+    designer = obj.VBProject.VBComponents.Item(1).Designer
     del designer.Controls.Item(0).Width
     with pytest.raises(UserFormDesignerAuditError, match="Required designer property"):
         snapshot(obj)
 
     obj = sample()
-    obj.VBProject.VBComponents.Item(0).Designer.Controls.Count = -1
+    obj.VBProject.VBComponents.Item(1).Designer.Controls.Count = -1
     with pytest.raises(UserFormDesignerAuditError, match="safe bounds"):
         snapshot(obj)
 
     obj = sample()
-    designer = obj.VBProject.VBComponents.Item(0).Designer
+    designer = obj.VBProject.VBComponents.Item(1).Designer
     designer.Controls.Item(1).Controls.data.append(
         control("txtDay")  # duplicate within the same Frame
     )
