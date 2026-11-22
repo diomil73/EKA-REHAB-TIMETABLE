@@ -17,10 +17,13 @@ from rehab_core.programme_mapping import WEEKDAYS, parse_clock
 from rehab_excel.trial_admission_gate import (
     CONFIRMED_MARKERS, REQUIRED_SHEETS, SOURCE_HOLDS_SHEET,
     SOURCE_OVERLAP_SHEET, SOURCE_PATIENT_SHEET, SOURCE_WEEKLY_SHEET,
+    R6_DECISIONS_SHEET, R6_ACTIVE_OVERLAPS_SHEET, R6_PENDING_SPEECH_DECISION,
+    _audit_r6_decision_readback, _audit_r6_active_overlaps,
+    _verify_source_bound_r6_statuses, SOURCE_TREATMENTS, SOURCE_TIME_COLUMNS,
 )
 from rehab_excel.trial_source_alignment import (
     PROGRAMME_HEADERS, PROGRAMME_SHEET, PATIENT_HEADERS, WEEKLY_HEADERS,
-    _headers_match, _row_number,
+    _headers_match, _row_number, audit_trial_source_alignment,
 )
 
 TASK_SHEET = "ΕΚΚΡΕΜΟΤΗΤΕΣ"
@@ -135,17 +138,96 @@ def create_private_review_checklist(*, programme, review, output):
         for members in explicit_ids.values():
             if len(members) > 1:
                 task("IDENTITY", SOURCE_PATIENT_SHEET, ",".join(map(str, members)), "DUPLICATE_CONFIRMED_ID")
-        for sheet_name, width, category in (
-            (SOURCE_HOLDS_SHEET, 7, "HOLD"),
-            (SOURCE_OVERLAP_SHEET, 7, "REPORTED_OVERLAP"),
-        ):
-            for number, cells in _rows(rev[sheet_name], width):
-                task(category, sheet_name, str(number), "EXISTING_REVIEW_ROW")
+        # R6 retains the historical overlap sheet as an audit trail only.
+        # Never turn old resolved conflicts back into tasks. Reuse the exact
+        # admission ledger/source/active checks instead of inventing approvals.
+        for number, cells in _rows(rev[SOURCE_HOLDS_SHEET], 7):
+            task("HOLD", SOURCE_HOLDS_SHEET, str(number), "EXISTING_REVIEW_ROW")
+
+        r6_approved_pair_rows = set()
+        r6_corrected = set()
+        r6_pending = set()
+        r6_mode = R6_DECISIONS_SHEET in rev.sheetnames
+        if r6_mode:
+            if not audit_trial_source_alignment(programme=p, review=r).aligned:
+                raise TrialReviewChecklistError("R6 original source alignment is not valid")
+            proposed_values = tuple(
+                (row, tuple(cell.value for cell in cells))
+                for row, cells in _rows(weekly, 11)
+            )
+            errors = []
+            _audit_r6_decision_readback(rev, proposed_values, errors)
+            _audit_r6_active_overlaps(rev, proposed_values, errors)
+            try:
+                r6_corrected, r6_pairs = _verify_source_bound_r6_statuses(
+                    programme=p, wb=rev, proposals=proposed_values,
+                    blockers=errors,
+                )
+            except (KeyError, TypeError, ValueError, OSError):
+                raise TrialReviewChecklistError(
+                    "R6 source-bound decisions cannot be verified"
+                ) from None
+            if errors:
+                raise TrialReviewChecklistError(
+                    "R6 decision/active review source proof is incomplete"
+                )
+            r6_approved_pair_rows = {frozenset(pair) for pair in r6_pairs}
+            active = rev[R6_ACTIVE_OVERLAPS_SHEET]
+            for number, cells in _rows(active, 7):
+                source, _name, weekday, raw_clock, _treatments, _refs, state = (
+                    cell.value for cell in cells
+                )
+                if _text(state) != R6_PENDING_SPEECH_DECISION:
+                    continue
+                original_row = _row_number(source)
+                try:
+                    clock = parse_clock(raw_clock)
+                except (ValueError, TypeError, OverflowError):
+                    raise TrialReviewChecklistError(
+                        "R6 unresolved overlap clock is invalid"
+                    ) from None
+                r6_pending.add((original_row, _text(weekday), clock))
+                task(
+                    "ACTIVE_OVERLAP", R6_ACTIVE_OVERLAPS_SHEET,
+                    str(number), "UNRESOLVED_CURRENT_OVERLAP",
+                )
+        else:
+            for number, cells in _rows(rev[SOURCE_OVERLAP_SHEET], 7):
+                task("REPORTED_OVERLAP", SOURCE_OVERLAP_SHEET,
+                     str(number), "EXISTING_REVIEW_ROW")
+
         groups = defaultdict(list)
         for number, cells in _rows(weekly, 11):
             clinic, source, name, specialty, day, clock, *_rest, state = (cell.value for cell in cells)
             row = _row_number(source)
-            if _text(state) != "PROPOSED_EXACT_SOURCE":
+            resolved_state = _text(state) == "PROPOSED_EXACT_SOURCE"
+            if r6_mode and not resolved_state:
+                refs = _text(cells[8].value)
+                provider = _text(cells[6].value) if _text(specialty) in {
+                    "ΦΘ", "ΡΟΜΠΟΤΙΚΗ",
+                } else _text(cells[7].value)
+                try:
+                    stamp = parse_clock(clock)
+                    verified_key = (
+                        row, SOURCE_TREATMENTS.get(_text(specialty)),
+                        _text(day), stamp, provider,
+                        f"{SOURCE_TIME_COLUMNS[_text(specialty)]}{row}",
+                    )
+                except (KeyError, TypeError, ValueError, OverflowError):
+                    verified_key = None
+                    stamp = None
+                if (
+                    _text(state) == "PROPOSED_OPERATOR_CORRECTION"
+                    and verified_key in r6_corrected
+                ) or (
+                    _text(state) == "HOLD_APPROVED_COMBINED"
+                    and any(number in pair for pair in r6_approved_pair_rows)
+                ) or (
+                    _text(state) in {"HOLD_CONFLICT", "HOLD_RESCHEDULE"}
+                    and (row, _text(day), stamp) in r6_pending
+                ):
+                    resolved_state = True  # Already accounted for by exact R6 review.
+            if not resolved_state:
                 task("WEEKLY", SOURCE_WEEKLY_SHEET, str(number), "NON_PROPOSED_STATE")
             if _unsafe(cells) or row is None or identities.get(row) != (_text(clinic), _text(name)):
                 task("WEEKLY", SOURCE_WEEKLY_SHEET, str(number), "INVALID_SOURCE_LINK_OR_RAW_CELL")
@@ -158,9 +240,14 @@ def create_private_review_checklist(*, programme, review, output):
                 task("WEEKLY", SOURCE_WEEKLY_SHEET, str(number), "INVALID_WEEKDAY_OR_CLOCK")
                 continue
             groups[(row, _text(day), start)].append((number, _text(specialty)))
-        for members in groups.values():
+        for group_key, members in groups.items():
             if len(members) < 2:
                 continue
+            if r6_mode and (
+                frozenset(item[0] for item in members) in r6_approved_pair_rows
+                or group_key in r6_pending
+            ):
+                continue  # Exact group already reviewed, or one active hold task.
             category = "CROSS_SPECIALTY" if len({x[1] for x in members}) > 1 else "SAME_SPECIALTY"
             task(category, SOURCE_WEEKLY_SHEET, ",".join(str(x[0]) for x in members), "INDEPENDENT_SLOT_COLLISION")
         # A row omitted from review must not erase original treatment facts.
