@@ -123,3 +123,22 @@ def test_installer_ensures_sheet_and_patches_daily_input():
     assert "ensure_daily_change_ledger_sheet(workbook)" in source
     assert 'vbproject.VBComponents("modDailyInputAction")' in source
     assert "patch_daily_input_for_ledger(current)" in source
+
+
+def test_restore_failure_keeps_snapshot_and_does_not_claim_rollback_is_verified():
+    source = VBA_CODE.split(
+        "Private Function ApplyDailyChangeRestorePayload", 1
+    )[1].split("Private Function ActiveLedgerChangeExists", 1)[0]
+    assert "Resume RollbackAttempt" in source
+    assert "On Error GoTo RollbackFailed" in source
+    assert "Resume RollbackUnverified" in source
+    assert "Δεν έχει επαληθευτεί η επαναφορά" in source
+    assert "Μην συνεχίσετε καταχωρίσεις" in source
+    assert "οι αλλαγές αναιρέθηκαν" not in source
+    assert "If ApplyDailyChangeRestorePayload Then" in source
+    assert source.index("If ApplyDailyChangeRestorePayload Then") < source.index(
+        "Kill rollbackPath"
+    )
+    assert "Kill rollbackPath" not in source.split("RollbackAttempt:", 1)[1].split(
+        "CleanUp:", 1
+    )[0]
