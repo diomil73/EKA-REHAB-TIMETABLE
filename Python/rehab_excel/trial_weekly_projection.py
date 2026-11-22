@@ -54,9 +54,23 @@ def project_trial_weekly_rows(
     if not plan.entries or len(plan.entries) != plan.weekday_slot_count:
         raise TrialWeeklyProjectionError("Source plan slot count mismatch")
 
+    # Source-bound plans carry the exact admission-verified pair membership.
+    # A caller may not substitute an external confirmation for that source.
+    bound_approvals = plan.confirmed_combined_slots
+    if plan.programme_sha256 is not None:
+        if confirmed_combined_slots and confirmed_combined_slots != bound_approvals:
+            raise TrialWeeklyProjectionError("Combined approval differs from source-bound plan")
+        verified_combined = bound_approvals
+    else:
+        # Pre-existing synthetic/legacy callers still supply exact external
+        # pairs explicitly; there is no automatic approval by matching clocks.
+        if bound_approvals and confirmed_combined_slots and bound_approvals != confirmed_combined_slots:
+            raise TrialWeeklyProjectionError("Conflicting combined approvals")
+        verified_combined = bound_approvals or confirmed_combined_slots
+
     try:
         validate_weekly_entry_consistency(
-            list(plan.entries), confirmed_combined_slots=confirmed_combined_slots,
+            list(plan.entries), confirmed_combined_slots=verified_combined,
         )
     except ProgrammeMappingError as exc:
         raise TrialWeeklyProjectionError("Source entries collide") from exc
