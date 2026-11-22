@@ -152,7 +152,7 @@ class Win32ComMasterProjectionBackend:
         row_range.Interior.Color = BODY_COLORS["identity"]
         for edge in (7, 8, 9, 10):
             border = row_range.Borders(edge)
-            if int(border.Color) != self.palette.infectious_yellow:
+            if border.Color != self.palette.infectious_yellow:
                 continue
             border.Color = ROW_SEPARATOR_GRAY if edge == 9 else SOFT_VERTICAL_GRAY
             border.Weight = 2 if edge == 9 else 1
