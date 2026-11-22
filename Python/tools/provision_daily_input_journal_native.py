@@ -34,6 +34,9 @@ from rehab_excel.vba_form_storage import (
     form_storage_evidence,
     assert_form_storage_preserved,
 )
+from rehab_excel.vba_form_designer_audit import (
+    audit_userform_designers, assert_userform_designers_preserved,
+)
 
 
 class NativeJournalProvisionError(RuntimeError):
@@ -155,6 +158,11 @@ def provision_daily_input_journal(
         original_form_storages = (
             form_storage_evidence(source, form_names) if form_names else ()
         )
+        stage = "audit baseline UserForm designer properties"
+        original_form_designers = (
+            audit_userform_designers(workbook, expected_form_names=form_names)
+            if form_names else ()
+        )
         if any(name == JOURNAL_SHEET for name, _ in baseline_sheets):
             # Existing journal is validated by ensure(); do not replace or clear it.
             pass
@@ -184,6 +192,14 @@ def provision_daily_input_journal(
         _verify_native_journal(workbook, baseline_sheets, expected_journal_rows)
         stage = "audit saved VBA modules and resources"
         post_save_vba = audit_vba_components(workbook)
+        stage = "verify saved UserForm designer control semantics"
+        if form_names:
+            saved_form_designers = audit_userform_designers(
+                workbook, expected_form_names=form_names,
+            )
+            assert_userform_designers_preserved(
+                original_form_designers, saved_form_designers,
+            )
         stage = "verify saved embedded UserForm OLE streams"
         saved_form_storages = (
             form_storage_evidence(output, form_names) if form_names else ()
