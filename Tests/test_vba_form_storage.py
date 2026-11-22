@@ -157,7 +157,7 @@ def test_source_relative_stream_footprint_detects_same_count_different_stream():
     source = (("privateForm", (("f", "a"), ("o", "b"), ("other", "c"))),)
     noedit = (("privateForm", (("f", "a1"), ("o", "b1"), ("other", "c"))),)
     journal = (("privateForm", (("f", "a2"), ("o", "b"), ("other", "c2"))),)
-    assert compare_form_storage_evidence(noedit, journal)["streams_changed"] == 2
+    assert compare_form_storage_evidence(noedit, journal)["streams_changed"] == 3
     with pytest.raises(VbaFormStorageError, match="footprints differ") as caught:
         assert_matching_source_relative_change_footprints(source, noedit, journal)
     assert "privateForm" not in str(caught.value)
