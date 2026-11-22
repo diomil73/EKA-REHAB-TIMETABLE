@@ -190,3 +190,35 @@ def test_canonical_ledger_patch_remains_inside_guarded_rollback_attempt():
         "ThisWorkbook.Save"
     )
     assert "Δεν έχει επαληθευτεί πλήρης επαναφορά" in patched
+
+
+def test_daily_apply_outer_transaction_keeps_backup_until_refresh_and_replacements_finish():
+    source = DAILY_INPUT_MODULE_CODE
+    action = source.split("Public Sub ApplyDailyInputPreview()", 1)[1].split(
+        "Public Function ApplyValidatedDailyInputPayload", 1
+    )[0]
+    start = action.index('currentPhase = "capture complete operation rollback"')
+    backup = action.index("ThisWorkbook.SaveCopyAs transactionRollbackPath")
+    patch = action.index("If Not ApplyValidatedDailyInputPayload(payloadPath) Then")
+    refresh = action.index("If Not RefreshOperationalViews() Then GoTo IncompleteApply")
+    replacements = action.index("If Not ResolveDailyReplacementsInPlace() Then GoTo IncompleteApply")
+    final_save = action.index('currentPhase = "save after all dependent steps"')
+    complete = action.index("transactionComplete = True")
+    success = action.index('MsgBox "Η ημερήσια κατάσταση και οι αναπληρώσεις εφαρμόστηκαν επιτυχώς."')
+    assert start < backup < patch < refresh < replacements < final_save < complete < success
+    assert action.index("ThisWorkbook.Save\n    transactionComplete = True") == final_save + len(
+        'currentPhase = "save after all dependent steps"\n    '
+    )
+    assert "If Not RefreshOperationalViews() Then GoTo IncompleteApply" in action
+    assert "GoTo IncompleteApply" in action
+    assert "Ενδέχεται να έχουν αποθηκευτεί μερικές αλλαγές." in action
+    assert "If transactionStarted And transactionComplete Then" in action
+    cleanup = action.split("CleanUp:", 1)[1].split("ActionError:", 1)[0]
+    assert "Kill transactionRollbackPath" in cleanup
+    assert cleanup.index("If transactionStarted And transactionComplete Then") < cleanup.index(
+        "Kill transactionRollbackPath"
+    )
+    assert "Kill transactionRollbackPath" not in action.split("ActionError:", 1)[1]
+    assert "Μην συνεχίσετε καταχωρίσεις" in action
+    assert "Public Sub ApplyDailyInputPreview()" in source
+    assert "Public Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As Boolean" in source
