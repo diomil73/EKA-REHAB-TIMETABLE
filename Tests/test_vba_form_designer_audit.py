@@ -351,12 +351,6 @@ def test_rowsource_com_failure_reports_only_numeric_codes_and_stops():
         hresult = -2147352567  # DISP_E_EXCEPTION
         excepinfo = (0, "SECRET SOURCE", "SECRET PATIENT", None, 0, -2146827284)
 
-    class ReadonlyRowSource:
-        @property
-        def RowSource(self):
-            raise SensitiveComError("PRIVATE PATIENT LABEL")
-
-    first.__class__ = SimpleNamespace  # no-op for already synthetic object
     # Use an isolated, synthetic control with the same design-time attributes.
     synthetic = SimpleNamespace(**vars(first))
     class ControlProxy:
