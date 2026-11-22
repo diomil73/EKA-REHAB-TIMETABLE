@@ -341,3 +341,51 @@ def test_decimal_other_than_font_size_remains_rejected():
         UserFormDesignerAuditError, match="control property Left unsupported scalar type"
     ):
         snapshot(workbook)
+
+
+def test_rowsource_com_failure_reports_only_numeric_codes_and_stops():
+    workbook = sample()
+    first = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+
+    class SensitiveComError(Exception):
+        hresult = -2147352567  # DISP_E_EXCEPTION
+        excepinfo = (0, "SECRET SOURCE", "SECRET PATIENT", None, 0, -2146827284)
+
+    class ReadonlyRowSource:
+        @property
+        def RowSource(self):
+            raise SensitiveComError("PRIVATE PATIENT LABEL")
+
+    first.__class__ = SimpleNamespace  # no-op for already synthetic object
+    # Use an isolated, synthetic control with the same design-time attributes.
+    synthetic = SimpleNamespace(**vars(first))
+    class ControlProxy:
+        def __getattr__(self, key):
+            if key == "RowSource":
+                raise SensitiveComError("PRIVATE PATIENT LABEL")
+            return getattr(synthetic, key)
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = ControlProxy()
+    with pytest.raises(UserFormDesignerAuditError) as result:
+        snapshot(workbook)
+    message = str(result.value)
+    assert message == (
+        "control property RowSource COM access failed; "
+        "HRESULT=0x80020009; SCODE=0x800A03EC"
+    )
+    assert "SECRET" not in message
+    assert "PRIVATE" not in message
+    assert "cmdSave" not in message
+
+
+def test_rowsource_unknown_com_failure_stays_fail_closed_without_leaking_exception():
+    workbook = sample()
+    first = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(0)
+    class Proxy:
+        def __getattr__(self, key):
+            if key == "RowSource":
+                raise RuntimeError("PRIVATE PATIENT CONTENT")
+            return getattr(first, key)
+    workbook.VBProject.VBComponents.Item(1).Designer.Controls.data[0] = Proxy()
+    with pytest.raises(UserFormDesignerAuditError) as result:
+        snapshot(workbook)
+    assert str(result.value) == "control property RowSource COM access failed"
