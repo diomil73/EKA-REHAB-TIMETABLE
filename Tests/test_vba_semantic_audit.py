@@ -149,3 +149,51 @@ def test_duplicate_component_name_stops_audit():
             FakeComponent("Same", 1, ""),
             FakeComponent("same", 1, ""),
         ]))
+
+def test_form_resource_export_is_stable_when_component_order_changes():
+    class PathDependentForm(FakeComponent):
+        def Export(self, filename):
+            path = Path(filename)
+            path.write_bytes(
+                ('Begin Form\nOleObjectBlob = "' + path.with_suffix(".frx").name + '"\nEnd').encode()
+            )
+            path.with_suffix(".frx").write_bytes(b"unchanged-binary-form-resource")
+
+    components = [
+        FakeComponent("modAlpha", 1, "Sub Run()\nEnd Sub"),
+        PathDependentForm("frmReport", 3, "Sub Ready()\nEnd Sub"),
+        FakeComponent("Sheet1", DOCUMENT_TYPE, ""),
+    ]
+    before = audit_vba_components(FakeBook(components))
+    after = audit_vba_components(FakeBook([
+        FakeComponent("SheetJournal", DOCUMENT_TYPE, ""),
+        components[2], components[1], components[0],
+    ]))
+    assert assert_vba_semantics_preserved(
+        before, after, journal_codename="SheetJournal", expect_new_document=True
+    ) == 3
+
+
+@pytest.mark.parametrize("case,expected", [
+    ("source", "code=1"), ("export", "export=1"),
+    ("resource", "resource=1"), ("missing", "missing=1"),
+])
+def test_diagnostic_reports_only_mismatch_category_counts(case, expected):
+    before = audit_vba_components(baseline())
+    components = baseline().VBProject.VBComponents.components
+    if case == "source":
+        components[0].CodeModule = FakeCodeModule("Sub Change()\nEnd Sub")
+    elif case == "export":
+        components[0].export_bytes = b"different export"
+    elif case == "resource":
+        components[2].resource = b"different form binary"
+    else:
+        components.pop(0)
+    with pytest.raises(VbaSemanticAuditError) as caught:
+        assert_vba_semantics_preserved(
+            before, audit_vba_components(FakeBook(components)),
+            journal_codename=None, expect_new_document=False
+        )
+    assert expected in str(caught.value)
+    assert "modDaily" not in str(caught.value)
+    assert "frmDaily" not in str(caught.value)
