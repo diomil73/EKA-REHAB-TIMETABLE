@@ -25,6 +25,10 @@ from rehab_excel.daily_input_journal_sheet import (
     ensure_daily_input_journal_sheet,
     read_native_journal_rows,
 )
+from rehab_excel.vba_semantic_audit import (
+    audit_vba_components,
+    assert_vba_semantics_preserved,
+)
 
 
 class NativeJournalProvisionError(RuntimeError):
@@ -135,11 +139,15 @@ def provision_daily_input_journal(
             raise NativeJournalProvisionError("Excel opened disposable copy read-only")
         stage = "inspect original worksheet roster"
         baseline_sheets = _worksheet_snapshot(workbook)
+        stage = "audit baseline VBA component exports"
+        baseline_vba = audit_vba_components(workbook)
         if any(name == JOURNAL_SHEET for name, _ in baseline_sheets):
             # Existing journal is validated by ensure(); do not replace or clear it.
             pass
         stage = "create or validate protected journal sheet"
         journal_sheet = ensure_daily_input_journal_sheet(workbook)
+        journal_codename = str(journal_sheet.CodeName)
+        new_journal = not any(name == JOURNAL_SHEET for name, _ in baseline_sheets)
         expected_journal_rows = read_native_journal_rows(journal_sheet)
         stage = "save disposable workbook in native Excel"
         workbook.Save()
@@ -147,9 +155,8 @@ def provision_daily_input_journal(
         workbook.Close(SaveChanges=False)
         workbook = None
 
-        stage = "verify VBA project after native save"
-        if _vba_sha256(output) != source_vba_hash:
-            raise NativeJournalProvisionError("VBA project binary changed during journal provisioning")
+        stage = "inspect VBA binary hash after native save"
+        post_save_vba_hash = _vba_sha256(output)
 
         # Independent native reopen, read-only. Reopen does not execute macros.
         stage = "reopen disposable workbook read-only"
@@ -161,6 +168,13 @@ def provision_daily_input_journal(
             raise NativeJournalProvisionError("Verification reopen was not read-only")
         stage = "verify native journal and original worksheet readback"
         _verify_native_journal(workbook, baseline_sheets, expected_journal_rows)
+        stage = "audit saved VBA modules and resources"
+        post_save_vba = audit_vba_components(workbook)
+        protected_modules = assert_vba_semantics_preserved(
+            baseline_vba, post_save_vba,
+            journal_codename=journal_codename,
+            expect_new_document=new_journal,
+        )
         stage = "close verification workbook and Excel"
         workbook.Close(SaveChanges=False)
         workbook = None
@@ -170,12 +184,14 @@ def provision_daily_input_journal(
         stage = "verify final source and VBA hashes"
         if _file_sha256(source) != source_hash:
             raise NativeJournalProvisionError("Source workbook changed during native provisioning")
-        if _vba_sha256(output) != source_vba_hash:
-            raise NativeJournalProvisionError("VBA project failed final preservation check")
+        if _vba_sha256(output) != post_save_vba_hash:
+            raise NativeJournalProvisionError("VBA project changed after verified readback")
         return {
             "copy_created": True,
             "source_unchanged": True,
             "vba_preserved": True,
+            "vba_original_components_verified": protected_modules,
+            "vba_binary_identical": post_save_vba_hash == source_vba_hash,
             "native_save_reopen_verified": True,
             "journal_veryhidden_protected": True,
             "journal_empty": len(expected_journal_rows) == 0,
@@ -218,7 +234,9 @@ def main(argv: list[str] | None = None) -> int:
     print("DAILY_INPUT JOURNAL NATIVE PROVISION OK")
     print("Disposable copy created: YES")
     print("Source unchanged: YES")
-    print("VBA project preserved: YES")
+    print("Original VBA component code/resources preserved: YES")
+    print(f"Verified original VBA components: {result['vba_original_components_verified']}")
+    print("VBA binary byte-identical: " + ("YES" if result["vba_binary_identical"] else "NO (metadata changed; semantic audit passed)"))
     print("Excel save/close/reopen readback: GREEN")
     print("Journal veryHidden + protected: YES")
     print("Journal empty: " + ("YES" if result["journal_empty"] else "NO (existing history preserved)"))
