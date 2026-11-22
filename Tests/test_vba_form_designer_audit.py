@@ -151,7 +151,7 @@ def test_inaccessible_or_malformed_control_and_nested_collection_stops_audit():
     obj = sample()
     designer = obj.VBProject.VBComponents.Item(1).Designer
     del designer.Controls.Item(0).Width
-    with pytest.raises(UserFormDesignerAuditError, match="Required designer property"):
+    with pytest.raises(UserFormDesignerAuditError, match="Required control property Width inaccessible"):
         snapshot(obj)
 
     obj = sample()
@@ -182,3 +182,86 @@ def test_existing_native_journal_provisioner_checks_design_before_ole_bytes():
         "assert_form_storage_preserved("
     )
     assert "AutomationSecurity = FORCE_DISABLE_MACROS" in text
+
+
+class FakeVbePropertyCollection:
+    """Real VBIDE fallback: form geometry lives in VBComponent.Properties."""
+    def __init__(self, **values):
+        self.values = values
+
+    def Item(self, name):
+        return SimpleNamespace(Value=self.values[name])
+
+
+def _form_with_vbe_geometry_fallback():
+    workbook = sample()
+    component = workbook.VBProject.VBComponents.Item(1)
+    component.Properties = FakeVbePropertyCollection(
+        Width=component.Designer.Width, Height=component.Designer.Height,
+    )
+    del component.Designer.Width
+    del component.Designer.Height
+    return workbook
+
+
+def test_native_form_width_height_resolve_from_vbcomponent_when_designer_omits_them():
+    """A real COM Designer may not publish inherited VBComponent geometry."""
+    direct = snapshot()
+    fallback = snapshot(_form_with_vbe_geometry_fallback())
+    assert assert_userform_designers_preserved(direct, fallback) == 1
+
+
+def test_native_vbe_geometry_fallback_detects_changed_real_form_size():
+    direct = snapshot()
+    workbook = _form_with_vbe_geometry_fallback()
+    workbook.VBProject.VBComponents.Item(1).Properties.values["Width"] += 12.0
+    after = snapshot(workbook)
+    with pytest.raises(UserFormDesignerAuditError, match="changed=1"):
+        assert_userform_designers_preserved(direct, after)
+
+
+def test_native_vbe_geometry_fallback_missing_dimension_stops_without_private_names():
+    workbook = _form_with_vbe_geometry_fallback()
+    workbook.VBProject.VBComponents.Item(1).Properties.values.pop("Height")
+    with pytest.raises(
+        UserFormDesignerAuditError,
+        match=r"Required form property Height unavailable via VBComponent.Properties",
+    ) as result:
+        snapshot(workbook)
+    assert "frmFictional" not in str(result.value)
+
+
+def test_missing_control_geometry_discloses_only_property_kind_not_control_identity():
+    workbook = sample()
+    frame = workbook.VBProject.VBComponents.Item(1).Designer.Controls.Item(1)
+    del frame.Top
+    with pytest.raises(
+        UserFormDesignerAuditError, match="Required control property Top inaccessible"
+    ) as result:
+        snapshot(workbook)
+    assert "frameAppointments" not in str(result.value)
+    assert "frmFictional" not in str(result.value)
+
+
+def test_unexpected_com_property_failure_is_not_treated_as_unsupported():
+    workbook = sample()
+    component = workbook.VBProject.VBComponents.Item(1)
+
+    class UnexpectedAccessFailure:
+        @property
+        def Name(self):
+            return "synthetic"
+        @property
+        def Left(self):
+            raise RuntimeError("fictional private COM diagnostic value")
+
+        Top = 3.0
+        Width = 11.0
+        Height = 11.0
+
+    component.Designer.Controls.data[0] = UnexpectedAccessFailure()
+    with pytest.raises(
+        UserFormDesignerAuditError, match="control property Left COM access failed"
+    ) as result:
+        snapshot(workbook)
+    assert "fictional private" not in str(result.value)
