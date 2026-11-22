@@ -3,7 +3,7 @@ import json
 from datetime import date
 
 import pytest
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from rehab_excel.authoritative_commit import file_sha256
 from rehab_excel.daily_input_journal import (
@@ -14,6 +14,7 @@ from rehab_excel.daily_input_operation import (
     advance_daily_input_operation,
 )
 from tools import prepare_daily_input_journal_prepared as bridge
+from tools import verify_daily_input_journal_prepared as readback
 
 
 def fixture(tmp_path, *, history=(), protected=True, visibility="veryHidden"):
@@ -186,3 +187,101 @@ def test_failed_cli_has_no_output_or_leaked_sensitive_detail(tmp_path, capsys):
     assert "PRIVATE" not in printed
     assert "SAFETY STOP" in printed
     assert not out.exists()
+
+
+
+def _append_proposal_to_synthetic_book(source, handoff):
+    """Test fixture only. Real caller must use guarded native VBA+Save."""
+    workbook = load_workbook(source, keep_vba=True)
+    ws = workbook[JOURNAL_SHEET]
+    ws.append(handoff["prepared_row"])
+    workbook.save(source)
+    workbook.close()
+
+
+def test_independent_prepared_readback_requires_durable_synthetic_append(tmp_path, capsys):
+    source, response, payload = fixture(tmp_path)
+    prepared = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fixture-proposal",
+    )
+    with pytest.raises(readback.PreparedJournalReadbackError, match="row count"):
+        readback.verify_prepared_reopen(source, prepared)
+    _append_proposal_to_synthetic_book(source, prepared)
+    source_after = source.read_bytes()
+    readback.verify_prepared_reopen(source, prepared)
+    assert source.read_bytes() == source_after
+    handoff_path = tmp_path / "handoff.json"
+    handoff_path.write_text(json.dumps(prepared), encoding="utf-8")
+    assert readback.main(["--input", str(source), "--handoff", str(handoff_path)]) == 0
+    assert "NO APPLY/RESTORE APPROVAL" in capsys.readouterr().out
+    assert source.read_bytes() == source_after
+
+
+def test_independent_readback_detects_corrupted_previous_history_even_if_valid(tmp_path):
+    history = _terminal_history()
+    source, response, payload = fixture(tmp_path, history=history)
+    proposal = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="next-fixture",
+    )
+    # Rebuild a different but internally valid prior history.
+    old = DailyInputOperation("old-fixture", "b" * 64, "2026-11-20")
+    mutated = append_operation_journal((), old)
+    for phase in (
+        Phase.INPUT_AND_LEDGER_COMMITTED, Phase.PROJECTIONS_VERIFIED,
+        Phase.REPLACEMENTS_RESOLVED, Phase.APPLIED_ARCHIVE_VERIFIED, Phase.COMPLETE,
+    ):
+        old = advance_daily_input_operation(old, phase)
+        mutated = append_operation_journal(mutated, old)
+    workbook = load_workbook(source, keep_vba=True)
+    ws = workbook[JOURNAL_SHEET]
+    for idx, row in enumerate(mutated, 2):
+        for col, value in enumerate(row, 1):
+            ws.cell(idx, col).value = value
+    ws.append(proposal["prepared_row"])
+    workbook.save(source)
+    workbook.close()
+    with pytest.raises(readback.PreparedJournalReadbackError, match="Historical journal prefix"):
+        readback.verify_prepared_reopen(source, proposal)
+
+
+@pytest.mark.parametrize("mutation", ["extra-row", "wrong-proposed-row", "visible", "date"])
+def test_independent_readback_stops_on_unverified_reopen(tmp_path, mutation):
+    source, response, payload = fixture(tmp_path)
+    proposal = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fixture-proposal",
+    )
+    _append_proposal_to_synthetic_book(source, proposal)
+    workbook = load_workbook(source, keep_vba=True)
+    journal = workbook[JOURNAL_SHEET]
+    if mutation == "extra-row":
+        first = DailyInputOperation("fixture-proposal", proposal["source_sha256"], "2026-11-23")
+        failed = advance_daily_input_operation(first, Phase.FAILED, failure_code="FICTIONAL")
+        from rehab_excel.daily_input_journal import _row
+        journal.append(_row(failed))
+    elif mutation == "wrong-proposed-row":
+        journal.cell(2, 3).value = "COMPLETE"
+    elif mutation == "visible":
+        journal.sheet_state = "visible"
+    else:
+        workbook["DAILY_INPUT"]["B2"] = date(2026, 11, 24)
+    workbook.save(source)
+    workbook.close()
+    with pytest.raises(readback.PreparedJournalReadbackError):
+        readback.verify_prepared_reopen(source, proposal)
+
+
+def test_readback_rejects_forged_metadata_and_does_not_echo_patient_data(tmp_path, capsys):
+    source, response, payload = fixture(tmp_path)
+    proposal = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fixture-proposal",
+    )
+    _append_proposal_to_synthetic_book(source, proposal)
+    altered = dict(proposal, operation_id="PRIVATE PATIENT")
+    with pytest.raises(readback.PreparedJournalReadbackError, match="Prepared record differs"):
+        readback.verify_prepared_reopen(source, altered)
+    handoff_path = tmp_path / "altered.json"
+    handoff_path.write_text(json.dumps(altered), encoding="utf-8")
+    assert readback.main(["--input", str(source), "--handoff", str(handoff_path)]) == 2
+    output = capsys.readouterr().out
+    assert "SAFETY STOP" in output
+    assert "PRIVATE" not in output
