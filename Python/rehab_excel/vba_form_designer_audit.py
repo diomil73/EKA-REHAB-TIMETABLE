@@ -66,12 +66,14 @@ def _scalar(value):
     raise UserFormDesignerAuditError("Unsupported designer property type")
 
 
-def _property(owner, name, *, mandatory=False):
+def _property(owner, name, *, mandatory=False, context="designer"):
     try:
         return ("VALUE", _scalar(getattr(owner, name)))
     except AttributeError:
         if mandatory:
-            raise UserFormDesignerAuditError("Required designer property inaccessible") from None
+            raise UserFormDesignerAuditError(
+                f"Required {context} property {name} inaccessible"
+            ) from None
         return ("UNSUPPORTED",)
     except UserFormDesignerAuditError:
         raise
@@ -80,7 +82,9 @@ def _property(owner, name, *, mandatory=False):
         # All other COM errors, including project access errors, fail closed.
         if not mandatory and getattr(exc, "hresult", None) == -2147352573:
             return ("UNSUPPORTED",)
-        raise UserFormDesignerAuditError("Designer property access failed") from None
+        raise UserFormDesignerAuditError(
+            f"{context} property {name} COM access failed"
+        ) from None
 
 
 def _collection(owner, attribute):
@@ -115,10 +119,10 @@ def _items(collection):
         raise UserFormDesignerAuditError("Designer collection enumeration failed") from None
 
 
-def _properties(obj, names, *, required=()):
+def _properties(obj, names, *, required=(), context="designer"):
     data = {}
     for name in names:
-        data[name] = _property(obj, name, mandatory=name in required)
+        data[name] = _property(obj, name, mandatory=name in required, context=context)
     font = _collection(obj, "Font")
     if font is not None:
         data["Font"] = {name: _property(font, name) for name in _FONT_PROPERTIES}
@@ -126,6 +130,30 @@ def _properties(obj, names, *, required=()):
         data["Font"] = "UNSUPPORTED"
     return data
 
+
+
+def _component_form_property(component, name):
+    """Read VBE's documented VBComponent.Properties fallback, not a default.
+
+    A missing required designer dimension must never silently become a zero or
+    an ignored field. A successful fallback returns the same canonical value
+    shape as the direct MSForms Designer property. Errors redact real values.
+    """
+    if name not in ("Width", "Height"):
+        raise UserFormDesignerAuditError("Invalid required form geometry")
+    try:
+        properties = component.Properties
+        try:
+            item = properties.Item(name)
+        except AttributeError:
+            item = properties(name)
+        return ("VALUE", _scalar(item.Value))
+    except UserFormDesignerAuditError:
+        raise
+    except Exception:
+        raise UserFormDesignerAuditError(
+            f"Required form property {name} unavailable via VBComponent.Properties"
+        ) from None
 
 def _designer_tree(obj, *, path, kind, depth, visited_paths, rows):
     if depth > _MAX_DEPTH:
@@ -143,7 +171,7 @@ def _designer_tree(obj, *, path, kind, depth, visited_paths, rows):
         required = ("Name", "Left", "Top", "Width", "Height")
     properties = _properties(
         obj, _CONTROL_PROPERTIES if kind == "control" else _PAGE_PROPERTIES,
-        required=required,
+        required=required, context=kind,
     )
     rows.append((key, properties))
     # A Frame can contain Controls, a MultiPage contains Pages, and each
@@ -197,7 +225,16 @@ def audit_userform_designers(workbook, *, expected_form_names):
         for form_name in expected_form_names:
             component = forms[form_name.casefold()]
             designer = component.Designer
-            properties = _properties(designer, _FORM_PROPERTIES, required=("Width", "Height"))
+            # VBIDE MSForm components expose some form dimensions through
+            # VBComponent.Properties even when their Designer COM dispatch
+            # omits those members. Probe the canonical VBIDE property ONLY if
+            # designer access advertises no such member. Never guess geometry.
+            properties = _properties(designer, _FORM_PROPERTIES, context="form")
+            for dimension in ("Width", "Height"):
+                if properties[dimension] == ("UNSUPPORTED",):
+                    properties[dimension] = _component_form_property(
+                        component, dimension,
+                    )
             rows = []
             paths = set()
             for control in _items(_collection(designer, "Controls")):
