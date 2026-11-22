@@ -259,8 +259,9 @@ def test_source_relative_footprint_mismatch_stops_even_with_same_total_change_co
     assert list(tmp_path.iterdir()) == [source]
 
 
+@pytest.mark.parametrize("sequential,count", [(False, 3), (True, 6)])
 def test_native_fictional_journal_trial_stages_reopens_and_never_touches_source(
-    tmp_path, monkeypatch,
+    tmp_path, monkeypatch, sequential, count,
 ):
     """Opt-in synthetic revision path does not run VBA or save original."""
     from types import SimpleNamespace
@@ -297,7 +298,7 @@ def test_native_fictional_journal_trial_stages_reopens_and_never_touches_source(
         staged.append(operation)
         return True
 
-    rows = tuple(("FICTIONAL", i, "FAKE", "digest", "payload") for i in range(3))
+    rows = tuple(("FICTIONAL", i, "FAKE", "digest", "payload") for i in range(count))
     monkeypatch.setattr(probe, "audit_vba_components", lambda wb: evidence())
     monkeypatch.setattr(probe, "ensure_daily_input_journal_sheet", install)
     monkeypatch.setattr(probe, "append_native_operation_revision", stage)
@@ -315,11 +316,17 @@ def test_native_fictional_journal_trial_stages_reopens_and_never_touches_source(
     result = probe.compare_noedit_and_journal_saves(
         source, excel_factory=factory, designer_readback=True,
         trial_fictional_revisions=True,
+        trial_sequential_operations=sequential,
     )
-    assert result["fictional_revisions_verified"] == 3
-    assert [operation.phase.value for operation in staged] == [
-        "PREPARED", "FAILED", "ROLLED_BACK",
-    ]
+    assert result["fictional_revisions_verified"] == count
+    expected = ["PREPARED", "FAILED", "ROLLED_BACK"]
+    assert [operation.phase.value for operation in staged] == (
+        expected * (2 if sequential else 1)
+    )
+    if sequential:
+        assert staged[0].operation_id != staged[3].operation_id
+        assert staged[0].source_sha256 != staged[3].source_sha256
+        assert staged[3].revision == 0
     assert len(apps) == 2
     assert [app.book.saves for app in apps] == [1, 1]
     assert all([args["ReadOnly"] for args in app.open_args] == [False, True] for app in apps)
@@ -343,4 +350,17 @@ def test_fictional_journal_trial_requires_independent_journal_designer_readback(
             source, excel_factory=FakeApp,
             trial_fictional_revisions=True,
         )
+    assert list(tmp_path.iterdir()) == [source]
+
+
+def test_sequential_trial_requires_explicit_fictional_revision_mode(tmp_path):
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    before = source.read_bytes()
+    with pytest.raises(probe.SaveComparisonError, match="requires fictional revisions"):
+        probe.compare_noedit_and_journal_saves(
+            source, excel_factory=FakeApp, designer_readback=True,
+            trial_sequential_operations=True,
+        )
+    assert source.read_bytes() == before
     assert list(tmp_path.iterdir()) == [source]
