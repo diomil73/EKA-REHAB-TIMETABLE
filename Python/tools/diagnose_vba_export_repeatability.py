@@ -65,26 +65,30 @@ def probe_vba_export_repeatability(source_path: Path, *, excel_factory=None) -> 
             )
             if not bool(book.ReadOnly):
                 raise RepeatabilityProbeError("Excel did not open copy read-only")
-            stage = "first export"
-            first = audit_vba_components(book)
-            stage = "second export without save or changes"
-            second = audit_vba_components(book)
-            stage = "compare repeated exports"
             try:
-                assert_vba_semantics_preserved(
-                    first, second, journal_codename=None,
-                    expect_new_document=False,
-                )
-                repeatable = True
-                mismatch = "none"
-            except VbaSemanticAuditError as exc:
-                repeatable = False
-                mismatch = str(exc)
-            stage = "close without saving"
-            book.Close(SaveChanges=False)
-            book = None
-            app.Quit()
-            app = None
+                stage = "first export"
+                first = audit_vba_components(book)
+                stage = "second export without save or changes"
+                second = audit_vba_components(book)
+                stage = "compare repeated exports"
+                try:
+                    assert_vba_semantics_preserved(
+                        first, second, journal_codename=None,
+                        expect_new_document=False,
+                    )
+                    repeatable = True
+                    mismatch = "none"
+                except VbaSemanticAuditError as exc:
+                    repeatable = False
+                    mismatch = str(exc)
+            finally:
+                # Release the file before TemporaryDirectory deletes the copy.
+                if book is not None:
+                    book.Close(SaveChanges=False)
+                    book = None
+                if app is not None:
+                    app.Quit()
+                    app = None
         if _file_sha256(source) != source_hash:
             raise RepeatabilityProbeError("Source changed during repeatability audit")
         return {"repeatable": repeatable, "mismatch": mismatch, "components": len(first)}
