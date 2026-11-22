@@ -274,7 +274,10 @@ Private Function ApplyDailyChangeRestorePayload(ByVal payloadPath As String) As 
     Dim rollbackPath As String, patchPath As String
     Dim changeId As String
     Dim previousEvents As Boolean, previousScreenUpdating As Boolean
+    Dim failureNumber As Long, failureMessage As String
     On Error GoTo Failed
+    previousEvents = Application.EnableEvents
+    previousScreenUpdating = Application.ScreenUpdating
     text = ReadUtf8Text(payloadPath)
     lines = Split(Replace(text, vbCrLf, vbLf), vbLf)
 
@@ -337,18 +340,41 @@ MarkNext:
     GoTo CleanUp
 
 Failed:
-    WriteRestoreDiagnostic Err.Number, Err.Description, "apply restore payload"
+    failureNumber = Err.Number
+    failureMessage = Err.Description
+    ' Leave the active VBA error handler before trying rollback.
+    Resume RollbackAttempt
+
+RollbackAttempt:
     On Error Resume Next
-    If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then RestoreDailyChangeTransaction rollbackPath
-    ThisWorkbook.Save
-    On Error GoTo 0
-    MsgBox "Η επαναφορά απέτυχε και οι αλλαγές αναιρέθηκαν.", vbCritical, "Επαναφορά"
+    WriteRestoreDiagnostic failureNumber, failureMessage, "apply restore payload"
+    On Error GoTo RollbackFailed
+    If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then
+        RestoreDailyChangeTransaction rollbackPath
+        ThisWorkbook.Save
+    End If
+    GoTo RollbackUnverified
+
+RollbackFailed:
+    ' Never swallow a failed restore or assume Save proves full recovery.
+    Resume RollbackUnverified
+
+RollbackUnverified:
+    MsgBox "Η επαναφορά απέτυχε." & vbCrLf & _
+           "Δεν έχει επαληθευτεί η επαναφορά της προηγούμενης κατάστασης." & vbCrLf & _
+           "Μην συνεχίσετε καταχωρίσεις. Επικοινωνήστε με τον διαχειριστή.", _
+           vbCritical, "Επαναφορά"
+    GoTo CleanUp
+
 CleanUp:
     Application.ScreenUpdating = previousScreenUpdating
     Application.EnableEvents = previousEvents
     On Error Resume Next
     If Len(patchPath) > 0 And Dir$(patchPath) <> "" Then Kill patchPath
-    If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then Kill rollbackPath
+    ' The rollback copy is evidence, not garbage, after any failed restore.
+    If ApplyDailyChangeRestorePayload Then
+        If Len(rollbackPath) > 0 And Dir$(rollbackPath) <> "" Then Kill rollbackPath
+    End If
     On Error GoTo 0
 End Function
 
