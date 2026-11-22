@@ -5,7 +5,7 @@ from zipfile import ZipFile
 import pytest
 
 from rehab_excel.vba_form_storage import (
-    VbaFormStorageError, assert_form_storage_preserved, form_storage_evidence,
+    VbaFormStorageError, assert_form_storage_preserved, compare_form_storage_evidence, form_storage_evidence,
 )
 
 
@@ -106,3 +106,39 @@ def test_missing_zip_project_fails_closed(tmp_path):
         archive.writestr("note.txt", b"no VBA")
     with pytest.raises(VbaFormStorageError, match="Unable to parse"):
         form_storage_evidence(path, ("FormOne",), ole_factory=lambda _: FakeOle({}))
+
+
+def test_embedded_stream_diagnostic_counts_only_without_identifiers():
+    baseline = (("privateForm", (("f", "a"), ("o", "b"), ("control/old", "c"))),)
+    saved = (
+        ("privateForm", (("f", "changed"), ("o", "b"), ("control/new", "d"))),
+        ("otherForm", (("f", "z"),)),
+    )
+    stats = compare_form_storage_evidence(baseline, saved)
+    assert stats == {
+        "forms_missing": 0, "forms_added": 1, "streams_missing": 1,
+        "streams_added": 1, "streams_changed": 1, "forms_with_changed_streams": 1,
+    }
+    with pytest.raises(VbaFormStorageError) as caught:
+        assert_form_storage_preserved(baseline, saved)
+    diagnostic = str(caught.value)
+    assert "streams_changed=1" in diagnostic
+    assert "privateForm" not in diagnostic
+    assert "otherForm" not in diagnostic
+    assert "control/new" not in diagnostic
+
+
+def test_embedded_stream_diagnostic_rejects_duplicate_form_keys():
+    with pytest.raises(VbaFormStorageError, match="Ambiguous"):
+        compare_form_storage_evidence(
+            (("form", (("f", "a"),)), ("form", (("f", "b"),))),
+            (("form", (("f", "a"),)),),
+        )
+
+
+def test_embedded_stream_diagnostic_rejects_duplicate_stream_keys():
+    with pytest.raises(VbaFormStorageError, match="Ambiguous"):
+        compare_form_storage_evidence(
+            (("form", (("f", "a"), ("f", "b"))),),
+            (("form", (("f", "a"),)),),
+        )
