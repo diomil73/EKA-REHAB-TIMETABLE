@@ -6,6 +6,7 @@ import pytest
 
 from rehab_excel.vba_form_storage import (
     VbaFormStorageError, assert_form_storage_preserved, compare_form_storage_evidence, stream_change_categories, form_storage_evidence,
+    assert_matching_source_relative_change_footprints,
 )
 
 
@@ -150,3 +151,33 @@ def test_stream_categories_are_private_and_consistent():
     assert stream_change_categories(old, new) == {
         "form_f_changed": 1, "form_o_changed": 1, "other_streams_changed": 1,
     }
+
+
+def test_source_relative_stream_footprint_detects_same_count_different_stream():
+    source = (("privateForm", (("f", "a"), ("o", "b"), ("other", "c"))),)
+    noedit = (("privateForm", (("f", "a1"), ("o", "b1"), ("other", "c"))),)
+    journal = (("privateForm", (("f", "a2"), ("o", "b"), ("other", "c2"))),)
+    assert compare_form_storage_evidence(noedit, journal)["streams_changed"] == 2
+    with pytest.raises(VbaFormStorageError, match="footprints differ") as caught:
+        assert_matching_source_relative_change_footprints(source, noedit, journal)
+    assert "privateForm" not in str(caught.value)
+
+
+def test_source_relative_stream_footprints_match_without_waiving_raw_byte_mismatch():
+    source = (("privateForm", (("f", "a"), ("o", "b"))),)
+    noedit = (("privateForm", (("f", "a1"), ("o", "b1"))),)
+    journal = (("privateForm", (("f", "a2"), ("o", "b2"))),)
+    assert assert_matching_source_relative_change_footprints(source, noedit, journal) == 2
+    with pytest.raises(VbaFormStorageError, match="mismatch"):
+        assert_form_storage_preserved(noedit, journal)
+
+
+@pytest.mark.parametrize("bad", [
+    (("privateForm", (("f", "a2"),)),),
+    (("privateForm", (("f", "a2"), ("f", "a3"), ("o", "b2"))),),
+])
+def test_source_relative_footprint_missing_or_duplicate_stream_fails_closed(bad):
+    source = (("privateForm", (("f", "a"), ("o", "b"))),)
+    noedit = (("privateForm", (("f", "a2"), ("o", "b2"))),)
+    with pytest.raises(VbaFormStorageError):
+        assert_matching_source_relative_change_footprints(source, noedit, bad)
