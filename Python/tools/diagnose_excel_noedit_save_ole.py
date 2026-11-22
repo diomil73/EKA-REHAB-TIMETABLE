@@ -19,7 +19,7 @@ for directory in (ROOT, ROOT / "Python"):
 from Python.tools.prepare_native_probe_copy import create_probe_copy
 from Python.tools.provision_daily_input_journal_native import _file_sha256
 from rehab_excel.vba_semantic_audit import audit_vba_components, FORM_TYPE
-from rehab_excel.vba_form_storage import form_storage_evidence, compare_form_storage_evidence
+from rehab_excel.vba_form_storage import (form_storage_evidence, compare_form_storage_evidence, stream_change_categories)
 
 
 class NativeNoEditSaveError(RuntimeError):
@@ -75,10 +75,11 @@ def probe_excel_save_without_edits(source_path: Path, *, excel_factory=None) -> 
             stage = "compare saved embedded UserForm streams"
             saved_streams = form_storage_evidence(copy, form_names)
             differences = compare_form_storage_evidence(original_streams, saved_streams)
+            categories = stream_change_categories(original_streams, saved_streams)
             stage = "verify no source change"
             if _file_sha256(source) != before:
                 raise NativeNoEditSaveError("Source changed unexpectedly")
-            return {"forms": len(form_names), "differences": differences}
+            return {"forms": len(form_names), "differences": differences, "categories": categories}
     except Exception as exc:
         detail = " ".join(str(exc).replace(str(source), "<SOURCE>").split())[:350]
         raise NativeNoEditSaveError(
@@ -111,6 +112,9 @@ def main(argv=None) -> int:
     print("UserForms checked: " + str(result["forms"]))
     print("Embedded stream aggregate differences:")
     for category, count in result["differences"].items():
+        print(f"{category}={count}")
+    print("Known stream categories:")
+    for category, count in result["categories"].items():
         print(f"{category}={count}")
     print("Source unchanged: YES")
     print("No journal or VBA modifications requested; disposable copy deleted")
