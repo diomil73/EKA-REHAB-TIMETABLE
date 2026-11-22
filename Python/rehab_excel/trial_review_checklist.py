@@ -14,6 +14,7 @@ from pathlib import Path
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 from rehab_core.programme_mapping import WEEKDAYS, parse_clock
+from rehab_core.recurring_conflicts import _provider_key
 from rehab_excel.trial_admission_gate import (
     CONFIRMED_MARKERS, REQUIRED_SHEETS, SOURCE_HOLDS_SHEET,
     SOURCE_OVERLAP_SHEET, SOURCE_PATIENT_SHEET, SOURCE_WEEKLY_SHEET,
@@ -263,6 +264,7 @@ def create_private_review_checklist(*, programme, review, output):
                      str(number), "EXISTING_REVIEW_ROW")
 
         groups = defaultdict(list)
+        provider_groups = defaultdict(list)
         for number, cells in _rows(weekly, 11):
             clinic, source, name, specialty, day, clock, *_rest, state = (cell.value for cell in cells)
             row = _row_number(source)
@@ -306,6 +308,20 @@ def create_private_review_checklist(*, programme, review, output):
                 task("WEEKLY", SOURCE_WEEKLY_SHEET, str(number), "INVALID_WEEKDAY_OR_CLOCK")
                 continue
             groups[(row, _text(day), start)].append((number, _text(specialty)))
+            if r6_mode and resolved_state and _text(state) in {
+                "PROPOSED_EXACT_SOURCE", "PROPOSED_OPERATOR_CORRECTION",
+                "HOLD_APPROVED_COMBINED",
+            }:
+                # The recurring-conflict guard is the ONLY normalization.
+                # A same-patient combined pair never counts as two patients.
+                provider = (
+                    cells[6].value if _text(specialty) in {"ΦΘ", "ΡΟΜΠΟΤΙΚΗ"}
+                    else cells[7].value
+                )
+                if isinstance(provider, str) and _provider_key(provider):
+                    provider_groups[(
+                        _provider_key(provider), _text(day), start,
+                    )].append((number, row))
         for group_key, members in groups.items():
             if len(members) < 2:
                 continue
@@ -316,6 +332,18 @@ def create_private_review_checklist(*, programme, review, output):
                 continue  # Exact group already reviewed, or one active hold task.
             category = "CROSS_SPECIALTY" if len({x[1] for x in members}) > 1 else "SAME_SPECIALTY"
             task(category, SOURCE_WEEKLY_SHEET, ",".join(str(x[0]) for x in members), "INDEPENDENT_SLOT_COLLISION")
+        # The ten historical R5 shared-slot referrals do not exhaust current
+        # R6 provider/day/time groups. Inventory ALL cross-patient matches
+        # with current weekly row LOCATORS only (never patient/provider data).
+        for members in provider_groups.values():
+            if len({original_row for _, original_row in members}) < 2:
+                continue
+            current_rows = sorted(number for number, _ in members)
+            task(
+                "SHARED_PROVIDER_GROUP", SOURCE_WEEKLY_SHEET,
+                ",".join(str(number) for number in current_rows),
+                "EXACT_MULTI_PATIENT_PROVIDER_MEMBERSHIP_REVIEW",
+            )
         # A row omitted from review must not erase original treatment facts.
         for number, cells in _rows(manual, 22):
             if number not in identities and any(_text(cell.value) for cell in cells[2:]):
@@ -352,6 +380,8 @@ def create_private_review_checklist(*, programme, review, output):
     meta.append(("SHA256 programme (private)", original[0]))
     meta.append(("SHA256 review (private)", original[1]))
     meta.append(("Δεν περιέχει ονόματα, PatientIDs ή αρχικές κλινικές τιμές.",))
+    meta.append(("SHARED_PROVIDER_GROUP: πλήρης ομάδα τρεχουσών γραμμών, όχι έγκριση.",))
+    meta.append(("SHARED_PROVIDER: ιστορική παραπομπή R5, όχι πλήρης ομάδα.",))
     meta.column_dimensions["A"].width = 80
     meta.column_dimensions["B"].width = 70
 
