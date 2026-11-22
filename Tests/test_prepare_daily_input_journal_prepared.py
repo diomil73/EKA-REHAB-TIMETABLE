@@ -205,14 +205,14 @@ def test_independent_prepared_readback_requires_durable_synthetic_append(tmp_pat
         source, response, payload, operation_id="fixture-proposal",
     )
     with pytest.raises(readback.PreparedJournalReadbackError, match="row count"):
-        readback.verify_prepared_reopen(source, prepared)
+        readback.verify_prepared_reopen(source, prepared, payload)
     _append_proposal_to_synthetic_book(source, prepared)
     source_after = source.read_bytes()
-    readback.verify_prepared_reopen(source, prepared)
+    readback.verify_prepared_reopen(source, prepared, payload)
     assert source.read_bytes() == source_after
     handoff_path = tmp_path / "handoff.json"
     handoff_path.write_text(json.dumps(prepared), encoding="utf-8")
-    assert readback.main(["--input", str(source), "--handoff", str(handoff_path)]) == 0
+    assert readback.main(["--input", str(source), "--handoff", str(handoff_path), "--payload", str(payload)]) == 0
     assert "NO APPLY/RESTORE APPROVAL" in capsys.readouterr().out
     assert source.read_bytes() == source_after
 
@@ -241,7 +241,7 @@ def test_independent_readback_detects_corrupted_previous_history_even_if_valid(t
     workbook.save(source)
     workbook.close()
     with pytest.raises(readback.PreparedJournalReadbackError, match="Historical journal prefix"):
-        readback.verify_prepared_reopen(source, proposal)
+        readback.verify_prepared_reopen(source, proposal, payload)
 
 
 @pytest.mark.parametrize("mutation", ["extra-row", "wrong-proposed-row", "visible", "date"])
@@ -267,7 +267,7 @@ def test_independent_readback_stops_on_unverified_reopen(tmp_path, mutation):
     workbook.save(source)
     workbook.close()
     with pytest.raises(readback.PreparedJournalReadbackError):
-        readback.verify_prepared_reopen(source, proposal)
+        readback.verify_prepared_reopen(source, proposal, payload)
 
 
 def test_readback_rejects_forged_metadata_and_does_not_echo_patient_data(tmp_path, capsys):
@@ -278,10 +278,22 @@ def test_readback_rejects_forged_metadata_and_does_not_echo_patient_data(tmp_pat
     _append_proposal_to_synthetic_book(source, proposal)
     altered = dict(proposal, operation_id="PRIVATE PATIENT")
     with pytest.raises(readback.PreparedJournalReadbackError, match="Prepared record differs"):
-        readback.verify_prepared_reopen(source, altered)
+        readback.verify_prepared_reopen(source, altered, payload)
     handoff_path = tmp_path / "altered.json"
     handoff_path.write_text(json.dumps(altered), encoding="utf-8")
-    assert readback.main(["--input", str(source), "--handoff", str(handoff_path)]) == 2
+    assert readback.main(["--input", str(source), "--handoff", str(handoff_path), "--payload", str(payload)]) == 2
     output = capsys.readouterr().out
     assert "SAFETY STOP" in output
     assert "PRIVATE" not in output
+
+
+
+def test_prepared_readback_rejects_payload_changed_after_handoff(tmp_path):
+    source, response, payload = fixture(tmp_path)
+    proposed = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fixture-proposal",
+    )
+    _append_proposal_to_synthetic_book(source, proposed)
+    payload.write_text("PATCH\tPRIVATE CHANGED AFTER PREPARATION\n", encoding="utf-8")
+    with pytest.raises(readback.PreparedJournalReadbackError, match="payload changed"):
+        readback.verify_prepared_reopen(source, proposed, payload)
