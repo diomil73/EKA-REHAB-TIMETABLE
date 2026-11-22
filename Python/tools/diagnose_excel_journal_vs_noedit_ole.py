@@ -21,6 +21,7 @@ from rehab_excel.daily_input_journal import JOURNAL_SHEET
 from rehab_excel.daily_input_journal_sheet import ensure_daily_input_journal_sheet
 from rehab_excel.vba_form_storage import (
     form_storage_evidence, compare_form_storage_evidence, stream_change_categories,
+    assert_matching_source_relative_change_footprints,
 )
 from rehab_excel.vba_semantic_audit import audit_vba_components, FORM_TYPE
 from rehab_excel.vba_form_designer_audit import (
@@ -139,16 +140,22 @@ def compare_noedit_and_journal_saves(
                     control_designers, journal_designers,
                 )
             stage = "compare embedded OLE streams"
+            source_ole = form_storage_evidence(source, control_forms)
             control_ole = form_storage_evidence(noedit, control_forms)
             journal_ole = form_storage_evidence(journal, control_forms)
             changes = compare_form_storage_evidence(control_ole, journal_ole)
             categories = stream_change_categories(control_ole, journal_ole)
+            stage = "verify source-relative OLE change footprints"
+            matching_changed_streams = assert_matching_source_relative_change_footprints(
+                source_ole, control_ole, journal_ole,
+            )
         stage = "verify original unchanged"
         if _file_sha256(source) != before:
             raise SaveComparisonError("Source changed during comparative probe")
         return {"form_count": len(control_forms), "differences": changes, "categories": categories,
                 "designer_forms_verified": len(control_designers) if designer_readback else None,
-                "comparison": "NO-EDIT vs NO-EDIT" if control_only else "NO-EDIT vs JOURNAL"}
+                "comparison": "NO-EDIT vs NO-EDIT" if control_only else "NO-EDIT vs JOURNAL",
+                "source_relative_footprint_streams": matching_changed_streams}
     except Exception as exc:
         detail = " ".join(str(exc).replace(str(source), "<SOURCE>").split())[:300]
         raise SaveComparisonError(f"Stage={stage}; cause={type(exc).__name__}; detail={detail}") from exc
@@ -181,6 +188,9 @@ def main(argv=None) -> int:
         print(f"{name}={count}")
     for name, count in result["categories"].items():
         print(f"{name}={count}")
+    print("Source-relative OLE change footprint matched: YES")
+    print(f"Source-relative changed stream identities matched: {result['source_relative_footprint_streams']}")
+    print("Not binary/resource preservation approval")
     print("Source untouched: YES")
     print("Both temporary copies removed; no operational workbook created")
     print("DIAGNOSTIC ONLY: a zero or nonzero comparison is not an integrity approval")
