@@ -221,3 +221,165 @@ def test_even_explicit_confirmation_cannot_override_wrong_specialty_or_provider(
         with pytest.raises(ProgrammeMappingError):
             validate_weekly_entry_consistency(
                 [a, other], confirmed_combined_slots=frozenset({frozenset({a, other})}))
+
+
+
+def _fictional_r6_operator_group(
+    *, specialty="ΕΡΓΟΘΕΡΑΠΕΙΑ", original_clock="09:15",
+    original_days="ΤΡ-ΠΕ", new_day=False,
+):
+    """Build only fictional R6/A:V cells, never a patient workbook."""
+    from openpyxl import Workbook
+    from rehab_excel.trial_admission_gate import R6_DECISION_HEADERS
+
+    source = Workbook()
+    source.active.title = "ΠΡΟΓΡΑΜΜΑ"
+    src = source.active
+    treatment_columns = ("G", "H", "I") if specialty == "ΕΡΓΟΘΕΡΑΠΕΙΑ" else ("J", "K", "L")
+    for col, value in zip(treatment_columns, (original_clock, original_days, "DEMO STAFF")):
+        src[f"{col}4"] = value
+
+    review = Workbook()
+    weekly = review.active
+    weekly.title = "ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"
+    weekly.append(["Clinic", "Row", "Name", "Treatment", "Day",
+                   "Clock", "Required", "Optional", "Refs", "Raw", "Status"])
+    ledger = review.create_sheet("ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ")
+    ledger.append(R6_DECISION_HEADERS)
+    refs = " / ".join(f"{col}4" for col in treatment_columns)
+    original_before = [("ΤΡ", original_clock), ("ΠΕ", original_clock)]
+    if specialty == "ΛΟΓΟΘΕΡΑΠΕΙΑ":
+        original_before = [("ΤΡ", original_clock)]
+        finals = [("ΤΕ", "10:00")]
+    else:
+        finals = [("ΔΕ", "08:30"), ("ΤΕ", "08:30")]
+        if new_day:
+            finals.append(("ΠΑ", "08:30"))
+    for i, (after_day, after_clock) in enumerate(finals):
+        weekly.append([
+            "Α", 4, "DEMO PERSON", specialty, after_day, after_clock,
+            None, "NEW STAFF", refs, "FICTIONAL", "PROPOSED_OPERATOR_CORRECTION",
+        ])
+        if i < len(original_before):
+            old_day, old_clock = original_before[i]
+            old_state, decision = "HOLD_CONFLICT", "EXPLICIT OPERATOR CHANGE"
+            before_provider = "DEMO STAFF"
+        else:
+            old_day, old_clock = after_day, after_clock
+            old_state, decision = None, "EXPLICIT OPERATOR CHANGE — νέα ημέρα"
+            before_provider = "NEW STAFF"
+        ledger.append([
+            decision, 20 + i, 4, "DEMO PERSON", specialty,
+            old_day, old_clock, None, before_provider, refs,
+            old_state, after_day, after_clock, "NEW STAFF",
+            "PROPOSED_OPERATOR_CORRECTION",
+        ])
+    return source, review
+
+
+def test_r6_operator_complete_group_preserves_added_weekday():
+    from rehab_excel.trial_demo_source_reconciliation import (
+        _source_bound_r6_corrected_groups,
+    )
+    source, review = _fictional_r6_operator_group(new_day=True)
+    try:
+        original = tuple(
+            source.active.cell(4, col).value for col in (7, 8, 9)
+        )
+        overrides = _source_bound_r6_corrected_groups(review, source.active)
+        assert set(overrides) == {(4, "G")}
+        assert [
+            (therapy, day, clock, provider, cell)
+            for therapy, day, clock, provider, cell in overrides[(4, "G")]
+        ] == [
+            ("Εργο", day, time(8, 30), "NEW STAFF", "G4")
+            for day in ("ΔΕ", "ΤΕ", "ΠΑ")
+        ]
+        assert tuple(source.active.cell(4, col).value for col in (7, 8, 9)) == original
+    finally:
+        source.close()
+        review.close()
+
+
+def test_r6_operator_moved_speech_group_keeps_source_provenance():
+    from rehab_excel.trial_demo_source_reconciliation import (
+        _source_bound_r6_corrected_groups,
+    )
+    source, review = _fictional_r6_operator_group(
+        specialty="ΛΟΓΟΘΕΡΑΠΕΙΑ", original_clock="11΄30",
+        original_days="ΤΡ",
+    )
+    try:
+        result = _source_bound_r6_corrected_groups(review, source.active)
+        assert result[(4, "J")] == (
+            ("Λογο", "ΤΕ", time(10), "NEW STAFF", "J4"),
+        )
+    finally:
+        source.close()
+        review.close()
+
+
+def test_r6_ambiguous_original_day_needs_explicit_complete_operator_days():
+    from openpyxl import Workbook
+    from rehab_excel.trial_demo_source_reconciliation import (
+        _source_bound_r6_corrected_groups,
+        TrialDemoSourceReconciliationError,
+    )
+    from rehab_excel.trial_admission_gate import R6_DECISION_HEADERS
+
+    src = Workbook()
+    src.active["G4"] = "11.30"
+    src.active["H4"] = "ΔΕΥΤ-ΠΕΠΑΡ"
+    src.active["I4"] = "DEMO STAFF"
+    rev = Workbook()
+    weekly = rev.active
+    weekly.title = "ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"
+    weekly.append(["Clinic", "Row", "Name", "Treatment", "Day",
+                   "Clock", "Required", "Optional", "Refs", "Raw", "Status"])
+    for day in ("ΔΕ", "ΤΕ", "ΠΑ"):
+        weekly.append([
+            "Α", 4, "DEMO PERSON", "ΕΡΓΟΘΕΡΑΠΕΙΑ", day,
+            "11:30", None, "DEMO STAFF", "G4 / H4 / I4",
+            "FICTIONAL", (
+                "PROPOSED_OPERATOR_CORRECTION" if day == "ΤΕ"
+                else "PROPOSED_EXACT_SOURCE"
+            ),
+        ])
+    ledger = rev.create_sheet("ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ")
+    ledger.append(R6_DECISION_HEADERS)
+    ledger.append([
+        "P10: Ε/Θ ΔΕ-ΤΕ-ΠΑ", 20, 4, "DEMO PERSON",
+        "ΕΡΓΟΘΕΡΑΠΕΙΑ", "ΠΕ", "11:30", None, "DEMO STAFF",
+        "G4 / H4 / I4", "HOLD_CONFLICT", "ΤΕ", "11:30",
+        "DEMO STAFF", "PROPOSED_OPERATOR_CORRECTION",
+    ])
+    try:
+        result = _source_bound_r6_corrected_groups(rev, src.active)
+        assert [row[1] for row in result[(4, "G")]] == ["ΔΕ", "ΤΕ", "ΠΑ"]
+        ledger["A2"] = "FICTIONAL CHANGE WITHOUT COMPLETE DAY LIST"
+        with pytest.raises(
+            TrialDemoSourceReconciliationError, match="complete operator decision"
+        ):
+            _source_bound_r6_corrected_groups(rev, src.active)
+    finally:
+        src.close()
+        rev.close()
+
+
+def test_r6_operator_original_clock_or_ledger_missing_blocks_group():
+    from rehab_excel.trial_demo_source_reconciliation import (
+        _source_bound_r6_corrected_groups,
+        TrialDemoSourceReconciliationError,
+    )
+    source, review = _fictional_r6_operator_group(new_day=True)
+    try:
+        source.active["G4"] = "09:45"
+        with pytest.raises(TrialDemoSourceReconciliationError, match="before-values"):
+            _source_bound_r6_corrected_groups(review, source.active)
+        source.active["G4"] = "09:15"
+        review["ΑΠΟΦΑΣΕΙΣ_ΕΠΙΚΑΛΥΨΕΩΝ"].delete_rows(4)
+        with pytest.raises(TrialDemoSourceReconciliationError, match="ledger"):
+            _source_bound_r6_corrected_groups(review, source.active)
+    finally:
+        source.close()
+        review.close()
