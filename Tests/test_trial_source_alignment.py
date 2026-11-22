@@ -165,3 +165,63 @@ def test_private_cli_returns_safety_stop_for_mismatch(tmp_path, capsys):
     assert code == 2
     assert "PATIENT_SOURCE_ROW_OR_CONTEXT_MISMATCH" in output
     assert "WRONG PRIVATE NAME" not in output
+
+
+def test_exact_legacy_occupational_shorthand_is_original_clock_bound(tmp_path):
+    source, review = _inputs(
+        tmp_path, source_cell="G/H/I", specialty="ΕΡΓΟΘΕΡΑΠΕΙΑ",
+    )
+    wb = load_workbook(source)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["G2"] = 9.5 / 24  # 09:30, native Excel serial fraction.
+    wb.save(source)
+    wb.close()
+    before = (source.read_bytes(), review.read_bytes())
+    result = audit_trial_source_alignment(programme=source, review=review)
+    assert result.aligned
+    assert result.source_references_checked == 3
+    assert (source.read_bytes(), review.read_bytes()) == before
+
+
+def test_exact_legacy_psychology_shorthand_is_original_clock_bound(tmp_path):
+    source, review = _inputs(
+        tmp_path, source_cell="M/N/O", specialty="ΨΥΧΟΛΟΓΙΑ",
+    )
+    wb = load_workbook(source)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["M2"] = "09:30"
+    wb.save(source)
+    wb.close()
+    result = audit_trial_source_alignment(programme=source, review=review)
+    assert result.aligned
+    assert result.source_references_checked == 3
+
+
+def test_legacy_shorthand_with_changed_review_clock_is_rejected(tmp_path):
+    source, review = _inputs(
+        tmp_path, source_cell="G/H/I", specialty="ΕΡΓΟΘΕΡΑΠΕΙΑ",
+    )
+    wb = load_workbook(source)
+    wb["ΠΡΟΓΡΑΜΜΑ"]["G2"] = 9.5 / 24
+    wb.save(source)
+    wb.close()
+    wb = load_workbook(review)
+    wb["ΩΡΕΣ_ΑΝΑ_ΗΜΕΡΑ"]["F2"] = "10:30"
+    wb.save(review)
+    wb.close()
+    result = audit_trial_source_alignment(programme=source, review=review)
+    assert not result.aligned
+    assert result.source_reference_mismatches == 1
+
+
+def test_legacy_shorthand_wrong_specialty_or_partial_columns_rejected(tmp_path):
+    for specialty, reference in (
+        ("ΦΘ", "G/H/I"),
+        ("ΕΡΓΟΘΕΡΑΠΕΙΑ", "G/H"),
+        ("ΨΥΧΟΛΟΓΙΑ", "G/H/I"),
+        ("ΕΡΓΟΘΕΡΑΠΕΙΑ", "G2/H/I"),
+    ):
+        source, review = _inputs(
+            tmp_path, source_cell=reference, specialty=specialty,
+        )
+        result = audit_trial_source_alignment(programme=source, review=review)
+        assert not result.aligned, (specialty, reference)
+        assert result.source_reference_mismatches == 1
