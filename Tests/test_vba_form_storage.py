@@ -5,7 +5,7 @@ from zipfile import ZipFile
 import pytest
 
 from rehab_excel.vba_form_storage import (
-    VbaFormStorageError, assert_form_storage_preserved, compare_form_storage_evidence, form_storage_evidence,
+    VbaFormStorageError, assert_form_storage_preserved, compare_form_storage_evidence, stream_change_categories, form_storage_evidence,
 )
 
 
@@ -142,3 +142,11 @@ def test_embedded_stream_diagnostic_rejects_duplicate_stream_keys():
             (("form", (("f", "a"), ("f", "b"))),),
             (("form", (("f", "a"),)),),
         )
+
+
+def test_stream_categories_are_private_and_consistent():
+    old = (("private", (("f", "a"), ("o", "b"), ("custom/path", "c"))),)
+    new = (("private", (("f", "changed"), ("o", "changed"), ("custom/path", "changed"))),)
+    assert stream_change_categories(old, new) == {
+        "form_f_changed": 1, "form_o_changed": 1, "other_streams_changed": 1,
+    }
