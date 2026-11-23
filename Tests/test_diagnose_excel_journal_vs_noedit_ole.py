@@ -475,6 +475,8 @@ def test_native_prepared_handoff_is_appended_after_two_terminal_chains_and_reope
     assert len(verified) == 1
     assert len(apps) == 2
     assert [app.book.saves for app in apps] == [1, 2]
+    assert all(app.AutomationSecurity == 3 for app in apps)
+    assert all(app.EnableEvents is False for app in apps)
     assert all(
         [args["ReadOnly"] for args in app.open_args] == [False, True]
         for app in apps
