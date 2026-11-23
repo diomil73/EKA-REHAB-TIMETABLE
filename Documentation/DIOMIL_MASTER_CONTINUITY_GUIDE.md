@@ -1731,3 +1731,22 @@ then:
 Use only the same disposable synthetic DEMO with DAILY_INPUT, no pre-existing DAILY_INPUT_JOURNAL, and its 10 UserForms. The tool itself creates/removes temporary copies; it requires Windows Excel, Python on PATH, and Trust access to the VBA project object model. Expected result includes Fictional journal revisions saved/reopened: 6, Fictional PREPARED VBA hook saved/reopened: 1, Total journal revisions after readback: 7, VBA hook executed: YES, Native Excel read-only verifier: GREEN, Operational Apply/Restore executed: NO, Source untouched: YES, exit 0. If any Auto_Open procedure, journal, UserForm, OLE or readback condition differs, it stops. Do not use an operational patient workbook.
 
 **Remaining work:** after this narrow VBA writer proof, integrate the complete legal phase-transition writer into the real Apply/Restore transaction and implement full-state rollback/Save/Close/Reopen verification. Only after those are complete and fault-injected end-to-end tests pass may the Apply gate be considered for re-evaluation. The current Apply lock is mandatory.
+
+
+## 4.140 PREPARED VBA hook first native readback stop; ASCII/source-normalization hardening (23/11/2026)
+
+**Operator result:** The first run of Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo stopped at "VBA journal module source readback mismatch", exit 2. This occurred in _provision_copy immediately after installing/saving modDailyInputJournal in a disposable copy. It did not reach the PREPARED append, did not call RunPreparedDailyInputJournalProbe, and did not execute Apply/Restore. The diagnostic opens the supplied source read-only and creates control/trial copies inside a TemporaryDirectory; the exception path closes Excel and the temporary directory cleans the copies/sidecars. No operational workbook is part of this test. Do not classify this first result as a VBA append failure: the append was not attempted.
+
+**Likely encoding contributor, not yet proven as the sole cause:** the generated module source contained Greek UI/status strings. VBA CodeModule round-tripping may be affected by the Windows/VBE code page. The module JOURNAL_MODULE_CODE in Python/rehab_excel/daily_input_journal_vba.py is now ASCII-only, including its diagnostic messages/status text, to remove this avoidable encoding variable. Tests/test_diagnose_daily_input_prepared_vba_hook.py asserts JOURNAL_MODULE_CODE.isascii().
+
+**Readback comparison hardening:** _canonical_vba_source now normalizes CRLF/CR/LF, removes trailing whitespace from each line, and strips only blank lines at the two outer edges. It preserves indentation and internal blank lines, so code-body differences remain visible. If the source still differs, the diagnostic reports expected/actual line counts, first differing line number, line lengths, and SHA-256 values without printing source text. This provides a safe, useful next diagnostic instead of the previous generic stop.
+
+**Regression proof:** Exact code/test head 2b9c02c5126ac8e5a4f1579f8279a004f0ebace1 passed 4/4 GitHub Actions jobs in https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45274615557: full Python regression on Ubuntu and Windows plus synthetic safety on Ubuntu and Windows. Both full regression jobs report 2,490 passed (Ubuntu 14.99s; Windows 44.47s). Earlier intermediate CI runs failed only because the newly added tests had incorrect assertions/escaped newline fixtures; those tests were corrected and the final exact head is green. CI does not execute Microsoft Excel's live VBA CodeModule behavior.
+
+**Next operator step:** pull the latest branch head, then rerun the exact same command against the same synthetic DEMO:
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
+"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"
+If the source readback now passes, the diagnostic proceeds to the actual VBA-owned PREPARED append and independent native Excel read-only verifier. If it still stops at source readback, capture the complete new redacted detail (line counts, first difference, line lengths, hashes); do not attempt Apply or any manual journal edits.
+
+**Safety boundary unchanged:** DailyInputJournalApplyEnabled() remains False. The successful Python CI run is not proof that the live Excel VBA hook works, and even a successful PREPARED hook diagnostic is not permission for operational Apply/Restore. Full durable phase transitions and rollback/reopen verification remain outstanding.
