@@ -49,7 +49,8 @@ def canonicalize_vba_source(value: str) -> str:
                 if statement_start and token.casefold() == "rem" and (
                     end == len(line) or line[end].isspace()
                 ):
-                    output.append(line[index:])
+                    # Normalize the VBA comment keyword, but preserve its text.
+                    output.append(token.casefold() + line[end:])
                     break
 
                 output.append(token.casefold())
