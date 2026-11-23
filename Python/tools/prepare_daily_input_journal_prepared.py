@@ -183,36 +183,63 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--preparation-response", required=True, type=Path)
     parser.add_argument("--payload", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--row-output", type=Path,
+        help="Optional five-field UTF-8 TSV for the native VBA journal writer.",
+    )
     args = parser.parse_args(argv)
-    created_output = False
+    created_paths: list[Path] = []
     output = args.output.resolve()
+    row_output = args.row_output.resolve() if args.row_output else None
     try:
-        if output in {args.input.resolve(), args.preparation_response.resolve(), args.payload.resolve()}:
+        inputs = {
+            args.input.resolve(), args.preparation_response.resolve(),
+            args.payload.resolve(),
+        }
+        outputs = {output}
+        if row_output is not None:
+            outputs.add(row_output)
+        if len(outputs) != (2 if row_output is not None else 1):
+            raise PreparedJournalPreflightError("Preflight output paths overlap")
+        if outputs & inputs:
             raise PreparedJournalPreflightError("Output overlaps preflight input")
-        if output.exists():
+        if any(path.exists() for path in outputs):
             raise PreparedJournalPreflightError("Handoff output already exists")
         record = prepare_prepared_handoff(
             args.input, args.preparation_response, args.payload,
         )
         # Exclusive create: never replace a prior proposed operation record.
         with output.open("x", encoding="utf-8") as handle:
-            created_output = True
+            created_paths.append(output)
             json.dump(record, handle, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
             handle.write("\n")
+        if row_output is not None:
+            row = record["prepared_row"]
+            if (type(row) is not list or len(row) != 5
+                    or any(type(value) not in (str, int) for value in row)):
+                raise PreparedJournalPreflightError("Prepared row cannot be serialized")
+            fields = [str(value) for value in row]
+            if any(any(char in value for char in "\\t\\r\\n") for value in fields):
+                raise PreparedJournalPreflightError("Prepared row contains a TSV delimiter")
+            with row_output.open("x", encoding="utf-8", newline="") as handle:
+                created_paths.append(row_output)
+                handle.write("\\t".join(fields) + "\\n")
         if (file_sha256(args.input) != record["source_sha256"]
                 or file_sha256(args.payload) != record["payload_sha256"]):
             raise PreparedJournalPreflightError("Source or payload changed before handoff completion")
     except Exception:
-        # Clean up only output that this invocation created, not an older handoff.
-        if created_output:
+        # Clean up only outputs this invocation created, never older evidence.
+        for created in reversed(created_paths):
             try:
-                output.unlink(missing_ok=True)
+                created.unlink(missing_ok=True)
             except OSError:
                 pass
         # No data-bearing exception messages or paths on stdout/stderr.
         print("SAFETY STOP: DAILY_INPUT PREPARED PREFLIGHT FAILED")
         return 2
     print("DAILY_INPUT PREPARED HANDOFF READY: NOT PERSISTED")
+    if row_output is not None:
+        print("Native VBA row file created: YES")
     print("Workbook unchanged: YES")
     return 0
 
