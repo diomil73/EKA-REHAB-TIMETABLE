@@ -364,3 +364,143 @@ def test_sequential_trial_requires_explicit_fictional_revision_mode(tmp_path):
         )
     assert source.read_bytes() == before
     assert list(tmp_path.iterdir()) == [source]
+
+
+def test_native_prepared_handoff_is_appended_after_two_terminal_chains_and_reopened(
+    tmp_path, monkeypatch,
+):
+    from types import SimpleNamespace
+    from pathlib import Path
+
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    original = source.read_bytes()
+    apps = []
+    staged = []
+    verified = []
+
+    class TrialSheets(FakeSheets):
+        def __init__(self, book):
+            self.book = book
+
+        def __call__(self, index):
+            if index == probe.JOURNAL_SHEET:
+                return self.book.journal
+            return super().__call__(index)
+
+    def factory():
+        app = FakeApp()
+        app.book.Worksheets = TrialSheets(app.book)
+        apps.append(app)
+        return app
+
+    def install(book):
+        book.journal = SimpleNamespace(
+            Name=probe.JOURNAL_SHEET, Visible=2, ProtectContents=True,
+        )
+        return book.journal
+
+    def stage(book, operation):
+        assert book.ReadOnly is False
+        assert book.journal.ProtectContents is True
+        staged.append(operation)
+        return True
+
+    def rows(_ws):
+        return tuple(
+            ("FICTIONAL", index, "FAKE", "digest", "payload")
+            for index in range(len(staged))
+        )
+
+    handoff = {
+        "status": "PREPARED_NOT_PERSISTED",
+        "operation_id": "FICTIONAL-PREPARED-7",
+        "service_date": "2000-01-03",
+        "source_sha256": "a" * 64,
+        "payload_sha256": "b" * 64,
+        "existing_journal_rows": 6,
+        "journal_prefix_sha256": "c" * 64,
+        "prepared_row": [
+            "FICTIONAL-PREPARED-7", 0, "PREPARED", "d" * 64, "fictional-payload",
+        ],
+    }
+    payload_path = Path("fictional-payload.tsv")
+
+    def prepare(copy):
+        assert copy.exists()
+        assert len(staged) == 6
+        assert apps[1].book.saves == 1
+        return {"handoff": handoff, "payload_path": payload_path}
+
+    def verify(copy, metadata, payload):
+        assert copy.name == "journal.xlsm"
+        assert metadata == handoff
+        assert payload == payload_path
+        # The writable Excel session must be closed before independent readback.
+        assert apps[1].book.closed == [{"SaveChanges": False}]
+        verified.append(True)
+
+    monkeypatch.setattr(probe, "audit_vba_components", lambda wb: evidence())
+    monkeypatch.setattr(probe, "ensure_daily_input_journal_sheet", install)
+    monkeypatch.setattr(probe, "append_native_operation_revision", stage)
+    monkeypatch.setattr(probe, "read_native_journal_rows", rows)
+    monkeypatch.setattr(probe, "_create_fictional_prepared_handoff", prepare)
+    monkeypatch.setattr(probe, "verify_prepared_reopen", verify)
+    monkeypatch.setattr(
+        probe, "audit_userform_designers",
+        lambda wb, *, expected_form_names: next(signatures),
+    )
+    signatures = _designer_signatures("same", "same", "same", "same")
+    monkeypatch.setattr(
+        probe, "form_storage_evidence",
+        lambda path, forms: (("frmsynthetic", (("f", "same"), ("o", "same"))),),
+    )
+
+    result = probe.compare_noedit_and_journal_saves(
+        source, excel_factory=factory, designer_readback=True,
+        trial_fictional_revisions=True,
+        trial_sequential_operations=True,
+        trial_prepared_handoff=True,
+    )
+    assert result["fictional_revisions_verified"] == 6
+    assert result["prepared_handoff_verified"] is True
+    assert result["prepared_journal_rows"] == 7
+    assert len(staged) == 7
+    assert [item.phase.value for item in staged[:6]] == [
+        "PREPARED", "FAILED", "ROLLED_BACK",
+        "PREPARED", "FAILED", "ROLLED_BACK",
+    ]
+    assert staged[6].operation_id == handoff["operation_id"]
+    assert staged[6].phase.value == "PREPARED" and staged[6].revision == 0
+    assert len(verified) == 1
+    assert len(apps) == 2
+    assert [app.book.saves for app in apps] == [1, 2]
+    assert all(
+        [args["ReadOnly"] for args in app.open_args] == [False, True]
+        for app in apps
+    )
+    assert all(
+        app.book.closed == [{"SaveChanges": False}, {"SaveChanges": False}]
+        for app in apps
+    )
+    assert all(app.quits == 1 for app in apps)
+    assert source.read_bytes() == original
+    assert list(tmp_path.iterdir()) == [source]
+
+
+def test_prepared_handoff_trial_cannot_skip_prior_terminal_and_designer_gates(tmp_path):
+    source = tmp_path / "demo.xlsm"
+    make_xlsm(source)
+    before = source.read_bytes()
+    with pytest.raises(probe.SaveComparisonError, match="requires sequential fictional"):
+        probe.compare_noedit_and_journal_saves(
+            source, excel_factory=FakeApp, designer_readback=True,
+            trial_prepared_handoff=True,
+        )
+    with pytest.raises(probe.SaveComparisonError, match="requires sequential fictional"):
+        probe.compare_noedit_and_journal_saves(
+            source, excel_factory=FakeApp, trial_fictional_revisions=True,
+            trial_sequential_operations=True, trial_prepared_handoff=True,
+        )
+    assert source.read_bytes() == before
+    assert list(tmp_path.iterdir()) == [source]
