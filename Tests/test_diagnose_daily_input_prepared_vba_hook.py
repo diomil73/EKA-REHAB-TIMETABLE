@@ -98,13 +98,13 @@ def test_vbe_source_comparison_preserves_rem_comment_text():
 def test_vbe_source_mismatch_reports_redacted_line_diagnostics():
     lf = chr(10)
     detail = probe._module_source_mismatch(
-        lf.join(["Option Explicit", "Public Sub A()", "End Sub"]),
-        lf.join(["Option Explicit", "Public Sub B()", "End Sub"]),
+        lf.join(["Option Explicit", 'Debug.Print "A"', "End Sub"]),
+        lf.join(["Option Explicit", 'Debug.Print "B"', "End Sub"]),
     )
     assert "first_difference_line=2" in detail
-    assert "expected_line_length=14" in detail
-    assert "actual_line_length=14" in detail
+    assert "expected_line_length=15" in detail
+    assert "actual_line_length=15" in detail
     assert "differing_characters=1" in detail
-    assert "character_diff_samples=12:U+0041>U+0042" in detail
+    assert "character_diff_samples=14:U+0041>U+0042" in detail
     assert "sha256=" in detail
     assert "Public Sub A" not in detail
