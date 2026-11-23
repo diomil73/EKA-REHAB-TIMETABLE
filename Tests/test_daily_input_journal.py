@@ -203,3 +203,31 @@ def test_sequence_decoder_rejects_unterminated_transition_even_after_recovery():
     next_op = DailyInputOperation("op-2", "b" * 64, "2026-11-24")
     with pytest.raises(DailyInputJournalError, match="prior terminal"):
         decode_operation_journal((_row(first), _row(failed), _row(next_op)))
+
+@pytest.mark.parametrize("resolution", ["manual_completed", "automatic_accepted"])
+def test_journal_replays_late_failure_and_rollback_preserving_operator_decision(resolution):
+    states = [op()]
+    for phase in (
+        Phase.INPUT_AND_LEDGER_COMMITTED,
+        Phase.PROJECTIONS_VERIFIED,
+        Phase.PENDING_OPERATOR_DECISION,
+    ):
+        states.append(advance_daily_input_operation(states[-1], phase))
+    states.append(advance_daily_input_operation(
+        states[-1], Phase.REPLACEMENTS_RESOLVED, operator_resolution=resolution,
+    ))
+    states.append(advance_daily_input_operation(
+        states[-1], Phase.FAILED, failure_code="FICTIONAL_AFTER_DECISION",
+    ))
+    states.append(advance_daily_input_operation(
+        states[-1], Phase.ROLLED_BACK, rollback_verified=True,
+    ))
+
+    rows = ()
+    for state in states:
+        rows = append_operation_journal(rows, state)
+    reopened = verify_operation_journal_readback(rows, rows)
+    assert reopened == tuple(states)
+    assert reopened[-1].operator_resolution == resolution
+    assert reopened[-1].rollback_verified
+    assert not reopened[-1].may_report_success
