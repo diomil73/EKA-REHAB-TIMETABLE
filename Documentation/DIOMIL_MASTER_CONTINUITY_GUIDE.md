@@ -1750,3 +1750,18 @@ python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
 If the source readback now passes, the diagnostic proceeds to the actual VBA-owned PREPARED append and independent native Excel read-only verifier. If it still stops at source readback, capture the complete new redacted detail (line counts, first difference, line lengths, hashes); do not attempt Apply or any manual journal edits.
 
 **Safety boundary unchanged:** DailyInputJournalApplyEnabled() remains False. The successful Python CI run is not proof that the live Excel VBA hook works, and even a successful PREPARED hook diagnostic is not permission for operational Apply/Restore. Full durable phase transitions and rollback/reopen verification remain outstanding.
+
+
+## 4.141 PREPARED VBA source mismatch narrowed to line 78; character-code diagnostics added (24/11/2026)
+
+**Latest operator result:** The rerun after ASCII-only source and conservative whitespace normalization still stops before the PREPARED hook. It reports expected_lines=234, actual_lines=234, first_difference_line=78, expected_line_length=74, actual_line_length=74, with different whole-module hashes. Thus this is now a same-length, single-line source difference, not a missing/added line or an append/readback failure. In the expected source, line 78 is the commandLine continuation that supplies the --input argument using QuoteJournalArg(ThisWorkbook.FullName). The actual line content has not yet been exposed or identified.
+
+**New diagnostic refinement:** the source mismatch report now adds differing_characters and up to 16 one-based character positions with expected/actual Unicode codepoints (for example, a space/tab or case difference is immediately distinguishable). It deliberately does not print source text. This will identify whether VBE auto-casing, whitespace substitution, or another same-width character change is responsible, without dumping VBA code into the console. Regression test asserts the redacted codepoint output.
+
+**Next operator step:** pull the latest branch head and rerun the same synthetic-only diagnostic:
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
+"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"
+Send the full SAFETY STOP line. Do not edit the workbook, manually replace the module, invoke the named VBA probe, or attempt Apply/Restore. Once the actual codepoint delta is known, fix the cause at source/installer level rather than weakening the source-integrity comparison.
+
+**Safety boundary:** the PREPARED hook itself has still not run. Apply remains disabled. A source readback pass is only a prerequisite to the next synthetic diagnostic phase, not operational approval.
