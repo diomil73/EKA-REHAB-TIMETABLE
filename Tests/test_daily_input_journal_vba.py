@@ -19,7 +19,7 @@ def test_vba_bridge_validates_row_and_protected_journal_before_append():
         'CStr(fields(2)) <> "PREPARED"',
         'IsJournalDigest(CStr(fields(3)))',
         'Left$(CStr(fields(4)), Len(JOURNAL_PREFIX)) <> JOURNAL_PREFIX',
-        'int(ws.Visible) <> XL_SHEET_VERY_HIDDEN',
+        'CLng(ws.Visible) <> XL_SHEET_VERY_HIDDEN',
         'Not CBool(ws.ProtectContents)',
         'ws.Unprotect',
         'ws.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True',
