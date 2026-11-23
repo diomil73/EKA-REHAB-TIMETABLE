@@ -87,3 +87,14 @@ def test_installer_adds_named_module_and_full_source():
     assert len(added) == 1
     assert added[0].Name == JOURNAL_MODULE_NAME
     assert added[0].CodeModule.source == JOURNAL_MODULE_CODE
+
+
+def test_vba_source_uses_observed_vbe_canonical_case_for_first_fullname_reference():
+    references = [
+        line.strip()
+        for line in JOURNAL_MODULE_CODE.splitlines()
+        if 'QuoteJournalArg(ThisWorkbook.' in line and ' --input ' in line
+    ]
+    assert len(references) == 2
+    assert references[0] == '" --input " & QuoteJournalArg(ThisWorkbook.fullname) & _'
+    assert references[1] == '" --input " & QuoteJournalArg(ThisWorkbook.FullName) & _'
