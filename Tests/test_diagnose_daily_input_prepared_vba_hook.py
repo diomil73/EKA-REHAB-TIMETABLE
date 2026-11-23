@@ -35,3 +35,30 @@ def test_probe_tool_uses_macro_disabled_open_and_only_explicit_named_probe():
     assert "DailyInputJournalApplyEnabled" in source
     assert "Operational Apply/Restore executed: NO" in source
     assert "ApplyDailyInputPreview" not in source
+
+
+def test_vba_module_source_is_ascii_for_native_vbe_roundtrip():
+    from rehab_excel.daily_input_journal_vba import JOURNAL_MODULE_CODE
+
+    assert JOURNAL_MODULE_CODE.isascii()
+
+
+def test_vbe_source_comparison_normalizes_only_line_endings_and_trailing_whitespace():
+    expected = "Option Explicit\\r\\n\\r\\nPublic Sub Probe()  \\r\\nEnd Sub\\r\\n"
+    actual = "Option Explicit\\n\\nPublic Sub Probe()\\nEnd Sub\\n\\n"
+    assert probe._canonical_vba_source(expected) == probe._canonical_vba_source(actual)
+    assert probe._module_source_mismatch(expected, actual).find(
+        "first_difference_line=none"
+    ) >= 0
+
+
+def test_vbe_source_mismatch_reports_redacted_line_diagnostics():
+    detail = probe._module_source_mismatch(
+        "Option Explicit\\nPublic Sub A()\\nEnd Sub",
+        "Option Explicit\\nPublic Sub B()\\nEnd Sub",
+    )
+    assert "first_difference_line=2" in detail
+    assert "expected_line_length=15" in detail
+    assert "actual_line_length=15" in detail
+    assert "sha256=" in detail
+    assert "Public Sub A" not in detail
