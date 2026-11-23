@@ -147,3 +147,23 @@ def test_rolled_back_requires_explicit_verified_rollback_marker():
 def test_rollback_marker_cannot_be_attached_to_success_transition():
     with pytest.raises(DailyInputOperationError, match="Unexpected transition metadata"):
         advance(operation(), Phase.INPUT_AND_LEDGER_COMMITTED, rollback_verified=True)
+
+@pytest.mark.parametrize("resolution", ["manual_completed", "automatic_accepted"])
+def test_failure_after_operator_resolution_preserves_decision_through_rollback(resolution):
+    """Late failures must not erase the operator decision in journal history."""
+    value = operation()
+    value = advance(value, Phase.INPUT_AND_LEDGER_COMMITTED)
+    value = advance(value, Phase.PROJECTIONS_VERIFIED)
+    value = advance(value, Phase.PENDING_OPERATOR_DECISION)
+    value = advance(value, Phase.REPLACEMENTS_RESOLVED, operator_resolution=resolution)
+    failed = advance(value, Phase.FAILED, failure_code="FICTIONAL_LATE_ERROR")
+    assert failed.phase == Phase.FAILED
+    assert failed.operator_resolution == resolution
+    assert failed.failure_code == "FICTIONAL_LATE_ERROR"
+    assert not failed.is_terminal
+    restored = advance(failed, Phase.ROLLED_BACK, rollback_verified=True)
+    assert restored.operator_resolution == resolution
+    assert restored.failure_code == failed.failure_code
+    assert restored.rollback_verified
+    assert restored.phase == Phase.ROLLED_BACK
+    assert not restored.may_report_success
