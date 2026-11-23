@@ -1765,3 +1765,20 @@ python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
 Send the full SAFETY STOP line. Do not edit the workbook, manually replace the module, invoke the named VBA probe, or attempt Apply/Restore. Once the actual codepoint delta is known, fix the cause at source/installer level rather than weakening the source-integrity comparison.
 
 **Safety boundary:** the PREPARED hook itself has still not run. Apply remains disabled. A source readback pass is only a prerequisite to the next synthetic diagnostic phase, not operational approval.
+
+
+## 4.142 VBA source readback case-only mismatch resolved at source (24/11/2026)
+
+**Operator evidence from §4.141:** Native VBE readback identified exactly one same-length difference on source line 78: expected F (U+0046) at character 62, actual f (U+0066). The line is the --input argument passed from ThisWorkbook.FullName to the Python preflight. There were 234 lines on both sides and exactly one differing character. This is a case-only change to a VBA identifier/member name; VBA identifiers are case-insensitive, so it does not change the property being referenced or runtime semantics.
+
+**Narrow source-level correction:** The first occurrence on line 78 is now deliberately authored as ThisWorkbook.fullname, matching the exact spelling returned by the user's VBE readback. The later readback invocation at line 162 remains ThisWorkbook.FullName, matching its observed canonical spelling. No comparison normalization was broadened, no character differences are ignored, and whole-module source readback remains exact after line-ending/trailing-whitespace canonicalization. A regression test asserts the two exact spellings and their order so the VBE-specific source contract cannot silently drift.
+
+**CI:** Exact code/test head cd64c69734f63a76db3ac7492b9cde5e197df248 passed all four GitHub Actions jobs in https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45276246188: full Python regression Windows and Ubuntu (2,491 passed on each), synthetic safety Windows and Ubuntu (233 passed on each). CI does not run Microsoft Excel's live VBA CodeModule readback.
+
+**Next operator step:** pull the branch and rerun the same synthetic-only native Excel diagnostic:
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
+"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"
+If source readback succeeds, the diagnostic proceeds to the VBA-owned fictional PREPARED append and independent native Excel read-only verification. If it stops elsewhere, preserve the complete output and stop; do not manually edit the workbook or run Apply/Restore.
+
+**Safety:** The PREPARED append has not yet been attempted in the operator's Excel environment. Apply remains disabled. This code change only aligns case-insensitive VBA spelling; it does not establish operational readiness.
