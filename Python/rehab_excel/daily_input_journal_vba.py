@@ -26,13 +26,13 @@ Public Sub ProbeDailyInputPreparedJournal( _
 
     If PersistPreparedDailyInputJournal( _
         rowPath, handoffPath, payloadPath, preflightScript, readbackScript) Then
-        MsgBox "Η εγγραφή PREPARED αποθηκεύτηκε και επαληθεύτηκε." & vbCrLf & _
-               "Δεν εφαρμόστηκαν αλλαγές σε ασθενείς ή θεραπείες.", _
-               vbInformation, "Τεχνικός έλεγχος journal"
+        MsgBox "PREPARED journal entry saved and verified." & vbCrLf & _
+               "No patient or treatment changes were applied.", _
+               vbInformation, "Journal technical check"
     Else
-        MsgBox "Η εγγραφή PREPARED δεν επαληθεύτηκε." & vbCrLf & _
-               "Δεν εφαρμόστηκαν αλλαγές. Μην συνεχίσετε καταχωρίσεις.", _
-               vbCritical, "Τεχνικός έλεγχος journal"
+        MsgBox "PREPARED journal entry was not verified." & vbCrLf & _
+               "No changes were applied. Do not continue data entry.", _
+               vbCritical, "Journal technical check"
     End If
 End Sub
 
@@ -68,7 +68,7 @@ Public Function PersistPreparedDailyInputJournal( _
     On Error GoTo SafetyStop
     previousEvents = Application.EnableEvents
     Application.EnableEvents = False
-    Application.StatusBar = "Επαλήθευση ασφαλούς εγγραφής journal..."
+    Application.StatusBar = "Verifying safe journal write..."
 
     If ThisWorkbook.ReadOnly Then Err.Raise vbObjectError + 2910, , "Workbook is read-only"
     If Len(Dir$(rowPath)) = 0 Or Len(Dir$(handoffPath)) = 0 Or _
