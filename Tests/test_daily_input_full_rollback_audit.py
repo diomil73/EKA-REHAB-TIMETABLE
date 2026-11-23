@@ -11,6 +11,7 @@ from rehab_excel.authoritative_commit import file_sha256
 from rehab_excel.daily_input_full_rollback_audit import (
     FullRollbackAuditError,
     audit_full_workbook_rollback,
+    audit_restored_business_state_before_rollback,
     _package_members,
 )
 from rehab_excel.daily_input_journal import JOURNAL_HEADERS, JOURNAL_SHEET, _row
@@ -178,4 +179,38 @@ def test_unexplained_change_to_journal_history_rejected(tmp_path):
 
     _edit_only_journal_xml(restored, rewrite_existing_id)
     with pytest.raises(FullRollbackAuditError, match="journal|Journal"):
+        audit(source, restored)
+
+def test_pre_rollback_restored_state_requires_failed_but_does_not_claim_terminal(tmp_path):
+    source, restored, operation = fixture(tmp_path)
+    finish_rollback(restored, operation, with_rollback=False)
+    before = source.read_bytes()
+    after = restored.read_bytes()
+    report = audit_restored_business_state_before_rollback(
+        source, restored, expected_snapshot_sha256=file_sha256(source),
+        require_vba=False,
+    )
+    assert report.original_journal_revisions == 1
+    assert report.restored_journal_revisions == 2
+    assert source.read_bytes() == before
+    assert restored.read_bytes() == after
+    with pytest.raises(FullRollbackAuditError):
+        audit(source, restored)
+
+
+def test_pre_rollback_verifier_rejects_already_terminal_or_changed_business_state(tmp_path):
+    source, restored, operation = fixture(tmp_path)
+    finish_rollback(restored, operation)
+    with pytest.raises(FullRollbackAuditError, match="phase"):
+        audit_restored_business_state_before_rollback(
+            source, restored, expected_snapshot_sha256=file_sha256(source),
+            require_vba=False,
+        )
+    assert audit(source, restored).restored_journal_revisions == 3
+
+    changed = load_workbook(restored, keep_vba=True)
+    changed["MASTER_SCHEDULE"]["C3"] = "UNEXPECTED"
+    changed.save(restored)
+    changed.close()
+    with pytest.raises(FullRollbackAuditError, match="resource"):
         audit(source, restored)
