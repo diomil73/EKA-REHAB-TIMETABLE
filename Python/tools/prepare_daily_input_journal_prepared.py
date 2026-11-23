@@ -219,11 +219,11 @@ def main(argv: list[str] | None = None) -> int:
                     or any(type(value) not in (str, int) for value in row)):
                 raise PreparedJournalPreflightError("Prepared row cannot be serialized")
             fields = [str(value) for value in row]
-            if any(any(char in value for char in ("\\t", "\\r", "\\n")) for value in fields):
+            if any(any(char in value for char in ("\t", "\r", "\n")) for value in fields):
                 raise PreparedJournalPreflightError("Prepared row contains a TSV delimiter")
             with row_output.open("x", encoding="utf-8", newline="") as handle:
                 created_paths.append(row_output)
-                handle.write("\\t".join(fields) + "\\n")
+                handle.write("\t".join(fields) + "\n")
         if (file_sha256(args.input) != record["source_sha256"]
                 or file_sha256(args.payload) != record["payload_sha256"]):
             raise PreparedJournalPreflightError("Source or payload changed before handoff completion")
