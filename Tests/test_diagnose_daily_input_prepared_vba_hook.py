@@ -45,13 +45,54 @@ def test_vba_module_source_is_ascii_for_native_vbe_roundtrip():
 
 
 
-def test_vbe_source_comparison_normalizes_only_line_endings_and_trailing_whitespace():
+def test_vbe_source_comparison_normalizes_line_endings_whitespace_and_identifier_case():
     crlf = chr(13) + chr(10)
     lf = chr(10)
-    expected = crlf.join(["Option Explicit", "", "Public Sub Probe()  ", "End Sub"]) + crlf
-    actual = lf.join(["Option Explicit", "", "Public Sub Probe()", "End Sub", "", ""])
+    expected = crlf.join([
+        "Option Explicit", "", "Public Sub Probe()", 
+        "Dim candidateRow As Long",
+        "candidateRow = ws.Cells(ws.Rows.Count, columnIndex).End(xlUp).Row",
+        "End Sub",
+    ]) + crlf
+    actual = lf.join([
+        "option explicit", "", "public sub probe()",
+        "dim candidaterow as long",
+        "candidaterow = ws.Cells(ws.rows.count, columnIndex).End(xlup).row",
+        "end sub", "", "",
+    ])
     assert probe._canonical_vba_source(expected) == probe._canonical_vba_source(actual)
     assert "first_difference_line=none" in probe._module_source_mismatch(expected, actual)
+
+
+def test_vbe_source_comparison_keeps_string_literals_and_comments_case_sensitive():
+    lf = chr(10)
+    expected = lf.join([
+        "Public Sub Probe()",
+        'Debug.Print "PatientID"',
+        "' Keep This Comment",
+        "End Sub",
+    ])
+    string_changed = expected.replace('"PatientID"', '"patientid"')
+    comment_changed = expected.replace("Keep This Comment", "keep this comment")
+    assert probe._canonical_vba_source(expected) != probe._canonical_vba_source(string_changed)
+    assert probe._canonical_vba_source(expected) != probe._canonical_vba_source(comment_changed)
+
+
+def test_vbe_source_comparison_does_not_mask_operator_or_statement_changes():
+    lf = chr(10)
+    expected = lf.join(["Public Sub Probe()", "If count > 1 Then", "End Sub"])
+    changed_operator = expected.replace("count > 1", "count >= 1")
+    changed_statement = expected.replace("If count > 1 Then", "If count < 1 Then")
+    assert probe._canonical_vba_source(expected) != probe._canonical_vba_source(changed_operator)
+    assert probe._canonical_vba_source(expected) != probe._canonical_vba_source(changed_statement)
+
+
+def test_vbe_source_comparison_preserves_rem_comment_text():
+    expected = "Public Sub Probe()\\nREM Keep Case Exactly"
+    actual = "public sub probe()\\nrem Keep Case Exactly"
+    assert probe._canonical_vba_source(expected) == probe._canonical_vba_source(actual)
+    changed = actual.replace("Keep Case Exactly", "keep case exactly")
+    assert probe._canonical_vba_source(expected) != probe._canonical_vba_source(changed)
 
 
 def test_vbe_source_mismatch_reports_redacted_line_diagnostics():
