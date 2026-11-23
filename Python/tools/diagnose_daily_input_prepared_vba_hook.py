@@ -124,7 +124,7 @@ def _canonical_vba_source(value: str) -> str:
     # VBE may normalize line endings and discard trailing line whitespace.
     # Neither affects VBA semantics; preserve indentation and internal blanks.
     lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    lines = [line.rstrip(" \\t") for line in lines]
+    lines = [line.rstrip() for line in lines]
     while lines and not lines[0]:
         lines.pop(0)
     while lines and not lines[-1]:
