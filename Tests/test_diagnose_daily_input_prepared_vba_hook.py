@@ -88,8 +88,8 @@ def test_vbe_source_comparison_does_not_mask_operator_or_statement_changes():
 
 
 def test_vbe_source_comparison_preserves_rem_comment_text():
-    expected = "Public Sub Probe()\\nREM Keep Case Exactly"
-    actual = "public sub probe()\\nrem Keep Case Exactly"
+    expected = "Public Sub Probe()\nREM Keep Case Exactly"
+    actual = "public sub probe()\nrem Keep Case Exactly"
     assert probe._canonical_vba_source(expected) == probe._canonical_vba_source(actual)
     changed = actual.replace("Keep Case Exactly", "keep case exactly")
     assert probe._canonical_vba_source(expected) != probe._canonical_vba_source(changed)
