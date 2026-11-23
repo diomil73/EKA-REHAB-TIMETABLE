@@ -21,10 +21,11 @@ Public Sub ProbeDailyInputPreparedJournal( _
     ByVal rowPath As String, _
     ByVal handoffPath As String, _
     ByVal payloadPath As String, _
+    ByVal preflightScript As String, _
     ByVal readbackScript As String)
 
     If PersistPreparedDailyInputJournal( _
-        rowPath, handoffPath, payloadPath, readbackScript) Then
+        rowPath, handoffPath, payloadPath, preflightScript, readbackScript) Then
         MsgBox "Η εγγραφή PREPARED αποθηκεύτηκε και επαληθεύτηκε." & vbCrLf & _
                "Δεν εφαρμόστηκαν αλλαγές σε ασθενείς ή θεραπείες.", _
                vbInformation, "Τεχνικός έλεγχος journal"
@@ -42,6 +43,7 @@ Public Function PersistPreparedDailyInputJournal( _
     ByVal rowPath As String, _
     ByVal handoffPath As String, _
     ByVal payloadPath As String, _
+    ByVal preflightScript As String, _
     ByVal readbackScript As String) As Boolean
 
     Dim ws As Worksheet, rowText As String, fields As Variant
@@ -58,9 +60,20 @@ Public Function PersistPreparedDailyInputJournal( _
 
     If ThisWorkbook.ReadOnly Then Err.Raise vbObjectError + 2910, , "Workbook is read-only"
     If Len(Dir$(rowPath)) = 0 Or Len(Dir$(handoffPath)) = 0 Or _
-       Len(Dir$(payloadPath)) = 0 Or Len(Dir$(readbackScript)) = 0 Then
+       Len(Dir$(payloadPath)) = 0 Or Len(Dir$(preflightScript)) = 0 Or _
+       Len(Dir$(readbackScript)) = 0 Then
         Err.Raise vbObjectError + 2911, , "Prepared evidence is missing"
     End If
+
+    ' Reconfirm the exact saved source and complete prior journal prefix just
+    ' before VBA appends. A stale workbook or changed payload cannot proceed.
+    commandLine = QuoteJournalArg("python") & " " & QuoteJournalArg(preflightScript) & _
+                  " --input " & QuoteJournalArg(ThisWorkbook.FullName) & _
+                  " --payload " & QuoteJournalArg(payloadPath) & _
+                  " --verify-handoff " & QuoteJournalArg(handoffPath)
+    Set shell = CreateObject("WScript.Shell")
+    exitCode = shell.Run(commandLine, 0, True)
+    If exitCode <> 0 Then Err.Raise vbObjectError + 2911, , "Prepared source recheck failed"
 
     rowText = Replace(ReadJournalUtf8(rowPath), vbCr, "")
     If Right$(rowText, 1) = vbLf Then rowText = Left$(rowText, Len(rowText) - 1)
