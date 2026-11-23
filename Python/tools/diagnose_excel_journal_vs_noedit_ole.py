@@ -1,7 +1,8 @@
-"""Compare UserForm OLE streams after no-edit Excel save vs journal-sheet save.
+"""Compare no-edit vs journal Excel saves and optional fictional PREPARED handoff.
 
 Diagnostic only. Uses two separate fresh disposable XLSM copies, never the
-original Excel workbook. Neither result is approved for clinical use.
+original Excel workbook. Macros/events are disabled; no operational Apply/Restore
+or VBA journal hook is executed. Neither result is approved for clinical use.
 """
 from __future__ import annotations
 
