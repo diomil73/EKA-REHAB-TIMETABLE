@@ -61,7 +61,7 @@ Public Function PersistPreparedDailyInputJournal( _
     Dim ws As Worksheet, rowText As String, fields As Variant
     Dim lastRow As Long, targetRow As Long, candidateRow As Long
     Dim rowIndex As Long, columnIndex As Long
-    Dim previousEvents As Boolean, saveAttempted As Boolean
+    Dim previousEvents As Boolean
     Dim commandLine As String, exitCode As Long
     Dim shell As Object
 
@@ -107,7 +107,7 @@ Public Function PersistPreparedDailyInputJournal( _
 
     Set ws = FindJournalWorksheet()
     If ws Is Nothing Then Err.Raise vbObjectError + 2917, , "Existing journal unavailable"
-    If int(ws.Visible) <> XL_SHEET_VERY_HIDDEN Or Not CBool(ws.ProtectContents) Then
+    If CLng(ws.Visible) <> XL_SHEET_VERY_HIDDEN Or Not CBool(ws.ProtectContents) Then
         Err.Raise vbObjectError + 2918, , "Journal must be protected and veryHidden"
     End If
     For columnIndex = 1 To 5
@@ -161,7 +161,6 @@ Public Function PersistPreparedDailyInputJournal( _
         End If
     Next columnIndex
 
-    saveAttempted = True
     ThisWorkbook.Save
 
     commandLine = QuoteJournalArg("python") & " " & QuoteJournalArg(readbackScript) & _
