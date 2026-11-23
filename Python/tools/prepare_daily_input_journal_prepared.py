@@ -219,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
                     or any(type(value) not in (str, int) for value in row)):
                 raise PreparedJournalPreflightError("Prepared row cannot be serialized")
             fields = [str(value) for value in row]
-            if any(any(char in value for char in "\\t\\r\\n") for value in fields):
+            if any(any(char in value for char in ("\\t", "\\r", "\\n")) for value in fields):
                 raise PreparedJournalPreflightError("Prepared row contains a TSV delimiter")
             with row_output.open("x", encoding="utf-8", newline="") as handle:
                 created_paths.append(row_output)
