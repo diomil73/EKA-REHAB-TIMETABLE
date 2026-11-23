@@ -469,13 +469,11 @@ def test_preappend_source_recheck_rejects_changed_payload_and_journal_prefix(tmp
     )
     handoff_path = tmp_path / "handoff.json"
     handoff_path.write_text(json.dumps(handoff), encoding="utf-8")
-    payload.write_text("PATCH	CHANGED
-", encoding="utf-8")
+    payload.write_text("PATCH\tCHANGED\n", encoding="utf-8")
     with pytest.raises(bridge.PreparedJournalPreflightError, match="Payload changed"):
         bridge.verify_prepared_source(source, handoff_path, payload)
 
-    payload.write_text("PATCH	FICTIONAL
-", encoding="utf-8")
+    payload.write_text("PATCH\tFICTIONAL\n", encoding="utf-8")
     workbook = load_workbook(source)
     workbook[JOURNAL_SHEET].cell(2, 1).value = "different-valid-prefix"
     workbook.save(source)
