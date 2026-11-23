@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .double_booking_review_vba import install_double_booking_review
 from .global_replacement_action_vba import install_global_replacement_action
+from .daily_input_journal_vba import install_daily_input_journal
 from .therapist_workload_strip_vba import (
     MODULE_CODE as WORKLOAD_MODULE_CODE,
     MODULE_NAME as WORKLOAD_MODULE_NAME,
@@ -25,6 +26,15 @@ Public Sub ApplyDailyInputPreview()
     On Error GoTo ActionError
     previousEvents = Application.EnableEvents
     currentPhase = "preflight"
+
+    ' Do not run the legacy unjournaled Apply path. The PREPARED bridge is
+    ' currently diagnostic-only; full durable lifecycle/rollback is pending.
+    If Not DailyInputJournalApplyEnabled() Then
+        MsgBox "Η εφαρμογή παραμένει κλειδωμένη μέχρι να ολοκληρωθεί και να επαληθευτεί ολόκληρος ο μηχανισμός συναλλαγών." & vbCrLf & _
+               "Δεν έγιναν αλλαγές σε ασθενείς ή θεραπείες.", _
+               vbExclamation, "Ημερήσια κατάσταση"
+        Exit Sub
+    End If
 
     If ThisWorkbook.ReadOnly Then
         MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Ανοίξτε το κανονικά και δοκιμάστε ξανά.", vbExclamation, "Ημερήσια κατάσταση"
@@ -676,3 +686,5 @@ def install_daily_input_action(vbproject) -> None:
     workload_module = vbproject.VBComponents.Add(1)
     workload_module.Name = WORKLOAD_MODULE_NAME
     workload_module.CodeModule.AddFromString(WORKLOAD_MODULE_CODE)
+
+    install_daily_input_journal(vbproject)
