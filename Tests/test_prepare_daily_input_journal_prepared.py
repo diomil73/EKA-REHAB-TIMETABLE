@@ -443,3 +443,58 @@ def test_native_excel_readback_fails_closed_on_row_mismatch_and_still_closes(tmp
         )
     assert app.book.closed == [{"SaveChanges": False}]
     assert app.quit == 1
+
+
+def test_preappend_source_recheck_accepts_exact_handoff_and_rejects_source_change(tmp_path):
+    source, response, payload = fixture(tmp_path)
+    handoff = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fictional-preappend",
+    )
+    handoff_path = tmp_path / "handoff.json"
+    handoff_path.write_text(json.dumps(handoff), encoding="utf-8")
+    bridge.verify_prepared_source(source, handoff_path, payload)
+    workbook = load_workbook(source)
+    workbook["DAILY_INPUT"]["C2"] = "fictional edit after handoff"
+    workbook.save(source)
+    workbook.close()
+    with pytest.raises(bridge.PreparedJournalPreflightError, match="Workbook changed"):
+        bridge.verify_prepared_source(source, handoff_path, payload)
+
+
+def test_preappend_source_recheck_rejects_changed_payload_and_journal_prefix(tmp_path):
+    history = _terminal_history()
+    source, response, payload = fixture(tmp_path, history=history)
+    handoff = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fictional-preappend",
+    )
+    handoff_path = tmp_path / "handoff.json"
+    handoff_path.write_text(json.dumps(handoff), encoding="utf-8")
+    payload.write_text("PATCH	CHANGED
+", encoding="utf-8")
+    with pytest.raises(bridge.PreparedJournalPreflightError, match="Payload changed"):
+        bridge.verify_prepared_source(source, handoff_path, payload)
+
+    payload.write_text("PATCH	FICTIONAL
+", encoding="utf-8")
+    workbook = load_workbook(source)
+    workbook[JOURNAL_SHEET].cell(2, 1).value = "different-valid-prefix"
+    workbook.save(source)
+    workbook.close()
+    with pytest.raises(bridge.PreparedJournalPreflightError):
+        bridge.verify_prepared_source(source, handoff_path, payload)
+
+
+def test_preappend_source_recheck_cli_is_readonly_and_redacted(tmp_path, capsys):
+    source, response, payload = fixture(tmp_path)
+    handoff = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fictional-preappend",
+    )
+    handoff_path = tmp_path / "handoff.json"
+    handoff_path.write_text(json.dumps(handoff), encoding="utf-8")
+    before = source.read_bytes()
+    assert bridge.main([
+        "--input", str(source), "--payload", str(payload),
+        "--verify-handoff", str(handoff_path),
+    ]) == 0
+    assert "SOURCE STILL MATCHES: YES" in capsys.readouterr().out
+    assert source.read_bytes() == before
