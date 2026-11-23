@@ -10,6 +10,7 @@ from zipfile import ZipFile
 
 from .application_shell_vba import APP_SHELL_MODULE_NAME, install_application_shell
 from .daily_input_action_vba import DAILY_INPUT_MODULE_NAME, install_daily_input_action
+from .daily_input_journal_vba import JOURNAL_MODULE_NAME
 from .master_toolbar_vba import (
     MASTER_TOOLBAR_MODULE_NAME,
     MasterToolbarError,
@@ -306,6 +307,7 @@ class Win32ComRegistrationMenuInstaller:
             app_shell_present = self._component_present(vbproject, APP_SHELL_MODULE_NAME)
             master_toolbar_present = self._component_present(vbproject, MASTER_TOOLBAR_MODULE_NAME)
             daily_input_action_present = self._component_present(vbproject, DAILY_INPUT_MODULE_NAME)
+            daily_input_journal_present = self._component_present(vbproject, JOURNAL_MODULE_NAME)
             if not app_shell_present:
                 raise RegistrationMenuVbaError(
                     "Application shell module was not confirmed in the preview VBA project"
@@ -329,6 +331,10 @@ class Win32ComRegistrationMenuInstaller:
             if not daily_input_action_present:
                 raise RegistrationMenuVbaError(
                     "DAILY_INPUT action module was not confirmed in the preview VBA project"
+                )
+            if not daily_input_journal_present:
+                raise RegistrationMenuVbaError(
+                    "DAILY_INPUT journal bridge was not confirmed in the preview VBA project"
                 )
             return module_present, form_present
         except RegistrationMenuVbaError:
