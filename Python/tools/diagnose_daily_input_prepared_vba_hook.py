@@ -120,11 +120,16 @@ def _fictional_operations(service_date: str):
         yield operation
 
 
+def _canonical_vba_source(value: str) -> str:
+    return value.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
+
+
 def _module_source(workbook) -> str:
     component = workbook.VBProject.VBComponents(JOURNAL_MODULE_NAME)
     module = component.CodeModule
     count = int(module.CountOfLines)
-    return str(module.Lines(1, count)) if count else ""
+    source = str(module.Lines(1, count)) if count else ""
+    return _canonical_vba_source(source)
 
 
 def _provision_copy(path: Path, *, excel_factory, expected_forms: tuple[str, ...]) -> tuple:
@@ -158,7 +163,7 @@ def _provision_copy(path: Path, *, excel_factory, expected_forms: tuple[str, ...
                 raise PreparedVbaHookDiagnosticError("Fictional history append was not new")
         install_daily_input_journal(workbook.VBProject)
         workbook.Save()
-        if _module_source(workbook) != JOURNAL_MODULE_CODE:
+        if _module_source(workbook) != _canonical_vba_source(JOURNAL_MODULE_CODE):
             raise PreparedVbaHookDiagnosticError("VBA journal module source readback mismatch")
         rows = read_native_journal_rows(journal)
         if len(rows) != 6:
@@ -216,7 +221,7 @@ def _make_handoff(path: Path, folder: Path) -> tuple[dict[str, object], Path, Pa
     receipt_path = folder / "fictional-prepared-response.json"
     handoff_path = folder / "fictional-prepared-handoff.json"
     row_path = folder / "fictional-prepared-row.tsv"
-    payload.write_text("PATCH\\tFICTIONAL_ONLY\\n", encoding="utf-8")
+    payload.write_text("PATCH\tFICTIONAL_ONLY\n", encoding="utf-8")
     service_date = _service_date(path)
     receipt_path.write_text(json.dumps({
         "ok": True,
@@ -236,7 +241,7 @@ def _make_handoff(path: Path, folder: Path) -> tuple[dict[str, object], Path, Pa
     row = handoff["prepared_row"]
     if len(row) != 5:
         raise PreparedVbaHookDiagnosticError("Canonical prepared row shape invalid")
-    row_path.write_text("\\t".join(str(value) for value in row) + "\\n", encoding="utf-8")
+    row_path.write_text("\t".join(str(value) for value in row) + "\n", encoding="utf-8")
     return handoff, payload, handoff_path, row_path
 
 
