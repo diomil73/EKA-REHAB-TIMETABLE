@@ -150,12 +150,34 @@ def _module_source_mismatch(expected: str, actual: str) -> str:
         len(actual_lines[first_difference - 1])
         if first_difference and first_difference <= len(actual_lines) else 0
     )
+    character_differences = []
+    if first_difference and first_difference <= len(expected_lines) and first_difference <= len(actual_lines):
+        expected_line = expected_lines[first_difference - 1]
+        actual_line = actual_lines[first_difference - 1]
+        differing_positions = [
+            (position, ord(expected_char), ord(actual_char))
+            for position, (expected_char, actual_char) in enumerate(
+                zip(expected_line, actual_line), 1
+            )
+            if expected_char != actual_char
+        ]
+        character_differences = [
+            f"{position}:U+{expected_code:04X}>U+{actual_code:04X}"
+            for position, expected_code, actual_code in differing_positions[:16]
+        ]
+        differing_count = len(differing_positions) + abs(
+            len(expected_line) - len(actual_line)
+        )
+    else:
+        differing_count = 0
     expected_digest = sha256(_canonical_vba_source(expected).encode("utf-8")).hexdigest()
     actual_digest = sha256(_canonical_vba_source(actual).encode("utf-8")).hexdigest()
     return (
         f"expected_lines={len(expected_lines)}; actual_lines={len(actual_lines)}; "
         f"first_difference_line={first_difference or 'none'}; "
         f"expected_line_length={expected_length}; actual_line_length={actual_length}; "
+        f"differing_characters={differing_count}; "
+        f"character_diff_samples={','.join(character_differences) or 'none'}; "
         f"expected_sha256={expected_digest}; actual_sha256={actual_digest}"
     )
 
