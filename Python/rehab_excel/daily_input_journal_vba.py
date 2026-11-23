@@ -36,6 +36,18 @@ Public Sub ProbeDailyInputPreparedJournal( _
     End If
 End Sub
 
+' COM diagnostic entry point. It returns a Boolean and displays no modal dialog.
+Public Function RunPreparedDailyInputJournalProbe( _
+    ByVal rowPath As String, _
+    ByVal handoffPath As String, _
+    ByVal payloadPath As String, _
+    ByVal preflightScript As String, _
+    ByVal readbackScript As String) As Boolean
+
+    RunPreparedDailyInputJournalProbe = PersistPreparedDailyInputJournal( _
+        rowPath, handoffPath, payloadPath, preflightScript, readbackScript)
+End Function
+
 ' VBA is the only writer of the operational XLSM. Python supplies a canonical
 ' five-field row; it never edits the workbook. The independent verifier checks
 ' the saved bytes and opens a second native Excel instance read-only.
