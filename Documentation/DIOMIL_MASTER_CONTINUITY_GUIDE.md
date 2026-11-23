@@ -1799,3 +1799,24 @@ python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
 If exact module readback passes, the diagnostic advances to the fictional VBA-owned PREPARED append and independent native Excel read-only verification. If it stops at a different point, send the complete output and stop. Do not manually edit the workbook or run Apply/Restore.
 
 **Safety boundary:** The previous attempts did not execute the PREPARED append. This correction only aligns VBA identifier casing; Apply remains disabled until the complete transaction lifecycle and rollback/reopen verification are implemented and proven.
+
+## 4.144 VBA-owned PREPARED hook native Excel diagnostic GREEN (24/11/2026)
+
+**Operator result after §4.143:** After pulling the corrected branch and running the targeted regression file, the operator reported **9 passed in 2.66s**. The synthetic-only native Excel command then completed with exit code 0 and printed `DAILY_INPUT PREPARED VBA HOOK DIAGNOSTIC GREEN`.
+
+**Exact native diagnostic evidence supplied by the operator:**
+- UserForms compared: **10**; Designer structural readback: **10/10 matched**.
+- `forms_missing=0`, `forms_added=0`; no missing or added OLE streams.
+- `streams_changed=20`, `forms_with_changed_streams=10`, `form_f_changed=10`, `form_o_changed=10`, `other_streams_changed=0`.
+- The 20 changed UserForm streams are not a failure in this controlled comparison: **the source-relative OLE change footprint matched** between the no-edit control and VBA trial, and all 20 changed stream identities matched. The independent Designer structural comparison also matched all 10 forms.
+- Six fictional terminal journal revisions were saved/reopened; the VBA-owned PREPARED hook appended **one** fictional PREPARED row; all **seven** journal rows were independently read back.
+- `VBA hook executed: YES`; `Native Excel read-only verifier: GREEN`.
+- `Operational Apply/Restore executed: NO`; `Source untouched: YES`.
+- Both disposable copies and synthetic sidecars were removed. The diagnostic explicitly states this is diagnostic only, not Apply/Restore or clinical approval.
+
+**Comparator regression evidence:** The VBA-aware source canonicalizer was introduced to account for case-insensitive VBA identifiers rewritten by VBE while retaining strict comparisons for string literals, apostrophe/REM comment text, operators, and statement content. Its focused test file passed **9/9** on the operator's PC. A test-fixture issue around the `REM` keyword and a diagnostic mismatch test using identifiers was corrected before this successful run. The live Excel result now proves that the installed module's source readback, VBA PREPARED append, save, close/reopen, and independent read-only verification all passed on the supplied synthetic demo.
+
+**What this proves, and what it does not:** This closes the narrow native **VBA-owned PREPARED append** gate that had previously stopped at source readback. It proves one fictional PREPARED journal append through the named VBA diagnostic entry point in disposable copies, plus native Excel read-only verification and matched UserForm OLE change footprint. It does **not** prove the full operational transaction lifecycle, Apply/Restore, durable transitions beyond PREPARED, full-workbook rollback, applied archive verification, current real-data migration, or clinical/operator acceptance.
+
+**Safety boundary remains unchanged:** `DailyInputJournalApplyEnabled()` must remain **False**. Do not run Apply/Restore or use a real-patient workbook for this diagnostic. The next engineering work is to integrate and test the remaining legal durable transaction phases, fail-closed recovery, full-workbook rollback, and independent Save/Close/Reopen verification with synthetic fixtures and fault injection. Only after those separate gates are complete may the Apply lock be reconsidered.
+
