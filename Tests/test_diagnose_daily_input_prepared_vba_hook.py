@@ -29,6 +29,8 @@ def test_probe_tool_uses_macro_disabled_open_and_only_explicit_named_probe():
     source = Path(probe.__file__).read_text(encoding="utf-8")
     assert "app.AutomationSecurity = 3" in source
     assert "app.AutomationSecurity = 1" in source
+    assert "_assert_no_auto_open_macros(workbook)" in source
+    assert "Auto_Open" in source
     assert "RunPreparedDailyInputJournalProbe" in source
     assert "DailyInputJournalApplyEnabled" in source
     assert "Operational Apply/Restore executed: NO" in source
