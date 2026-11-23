@@ -15,7 +15,6 @@ module nor its tests perform any workbook writes.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
 from posixpath import dirname, join, normpath
 from xml.etree import ElementTree as ET
@@ -120,7 +119,7 @@ def _read_journal(path: Path) -> tuple:
         return tuple(rows)
     except FullRollbackAuditError:
         raise
-    except (DailyInputJournalError, Exception) as exc:
+    except Exception as exc:
         raise FullRollbackAuditError("Journal native package readback invalid") from exc
     finally:
         if workbook is not None:
@@ -180,7 +179,8 @@ def _audit_rollback_package(
 
     prefix = _read_journal(source)
     tail = _read_journal(restored)
-    if not prefix or len(tail) <= len(prefix) + 1 or tail[:len(prefix)] != prefix:
+    expected_extra = 1 if required_final_phase == Phase.FAILED else 2
+    if not prefix or len(tail) < len(prefix) + expected_extra or tail[:len(prefix)] != prefix:
         raise FullRollbackAuditError("Journal rollback prefix or revision chain invalid")
     if decode_operation_journal(prefix)[-1].phase != Phase.PREPARED:
         raise FullRollbackAuditError("Snapshot must end at durable PREPARED")
