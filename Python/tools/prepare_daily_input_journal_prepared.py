@@ -177,17 +177,107 @@ def prepare_prepared_handoff(
     }
 
 
+def verify_prepared_source(
+    source_path: str | Path,
+    handoff_path: str | Path,
+    payload_path: str | Path,
+) -> None:
+    """Reconfirm the exact pre-append workbook and journal prefix immediately before VBA writes."""
+    source = Path(source_path).resolve()
+    handoff_file = Path(handoff_path).resolve()
+    payload = Path(payload_path).resolve()
+    if (source.suffix.casefold() != ".xlsm" or not source.is_file()
+            or not handoff_file.is_file() or not payload.is_file()
+            or len({source, handoff_file, payload}) != 3):
+        raise PreparedJournalPreflightError("Prepared source evidence unavailable")
+    try:
+        handoff = json.loads(handoff_file.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
+        raise PreparedJournalPreflightError("Prepared handoff metadata invalid") from None
+    expected_fields = {
+        "status", "operation_id", "service_date", "source_sha256",
+        "payload_sha256", "existing_journal_rows", "journal_prefix_sha256",
+        "prepared_row",
+    }
+    if type(handoff) is not dict or set(handoff) != expected_fields:
+        raise PreparedJournalPreflightError("Prepared handoff schema invalid")
+    if handoff["status"] != "PREPARED_NOT_PERSISTED":
+        raise PreparedJournalPreflightError("Prepared handoff status invalid")
+    for key in ("source_sha256", "payload_sha256", "journal_prefix_sha256"):
+        value = handoff[key]
+        if (type(value) is not str or len(value) != 64
+                or any(ch not in "0123456789abcdef" for ch in value)):
+            raise PreparedJournalPreflightError("Prepared handoff digest invalid")
+    if type(handoff["existing_journal_rows"]) is not int or handoff["existing_journal_rows"] < 0:
+        raise PreparedJournalPreflightError("Prepared journal count invalid")
+    if file_sha256(source) != handoff["source_sha256"]:
+        raise PreparedJournalPreflightError("Workbook changed after PREPARED preflight")
+    if file_sha256(payload) != handoff["payload_sha256"]:
+        raise PreparedJournalPreflightError("Payload changed after PREPARED preflight")
+
+    book = None
+    try:
+        book = load_workbook(source, read_only=False, data_only=False, keep_vba=True)
+        if "DAILY_INPUT" not in book.sheetnames:
+            raise PreparedJournalPreflightError("Missing DAILY_INPUT")
+        if _source_date(book["DAILY_INPUT"]["B2"].value) != handoff["service_date"]:
+            raise PreparedJournalPreflightError("Prepared service date changed")
+        rows = _existing_journal_rows(book)
+    except PreparedJournalPreflightError:
+        raise
+    except Exception:
+        raise PreparedJournalPreflightError("Prepared source workbook readback failed") from None
+    finally:
+        if book is not None:
+            book.close()
+    if len(rows) != handoff["existing_journal_rows"]:
+        raise PreparedJournalPreflightError("Prepared journal prefix count changed")
+    if journal_prefix_sha256(rows) != handoff["journal_prefix_sha256"]:
+        raise PreparedJournalPreflightError("Prepared journal prefix changed")
+    try:
+        prepared = DailyInputOperation(
+            operation_id=handoff["operation_id"],
+            source_sha256=handoff["source_sha256"],
+            service_date=handoff["service_date"],
+        )
+        expected = append_operation_journal(rows, prepared)
+    except (ValueError, DailyInputJournalError):
+        raise PreparedJournalPreflightError("Prepared operation no longer appendable") from None
+    if (type(handoff["prepared_row"]) is not list
+            or tuple(handoff["prepared_row"]) != expected[-1]):
+        raise PreparedJournalPreflightError("Prepared row metadata mismatch")
+    if file_sha256(source) != handoff["source_sha256"] or file_sha256(payload) != handoff["payload_sha256"]:
+        raise PreparedJournalPreflightError("Prepared source evidence changed during verification")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only DAILY_INPUT PREPARED journal handoff.")
     parser.add_argument("--input", required=True, type=Path)
-    parser.add_argument("--preparation-response", required=True, type=Path)
+    parser.add_argument("--preparation-response", type=Path)
     parser.add_argument("--payload", required=True, type=Path)
-    parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument(
         "--row-output", type=Path,
         help="Optional five-field UTF-8 TSV for the native VBA journal writer.",
     )
+    parser.add_argument(
+        "--verify-handoff", type=Path,
+        help="Revalidate exact pre-append source SHA, payload SHA and journal prefix.",
+    )
     args = parser.parse_args(argv)
+    if args.verify_handoff is not None:
+        try:
+            if args.preparation_response is not None or args.output is not None or args.row_output is not None:
+                raise PreparedJournalPreflightError("Conflicting PREPARED verification arguments")
+            verify_prepared_source(args.input, args.verify_handoff, args.payload)
+        except Exception:
+            print("SAFETY STOP: DAILY_INPUT PREPARED SOURCE RECHECK FAILED")
+            return 2
+        print("DAILY_INPUT PREPARED SOURCE STILL MATCHES: YES")
+        return 0
+    if args.preparation_response is None or args.output is None:
+        print("SAFETY STOP: DAILY_INPUT PREPARED PREFLIGHT ARGUMENTS INCOMPLETE")
+        return 2
     created_paths: list[Path] = []
     output = args.output.resolve()
     row_output = args.row_output.resolve() if args.row_output else None
