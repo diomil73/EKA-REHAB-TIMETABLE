@@ -98,6 +98,10 @@ class DailyInputOperation:
             DailyInputOperationPhase.REPLACEMENTS_RESOLVED,
             DailyInputOperationPhase.APPLIED_ARCHIVE_VERIFIED,
             DailyInputOperationPhase.COMPLETE,
+            # Failure does not erase an already recorded operator decision.
+            # Its evidence must survive the FAILED -> ROLLED_BACK chain.
+            DailyInputOperationPhase.FAILED,
+            DailyInputOperationPhase.ROLLED_BACK,
         }:
             raise DailyInputOperationError("operator resolution is recorded before replacement resolution")
 
