@@ -11,7 +11,7 @@ from datetime import date, datetime
 from hashlib import sha256
 import json
 from pathlib import Path
-import shutil
+import re
 import sys
 from tempfile import TemporaryDirectory
 
@@ -124,6 +124,24 @@ def _canonical_vba_source(value: str) -> str:
     return value.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
 
 
+def _assert_no_auto_open_macros(workbook) -> None:
+    components = workbook.VBProject.VBComponents
+    for index in range(1, int(components.Count) + 1):
+        component = components(index)
+        module = component.CodeModule
+        count = int(module.CountOfLines)
+        if count <= 0:
+            continue
+        source = str(module.Lines(1, count))
+        if re.search(
+            r"(?im)^\\s*(?:(?:Public|Private|Friend)\\s+)?Sub\\s+Auto_Open\\s*(?:\\(|$)",
+            source,
+        ):
+            raise PreparedVbaHookDiagnosticError(
+                "Refusing to enable macros while an Auto_Open procedure exists"
+            )
+
+
 def _module_source(workbook) -> str:
     component = workbook.VBProject.VBComponents(JOURNAL_MODULE_NAME)
     module = component.CodeModule
@@ -144,6 +162,7 @@ def _provision_copy(path: Path, *, excel_factory, expected_forms: tuple[str, ...
         )
         if bool(workbook.ReadOnly) or bool(workbook.VBASigned):
             raise PreparedVbaHookDiagnosticError("Disposable XLSM is not writable or is signed")
+        _assert_no_auto_open_macros(workbook)
         components = audit_vba_components(workbook)
         forms = tuple(item.name for item in components if item.component_type == FORM_TYPE)
         if tuple(sorted(x.casefold() for x in forms)) != tuple(
@@ -259,14 +278,15 @@ def _run_vba_hook(
     try:
         app = excel_factory()
         _configure_excel(app)
+        # Auto_Open was excluded in the macro-disabled provisioning pass.
+        # Workbook events remain disabled; only the named probe is run.
+        app.AutomationSecurity = 1
         workbook = app.Workbooks.Open(
             str(path), UpdateLinks=0, ReadOnly=False,
             AddToMru=False, IgnoreReadOnlyRecommended=True,
         )
         if bool(workbook.ReadOnly):
             raise PreparedVbaHookDiagnosticError("VBA hook copy unexpectedly read-only")
-        # Opening was macro-disabled. Enable only the explicit, named probe call.
-        app.AutomationSecurity = 1
         preflight_script = REPO_ROOT / "Python" / "tools" / "prepare_daily_input_journal_prepared.py"
         readback_script = REPO_ROOT / "Python" / "tools" / "verify_daily_input_journal_prepared.py"
         macro = f"'{workbook.Name}'!RunPreparedDailyInputJournalProbe"
