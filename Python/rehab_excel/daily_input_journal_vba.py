@@ -3,6 +3,75 @@ from __future__ import annotations
 
 JOURNAL_MODULE_NAME = "modDailyInputJournal"
 
+
+def canonicalize_vba_source(value: str) -> str:
+    """Normalize VBE identifier casing without masking source-text changes.
+
+    VBA identifiers are case-insensitive and the VBE may rewrite their casing
+    on save. String literals and comments remain case-sensitive.
+    """
+    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    normalized: list[str] = []
+
+    for line in lines:
+        output: list[str] = []
+        index = 0
+        statement_start = True
+
+        while index < len(line):
+            character = line[index]
+
+            if character == "'":
+                output.append(line[index:])
+                break
+
+            if character == '"':
+                end = index + 1
+                while end < len(line):
+                    if line[end] == '"':
+                        if end + 1 < len(line) and line[end + 1] == '"':
+                            end += 2
+                            continue
+                        end += 1
+                        break
+                    end += 1
+                output.append(line[index:end])
+                index = end
+                statement_start = False
+                continue
+
+            if character.isalpha() or character == "_":
+                end = index + 1
+                while end < len(line) and (line[end].isalnum() or line[end] == "_"):
+                    end += 1
+                token = line[index:end]
+
+                if statement_start and token.casefold() == "rem" and (
+                    end == len(line) or line[end].isspace()
+                ):
+                    output.append(line[index:])
+                    break
+
+                output.append(token.casefold())
+                index = end
+                statement_start = False
+                continue
+
+            output.append(character)
+            index += 1
+            if character == ":":
+                statement_start = True
+            elif not character.isspace():
+                statement_start = False
+
+        normalized.append("".join(output).rstrip())
+
+    while normalized and not normalized[0]:
+        normalized.pop(0)
+    while normalized and not normalized[-1]:
+        normalized.pop()
+    return "\n".join(normalized)
+
 JOURNAL_MODULE_CODE = r'''Option Explicit
 
 Private Const JOURNAL_SHEET As String = "DAILY_INPUT_JOURNAL"
