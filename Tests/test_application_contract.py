@@ -18,14 +18,14 @@ def test_application_contract_covers_existing_app_ui_stack():
     expected = {
         "modApplicationShell", "modMasterToolbar", "modRegistrationMenu", "frmRegistrationMenu",
         "frmNewPatient", "frmNewTherapist", "frmNewStudent", "modPatientRegistrationBridge",
-        "frmEditPatient", "modDailyInputAction", "modGlobalReplacementAction",
+        "frmEditPatient", "modDailyInputAction", "modDailyInputJournal", "modGlobalReplacementAction",
         "modReplacementOperator", "frmReplacementDecision", "modTherapistWorkloadStrip",
         "modDailyChangeLedger", "modOutpatientSchedule", "frmOutpatientSchedule", "modOutpatientInSession",
         "modSchedulingConflict", "frmSchedulingConflict", "modOutpatientScheduleEdit",
         "modOutpatientScheduleManager", "frmOutpatientScheduleManager", "modCloseDayAction",
     }
     assert expected <= required
-    assert len(REQUIRED_APP_COMPONENTS) == 24
+    assert len(REQUIRED_APP_COMPONENTS) == 25
 
 
 def test_application_contract_requires_outpatient_authoritative_source():
