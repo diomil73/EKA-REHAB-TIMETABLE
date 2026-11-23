@@ -134,7 +134,7 @@ def _assert_no_auto_open_macros(workbook) -> None:
             continue
         source = str(module.Lines(1, count))
         if re.search(
-            r"(?im)^\\s*(?:(?:Public|Private|Friend)\\s+)?Sub\\s+Auto_Open\\s*(?:\\(|$)",
+            r"(?im)^\s*(?:(?:Public|Private|Friend)\s+)?Sub\s+Auto_Open\s*(?:\(|$)",
             source,
         ):
             raise PreparedVbaHookDiagnosticError(
