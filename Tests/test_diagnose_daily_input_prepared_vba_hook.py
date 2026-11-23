@@ -63,5 +63,7 @@ def test_vbe_source_mismatch_reports_redacted_line_diagnostics():
     assert "first_difference_line=2" in detail
     assert "expected_line_length=14" in detail
     assert "actual_line_length=14" in detail
+    assert "differing_characters=1" in detail
+    assert "character_diff_samples=12:U+0041>U+0042" in detail
     assert "sha256=" in detail
     assert "Public Sub A" not in detail
