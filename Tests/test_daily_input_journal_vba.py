@@ -46,7 +46,7 @@ def test_probe_only_persists_prepared_and_never_calls_operational_apply():
     )[0]
     assert "PersistPreparedDailyInputJournal" in probe
     assert "ApplyValidatedDailyInputPayload" not in probe
-    assert "Δεν εφαρμόστηκαν αλλαγές" in probe
+    assert "No patient or treatment changes were applied." in probe
     assert "RunPreparedDailyInputJournalProbe" in source
 
 
