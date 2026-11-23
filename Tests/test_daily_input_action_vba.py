@@ -114,6 +114,7 @@ def test_daily_input_installer_adds_guided_replacement_and_workload_modules():
     assert "install_double_booking_review(vbproject)" in source
     assert "WORKLOAD_MODULE_NAME" in source
     assert "WORKLOAD_MODULE_CODE" in source
+    assert "install_daily_input_journal(vbproject)" in source
 
 
 def test_daily_input_patch_application_preserves_presentation_contract():
@@ -222,3 +223,16 @@ def test_daily_apply_outer_transaction_keeps_backup_until_refresh_and_replacemen
     assert "Μην συνεχίσετε καταχωρίσεις" in action
     assert "Public Sub ApplyDailyInputPreview()" in source
     assert "Public Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As Boolean" in source
+
+
+def test_apply_is_fail_closed_until_full_journal_lifecycle_is_enabled():
+    source = DAILY_INPUT_MODULE_CODE
+    action = source.split("Public Sub ApplyDailyInputPreview()", 1)[1].split(
+        "Public Function ApplyValidatedDailyInputPayload", 1
+    )[0]
+    guard = action.split("If Not DailyInputJournalApplyEnabled() Then", 1)[1].split(
+        "End If", 1
+    )[0]
+    assert "Exit Sub" in guard
+    assert "Δεν έγιναν αλλαγές" in guard
+    assert action.index("DailyInputJournalApplyEnabled()") < action.index("ThisWorkbook.Save")
