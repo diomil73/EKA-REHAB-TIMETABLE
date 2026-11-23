@@ -1782,3 +1782,20 @@ python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
 If source readback succeeds, the diagnostic proceeds to the VBA-owned fictional PREPARED append and independent native Excel read-only verification. If it stops elsewhere, preserve the complete output and stop; do not manually edit the workbook or run Apply/Restore.
 
 **Safety:** The PREPARED append has not yet been attempted in the operator's Excel environment. Apply remains disabled. This code change only aligns case-insensitive VBA spelling; it does not establish operational readiness.
+
+
+## 4.143 VBE canonical Workbook member spelling aligned as fullName in both calls (24/11/2026)
+
+**Operator result after §4.142:** The next native Excel readback still stopped at line 78, but the one differing character moved from the first position in the member name to the N: expected U+006E (lowercase n), actual U+004E (uppercase N), with equal 234-line counts and equal 74-character line lengths. Combined with the previous readback (expected FullName, actual fullName), this identifies the VBE's canonical spelling in this generated module as ThisWorkbook.fullName (lowercase f, uppercase N).
+
+**Source correction:** Both --input command constructions in JOURNAL_MODULE_CODE (pre-append preflight and post-save readback) now use exactly ThisWorkbook.fullName. This is the same case-insensitive VBA Workbook.FullName property; no runtime behavior changes. Unlike weakening the source comparison, the generated source is now authored in the spelling actually returned by VBE. The regression test test_vba_source_uses_observed_vbe_canonical_case_for_fullname_references asserts that both references use the exact same fullName spelling.
+
+**Regression proof:** Exact code/test branch head d72a7466a6f2e597d1022cdb4d67a52216a85351 passed all 4 GitHub Actions jobs in https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45276882029: full regression Windows and Ubuntu, 2,491 passed on each; synthetic safety Windows and Ubuntu, 233 passed on each. CI does not execute native Excel VBA CodeModule readback.
+
+**Next operator step:** pull the latest branch and repeat the same synthetic-only diagnostic:
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+python Python/tools/diagnose_daily_input_prepared_vba_hook.py --source $demo
+"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"
+If exact module readback passes, the diagnostic advances to the fictional VBA-owned PREPARED append and independent native Excel read-only verification. If it stops at a different point, send the complete output and stop. Do not manually edit the workbook or run Apply/Restore.
+
+**Safety boundary:** The previous attempts did not execute the PREPARED append. This correction only aligns VBA identifier casing; Apply remains disabled until the complete transaction lifecycle and rollback/reopen verification are implemented and proven.
