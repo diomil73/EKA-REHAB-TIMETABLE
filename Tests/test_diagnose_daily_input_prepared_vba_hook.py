@@ -44,17 +44,21 @@ def test_vba_module_source_is_ascii_for_native_vbe_roundtrip():
     assert JOURNAL_MODULE_CODE.isascii()
 
 
+
 def test_vbe_source_comparison_normalizes_only_line_endings_and_trailing_whitespace():
-    expected = "Option Explicit\r\n\r\nPublic Sub Probe()  \r\nEnd Sub\r\n"
-    actual = "Option Explicit\n\nPublic Sub Probe()\nEnd Sub\n\n"
+    crlf = chr(13) + chr(10)
+    lf = chr(10)
+    expected = crlf.join(["Option Explicit", "", "Public Sub Probe()  ", "End Sub"]) + crlf
+    actual = lf.join(["Option Explicit", "", "Public Sub Probe()", "End Sub", "", ""])
     assert probe._canonical_vba_source(expected) == probe._canonical_vba_source(actual)
     assert "first_difference_line=none" in probe._module_source_mismatch(expected, actual)
 
 
 def test_vbe_source_mismatch_reports_redacted_line_diagnostics():
+    lf = chr(10)
     detail = probe._module_source_mismatch(
-        "Option Explicit\nPublic Sub A()\nEnd Sub",
-        "Option Explicit\nPublic Sub B()\nEnd Sub",
+        lf.join(["Option Explicit", "Public Sub A()", "End Sub"]),
+        lf.join(["Option Explicit", "Public Sub B()", "End Sub"]),
     )
     assert "first_difference_line=2" in detail
     assert "expected_line_length=14" in detail
