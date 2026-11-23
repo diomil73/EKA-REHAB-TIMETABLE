@@ -80,7 +80,7 @@ Public Function PersistPreparedDailyInputJournal( _
     ' Reconfirm the exact saved source and complete prior journal prefix just
     ' before VBA appends. A stale workbook or changed payload cannot proceed.
     commandLine = QuoteJournalArg("python") & " " & QuoteJournalArg(preflightScript) & _
-                  " --input " & QuoteJournalArg(ThisWorkbook.FullName) & _
+                  " --input " & QuoteJournalArg(ThisWorkbook.fullname) & _
                   " --payload " & QuoteJournalArg(payloadPath) & _
                   " --verify-handoff " & QuoteJournalArg(handoffPath)
     Set shell = CreateObject("WScript.Shell")
