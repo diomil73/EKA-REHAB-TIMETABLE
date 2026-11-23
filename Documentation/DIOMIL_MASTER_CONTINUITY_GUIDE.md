@@ -1820,3 +1820,32 @@ If exact module readback passes, the diagnostic advances to the fictional VBA-ow
 
 **Safety boundary remains unchanged:** `DailyInputJournalApplyEnabled()` must remain **False**. Do not run Apply/Restore or use a real-patient workbook for this diagnostic. The next engineering work is to integrate and test the remaining legal durable transaction phases, fail-closed recovery, full-workbook rollback, and independent Save/Close/Reopen verification with synthetic fixtures and fault injection. Only after those separate gates are complete may the Apply lock be reconsidered.
 
+## 4.145 Post-PREPARED transaction integration audit; Apply remains blocked (24/11/2026)
+
+**Audit performed after §4.144:** Reviewed the current authoritative-branch implementations of:
+- `Python/rehab_excel/daily_input_operation.py`
+- `Python/rehab_excel/daily_input_journal.py`
+- `Python/rehab_excel/daily_input_journal_vba.py`
+- `Python/rehab_excel/daily_input_action_vba.py`
+- `Python/tools/prepare_daily_input_journal_prepared.py`
+- `Python/tools/verify_daily_input_journal_prepared.py`
+- Existing tests for the operation model, journal codec, VBA installer, PREPARED preflight/readback, and Apply lock.
+
+**What already exists and should be reused:**
+1. The pure operation model already defines the legal phases and allowed transitions: PREPARED → INPUT_AND_LEDGER_COMMITTED → PROJECTIONS_VERIFIED → optional PENDING_OPERATOR_DECISION → REPLACEMENTS_RESOLVED → APPLIED_ARCHIVE_VERIFIED → COMPLETE, with FAILED → verified ROLLED_BACK. It enforces sequential revisions, operation identity, terminal-state rules, operator-resolution values and rollback_verified invariants.
+2. The Python journal codec already serializes canonical checksummed five-column rows, validates the complete append-only history, rejects gaps/reordering/reused IDs/illegal transitions, and requires terminal completion before another operation begins.
+3. The PREPARED handoff and independent readback tools already establish a useful pattern: bind the exact workbook SHA, service date, full journal-prefix digest and proposed canonical row; recheck immediately before append; after Save, independently inspect the saved bytes and optionally reopen in fresh native Excel read-only with macros/events disabled.
+4. The native VBA writer has now passed its live synthetic PREPARED append diagnostic (§4.144).
+
+**Critical remaining gap confirmed in source:** `modDailyInputJournal` currently exposes a working `PersistPreparedDailyInputJournal` writer only. It does not yet expose a generic durable transition writer for later phases. The current `ApplyDailyInputPreview` implementation still contains the legacy payload mutation, cell/ledger backup, refresh and replacement flow behind the explicit `DailyInputJournalApplyEnabled() = False` gate. Its existing copy-back rollback is expressly marked unverified; the outer transaction backup is retained on incomplete work, but no independent full-workbook rollback/reopen proof is connected. Therefore the current Apply body must remain unreachable.
+
+**Next engineering sequence (do not skip evidence gates):**
+1. Define phase-specific, machine-verifiable evidence contracts for each transition. A caller-supplied target phase or Boolean must never be enough to claim INPUT_AND_LEDGER_COMMITTED, PROJECTIONS_VERIFIED, REPLACEMENTS_RESOLVED, APPLIED_ARCHIVE_VERIFIED, COMPLETE or ROLLED_BACK.
+2. Implement a generic append-only VBA journal transition writer that accepts only a canonical, source-bound next-row handoff; it must recheck exact current workbook SHA and complete journal-prefix digest immediately before append, append one row only, protect/veryHide, Save, and require independent Save/Close/Reopen readback. Preserve the PREPARED path as a tested specialization or route it through the same rigorously tested primitive without regressing its native diagnostic.
+3. Integrate phase writes around the actual Apply work only after each phase's independent evidence is produced and checked. Pending operator decisions must block progress until an explicit recorded resolution.
+4. Design full-workbook rollback around a durable snapshot captured at the correct boundary, with an independently verifiable restore receipt. Do not equate patch copy-back, a successful Save, or a Boolean flag with verified rollback. ROLLED_BACK is legal only after the restored business state is compared against the snapshot across all relevant workbook structures and reopened independently; preserve the journal's failure/rollback evidence.
+5. Add fault injection at every durable boundary, including failures before and after Save, during close/reopen, during projection/archive verification, and during rollback. Verify recovery behavior and evidence retention for each interruption.
+6. Only after the above pass synthetic tests and native Windows Excel/COM tests may the Apply gate be reconsidered. Do not enable it as part of the transition-writer implementation.
+
+**Current operator action:** none. No additional Excel command is requested for this audit checkpoint. The PREPARED native proof is complete; next work is engineering-only on the authoritative branch. Continue to use synthetic workbooks and keep `DailyInputJournalApplyEnabled() = False`.
+
