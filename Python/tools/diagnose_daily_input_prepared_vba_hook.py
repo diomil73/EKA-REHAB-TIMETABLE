@@ -34,6 +34,7 @@ from rehab_excel.daily_input_operation import (
     advance_daily_input_operation,
 )
 from rehab_excel.daily_input_journal_vba import (
+    canonicalize_vba_source,
     JOURNAL_MODULE_CODE,
     JOURNAL_MODULE_NAME,
     install_daily_input_journal,
@@ -121,15 +122,7 @@ def _fictional_operations(service_date: str):
 
 
 def _canonical_vba_source(value: str) -> str:
-    # VBE may normalize line endings and discard trailing line whitespace.
-    # Neither affects VBA semantics; preserve indentation and internal blanks.
-    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    lines = [line.rstrip() for line in lines]
-    while lines and not lines[0]:
-        lines.pop(0)
-    while lines and not lines[-1]:
-        lines.pop()
-    return "\n".join(lines)
+    return canonicalize_vba_source(value)
 
 
 def _module_source_mismatch(expected: str, actual: str) -> str:
@@ -410,7 +403,7 @@ def _readonly_verify(
             workbook, expected_form_names=expected_forms,
         )
         assert_userform_designers_preserved(baseline_designers, saved_designers)
-        if _module_source(workbook) != JOURNAL_MODULE_CODE:
+        if _module_source(workbook) != canonicalize_vba_source(JOURNAL_MODULE_CODE):
             raise PreparedVbaHookDiagnosticError("Journal VBA source changed after reopen")
         journal = workbook.Worksheets(JOURNAL_SHEET)
         if int(journal.Visible) != 2 or not bool(journal.ProtectContents):
