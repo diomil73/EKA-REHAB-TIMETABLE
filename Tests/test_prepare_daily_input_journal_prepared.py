@@ -297,3 +297,39 @@ def test_prepared_readback_rejects_payload_changed_after_handoff(tmp_path):
     payload.write_text("PATCH\tPRIVATE CHANGED AFTER PREPARATION\n", encoding="utf-8")
     with pytest.raises(readback.PreparedJournalReadbackError, match="payload changed"):
         readback.verify_prepared_reopen(source, proposed, payload)
+
+
+def test_cli_emits_exact_five_field_row_for_native_vba_writer(tmp_path, capsys):
+    source, response, payload = fixture(tmp_path)
+    before = source.read_bytes()
+    handoff_path = tmp_path / "prepared.json"
+    row_path = tmp_path / "prepared-row.tsv"
+    args = [
+        "--input", str(source), "--preparation-response", str(response),
+        "--payload", str(payload), "--output", str(handoff_path),
+        "--row-output", str(row_path),
+    ]
+    assert bridge.main(args) == 0
+    assert "Native VBA row file created: YES" in capsys.readouterr().out
+    handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
+    fields = row_path.read_text(encoding="utf-8").rstrip("\n").split("\t")
+    assert len(fields) == 5
+    assert fields == [str(value) for value in handoff["prepared_row"]]
+    assert source.read_bytes() == before
+
+
+def test_cli_refuses_existing_row_output_without_replacing_any_evidence(tmp_path, capsys):
+    source, response, payload = fixture(tmp_path)
+    handoff_path = tmp_path / "prepared.json"
+    row_path = tmp_path / "prepared-row.tsv"
+    row_path.write_text("KEEP EXISTING", encoding="utf-8")
+    before = row_path.read_bytes()
+    args = [
+        "--input", str(source), "--preparation-response", str(response),
+        "--payload", str(payload), "--output", str(handoff_path),
+        "--row-output", str(row_path),
+    ]
+    assert bridge.main(args) == 2
+    assert "SAFETY STOP" in capsys.readouterr().out
+    assert not handoff_path.exists()
+    assert row_path.read_bytes() == before
