@@ -121,7 +121,43 @@ def _fictional_operations(service_date: str):
 
 
 def _canonical_vba_source(value: str) -> str:
-    return value.replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
+    # VBE may normalize line endings and discard trailing line whitespace.
+    # Neither affects VBA semantics; preserve indentation and internal blanks.
+    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    lines = [line.rstrip(" \\t") for line in lines]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines)
+
+
+def _module_source_mismatch(expected: str, actual: str) -> str:
+    expected_lines = _canonical_vba_source(expected).split("\n")
+    actual_lines = _canonical_vba_source(actual).split("\n")
+    first_difference = next(
+        (index for index, pair in enumerate(zip(expected_lines, actual_lines), 1)
+         if pair[0] != pair[1]),
+        None,
+    )
+    if first_difference is None and len(expected_lines) != len(actual_lines):
+        first_difference = min(len(expected_lines), len(actual_lines)) + 1
+    expected_length = (
+        len(expected_lines[first_difference - 1])
+        if first_difference and first_difference <= len(expected_lines) else 0
+    )
+    actual_length = (
+        len(actual_lines[first_difference - 1])
+        if first_difference and first_difference <= len(actual_lines) else 0
+    )
+    expected_digest = sha256(_canonical_vba_source(expected).encode("utf-8")).hexdigest()
+    actual_digest = sha256(_canonical_vba_source(actual).encode("utf-8")).hexdigest()
+    return (
+        f"expected_lines={len(expected_lines)}; actual_lines={len(actual_lines)}; "
+        f"first_difference_line={first_difference or 'none'}; "
+        f"expected_line_length={expected_length}; actual_line_length={actual_length}; "
+        f"expected_sha256={expected_digest}; actual_sha256={actual_digest}"
+    )
 
 
 def _assert_no_auto_open_macros(workbook) -> None:
@@ -182,8 +218,13 @@ def _provision_copy(path: Path, *, excel_factory, expected_forms: tuple[str, ...
                 raise PreparedVbaHookDiagnosticError("Fictional history append was not new")
         install_daily_input_journal(workbook.VBProject)
         workbook.Save()
-        if _module_source(workbook) != _canonical_vba_source(JOURNAL_MODULE_CODE):
-            raise PreparedVbaHookDiagnosticError("VBA journal module source readback mismatch")
+        actual_module_source = _module_source(workbook)
+        expected_module_source = _canonical_vba_source(JOURNAL_MODULE_CODE)
+        if actual_module_source != expected_module_source:
+            detail = _module_source_mismatch(expected_module_source, actual_module_source)
+            raise PreparedVbaHookDiagnosticError(
+                "VBA journal module source readback mismatch; " + detail
+            )
         rows = read_native_journal_rows(journal)
         if len(rows) != 6:
             raise PreparedVbaHookDiagnosticError("Six fictional terminal history rows not staged")
