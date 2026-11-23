@@ -333,3 +333,113 @@ def test_cli_refuses_existing_row_output_without_replacing_any_evidence(tmp_path
     assert "SAFETY STOP" in capsys.readouterr().out
     assert not handoff_path.exists()
     assert row_path.read_bytes() == before
+
+
+def test_native_excel_readback_uses_fresh_macro_disabled_readonly_instance(
+    tmp_path, monkeypatch,
+):
+    source, response, payload = fixture(tmp_path)
+    handoff = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fictional-native",
+    )
+    _append_proposal_to_synthetic_book(source, handoff)
+    expected = tuple((value[0], int(value[1]), *value[2:])
+                     for value in (tuple(handoff["prepared_row"]),))
+    calls = {}
+
+    class FakeWorksheet:
+        Visible = 2
+        ProtectContents = True
+
+    class FakeWorkbook:
+        ReadOnly = True
+
+        def __init__(self):
+            self.closed = []
+
+        def Worksheets(self, name):
+            assert name == JOURNAL_SHEET
+            return FakeWorksheet()
+
+        def Close(self, **kwargs):
+            self.closed.append(kwargs)
+
+    class FakeWorkbooks:
+        def __init__(self, workbook):
+            self.workbook = workbook
+            self.args = None
+
+        def Open(self, *args, **kwargs):
+            self.args = (args, kwargs)
+            return self.workbook
+
+    class FakeExcel:
+        def __init__(self):
+            self.book = FakeWorkbook()
+            self.Workbooks = FakeWorkbooks(self.book)
+            self.quit = 0
+            calls["app"] = self
+
+        def Quit(self):
+            self.quit += 1
+
+    app = FakeExcel()
+    monkeypatch.setattr(readback, "read_native_journal_rows", lambda ws: expected)
+    readback.verify_prepared_reopen(
+        source, handoff, payload, native_excel=True, excel_factory=lambda: app,
+    )
+    assert app.AutomationSecurity == 3
+    assert app.EnableEvents is False
+    assert app.DisplayAlerts is False
+    assert app.Workbooks.args[1]["ReadOnly"] is True
+    assert app.book.closed == [{"SaveChanges": False}]
+    assert app.quit == 1
+
+
+def test_native_excel_readback_fails_closed_on_row_mismatch_and_still_closes(tmp_path, monkeypatch):
+    source, response, payload = fixture(tmp_path)
+    handoff = bridge.prepare_prepared_handoff(
+        source, response, payload, operation_id="fictional-native",
+    )
+    _append_proposal_to_synthetic_book(source, handoff)
+
+    class FakeWorksheet:
+        Visible = 2
+        ProtectContents = True
+
+    class FakeWorkbook:
+        ReadOnly = True
+
+        def __init__(self):
+            self.closed = []
+
+        def Worksheets(self, name):
+            return FakeWorksheet()
+
+        def Close(self, **kwargs):
+            self.closed.append(kwargs)
+
+    class FakeWorkbooks:
+        def __init__(self, workbook):
+            self.book = workbook
+
+        def Open(self, *args, **kwargs):
+            return self.book
+
+    class FakeExcel:
+        def __init__(self):
+            self.book = FakeWorkbook()
+            self.Workbooks = FakeWorkbooks(self.book)
+            self.quit = 0
+
+        def Quit(self):
+            self.quit += 1
+
+    app = FakeExcel()
+    monkeypatch.setattr(readback, "read_native_journal_rows", lambda ws: ())
+    with pytest.raises(readback.PreparedJournalReadbackError, match="rows differ"):
+        readback.verify_native_excel_readonly(
+            source, (tuple(handoff["prepared_row"]),), excel_factory=lambda: app,
+        )
+    assert app.book.closed == [{"SaveChanges": False}]
+    assert app.quit == 1
