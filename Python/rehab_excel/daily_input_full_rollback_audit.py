@@ -127,14 +127,15 @@ def _read_journal(path: Path) -> tuple:
             workbook.close()
 
 
-def audit_full_workbook_rollback(
+def _audit_rollback_package(
     prepared_snapshot: str | Path,
     restored_workbook: str | Path,
     *,
     expected_snapshot_sha256: str,
-    require_vba: bool = True,
+    require_vba: bool,
+    required_final_phase: Phase,
 ) -> FullRollbackAudit:
-    """Verify a strict rollback without writing, approving, or restoring anything.
+    """Compare all nonjournal package bytes and legal append-only rollback history.
 
     The snapshot must be a complete saved XLSM taken after the durable PREPARED
     revision and before all operational mutation. The restored file may differ
@@ -184,10 +185,13 @@ def audit_full_workbook_rollback(
     if decode_operation_journal(prefix)[-1].phase != Phase.PREPARED:
         raise FullRollbackAuditError("Snapshot must end at durable PREPARED")
     appended = decode_operation_journal(tail)[len(prefix):]
-    if (appended[-1].phase != Phase.ROLLED_BACK
-            or not appended[-1].rollback_verified
-            or not any(entry.phase == Phase.FAILED for entry in appended)):
-        raise FullRollbackAuditError("Terminal verified rollback record missing")
+    if (
+        appended[-1].phase != required_final_phase
+        or (required_final_phase == Phase.ROLLED_BACK
+            and not appended[-1].rollback_verified)
+        or not any(entry.phase == Phase.FAILED for entry in appended)
+    ):
+        raise FullRollbackAuditError("Required verified rollback phase record missing")
     if appended[-1].operation_id != decode_operation_journal(prefix)[-1].operation_id:
         raise FullRollbackAuditError("Rollback operation identity changed")
     if file_sha256(source) != before_sha or file_sha256(restored) != after_sha:
@@ -198,4 +202,44 @@ def audit_full_workbook_rollback(
         checked_nonjournal_parts=checked,
         original_journal_revisions=len(prefix),
         restored_journal_revisions=len(tail),
+    )
+
+def audit_restored_business_state_before_rollback(
+    prepared_snapshot: str | Path,
+    restored_workbook: str | Path,
+    *,
+    expected_snapshot_sha256: str,
+    require_vba: bool = True,
+) -> FullRollbackAudit:
+    """Pre-ROLLED_BACK barrier requiring exact restored state with latest FAILED.
+
+    This is only the first rollback proof stage. It neither marks rollback
+    verified nor authorizes ROLLED_BACK. Journal append must happen afterward
+    with independent native Excel read-only reopen and terminal proof.
+    """
+    return _audit_rollback_package(
+        prepared_snapshot, restored_workbook,
+        expected_snapshot_sha256=expected_snapshot_sha256,
+        require_vba=require_vba,
+        required_final_phase=Phase.FAILED,
+    )
+
+
+def audit_full_workbook_rollback(
+    prepared_snapshot: str | Path,
+    restored_workbook: str | Path,
+    *,
+    expected_snapshot_sha256: str,
+    require_vba: bool = True,
+) -> FullRollbackAudit:
+    """Final read-only exact-package proof after journal reaches ROLLED_BACK.
+
+    A separate trusted receipt and independent native Excel read-only reopen
+    remain mandatory before this may contribute to operational approval.
+    """
+    return _audit_rollback_package(
+        prepared_snapshot, restored_workbook,
+        expected_snapshot_sha256=expected_snapshot_sha256,
+        require_vba=require_vba,
+        required_final_phase=Phase.ROLLED_BACK,
     )
