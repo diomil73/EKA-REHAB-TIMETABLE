@@ -373,6 +373,7 @@ def main(argv=None) -> int:
     if result["prepared_handoff_verified"]:
         print("Fictional PREPARED handoff saved/reopened: 1")
         print(f"Total journal revisions after readback: {result['prepared_journal_rows']}")
+        print("Native COM append only; VBA hook not executed")
     if result["fictional_revisions_verified"] or result["prepared_handoff_verified"]:
         print("Synthetic journal only: no operational Apply/Restore executed")
     print("Source untouched: YES")
