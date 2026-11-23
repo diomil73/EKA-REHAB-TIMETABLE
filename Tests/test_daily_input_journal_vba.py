@@ -24,6 +24,7 @@ def test_vba_bridge_validates_row_and_protected_journal_before_append():
         'ws.Unprotect',
         'ws.Protect DrawingObjects:=True, Contents:=True, Scenarios:=True',
         'ThisWorkbook.Save',
+        '--verify-handoff',
         '--native-excel',
     ):
         assert marker in source
@@ -46,6 +47,7 @@ def test_probe_only_persists_prepared_and_never_calls_operational_apply():
     assert "PersistPreparedDailyInputJournal" in probe
     assert "ApplyValidatedDailyInputPayload" not in probe
     assert "Δεν εφαρμόστηκαν αλλαγές" in probe
+    assert "RunPreparedDailyInputJournalProbe" in source
 
 
 def test_apply_gate_is_explicitly_disabled_until_terminal_lifecycle_is_implemented():
