@@ -6,9 +6,11 @@ original Excel workbook. Neither result is approved for clinical use.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
 for item in (ROOT, ROOT / "Python"):
@@ -25,6 +27,10 @@ from rehab_excel.daily_input_journal_sheet import (
 from rehab_excel.daily_input_operation import (
     DailyInputOperation, DailyInputOperationPhase, advance_daily_input_operation,
 )
+from tools.prepare_daily_input_journal_prepared import (
+    prepare_prepared_handoff, _source_date,
+)
+from tools.verify_daily_input_journal_prepared import verify_prepared_reopen
 from rehab_excel.vba_form_storage import (
     form_storage_evidence, compare_form_storage_evidence, stream_change_categories,
     assert_matching_source_relative_change_footprints,
@@ -37,6 +43,55 @@ from rehab_excel.vba_form_designer_audit import (
 
 class SaveComparisonError(RuntimeError):
     pass
+
+
+def _create_fictional_prepared_handoff(copy: Path) -> dict[str, object]:
+    """Bind a wholly fictional payload receipt to a disposable saved workbook."""
+    from openpyxl import load_workbook
+
+    payload_path = copy.with_name(copy.stem + ".fictional-payload.tsv")
+    response_path = copy.with_name(copy.stem + ".fictional-response.json")
+    handoff_path = copy.with_name(copy.stem + ".fictional-handoff.json")
+    if any(path.exists() for path in (payload_path, response_path, handoff_path)):
+        raise SaveComparisonError("Fictional handoff evidence path already exists")
+
+    workbook = None
+    try:
+        workbook = load_workbook(
+            copy, read_only=True, data_only=False, keep_vba=True,
+        )
+        if "DAILY_INPUT" not in workbook.sheetnames:
+            raise SaveComparisonError("Fictional prepared trial requires DAILY_INPUT")
+        service_date = _source_date(workbook["DAILY_INPUT"]["B2"].value)
+    finally:
+        if workbook is not None:
+            workbook.close()
+
+    payload_path.write_text("PATCH\tFICTIONAL_ONLY\n", encoding="utf-8")
+    receipt = {
+        "ok": True,
+        "source_unchanged": True,
+        "date": service_date,
+        "source_sha256_before": _file_sha256(copy),
+        "payload_path": str(payload_path.resolve()),
+    }
+    response_path.write_text(
+        json.dumps(receipt, ensure_ascii=True, sort_keys=True),
+        encoding="utf-8",
+    )
+    handoff = prepare_prepared_handoff(
+        copy, response_path, payload_path,
+        operation_id="FICTIONAL-PREPARED-" + uuid4().hex,
+    )
+    handoff_path.write_text(
+        json.dumps(handoff, ensure_ascii=True, sort_keys=True),
+        encoding="utf-8",
+    )
+    return {
+        "handoff": handoff,
+        "payload_path": payload_path,
+        "handoff_path": handoff_path,
+    }
 
 
 def _fictional_journal_states(*, sequential=False):
@@ -72,7 +127,7 @@ def _fictional_journal_states(*, sequential=False):
 def _save_copy(
     copy: Path, *, add_journal: bool, excel_factory,
     designer_readback=False, trial_fictional_revisions=False,
-    trial_sequential_operations=False,
+    trial_sequential_operations=False, trial_prepared_handoff=False,
 ):
     app = None
     book = None
@@ -101,6 +156,9 @@ def _save_copy(
             if designer_readback else ()
         )
         staged_rows = ()
+        fictional_revision_count = 0
+        prepared_handoff = None
+        prepared_handoff_verified = False
         if add_journal:
             if any(str(book.Worksheets(i).Name) == JOURNAL_SHEET
                    for i in range(1, int(book.Worksheets.Count) + 1)):
@@ -116,11 +174,38 @@ def _save_copy(
                 expected_count = 6 if trial_sequential_operations else 3
                 if len(staged_rows) != expected_count:
                     raise SaveComparisonError("Fictional journal staging incomplete")
+                fictional_revision_count = len(staged_rows)
+                book.Save()
+
+            if trial_prepared_handoff:
+                if not trial_sequential_operations or fictional_revision_count != 6:
+                    raise SaveComparisonError(
+                        "Prepared handoff trial requires two terminal fictional operations"
+                    )
+                prepared_handoff = _create_fictional_prepared_handoff(copy)
+                metadata = prepared_handoff["handoff"]
+                prepared_operation = DailyInputOperation(
+                    operation_id=metadata["operation_id"],
+                    source_sha256=metadata["source_sha256"],
+                    service_date=metadata["service_date"],
+                )
+                if not append_native_operation_revision(book, prepared_operation):
+                    raise SaveComparisonError("Prepared journal revision was not appended")
+                staged_rows = read_native_journal_rows(journal_sheet)
+                if len(staged_rows) != fictional_revision_count + 1:
+                    raise SaveComparisonError("Prepared journal row count mismatch")
                 book.Save()
         else:
             book.Save()
         book.Close(SaveChanges=False)
         book = None
+        if trial_prepared_handoff:
+            if prepared_handoff is None:
+                raise SaveComparisonError("Prepared handoff evidence was not created")
+            verify_prepared_reopen(
+                copy, prepared_handoff["handoff"], prepared_handoff["payload_path"],
+            )
+            prepared_handoff_verified = True
         saved_designer = ()
         if designer_readback or trial_fictional_revisions:
             # Reopen only the disposable copy. Never trigger macros, events or
@@ -144,7 +229,10 @@ def _save_copy(
                     raise SaveComparisonError("Fictional journal changed on native reopen")
             book.Close(SaveChanges=False)
             book = None
-        return forms, saved_designer, len(staged_rows)
+        return (
+            forms, saved_designer, fictional_revision_count,
+            prepared_handoff_verified, len(staged_rows),
+        )
     finally:
         if book is not None:
             try:
@@ -161,8 +249,15 @@ def _save_copy(
 def compare_noedit_and_journal_saves(
     source_path: Path, *, excel_factory=None, control_only=False,
     designer_readback=False, trial_fictional_revisions=False,
-    trial_sequential_operations=False,
+    trial_sequential_operations=False, trial_prepared_handoff=False,
 ):
+    if trial_prepared_handoff and (
+        control_only or not designer_readback
+        or not trial_fictional_revisions or not trial_sequential_operations
+    ):
+        raise SaveComparisonError(
+            "Prepared handoff trial requires sequential fictional revisions and designer readback"
+        )
     if trial_sequential_operations and not trial_fictional_revisions:
         raise SaveComparisonError("Sequential trial requires fictional revisions")
     if trial_fictional_revisions and (control_only or not designer_readback):
@@ -187,16 +282,20 @@ def compare_noedit_and_journal_saves(
             create_probe_copy(source, noedit)
             create_probe_copy(source, journal)
             stage = "save no-edit control"
-            control_forms, control_designers, _ = _save_copy(
+            control_forms, control_designers, _, _, _ = _save_copy(
                 noedit, add_journal=False, excel_factory=excel_factory,
                 designer_readback=designer_readback,
             )
             stage = "save second control without edits" if control_only else "save journal trial"
-            journal_forms, journal_designers, verified_trial_rows = _save_copy(
+            (
+                journal_forms, journal_designers, verified_trial_rows,
+                prepared_handoff_verified, prepared_journal_rows,
+            ) = _save_copy(
                 journal, add_journal=not control_only, excel_factory=excel_factory,
                 designer_readback=designer_readback,
                 trial_fictional_revisions=trial_fictional_revisions,
                 trial_sequential_operations=trial_sequential_operations,
+                trial_prepared_handoff=trial_prepared_handoff,
             )
             if sorted(x.casefold() for x in control_forms) != sorted(x.casefold() for x in journal_forms):
                 raise SaveComparisonError("UserForm inventory differs between controls")
@@ -222,7 +321,9 @@ def compare_noedit_and_journal_saves(
                 "designer_forms_verified": len(control_designers) if designer_readback else None,
                 "comparison": "NO-EDIT vs NO-EDIT" if control_only else "NO-EDIT vs JOURNAL",
                 "source_relative_footprint_streams": matching_changed_streams,
-                "fictional_revisions_verified": verified_trial_rows}
+                "fictional_revisions_verified": verified_trial_rows,
+                "prepared_handoff_verified": prepared_handoff_verified,
+                "prepared_journal_rows": prepared_journal_rows}
     except Exception as exc:
         detail = " ".join(str(exc).replace(str(source), "<SOURCE>").split())[:300]
         raise SaveComparisonError(f"Stage={stage}; cause={type(exc).__name__}; detail={detail}") from exc
@@ -239,6 +340,8 @@ def main(argv=None) -> int:
                         help="On journal disposable copy only, stage/reopen 3 synthetic rollback revisions")
     parser.add_argument("--trial-sequential-operations", action="store_true",
                         help="With fictional revisions, additionally stage a second unique terminal operation")
+    parser.add_argument("--trial-prepared-handoff", action="store_true",
+                        help="After two fictional terminal operations, append one source-bound PREPARED row and independently verify after native reopen")
     args = parser.parse_args(argv)
     try:
         result = compare_noedit_and_journal_saves(
@@ -246,6 +349,7 @@ def main(argv=None) -> int:
             designer_readback=args.designer_readback,
             trial_fictional_revisions=args.trial_fictional_revisions,
             trial_sequential_operations=args.trial_sequential_operations,
+            trial_prepared_handoff=args.trial_prepared_handoff,
         )
     except Exception as exc:
         print("SAFETY STOP: NO-EDIT / JOURNAL COMPARISON FAILED")
@@ -266,6 +370,10 @@ def main(argv=None) -> int:
     print("Not binary/resource preservation approval")
     if result["fictional_revisions_verified"]:
         print(f"Fictional journal revisions saved/reopened: {result['fictional_revisions_verified']}")
+    if result["prepared_handoff_verified"]:
+        print("Fictional PREPARED handoff saved/reopened: 1")
+        print(f"Total journal revisions after readback: {result['prepared_journal_rows']}")
+    if result["fictional_revisions_verified"] or result["prepared_handoff_verified"]:
         print("Synthetic journal only: no operational Apply/Restore executed")
     print("Source untouched: YES")
     print("Both temporary copies removed; no operational workbook created")
