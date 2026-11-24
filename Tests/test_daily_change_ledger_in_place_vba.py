@@ -142,3 +142,47 @@ def test_restore_failure_keeps_snapshot_and_does_not_claim_rollback_is_verified(
     assert "Kill rollbackPath" not in source.split("RollbackAttempt:", 1)[1].split(
         "CleanUp:", 1
     )[0]
+
+def test_restore_and_ledger_writers_cannot_bypass_apply_lock():
+    """All independently callable write paths must be fail-closed before mutation."""
+    procedures = {
+        "PersistDailyChangePayload": ("Public Sub PersistDailyChangePayload", "End Sub"),
+        "RunDailyChangeRestore": ("Private Function RunDailyChangeRestore", "End Function"),
+        "ApplyDailyChangeRestorePayload": ("Private Function ApplyDailyChangeRestorePayload", "End Function"),
+        "RestoreDailyChangeLedgerFromRollback": ("Public Sub RestoreDailyChangeLedgerFromRollback", "End Sub"),
+    }
+    extracted = {}
+    for name, (start, end) in procedures.items():
+        assert VBA_CODE.count(start) == 1
+        body = VBA_CODE.split(start, 1)[1].split(end, 1)[0]
+        assert "DailyInputJournalApplyEnabled()" in body, name
+        extracted[name] = body
+
+    ledger = extracted["PersistDailyChangePayload"]
+    assert ledger.index("DailyInputJournalApplyEnabled()") < ledger.index("ValidateDailyChangePayload parts")
+    assert ledger.index("DailyInputJournalApplyEnabled()") < ledger.index("ws.Cells(row, 1).Value2")
+
+    restore = extracted["RunDailyChangeRestore"]
+    assert restore.index("DailyInputJournalApplyEnabled()") < restore.index("ThisWorkbook.Save")
+    assert restore.index("DailyInputJournalApplyEnabled()") < restore.index("WScript.Shell")
+    assert "Exit Function" in restore.split("If Not DailyInputJournalApplyEnabled() Then", 1)[1].split("End If", 1)[0]
+    assert "Δεν έγιναν αλλαγές" in restore
+
+    payload = extracted["ApplyDailyChangeRestorePayload"]
+    assert payload.index("DailyInputJournalApplyEnabled()") < payload.index("ReadUtf8Text(payloadPath)")
+    assert payload.index("DailyInputJournalApplyEnabled()") < payload.index("ThisWorkbook.SaveCopyAs")
+    assert payload.index("DailyInputJournalApplyEnabled()") < payload.index("ClearContents")
+
+    helper = extracted["RestoreDailyChangeLedgerFromRollback"]
+    assert helper.index("DailyInputJournalApplyEnabled()") < helper.index("RestoreOneSheetFromRollback")
+    assert 'Err.Raise vbObjectError + 2841' in helper
+
+
+def test_restore_lock_uses_same_fixed_false_journal_gate_as_apply():
+    from rehab_excel.daily_input_journal_vba import JOURNAL_MODULE_CODE
+    source = JOURNAL_MODULE_CODE.split(
+        "Public Function DailyInputJournalApplyEnabled()", 1
+    )[1].split("End Function", 1)[0]
+    assert "DailyInputJournalApplyEnabled = False" in source
+    assert "DailyInputJournalApplyEnabled()" in DAILY_INPUT_MODULE_CODE
+    assert "DailyInputJournalApplyEnabled()" in VBA_CODE
