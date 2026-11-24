@@ -69,9 +69,17 @@ def test_entrypoint_guards_present_before_first_work(source, name, guard_exit):
     # Must reject before disk operations, dialogs except its own warning,
     # subprocesses, workbooks/sheets writes, and calls to mutation helpers.
     prefix = body[:gate.start()]
+    # Exclude the procedure declaration itself. The extracted VBA body can
+    # start with a blank line, so dropping the first line is not reliable.
+    # A declaration is not a call to the method it names.
     prefix = "\n".join(
-        line for line in prefix.splitlines()[1:]
-        if not line.lstrip().startswith("'")
+        line for line in prefix.splitlines()
+        if line.strip()
+        and not line.lstrip().startswith("'")
+        and not re.match(
+            r"(?i)^\\s*(?:Public|Private)\\s+(?:Sub|Function)\\s+",
+            line,
+        )
     )
     assert not re.search(
         r"(?i)\b(?:ThisWorkbook\.Save|SaveCopyAs|\.Unprotect|"
