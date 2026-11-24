@@ -31,6 +31,7 @@ from rehab_excel.patient_centric_preview import build_patient_centric_preview_pl
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
 from rehab_excel.reader import read_settings  # noqa: E402
 from rehab_excel.writeback import CellPatch, validate_write_plan  # noqa: E402
+from rehab_excel.verified_report_publication import staged_report_outputs  # noqa: E402
 
 
 class DailyInputInPlacePreparationError(RuntimeError):
@@ -230,15 +231,17 @@ def prepare_daily_input_payload(
         *(_change_line(change, target_date) for change in daily.source_changes),
         *(_patch_line(patch) for patch in plan.patches),
     ]
-    payload.parent.mkdir(parents=True, exist_ok=True)
-    payload.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
 
-    if file_sha256(source) != source_hash:
-        try:
-            payload.unlink()
-        except OSError:
-            pass
-        raise DailyInputInPlacePreparationError("Workbook changed during DAILY_INPUT validation")
+    # Never publish a partially written or stale operational payload, and
+    # never overwrite/delete a caller-owned destination on an error. The
+    # consumer sees the final path only after the source hash is rechecked.
+    # This prepares a candidate payload; it does NOT authorize VBA Apply.
+    with staged_report_outputs((payload,)) as (stage,):
+        stage.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+        if file_sha256(source) != source_hash:
+            raise DailyInputInPlacePreparationError(
+                "Workbook changed during DAILY_INPUT validation"
+            )
 
     touched_sheets = sorted({patch.sheet for patch in plan.patches})
     return {
@@ -273,14 +276,16 @@ def main() -> int:
 
     try:
         result = prepare_daily_input_payload(args.input, args.payload)
-    except Exception as exc:
-        try:
-            if args.payload.exists():
-                args.payload.unlink()
-        except OSError:
-            pass
-        _write_response(args.response, {"ok": False, "error": str(exc)})
-        print(f"SAFETY STOP: {exc}")
+    except Exception:
+        # The exclusive staged publisher owns its temporary files. Never
+        # unlink the named output here: it may have existed before this run.
+        # Private patient identifiers and source paths stay out of stdout and
+        # the response JSON that the workbook may retain in diagnostics.
+        _write_response(args.response, {
+            "ok": False,
+            "error": "DAILY_INPUT preparation failed; no payload was authorized",
+        })
+        print("SAFETY STOP: DAILY_INPUT PREPARATION FAILED")
         return 2
 
     _write_response(args.response, result)
