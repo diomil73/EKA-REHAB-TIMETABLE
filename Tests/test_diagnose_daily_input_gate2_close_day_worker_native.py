@@ -10,7 +10,7 @@ def test_only_disposable_shim_invokes_private_close_day_writer():
     assert "DIOMIL_TestInvokeCloseDayGuard" in source
     assert "PersistCloseDayPayload" in source
     worker_body = source.split("def run_locked_close_day_worker", 1)[1].split(
-        "\\ndef diagnose_native_close_day_guard", 1
+        "\ndef diagnose_native_close_day_guard", 1
     )[0]
     assert "CloseOperationalDay" not in worker_body
     assert "CloseOperationalDay UI wrapper was NOT invoked" in source
