@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from datetime import date, datetime
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -157,7 +158,9 @@ def prepare_daily_input_payload(
     payload_path: str | Path,
 ) -> dict[str, object]:
     source = Path(workbook_path).resolve()
-    payload = Path(payload_path).resolve()
+    # Do not follow an existing destination symlink. The staged publisher
+    # must reject it rather than redirecting the output to its target.
+    payload = Path(os.path.abspath(payload_path))
     if not source.exists():
         raise DailyInputInPlacePreparationError(f"Workbook not found: {source}")
     if source.suffix.casefold() != ".xlsm":
