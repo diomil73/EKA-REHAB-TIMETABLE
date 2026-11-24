@@ -253,10 +253,11 @@ def main(argv: list[str] | None = None) -> int:
                 operator_resolution=args.operator_resolution,
                 failure_code=args.failure_code,
             )
-            args.output.write_text(
-                json.dumps(result, ensure_ascii=True, sort_keys=True, separators=(",", ":")),
-                encoding="utf-8",
-            )
+            # Exclusive create: never overwrite a file created after preflight.
+            with args.output.open("x", encoding="utf-8") as handle:
+                handle.write(
+                    json.dumps(result, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+                )
             print("DAILY_INPUT TRANSITION PROPOSAL ONLY: NOT AUTHORIZED FOR WRITE")
         else:
             if args.output is not None or args.operator_resolution or args.failure_code:
