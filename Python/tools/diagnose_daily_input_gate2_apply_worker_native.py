@@ -115,8 +115,27 @@ def main(argv=None) -> int:
         return 2
     try:
         diagnose_native_apply_guard(args.source)
-    except Exception:
+    except Exception as exc:
         print("SAFETY STOP: GATE 2 NATIVE APPLY GUARD FAILED")
+        print(f"ERROR_TYPE={type(exc).__name__}")
+        message = str(exc).replace("\\r", " ").replace("\\n", " ")
+        print("ERROR_MESSAGE=" + message[:500])
+        hresult = getattr(exc, "hresult", None)
+        if hresult is not None:
+            try:
+                print(f"HRESULT=0x{int(hresult) & 0xFFFFFFFF:08X}")
+            except (TypeError, ValueError):
+                print("HRESULT=UNAVAILABLE")
+        excepinfo = getattr(exc, "excepinfo", None)
+        if excepinfo:
+            print("EXCEPINFO_PRESENT=YES")
+            for index in (0, 1, 2, 5):
+                try:
+                    value = excepinfo[index]
+                except (IndexError, TypeError):
+                    continue
+                if value not in (None, ""):
+                    print(f"EXCEPINFO_{index}={str(value)[:240]}")
         return 2
     print("GATE 2 NATIVE APPLY WORKER REJECTION GREEN")
     print("ApplyValidatedDailyInputPayload returned Boolean False: YES")
