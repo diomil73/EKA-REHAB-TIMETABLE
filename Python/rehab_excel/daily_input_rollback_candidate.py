@@ -67,7 +67,7 @@ def _journal_xml_for_history(original: bytes, rows: tuple[tuple, ...]) -> bytes:
         # Preserve every original byte outside <sheetData> (including all
         # namespace declarations, extLst, mc:Ignorable and XML attributes).
         match = re.search(
-            rb"<(?P<prefix>[A-Za-z_][\w.-]*:)?sheetData(?=[\s>])[^<>]*>"
+            rb"<(?P<prefix>(?:[A-Za-z_][\w.-]*:)?)sheetData(?=[\s>])[^<>]*>"
             rb"(?P<body>.*?)</(?P=prefix)sheetData\s*>",
             original, flags=re.DOTALL,
         )
