@@ -4,6 +4,7 @@ import argparse
 from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
+import os
 import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -231,8 +232,8 @@ def export_therapist_history_ui(
         for report in reports
     )
 
-    output = Path(output_path).resolve()
-    trend_path = Path(trend_output_path).resolve() if trend_output_path is not None else None
+    output = Path(os.path.abspath(output_path))
+    trend_path = Path(os.path.abspath(trend_output_path)) if trend_output_path is not None else None
     if trend_path == output:
         raise TherapistHistoryUiExportError("Trend output collides with report output")
     lines = ["\t".join(HEADERS)]
