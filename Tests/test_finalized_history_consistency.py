@@ -241,6 +241,7 @@ def test_missing_history_sheet_and_stale_summary_refuse_without_changes(tmp_path
     assert path.read_bytes() == unchanged
 
     wb = load_workbook(path)
+    wb["FINALIZED_DAY_SNAPSHOTS"]["I2"] = snapshot.final_session_count
     del wb["DAY_HISTORY_EVENTS"]
     wb.save(path)
     wb.close()
