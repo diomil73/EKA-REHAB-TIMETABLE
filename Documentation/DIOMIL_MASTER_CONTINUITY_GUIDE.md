@@ -1267,11 +1267,15 @@ Commit `1d3ba2ddd6b884a03de67f59c4b55e77e42d089d`: ενισχύθηκε η ίδ�
 
 **CLOUD COMPONENTS ΥΠΑΡΧΟΥΝ, END-TO-END PENDING.** Υπάρχουν επιμέρους λειτουργίες MASTER, DAILY_INPUT, projections, replacements, ledger, ιστορικού/attendance και αναφορών. Το lifecycle/journal είναι checksummed και append-only. Η §4.146 διατηρεί την ήδη δοσμένη operator resolution μετά από late failure. Η §4.148 προσθέτει νόμιμες source-bound *προτάσεις* επόμενων φάσεων και read-only reopen, **όχι** operational VBA writer/Apply authorization. **Επόμενο engineering:** ανεξάρτητοι phase-specific business verifiers, durable VBA phase writer και πλήρης ενοποίηση με Apply/Restore, έπειτα συνθετικά fault injection tests και native checks. Δεν ανακηρύσσεται το υποσύστημα GREEN από τα unit tests μόνο.
 
+**ΝΕΟ Β.3, PREVENTION OF WRITE-BYPASS (24/11/2026):** Στον live source audit διαπιστώθηκε ότι το `modDailyInputAction.ApplyValidatedDailyInputPayload` (Public direct entry), το `modDailyChangeLedger.PersistDailyChangePayload` (Public ledger writer), οι λειτουργίες Restore (`RunDailyChangeRestore`, `ApplyDailyChangeRestorePayload`, `RestoreDailyChangeLedgerFromRollback`), η `modGlobalReplacementAction.ResolveDailyReplacementsInPlace` και το private payload writer, και το `modDoubleBookingReview.ApplySelectedDoubleBooking` / private legacy authoritative commit είχαν δυνητικά ανεξάρτητη διαδρομή μετάλλαξης χωρίς έλεγχο του ίδιου απενεργοποιημένου journal gate. **Προστέθηκαν fail-closed guards πριν από κάθε συγκεκριμένο Save / write / worker launch** και πρόσθετες στατικές regression assertions στον ίδιο υπάρχοντα test κώδικα. Καλύπτεται αποτροπή παράκαμψης του UI lock, όχι λειτουργική εκτέλεση Apply/Restore. Το gate παραμένει `DailyInputJournalApplyEnabled = False`. **Επόμενο:** native επαλήθευση του κλειδώματος σε προσωρινά αντίγραφα και μετά πραγματικός phase writer με proof-bound συναλλαγές. Οι παλιές unguarded κλήσεις δεν θεωρούνται πλέον διαθέσιμη legacy λειτουργία.
+
 ### Β.4 Ζωντανή πρόοδος: XLSM / VBA / UserForms / native ασφάλεια (24/11/2026)
 
 **NATIVE GREEN (ΗΔΗ ΚΛΕΙΣΜΕΝΟ):** §4.144: αμετάβλητο source, 10/10 UserForms structural readback, identical source-relative OLE footprint, VBA-owned fictional PREPARED και ανεξάρτητο native Excel Save/Reopen. Δεν επαναλαμβάνουμε αυτό το smoke χωρίς συγκεκριμένο νέο regression.
 
 **CLOUD GREEN / ΝΕΟ NATIVE PENDING:** §§4.147–4.148: strict read-only whole-package rollback verifier, ξεχωριστό rollback candidate, synthetic FAILED/ROLLED_BACK history, προετοιμασία και readback επόμενων journal phases. Exact CI SHA `ffe0b0572a4c8c16cfdcbceceaeacf60f4477290`: [GitHub Actions 45327809251](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45327809251), **4/4 SUCCESS**, πλήρη regressions **2.549 passed Windows και 2.549 passed Linux**, δύο synthetic safety jobs SUCCESS. Το Apply παραμένει **κλειδωμένο** (`DailyInputJournalApplyEnabled = False`).
+
+**ΝΕΟ Β.4, SOURCE-GATE SAFETY (24/11/2026):** Επαυξημένα tests στα `Tests/test_daily_input_action_vba.py`, `Tests/test_daily_change_ledger_in_place_vba.py`, `Tests/test_global_replacement_action_vba.py`, `Tests/test_double_booking_review_vba.py` για entry/worker guard ordering. Το source code άλλαξε στα αντίστοιχα τέσσερα `Python/rehab_excel/*_vba.py`. Η αλλαγή **απαιτεί νέο native Windows/VBA verification** και δεν ακυρώνει ούτε υποκαθιστά το ξεχωριστό §4.147 rollback smoke. CI status της τελευταίας αλλαγής: PENDING μέχρι τα jobs του commit `1e7615e83f96b40d76f26492ca28be56ac11167b` να ολοκληρωθούν.
 
 **ΠΡΩΤΟ PC GATE, ΕΤΟΙΜΟ ΑΛΛΑ ΟΧΙ ΕΚΤΕΛΕΣΜΕΝΟ:** μόνο με το γνωστό συνθετικό `$demo` (10 UserForms, χωρίς υπάρχον journal):
 ```powershell
@@ -1293,7 +1297,7 @@ python Python/tools/diagnose_daily_input_full_rollback_native.py --source $demo
 |---|---|---|---|
 | 0 | Β.4 | Μία φορά pull του γνωστού branch και επιβεβαίωση ότι `$demo` είναι αποκλειστικά συνθετικό, 10 UserForms και χωρίς journal | PENDING PC |
 | 1 | Β.4 | `python Python/tools/diagnose_daily_input_full_rollback_native.py --source $demo` και έλεγχος exit code | **READY, PENDING PC** |
-| 2 | Β.3–Β.4 | Native non-PREPARED VBA transitions, receipts, fault injection, rollback μετά την ολοκλήρωση του writer | NOT READY, engineering blocker |
+| 2 | Β.3–Β.4 | Πρώτα native επιβεβαίωση ότι τα δημόσια Apply/Restore/replacement/double-booking paths αρνούνται μεταβολές με κλειδωμένο journal· κατόπιν native non-PREPARED phase transitions, receipts, fault injection και πλήρης rollback αφού υλοποιηθεί ο writer | NOT READY, new safety locks need native proof |
 | 3 | Β.1–Β.2 | Private patient/doctor/provider/therapy approvals και source-bound πραγματικό admission | NEEDS EXPLICIT APPROVALS |
 | 4 | Β.3–Β.4 | Πλήρες χωριστό synthetic XLSM: MASTER, DAILY_INPUT, replacements, attendance, finalized/history, admin reports, Save/Close/Reopen | NOT READY |
 | 5 | Β.5 | Πρώτο ιδιωτικό πλήρως λειτουργικό XLSM: end-to-end έλεγχος και αποδοχή χειριστή | NOT READY |
@@ -1957,3 +1961,21 @@ then report `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected: `DAILY_INPUT NATIV
 **Πραγματική αλλαγή:** Στην §4.105 προστέθηκαν πέντε ζωντανά status subsections και η μοναδική ουρά Windows/PC με εξαρτήσεις και status. Δεν τροποποιήθηκε Excel/Python/VBA. Τα GREEN σε §§4.144, 4.147 και 4.148 διαχωρίστηκαν ρητά από ανοιχτά clinical approvals, native Apply/Restore και end-to-end operator acceptance. Δεν εκτελέστηκαν νέα tests γιατί η αλλαγή είναι μόνο στον οδηγό· διατηρείται η ήδη αποδεδειγμένη [4/4 cloud CI](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45327809251) του προηγούμενου κώδικα.
 
 **Επόμενη εγγραφή:** Με κάθε επόμενη code/CI/native εξέλιξη ενημερώνουμε πρώτα το αντίστοιχο Β.x, κατόπιν την κοινή ουρά Δ αν χρειάζεται, και τέλος ένα νέο checkpoint. Πρώτο τοπικό gate παραμένει το synthetic native rollback candidate probe της §4.147. Το operational Apply παραμένει κλειδωμένο.
+
+
+## 4.150 Ασφαλισμένες εναλλακτικές διαδρομές Apply/Restore/αναπληρώσεων/διπλοκράτησης (24/11/2026)
+
+**Προτεραιότητα:** χωρίς PC, αντί να προσθέσουμε άλλον αφηρημένο validator, ελέγχθηκε ο πραγματικός υπάρχων VBA orchestration κώδικας που μπορεί να μεταβάλει καθημερινό λειτουργικό state ενώ το κεντρικό Apply είναι κλειδωμένο. Το υπάρχον `DailyInputJournalApplyEnabled = False` ελέγχθηκε ότι είναι το κοινό κεντρικό gate.
+
+**Πραγματική source-level αστοχία:** Δεν υπήρχε αντίστοιχο guard σε άλλους ανεξάρτητους entrypoints με πραγματικές εγγραφές: απευθείας `ApplyValidatedDailyInputPayload`, `PersistDailyChangePayload`, restore dispatcher/private executor/public ledger-copy-back, direct replacement dispatcher/private persistence, και confirmed double-booking με legacy authoritative source commit. Όσο το Apply είναι κλειδωμένο, αυτές οι εναλλακτικές διαδρομές δεν πρέπει να μπορούν να γράφουν, να κάνουν Save, να δημιουργούν patch artifacts ή να εκκινήσουν τον commit worker. Η νέα εργασία είναι ασφάλεια υπάρχοντος κώδικα, όχι νέα έβδομη απαίτηση.
+
+**Αλλαγμένα υπάρχοντα αρχεία και τεχνική διάκριση:**
+- `Python/rehab_excel/daily_input_action_vba.py`: direct public payload Apply απορρίπτει κλήση πριν από read/payload/Save/patch, χωρίς να πειραχτεί ο ήδη υπάρχων UI guard.
+- `Python/rehab_excel/daily_change_ledger_in_place_vba.py`: κεντρικός restore dispatcher αρνείται πριν από πρώτο Save, payload executor αρνείται πριν από source clear, public ledger append και public rollback copyback αρνούνται πριν από mutation.
+- `Python/rehab_excel/global_replacement_action_vba.py`: direct replacement dispatcher και private persistence αρνούνται πριν από prepared payload, Excel Save, facts/suspensions/patches.
+- `Python/rehab_excel/double_booking_review_vba.py`: confirmed double-booking action και private legacy authoritative commit worker αρνούνται πριν από output/preview/worker launch.
+- Οι ήδη υπάρχοντες τέσσερις αντίστοιχοι `Tests/test_*_vba.py` περιλαμβάνουν νέα assertions για gate order σε όλες αυτές τις διαδρομές. Δεν προστέθηκε δεύτερο journal module, ούτε ενεργοποιήθηκε Apply.
+
+**Cloud test status:** Pending final result of last code/test SHA `1e7615e83f96b40d76f26492ca28be56ac11167b`, [GitHub Actions run 45328748480](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45328748480). Μην καταχωρίσετε GREEN πριν αποδειχθούν όλα τα jobs. Δεν εκτελέστηκε native Excel/COM λόγω απουσίας του χειριστή από PC.
+
+**Ζωντανή πρόοδος:** Ενημερώθηκαν στο §4.105 τα Β.3 (Apply/Restore), Β.4 (VBA/native) και η σειρά 2 της PC ουράς. Το πρώτο τοπικό gate παραμένει το §4.147 synthetic full rollback candidate diagnostic, το οποίο **δεν** έχει ακόμη εκτελεστεί. Επόμενο στο PC είναι προστατευμένο αρνητικό τεστ για κάθε guarded entrypoint, με μόνο disposable synthetic copy και **μηδενική εφαρμογή ή πραγματική παραγωγική μετάλλαξη**. Η πραγματική πλήρης transaction orchestration και οι κλινικές εγκρίσεις παραμένουν PENDING, όπως στο §4.104.
