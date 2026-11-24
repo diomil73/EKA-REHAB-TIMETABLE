@@ -432,3 +432,8 @@ def test_valid_ledger_install_preserves_old_history_and_updates_modules():
     assert book.Worksheets.add_calls == 0
     assert book.save_calls == 0
 
+
+
+def test_ledger_checkmark_is_generated_at_runtime_to_avoid_vbe_codepage_loss():
+    assert 'wsDaily.Cells(startRow + 1, 1).Value = ChrW$(&H2713)' in VBA_CODE
+    assert "✓" not in VBA_CODE
