@@ -164,6 +164,10 @@ Public Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As 
     Dim errorText As String, currentPhase As String, currentSheet As String, currentCell As String
     Dim errorNumber As Long, currentPatchIndex As Long
 
+    ' Prevent a public direct VBA/COM call from bypassing the locked Apply UI.
+    ' No workbook Save, payload read or patch mutation is allowed while locked.
+    If Not DailyInputJournalApplyEnabled() Then Exit Function
+
     On Error GoTo ApplyError
     ' Restore Excel UI state even if validation fails before the patch loop.
     previousEvents = Application.EnableEvents
