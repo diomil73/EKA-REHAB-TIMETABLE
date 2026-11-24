@@ -136,14 +136,6 @@ def verify_finalized_history_bundle(
         or (snapshot.version > 1 and event.event_type != DayHistoryEventType.DAY_AMENDMENT_FINALIZED)
     ):
         raise FinalizedHistoryConsistencyError("Finalization event type/version mismatch")
-    if any(
-        row.related_snapshot_id == snapshot.snapshot_id and row != event
-        for row in events
-    ):
-        # A snapshot may have separate amendment-start events. Their history is
-        # allowed, but they do not substitute for its required final event.
-        pass
-
     return FinalizedHistoryConsistencyReport(
         snapshot_id=snapshot.snapshot_id,
         service_date=snapshot.service_date,
