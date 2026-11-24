@@ -54,6 +54,15 @@ Public Function ApplySelectedDoubleBooking(ByVal targetSessionId As String, ByVa
     Dim commandLine As String, exitCode As Long, responseText As String
     Dim sourceHash As String, previewPath As String
 
+    ' The legacy authoritative-commit path must not bypass the locked journal.
+    ' Reject before creating preview artifacts or touching the workbook.
+    If Not DailyInputJournalApplyEnabled() Then
+        MsgBox "Η εφαρμογή διπλοκράτησης παραμένει κλειδωμένη μέχρι να επαληθευτεί ο μηχανισμός συναλλαγών." & vbCrLf & _
+               "Δεν έγιναν αλλαγές σε ασθενείς ή θεραπείες.", _
+               vbExclamation, "Διπλοκράτηση"
+        Exit Function
+    End If
+
     applyScript = ResolveProjectTool("apply_confirmed_double_booking.py")
     If Len(applyScript) = 0 Then
         MsgBox "Δεν βρέθηκε το εργαλείο εφαρμογής διπλοκράτησης.", vbCritical, "Διπλοκράτηση"
@@ -117,6 +126,8 @@ Private Function StartAuthoritativeCommit(ByVal previewPath As String, ByVal sou
     Dim requestPath As String, responsePath As String
     Dim commandLine As String
 
+    ' Even a direct call from another form must not launch the old commit worker.
+    If Not DailyInputJournalApplyEnabled() Then Exit Function
     workerScript = ResolveProjectTool("authoritative_commit_worker_cli.py")
     If Len(workerScript) = 0 Then
         MsgBox "Δεν βρέθηκε το authoritative save worker του συστήματος.", vbCritical, "Διπλοκράτηση"
