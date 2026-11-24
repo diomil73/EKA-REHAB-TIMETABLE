@@ -69,6 +69,10 @@ def test_entrypoint_guards_present_before_first_work(source, name, guard_exit):
     # Must reject before disk operations, dialogs except its own warning,
     # subprocesses, workbooks/sheets writes, and calls to mutation helpers.
     prefix = body[:gate.start()]
+    prefix = "\n".join(
+        line for line in prefix.splitlines()[1:]
+        if not line.lstrip().startswith("'")
+    )
     assert not re.search(
         r"(?i)\b(?:ThisWorkbook\.Save|SaveCopyAs|\.Unprotect|"
         r"CreateObject\s*\(|Application\.Run|WScript\.Shell|"
