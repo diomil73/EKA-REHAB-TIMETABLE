@@ -275,7 +275,7 @@ def test_therapist_export_second_publish_failure_removes_only_new_outputs(
 def test_therapist_cli_failure_never_unlinks_preexisting_user_report(
     tmp_path, monkeypatch, capsys,
 ):
-    from types import SimpleNamespace
+    import sys
     main = tmp_path / "existing_main.tsv"
     trend = tmp_path / "existing_trend.tsv"
     main.write_bytes(b"USER MAIN DO NOT DELETE")
@@ -283,13 +283,11 @@ def test_therapist_cli_failure_never_unlinks_preexisting_user_report(
     def fail(*args, **kwargs):
         raise RuntimeError("PRIVATE FICTIONAL PATIENT CODE")
     monkeypatch.setattr(exporter, "export_therapist_history_ui", fail)
-    monkeypatch.setattr(exporter, "sys", SimpleNamespace(
-        argv=[
-            "export_therapist_history_ui.py",
-            "--workbook", "fictional.xlsm", "--output", str(main),
-            "--trend-output", str(trend),
-        ],
-    ))
+    monkeypatch.setattr(sys, "argv", [
+        "export_therapist_history_ui.py",
+        "--workbook", "fictional.xlsm", "--output", str(main),
+        "--trend-output", str(trend),
+    ])
     assert exporter.main() == 2
     assert main.read_bytes() == b"USER MAIN DO NOT DELETE"
     assert trend.read_bytes() == b"USER TREND DO NOT DELETE"
