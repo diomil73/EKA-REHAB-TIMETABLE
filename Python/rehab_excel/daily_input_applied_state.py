@@ -9,12 +9,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 
+from openpyxl import load_workbook
+
+from .authoritative_commit import file_sha256
 from .application_contract import DAILY_CHANGE_LEDGER_HEADERS
 from .daily_input_day_switch import DailyInputDayDraft, DailyInputDaySwitchError
 from .daily_input_draft_archive import archive_rows
 from .daily_input_reader import (
-    DailyInputReadResult, _parse_date, interpret_daily_input_grid,
+    DailyInputReadResult, DailyInputSourceChange, _parse_date,
+    interpret_daily_input_grid, read_daily_input,
 )
 
 
@@ -93,3 +98,89 @@ def verify_day_input(
     if expected != active:
         raise DailyInputDaySwitchError("Applied grid does not match active daily input ledger")
     return VerifiedDayInput(draft, applied_grid, result)
+
+@dataclass(frozen=True)
+class InputLedgerSavedReadback:
+    """Describes a verified OOXML readback, never an Apply/phase authorization."""
+
+    service_date: date
+    workbook_sha256: str
+    source_change_count: int
+    active_ledger_count: int
+
+
+def _source_change_keys(changes):
+    if not all(type(change) is DailyInputSourceChange for change in changes):
+        raise DailyInputDaySwitchError("Invalid validated DAILY_INPUT source changes")
+    keys = tuple(sorted((
+        change.change_id, change.change_type, change.subject_id,
+        change.display_name, change.reason, change.source_row,
+    ) for change in changes))
+    if len(set(keys)) != len(keys) or len({key[0] for key in keys}) != len(keys):
+        raise DailyInputDaySwitchError("Duplicate source changes in DAILY_INPUT readback")
+    return keys
+
+
+def verify_input_ledger_saved_readback(
+    workbook_path: str | Path,
+    *,
+    service_date: date,
+    validated_changes: tuple[DailyInputSourceChange, ...],
+    patients,
+    sessions,
+    therapist_names=(),
+) -> InputLedgerSavedReadback:
+    """Compare saved DAILY_INPUT and DAILY_CHANGE_LEDGER against preflight facts.
+
+    This is a strict read-only saved OOXML consistency check for the proposed
+    INPUT_AND_LEDGER_COMMITTED phase. The expected changes MUST originate from
+    the earlier trusted preflight, not be reconstructed from the same reopened
+    ledger. Source/ledger identities are fully compared, not merely counted.
+    It is NOT a native Excel reopen, trusted receipt, finalization, operation
+    journal append, or permission to lift the Apply gate.
+    """
+    if type(service_date) is not date:
+        raise DailyInputDaySwitchError("Explicit DAILY_INPUT service date required")
+    if type(validated_changes) is not tuple or not validated_changes:
+        raise DailyInputDaySwitchError("Non-empty validated preflight changes required")
+    expected = _source_change_keys(validated_changes)
+    source = Path(workbook_path).resolve()
+    if not source.is_file() or source.suffix.casefold() != ".xlsm":
+        raise DailyInputDaySwitchError("Existing XLSM workbook required")
+    source_sha = file_sha256(source)
+
+    try:
+        actual = read_daily_input(
+            source, patients=tuple(patients), sessions=tuple(sessions),
+            therapist_names=tuple(therapist_names),
+        )
+        if actual.target_date != service_date:
+            raise DailyInputDaySwitchError("Saved DAILY_INPUT date changed")
+        if _source_change_keys(actual.source_changes) != expected:
+            raise DailyInputDaySwitchError("Saved DAILY_INPUT differs from preflight source changes")
+
+        wb = load_workbook(source, read_only=False, data_only=False, keep_vba=True)
+        try:
+            if "DAILY_CHANGE_LEDGER" not in wb.sheetnames:
+                raise DailyInputDaySwitchError("Saved daily change ledger missing")
+            ledger = wb["DAILY_CHANGE_LEDGER"]
+            if ledger.sheet_state != "veryHidden":
+                raise DailyInputDaySwitchError("Saved daily change ledger not veryHidden")
+            active = active_input_ledger_keys(ledger, service_date)
+        finally:
+            wb.close()
+        if active != expected:
+            raise DailyInputDaySwitchError("Saved active ledger differs from validated DAILY_INPUT")
+    except DailyInputDaySwitchError:
+        raise
+    except Exception as exc:
+        raise DailyInputDaySwitchError("Saved input and ledger readback invalid") from exc
+    if file_sha256(source) != source_sha:
+        raise DailyInputDaySwitchError("Workbook changed during input and ledger readback")
+    return InputLedgerSavedReadback(
+        service_date=service_date,
+        workbook_sha256=source_sha,
+        source_change_count=len(expected),
+        active_ledger_count=len(active),
+    )
+
