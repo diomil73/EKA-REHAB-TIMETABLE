@@ -15,6 +15,7 @@ from rehab_core.therapist_day_history import TherapistDayHistoryRow
 from rehab_excel.finalized_history_consistency import (
     FinalizedHistoryConsistencyError,
     verify_current_finalized_day,
+    verify_current_finalized_history_range,
     verify_finalized_history_bundle,
 )
 from rehab_excel.finalized_day_snapshots import (
@@ -256,3 +257,83 @@ def test_unfinalized_or_nonexistent_date_never_counts_as_empty_success(tmp_path)
     path = _book(tmp_path / "fictional-history.xlsx", snapshot, patients, therapists, events)
     with pytest.raises(FinalizedHistoryConsistencyError, match="CURRENT_FINAL"):
         verify_current_finalized_day(path, service_date=date(2026, 11, 25))
+
+def test_report_period_audit_uses_current_snapshot_without_modifying_file(tmp_path):
+    snapshot, patients, therapists, events = _bundle()
+    path = _book(tmp_path / "fictional-report-range.xlsx", snapshot, patients, therapists, events)
+    before = path.read_bytes()
+    scoped = verify_current_finalized_history_range(
+        path, start_date=DAY, end_date=DAY,
+    )
+    assert len(scoped) == 1
+    assert scoped[0].snapshot_id == snapshot.snapshot_id
+    assert scoped[0].patient_session_rows == 5
+    assert scoped[0].therapist_day_rows == 2
+    assert scoped[0].snapshot_sha256 == sha256(before).hexdigest()
+    assert verify_current_finalized_history_range(
+        path, start_date=date(2026, 11, 25), end_date=date(2026, 11, 26),
+    ) == ()
+    assert path.read_bytes() == before
+
+
+def test_patient_therapist_and_management_report_source_refuse_phantom_counts(tmp_path):
+    from rehab_excel.patient_history_reports import read_patient_history_report
+    from tools.report_therapist_history import report_therapist_history
+
+    snapshot, patients, therapists, events = _bundle()
+    path = _book(tmp_path / "fictional-report-consistency.xlsx", snapshot, patients, therapists, events)
+    before = path.read_bytes()
+    patient_report = read_patient_history_report(path, mode="daily")
+    therapist_report = report_therapist_history(path)
+    assert len(patient_report) == 5
+    assert len(therapist_report) == 2
+    assert path.read_bytes() == before
+
+    workbook = load_workbook(path)
+    workbook["FINALIZED_DAY_SNAPSHOTS"]["I2"] = 99
+    workbook.save(path)
+    workbook.close()
+    corrupted = path.read_bytes()
+    with pytest.raises(FinalizedHistoryConsistencyError, match="totals"):
+        read_patient_history_report(path, mode="daily")
+    with pytest.raises(FinalizedHistoryConsistencyError, match="totals"):
+        report_therapist_history(path)
+    assert path.read_bytes() == corrupted
+
+    # A narrowly selected period outside the corrupted day remains empty;
+    # the report reader never borrows the corrupt day's totals.
+    next_day = date(2026, 11, 25)
+    assert read_patient_history_report(
+        path, mode="daily", start=next_day, end=next_day,
+    ) == ()
+    assert report_therapist_history(
+        path, start_date=next_day, end_date=next_day,
+    ) == ()
+
+
+def test_report_date_range_rejects_reversed_dates(tmp_path):
+    snapshot, patients, therapists, events = _bundle()
+    path = _book(tmp_path / "fictional-report-range.xlsx", snapshot, patients, therapists, events)
+    with pytest.raises(FinalizedHistoryConsistencyError, match="date range"):
+        verify_current_finalized_history_range(
+            path, start_date=date(2026, 11, 26),
+            end_date=date(2026, 11, 24),
+        )
+
+
+def test_patient_and_therapist_report_reject_missing_finalization_event(tmp_path):
+    from rehab_excel.patient_history_reports import read_patient_history_report
+    from tools.report_therapist_history import report_therapist_history
+
+    snapshot, patients, therapists, events = _bundle()
+    path = _book(tmp_path / "fictional-event-missing.xlsx", snapshot, patients, therapists, events)
+    workbook = load_workbook(path)
+    del workbook["DAY_HISTORY_EVENTS"]
+    workbook.save(path)
+    workbook.close()
+    before = path.read_bytes()
+    with pytest.raises(FinalizedHistoryConsistencyError, match="finalization event"):
+        read_patient_history_report(path)
+    with pytest.raises(FinalizedHistoryConsistencyError, match="finalization event"):
+        report_therapist_history(path)
+    assert path.read_bytes() == before
