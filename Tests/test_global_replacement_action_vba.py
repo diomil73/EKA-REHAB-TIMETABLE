@@ -95,3 +95,39 @@ def test_replacement_transaction_preserves_recovery_copy_and_fails_closed():
         "PersistExit:", 1
     )[0]
     assert "PersistReplacementPayload = True" in block
+
+def test_direct_replacement_macro_is_blocked_before_saving_or_preparing():
+    source = GLOBAL_REPLACEMENT_MODULE_CODE
+    entry = source.split("Public Function ResolveDailyReplacementsInPlace()", 1)[1].split(
+        "End Function", 1
+    )[0]
+    guard = "If Not DailyInputJournalApplyEnabled() Then"
+    assert guard in entry
+    assert entry.index(guard) < entry.index("ThisWorkbook.Save")
+    assert entry.index(guard) < entry.index("ResolveReplacementPreparationScript()")
+    assert entry.index(guard) < entry.index('WScript.Shell')
+    assert "Exit Function" in entry.split(guard, 1)[1].split("End If", 1)[0]
+    assert "Δεν έγιναν αλλαγές" in entry
+
+
+def test_replacement_internal_payload_executor_cannot_bypass_gate():
+    source = GLOBAL_REPLACEMENT_MODULE_CODE
+    persist = source.split("Private Function PersistReplacementPayload", 1)[1].split(
+        "End Function", 1
+    )[0]
+    guard = "If Not DailyInputJournalApplyEnabled() Then Exit Function"
+    assert guard in persist
+    assert persist.index(guard) < persist.index("ReadUtf8Text(payloadPath)")
+    assert persist.index(guard) < persist.index("ThisWorkbook.SaveCopyAs rollbackPath")
+    assert persist.index(guard) < persist.index("PersistReplacementFacts(")
+    assert persist.index(guard) < persist.index("ThisWorkbook.Save")
+
+
+def test_replacement_gate_uses_same_explicit_false_journal_switch():
+    from rehab_excel.daily_input_journal_vba import JOURNAL_MODULE_CODE
+
+    switch = JOURNAL_MODULE_CODE.split(
+        "Public Function DailyInputJournalApplyEnabled()", 1
+    )[1].split("End Function", 1)[0]
+    assert "DailyInputJournalApplyEnabled = False" in switch
+    assert "DailyInputJournalApplyEnabled()" in GLOBAL_REPLACEMENT_MODULE_CODE
