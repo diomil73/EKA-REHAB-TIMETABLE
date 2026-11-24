@@ -30,3 +30,11 @@ def test_nonwindows_stops_without_touching_source(tmp_path, monkeypatch, capsys)
     assert probe.main(["--source", str(source)]) == 2
     assert source.read_bytes() == b"FICTIONAL"
     assert "SAFETY STOP" in capsys.readouterr().out
+
+
+def test_failure_report_exposes_concise_com_error_details():
+    source = Path(probe.__file__).read_text(encoding="utf-8")
+    assert 'ERROR_TYPE={type(exc).__name__}' in source
+    assert 'ERROR_MESSAGE=' in source
+    assert 'HRESULT=0x' in source
+    assert 'EXCEPINFO_PRESENT=YES' in source
