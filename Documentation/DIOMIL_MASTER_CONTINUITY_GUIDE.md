@@ -2446,3 +2446,23 @@ Therefore the direct `ApplyValidatedDailyInputPayload` worker was actually invok
 **Correction:** Commit `d681b6d` changes only the source expression to `wsDaily.Cells(startRow + 1, 1).Value = ChrW$(&H2713)`. This preserves the intended visible checkmark at runtime while the imported VBA source contains only ASCII for that glyph, so readback can remain exact. Commit `df9bddf` adds a regression test requiring the `ChrW$(&H2713)` expression and forbidding a literal checkmark in `VBA_CODE`. No readback check was weakened, and no action worker was invoked.
 
 **Next operator step:** `git pull --ff-only origin work/afternoon-medical-scope-20261115`; `python -m py_compile Python/tools/diagnose_daily_input_gate2_restore_worker_native.py`; `python -m pytest Tests/test_daily_change_ledger_in_place_vba.py Tests/test_diagnose_daily_input_gate2_restore_worker_native.py -q --tb=short --color=no`; echo `TEST_EXIT_CODE`. If focused tests GREEN, rerun the native Restore diagnostic once. Expected it to pass module readback and proceed to the actual private Restore worker negative test. If another STOP occurs, capture its bounded diagnostic and halt. Restore native rejection remains PENDING until full `GATE 2 NATIVE RESTORE WORKER REJECTION GREEN`; Apply/Restore remain disabled.
+
+
+## 4.188 Gate #2 native Restore worker rejection GREEN — 24/11/2026
+
+**Operator Windows evidence:** Following the earlier module readback STOP recorded in §4.186–4.187, operator subsequently reported `TEST_EXIT_CODE=0` for the focused Restore probe validation and ran `python Python/tools/diagnose_daily_input_gate2_restore_worker_native.py --source $demo`. Exact output:
+
+- `GATE 2 NATIVE RESTORE WORKER REJECTION GREEN`
+- `ApplyDailyChangeRestorePayload returned Boolean False: YES`
+- `Nonexistent payload was not read or created: YES`
+- `Disposable workbook package unchanged: YES`
+- `Original source unchanged; temporary files removed: YES`
+- `Only private Restore payload worker via disposable-only shim invoked`
+- `SINGLE WORKER NEGATIVE TEST ONLY: NOT FULL OPERATIONAL TRANSACTION PROOF`
+- `DIAGNOSTIC_EXIT_CODE=0`
+
+Therefore the private Restore payload worker `ApplyDailyChangeRestorePayload` was invoked in native Excel through the disposable-only test shim and rejected with Boolean False before reading the deliberately nonexistent payload. The disposable XLSM package and original synthetic source remained unchanged, and temporary files were removed. The prior U+2713 to U+003F module readback STOP is superseded by this later successful run; no claim is made here about its root cause unless separately established.
+
+**Evidence boundaries:** Native direct Apply worker rejection GREEN (§4.183) and native private Restore worker rejection GREEN (§4.188) are two separate negative-entrypoint proofs. They do not prove successful operational Apply/Restore, receipt integrity, fault-injection behavior, full rollback, or the remaining replacement/double-booking/CloseDay/day-amendment entrypoints. Gate #2 overall remains PENDING; operational transaction lifecycle remains NOT READY. Apply/Restore remain disabled.
+
+**Next engineering step:** continue one action path at a time, beginning with source review of direct replacement worker and its exact gate-before-payload ordering. Build a separate disposable-only negative harness only if source review establishes a safe nonexistent-payload test. Do not combine entrypoints and do not enable operational Apply/Restore.
