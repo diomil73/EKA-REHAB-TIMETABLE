@@ -21,7 +21,7 @@ from tempfile import TemporaryDirectory
 from typing import Iterator
 
 
-class VerifiedReportPublicationError(RuntimeError):
+class VerifiedReportPublicationError(ValueError):
     """A verified report could not be safely published."""
 
 
@@ -37,10 +37,12 @@ def staged_report_outputs(
     """
     if not destinations:
         raise VerifiedReportPublicationError("At least one output is required")
-    targets = tuple(Path(path).resolve() for path in destinations)
+    # Normalize dot segments without following a destination symlink, which
+    # could otherwise redirect a report to a different user-owned location.
+    targets = tuple(Path(os.path.abspath(path)) for path in destinations)
     if len(set(targets)) != len(targets):
         raise VerifiedReportPublicationError("Report output destinations collide")
-    if any(path.exists() for path in targets):
+    if any(path.exists() or path.is_symlink() for path in targets):
         raise VerifiedReportPublicationError("Report output already exists")
 
     published: list[tuple[Path, Path]] = []
