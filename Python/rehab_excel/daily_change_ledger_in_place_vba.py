@@ -629,25 +629,70 @@ def patch_daily_input_for_ledger(code: str) -> str:
     raise RuntimeError("DAILY_INPUT ledger refresh marker not found")
 
 
+class DailyChangeLedgerProvisionError(RuntimeError):
+    """Unsafe native ledger provisioning; the existing history is left intact."""
+
+
 def ensure_daily_change_ledger_sheet(workbook) -> None:
+    """Provision a missing ledger without EVER clearing an existing ledger.
+
+    This is an installer-side structural guard, not historical data migration.
+    An existing sheet with noncanonical headers or visibility is rejected
+    before any mutation. Reinstalling VBA must preserve all recorded facts,
+    restored statuses, ledger display rows, and formatting byte-for-byte.
+    A disconnected COM worksheet lookup must not masquerade as a missing sheet.
+    """
     try:
-        ws = workbook.Worksheets(LEDGER_SHEET)
-        ws.Cells.Clear()
-    except Exception:
-        ws = workbook.Worksheets.Add(After=workbook.Worksheets(workbook.Worksheets.Count))
+        count = int(workbook.Worksheets.Count)
+        if count < 1:
+            raise DailyChangeLedgerProvisionError("Workbook has no worksheets")
+        existing = None
+        for index in range(1, count + 1):
+            candidate = workbook.Worksheets(index)
+            if str(candidate.Name) == LEDGER_SHEET:
+                existing = candidate
+                break
+        if existing is not None:
+            if int(existing.Visible) != 2:  # xlSheetVeryHidden
+                raise DailyChangeLedgerProvisionError("Existing ledger is not veryHidden")
+            for col, expected_header in enumerate(HEADERS, start=1):
+                cell = existing.Cells(1, col)
+                if bool(cell.HasFormula) or cell.Value2 != expected_header:
+                    raise DailyChangeLedgerProvisionError(
+                        "Existing ledger header schema is incompatible"
+                    )
+            # Deliberately no .Clear, .Value2 write, .Visible assignment or Save.
+            return
+
+        if bool(workbook.ReadOnly):
+            raise DailyChangeLedgerProvisionError("Cannot provision a read-only workbook")
+        ws = workbook.Worksheets.Add(After=workbook.Worksheets(count))
         ws.Name = LEDGER_SHEET
-    for col, header in enumerate(HEADERS, start=1):
-        ws.Cells(1, col).Value2 = header
-    ws.Visible = 2
+        for col, header in enumerate(HEADERS, start=1):
+            ws.Cells(1, col).Value2 = header
+        ws.Visible = 2  # xlSheetVeryHidden
+        if (str(ws.Name) != LEDGER_SHEET or int(ws.Visible) != 2
+                or any(ws.Cells(1, col).Value2 != header
+                       for col, header in enumerate(HEADERS, start=1))):
+            raise DailyChangeLedgerProvisionError("New ledger schema readback failed")
+        # The owning installer manages workbook Save/rollback, never this helper.
+    except DailyChangeLedgerProvisionError:
+        raise
+    except Exception:
+        raise DailyChangeLedgerProvisionError(
+            "Native ledger provisioning failed; do not save this workbook"
+        ) from None
 
 
 def install_daily_change_ledger(vbproject, workbook) -> None:
+    # Resolve and validate the exact VBA patch BEFORE changing a worksheet
+    # or replacing a module. Missing/changed markers are a safety stop.
+    daily = vbproject.VBComponents("modDailyInputAction")
+    current = str(daily.CodeModule.Lines(1, int(daily.CodeModule.CountOfLines)))
+    patched_daily = patch_daily_input_for_ledger(current)
     ensure_daily_change_ledger_sheet(workbook)
     _remove_component_if_present(vbproject, MODULE_NAME)
     module = vbproject.VBComponents.Add(1)
     module.Name = MODULE_NAME
     module.CodeModule.AddFromString(VBA_CODE)
-
-    daily = vbproject.VBComponents("modDailyInputAction")
-    current = str(daily.CodeModule.Lines(1, int(daily.CodeModule.CountOfLines)))
-    _replace_all(daily, patch_daily_input_for_ledger(current))
+    _replace_all(daily, patched_daily)
