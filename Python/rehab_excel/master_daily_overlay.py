@@ -149,10 +149,64 @@ def build_master_daily_overlay_plan(
     """
 
     path = Path(workbook_path)
-    entries = {_entry.base_entry_id: _entry for _entry in base_entries}
+    entry_list = tuple(base_entries)
     state_list = tuple(states)
-    patient_map = {patient.patient_id: patient for patient in patients}
+    patient_list = tuple(patients)
+    entries = {entry.base_entry_id: entry for entry in entry_list}
+    if len(entries) != len(entry_list):
+        raise MasterDailyOverlayError("Duplicate base schedule entry identity")
+    patient_map = {patient.patient_id: patient for patient in patient_list}
+    if len(patient_map) != len(patient_list):
+        raise MasterDailyOverlayError("Duplicate patient identity in MASTER overlay")
     labels = dict(provider_labels or {})
+
+    # A daily overlay must describe exactly one service date, without
+    # duplicate immutable session identities. Mixing dates would reapply a
+    # yesterday-only cancellation or replacement over today's MASTER.
+    if len({state.session_date for state in state_list}) > 1:
+        raise MasterDailyOverlayError("MASTER daily overlay mixes service dates")
+    if len({state.session_id for state in state_list}) != len(state_list):
+        raise MasterDailyOverlayError("Duplicate daily session identity in MASTER overlay")
+
+    # One MASTER treatment cell represents one treatment column, not multiple
+    # independent same-day sessions. If one is cancelled while another stays
+    # active in that same cell, striking the entire cell would falsely hide
+    # the active treatment. Refuse until an approved per-session presentation
+    # contract exists rather than silently choosing a winning patch.
+    by_treatment_cell: dict[tuple[str, int], list[DailySessionState]] = {}
+    for state in state_list:
+        patient = patient_map.get(state.patient_id)
+        if patient is None:
+            if state.status != DailySessionStatus.ACTIVE:
+                raise MasterDailyOverlayError(
+                    f"Missing patient {state.patient_id!r} for MASTER daily overlay"
+                )
+            continue
+        if patient.patient_type != PatientType.INPATIENT:
+            continue
+        base_id = _base_entry_id_from_session(state.session_id)
+        entry = entries.get(base_id)
+        if entry is None:
+            if state.status != DailySessionStatus.ACTIVE:
+                raise MasterDailyOverlayError(
+                    f"Missing base entry {base_id!r} for MASTER daily overlay"
+                )
+            continue
+        if entry.patient_id != state.patient_id:
+            raise MasterDailyOverlayError(
+                "Daily session patient does not match immutable base entry"
+            )
+        column = _treatment_column(entry.treatment)
+        by_treatment_cell.setdefault((state.patient_id, column), []).append(state)
+
+    for mapped_states in by_treatment_cell.values():
+        if len(mapped_states) > 1 and any(
+            state.status != DailySessionStatus.ACTIVE for state in mapped_states
+        ):
+            raise MasterDailyOverlayError(
+                "Multiple daily sessions target one MASTER treatment cell; "
+                "session-specific presentation is required"
+            )
 
     if master_projection_rows is None:
         try:
@@ -194,6 +248,10 @@ def build_master_daily_overlay_plan(
         if entry is None:
             raise MasterDailyOverlayError(
                 f"Missing base entry {base_id!r} for MASTER daily overlay"
+            )
+        if entry.patient_id != state.patient_id:
+            raise MasterDailyOverlayError(
+                "Daily session patient does not match immutable base entry"
             )
         column = _treatment_column(entry.treatment)
         cell = f"{_column_letters(column)}{row}"
