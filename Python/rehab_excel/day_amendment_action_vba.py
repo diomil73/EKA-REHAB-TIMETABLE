@@ -20,6 +20,15 @@ Public Sub StartClosedDayAmendment()
 
     On Error GoTo ActionError
 
+    ' A closed-day amendment supersedes immutable historical records.
+    ' Prevent it from bypassing the disabled transaction journal.
+    If Not DailyInputJournalApplyEnabled() Then
+        MsgBox "Η αποθήκευση κλεισμένης ημέρας παραμένει κλειδωμένη μέχρι να επαληθευτεί ο μηχανισμός συναλλαγών." & vbCrLf & _
+               "Δεν έγιναν νέες καταχωρίσεις στο ιστορικό.", _
+               vbExclamation, "Αποθήκευση ημέρας"
+        Exit Sub
+    End If
+
     If ThisWorkbook.ReadOnly Then
         MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Ανοίξτε το κανονικά και δοκιμάστε ξανά.", vbExclamation, "Αποθήκευση ημέρας"
         Exit Sub
@@ -87,6 +96,8 @@ Private Function PersistDaySavePayload(ByVal payloadPath As String) As Boolean
     Dim therapistStartRow As Long, patientStartRow As Long, eventStartRow As Long
     Dim oldStatus As String
 
+    ' Also refuse any internal/direct payload call while transaction is locked.
+    If Not DailyInputJournalApplyEnabled() Then Exit Function
     On Error GoTo PersistError
 
     rawText = Replace(ReadUtf8File(payloadPath), ChrW(&HFEFF), "")
@@ -241,7 +252,11 @@ PersistError:
     FinalizeTechnicalSheet wsEvent
     ThisWorkbook.Save
     On Error GoTo 0
-    MsgBox "Η ημέρα δεν αποθηκεύτηκε. Δεν γράφτηκε νέα έκδοση στο ιστορικό.", vbCritical, "Αποθήκευση ημέρας"
+    ' Row copy-back plus Save is not an independently verified rollback.
+    MsgBox "Η ημέρα δεν αποθηκεύτηκε." & vbCrLf & _
+           "Δεν έχει επαληθευτεί πλήρης επαναφορά του ιστορικού." & vbCrLf & _
+           "Μην συνεχίσετε καταχωρίσεις. Επικοινωνήστε με τον διαχειριστή.", _
+           vbCritical, "Αποθήκευση ημέρας"
 End Function
 
 Private Function ExistingSheet(ByVal sheetName As String) As Worksheet
