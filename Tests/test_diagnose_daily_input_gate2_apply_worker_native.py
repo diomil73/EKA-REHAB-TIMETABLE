@@ -38,3 +38,13 @@ def test_failure_report_exposes_concise_com_error_details():
     assert 'ERROR_MESSAGE=' in source
     assert 'HRESULT=0x' in source
     assert 'EXCEPINFO_PRESENT=YES' in source
+
+
+def test_current_apply_module_is_provisioned_only_into_disposable_copy():
+    source = Path(probe.__file__).read_text(encoding="utf-8")
+    assert "def _provision_apply_module(workbook)" in source
+    assert "project.VBComponents.Remove(existing)" in source
+    assert "component.CodeModule.AddFromString(DAILY_INPUT_MODULE_CODE)" in source
+    assert "_provision_apply_module(workbook)" in source
+    assert "workbook.Save()" in source
+    assert "file_sha256(source) != source_before" in source
