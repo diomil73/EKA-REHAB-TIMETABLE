@@ -21,6 +21,7 @@ from rehab_excel.patient_session_history_store import (  # noqa: E402
     read_current_patient_session_history_rows,
 )
 from rehab_core.daily_state import DailySessionStatus  # noqa: E402
+from rehab_excel.verified_report_publication import staged_report_outputs  # noqa: E402
 
 
 HEADERS = (
@@ -231,20 +232,17 @@ def export_therapist_history_ui(
     )
 
     output = Path(output_path).resolve()
-    if trend_output_path is not None and Path(trend_output_path).resolve() == output:
+    trend_path = Path(trend_output_path).resolve() if trend_output_path is not None else None
+    if trend_path == output:
         raise TherapistHistoryUiExportError("Trend output collides with report output")
-    output.parent.mkdir(parents=True, exist_ok=True)
     lines = ["\t".join(HEADERS)]
     lines.extend("\t".join(_field(value) for value in row) for row in rows)
-    output.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
 
-    if trend_output_path is not None:
-        # The primary TSV contract remains unchanged. The optional second TSV
-        # carries only finalized, genuine daily facts; no interpolated dates,
-        # future dates, or invented attendance. It is used for the two tiny
-        # historical charts beneath the main therapist charts.
-        trend_path = Path(trend_output_path).resolve()
-        trend_path.parent.mkdir(parents=True, exist_ok=True)
+    # Stage BOTH files before either becomes visible. The old direct writer
+    # could overwrite user files; the old CLI cleanup could then delete them.
+    trend_lines = None
+    if trend_path is not None:
+        # Optional chart facts: no interpolated dates or invented attendance.
         trend_headers = ("Date", "Therapist", "Planned", "Delivered", "UniquePatients")
         trend_rows = sorted(
             (
@@ -262,9 +260,12 @@ def export_therapist_history_ui(
         trend_lines.extend(
             "\t".join(_field(field) for field in row) for row in trend_rows
         )
-        trend_path.write_text(
-            "\n".join(trend_lines) + "\n", encoding="utf-8-sig"
-        )
+
+    targets = (output,) if trend_path is None else (output, trend_path)
+    with staged_report_outputs(targets) as stages:
+        stages[0].write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+        if trend_lines is not None:
+            stages[1].write_text("\n".join(trend_lines) + "\n", encoding="utf-8-sig")
     return {"ok": True, "mode": mode, "rows": len(rows), "output": str(output)}
 
 
@@ -282,14 +283,10 @@ def main() -> int:
             args.workbook, args.output, mode=args.mode,
             trend_output_path=args.trend_output,
         )
-    except Exception as exc:
-        for candidate in (args.output, args.trend_output):
-            try:
-                if candidate is not None and candidate.exists():
-                    candidate.unlink()
-            except OSError:
-                pass
-        print(f"THERAPIST HISTORY UI EXPORT FAILED: {exc}")
+    except Exception:
+        # Only staging files created by this invocation are cleaned by the
+        # publisher. Never delete an existing user-supplied output on error.
+        print("SAFETY STOP: THERAPIST HISTORY UI EXPORT FAILED")
         return 2
 
     print("THERAPIST HISTORY UI EXPORT OK")
