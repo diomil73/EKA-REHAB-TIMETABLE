@@ -2575,3 +2575,24 @@ Therefore private `PersistCloseDayPayload` was invoked in native Excel through t
 Operator reported `4 passed in 2.93s` for `python -m pytest Tests/test_diagnose_daily_input_gate2_day_amendment_worker_native.py -q --tb=short --color=no`. This confirms the four focused harness contract tests pass. It does NOT yet execute native Excel or prove the private VBA worker rejects the missing payload.
 
 **Next operator step:** run `python Python/tools/diagnose_daily_input_gate2_day_amendment_worker_native.py --source $demo` against the existing synthetic disposable-test source. Capture complete output and `DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE`. Expected native GREEN claims are Boolean False, missing payload not read/created, disposable package unchanged, original source unchanged, temporary files removed, private `PersistDaySavePayload` only, and public `StartClosedDayAmendment` not invoked. If SAFETY STOP, stop and report exact diagnostic. No operational workbook or real patient data.
+
+
+## 4.197 Gate #2 native closed-day amendment worker rejection GREEN — 25/11/2026
+
+**Operator Windows evidence:** Operator ran `python Python/tools/diagnose_daily_input_gate2_day_amendment_worker_native.py --source $demo`. Exact result:
+
+- `GATE 2 NATIVE DAY AMENDMENT WORKER REJECTION GREEN`
+- `PersistDaySavePayload returned Boolean False: YES`
+- `Nonexistent payload was not read or created: YES`
+- `Disposable workbook package unchanged: YES`
+- `Original source unchanged; temporary files removed: YES`
+- `Only private day amendment history worker via disposable-only shim invoked`
+- `Public StartClosedDayAmendment UI wrapper was NOT invoked`
+- `SINGLE WORKER NEGATIVE TEST ONLY: NOT FULL OPERATIONAL TRANSACTION PROOF`
+- `DIAGNOSTIC_EXIT_CODE=0`
+
+Therefore private `PersistDaySavePayload` was invoked in native Excel via the disposable-only shim and rejected the deliberately nonexistent payload with Boolean False before payload read. Disposable workbook package and original synthetic source remained unchanged, temporary files were removed, and public `StartClosedDayAmendment` UI wrapper was not invoked. This closes one native closed-day amendment negative entrypoint test GREEN.
+
+**Evidence boundaries:** Native negative worker tests for Apply (§4.183), Restore (§4.188), Replacement (§4.191), CloseDay (§4.195), and closed-day amendment (§4.197) are GREEN. They prove only disabled-gate rejection for these specific workers. They do not prove successful operational transactions, double-booking/assignment protection, receipts, fault-injection, full rollback, or all amendment entrypoints. Gate #2 overall remains PENDING; operational transaction lifecycle remains NOT READY. All operational actions remain disabled.
+
+**Next engineering step:** inspect exact double-booking/assignment guard modules and identify whether a private writer exists with gate-before-read ordering. Distinguish read-only review/report paths from mutating assignment paths. Do not invoke UI or mutate workbook. Only after source review, prepare a separate disposable-only negative probe if a safe worker is established.
