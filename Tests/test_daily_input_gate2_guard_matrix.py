@@ -48,7 +48,7 @@ def _procedure(source: str, name: str) -> str:
     (CLOSE_DAY_MODULE_CODE, "PersistCloseDayPayload", "Exit Function"),
     (DAY_AMENDMENT_MODULE_CODE, "StartClosedDayAmendment", "Exit Sub"),
     (DAY_AMENDMENT_MODULE_CODE, "PersistDaySavePayload", "Exit Function"),
-], ids=lambda case: case if isinstance(case, str) and case in {"ApplyDailyInputPreview", "ApplyValidatedDailyInputPayload", "PersistDailyChangePayload", "RunDailyChangeRestore", "ApplyDailyChangeRestorePayload", "ResolveDailyReplacementsInPlace", "PersistReplacementPayload", "ApplySelectedDoubleBooking", "StartAuthoritativeCommit", "CloseOperationalDay", "PersistCloseDayPayload", "StartClosedDayAmendment", "PersistDaySavePayload"} else None)
+], ids=["ApplyDailyInputPreview","ApplyValidatedDailyInputPayload","PersistDailyChangePayload","RunDailyChangeRestore","ApplyDailyChangeRestorePayload","ResolveDailyReplacementsInPlace","PersistReplacementPayload","ApplySelectedDoubleBooking","StartAuthoritativeCommit","CloseOperationalDay","PersistCloseDayPayload","StartClosedDayAmendment","PersistDaySavePayload"])
 def test_entrypoint_guards_present_before_first_work(source, name, guard_exit):
     body = _procedure(source, name)
     gate = re.search(r"(?i)If\s+Not\s+DailyInputJournalApplyEnabled\s*\(\s*\)\s+Then", body)
