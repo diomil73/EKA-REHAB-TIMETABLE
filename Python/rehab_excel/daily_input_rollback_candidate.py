@@ -115,10 +115,10 @@ def _journal_xml_for_history(original: bytes, rows: tuple[tuple, ...]) -> bytes:
         )
         if dimension is not None:
             item = dimension.group()
-            if len(re.findall(rb"\bref=[\\"'][^\\"']*[\\"']", item)) != 1:
+            if len(re.findall(rb"\bref=(\x22|\x27)[^\x22\x27]*\1", item)) != 1:
                 raise RollbackCandidateError("Journal dimension ref ambiguous")
             patched = re.sub(
-                rb"\bref=([\\"'])[^\\"']*\1",
+                rb"\bref=(\x22|\x27)[^\x22\x27]*\1",
                 lambda m: b"ref=" + m.group(1)
                 + f"A1:E{len(all_rows)}".encode("ascii") + m.group(1),
                 item, count=1,
