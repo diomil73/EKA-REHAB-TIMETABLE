@@ -28,6 +28,7 @@ from tools.diagnose_daily_input_prepared_vba_hook import (
 from tools.diagnose_daily_input_gate2_apply_worker_native import (
     _provision_apply_module,
     _read_module,
+    _module_source_mismatch,
 )
 from tools.prepare_native_probe_copy import create_probe_copy
 
@@ -58,7 +59,10 @@ def _provision_restore_module(workbook) -> None:
     workbook.Save()
     installed = _read_module(workbook, MODULE_NAME)
     if canonicalize_vba_source(installed) != canonicalize_vba_source(VBA_CODE):
-        raise NativeRestoreGuardError("Provisioned Restore module readback mismatch")
+        detail = _module_source_mismatch(VBA_CODE, installed)
+        raise NativeRestoreGuardError(
+            "Provisioned Restore module readback mismatch; " + detail
+        )
     count = int(component.CodeModule.CountOfLines)
     component.CodeModule.InsertLines(count + 1, SHIM_SOURCE)
     workbook.Save()
@@ -85,7 +89,10 @@ def run_locked_restore_worker(copy: Path, missing_payload: Path, *, excel_factor
             # The test shim is appended after the verified canonical module.
             base = installed.split("Public Function " + SHIM_NAME, 1)[0]
             if canonicalize_vba_source(base) != canonicalize_vba_source(VBA_CODE):
-                raise NativeRestoreGuardError("Installed Restore module differs from verified source")
+                detail = _module_source_mismatch(VBA_CODE, base)
+                raise NativeRestoreGuardError(
+                    "Installed Restore module differs from verified source; " + detail
+                )
         if not missing_payload.exists():
             result = app.Run(
                 f"'{workbook.Name}'!{SHIM_NAME}",
