@@ -125,3 +125,35 @@ def test_day_save_installer_touches_only_daily_input_not_master():
     assert 'anchor = ws.Range(f"A{last_row + 2}")' in source
     assert "shape.OnAction = DAY_AMENDMENT_MACRO_NAME" in source
     assert 'shape.TextFrame2.TextRange.Text = "Αποθήκευση ημέρας"' in source
+
+def test_closed_day_amendment_ui_and_writer_obey_shared_lock():
+    """A saved history revision must not be written while Apply is blocked."""
+    source = DAY_AMENDMENT_MODULE_CODE
+    ui = source.split("Public Sub StartClosedDayAmendment()", 1)[1].split(
+        "End Sub", 1
+    )[0]
+    writer = source.split("Private Function PersistDaySavePayload", 1)[1].split(
+        "End Function", 1
+    )[0]
+    guard = "If Not DailyInputJournalApplyEnabled() Then"
+    internal_guard = "If Not DailyInputJournalApplyEnabled() Then Exit Function"
+    assert guard in ui
+    assert ui.index(guard) < ui.index("ThisWorkbook.ReadOnly")
+    assert ui.index(guard) < ui.index("ThisWorkbook.Save")
+    assert ui.index(guard) < ui.index('CreateObject("WScript.Shell")')
+    assert "Exit Sub" in ui.split(guard, 1)[1].split("End If", 1)[0]
+    assert internal_guard in writer
+    assert writer.index(internal_guard) < writer.index("ReadUtf8File(payloadPath)")
+    assert writer.index(internal_guard) < writer.index("wsSnapshot.Unprotect")
+    assert writer.index(internal_guard) < writer.index("ThisWorkbook.Save")
+
+
+def test_closed_day_amendment_error_never_asserts_recovery_without_reopen():
+    writer = DAY_AMENDMENT_MODULE_CODE.split(
+        "Private Function PersistDaySavePayload", 1
+    )[1].split("End Function", 1)[0]
+    error = writer.split("PersistError:", 1)[1]
+    assert 'wsSnapshot.Cells(oldSnapshotRow, 4).Value2 = oldStatus' in error
+    assert "Δεν έχει επαληθευτεί πλήρης επαναφορά" in error
+    assert "Μην συνεχίσετε καταχωρίσεις" in error
+    assert "Δεν γράφτηκε νέα έκδοση" not in error
