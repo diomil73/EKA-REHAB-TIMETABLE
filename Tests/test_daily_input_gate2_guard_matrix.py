@@ -77,7 +77,7 @@ def test_entrypoint_guards_present_before_first_work(source, name, guard_exit):
         if line.strip()
         and not line.lstrip().startswith("'")
         and not re.match(
-            r"(?i)^\\s*(?:Public|Private)\\s+(?:Sub|Function)\\s+",
+            r"(?i)^\s*(?:Public|Private)\s+(?:Sub|Function)\s+",
             line,
         )
     )
