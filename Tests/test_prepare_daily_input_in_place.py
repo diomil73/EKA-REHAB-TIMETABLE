@@ -2,7 +2,9 @@ import inspect
 from datetime import date
 from types import SimpleNamespace
 
-from rehab_excel.writeback import CellPatch, TextRunPatch
+from pathlib import Path
+
+from rehab_excel.writeback import CellPatch, TextRunPatch, WriteIntent
 from tools import prepare_daily_input_in_place as module
 
 
@@ -114,3 +116,201 @@ def test_daily_input_filters_discharge_events_before_materializing_sessions():
     )
     # Permanent patient exits must never be logged as daily absences.
     assert "patient_exit" not in inspect.getsource(module._change_line)
+
+
+def _synthetic_preparation_inputs(tmp_path, monkeypatch):
+    """One isolated fictional workbook, with real TSV serializer and file I/O."""
+    from datetime import time
+    from openpyxl import Workbook
+    from rehab_core.daily_state import DailySessionState, DailySessionStatus
+    from rehab_excel.writeback import WritePlan
+
+    source = tmp_path / "FICTIONAL_MASTER_DAILY.xlsm"
+    wb = Workbook()
+    sheet = wb.active
+    sheet.title = "DAILY_INPUT"
+    sheet["B2"] = "24/11/2026"
+    wb.create_sheet("MASTER_SCHEDULE")
+    wb.save(source)
+    wb.close()
+
+    change = SimpleNamespace(
+        change_id="FICTIONAL-CHANGE-1", change_type="patient_absence",
+        subject_id="FICTIONAL-P1", display_name="FICTIONAL PATIENT",
+        reason="FICTIONAL REASON", source_row=8, all_day=True, start_time=None,
+    )
+    state = DailySessionState(
+        session_id="FICTIONAL-BASE-1@2026-11-24",
+        patient_id="FICTIONAL-P1", session_date=date(2026, 11, 24),
+        status=DailySessionStatus.PATIENT_ABSENT,
+        original_therapist_id="FICTIONAL-T1", original_time=time(9, 0),
+        effective_therapist_id=None, effective_time=None,
+    )
+    patch = CellPatch(
+        sheet="MASTER_SCHEDULE", cell="D7",
+        intent=module.WriteIntent.PRESENTATION, strike_through=True,
+        source_tag="master_daily_non_active_overlay",
+    )
+    original = source.read_bytes()
+    monkeypatch.setattr(
+        module, "assert_application_contract",
+        lambda _: SimpleNamespace(component_names=("FICTIONAL",)),
+    )
+    monkeypatch.setattr(module, "read_patient_registry", lambda _: ())
+    monkeypatch.setattr(
+        module, "read_settings",
+        lambda _: SimpleNamespace(therapist_names=()),
+    )
+    monkeypatch.setattr(module, "read_patient_exits", lambda *_args, **_kwargs: ())
+    monkeypatch.setattr(module, "read_unified_base_schedule", lambda _: ())
+    monkeypatch.setattr(module, "active_entries_on", lambda *_args: ())
+    monkeypatch.setattr(module, "materialize_sessions_for_date", lambda *_args: ())
+    monkeypatch.setattr(
+        module, "read_daily_input",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            target_date=date(2026, 11, 24),
+            absences=(), cancellations=(), source_changes=(change,),
+            therapist_rows_used=0, patient_rows_used=1,
+        ),
+    )
+    monkeypatch.setattr(module, "read_daily_replacement_facts", lambda *_args, **_kwargs: ())
+    monkeypatch.setattr(module, "build_daily_session_states", lambda *_args, **_kwargs: (state,))
+    monkeypatch.setattr(
+        module, "build_patient_centric_preview_plan",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            write_plan=WritePlan(str(source), (patch,)), bindings=(state.session_id,),
+        ),
+    )
+    monkeypatch.setattr(
+        module, "compose_outpatient_daily_plan", lambda plan, **_kwargs: plan,
+    )
+    monkeypatch.setattr(
+        module, "build_master_daily_overlay_plan",
+        lambda *_args, **_kwargs: SimpleNamespace(write_plan=WritePlan(str(source), ())),
+    )
+    monkeypatch.setattr(module, "compose_master_daily_overlay", lambda plan, _: plan)
+    monkeypatch.setattr(module, "validate_write_plan", lambda _: None)
+    return source, original
+
+
+def test_daily_input_payload_is_exclusively_published_after_full_validation(
+    tmp_path, monkeypatch,
+):
+    source, original = _synthetic_preparation_inputs(tmp_path, monkeypatch)
+    output = tmp_path / "FICTIONAL_APPLY_PAYLOAD.tsv"
+    result = module.prepare_daily_input_payload(source, output)
+    assert result["ok"] is True
+    assert result["daily_input_changes"] == 1
+    assert result["source_unchanged"] is True
+    text = output.read_text(encoding="utf-8-sig")
+    assert text.startswith("CHANGE\tFICTIONAL-CHANGE-1")
+    assert "\nPATCH\tMASTER_SCHEDULE\tD7\tpresentation" in text
+    assert source.read_bytes() == original
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+
+
+def test_daily_input_existing_payload_is_preserved_on_refused_retry(
+    tmp_path, monkeypatch,
+):
+    import pytest
+    source, original = _synthetic_preparation_inputs(tmp_path, monkeypatch)
+    output = tmp_path / "EXISTING_REPORT.tsv"
+    output.write_bytes(b"USER OWNED FILE NEVER DELETE")
+    with pytest.raises(ValueError, match="already exists"):
+        module.prepare_daily_input_payload(source, output)
+    assert output.read_bytes() == b"USER OWNED FILE NEVER DELETE"
+    assert source.read_bytes() == original
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+
+
+def test_daily_input_source_hash_drift_does_not_publish_unverified_payload(
+    tmp_path, monkeypatch,
+):
+    import pytest
+    from rehab_excel.authoritative_commit import file_sha256 as original_sha
+
+    source, original = _synthetic_preparation_inputs(tmp_path, monkeypatch)
+    output = tmp_path / "STALENESS_MUST_NOT_EXIST.tsv"
+    hash_calls = []
+    def source_sha(path):
+        hash_calls.append(path)
+        return original_sha(path) if len(hash_calls) == 1 else "0" * 64
+    monkeypatch.setattr(module, "file_sha256", source_sha)
+    with pytest.raises(module.DailyInputInPlacePreparationError, match="changed"):
+        module.prepare_daily_input_payload(source, output)
+    assert len(hash_calls) == 2
+    assert not output.exists()
+    assert source.read_bytes() == original
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+
+
+def test_daily_input_partial_staged_write_is_cleaned_without_publishing(
+    tmp_path, monkeypatch,
+):
+    import pytest
+    source, original = _synthetic_preparation_inputs(tmp_path, monkeypatch)
+    output = tmp_path / "FAILED_PRIVATE_STAGE.tsv"
+    original_write = Path.write_text
+    def broken_write(path, data, *args, **kwargs):
+        if path.name == "stage.tsv":
+            path.write_bytes(b"PRIVATE PARTIAL TSV")
+            raise OSError("FICTIONAL INTERRUPTED WRITE")
+        return original_write(path, data, *args, **kwargs)
+    monkeypatch.setattr(Path, "write_text", broken_write)
+    with pytest.raises(OSError, match="INTERRUPTED WRITE"):
+        module.prepare_daily_input_payload(source, output)
+    assert not output.exists()
+    assert source.read_bytes() == original
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+
+
+def test_daily_input_symlink_payload_is_refused_without_modifying_target(
+    tmp_path, monkeypatch,
+):
+    import pytest
+    source, original = _synthetic_preparation_inputs(tmp_path, monkeypatch)
+    existing = tmp_path / "PRIVATE_KEEP.tsv"
+    existing.write_bytes(b"PRIVATE USER OWNED")
+    alias = tmp_path / "REDIRECTED_PAYLOAD.tsv"
+    try:
+        alias.symlink_to(existing)
+    except (OSError, NotImplementedError):
+        pytest.skip("Symlinks require privilege or platform support")
+    with pytest.raises(ValueError, match="already exists"):
+        module.prepare_daily_input_payload(source, alias)
+    assert existing.read_bytes() == b"PRIVATE USER OWNED"
+    assert alias.is_symlink()
+    assert source.read_bytes() == original
+
+
+def test_daily_input_cli_failure_does_not_delete_existing_output_or_log_patient(
+    tmp_path, monkeypatch, capsys,
+):
+    import json
+    import pytest
+    source, original = _synthetic_preparation_inputs(tmp_path, monkeypatch)
+    output = tmp_path / "PRIVATE_EXISTING_OUTPUT.tsv"
+    response = tmp_path / "FICTIONAL_RESPONSE.json"
+    output.write_bytes(b"PREVIOUS USER WORK PRODUCT")
+    monkeypatch.setattr(
+        module.sys,
+        "argv",
+        [
+            "prepare_daily_input_in_place.py",
+            "--input", str(source), "--payload", str(output),
+            "--response", str(response),
+        ],
+    )
+    def fail(*args):
+        raise RuntimeError("PRIVATE_PATIENT_NAME_DO_NOT_LOG")
+    monkeypatch.setattr(module, "prepare_daily_input_payload", fail)
+    assert module.main() == 2
+    assert output.read_bytes() == b"PREVIOUS USER WORK PRODUCT"
+    assert source.read_bytes() == original
+    data = json.loads(response.read_text(encoding="utf-8-sig"))
+    assert data["ok"] is False
+    assert "PRIVATE_PATIENT_NAME_DO_NOT_LOG" not in data["error"]
+    stdout = capsys.readouterr().out
+    assert "SAFETY STOP" in stdout
+    assert "PRIVATE_PATIENT_NAME_DO_NOT_LOG" not in stdout
+    assert str(output) not in stdout
