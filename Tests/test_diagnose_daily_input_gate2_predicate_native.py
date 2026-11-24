@@ -9,7 +9,8 @@ def test_predicate_runner_has_one_allowlisted_vba_target():
     assert 'app.Run(f"\'{workbook.Name}\'!DailyInputJournalApplyEnabled")' in source
     assert "ApplyDailyInputPreview" not in source
     assert "ApplyValidatedDailyInputPayload" not in source
-    assert "Restore" not in source
+    assert source.count("app.Run(") == 1
+    assert "RunDailyChangeRestore" not in source
     assert "type(result) is not bool" in source
 
 
