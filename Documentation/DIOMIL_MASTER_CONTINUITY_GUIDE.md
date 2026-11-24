@@ -2568,3 +2568,10 @@ Therefore private `PersistCloseDayPayload` was invoked in native Excel through t
 **Verification pending:** New amendment harness/tests have not yet been run by operator. Next PC step: `git pull --ff-only origin work/afternoon-medical-scope-20261115`; `python -m py_compile Python/tools/diagnose_daily_input_gate2_day_amendment_worker_native.py`; `python -m pytest Tests/test_diagnose_daily_input_gate2_day_amendment_worker_native.py -q --tb=short --color=no`; echo `TEST_EXIT_CODE`. Only if focused tests GREEN, run native diagnostic against `$demo`. On any SAFETY STOP, capture concise ERROR_TYPE/ERROR_MESSAGE/HRESULT and stop. Never invoke public `StartClosedDayAmendment`.
 
 **Status:** Native Apply (§4.183), Restore (§4.188), Replacement (§4.191), and CloseDay (§4.195) negative entrypoint tests GREEN. Closed-day amendment source gate-before-read ordering reviewed; its focused Python and native negative tests are PENDING. Double-booking and other amendment entrypoints remain to be reviewed separately. Gate #2 overall and full operational transaction lifecycle remain NOT READY. All operational Apply/Restore/Replacement/CloseDay/amendment actions remain disabled.
+
+
+### 4.196a Closed-day amendment focused Python tests GREEN — 25/11/2026
+
+Operator reported `4 passed in 2.93s` for `python -m pytest Tests/test_diagnose_daily_input_gate2_day_amendment_worker_native.py -q --tb=short --color=no`. This confirms the four focused harness contract tests pass. It does NOT yet execute native Excel or prove the private VBA worker rejects the missing payload.
+
+**Next operator step:** run `python Python/tools/diagnose_daily_input_gate2_day_amendment_worker_native.py --source $demo` against the existing synthetic disposable-test source. Capture complete output and `DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE`. Expected native GREEN claims are Boolean False, missing payload not read/created, disposable package unchanged, original source unchanged, temporary files removed, private `PersistDaySavePayload` only, and public `StartClosedDayAmendment` not invoked. If SAFETY STOP, stop and report exact diagnostic. No operational workbook or real patient data.
