@@ -164,3 +164,125 @@ def test_executive_headline_cards_are_verified_against_aggregates():
     render = inspect.getsource(mod._write_mode_sheet)
     assert "OnAction" not in render
     assert 'Address="",\n                          SubAddress=' in render
+
+def test_management_export_only_publishes_after_native_and_package_verification(
+    tmp_path, monkeypatch
+):
+    import sys
+    from types import SimpleNamespace
+    from tools import export_management_therapist_summary as module
+
+    source = tmp_path / "fictional-source.xlsm"
+    source.write_bytes(b"FICTIONAL_SOURCE_ORIGINAL")
+    target = tmp_path / "management-verified.xlsx"
+    events = []
+    periods = {
+        "daily": [("2026-11-24", 1, 1, 1.0)],
+        "weekly": [("2026-11-23", 1, 1, 1.0)],
+        "monthly": [("2026-11", 1, 1, 1.0)],
+        "overall": [("ΟΛΟ ΤΟ ΙΣΤΟΡΙΚΟ", 1, 1, 1.0)],
+    }
+    monkeypatch.setattr(module, "report_therapist_history", lambda path: ())
+    monkeypatch.setattr(module, "department_periods", lambda rows: periods)
+    monkeypatch.setattr(module, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(module, "_write_mode_sheet", lambda ws, mode, rows: None)
+
+    class FakeSheet:
+        def Activate(self):
+            pass
+
+    class FakeWorksheets:
+        Count = 4
+        def __call__(self, key):
+            return FakeSheet()
+
+    class FakeBook:
+        Worksheets = FakeWorksheets()
+        def SaveAs(self, filename, FileFormat):
+            assert FileFormat == 51
+            assert str(filename).endswith(".xlsx")
+            assert not target.exists()
+            events.append("save-private")
+            from pathlib import Path
+            Path(filename).write_bytes(b"FICTIONAL_MACROFREE_STAGED")
+        def Close(self, SaveChanges=False):
+            pass
+
+    class FakeExcel:
+        def __init__(self):
+            self.Workbooks = SimpleNamespace(Add=FakeBook)
+            self.ActiveWindow = SimpleNamespace()
+        def Quit(self):
+            pass
+
+    fake_client = SimpleNamespace(DispatchEx=lambda name: FakeExcel())
+    monkeypatch.setitem(sys.modules, "win32com", SimpleNamespace(client=fake_client))
+    monkeypatch.setitem(sys.modules, "win32com.client", fake_client)
+
+    def inspect(staged):
+        assert staged.is_file()
+        assert staged != target and not target.exists()
+        events.append("package")
+    def native(staged, expected):
+        assert expected is periods and not target.exists()
+        events.append("native")
+    monkeypatch.setattr(module, "inspect_share_package", inspect)
+    monkeypatch.setattr(module, "verify_management_native", native)
+
+    before = source.read_bytes()
+    module.export_shareable(source, target)
+    assert target.read_bytes() == b"FICTIONAL_MACROFREE_STAGED"
+    assert events == ["save-private", "package", "native", "package"]
+    assert source.read_bytes() == before
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+
+
+def test_management_export_native_reopen_failure_never_leaves_shareable_file(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+    import sys
+    import pytest
+    from tools import export_management_therapist_summary as module
+
+    source = tmp_path / "fictional-source.xlsm"
+    source.write_bytes(b"FICTIONAL_SOURCE")
+    target = tmp_path / "must-not-publish.xlsx"
+    data = {mode: [("FICTIONAL", 1, 1, 1.0)] for mode in module.MODES}
+    monkeypatch.setattr(module, "report_therapist_history", lambda path: ())
+    monkeypatch.setattr(module, "department_periods", lambda rows: data)
+    monkeypatch.setattr(module, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(module, "_write_mode_sheet", lambda ws, mode, rows: None)
+
+    class FakeBook:
+        def __init__(self):
+            self.Worksheets = SimpleNamespace(Count=4, __call__=lambda *a: None)
+        def SaveAs(self, filename, FileFormat):
+            from pathlib import Path
+            Path(filename).write_bytes(b"UNVERIFIED PRIVATE EXPORT")
+        def Close(self, SaveChanges=False):
+            pass
+    book = FakeBook()
+    class FakeSheets:
+        Count = 4
+        def __call__(self, index):
+            return SimpleNamespace(Activate=lambda: None)
+    book.Worksheets = FakeSheets()
+    excel = SimpleNamespace(
+        Workbooks=SimpleNamespace(Add=lambda: book),
+        ActiveWindow=SimpleNamespace(),
+        Quit=lambda: None,
+    )
+    client = SimpleNamespace(DispatchEx=lambda arg: excel)
+    monkeypatch.setitem(sys.modules, "win32com", SimpleNamespace(client=client))
+    monkeypatch.setitem(sys.modules, "win32com.client", client)
+    monkeypatch.setattr(module, "inspect_share_package", lambda path: None)
+    def fail_native(path, expected):
+        raise RuntimeError("FICTIONAL PRIVATE FAILED READBACK")
+    monkeypatch.setattr(module, "verify_management_native", fail_native)
+
+    with pytest.raises(RuntimeError, match="FAILED READBACK"):
+        module.export_shareable(source, target)
+    assert not target.exists()
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+    assert source.read_bytes() == b"FICTIONAL_SOURCE"
