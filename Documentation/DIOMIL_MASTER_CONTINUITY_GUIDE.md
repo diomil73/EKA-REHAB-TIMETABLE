@@ -2477,3 +2477,12 @@ Therefore the private Restore payload worker `ApplyDailyChangeRestorePayload` wa
 **Verification pending:** New harness and four tests have not yet been run by operator. Next PC step: `git pull --ff-only origin work/afternoon-medical-scope-20261115`; `python -m py_compile Python/tools/diagnose_daily_input_gate2_replacement_worker_native.py`; `python -m pytest Tests/test_diagnose_daily_input_gate2_replacement_worker_native.py -q --tb=short --color=no`; echo `TEST_EXIT_CODE`. Only if focused tests GREEN, run native diagnostic against `$demo`. On any SAFETY STOP, preserve exact ERROR_TYPE/ERROR_MESSAGE/HRESULT and stop. No operational replacement workflow or writer may be enabled.
 
 **Status:** Native Apply worker rejection GREEN (§4.183); native Restore worker rejection GREEN (§4.188); Replacement source guard ordering reviewed GREEN at source level, but its new focused tests and native rejection remain PENDING. Gate #2 overall remains PENDING; operational transaction lifecycle/receipts/fault injection/rollback NOT READY. Apply/Restore/Replacement remain disabled.
+
+
+## 4.190 Replacement worker focused Python tests GREEN — 25/11/2026
+
+**Operator evidence:** After §4.189, operator reported `4 passed in 1.49s` for `Tests/test_diagnose_daily_input_gate2_replacement_worker_native.py`. Record focused contract tests GREEN 4/4. No separate `py_compile` output or `TEST_EXIT_CODE` was supplied, so do not infer it independently.
+
+**Next PC action:** Run `python -m py_compile Python/tools/diagnose_daily_input_gate2_replacement_worker_native.py` if not already confirmed, then `python Python/tools/diagnose_daily_input_gate2_replacement_worker_native.py --source $demo` and immediately `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. This invokes only the private `PersistReplacementPayload` worker via the disposable-only shim with `applyFinalPatches=False` and a nonexistent payload. Expected Boolean False before payload read, unchanged copy/source SHA, cleanup. On SAFETY STOP, stop and provide concise error output. No operational replacement UI, preparation script, review UI, or writer is invoked.
+
+**Status:** Native Apply rejection GREEN (§4.183); native Restore rejection GREEN (§4.188); Replacement focused Python tests GREEN 4/4, native Replacement rejection PENDING. Gate #2 overall PENDING; operational transaction lifecycle/receipts/fault injection/rollback NOT READY. Apply/Restore/Replacement remain disabled.
