@@ -54,9 +54,16 @@ def test_entrypoint_guards_present_before_first_work(source, name, guard_exit):
     gate = re.search(r"(?i)If\\s+Not\\s+DailyInputJournalApplyEnabled\\s*\\(\\s*\\)\\s+Then", body)
     assert gate is not None, f"Missing locked transaction gate in {name}"
     after_gate = body[gate.end():]
-    end_if = re.search(r"(?im)^\\s*End\\s+If\\s*$", after_gate)
-    assert end_if is not None, f"Unterminated guard in {name}"
-    assert re.search(rf"(?im)^\\s*{re.escape(guard_exit)}\\b", after_gate[:end_if.start()])
+    if name == "PersistDailyChangePayload":
+        # Its intentional one-line guard raises before any ledger write.
+        assert re.match(r"\\s*Err\\.Raise\\b", after_gate)
+    else:
+        end_if = re.search(r"(?im)^\\s*End\\s+If\\s*$", after_gate)
+        assert end_if is not None, f"Unterminated guard in {name}"
+        assert re.search(
+            rf"(?im)^\\s*{re.escape(guard_exit)}\\b",
+            after_gate[:end_if.start()],
+        )
     # Must reject before disk operations, dialogs except its own warning,
     # subprocesses, workbooks/sheets writes, and calls to mutation helpers.
     prefix = body[:gate.start()]
