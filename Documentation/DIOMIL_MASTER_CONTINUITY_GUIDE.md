@@ -2536,3 +2536,24 @@ Therefore the private `PersistReplacementPayload` worker was invoked in native E
 **Next PC action:** Run the native Excel negative test against the existing synthetic demo: `python Python/tools/diagnose_daily_input_gate2_close_day_worker_native.py --source $demo`, then immediately `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected: `GATE 2 NATIVE CLOSE DAY WORKER REJECTION GREEN`, `PersistCloseDayPayload returned Boolean False: YES`, nonexistent payload not read/created, disposable package unchanged, original source unchanged, temporary files removed, and explicit confirmation public `CloseOperationalDay` wrapper was NOT invoked. If SAFETY STOP, capture ERROR_TYPE/ERROR_MESSAGE/HRESULT and stop. Do not invoke public CloseDay UI.
 
 **Status:** Native Apply (§4.183), Restore (§4.188), Replacement (§4.191) negative entrypoint tests GREEN. CloseDay focused Python tests GREEN 4/4; native CloseDay rejection PENDING. Gate #2 overall and full operational transaction lifecycle remain NOT READY. Apply/Restore/Replacement/CloseDay remain disabled.
+
+
+## 4.195 Gate #2 native CloseDay worker rejection GREEN — 25/11/2026
+
+**Operator Windows evidence:** Operator reported `TEST_EXIT_CODE=0`, then ran `python Python/tools/diagnose_daily_input_gate2_close_day_worker_native.py --source $demo`. Exact result:
+
+- `GATE 2 NATIVE CLOSE DAY WORKER REJECTION GREEN`
+- `PersistCloseDayPayload returned Boolean False: YES`
+- `Nonexistent payload was not read or created: YES`
+- `Disposable workbook package unchanged: YES`
+- `Original source unchanged; temporary files removed: YES`
+- `Only private CloseDay history worker via disposable-only shim invoked`
+- `Public CloseOperationalDay UI wrapper was NOT invoked`
+- `SINGLE WORKER NEGATIVE TEST ONLY: NOT FULL OPERATIONAL TRANSACTION PROOF`
+- `DIAGNOSTIC_EXIT_CODE=0`
+
+Therefore private `PersistCloseDayPayload` was invoked in native Excel through the disposable-only shim and rejected the deliberately nonexistent payload with Boolean False before payload read. Disposable workbook package and original synthetic source remained unchanged, temporary files were removed, and public UI wrapper `CloseOperationalDay` was not invoked. This closes one native CloseDay negative entrypoint test GREEN.
+
+**Evidence boundaries:** Native negative entrypoint tests for Apply (§4.183), Restore (§4.188), Replacement (§4.191), and CloseDay (§4.195) are GREEN. They prove rejection of these four named workers with the journal gate disabled; they do not prove successful operational transactions, amendment paths, double-booking protection, receipts, fault-injection, or full rollback. Gate #2 overall remains PENDING and operational transaction lifecycle remains NOT READY. Apply/Restore/Replacement/CloseDay remain disabled.
+
+**Next engineering step:** source-review the remaining amendment-related action workers and double-booking/assignment entrypoints. Identify exact VBA modules, public UI wrappers versus private persistence workers, gate-before-payload/read ordering, and side effects. Build separate disposable-only negative probes only where source ordering makes a missing-payload test safe. Do not invoke modal UI wrappers or combine multiple workers in one probe.
