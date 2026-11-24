@@ -1,5 +1,6 @@
 """Synthetic-only tests for non-destructive recovery candidate construction."""
 from shutil import copy2
+from xml.etree import ElementTree as ET
 
 import pytest
 from openpyxl import Workbook, load_workbook
@@ -19,6 +20,7 @@ from rehab_excel.daily_input_operation import (
 from rehab_excel.daily_input_rollback_candidate import (
     RollbackCandidateError,
     build_rollback_candidate,
+    _journal_xml_for_history,
 )
 
 
@@ -134,3 +136,54 @@ def test_real_macro_project_is_mandatory_by_default(tmp_path):
     with pytest.raises(RollbackCandidateError):
         _build(snapshot, failed, candidate, require_vba=True)
     assert not candidate.exists()
+
+
+def test_excel_namespaces_and_mc_ignorable_survive_journal_reconstruction():
+    """Excel can reject an ET-rewritten sheet with dangling Ignorable prefixes."""
+    original = (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        b'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+        b'xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" '
+        b'mc:Ignorable="x14ac"><dimension ref="A1:E2"/>'
+        b'<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>old</t></is></c></row></sheetData>'
+        b'<sheetProtection sheet="1"/><extLst/></worksheet>'
+    )
+    rows = (("FICTIVE & <operation>", 1, "PREPARED", "ok", "none"),)
+    rebuilt = _journal_xml_for_history(original, rows)
+    assert b'mc:Ignorable="x14ac"' in rebuilt
+    assert b'xmlns:x14ac=' in rebuilt
+    assert b'<sheetProtection sheet="1"/><extLst/>' in rebuilt
+    assert rebuilt.startswith(original.split(b'<sheetData>')[0].replace(b'A1:E2', b'A1:E2'))
+    assert b'FICTIVE &amp; &lt;operation&gt;' in rebuilt
+    root = ET.fromstring(rebuilt)
+    ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+    assert root.find(f'{ns}sheetData/{ns}row/{ns}c/{ns}is/{ns}t').text == JOURNAL_HEADERS[0]
+    assert root.find(f'{ns}dimension').get('ref') == 'A1:E2'
+
+
+def test_prefixed_excel_sheetdata_is_preserved_without_rewriting_prefixes():
+    original = (
+        b'<x:worksheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        b'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+        b'xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" '
+        b'mc:Ignorable="xr"><x:dimension ref="A1:E1"/>'
+        b'<x:sheetData><x:row r="1"/></x:sheetData><x:sheetProtection sheet="1"/>'
+        b'</x:worksheet>'
+    )
+    updated = _journal_xml_for_history(original, ())
+    assert b'<x:sheetData>' in updated
+    assert b'<x:row r="1">' in updated
+    assert b'xmlns:xr=' in updated
+    assert b'mc:Ignorable="xr"' in updated
+    assert b'<x:sheetProtection sheet="1"/>' in updated
+    assert ET.fromstring(updated).tag.endswith('worksheet')
+
+
+def test_journal_xml_rejects_ambiguous_sheetdata_markup():
+    original = (
+        b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        b'<sheetData/><sheetProtection sheet="1"/></worksheet>'
+    )
+    with pytest.raises(RollbackCandidateError):
+        _journal_xml_for_history(original, ())
