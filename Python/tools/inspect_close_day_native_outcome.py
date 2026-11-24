@@ -17,6 +17,9 @@ from rehab_excel.day_history_event_store import (  # noqa: E402
     SHEET_NAME as EVENT_SHEET,
     read_day_history_events,
 )
+from rehab_excel.finalized_history_consistency import (  # noqa: E402
+    verify_current_finalized_day,
+)
 from rehab_excel.finalized_day_snapshots import (  # noqa: E402
     SHEET_NAME as SNAPSHOT_SHEET,
     read_finalized_day_snapshots,
@@ -144,6 +147,13 @@ def inspect_close_day_outcome(workbook_path: str | Path) -> dict[str, object]:
         )
     event = matching_events[0]
 
+    # The previous inspector checked sheet presence/identities but allowed a
+    # misleading summary (e.g. 10 planned/9 performed with only one session row).
+    # Recompute and verify all persisted counts on an unchanged workbook.
+    verified_history = verify_current_finalized_day(
+        path, service_date=service_date,
+    )
+
     states = _sheet_states(path)
     not_very_hidden = {
         name: state for name, state in states.items() if state != "veryHidden"
@@ -174,6 +184,8 @@ def inspect_close_day_outcome(workbook_path: str | Path) -> dict[str, object]:
         "event_actor": event.actor_or_source,
         "event_summary": event.summary,
         "history_sheet_states": states,
+        "history_cross_sheet_verified": True,
+        "history_verified_sha256": verified_history.snapshot_sha256,
     }
 
 
