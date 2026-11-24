@@ -2486,3 +2486,23 @@ Therefore the private Restore payload worker `ApplyDailyChangeRestorePayload` wa
 **Next PC action:** Run `python -m py_compile Python/tools/diagnose_daily_input_gate2_replacement_worker_native.py` if not already confirmed, then `python Python/tools/diagnose_daily_input_gate2_replacement_worker_native.py --source $demo` and immediately `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. This invokes only the private `PersistReplacementPayload` worker via the disposable-only shim with `applyFinalPatches=False` and a nonexistent payload. Expected Boolean False before payload read, unchanged copy/source SHA, cleanup. On SAFETY STOP, stop and provide concise error output. No operational replacement UI, preparation script, review UI, or writer is invoked.
 
 **Status:** Native Apply rejection GREEN (§4.183); native Restore rejection GREEN (§4.188); Replacement focused Python tests GREEN 4/4, native Replacement rejection PENDING. Gate #2 overall PENDING; operational transaction lifecycle/receipts/fault injection/rollback NOT READY. Apply/Restore/Replacement remain disabled.
+
+
+## 4.191 Gate #2 native Replacement worker rejection GREEN — 25/11/2026
+
+**Operator Windows evidence:** Operator reported `TEST_EXIT_CODE=0`, then successful `py_compile` (no output/error), and ran `python Python/tools/diagnose_daily_input_gate2_replacement_worker_native.py --source $demo`. Exact result:
+
+- `GATE 2 NATIVE REPLACEMENT WORKER REJECTION GREEN`
+- `PersistReplacementPayload returned Boolean False: YES`
+- `Nonexistent payload was not read or created: YES`
+- `Disposable workbook package unchanged: YES`
+- `Original source unchanged; temporary files removed: YES`
+- `Only private Replacement payload worker via disposable-only shim invoked`
+- `SINGLE WORKER NEGATIVE TEST ONLY: NOT FULL OPERATIONAL TRANSACTION PROOF`
+- `DIAGNOSTIC_EXIT_CODE=0`
+
+Therefore the private `PersistReplacementPayload` worker was invoked in native Excel through a disposable-only shim, with `applyFinalPatches=False` and a deliberately nonexistent payload. It returned Boolean False before reading the payload. The disposable workbook package and original synthetic source remained unchanged, and temporary files were removed. This closes one native Replacement entrypoint negative test GREEN.
+
+**Evidence boundaries:** Native direct Apply (§4.183), private Restore (§4.188), and private Replacement (§4.191) negative-entrypoint tests are separately GREEN. They do not prove successful operational transactions, receipts, fault-injection, full rollback, double-booking handling, CloseDay, or amendment entrypoints. Gate #2 overall remains PENDING; operational transaction lifecycle remains NOT READY. Apply/Restore/Replacement remain disabled.
+
+**Next engineering step:** source review of `Python/rehab_excel/close_day_action_vba.py`. Its public `CloseOperationalDay` wrapper includes MsgBox and external preparation/save side effects and must not be invoked in unattended testing. The private `PersistCloseDayPayload(payloadPath)` appears to have a direct gate check before `ReadUtf8Text(payloadPath)`; confirm exact source ordering/signature and module dependencies before building a disposable-only shim test. If safe, call only the private history writer with a nonexistent payload while the gate is FALSE, then verify source/copy hashes and cleanup. Do not run the public CloseDay wrapper.
