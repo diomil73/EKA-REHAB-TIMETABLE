@@ -31,3 +31,10 @@ def test_nonwindows_stops_without_touching_source(tmp_path, monkeypatch, capsys)
     assert probe.main(["--source", str(source)]) == 2
     assert source.read_bytes() == b"FICTIONAL"
     assert "SAFETY STOP" in capsys.readouterr().out
+
+
+def test_restore_module_mismatch_reports_bounded_source_diff():
+    source = Path(probe.__file__).read_text(encoding="utf-8")
+    assert "_module_source_mismatch(VBA_CODE, installed)" in source
+    assert "Provisioned Restore module readback mismatch; " in source
+    assert "_module_source_mismatch(VBA_CODE, base)" in source
