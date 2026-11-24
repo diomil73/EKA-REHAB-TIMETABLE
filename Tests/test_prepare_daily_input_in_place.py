@@ -148,7 +148,7 @@ def _synthetic_preparation_inputs(tmp_path, monkeypatch):
     )
     patch = CellPatch(
         sheet="MASTER_SCHEDULE", cell="D7",
-        intent=module.WriteIntent.PRESENTATION, strike_through=True,
+        intent=WriteIntent.PRESENTATION, strike_through=True,
         source_tag="master_daily_non_active_overlay",
     )
     original = source.read_bytes()
