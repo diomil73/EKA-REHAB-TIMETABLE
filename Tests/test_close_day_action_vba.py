@@ -120,3 +120,42 @@ def test_canonical_registration_build_installs_and_verifies_close_day_action():
     assert "_install_close_day_action_in_workbook(output)" in main_source
     assert '("removing old close-day action module", CLOSE_DAY_MODULE_NAME)' in clean_source
     assert "_remove_component_if_present(vbproject, component_name)" in clean_source
+
+def test_close_day_ui_and_history_persistence_are_locked_before_any_write():
+    """Closing the day must not bypass the unavailable durable transaction."""
+    source = CLOSE_DAY_MODULE_CODE
+    ui = source.split("Public Sub CloseOperationalDay()", 1)[1].split("End Sub", 1)[0]
+    writer = source.split("Private Function PersistCloseDayPayload", 1)[1].split(
+        "End Function", 1
+    )[0]
+    guard = "If Not DailyInputJournalApplyEnabled() Then"
+    internal_guard = "If Not DailyInputJournalApplyEnabled() Then Exit Function"
+    assert guard in ui
+    assert ui.index(guard) < ui.index("ThisWorkbook.ReadOnly")
+    assert ui.index(guard) < ui.index("ThisWorkbook.Save")
+    assert ui.index(guard) < ui.index('CreateObject("WScript.Shell")')
+    assert "Exit Sub" in ui.split(guard, 1)[1].split("End If", 1)[0]
+    assert internal_guard in writer
+    assert writer.index(internal_guard) < writer.index("ReadUtf8Text(payloadPath)")
+    assert writer.index(internal_guard) < writer.index("WritePayloadFields")
+    assert writer.index(internal_guard) < writer.index("ThisWorkbook.Save")
+
+
+def test_close_day_partial_rollback_never_claims_full_recovery():
+    writer = CLOSE_DAY_MODULE_CODE.split(
+        "Private Function PersistCloseDayPayload", 1
+    )[1].split("End Function", 1)[0]
+    error = writer.split("PersistError:", 1)[1]
+    assert "RollbackHistoryWrite" in error
+    assert "Δεν έχει επαληθευτεί πλήρης επαναφορά" in error
+    assert "Μην συνεχίσετε καταχωρίσεις" in error
+    assert "Δεν αποθηκεύτηκαν αλλαγές" not in error
+
+
+def test_close_day_lock_uses_stable_shared_false_gate():
+    from rehab_excel.daily_input_journal_vba import JOURNAL_MODULE_CODE
+
+    gate = JOURNAL_MODULE_CODE.split(
+        "Public Function DailyInputJournalApplyEnabled()", 1
+    )[1].split("End Function", 1)[0]
+    assert "DailyInputJournalApplyEnabled = False" in gate
