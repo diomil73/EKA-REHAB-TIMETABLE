@@ -16,6 +16,15 @@ Public Function ResolveDailyReplacementsInPlace() As Boolean
 
     On Error GoTo ActionError
 
+    ' Direct invocation of replacement workflow must obey the SAME locked
+    ' transaction gate as Apply, before its first Save or payload preparation.
+    If Not DailyInputJournalApplyEnabled() Then
+        MsgBox "Οι αναπληρώσεις παραμένουν κλειδωμένες μέχρι να ολοκληρωθεί ο μηχανισμός συναλλαγών." & vbCrLf & _
+               "Δεν έγιναν αλλαγές σε ασθενείς ή θεραπείες.", _
+               vbExclamation, "Αναπληρώσεις"
+        Exit Function
+    End If
+
     scriptPath = ResolveReplacementPreparationScript()
     If Len(scriptPath) = 0 Then
         MsgBox "Η λειτουργία αναπλήρωσης δεν είναι διαθέσιμη. Επικοινωνήστε με τον διαχειριστή.", _
@@ -122,6 +131,8 @@ Private Function PersistReplacementPayload(ByVal payloadPath As String, ByVal ap
     Dim previousEvents As Boolean, previousScreenUpdating As Boolean
     Dim failureNumber As Long, failureMessage As String
 
+    ' Defense in depth: no private payload function may mutate a locked book.
+    If Not DailyInputJournalApplyEnabled() Then Exit Function
     On Error GoTo PersistError
     previousEvents = Application.EnableEvents
     previousScreenUpdating = Application.ScreenUpdating
