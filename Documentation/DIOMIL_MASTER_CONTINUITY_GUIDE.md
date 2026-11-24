@@ -2289,3 +2289,12 @@ then report `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected: `DAILY_INPUT NATIV
 **Narrow test-only correction:** `Tests/test_daily_input_gate2_guard_matrix.py` now filters `Public/Private Sub/Function` declaration lines, blank lines, and comments from the pre-guard mutation scanner. No production VBA was changed. Source commit `24e10509`. An isolated Python regex reproduction of both names returned **2 PASS**; the entire 18-test file has **NOT** yet been run after correction, so focused result remains **PENDING rerun**, not GREEN.
 
 **Next PC step:** `git pull --ff-only origin work/afternoon-medical-scope-20261115`, then `python -m pytest Tests/test_daily_input_gate2_guard_matrix.py -q --tb=short --color=no` and echo `TEST_EXIT_CODE`. No re-running the 2635 existing GREEN regressions. Gate #1 native GREEN, Gate #2 native lock inventory GREEN; operational Apply/Restore remains **DISABLED** and Gate #2 negative execution **PENDING**.
+
+
+## 4.173 Gate #2 matrix repeated 2 false positives traced to doubled regex escapes — 24/11/2026
+
+**Operator evidence:** After §4.172 the same two failures remained: `ApplyValidatedDailyInputPayload` and `StartAuthoritativeCommit`, with 16 passed. Readback of the actual branch file `Tests/test_daily_input_gate2_guard_matrix.py` showed the declaration-filter regex was authored as `r"(?i)^\\s*..."` (two literal backslashes in the raw regex), so it searched for a literal backslash rather than whitespace and did not filter the declaration. The §4.172 fix was therefore ineffective; the repeated failures were still test parser false positives, not evidence of operational VBA side effects.
+
+**Exact correction:** In commit `490624be47b40b8b427c68a71accdf013a50bee7`, changed only the declaration-filter pattern to `r"(?i)^\s*(?:Public|Private)\s+(?:Sub|Function)\s+"` (one regex escape per token). No VBA module/runtime changed. **The full focused matrix has not yet been rerun; status remains RED/PENDING.**
+
+**Next:** `git pull --ff-only origin work/afternoon-medical-scope-20261115`, then `python -m pytest Tests/test_daily_input_gate2_guard_matrix.py -q --tb=short --color=no` and echo `TEST_EXIT_CODE`. Do not rerun the full 2635-test suite. If failures persist, fetch exact current file and inspect actual procedure body boundaries rather than another speculative regex edit. Gate #1 native GREEN and Gate #2 read-only inventory GREEN remain valid; negative VBA execution and operational transaction proof remain pending. Apply/Restore remains disabled.
