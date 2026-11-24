@@ -6,6 +6,8 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from rehab_core.daily_state import DailySessionStatus
+from rehab_excel.authoritative_commit import file_sha256
+from rehab_excel.finalized_history_consistency import verify_current_finalized_history_range
 from rehab_excel.patient_session_history_store import (
     read_current_patient_session_history_rows,
 )
@@ -139,11 +141,23 @@ def read_patient_history_report(
     start: date | None = None,
     end: date | None = None,
 ) -> tuple[PatientHistoryReportRow, ...]:
-    """Read-only patient report from the authoritative CURRENT_FINAL H5 reader."""
-    return summarize_patient_history_report(
-        read_current_patient_session_history_rows(workbook_path),
+    """Read-only verified patient report from the CURRENT_FINAL H5 reader.
+
+    Every included finalized date must pass full snapshot/patient/therapist/
+    event agreement; otherwise a misleading report must not be displayed.
+    """
+    path = Path(workbook_path).resolve()
+    source_sha = file_sha256(path)
+    verify_current_finalized_history_range(
+        path, start_date=start, end_date=end,
+    )
+    result = summarize_patient_history_report(
+        read_current_patient_session_history_rows(path),
         mode=mode, start=start, end=end,
     )
+    if file_sha256(path) != source_sha:
+        raise PatientHistoryReportError("Workbook changed during patient history report")
+    return result
 
 
 def include_registered_patients_without_sessions(
