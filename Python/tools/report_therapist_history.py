@@ -17,6 +17,8 @@ from rehab_core.therapist_history_reports import (  # noqa: E402
     build_therapist_weekly_reports,
 )
 from rehab_excel.finalized_day_snapshots import read_finalized_day_snapshots  # noqa: E402
+from rehab_excel.authoritative_commit import file_sha256  # noqa: E402
+from rehab_excel.finalized_history_consistency import verify_current_finalized_history_range  # noqa: E402
 from rehab_excel.therapist_day_history_store import read_therapist_day_history_rows  # noqa: E402
 
 
@@ -43,15 +45,25 @@ def report_therapist_history(
     if not path.exists():
         raise FileNotFoundError(f"Workbook not found: {path}")
 
+    # Guard the real report entry point, not just the diagnostic inspector.
+    # A CURRENT_FINAL day with mismatched historical totals must never become
+    # a therapist report or a shareable management aggregate.
+    source_sha = file_sha256(path)
+    verify_current_finalized_history_range(
+        path, start_date=start_date, end_date=end_date,
+    )
     snapshots = read_finalized_day_snapshots(path)
     rows = read_therapist_day_history_rows(path)
-    return build_therapist_daily_reports(
+    result = build_therapist_daily_reports(
         snapshots,
         rows,
         therapist_id=therapist_id,
         start_date=start_date,
         end_date=end_date,
     )
+    if file_sha256(path) != source_sha:
+        raise ValueError("Workbook changed during therapist history report")
+    return result
 
 
 def _print_period_rows(rows) -> None:
