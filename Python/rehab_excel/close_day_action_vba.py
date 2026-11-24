@@ -19,6 +19,15 @@ Public Sub CloseOperationalDay()
 
     On Error GoTo ActionError
 
+    ' Finalization is a durable history mutation and cannot bypass the
+    ' disabled Apply/Restore transaction journal.
+    If Not DailyInputJournalApplyEnabled() Then
+        MsgBox "Το κλείσιμο ημέρας παραμένει κλειδωμένο μέχρι να επαληθευτεί ο μηχανισμός συναλλαγών." & vbCrLf & _
+               "Δεν έγιναν νέες καταχωρίσεις στο ιστορικό.", _
+               vbExclamation, "Κλείσιμο ημέρας"
+        Exit Sub
+    End If
+
     If ThisWorkbook.ReadOnly Then
         MsgBox "Το αρχείο είναι μόνο για ανάγνωση. Ανοίξτε το κανονικά και δοκιμάστε ξανά.", vbExclamation, "Κλείσιμο ημέρας"
         Exit Sub
@@ -89,6 +98,8 @@ Private Function PersistCloseDayPayload(ByVal payloadPath As String) As Boolean
     Dim snapshotRow As Long, therapistStartRow As Long, patientStartRow As Long, eventRow As Long
     Dim wsSnapshot As Worksheet, wsTherapist As Worksheet, wsPatient As Worksheet, wsEvent As Worksheet
 
+    ' The private history writer must never be a bypass around the UI gate.
+    If Not DailyInputJournalApplyEnabled() Then Exit Function
     On Error GoTo PersistError
 
     rawText = ReadUtf8Text(payloadPath)
@@ -174,7 +185,11 @@ PersistError:
     RollbackHistoryWrite wsPatient, patientCreated, patientStartRow, patientCount
     RollbackHistoryWrite wsEvent, eventCreated, eventRow, IIf(eventRow > 0, 1, 0)
     On Error GoTo 0
-    MsgBox "Η ημέρα δεν έκλεισε. Δεν αποθηκεύτηκαν αλλαγές. Δοκιμάστε ξανά ή επικοινωνήστε με τον διαχειριστή.", vbCritical, "Κλείσιμο ημέρας"
+    ' Clearing a few rows is not independently verified full-workbook recovery.
+    MsgBox "Η ημέρα δεν έκλεισε." & vbCrLf & _
+           "Δεν έχει επαληθευτεί πλήρης επαναφορά του ιστορικού." & vbCrLf & _
+           "Μην συνεχίσετε καταχωρίσεις. Επικοινωνήστε με τον διαχειριστή.", _
+           vbCritical, "Κλείσιμο ημέρας"
 End Function
 
 Private Function PreflightSnapshot(ByVal parts As Variant) As Boolean
