@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from datetime import date
 from pathlib import Path
+import os
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -106,7 +107,7 @@ def export_patient_history_ui(
             _completion_pct(row.performed, row.scheduled),
         )
         lines.append("\t".join(_field(item) for item in fields))
-    output = Path(output_path).resolve()
+    output = Path(os.path.abspath(output_path))
     # Stage first. A verified, complete TSV is published only by exclusive
     # creation; no previous export or user file can be replaced on a retry.
     with staged_report_outputs((output,)) as (stage,):
@@ -129,8 +130,9 @@ def main() -> int:
             args.workbook, args.output, mode=args.mode, start=args.start, end=args.end,
             include_registered_zero=args.include_registered_zero
         )
-    except Exception as exc:
-        print(f"SAFETY STOP: {exc}")
+    except Exception:
+        # Patient IDs, names and source paths must not leak into CLI logs.
+        print("SAFETY STOP: PATIENT HISTORY UI EXPORT FAILED")
         return 2
     print("PATIENT HISTORY UI EXPORT OK")
     print(f"Mode: {result['mode']}")
