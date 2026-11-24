@@ -22,6 +22,7 @@ if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
 from tools.report_therapist_history import report_therapist_history
+from rehab_excel.verified_report_publication import staged_report_outputs
 
 
 MODES = ("daily", "weekly", "monthly", "overall")
@@ -368,39 +369,45 @@ def export_shareable(source: Path, output: Path) -> None:
         raise RuntimeError("Native management XLSX export requires Windows Excel")
     import win32com.client  # type: ignore[import-not-found]
 
-    excel = None
-    book = None
-    output.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        excel = win32com.client.DispatchEx("Excel.Application")
-        excel.Visible = False
-        excel.DisplayAlerts = False
-        excel.EnableEvents = False
-        book = excel.Workbooks.Add()
-        while book.Worksheets.Count < 4:
-            book.Worksheets.Add(After=book.Worksheets(book.Worksheets.Count))
-        while book.Worksheets.Count > 4:
-            book.Worksheets(book.Worksheets.Count).Delete()
-        for idx, mode in enumerate(MODES, 1):
-            _write_mode_sheet(book.Worksheets(idx), mode, periods[mode])
-        book.Worksheets(1).Activate()
-        excel.ActiveWindow.DisplayWorkbookTabs = False
-        excel.ActiveWindow.DisplayHeadings = False
-        excel.ActiveWindow.DisplayGridlines = False
-        # FileFormat 51 is macro-free XLSX. Fresh workbook with no source links.
-        book.SaveAs(str(output.resolve()), FileFormat=51)
-        book.Close(SaveChanges=False)
+    # Save the new workbook only in a private, disposable staging directory.
+    # Never expose an unverified XLSX at the requested final destination.
+    with staged_report_outputs((output,)) as (stage,):
+        excel = None
         book = None
-    finally:
-        if book is not None:
+        try:
+            excel = win32com.client.DispatchEx("Excel.Application")
+            excel.Visible = False
+            excel.DisplayAlerts = False
+            excel.EnableEvents = False
+            excel.AutomationSecurity = 3
+            book = excel.Workbooks.Add()
+            while book.Worksheets.Count < 4:
+                book.Worksheets.Add(After=book.Worksheets(book.Worksheets.Count))
+            while book.Worksheets.Count > 4:
+                book.Worksheets(book.Worksheets.Count).Delete()
+            for idx, mode in enumerate(MODES, 1):
+                _write_mode_sheet(book.Worksheets(idx), mode, periods[mode])
+            book.Worksheets(1).Activate()
+            excel.ActiveWindow.DisplayWorkbookTabs = False
+            excel.ActiveWindow.DisplayHeadings = False
+            excel.ActiveWindow.DisplayGridlines = False
+            # FileFormat 51 is macro-free XLSX. No operational sheet is copied.
+            book.SaveAs(str(stage), FileFormat=51)
             book.Close(SaveChanges=False)
-        if excel is not None:
-            excel.Quit()
-    inspect_share_package(output)
-    verify_management_native(output, periods)
-    inspect_share_package(output)
-    if hashlib.sha256(source.read_bytes()).hexdigest() != source_hash:
-        raise ValueError("Source operational XLSM was modified during export")
+            book = None
+        finally:
+            if book is not None:
+                book.Close(SaveChanges=False)
+            if excel is not None:
+                excel.Quit()
+
+        # All checks and source hash readback happen BEFORE exclusive publish.
+        # Any failure removes only this invocation's private staged workbook.
+        inspect_share_package(stage)
+        verify_management_native(stage, periods)
+        inspect_share_package(stage)
+        if hashlib.sha256(source.read_bytes()).hexdigest() != source_hash:
+            raise ValueError("Source operational XLSM was modified during export")
 
 
 def main() -> int:
@@ -410,9 +417,11 @@ def main() -> int:
     args = parser.parse_args()
     try:
         export_shareable(args.source, args.output)
-    except Exception as exc:
-        print(f"SAFETY STOP: {type(exc).__name__}: {exc}")
-        print("Never share an unverified export. Do not overwrite or retry the same destination.")
+    except Exception:
+        # No source paths, private workbook identifiers or patient/therapist
+        # data in errors. Staging cleanup is owner-scoped and automatic.
+        print("SAFETY STOP: MANAGEMENT-ONLY EXPORT FAILED")
+        print("No report was authorized for sharing.")
         return 2
     print("MANAGEMENT-ONLY EXPORT VERIFIED OK")
     print("Four aggregate modes, four sheets; no VBA, no external links or copied therapist records")
