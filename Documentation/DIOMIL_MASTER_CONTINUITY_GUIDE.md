@@ -2327,3 +2327,10 @@ then report `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected: `DAILY_INPUT NATIV
 **Απόδειξη / scope:** Ακόμη κι αν το predicate-only probe περάσει native, αποδεικνύει μόνο ότι η εγκατεστημένη συνάρτηση επιστρέφει Boolean False σε πραγματικό Excel. Δεν αποδεικνύει ακόμη ότι οι Apply/Restore/CloseDay action entrypoints απορρίπτονται πριν από mutation. Το Gate #2 συνολικά παραμένει PENDING, το operational transaction writer/receipts/fault injection/rollback NOT READY και το Apply/Restore DISABLED.
 
 **Next operator step:** `git pull --ff-only origin work/afternoon-medical-scope-20261115`, `python -m pytest Tests/test_diagnose_daily_input_gate2_predicate_native.py -q --tb=short --color=no`, echo `TEST_EXIT_CODE`. Μόνο σε focused GREEN προχωράμε σε μία native run: `python Python/tools/diagnose_daily_input_gate2_predicate_native.py --source $demo`, echo `DIAGNOSTIC_EXIT_CODE`. Αν οποιοδήποτε Safety Stop, σταματάμε. Δεν επαναλαμβάνεται η matrix 18/18 ή οι 2635 tests χωρίς αιτία.
+
+
+## 4.177 Gate #2 predicate-only focused Python tests GREEN — 24/11/2026
+
+**Operator evidence:** After §4.176, operator ran `python -m pytest Tests/test_diagnose_daily_input_gate2_predicate_native.py -q --tb=short --color=no` and reported **`3 passed in 2.99s`**. The three new focused source-contract tests are GREEN. The separate native Excel execution of the predicate-only diagnostic has **not** yet occurred. Therefore no native predicate result is inferred from these Python tests.
+
+**Next PC action:** On the existing synthetic `$demo`, run only `python Python/tools/diagnose_daily_input_gate2_predicate_native.py --source $demo`, then `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected diagnostic label is `GATE 2 NATIVE JOURNAL PREDICATE GREEN` and exit 0. On any `SAFETY STOP`, halt and capture the concise output. This invokes only the side-effect-free `DailyInputJournalApplyEnabled()` in a disposable copy; no action workers, Apply, Restore or CloseDay. Source remains protected and original SHA must remain unchanged. Gate #2 overall remains PENDING.
