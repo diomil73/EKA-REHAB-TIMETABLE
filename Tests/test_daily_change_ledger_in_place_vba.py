@@ -379,7 +379,12 @@ class _LedgerComponents:
         self.add_calls = 0
 
     def __call__(self, name):
-        return self.items[name]
+        # Excel VBComponent.Name changes after VBComponents.Add, and COM
+        # resolves the new name immediately; this fake must do the same.
+        for component in self.items.values():
+            if component.Name == name:
+                return component
+        raise KeyError(name)
 
     def Add(self, kind):
         assert kind == 1
