@@ -2388,3 +2388,21 @@ Accordingly the **native execution of the journal lock predicate substage is GRE
 **Correction:** Commit `4d81172` adds `_provision_apply_module(workbook)`: in the disposable copy only, remove any existing `modDailyInputAction`, add the exact current `DAILY_INPUT_MODULE_CODE`, save, read it back and compare canonical source; mismatch diagnostics include bounded line/character/hash details. The source demo remains untouched and is SHA-checked after the run. The Apply worker is still called only after verified module readback. Commit `d11e516` adds a focused contract test for disposable-only provisioning. No production workbook or VBA source module was changed by this repository edit.
 
 **Verification pending:** The revised probe and new test have not yet been run. Next operator step: `git pull --ff-only origin work/afternoon-medical-scope-20261115`; `python -m py_compile Python/tools/diagnose_daily_input_gate2_apply_worker_native.py`; `python -m pytest Tests/test_diagnose_daily_input_gate2_apply_worker_native.py -q --tb=short --color=no`; echo `TEST_EXIT_CODE`. If GREEN, rerun the native diagnostic once on `$demo`. Any further SAFETY STOP must be diagnosed from its explicit error output. This next run, if GREEN, will test only the locked direct Apply worker in a disposable copy; it does not prove other action paths or full transaction lifecycle. Apply/Restore remain disabled.
+
+
+## 4.183 Gate #2 native direct Apply worker rejection GREEN — 24/11/2026
+
+**Operator Windows evidence:** After §4.182, operator reported `TEST_EXIT_CODE=0` for the revised focused validation, then ran `python Python/tools/diagnose_daily_input_gate2_apply_worker_native.py --source $demo`. Exact outcome:
+
+- `GATE 2 NATIVE APPLY WORKER REJECTION GREEN`
+- `ApplyValidatedDailyInputPayload returned Boolean False: YES`
+- `Nonexistent payload was not read or created: YES`
+- `Disposable workbook package unchanged: YES`
+- `Original source unchanged; temporary files removed: YES`
+- `No UI wrapper, Restore, CloseDay or other action worker invoked`
+- `SINGLE WORKER NEGATIVE TEST ONLY: NOT FULL OPERATIONAL TRANSACTION PROOF`
+- `DIAGNOSTIC_EXIT_CODE=0`
+
+Therefore the direct `ApplyValidatedDailyInputPayload` worker was actually invoked in native Excel on the disposable synthetic copy and rejected while the journal gate was FALSE, before reading the deliberately nonexistent payload. Both disposable package and original source remained unchanged. This closes **one** native action-entrypoint negative test GREEN. It does not prove rejection for Restore, replacement, double-booking, CloseDay or amendment workers, and does not establish the positive/operational transaction lifecycle, receipts, rollback or fault-injection. Gate #2 overall remains PENDING and operational Apply/Restore remain DISABLED.
+
+**Next engineering task:** inspect the exact installed source and signatures for the direct Restore worker (`ApplyDailyChangeRestorePayload`) and its dependency/gate checks. Design a separate disposable-copy negative harness using a deliberately nonexistent restore payload and the same strict controls: exact module readback/provisioning, only one named worker invocation, expected Boolean False before payload access, copy/source SHA unchanged, no modal UI. Do not combine workers in one test. First confirm that the worker is safe to call with a nonexistent path while gate FALSE; if the source does not establish that ordering, do not invoke it and instead add source-only guard coverage or choose a safer worker.
