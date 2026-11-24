@@ -67,12 +67,12 @@ def _journal_xml_for_history(original: bytes, rows: tuple[tuple, ...]) -> bytes:
         # Preserve every original byte outside <sheetData> (including all
         # namespace declarations, extLst, mc:Ignorable and XML attributes).
         match = re.search(
-            rb"<(?P<prefix>[A-Za-z_][\\w.-]*:)?sheetData(?=[\\s>])[^<>]*>"
-            rb"(?P<body>.*?)</(?P=prefix)sheetData\\s*>",
+            rb"<(?P<prefix>[A-Za-z_][\w.-]*:)?sheetData(?=[\s>])[^<>]*>"
+            rb"(?P<body>.*?)</(?P=prefix)sheetData\s*>",
             original, flags=re.DOTALL,
         )
         if match is None or re.search(
-            rb"<(?:[A-Za-z_][\\w.-]*:)?sheetData(?=[\\s>])", original[match.end():]
+            rb"<(?:[A-Za-z_][\w.-]*:)?sheetData(?=[\s>])", original[match.end():]
         ):
             raise RollbackCandidateError("Journal sheetData markup ambiguous")
         prefix = match.group("prefix") or b""
@@ -111,14 +111,14 @@ def _journal_xml_for_history(original: bytes, rows: tuple[tuple, ...]) -> bytes:
         )
         # Change only an existing dimension ref, keeping original tag/prefix.
         dimension = re.search(
-            rb"<(?:[A-Za-z_][\\w.-]*:)?dimension\\b[^<>]*>", result
+            rb"<(?:[A-Za-z_][\w.-]*:)?dimension\b[^<>]*>", result
         )
         if dimension is not None:
             item = dimension.group()
-            if len(re.findall(rb"\\bref=[\\\"'][^\\\"']*[\\\"']", item)) != 1:
+            if len(re.findall(rb"\bref=[\\"'][^\\"']*[\\"']", item)) != 1:
                 raise RollbackCandidateError("Journal dimension ref ambiguous")
             patched = re.sub(
-                rb"\\bref=([\\\"'])[^\\\"']*\\1",
+                rb"\bref=([\\"'])[^\\"']*\1",
                 lambda m: b"ref=" + m.group(1)
                 + f"A1:E{len(all_rows)}".encode("ascii") + m.group(1),
                 item, count=1,
