@@ -236,3 +236,26 @@ def test_apply_is_fail_closed_until_full_journal_lifecycle_is_enabled():
     assert "Exit Sub" in guard
     assert "Δεν έγιναν αλλαγές" in guard
     assert action.index("DailyInputJournalApplyEnabled()") < action.index("ThisWorkbook.Save")
+
+def test_public_patch_executor_cannot_bypass_disabled_apply_gate():
+    """Calling the exported VBA function directly must not start a mutation."""
+    source = DAILY_INPUT_MODULE_CODE
+    procedure = source.split(
+        "Public Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As Boolean", 1
+    )[1].split("End Function", 1)[0]
+    guard = "If Not DailyInputJournalApplyEnabled() Then Exit Function"
+    assert guard in procedure
+    assert procedure.index(guard) < procedure.index("On Error GoTo ApplyError")
+    assert procedure.index(guard) < procedure.index("ReadUtf8Text(payloadPath)")
+    assert procedure.index(guard) < procedure.index("ThisWorkbook.SaveCopyAs rollbackPath")
+    assert procedure.index(guard) < procedure.index("ApplyPatch parts")
+    assert procedure.index(guard) < procedure.index("ThisWorkbook.Save")
+
+    # The actual installer applies other source patches; the safety guard must survive.
+    from rehab_excel.daily_change_ledger_in_place_vba import patch_daily_input_for_ledger
+    patched = patch_daily_input_for_ledger(source)
+    patched_executor = patched.split(
+        "Public Function ApplyValidatedDailyInputPayload(ByVal payloadPath As String) As Boolean", 1
+    )[1].split("End Function", 1)[0]
+    assert guard in patched_executor
+    assert patched_executor.index(guard) < patched_executor.index("ApplyPatch parts")
