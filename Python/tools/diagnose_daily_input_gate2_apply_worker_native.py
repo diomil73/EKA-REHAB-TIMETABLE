@@ -21,6 +21,7 @@ from rehab_excel.daily_input_action_vba import (
     DAILY_INPUT_MODULE_NAME,
 )
 from rehab_excel.daily_input_journal_vba import canonicalize_vba_source
+from tools.diagnose_daily_input_prepared_vba_hook import _module_source_mismatch
 from tools.diagnose_daily_input_full_rollback_native import _source_forms
 from tools.diagnose_daily_input_prepared_vba_hook import (
     _configure_excel,
@@ -44,6 +45,27 @@ def _read_module(workbook, name: str) -> str:
         raise NativeApplyGuardError(f"Required VBA module unavailable: {name}") from None
 
 
+def _provision_apply_module(workbook) -> None:
+    """Install the exact current Apply module into the disposable copy only."""
+    project = workbook.VBProject
+    try:
+        existing = project.VBComponents(DAILY_INPUT_MODULE_NAME)
+    except Exception:
+        existing = None
+    if existing is not None:
+        project.VBComponents.Remove(existing)
+    component = project.VBComponents.Add(1)
+    component.Name = DAILY_INPUT_MODULE_NAME
+    component.CodeModule.AddFromString(DAILY_INPUT_MODULE_CODE)
+    workbook.Save()
+    installed = _read_module(workbook, DAILY_INPUT_MODULE_NAME)
+    expected = canonicalize_vba_source(DAILY_INPUT_MODULE_CODE)
+    actual = canonicalize_vba_source(installed)
+    if actual != expected:
+        detail = _module_source_mismatch(DAILY_INPUT_MODULE_CODE, installed)
+        raise NativeApplyGuardError("Provisioned Apply module readback mismatch; " + detail)
+
+
 def run_locked_apply_worker(copy: Path, missing_payload: Path, *, excel_factory=_excel_factory) -> bool:
     app = None
     workbook = None
@@ -60,7 +82,8 @@ def run_locked_apply_worker(copy: Path, missing_payload: Path, *, excel_factory=
             raise NativeApplyGuardError("Disposable Apply probe copy unexpectedly read-only")
         installed = _read_module(workbook, DAILY_INPUT_MODULE_NAME)
         if canonicalize_vba_source(installed) != canonicalize_vba_source(DAILY_INPUT_MODULE_CODE):
-            raise NativeApplyGuardError("Installed Apply module differs from verified source")
+            detail = _module_source_mismatch(DAILY_INPUT_MODULE_CODE, installed)
+            raise NativeApplyGuardError("Installed Apply module differs from verified source; " + detail)
         if missing_payload.exists():
             raise NativeApplyGuardError("Negative test payload unexpectedly exists")
         # Only the direct worker is called. It must return False at the gate,
@@ -99,6 +122,31 @@ def diagnose_native_apply_guard(source_path: str | Path, *, excel_factory=_excel
         missing_payload = root / "MUST_NOT_EXIST.payload"
         create_probe_copy(source, copy)
         _provision_copy(copy, excel_factory=excel_factory, expected_forms=forms)
+        # The demo may contain an older Apply module. Replace it only inside
+        # this disposable copy with the exact current branch source.
+        app = None
+        workbook = None
+        try:
+            app = excel_factory()
+            _configure_excel(app)
+            workbook = app.Workbooks.Open(
+                str(copy), UpdateLinks=0, ReadOnly=False,
+                AddToMru=False, IgnoreReadOnlyRecommended=True,
+            )
+            if bool(workbook.ReadOnly):
+                raise NativeApplyGuardError("Disposable provisioning copy is read-only")
+            _provision_apply_module(workbook)
+        finally:
+            if workbook is not None:
+                try:
+                    workbook.Close(SaveChanges=False)
+                except Exception:
+                    pass
+            if app is not None:
+                try:
+                    app.Quit()
+                except Exception:
+                    pass
         run_locked_apply_worker(copy, missing_payload, excel_factory=excel_factory)
         if missing_payload.exists():
             raise NativeApplyGuardError("Unexpected payload creation")
