@@ -15,6 +15,7 @@ from rehab_excel.patient_history_reports import (  # noqa: E402
     include_registered_patients_without_sessions,
 )
 from rehab_excel.patient_registry_source import read_patient_registry  # noqa: E402
+from rehab_excel.verified_report_publication import staged_report_outputs  # noqa: E402
 
 
 HEADERS = (
@@ -106,10 +107,10 @@ def export_patient_history_ui(
         )
         lines.append("\t".join(_field(item) for item in fields))
     output = Path(output_path).resolve()
-    if output.exists():
-        raise ValueError("Output already exists; refusing overwrite")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
+    # Stage first. A verified, complete TSV is published only by exclusive
+    # creation; no previous export or user file can be replaced on a retry.
+    with staged_report_outputs((output,)) as (stage,):
+        stage.write_text("\n".join(lines) + "\n", encoding="utf-8-sig")
     return {"ok": True, "mode": mode, "rows": len(rows), "output": str(output)}
 
 
