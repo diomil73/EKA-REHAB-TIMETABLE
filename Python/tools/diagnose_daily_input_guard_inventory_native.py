@@ -9,12 +9,16 @@ import argparse
 from pathlib import Path
 import re
 import sys
+from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "Python") not in sys.path:
     sys.path.insert(0, str(ROOT / "Python"))
 
 from rehab_excel.authoritative_commit import file_sha256
+from tools.prepare_native_probe_copy import create_probe_copy
+from tools.diagnose_daily_input_full_rollback_native import _source_forms
+from tools.diagnose_daily_input_prepared_vba_hook import _provision_copy
 from rehab_excel.daily_input_journal_vba import (
     JOURNAL_MODULE_NAME,
     JOURNAL_MODULE_CODE,
@@ -33,10 +37,10 @@ ACTION_MODULES = (
     "modDayAmendmentAction",
 )
 DISABLED_GATE = re.compile(
-    r"(?im)^\\s*Public\\s+Function\\s+DailyInputJournalApplyEnabled\\s*\\(\\s*\\)\\s*As\\s+Boolean\\s*$"
+    r"(?im)^\s*Public\s+Function\s+DailyInputJournalApplyEnabled\s*\(\s*\)\s*As\s+Boolean\s*$"
 )
 FALSE_ASSIGNMENT = re.compile(
-    r"(?im)^\\s*DailyInputJournalApplyEnabled\\s*=\\s*False\\s*$"
+    r"(?im)^\s*DailyInputJournalApplyEnabled\s*=\s*False\s*$"
 )
 
 
@@ -60,7 +64,7 @@ def inspect_guard_source(source: str) -> bool:
     if len(matching) != 1:
         return False
     tail = source[matching[0].end():]
-    end = re.search(r"(?im)^\\s*End\\s+Function\\s*$", tail)
+    end = re.search(r"(?im)^\s*End\s+Function\s*$", tail)
     if end is None:
         return False
     body = tail[:end.start()]
@@ -77,44 +81,46 @@ def inspect_native(source_path: str | Path, *, excel_factory=_excel_factory):
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
         raise NativeGuardInventoryError("Synthetic XLSM required")
     before = file_sha256(source)
-    app = None
-    book = None
-    try:
-        app = excel_factory()
-        _configure_excel(app)  # ALL macros disabled, no events.
-        book = app.Workbooks.Open(
-            str(source), UpdateLinks=0, ReadOnly=True, AddToMru=False,
-            IgnoreReadOnlyRecommended=True,
-        )
-        if not bool(book.ReadOnly):
-            raise NativeGuardInventoryError("Read-only open not confirmed")
-        components = book.VBProject.VBComponents
-        guard = _read_module(components, JOURNAL_MODULE_NAME)
-        if guard is None:
-            raise NativeGuardInventoryError("Journal VBA module not installed in source")
-        if not inspect_guard_source(guard):
-            raise NativeGuardInventoryError("Installed journal gate is not strictly FALSE")
-        if canonicalize_vba_source(guard) != canonicalize_vba_source(JOURNAL_MODULE_CODE):
-            raise NativeGuardInventoryError("Installed journal module differs from verified source")
-        present = tuple(name for name in ACTION_MODULES if _read_module(components, name) is not None)
-        book.Close(SaveChanges=False)
-        book = None
-        app.Quit()
+    forms = _source_forms(source, excel_factory=excel_factory)
+    with TemporaryDirectory(prefix="diomil_guard_inventory_", dir=source.parent) as tmp:
+        work = Path(tmp) / "guard-inventory.xlsm"
+        create_probe_copy(source, work)
+        _provision_copy(work, excel_factory=excel_factory, expected_forms=forms)
         app = None
-        if file_sha256(source) != before:
-            raise NativeGuardInventoryError("Source changed during read-only inspection")
-        return present
-    finally:
-        if book is not None:
-            try:
-                book.Close(SaveChanges=False)
-            except Exception:
-                pass
-        if app is not None:
-            try:
-                app.Quit()
-            except Exception:
-                pass
+        book = None
+        try:
+            app = excel_factory()
+            _configure_excel(app)
+            book = app.Workbooks.Open(
+                str(work), UpdateLinks=0, ReadOnly=True, AddToMru=False,
+                IgnoreReadOnlyRecommended=True,
+            )
+            if not bool(book.ReadOnly):
+                raise NativeGuardInventoryError("Read-only inspection not confirmed")
+            components = book.VBProject.VBComponents
+            guard = _read_module(components, JOURNAL_MODULE_NAME)
+            if guard is None or not inspect_guard_source(guard):
+                raise NativeGuardInventoryError("Installed journal gate is not strictly FALSE")
+            if canonicalize_vba_source(guard) != canonicalize_vba_source(JOURNAL_MODULE_CODE):
+                raise NativeGuardInventoryError("Installed journal module differs from source")
+            present = tuple(
+                name for name in ACTION_MODULES
+                if _read_module(components, name) is not None
+            )
+        finally:
+            if book is not None:
+                try:
+                    book.Close(SaveChanges=False)
+                except Exception:
+                    pass
+            if app is not None:
+                try:
+                    app.Quit()
+                except Exception:
+                    pass
+    if file_sha256(source) != before:
+        raise NativeGuardInventoryError("Source changed during inspection")
+    return present
 
 
 def main(argv=None) -> int:
@@ -133,7 +139,7 @@ def main(argv=None) -> int:
     print("Installed journal source: VERIFIED; Apply gate: FALSE")
     print(f"Action modules present: {len(present)}/{len(ACTION_MODULES)}")
     print("Action modules missing: " + str(len(ACTION_MODULES) - len(present)))
-    print("NO VBA MACROS EXECUTED; NO WRITES; SOURCE UNCHANGED")
+    print("NO VBA MACROS EXECUTED; ONLY DISPOSABLE COPY SAVED; SOURCE UNCHANGED")
     print("INVENTORY ONLY: DOES NOT PROVE NEGATIVE ACTION EXECUTION")
     return 0
 
