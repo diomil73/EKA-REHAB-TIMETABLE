@@ -20,16 +20,16 @@ from rehab_excel.daily_input_journal_vba import JOURNAL_MODULE_CODE
 
 def _procedure(source: str, name: str) -> str:
     names = re.findall(
-        r"(?im)^\\s*(?:Public|Private)\\s+(?:Sub|Function)\\s+([A-Za-z_][A-Za-z_0-9]*)\\b",
+        r"(?im)^\s*(?:Public|Private)\s+(?:Sub|Function)\s+([A-Za-z_][A-Za-z_0-9]*)\b",
         source,
     )
     assert names.count(name) == 1, f"Expected one entrypoint: {name}"
     match = re.search(
-        rf"(?im)^\\s*(?:Public|Private)\\s+(Sub|Function)\\s+{re.escape(name)}\\b",
+        rf"(?im)^\s*(?:Public|Private)\s+(Sub|Function)\s+{re.escape(name)}\b",
         source,
     )
     assert match is not None
-    end = re.search(r"(?im)^\\s*End\\s+(?:Sub|Function)\\s*$", source[match.end():])
+    end = re.search(r"(?im)^\s*End\s+(?:Sub|Function)\s*$", source[match.end():])
     assert end is not None
     return source[match.start():match.end() + end.end()]
 
@@ -48,30 +48,32 @@ def _procedure(source: str, name: str) -> str:
     (CLOSE_DAY_MODULE_CODE, "PersistCloseDayPayload", "Exit Function"),
     (DAY_AMENDMENT_MODULE_CODE, "StartClosedDayAmendment", "Exit Sub"),
     (DAY_AMENDMENT_MODULE_CODE, "PersistDaySavePayload", "Exit Function"),
-])
+], ids=lambda case: case if isinstance(case, str) and case in {"ApplyDailyInputPreview", "ApplyValidatedDailyInputPayload", "PersistDailyChangePayload", "RunDailyChangeRestore", "ApplyDailyChangeRestorePayload", "ResolveDailyReplacementsInPlace", "PersistReplacementPayload", "ApplySelectedDoubleBooking", "StartAuthoritativeCommit", "CloseOperationalDay", "PersistCloseDayPayload", "StartClosedDayAmendment", "PersistDaySavePayload"} else None)
 def test_entrypoint_guards_present_before_first_work(source, name, guard_exit):
     body = _procedure(source, name)
-    gate = re.search(r"(?i)If\\s+Not\\s+DailyInputJournalApplyEnabled\\s*\\(\\s*\\)\\s+Then", body)
+    gate = re.search(r"(?i)If\s+Not\s+DailyInputJournalApplyEnabled\s*\(\s*\)\s+Then", body)
     assert gate is not None, f"Missing locked transaction gate in {name}"
     after_gate = body[gate.end():]
-    if name == "PersistDailyChangePayload":
-        # Its intentional one-line guard raises before any ledger write.
-        assert re.match(r"\\s*Err\\.Raise\\b", after_gate)
-    else:
-        end_if = re.search(r"(?im)^\\s*End\\s+If\\s*$", after_gate)
+    # VBA supports both single-line If .. Then Exit Function and
+    # multi-line If .. Then / Exit Function / End If.
+    single_line = re.match(
+        rf"[^\r\n]*\b{re.escape(guard_exit)}\b", after_gate
+    )
+    if single_line is None:
+        end_if = re.search(r"(?im)^\s*End\s+If\s*$", after_gate)
         assert end_if is not None, f"Unterminated guard in {name}"
         assert re.search(
-            rf"(?im)^\\s*{re.escape(guard_exit)}\\b",
+            rf"(?im)^\s*{re.escape(guard_exit)}\b",
             after_gate[:end_if.start()],
-        )
+        ), f"Guard does not reject: {name}"
     # Must reject before disk operations, dialogs except its own warning,
     # subprocesses, workbooks/sheets writes, and calls to mutation helpers.
     prefix = body[:gate.start()]
     assert not re.search(
-        r"(?i)\\b(?:ThisWorkbook\\.Save|SaveCopyAs|\\.Unprotect|"
-        r"CreateObject\\s*\\(|Application\\.Run|WScript\\.Shell|"
+        r"(?i)\b(?:ThisWorkbook\.Save|SaveCopyAs|\.Unprotect|"
+        r"CreateObject\s*\(|Application\.Run|WScript\.Shell|"
         r"Persist(?:Replacement|CloseDay|DailyChange)|"
-        r"ApplyValidatedDailyInputPayload|StartAuthoritativeCommit)\\b",
+        r"ApplyValidatedDailyInputPayload|StartAuthoritativeCommit)\b",
         prefix,
     ), f"Side-effect preceding guard in {name}"
 
