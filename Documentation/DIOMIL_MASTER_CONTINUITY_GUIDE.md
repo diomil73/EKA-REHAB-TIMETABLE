@@ -2528,3 +2528,11 @@ Therefore the private `PersistReplacementPayload` worker was invoked in native E
 **Next PC action:** `git pull --ff-only origin work/afternoon-medical-scope-20261115`; `python -m py_compile Python/tools/diagnose_daily_input_gate2_close_day_worker_native.py Tests/test_diagnose_daily_input_gate2_close_day_worker_native.py`; `python -m pytest Tests/test_diagnose_daily_input_gate2_close_day_worker_native.py -q --tb=short --color=no`; echo `TEST_EXIT_CODE`. Only if all four focused tests pass, run the native CloseDay diagnostic on `$demo`. On any STOP, capture concise error and halt. Public `CloseOperationalDay` must never be invoked.
 
 **Status:** Native Apply, Restore and Replacement rejection tests remain GREEN. CloseDay focused Python tests are pending rerun; CloseDay native rejection remains PENDING. Gate #2 overall and operational transaction lifecycle remain NOT READY.
+
+## 4.194 CloseDay focused Python tests GREEN — 25/11/2026
+
+**Operator evidence:** After §4.193 correction, operator reported `4 passed in 1.88s` for `Tests/test_diagnose_daily_input_gate2_close_day_worker_native.py`. The corrected focused suite is GREEN 4/4. The preceding combined py_compile command was issued, but no separate output/exit code was supplied; record only the explicit pytest result.
+
+**Next PC action:** Run the native Excel negative test against the existing synthetic demo: `python Python/tools/diagnose_daily_input_gate2_close_day_worker_native.py --source $demo`, then immediately `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected: `GATE 2 NATIVE CLOSE DAY WORKER REJECTION GREEN`, `PersistCloseDayPayload returned Boolean False: YES`, nonexistent payload not read/created, disposable package unchanged, original source unchanged, temporary files removed, and explicit confirmation public `CloseOperationalDay` wrapper was NOT invoked. If SAFETY STOP, capture ERROR_TYPE/ERROR_MESSAGE/HRESULT and stop. Do not invoke public CloseDay UI.
+
+**Status:** Native Apply (§4.183), Restore (§4.188), Replacement (§4.191) negative entrypoint tests GREEN. CloseDay focused Python tests GREEN 4/4; native CloseDay rejection PENDING. Gate #2 overall and full operational transaction lifecycle remain NOT READY. Apply/Restore/Replacement/CloseDay remain disabled.
