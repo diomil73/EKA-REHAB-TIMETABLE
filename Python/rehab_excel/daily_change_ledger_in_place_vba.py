@@ -37,6 +37,8 @@ End Sub
 
 Public Sub PersistDailyChangePayload(ByVal parts As Variant)
     Dim ws As Worksheet, lastRow As Long, row As Long, changeId As String
+    ' Public ledger writer is not an alternative entry point while Apply is locked.
+    If Not DailyInputJournalApplyEnabled() Then Err.Raise vbObjectError + 2806, , "Journal transaction unavailable"
     ValidateDailyChangePayload parts
     Set ws = ThisWorkbook.Worksheets(LEDGER_SHEET)
     changeId = PayloadValue(parts(1))
@@ -237,6 +239,14 @@ Private Function RunDailyChangeRestore(ByVal changeArgs As String) As Boolean
     Dim scriptPath As String, payloadPath As String, responsePath As String, commandLine As String
     Dim responseText As String, exitCode As Long
     On Error GoTo Failed
+    ' No Restore button/COM caller may bypass the disabled journal transaction.
+    ' Check BEFORE the first Save, payload preparation, or workbook mutation.
+    If Not DailyInputJournalApplyEnabled() Then
+        MsgBox "Η επαναφορά παραμένει κλειδωμένη μέχρι να ολοκληρωθεί και να επαληθευτεί ο μηχανισμός συναλλαγών." & vbCrLf & _
+               "Δεν έγιναν αλλαγές σε ασθενείς ή θεραπείες.", _
+               vbExclamation, "Επαναφορά"
+        Exit Function
+    End If
     If ThisWorkbook.ReadOnly Then Err.Raise vbObjectError + 2820, , "Το αρχείο είναι μόνο για ανάγνωση."
     scriptPath = ResolveDailyChangeRestoreScript()
     If Len(scriptPath) = 0 Then Err.Raise vbObjectError + 2821, , "Δεν βρέθηκε το εργαλείο επαναφοράς."
@@ -276,6 +286,8 @@ Private Function ApplyDailyChangeRestorePayload(ByVal payloadPath As String) As 
     Dim previousEvents As Boolean, previousScreenUpdating As Boolean
     Dim failureNumber As Long, failureMessage As String
     On Error GoTo Failed
+    ' Guard the private payload executor separately from the Restore UI.
+    If Not DailyInputJournalApplyEnabled() Then Exit Function
     previousEvents = Application.EnableEvents
     previousScreenUpdating = Application.ScreenUpdating
     text = ReadUtf8Text(payloadPath)
@@ -402,6 +414,8 @@ Private Sub MarkLedgerChangeRestored(ByVal changeId As String)
 End Sub
 
 Public Sub RestoreDailyChangeLedgerFromRollback(ByVal rollbackPath As String)
+    ' Externally callable recovery helper must not mutate sheets while locked.
+    If Not DailyInputJournalApplyEnabled() Then Err.Raise vbObjectError + 2841, , "Journal transaction unavailable"
     RestoreOneSheetFromRollback rollbackPath, LEDGER_SHEET
 End Sub
 
