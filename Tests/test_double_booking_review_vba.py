@@ -48,3 +48,33 @@ def test_double_booking_ui_commits_verified_preview_and_reopens_authoritative_wo
     assert 'q & "post_reopen_target" & q & ":" & q & "REPLACEMENTS" & q' in source
     assert "CreateObject(\"WScript.Shell\").Run commandLine, 0, False" in source
     assert "ThisWorkbook.Close SaveChanges:=False" in source
+
+def test_double_booking_confirmed_apply_cannot_bypass_disabled_journal():
+    from rehab_excel.double_booking_review_vba import MODULE_CODE
+    apply = MODULE_CODE.split("Public Function ApplySelectedDoubleBooking", 1)[1].split(
+        "End Function", 1
+    )[0]
+    guard = "If Not DailyInputJournalApplyEnabled() Then"
+    assert guard in apply
+    assert apply.index(guard) < apply.index("apply_confirmed_double_booking.py")
+    assert apply.index(guard) < apply.index("StartAuthoritativeCommit(previewPath, sourceHash)")
+    assert apply.index(guard) < apply.index("ThisWorkbook.Close")
+    assert "Exit Function" in apply.split(guard, 1)[1].split("End If", 1)[0]
+    assert "Δεν έγιναν αλλαγές" in apply
+
+
+def test_internal_legacy_source_commit_worker_is_also_guarded():
+    from rehab_excel.double_booking_review_vba import MODULE_CODE
+    worker = MODULE_CODE.split("Private Function StartAuthoritativeCommit", 1)[1].split(
+        "End Function", 1
+    )[0]
+    guard = "If Not DailyInputJournalApplyEnabled() Then Exit Function"
+    assert guard in worker
+    assert worker.index(guard) < worker.index("authoritative_commit_worker_cli.py")
+    assert worker.index(guard) < worker.index('CreateObject("WScript.Shell").Run commandLine, 0, False')
+
+    from rehab_excel.daily_input_journal_vba import JOURNAL_MODULE_CODE
+    gate = JOURNAL_MODULE_CODE.split(
+        "Public Function DailyInputJournalApplyEnabled()", 1
+    )[1].split("End Function", 1)[0]
+    assert "DailyInputJournalApplyEnabled = False" in gate
