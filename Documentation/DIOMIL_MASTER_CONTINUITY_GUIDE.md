@@ -1271,34 +1271,34 @@ Commit `1d3ba2ddd6b884a03de67f59c4b55e77e42d089d`: ενισχύθηκε η ίδ�
 
 **NATIVE GREEN (ΗΔΗ ΚΛΕΙΣΜΕΝΟ):** §4.144: αμετάβλητο source, 10/10 UserForms structural readback, identical source-relative OLE footprint, VBA-owned fictional PREPARED και ανεξάρτητο native Excel Save/Reopen. Δεν επαναλαμβάνουμε αυτό το smoke χωρίς συγκεκριμένο νέο regression.
 
-**CLOUD GREEN / ΝΕΟ NATIVE PENDING:** §§4.147–4.148: strict read-only whole-package rollback verifier, ξεχωριστό rollback candidate, synthetic FAILED/ROLLED_BACK history, προετοιμασία και readback επόμενων journal phases. Exact CI SHA \`ffe0b0572a4c8c16cfdcbceceaeacf60f4477290\`: [GitHub Actions 45327809251](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45327809251), **4/4 SUCCESS**, πλήρη regressions **2.549 passed Windows και 2.549 passed Linux**, δύο synthetic safety jobs SUCCESS. Το Apply παραμένει **κλειδωμένο** (\`DailyInputJournalApplyEnabled = False\`).
+**CLOUD GREEN / ΝΕΟ NATIVE PENDING:** §§4.147–4.148: strict read-only whole-package rollback verifier, ξεχωριστό rollback candidate, synthetic FAILED/ROLLED_BACK history, προετοιμασία και readback επόμενων journal phases. Exact CI SHA `ffe0b0572a4c8c16cfdcbceceaeacf60f4477290`: [GitHub Actions 45327809251](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45327809251), **4/4 SUCCESS**, πλήρη regressions **2.549 passed Windows και 2.549 passed Linux**, δύο synthetic safety jobs SUCCESS. Το Apply παραμένει **κλειδωμένο** (`DailyInputJournalApplyEnabled = False`).
 
-**ΠΡΩΤΟ PC GATE, ΕΤΟΙΜΟ ΑΛΛΑ ΟΧΙ ΕΚΤΕΛΕΣΜΕΝΟ:** μόνο με το γνωστό συνθετικό \`$demo\` (10 UserForms, χωρίς υπάρχον journal):
-\`\`\`powershell
+**ΠΡΩΤΟ PC GATE, ΕΤΟΙΜΟ ΑΛΛΑ ΟΧΙ ΕΚΤΕΛΕΣΜΕΝΟ:** μόνο με το γνωστό συνθετικό `$demo` (10 UserForms, χωρίς υπάρχον journal):
+```powershell
 git pull --ff-only origin work/afternoon-medical-scope-20261115
 python Python/tools/diagnose_daily_input_full_rollback_native.py --source $demo
 "DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"
-\`\`\`
-Αναμενόμενα: \`DAILY_INPUT NATIVE ROLLBACK CANDIDATE DIAGNOSTIC GREEN\`, \`Source untouched: YES\`, exit 0. Αλλιώς **STOP**, διάγνωση, διορθώσεις και μόνον τότε συνέχεια. Δεν αποτελεί λειτουργικό Apply/Restore proof.
+```
+Αναμενόμενα: `DAILY_INPUT NATIVE ROLLBACK CANDIDATE DIAGNOSTIC GREEN`, `Source untouched: YES`, exit 0. Αλλιώς **STOP**, διάγνωση, διορθώσεις και μόνον τότε συνέχεια. Δεν αποτελεί λειτουργικό Apply/Restore proof.
 
 ### Β.5 Ζωντανή πρόοδος: πρώτη ενιαία λειτουργική παράδοση (24/11/2026)
 
 **PENDING / NOT ACCEPTED.** Όλες οι υποχρεωτικές επιχειρησιακές ροές του §4.104 πρέπει να λειτουργήσουν και να επαληθευτούν σε ένα ιδιωτικό πραγματικό XLSM, περιλαμβανομένων βασικών κουμπιών/πλοήγησης, θεραπειών, λοιμωδών, καρτελών, εγγραφών, Save/Close/Reopen και αναφορών. Δεν έχει ολοκληρωθεί ακόμη λειτουργική αποδοχή από τον χειριστή. Αποκλειστικά οι έξι ρητές εξαιρέσεις του §4.104 μπορούν να μείνουν για επόμενη έκδοση.
 
-**ΠΑΓΙΟΣ ΚΑΝΟΝΑΣ ΑΥΤΟΜΑΤΗΣ ΕΝΗΜΕΡΩΣΗΣ:** Σε κάθε πραγματική εργασία που εκτελείται σε ενεργή συνεδρία ενημερώνεται **άμεσα, χωρίς νέα υπόμνηση**, (α) το αντίστοιχο ζωντανό κεφάλαιο Β.1–Β.5 με αλλαγές/commit/tests/status/blockers/next action, (β) η κοινή ουρά PC παρακάτω αν αλλάζει gate ή σειρά, και (γ) το νέο χρονολογικό checkpoint στο τέλος. Καμία υπόσχεση για ανεξάρτητη εκτέλεση όταν δεν υπάρχει ενεργή συνεδρία ή προγραμματισμένη εργασία. Τιμές status: \`PENDING\`, \`CLOUD GREEN\`, \`NATIVE GREEN\`, \`OPERATOR ACCEPTED\`. Δεν συγχέονται και δεν σβήνονται προηγούμενες αποτυχίες/εκκρεμότητες.
+**ΠΑΓΙΟΣ ΚΑΝΟΝΑΣ ΑΥΤΟΜΑΤΗΣ ΕΝΗΜΕΡΩΣΗΣ:** Σε κάθε πραγματική εργασία που εκτελείται σε ενεργή συνεδρία ενημερώνεται **άμεσα, χωρίς νέα υπόμνηση**, (α) το αντίστοιχο ζωντανό κεφάλαιο Β.1–Β.5 με αλλαγές/commit/tests/status/blockers/next action, (β) η κοινή ουρά PC παρακάτω αν αλλάζει gate ή σειρά, και (γ) το νέο χρονολογικό checkpoint στο τέλος. Καμία υπόσχεση για ανεξάρτητη εκτέλεση όταν δεν υπάρχει ενεργή συνεδρία ή προγραμματισμένη εργασία. Τιμές status: `PENDING`, `CLOUD GREEN`, `NATIVE GREEN`, `OPERATOR ACCEPTED`. Δεν συγχέονται και δεν σβήνονται προηγούμενες αποτυχίες/εκκρεμότητες.
 
 ### Δ. Μοναδική ουρά PC δοκιμών, με πραγματική σειρά εξαρτήσεων (24/11/2026)
 
 | Σειρά | Ενότητα | Δοκιμή/ενέργεια | Κατάσταση |
 |---|---|---|---|
-| 0 | Β.4 | Μία φορά pull του γνωστού branch και επιβεβαίωση ότι \`$demo\` είναι αποκλειστικά συνθετικό, 10 UserForms και χωρίς journal | PENDING PC |
-| 1 | Β.4 | \`python Python/tools/diagnose_daily_input_full_rollback_native.py --source $demo\` και έλεγχος exit code | **READY, PENDING PC** |
+| 0 | Β.4 | Μία φορά pull του γνωστού branch και επιβεβαίωση ότι `$demo` είναι αποκλειστικά συνθετικό, 10 UserForms και χωρίς journal | PENDING PC |
+| 1 | Β.4 | `python Python/tools/diagnose_daily_input_full_rollback_native.py --source $demo` και έλεγχος exit code | **READY, PENDING PC** |
 | 2 | Β.3–Β.4 | Native non-PREPARED VBA transitions, receipts, fault injection, rollback μετά την ολοκλήρωση του writer | NOT READY, engineering blocker |
 | 3 | Β.1–Β.2 | Private patient/doctor/provider/therapy approvals και source-bound πραγματικό admission | NEEDS EXPLICIT APPROVALS |
 | 4 | Β.3–Β.4 | Πλήρες χωριστό synthetic XLSM: MASTER, DAILY_INPUT, replacements, attendance, finalized/history, admin reports, Save/Close/Reopen | NOT READY |
 | 5 | Β.5 | Πρώτο ιδιωτικό πλήρως λειτουργικό XLSM: end-to-end έλεγχος και αποδοχή χειριστή | NOT READY |
 
-**STOP σε αποτυχία:** δεν περνάμε στο επόμενο εξαρτώμενο gate, ούτε τρέχουμε Apply/Restore. Η λίστα ανανεώνεται ανά ολοκληρωμένη ουσιαστική εργασία, όχι επειδή απλώς δημιουργήθηκε νέο commit. Όσα είναι \`NOT READY\` δεν παρουσιάζονται ως εντολές διαθέσιμες στο PC.
+**STOP σε αποτυχία:** δεν περνάμε στο επόμενο εξαρτώμενο gate, ούτε τρέχουμε Apply/Restore. Η λίστα ανανεώνεται ανά ολοκληρωμένη ουσιαστική εργασία, όχι επειδή απλώς δημιουργήθηκε νέο commit. Όσα είναι `NOT READY` δεν παρουσιάζονται ως εντολές διαθέσιμες στο PC.
 
 ### Γ. Ενεργό ημερολόγιο πραγματικής εκτέλεσης: υποχρεωτικό σε κάθε βήμα
 
