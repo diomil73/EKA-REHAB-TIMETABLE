@@ -214,3 +214,85 @@ def test_therapist_selection_drilldown_preserves_worksheet_protection():
     assert 'selectedRow < 23 Or selectedRow > finalRow' in source
     assert 'BuildTherapistLoadChart ws, CLng(ws.Cells(selectedRow, 5).Value2)' in source
     assert 'If Not ws Is Nothing Then ws.Protect DrawingObjects:=False, Contents:=True, Scenarios:=True' in source
+
+def test_therapist_export_existing_main_and_trend_are_never_overwritten(
+    tmp_path, monkeypatch,
+):
+    import pytest
+    monkeypatch.setattr(exporter, "report_therapist_history", lambda *args, **kwargs: (_daily(),))
+    monkeypatch.setattr(exporter, "read_current_patient_session_history_rows", lambda *args, **kwargs: ())
+    main = tmp_path / "fictional_main.tsv"
+    trend = tmp_path / "fictional_trend.tsv"
+    main.write_bytes(b"USER OWNED MAIN")
+    with pytest.raises(ValueError, match="already exists"):
+        exporter.export_therapist_history_ui(
+            "fictional.xlsm", main, mode="daily", trend_output_path=trend,
+        )
+    assert main.read_bytes() == b"USER OWNED MAIN"
+    assert not trend.exists()
+
+    main.unlink()
+    trend.write_bytes(b"USER OWNED TREND")
+    with pytest.raises(ValueError, match="already exists"):
+        exporter.export_therapist_history_ui(
+            "fictional.xlsm", main, mode="daily", trend_output_path=trend,
+        )
+    assert trend.read_bytes() == b"USER OWNED TREND"
+    assert not main.exists()
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+
+
+def test_therapist_export_second_publish_failure_removes_only_new_outputs(
+    tmp_path, monkeypatch,
+):
+    import pytest
+    from rehab_excel import verified_report_publication as publication
+
+    monkeypatch.setattr(exporter, "report_therapist_history", lambda *args, **kwargs: (_daily(),))
+    monkeypatch.setattr(exporter, "read_current_patient_session_history_rows", lambda *args, **kwargs: ())
+    main = tmp_path / "fictional_main.tsv"
+    trend = tmp_path / "fictional_trend.tsv"
+    link = publication.os.link
+    count = 0
+
+    def fail_second(src, dst):
+        nonlocal count
+        count += 1
+        if count == 2:
+            raise OSError("FICTIONAL second-stage publication failure")
+        return link(src, dst)
+
+    monkeypatch.setattr(publication.os, "link", fail_second)
+    with pytest.raises(OSError, match="second-stage"):
+        exporter.export_therapist_history_ui(
+            "fictional.xlsm", main, mode="daily", trend_output_path=trend,
+        )
+    assert count == 2
+    assert not main.exists() and not trend.exists()
+    assert not tuple(tmp_path.glob(".diomil_unverified_*"))
+
+
+def test_therapist_cli_failure_never_unlinks_preexisting_user_report(
+    tmp_path, monkeypatch, capsys,
+):
+    from types import SimpleNamespace
+    main = tmp_path / "existing_main.tsv"
+    trend = tmp_path / "existing_trend.tsv"
+    main.write_bytes(b"USER MAIN DO NOT DELETE")
+    trend.write_bytes(b"USER TREND DO NOT DELETE")
+    def fail(*args, **kwargs):
+        raise RuntimeError("PRIVATE FICTIONAL PATIENT CODE")
+    monkeypatch.setattr(exporter, "export_therapist_history_ui", fail)
+    monkeypatch.setattr(exporter, "sys", SimpleNamespace(
+        argv=[
+            "export_therapist_history_ui.py",
+            "--workbook", "fictional.xlsm", "--output", str(main),
+            "--trend-output", str(trend),
+        ],
+    ))
+    assert exporter.main() == 2
+    assert main.read_bytes() == b"USER MAIN DO NOT DELETE"
+    assert trend.read_bytes() == b"USER TREND DO NOT DELETE"
+    printed = capsys.readouterr().out
+    assert "SAFETY STOP" in printed
+    assert "PRIVATE FICTIONAL PATIENT CODE" not in printed
