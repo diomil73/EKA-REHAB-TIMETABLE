@@ -38,9 +38,9 @@ def test_inspector_accepts_one_consistent_finalized_day(tmp_path: Path):
             finalized_at,
             "",
             0,
-            10,
-            9,
             1,
+            1,
+            0,
             0,
             0,
             0,
@@ -55,7 +55,7 @@ def test_inspector_accepts_one_consistent_finalized_day(tmp_path: Path):
     _write_row(
         therapists,
         2,
-        (snapshot_id, "2026-10-30", "THERAPIST A", 6, 5, 5, 4, 4, 0, 1, 0, 0),
+        (snapshot_id, "2026-10-30", "THERAPIST A", 6, 1, 1, 1, 1, 0, 0, 0, 0),
     )
     therapists.sheet_state = "veryHidden"
 
@@ -115,6 +115,8 @@ def test_inspector_accepts_one_consistent_finalized_day(tmp_path: Path):
     assert result["patient_history_rows"] == 1
     assert result["event_id"] == "day-finalized:2026-10-30:v1"
     assert set(result["history_sheet_states"].values()) == {"veryHidden"}
+    assert result["history_cross_sheet_verified"] is True
+    assert len(result["history_verified_sha256"]) == 64
 
 
 def test_inspector_rejects_missing_finalized_snapshot(tmp_path: Path):
@@ -131,3 +133,53 @@ def test_inspector_rejects_missing_finalized_snapshot(tmp_path: Path):
         assert "Expected exactly one CURRENT_FINAL snapshot" in str(exc)
     else:
         raise AssertionError("Inspector accepted a workbook with no finalized snapshot")
+
+
+
+def test_inspector_rejects_phantom_aggregate_counts_in_final_history(tmp_path: Path):
+    """A sheet with one session cannot truthfully report ten planned/nine final."""
+    path = tmp_path / "phantom-history.xlsm"
+    wb = Workbook()
+    daily = wb.active
+    daily.title = "DAILY_INPUT"
+    daily["B2"] = "30/10/2026"
+    finalized_at = datetime(2026, 11, 1, 19, 0, tzinfo=timezone.utc).isoformat()
+    snapshot_id = "fictional:2026-10-30:v1"
+    snapshot = wb.create_sheet("FINALIZED_DAY_SNAPSHOTS")
+    snapshot.append(SNAPSHOT_HEADERS)
+    snapshot.append((
+        snapshot_id, "2026-10-30", 1, "CURRENT_FINAL", finalized_at, "",
+        0, 10, 9, 1, 0, 0, 0, 0, 0,
+    ))
+    therapist = wb.create_sheet("THERAPIST_DAY_HISTORY")
+    therapist.append(THERAPIST_HEADERS)
+    therapist.append((
+        snapshot_id, "2026-10-30", "FICTIONAL T1", 6, 1, 1, 1, 1, 0, 0, 0, 0,
+    ))
+    patient = wb.create_sheet("PATIENT_SESSION_HISTORY")
+    patient.append(PATIENT_HEADERS)
+    patient.append((
+        snapshot_id, "2026-10-30", 1, "fictional-session-1", "fictional-patient-1",
+        "active", "FICTIONAL T1", "09:00:00", "FICTIONAL T1", "09:00:00",
+        "", "", "", "",
+    ))
+    event = wb.create_sheet("DAY_HISTORY_EVENTS")
+    event.append(EVENT_HEADERS)
+    event.append((
+        "fictional-event-1", "2026-10-30", "DAY_FINALIZED", finalized_at,
+        "FICTIONAL_OPERATOR", "", "", "", "", "", snapshot_id, "Fictional close day",
+    ))
+    for name in (
+        "FINALIZED_DAY_SNAPSHOTS", "THERAPIST_DAY_HISTORY",
+        "PATIENT_SESSION_HISTORY", "DAY_HISTORY_EVENTS",
+    ):
+        wb[name].sheet_state = "veryHidden"
+    wb.save(path)
+    wb.close()
+
+    original = path.read_bytes()
+    from rehab_excel.finalized_history_consistency import FinalizedHistoryConsistencyError
+    import pytest
+    with pytest.raises(FinalizedHistoryConsistencyError, match="count|totals"):
+        module.inspect_close_day_outcome(path)
+    assert path.read_bytes() == original
