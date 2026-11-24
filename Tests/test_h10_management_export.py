@@ -120,8 +120,10 @@ def test_share_export_requires_independent_numeric_reopen_and_source_hash():
     code = inspect.getsource(mod.export_shareable)
     check = inspect.getsource(mod.verify_management_native)
     assert "source_hash = hashlib.sha256(source.read_bytes()).hexdigest()" in code
-    assert "verify_management_native(output, periods)" in code
-    assert "inspect_share_package(output)" in code
+    assert "with staged_report_outputs((output,)) as (stage,):" in code
+    assert "verify_management_native(stage, periods)" in code
+    assert "inspect_share_package(stage)" in code
+    assert code.index("book.SaveAs(str(stage), FileFormat=51)") < code.index("verify_management_native(stage, periods)")
     assert 'int(book.Worksheets.Count) != 4' in check
     assert "int(ws.ChartObjects().Count)" in check
     assert "abs_tol=1e-12" in check
