@@ -1,10 +1,14 @@
 import inspect
 
+import pytest
+
 from rehab_excel.daily_change_ledger_in_place_vba import (
+    DailyChangeLedgerProvisionError,
     HEADERS,
     LEDGER_SHEET,
     MODULE_NAME,
     VBA_CODE,
+    ensure_daily_change_ledger_sheet,
     install_daily_change_ledger,
     patch_daily_input_for_ledger,
 )
@@ -186,3 +190,240 @@ def test_restore_lock_uses_same_fixed_false_journal_gate_as_apply():
     assert "DailyInputJournalApplyEnabled = False" in source
     assert "DailyInputJournalApplyEnabled()" in DAILY_INPUT_MODULE_CODE
     assert "DailyInputJournalApplyEnabled()" in VBA_CODE
+
+class _LedgerCell:
+    def __init__(self, value=None):
+        self.Value2 = value
+        self.HasFormula = False
+
+
+class _LedgerCells:
+    def __init__(self):
+        self.items = {}
+
+    def __call__(self, row, col):
+        return self.items.setdefault((row, col), _LedgerCell())
+
+    def Clear(self):
+        raise AssertionError("Installer must never clear the ledger")
+
+
+class _LedgerSheet:
+    def __init__(self, name, *, header=False):
+        self.Name = name
+        self.Visible = 2
+        self.Cells = _LedgerCells()
+        if header:
+            for col, value in enumerate(HEADERS, 1):
+                self.Cells(1, col).Value2 = value
+
+
+class _LedgerSheets:
+    def __init__(self, book):
+        self.book = book
+        self.fail_lookup = False
+        self.add_calls = 0
+
+    @property
+    def Count(self):
+        return len(self.book.sheets)
+
+    def __call__(self, key):
+        if self.fail_lookup:
+            raise OSError("FICTIONAL DISCONNECTED COM OBJECT")
+        if isinstance(key, int):
+            return self.book.sheets[key - 1]
+        return next(sheet for sheet in self.book.sheets if sheet.Name == key)
+
+    def Add(self, *, After=None):
+        self.add_calls += 1
+        sheet = _LedgerSheet("SheetNew")
+        self.book.sheets.append(sheet)
+        return sheet
+
+
+class _LedgerBook:
+    def __init__(self, *, with_ledger=False):
+        self.sheets = [_LedgerSheet("MASTER_SCHEDULE")]
+        if with_ledger:
+            self.sheets.append(_LedgerSheet(LEDGER_SHEET, header=True))
+        self.Worksheets = _LedgerSheets(self)
+        self.ReadOnly = False
+        self.save_calls = 0
+
+    def Save(self):
+        self.save_calls += 1
+
+
+def _ledger_history(book):
+    ws = book.sheets[-1]
+    ws.Cells(2, 1).Value2 = "FICTIONAL-CHANGE-ID"
+    ws.Cells(2, 2).Value2 = "2026-11-24"
+    ws.Cells(2, 3).Value2 = "patient_absence"
+    ws.Cells(2, 4).Value2 = "FICTIONAL-P1"
+    ws.Cells(2, 8).Value2 = "SYNTHETIC REASON"
+    ws.Cells(2, 9).Value2 = 21
+    ws.Cells(2, 10).Value2 = "RESTORED"
+    ws.Cells(2, 11).Value2 = "2026-11-24T18:00:00"
+    ws.Cells(2, 12).Value2 = 37
+    return ws
+
+
+def _sheet_values(sheet):
+    return tuple(sorted(
+        (row, col, cell.Value2, cell.HasFormula)
+        for (row, col), cell in sheet.Cells.items.items()
+    ))
+
+
+def test_ledger_reinstall_never_resets_existing_restored_or_active_history():
+    book = _LedgerBook(with_ledger=True)
+    sheet = _ledger_history(book)
+    # Extra presentation and historical row values are also retained exactly.
+    sheet.Cells(3, 1).Value2 = "FICTIONAL-ACTIVE"
+    sheet.Cells(3, 10).Value2 = "ACTIVE"
+    before = _sheet_values(sheet)
+    assert ensure_daily_change_ledger_sheet(book) is None
+    assert ensure_daily_change_ledger_sheet(book) is None
+    assert _sheet_values(sheet) == before
+    assert sheet.Visible == 2
+    assert book.Worksheets.add_calls == 0
+    assert book.save_calls == 0
+
+
+@pytest.mark.parametrize("kind", [
+    "header", "header-formula", "visible",
+])
+def test_ledger_reinstall_rejects_bad_existing_contract_without_erasing_history(kind):
+    book = _LedgerBook(with_ledger=True)
+    sheet = _ledger_history(book)
+    if kind == "header":
+        sheet.Cells(1, 4).Value2 = "UNEXPECTED HEADER"
+    elif kind == "header-formula":
+        sheet.Cells(1, 4).HasFormula = True
+    elif kind == "visible":
+        sheet.Visible = -1
+    before = _sheet_values(sheet)
+    with pytest.raises(DailyChangeLedgerProvisionError, match="schema|veryHidden"):
+        ensure_daily_change_ledger_sheet(book)
+    assert _sheet_values(sheet) == before
+    assert book.Worksheets.add_calls == 0
+    assert book.save_calls == 0
+
+
+def test_ledger_install_creates_only_missing_sheet_and_validates_readback():
+    book = _LedgerBook()
+    ensure_daily_change_ledger_sheet(book)
+    assert book.Worksheets.add_calls == 1
+    assert len(book.sheets) == 2
+    sheet = book.sheets[-1]
+    assert sheet.Name == LEDGER_SHEET
+    assert sheet.Visible == 2
+    assert tuple(sheet.Cells(1, col).Value2 for col in range(1, 13)) == HEADERS
+    assert book.save_calls == 0
+    before = _sheet_values(sheet)
+    ensure_daily_change_ledger_sheet(book)
+    assert _sheet_values(sheet) == before
+    assert book.Worksheets.add_calls == 1
+
+
+def test_ledger_install_does_not_treat_com_disconnect_as_missing_sheet():
+    book = _LedgerBook(with_ledger=True)
+    sheet = _ledger_history(book)
+    before = _sheet_values(sheet)
+    book.Worksheets.fail_lookup = True
+    with pytest.raises(DailyChangeLedgerProvisionError, match="provisioning failed"):
+        ensure_daily_change_ledger_sheet(book)
+    assert _sheet_values(sheet) == before
+    assert book.Worksheets.add_calls == 0
+    assert book.save_calls == 0
+
+
+def test_ledger_install_readonly_missing_sheet_fails_without_creating():
+    book = _LedgerBook()
+    book.ReadOnly = True
+    with pytest.raises(DailyChangeLedgerProvisionError, match="read-only"):
+        ensure_daily_change_ledger_sheet(book)
+    assert len(book.sheets) == 1
+    assert book.Worksheets.add_calls == 0
+    assert book.save_calls == 0
+
+
+class _LedgerCodeModule:
+    def __init__(self, code):
+        self.code = code
+
+    @property
+    def CountOfLines(self):
+        return len(self.code.splitlines())
+
+    def Lines(self, start, count):
+        return self.code
+
+    def DeleteLines(self, start, count):
+        self.code = ""
+
+    def AddFromString(self, value):
+        self.code += value
+
+
+class _LedgerComponent:
+    def __init__(self, name, code):
+        self.Name = name
+        self.CodeModule = _LedgerCodeModule(code)
+
+
+class _LedgerComponents:
+    def __init__(self, initial):
+        self.items = {name: _LedgerComponent(name, source) for name, source in initial.items()}
+        self.add_calls = 0
+
+    def __call__(self, name):
+        return self.items[name]
+
+    def Add(self, kind):
+        assert kind == 1
+        self.add_calls += 1
+        component = _LedgerComponent("NewComponent", "")
+        self.items[component.Name] = component
+        return component
+
+    def Remove(self, component):
+        self.items.pop(component.Name)
+
+
+class _LedgerProject:
+    def __init__(self, initial):
+        self.VBComponents = _LedgerComponents(initial)
+
+
+def test_ledger_vba_patch_preflight_occurs_before_any_sheet_or_module_change():
+    book = _LedgerBook(with_ledger=True)
+    sheet = _ledger_history(book)
+    before = _sheet_values(sheet)
+    project = _LedgerProject({"modDailyInputAction": "FICTIONAL NONPATCHABLE SOURCE"})
+    with pytest.raises(RuntimeError, match="preflight marker"):
+        install_daily_change_ledger(project, book)
+    assert _sheet_values(sheet) == before
+    assert project.VBComponents.add_calls == 0
+    assert book.Worksheets.add_calls == 0
+    assert book.save_calls == 0
+
+
+def test_valid_ledger_install_preserves_old_history_and_updates_modules():
+    book = _LedgerBook(with_ledger=True)
+    sheet = _ledger_history(book)
+    before = _sheet_values(sheet)
+    project = _LedgerProject({"modDailyInputAction": DAILY_INPUT_MODULE_CODE})
+    install_daily_change_ledger(project, book)
+    assert _sheet_values(sheet) == before
+    assert "PersistDailyChangePayload parts" in project.VBComponents(
+        "modDailyInputAction"
+    ).CodeModule.code
+    assert "Public Sub RestoreDailyChangeRow()" in project.VBComponents(
+        MODULE_NAME
+    ).CodeModule.code
+    assert project.VBComponents.add_calls == 1
+    assert book.Worksheets.add_calls == 0
+    assert book.save_calls == 0
+
