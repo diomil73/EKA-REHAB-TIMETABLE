@@ -118,7 +118,7 @@ Public Sub RefreshDailyChangeLedgerView()
         .Font.Bold = True
         .Interior.Color = RGB(221, 235, 247)
     End With
-    wsDaily.Cells(startRow + 1, 1).Value = "✓"
+    wsDaily.Cells(startRow + 1, 1).Value = ChrW$(&H2713)
     wsDaily.Cells(startRow + 1, 2).Value = "Ασθενής / Θεραπευτής"
     wsDaily.Cells(startRow + 1, 3).Value = "Από"
     wsDaily.Cells(startRow + 1, 4).Value = "Προς"
