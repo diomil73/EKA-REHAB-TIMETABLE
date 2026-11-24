@@ -1,4 +1,7 @@
+from dataclasses import replace
 from datetime import date, time
+
+import pytest
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -212,3 +215,142 @@ def test_outpatient_replacement_does_not_write_inpatient_master(tmp_path, monkey
     )
     assert result.write_plan.patches == ()
     assert result.bindings == ()
+
+def _same_treatment_second_session():
+    return BaseScheduleEntry(
+        base_entry_id="base-2",
+        patient_id="P1",
+        treatment="ΦΘ",
+        start_time=time(11, 0),
+        day_pattern="Δε-Τε-Πα",
+        therapist_id="Άλλος",
+    )
+
+
+def _active_second_session():
+    return DailySessionState(
+        session_id="base-2@2026-10-19",
+        patient_id="P1",
+        session_date=DAY,
+        status=DailySessionStatus.ACTIVE,
+        original_therapist_id="Άλλος",
+        original_time=time(11, 0),
+        effective_therapist_id="Άλλος",
+        effective_time=time(11, 0),
+    )
+
+
+def test_cancelled_and_active_same_treatment_cell_do_not_strike_active_session(tmp_path):
+    path = _book(tmp_path)
+    initial = path.read_bytes()
+    with pytest.raises(
+        Exception, match="Multiple daily sessions target one MASTER treatment cell"
+    ):
+        build_master_daily_overlay_plan(
+            path,
+            base_entries=[_entry(), _same_treatment_second_session()],
+            states=[_cancelled_state(), _active_second_session()],
+            patients=[_patient()],
+            master_projection_rows=_projection(),
+        )
+    assert path.read_bytes() == initial
+
+
+def test_replaced_and_cancelled_same_treatment_cell_cannot_overwrite_each_other(tmp_path):
+    path = _book(tmp_path)
+    cancelled_second = replace(
+        _cancelled_state(), session_id="base-2@2026-10-19",
+        original_time=time(11, 0), original_therapist_id="Άλλος",
+        cancellation_id="C2",
+    )
+    with pytest.raises(
+        Exception, match="Multiple daily sessions target one MASTER treatment cell"
+    ):
+        build_master_daily_overlay_plan(
+            path,
+            base_entries=[_entry(), _same_treatment_second_session()],
+            states=[_replacement_state(), cancelled_second],
+            patients=[_patient()],
+            master_projection_rows=_projection(),
+        )
+
+
+def test_two_active_same_treatment_sessions_need_no_daily_overlay(tmp_path):
+    path = _book(tmp_path)
+    active_first = replace(
+        _replacement_state(),
+        status=DailySessionStatus.ACTIVE,
+        effective_therapist_id="Σκαρώνης",
+        effective_time=time(9, 15),
+        replacement_id=None,
+    )
+    result = build_master_daily_overlay_plan(
+        path,
+        base_entries=[_entry(), _same_treatment_second_session()],
+        states=[active_first, _active_second_session()],
+        patients=[_patient()],
+        master_projection_rows=_projection(),
+    )
+    assert result.write_plan.patches == ()
+    assert result.bindings == ()
+
+
+def test_mixed_service_dates_fail_before_any_workbook_write(tmp_path):
+    path = _book(tmp_path)
+    other = replace(
+        _active_second_session(),
+        session_date=date(2026, 10, 20),
+        session_id="base-2@2026-10-20",
+    )
+    before = path.read_bytes()
+    with pytest.raises(Exception, match="mixes service dates"):
+        build_master_daily_overlay_plan(
+            path,
+            base_entries=[_entry(), _same_treatment_second_session()],
+            states=[_cancelled_state(), other],
+            patients=[_patient()],
+            master_projection_rows=_projection(),
+        )
+    assert path.read_bytes() == before
+
+
+def test_daily_session_cannot_use_other_patients_master_treatment_entry(tmp_path):
+    path = _book(tmp_path)
+    wrong = replace(_entry(), patient_id="OTHER_PATIENT")
+    before = path.read_bytes()
+    with pytest.raises(Exception, match="patient does not match"):
+        build_master_daily_overlay_plan(
+            path,
+            base_entries=[wrong],
+            states=[_replacement_state()],
+            patients=[_patient()],
+            master_projection_rows=_projection(),
+        )
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "duplicate",
+    ["base", "patient", "session"],
+)
+def test_duplicate_source_identifiers_cannot_silently_replace_authoritative_facts(
+    tmp_path, duplicate,
+):
+    path = _book(tmp_path)
+    entries = [_entry()]
+    patients = [_patient()]
+    states = [_replacement_state()]
+    if duplicate == "base":
+        entries.append(replace(_entry(), treatment="Εργο"))
+    elif duplicate == "patient":
+        patients.append(replace(_patient(), display_name="WRONG SECOND NAME"))
+    else:
+        states.append(_cancelled_state())
+    before = path.read_bytes()
+    with pytest.raises(Exception, match="Duplicate"):
+        build_master_daily_overlay_plan(
+            path,
+            base_entries=entries, states=states, patients=patients,
+            master_projection_rows=_projection(),
+        )
+    assert path.read_bytes() == before
