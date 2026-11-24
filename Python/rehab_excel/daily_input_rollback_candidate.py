@@ -15,7 +15,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from xml.etree import ElementTree as ET
+from xml.sax.saxutils import escape
 from zipfile import ZipFile
 
 from .authoritative_commit import file_sha256
@@ -46,42 +48,88 @@ _MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
 
 def _journal_xml_for_history(original: bytes, rows: tuple[tuple, ...]) -> bytes:
+    """Replace journal rows without rewriting Excel's namespace declarations.
+
+    ElementTree's whole-document serialization renames prefixes and can leave
+    mc:Ignorable referring to prefixes no longer declared. Excel may reject
+    that XML even though an independent Python reader accepts its cells.
+    """
+    all_rows = (JOURNAL_HEADERS, *rows)
+    if len(all_rows) > 1048576:
+        raise RollbackCandidateError("Journal worksheet capacity exhausted")
     try:
         root = ET.fromstring(original)
-        sheet_data = root.find(f"{{{_MAIN_NS}}}sheetData")
-        if sheet_data is None:
+        if root.tag != f"{{{_MAIN_NS}}}worksheet":
+            raise RollbackCandidateError("Unexpected journal XML root")
+        if root.find(f"{{{_MAIN_NS}}}sheetData") is None:
             raise RollbackCandidateError("Journal sheet data unavailable")
-        # Clear ONLY journal row content; preserve worksheet properties,
-        # protection, visibility mapping and other non-row metadata.
-        for child in list(sheet_data):
-            sheet_data.remove(child)
 
-        all_rows = (JOURNAL_HEADERS, *rows)
-        if len(all_rows) > 1048576:
-            raise RollbackCandidateError("Journal worksheet capacity exhausted")
+        # Preserve every original byte outside <sheetData> (including all
+        # namespace declarations, extLst, mc:Ignorable and XML attributes).
+        match = re.search(
+            rb"<(?P<prefix>[A-Za-z_][\\w.-]*:)?sheetData(?=[\\s>])[^<>]*>"
+            rb"(?P<body>.*?)</(?P=prefix)sheetData\\s*>",
+            original, flags=re.DOTALL,
+        )
+        if match is None or re.search(
+            rb"<(?:[A-Za-z_][\\w.-]*:)?sheetData(?=[\\s>])", original[match.end():]
+        ):
+            raise RollbackCandidateError("Journal sheetData markup ambiguous")
+        prefix = match.group("prefix") or b""
+        q = prefix.decode("ascii")
+
+        generated = []
         for row_index, fields in enumerate(all_rows, start=1):
-            row = ET.SubElement(
-                sheet_data, f"{{{_MAIN_NS}}}row", {"r": str(row_index)}
-            )
+            if len(fields) != len(JOURNAL_HEADERS):
+                raise RollbackCandidateError("Journal row width invalid")
+            cells = []
             for index, value in enumerate(fields):
                 address = f"{chr(65 + index)}{row_index}"
                 if row_index > 1 and index == 1:
-                    cell = ET.SubElement(
-                        row, f"{{{_MAIN_NS}}}c", {"r": address, "t": "n"}
+                    if type(value) is not int or value < 0:
+                        raise RollbackCandidateError("Journal sequence invalid")
+                    cells.append(
+                        f'<{q}c r="{address}" t="n"><{q}v>{value}</{q}v></{q}c>'
                     )
-                    ET.SubElement(cell, f"{{{_MAIN_NS}}}v").text = str(value)
                 else:
-                    cell = ET.SubElement(
-                        row, f"{{{_MAIN_NS}}}c", {"r": address, "t": "inlineStr"}
+                    if type(value) is not str:
+                        raise RollbackCandidateError("Journal string invalid")
+                    # String content only; no untrusted value becomes XML markup.
+                    safe = escape(value)
+                    cells.append(
+                        f'<{q}c r="{address}" t="inlineStr"><{q}is>'
+                        f'<{q}t xml:space="preserve">{safe}</{q}t>'
+                        f'</{q}is></{q}c>'
                     )
-                    is_node = ET.SubElement(cell, f"{{{_MAIN_NS}}}is")
-                    ET.SubElement(is_node, f"{{{_MAIN_NS}}}t").text = str(value)
-
-        dimensions = root.findall(f"{{{_MAIN_NS}}}dimension")
-        for dimension in dimensions:
-            dimension.set("ref", f"A1:E{len(all_rows)}")
-        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
-    except (ET.ParseError, TypeError, ValueError) as exc:
+            generated.append(
+                f'<{q}row r="{row_index}">{"".join(cells)}</{q}row>'
+            )
+        result = (
+            original[:match.start("body")]
+            + "".join(generated).encode("utf-8")
+            + original[match.end("body"):]
+        )
+        # Change only an existing dimension ref, keeping original tag/prefix.
+        dimension = re.search(
+            rb"<(?:[A-Za-z_][\\w.-]*:)?dimension\\b[^<>]*>", result
+        )
+        if dimension is not None:
+            item = dimension.group()
+            if len(re.findall(rb"\\bref=[\\\"'][^\\\"']*[\\\"']", item)) != 1:
+                raise RollbackCandidateError("Journal dimension ref ambiguous")
+            patched = re.sub(
+                rb"\\bref=([\\\"'])[^\\\"']*\\1",
+                lambda m: b"ref=" + m.group(1)
+                + f"A1:E{len(all_rows)}".encode("ascii") + m.group(1),
+                item, count=1,
+            )
+            result = result[:dimension.start()] + patched + result[dimension.end():]
+        verified = ET.fromstring(result)
+        sheet = verified.find(f"{{{_MAIN_NS}}}sheetData")
+        if sheet is None or len(sheet.findall(f"{{{_MAIN_NS}}}row")) != len(all_rows):
+            raise RollbackCandidateError("Journal XML row readback invalid")
+        return result
+    except (ET.ParseError, UnicodeError, TypeError, ValueError) as exc:
         raise RollbackCandidateError("Journal XML reconstruction invalid") from exc
 
 
