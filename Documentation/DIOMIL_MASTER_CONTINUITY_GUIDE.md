@@ -2334,3 +2334,19 @@ then report `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected: `DAILY_INPUT NATIV
 **Operator evidence:** After §4.176, operator ran `python -m pytest Tests/test_diagnose_daily_input_gate2_predicate_native.py -q --tb=short --color=no` and reported **`3 passed in 2.99s`**. The three new focused source-contract tests are GREEN. The separate native Excel execution of the predicate-only diagnostic has **not** yet occurred. Therefore no native predicate result is inferred from these Python tests.
 
 **Next PC action:** On the existing synthetic `$demo`, run only `python Python/tools/diagnose_daily_input_gate2_predicate_native.py --source $demo`, then `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected diagnostic label is `GATE 2 NATIVE JOURNAL PREDICATE GREEN` and exit 0. On any `SAFETY STOP`, halt and capture the concise output. This invokes only the side-effect-free `DailyInputJournalApplyEnabled()` in a disposable copy; no action workers, Apply, Restore or CloseDay. Source remains protected and original SHA must remain unchanged. Gate #2 overall remains PENDING.
+
+
+## 4.178 Gate #2 native execution of disabled journal predicate GREEN — 24/11/2026
+
+**Operator Windows evidence:** Focused tests for `Tests/test_diagnose_daily_input_gate2_predicate_native.py`: `3 passed in 2.99s`, `TEST_EXIT_CODE=0`. Operator then ran `python Python/tools/diagnose_daily_input_gate2_predicate_native.py --source $demo` and reported:
+
+- `GATE 2 NATIVE JOURNAL PREDICATE GREEN`
+- `DailyInputJournalApplyEnabled returned Boolean False: YES`
+- `Only allowlisted predicate executed; no Apply/Restore/action workers invoked`
+- `Disposable copy only; original source unchanged; temporary files removed`
+- `PREDICATE EXECUTION ONLY: DOES NOT PROVE ACTION ENTRYPOINT REJECTION`
+- `DIAGNOSTIC_EXIT_CODE=0`
+
+Accordingly the **native execution of the journal lock predicate substage is GREEN**. It establishes that the installed predicate executes in real Excel and returns Boolean False in an isolated disposable copy. It explicitly does **not** prove that any Apply/Restore/replacement/double-booking/CloseDay/amendment action entrypoint was invoked or rejected. The source guard matrix 18/18 (§4.174), native installed inventory 6/6 (§4.169), and native predicate (§4.178) are individually GREEN. Full Gate #2 remains PENDING; operational journal writer/receipt/fault-injection/rollback remain NOT READY. No operational Apply gate was changed.
+
+**Next engineering step:** prepare a separate no-dialog native test for the public direct worker `ApplyValidatedDailyInputPayload(payloadPath)` on another disposable copy. Invoke it with a deliberately nonexistent payload path: with the gate FALSE, the expected result is Boolean False before any file read. Verify the target VBA component/module source on the copy, package SHA before/after, source SHA unchanged, journal rows and nonjournal members unchanged, and cleanup. Do not invoke the UI wrapper `ApplyDailyInputPreview` because it opens MsgBox. Do not call any Restore or write worker in this next probe. This remains a narrowly scoped negative execution test, not authorization to enable Apply.
