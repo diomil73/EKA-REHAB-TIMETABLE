@@ -193,3 +193,78 @@ def verify_current_finalized_day(
         finalization_event_count=report.finalization_event_count,
         snapshot_sha256=sha_before,
     )
+
+def verify_current_finalized_history_range(
+    workbook_path: str | Path,
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[FinalizedHistoryConsistencyReport, ...]:
+    """Verify ALL CURRENT_FINAL days in the selected report window, read-only.
+
+    Use the same saved workbook bytes for snapshot, patient, therapist and
+    finalization-event reads. Never silently omit a current day merely because
+    its patient or therapist history sheet is incomplete. No snapshots means
+    there are no finalized days to report, not proof that work was performed.
+    """
+    path = Path(workbook_path).resolve()
+    if not path.is_file() or path.suffix.casefold() not in {".xlsm", ".xlsx"}:
+        raise FinalizedHistoryConsistencyError("Existing Excel workbook required")
+    if start_date is not None and end_date is not None and start_date > end_date:
+        raise FinalizedHistoryConsistencyError("Historical report date range invalid")
+    sha_before = file_sha256(path)
+    try:
+        current = read_finalized_day_snapshots(path, current_only=True)
+        selected = tuple(
+            item for item in current
+            if (start_date is None or item.service_date >= start_date)
+            and (end_date is None or item.service_date <= end_date)
+        )
+        if selected:
+            all_patients = read_patient_session_history_rows(path)
+            all_therapists = read_therapist_day_history_rows(path)
+            all_events = read_day_history_events(path)
+            patient_by_snapshot: dict[str, list[PatientSessionHistoryRow]] = {}
+            therapist_by_snapshot: dict[str, list[TherapistDayHistoryRow]] = {}
+            event_by_date: dict[date, list[DayHistoryEvent]] = {}
+            for row in all_patients:
+                patient_by_snapshot.setdefault(row.snapshot_id, []).append(row)
+            for row in all_therapists:
+                therapist_by_snapshot.setdefault(row.snapshot_id, []).append(row)
+            for row in all_events:
+                event_by_date.setdefault(row.service_date, []).append(row)
+            checked = tuple(
+                verify_finalized_history_bundle(
+                    snapshot,
+                    tuple(patient_by_snapshot.get(snapshot.snapshot_id, ())),
+                    tuple(therapist_by_snapshot.get(snapshot.snapshot_id, ())),
+                    tuple(event_by_date.get(snapshot.service_date, ())),
+                )
+                for snapshot in sorted(
+                    selected, key=lambda item: (item.service_date, item.version)
+                )
+            )
+        else:
+            checked = ()
+    except FinalizedHistoryConsistencyError:
+        raise
+    except Exception as exc:
+        raise FinalizedHistoryConsistencyError(
+            "Historical workbook report-range readback invalid"
+        ) from exc
+    if file_sha256(path) != sha_before:
+        raise FinalizedHistoryConsistencyError(
+            "Workbook changed during historical report audit"
+        )
+    return tuple(
+        FinalizedHistoryConsistencyReport(
+            snapshot_id=item.snapshot_id,
+            service_date=item.service_date,
+            version=item.version,
+            patient_session_rows=item.patient_session_rows,
+            therapist_day_rows=item.therapist_day_rows,
+            finalization_event_count=item.finalization_event_count,
+            snapshot_sha256=sha_before,
+        )
+        for item in checked
+    )
