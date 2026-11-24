@@ -1255,6 +1255,51 @@ Commit `1d3ba2ddd6b884a03de67f59c4b55e77e42d089d`: ενισχύθηκε η ίδ�
 4. **Native ενιαίο αρχείο `.xlsm`:** ασφαλής μη καταστροφική παραγωγή/μεταφορά, διατήρηση Excel/VBA/UserForms και σωστή Save/Close/Reopen, πλήρης εκτέλεση απαιτούμενων κρίσιμων buttons, πλοήγησης, πεδίων, journal Apply/Restore και native readback. Οι προηγούμενες native UserForm/OLE ανοιχτές αποδείξεις §4.77–§4.83 δεν κρύβονται ή βαφτίζονται «ολοκληρωμένες». Απαιτείται πραγματικό Windows Excel/COM evidence, όχι υποκατάσταση με synthetic Python.
 5. **Τελικός πραγματικός έλεγχος αποδοχής από τον χειριστή:** όλα τα απαραίτητα workflows end-to-end στο χωριστό προστατευμένο Excel, χωρίς μεταβολή production/manual αρχείων. **Μόνο τότε** αναγγέλλεται «λειτουργικό/έτοιμο Excel». Ό,τι απομένει πρέπει να ανήκει αποκλειστικά στη λίστα των έξι της παραγράφου Α.
 
+### Β.1 Ζωντανή πρόοδος: source-bound admission και approved plan (24/11/2026)
+
+**CLOUD ΕΠΑΛΗΘΕΥΜΕΝΟ / ΠΡΑΓΜΑΤΙΚΗ ΕΙΣΑΓΩΓΗ PENDING.** Οι τέσσερις exact ΦΘ/Ρομποτική combined pairs και οι source-corrected R6 rows έχουν ήδη ενσωματωθεί στο υπάρχον admission → import plan → weekly projection (§4.106). Ο έλεγχος των 88 υποψήφιων shared-provider groups έχει συνδεθεί με το υπάρχον exact-membership approval gate (§§4.109–4.110). Δεν είναι ανθρώπινες εγκρίσεις. Η ενεργή Λογοθεραπεία παραμένει blocked μέχρι εγκεκριμένη επίλυση. **Επόμενο:** μετά τις εγκρίσεις Β.2, ιδιωτικό source-bound admission και συμφιλίωση εγκεκριμένου native seed, χωρίς νέα ψευδο-εγκεκριμένα στοιχεία.
+
+### Β.2 Ζωντανή πρόοδος: πραγματικές πηγές και ρητές εγκρίσεις (24/11/2026)
+
+**PENDING ΑΠΟΦΑΣΕΙΣ.** Σύμφωνα με την τελευταία καταγραφή §§4.104–4.110, παραμένουν προς επιβεβαίωση 106 PatientIDs, 88 exact shared-provider group memberships, 1 ενεργή μεταβολή Λογοθεραπείας, καθώς και πραγματικά doctor attribution, F/U/V/untimed και outpatient source στοιχεία όπου δεν έχει υπάρξει τεκμηριωμένη απόφαση. Οι παλιές source-verified εξαιρέσεις διατηρούνται, δεν ξαναζητούνται. **Επόμενο στο PC/ιδιωτικό review:** ρητή επίλυση μόνο των υπολοίπων, σύνδεση εγκρίσεων στον υπάρχοντα admission gate. Κανένα αυτόματο clinical approval ή δημόσιο patient payload.
+
+### Β.3 Ζωντανή πρόοδος: MASTER / DAILY_INPUT / Apply / Restore / αναφορές (24/11/2026)
+
+**CLOUD COMPONENTS ΥΠΑΡΧΟΥΝ, END-TO-END PENDING.** Υπάρχουν επιμέρους λειτουργίες MASTER, DAILY_INPUT, projections, replacements, ledger, ιστορικού/attendance και αναφορών. Το lifecycle/journal είναι checksummed και append-only. Η §4.146 διατηρεί την ήδη δοσμένη operator resolution μετά από late failure. Η §4.148 προσθέτει νόμιμες source-bound *προτάσεις* επόμενων φάσεων και read-only reopen, **όχι** operational VBA writer/Apply authorization. **Επόμενο engineering:** ανεξάρτητοι phase-specific business verifiers, durable VBA phase writer και πλήρης ενοποίηση με Apply/Restore, έπειτα συνθετικά fault injection tests και native checks. Δεν ανακηρύσσεται το υποσύστημα GREEN από τα unit tests μόνο.
+
+### Β.4 Ζωντανή πρόοδος: XLSM / VBA / UserForms / native ασφάλεια (24/11/2026)
+
+**NATIVE GREEN (ΗΔΗ ΚΛΕΙΣΜΕΝΟ):** §4.144: αμετάβλητο source, 10/10 UserForms structural readback, identical source-relative OLE footprint, VBA-owned fictional PREPARED και ανεξάρτητο native Excel Save/Reopen. Δεν επαναλαμβάνουμε αυτό το smoke χωρίς συγκεκριμένο νέο regression.
+
+**CLOUD GREEN / ΝΕΟ NATIVE PENDING:** §§4.147–4.148: strict read-only whole-package rollback verifier, ξεχωριστό rollback candidate, synthetic FAILED/ROLLED_BACK history, προετοιμασία και readback επόμενων journal phases. Exact CI SHA \`ffe0b0572a4c8c16cfdcbceceaeacf60f4477290\`: [GitHub Actions 45327809251](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45327809251), **4/4 SUCCESS**, πλήρη regressions **2.549 passed Windows και 2.549 passed Linux**, δύο synthetic safety jobs SUCCESS. Το Apply παραμένει **κλειδωμένο** (\`DailyInputJournalApplyEnabled = False\`).
+
+**ΠΡΩΤΟ PC GATE, ΕΤΟΙΜΟ ΑΛΛΑ ΟΧΙ ΕΚΤΕΛΕΣΜΕΝΟ:** μόνο με το γνωστό συνθετικό \`$demo\` (10 UserForms, χωρίς υπάρχον journal):
+\`\`\`powershell
+git pull --ff-only origin work/afternoon-medical-scope-20261115
+python Python/tools/diagnose_daily_input_full_rollback_native.py --source $demo
+"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"
+\`\`\`
+Αναμενόμενα: \`DAILY_INPUT NATIVE ROLLBACK CANDIDATE DIAGNOSTIC GREEN\`, \`Source untouched: YES\`, exit 0. Αλλιώς **STOP**, διάγνωση, διορθώσεις και μόνον τότε συνέχεια. Δεν αποτελεί λειτουργικό Apply/Restore proof.
+
+### Β.5 Ζωντανή πρόοδος: πρώτη ενιαία λειτουργική παράδοση (24/11/2026)
+
+**PENDING / NOT ACCEPTED.** Όλες οι υποχρεωτικές επιχειρησιακές ροές του §4.104 πρέπει να λειτουργήσουν και να επαληθευτούν σε ένα ιδιωτικό πραγματικό XLSM, περιλαμβανομένων βασικών κουμπιών/πλοήγησης, θεραπειών, λοιμωδών, καρτελών, εγγραφών, Save/Close/Reopen και αναφορών. Δεν έχει ολοκληρωθεί ακόμη λειτουργική αποδοχή από τον χειριστή. Αποκλειστικά οι έξι ρητές εξαιρέσεις του §4.104 μπορούν να μείνουν για επόμενη έκδοση.
+
+**ΠΑΓΙΟΣ ΚΑΝΟΝΑΣ ΑΥΤΟΜΑΤΗΣ ΕΝΗΜΕΡΩΣΗΣ:** Σε κάθε πραγματική εργασία που εκτελείται σε ενεργή συνεδρία ενημερώνεται **άμεσα, χωρίς νέα υπόμνηση**, (α) το αντίστοιχο ζωντανό κεφάλαιο Β.1–Β.5 με αλλαγές/commit/tests/status/blockers/next action, (β) η κοινή ουρά PC παρακάτω αν αλλάζει gate ή σειρά, και (γ) το νέο χρονολογικό checkpoint στο τέλος. Καμία υπόσχεση για ανεξάρτητη εκτέλεση όταν δεν υπάρχει ενεργή συνεδρία ή προγραμματισμένη εργασία. Τιμές status: \`PENDING\`, \`CLOUD GREEN\`, \`NATIVE GREEN\`, \`OPERATOR ACCEPTED\`. Δεν συγχέονται και δεν σβήνονται προηγούμενες αποτυχίες/εκκρεμότητες.
+
+### Δ. Μοναδική ουρά PC δοκιμών, με πραγματική σειρά εξαρτήσεων (24/11/2026)
+
+| Σειρά | Ενότητα | Δοκιμή/ενέργεια | Κατάσταση |
+|---|---|---|---|
+| 0 | Β.4 | Μία φορά pull του γνωστού branch και επιβεβαίωση ότι \`$demo\` είναι αποκλειστικά συνθετικό, 10 UserForms και χωρίς journal | PENDING PC |
+| 1 | Β.4 | \`python Python/tools/diagnose_daily_input_full_rollback_native.py --source $demo\` και έλεγχος exit code | **READY, PENDING PC** |
+| 2 | Β.3–Β.4 | Native non-PREPARED VBA transitions, receipts, fault injection, rollback μετά την ολοκλήρωση του writer | NOT READY, engineering blocker |
+| 3 | Β.1–Β.2 | Private patient/doctor/provider/therapy approvals και source-bound πραγματικό admission | NEEDS EXPLICIT APPROVALS |
+| 4 | Β.3–Β.4 | Πλήρες χωριστό synthetic XLSM: MASTER, DAILY_INPUT, replacements, attendance, finalized/history, admin reports, Save/Close/Reopen | NOT READY |
+| 5 | Β.5 | Πρώτο ιδιωτικό πλήρως λειτουργικό XLSM: end-to-end έλεγχος και αποδοχή χειριστή | NOT READY |
+
+**STOP σε αποτυχία:** δεν περνάμε στο επόμενο εξαρτώμενο gate, ούτε τρέχουμε Apply/Restore. Η λίστα ανανεώνεται ανά ολοκληρωμένη ουσιαστική εργασία, όχι επειδή απλώς δημιουργήθηκε νέο commit. Όσα είναι \`NOT READY\` δεν παρουσιάζονται ως εντολές διαθέσιμες στο PC.
+
 ### Γ. Ενεργό ημερολόγιο πραγματικής εκτέλεσης: υποχρεωτικό σε κάθε βήμα
 
 Η παρούσα παράγραφος ορίζει **ενιαίο σχήμα καταγραφής** για τις επόμενες συνέχειες, όχι ανταγωνιστικό νέο log αρχείο. Κάθε σχετική εκτέλεση προστίθεται **στο τέλος αυτού του οδηγού** με σειρά:
@@ -1905,3 +1950,10 @@ then report `"DIAGNOSTIC_EXIT_CODE=$LASTEXITCODE"`. Expected: `DAILY_INPUT NATIV
 
 **Next action while mobile:** Further analysis/source-only implementation is allowed on the existing branch, especially independent verifier binding to canonical sources and the review/admission integration contracts; no operator action is currently necessary. **Next Windows/PC gate already defined in §4.147:** synthetic `diagnose_daily_input_full_rollback_native.py` only after return to PC, with the known nonclinical `$demo` and no operational workbook. No replay of §4.144 PREPARED smoke or these just-green Python tests is needed without a new risk.
 
+## 4.149 Συνεχής αυτόματη ενημέρωση κατά κεφάλαιο και μία ουρά PC δοκιμών (24/11/2026)
+
+**Ρητή εντολή χειριστή:** «Μη ξεχνάς να σημειώνεις την επί μέρους πρόοδο σε κάθε ξεχωριστό κεφάλαιο, ώστε όταν είμαι στο pc να πιάσουμε όλα τα τέστ με τη σειρά» και «Η ενημέρωση να γίνεται συνεχώς κ αυτόματα». Ενεργή εφαρμογή της §4.105: **σε κάθε ουσιαστική ενέργεια της τρέχουσας συνεδρίας** ανανεώνονται το σχετικό ζωντανό κεφάλαιο Β.1–Β.5, η μοναδική PC ουρά Δ και το επόμενο χρονολογικό checkpoint, χωρίς να ζητείται νέο «οκ». Αυτό είναι κανόνας εκτέλεσης/τεκμηρίωσης, **όχι** δυνατότητα αυτόνομων αλλαγών/ελέγχων στο παρασκήνιο ανάμεσα στις συνεδρίες.
+
+**Πραγματική αλλαγή:** Στην §4.105 προστέθηκαν πέντε ζωντανά status subsections και η μοναδική ουρά Windows/PC με εξαρτήσεις και status. Δεν τροποποιήθηκε Excel/Python/VBA. Τα GREEN σε §§4.144, 4.147 και 4.148 διαχωρίστηκαν ρητά από ανοιχτά clinical approvals, native Apply/Restore και end-to-end operator acceptance. Δεν εκτελέστηκαν νέα tests γιατί η αλλαγή είναι μόνο στον οδηγό· διατηρείται η ήδη αποδεδειγμένη [4/4 cloud CI](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/45327809251) του προηγούμενου κώδικα.
+
+**Επόμενη εγγραφή:** Με κάθε επόμενη code/CI/native εξέλιξη ενημερώνουμε πρώτα το αντίστοιχο Β.x, κατόπιν την κοινή ουρά Δ αν χρειάζεται, και τέλος ένα νέο checkpoint. Πρώτο τοπικό gate παραμένει το synthetic native rollback candidate probe της §4.147. Το operational Apply παραμένει κλειδωμένο.
