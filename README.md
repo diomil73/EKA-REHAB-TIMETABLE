@@ -80,3 +80,6 @@ The DAILY_INPUT work now includes an explicit-date source preflight and one-call
 
  
 The DAILY_INPUT native diagnostic now captures literal source cells from the workbook's source-sheet allowlist through macro-disabled, read-only Excel COM before checking INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY. Formula/error cells fail closed; see `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §13. This is not operational authorization.
+
+ 
+The native MASTER diagnostic now checks all 10 canonical formula columns plus status, reads all 11 evaluated cells per projected row, and compares infectious flag, room, patient/doctor identity and status. Latest cross-platform regression: run `45676238896`, 2911 passed on Windows and Ubuntu. Remaining value/style/package boundaries are documented in design doc §14.
