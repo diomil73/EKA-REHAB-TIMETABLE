@@ -2858,3 +2858,13 @@ Local focused suite after receipt fixture correction: 69 passed, 1 skipped, 6 wa
 The six PytestUnraisableExceptionWarning events still originate from ZipFile.__del__ during full rollback audit tests. Source review found _read_journal() used openpyxl load_workbook(... keep_vba=True) although this helper only reads the journal and never writes/preserves a VBA project. Package VBA presence and exact non-journal package bytes are checked separately by ZIP-level audit code. Changed this read-only journal loader to keep_vba=False (commit 4a7c168dfecb2eb30de79ae0dc87c3d3c4b763ec) to avoid creating an unnecessary retained VBA ZipFile archive. This is a targeted resource-lifecycle correction, not yet tested locally. Next: fast-forward, rerun focused suite with warnings visible; confirm whether all six warnings disappear. If any remain, isolate the specific warning-producing test and inspect openpyxl/zipfile lifetime without suppressing warnings.
 
 No workbook/VBA/operational transaction code changed. Gate 2 remains closed. Receipt codec remains structural/non-authorizing; native phase verifiers, trusted attestation and positive native Excel transaction are not complete.
+
+## 4.212 ZipFile warnings narrowed to synthetic fixture keep_vba misuse — correction committed, rerun pending — 25/11/2026
+
+After changing the production read-only journal loader to keep_vba=False, the combined suite improved from six to two warnings while remaining 69 passed, 1 skipped. Remaining warnings are now isolated to:
+- test_business_cell_or_package_resource_change_fails_closed[formula]
+- test_business_cell_or_package_resource_change_fails_closed[style]
+
+Inspection of Tests/test_daily_input_full_rollback_audit.py found two load_workbook(... keep_vba=True) calls in synthetic fixture mutations. fixture() creates an ordinary openpyxl Workbook saved with an .xlsm filename; it contains no VBA project. Keeping a VBA archive in these synthetic non-macro test loads is therefore unnecessary and is a likely source of the ZipFile.__del__ closed-stream warnings. Changed both test-only calls to keep_vba=False (commit 30f278bf1fe6d624fe7774ac51c3a6f3466a6378). This is a test fixture resource-lifecycle correction only. It does not change production workbook handling or weaken real XLSM preservation requirements.
+
+Rerun the focused suite with warnings visible. Expected target: 69 passed, 1 skipped, zero ZipFile warnings. This is a hypothesis until local rerun confirms it. If warnings persist, isolate each parametrized case with -W error::pytest.PytestUnraisableExceptionWarning or a focused warning-as-error run and inspect exact resource lifecycle. Do not suppress warnings.
