@@ -1186,3 +1186,9 @@ daily_input_phase_evidence.py defines the native reopen proof obligations for in
 Receipt binding remains a material gap: the rollback auditor requires a snapshot digest bound by a separately verified durable transaction receipt, but its API receives expected_snapshot_sha256 from the caller and does not authenticate/retrieve that receipt. A digest alone is not an authenticity proof.
 
 Next implementation sequence: define trusted receipt schema; implement independent native reopen verifiers for every phase; build VBA orchestration that appends phases only after verified evidence; implement full-workbook rollback executor and terminal proof; fault-inject every boundary on disposable synthetic XLSM; then reassess positive native demo transaction. Gate 2 remains false.
+
+## 2026-11-25 — Transaction Receipt System design baseline
+
+Added Documentation/DAILY_INPUT_TRANSACTION_RECEIPT_DESIGN_20261125.md as a design-only, non-authorizing contract. It specifies a canonical receipt envelope binding operation/source identity, service date, journal revision/phase, required evidence kind, relative artifact locator and exact artifact SHA-256, pinned verifier identity/version/method, UTC verification time, prior receipt digest and receipt digest. Receipts must match the append-only journal and phase evidence contract; workbook evidence requires independent native Excel reopen. Crash windows between artifact/receipt/journal persistence must fail closed and recover idempotently.
+
+Trust warning: a SHA-256 chain detects corruption but cannot authenticate its creator. No trusted signing/attestation root is present in the reviewed code. Do not embed a key in VBA/Python or treat Git identity as runtime signer. Design remains non-authorizing until trust root/key custody is selected and tested. No runtime code or workbook changed; Gate 2 remains closed.
