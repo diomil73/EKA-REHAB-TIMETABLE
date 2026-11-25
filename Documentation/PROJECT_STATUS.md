@@ -2006,3 +2006,12 @@ Added the 126-cell expected-grid builder using stable AssignmentID base facts, d
 GitHub Actions run `45660810319`: Windows **2866 passed / 36 warnings**; Ubuntu **2866 passed / 32 warnings**; both synthetic safety jobs passed.
 
 The builder uses caller-supplied source facts and is not yet a full native source/ledger verifier. It is not joined to the native full-grid reader in an operation-bound adapter. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
+
+ 
+### 2026-11-25 — Composite native projection readback binding
+
+Added a non-authorizing composite that binds the prior INPUT_AND_LEDGER native readback, independent MASTER preflight facts, the full expected therapist grid and fresh native MASTER/THERAPIST_DAILY readbacks to the same exact workbook SHA-256 and service date. It validates row/cell counts, provider headers, occupied-cell count, evidence metadata and workbook immutability.
+
+CI run `45662463260`: Windows **2877 passed / 33 warnings**; Ubuntu **2877 passed / 35 warnings**; both synthetic safety jobs passed.
+
+Still pending: independent native capture/verification of all source sheets, exits/recurring events, daily ledger and replacements; full MASTER treatment evaluated values; operation identity and trusted verifier attestation; report/receipt integration. This does not complete PROJECTIONS_REOPEN. Gate 2 remains closed.
