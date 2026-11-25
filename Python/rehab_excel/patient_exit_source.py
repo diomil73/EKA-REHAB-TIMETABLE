@@ -75,7 +75,7 @@ def read_patient_exits(
         raise PatientExitSourceError("PATIENTS contains duplicate patient identities")
     wb = load_workbook(
         source, read_only=True, data_only=True,
-        keep_vba=source.suffix.casefold() == ".xlsm",
+        keep_vba=False,
     )
     try:
         if SHEET_NAME not in wb.sheetnames:
