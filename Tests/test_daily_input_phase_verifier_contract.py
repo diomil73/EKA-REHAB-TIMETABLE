@@ -30,6 +30,32 @@ def prepared_operation():
     return DailyInputOperation("op-verifier-001", "a" * 64, "2026-11-25")
 
 
+def prepared_report_fields(**overrides):
+    contract = VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT]
+    value = {
+        "report_id": "prepared-report-001",
+        "operation_id": "op-verifier-001",
+        "source_workbook_sha256": "a" * 64,
+        "service_date": "2026-11-25",
+        "journal_revision": 0,
+        "journal_phase": Phase.PREPARED.value,
+        "evidence_kind": EvidenceKind.PREPARED_SNAPSHOT.value,
+        "verifier_id": contract.verifier_id,
+        "contract_version": contract.contract_version,
+        "verification_method": contract.verification_method,
+        "verification_result": VerificationResult.VERIFIED.value,
+        "evidence_artifact": "op-verifier-001/prepared-report.json",
+        "evidence_sha256": sha256(b"synthetic prepared report").hexdigest(),
+        "inspected_scope": list(contract.required_scope),
+        "native_excel_version": "SYNTHETIC-EXCEL-VERSION",
+        "package_audit_sha256": None,
+        "prepared_snapshot_sha256": None,
+        "verified_at_utc": "2026-11-25T10:00:00Z",
+    }
+    value.update(overrides)
+    return value
+
+
 def report_fields(**overrides):
     contract = VERIFIER_CONTRACTS[EvidenceKind.INPUT_AND_LEDGER_REOPEN]
     value = {
@@ -63,9 +89,17 @@ def test_registry_covers_every_evidence_kind_exactly_once():
     assert len({item.verifier_id for item in contracts}) == len(EvidenceKind)
 
 
-def test_all_verifiers_remain_explicitly_unimplemented():
+def test_only_prepared_has_existing_diagnostic_and_no_verifier_is_receipt_integrated():
+    assert VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT].implementation_status == (
+        VerifierImplementationStatus.EXISTING_DIAGNOSTIC_ONLY
+    )
     assert all(
         item.implementation_status == VerifierImplementationStatus.NOT_IMPLEMENTED
+        for kind, item in VERIFIER_CONTRACTS.items()
+        if kind != EvidenceKind.PREPARED_SNAPSHOT
+    )
+    assert all(
+        item.implementation_status != VerifierImplementationStatus.IMPLEMENTED
         for item in registered_verifier_contracts()
     )
 
@@ -138,6 +172,12 @@ def test_report_rejects_contract_scope_or_method_drift():
             report, operation(),
             previous_operation=prepared_operation(),
         )
+
+
+def test_prepared_native_readback_remains_diagnostic_only_until_receipt_integration():
+    report = create_phase_verifier_report(**prepared_report_fields())
+    with pytest.raises(PhaseVerifierNotImplementedError, match="not integrated"):
+        validate_phase_verifier_report(report, prepared_operation())
 
 
 def test_positive_phase_report_fails_closed_until_native_verifier_is_implemented():
