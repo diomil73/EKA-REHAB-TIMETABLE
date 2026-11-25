@@ -15,7 +15,11 @@ from pathlib import Path, PurePosixPath
 import re
 
 from .daily_input_operation import DailyInputOperation
-from .daily_input_phase_evidence import EvidenceKind
+from .daily_input_phase_evidence import (
+    EvidenceKind,
+    PhaseEvidenceContractError,
+    required_evidence_for_transition,
+)
 
 RECEIPT_SCHEMA = "diomil-transaction-receipt-v1"
 _HEX = re.compile(r"^[0-9a-f]{64}$")
@@ -190,17 +194,24 @@ def validate_receipt_binding(
     receipt: DailyInputTransactionReceipt,
     operation: DailyInputOperation,
     *,
-    required_evidence: tuple[EvidenceKind, ...],
+    previous_operation: DailyInputOperation,
     expected_previous_receipt_sha256: str | None,
     verifier_registry: dict[str, str],
 ) -> None:
-    """Check structural binding to a decoded operation and pinned verifier label.
+    """Derive evidence obligations from the lifecycle transition and bind one receipt.
 
-    This is not a trust/authenticity decision. The registry mapping must itself
-    come from a separately trusted application build manifest.
+    The caller cannot narrow the required evidence list. This remains a
+    structural check, not verifier authenticity or journal authorization.
+    The registry mapping must come from a separately trusted build manifest.
     """
-    if type(receipt) is not DailyInputTransactionReceipt or type(operation) is not DailyInputOperation:
+    if (type(receipt) is not DailyInputTransactionReceipt
+            or type(operation) is not DailyInputOperation
+            or type(previous_operation) is not DailyInputOperation):
         raise TransactionReceiptError("Invalid receipt or operation type")
+    try:
+        required_evidence = required_evidence_for_transition(previous_operation, operation)
+    except PhaseEvidenceContractError as exc:
+        raise TransactionReceiptError("Cannot derive receipt evidence obligations from transition") from exc
     expected_digest = sha256(_canonical_json(receipt.unsigned_dict()).encode("ascii")).hexdigest()
     if receipt.receipt_sha256 != expected_digest:
         raise TransactionReceiptError("Receipt SHA-256 mismatch")
