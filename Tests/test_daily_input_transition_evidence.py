@@ -132,7 +132,7 @@ def test_bundle_rejects_caller_selected_subset_and_extra_evidence(tmp_path):
             verifier_registry=registry, evidence_root=tmp_path,
         )
     extra_report = replace(reports[0], evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value)
-    with pytest.raises(TransitionEvidenceBundleError, match="Duplicate phase verifier report"):
+    with pytest.raises(TransitionEvidenceBundleError, match="Report evidence set is incomplete or excessive"):
         validate_transition_evidence_bundle(
             previous, operation, reports=(*reports, extra_report), receipts=receipts,
             expected_previous_receipt_sha256="b" * 64,
