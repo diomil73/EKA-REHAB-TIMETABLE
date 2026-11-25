@@ -699,3 +699,7 @@ Tests were added but NOT RUN in this session. Required next action is local pyte
 ## 2026-11-25 — Receipt PREPARED evidence-kind follow-up
 
 Initial focused run: 68 passed, 1 skipped, exit code 0, with six PytestUnraisableExceptionWarning instances involving ZipFile deallocation in full rollback audit tests. Follow-up source review corrected PREPARED evidence semantics: new EvidenceKind.PREPARED_SNAPSHOT is required only for revision 0; FAILURE_DIAGNOSTIC is not a valid PREPARED receipt kind. Added one test covering both invalid phase/revision combinations. This follow-up revision is NOT YET TESTED. One skip likely relates to symlink support on Windows; confirm with pytest -rs. Warnings are recorded for investigation, not suppressed.
+
+## 2026-11-25 — Receipt fixture follow-up run and correction
+
+After PREPARED_SNAPSHOT enforcement, the local combined suite reported 5 failed, 64 passed, 1 skipped, with six ZipFile unraisable warnings. Failures were test setup inconsistencies: later-phase receipt tests still generated revision-zero PREPARED receipts, and the missing-predecessor test did not select later-phase evidence. Test fixtures were corrected to represent revision 1 INPUT_AND_LEDGER_COMMITTED / INPUT_AND_LEDGER_REOPEN and a PREPARED predecessor digest. The missing-predecessor test now removes only that digest. Correction is committed but NOT YET RERUN. Skip reason: symlinks unavailable on Windows. ZipFile warnings remain open investigation; do not silence them.
