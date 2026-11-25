@@ -471,3 +471,6 @@ The next therapist verifier must reuse the stable recurring ID and daily-state s
 
  
 The native THERAPIST_DAILY comparison primitive is now present. Before adding a phase adapter, implement the complete 126-cell expected-grid builder from the existing unified schedule, stable AssignmentID, daily-state/replacement and patient-centric renderer sources. The primitive and its exact limitations are in `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §8. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+The expected THERAPIST_DAILY grid builder is now available and cross-platform synthetic CI is green (run `45660810319`, 2866 passed on both Windows and Ubuntu). It requires caller-supplied independently validated stable-ID schedule/session/state facts and does not itself verify DAILY_INPUT/ledger/replacement sources. Next is a composite native diagnostic that binds this expected grid to the full-grid COM readback and exact operation/source/date evidence. See design doc §9.
