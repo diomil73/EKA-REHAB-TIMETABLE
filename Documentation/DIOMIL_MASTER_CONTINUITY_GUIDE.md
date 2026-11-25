@@ -2915,3 +2915,17 @@ GitHub Actions full regression run for commit `a559a35c9a618b0d83764349d3aaa48e0
 The workflow runs the entire `Tests` directory using `pytest -q --disable-warnings --maxfail=35`; the warning totals are reported but their details are suppressed by the workflow flag. Do not claim zero warnings. The run includes the new PREPARED adapter tests. A subsequent full workflow for head `a8b1c59d5ec7faabfb8cbbce41bd80cc09582930` also completed successfully: Windows 2734 passed / 71 warnings / 35.24s; Ubuntu 2734 passed / 69 warnings / 18.87s. Both synthetic safety jobs succeeded. Changes after that head are documentation-only.
 
 The user's local pre-adapter focused run remains 110 passed, 1 symlink skip. The next local action is to pull the latest branch head and run the adapter + PREPARED readback + verifier-contract focused tests. PREPARED remains REPORT_ADAPTER_ONLY: no trusted attestation, transaction receipt acceptance, journal Apply, or Restore authorization. Gate 2 remains closed.
+
+
+## 4.217 Offline internal verifier audit and cross-phase evidence gaps — 25/11/2026
+
+Completed a GitHub source-only review of the lifecycle evidence policy, verifier registry/report codec, transaction receipt codec, existing INPUT_AND_LEDGER OOXML readback, PREPARED COM readback pattern, applied archive, replacement facts, and full rollback audit. Added `Documentation/DAILY_INPUT_INTERNAL_VERIFIER_REVIEW_20261125.md`.
+
+Important findings before any positive authorization:
+- A transition can require multiple evidence kinds (notably OPERATOR_RESOLUTION + REPLACEMENTS_REOPEN), but report/receipt validators currently validate one item at a time and do not prove complete exact-set coverage. Add a transition evidence bundle validator requiring every obligation exactly once.
+- `validate_receipt_binding()` currently accepts caller-supplied `required_evidence`; before positive use it must derive obligations internally from previous/candidate operations, as the phase-report validator does.
+- SHA-256/self-digests and caller-provided verifier registry mappings do not authenticate evidence. Trusted verifier/build-manifest attestation and key custody remain unresolved; no key is to be invented or embedded.
+- The INPUT_AND_LEDGER OOXML comparison already exists and must not be duplicated. The next verifier must independently inspect the exact saved XLSM through a fresh macro-disabled, read-only Excel COM instance and reconcile COM-visible values to the same trusted preflight facts. Empty-change semantics require an explicit product rule because the current OOXML verifier requires non-empty validated changes.
+- Downstream projections, pending inventory, replacement facts, operator decision, applied archive, final workbook, failure artifact and full rollback scopes are mapped in the review document.
+
+The audit is source review only. No Python tests, Excel COM, real XLSM, VBA, workbook, UI, operational handler or Gate 2 change was executed. The last local user run remains 109 passed / 1 symlink skip / 17 warnings and predates commits `1f4a6c7` and `8179412`; rerun is pending. No warning-removal claim. Next PC task remains the focused pytest command already provided.
