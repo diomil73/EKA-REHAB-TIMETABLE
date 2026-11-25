@@ -759,3 +759,16 @@ New coverage gaps recorded:
 - Phase-specific downstream verifier scopes and failure/crash-path test requirements are documented.
 
 No tests or Excel were executed. User's latest local result (before commits `1f4a6c7` and `8179412`): 109 passed, 1 symlink skip, 17 warnings. Latest warning-related commits await local rerun. No zero-warning claim. Gate 2 remains closed.
+
+## 2026-11-25 — Transition evidence bundle validator: full regression green
+
+Added `daily_input_transition_evidence.py` and its focused tests. The bundle validator derives required evidence from the previous/candidate lifecycle transition; enforces exactly one report and receipt per required EvidenceKind; rejects missing, duplicate and extra kinds; binds all reports/receipts to one operation/revision/phase; cross-checks artifact/verifier metadata; checks the ordered receipt predecessor chain; and verifies exact artifact bytes.
+
+Receipt binding was hardened: `validate_receipt_binding()` now requires the previous operation and derives the evidence obligations internally. The caller-controlled `required_evidence` parameter was removed.
+
+GitHub Actions full regression for head `ed3bdec7e3e22a69b1162867f346321503b26498`:
+- Windows: 2740 passed, 72 warnings, 44.59s.
+- Ubuntu: 2740 passed, 68 warnings, 28.33s.
+- Both synthetic safety jobs succeeded; overall workflow success.
+
+The complete-bundle positive synthetic test uses temporary in-memory IMPLEMENTED contract statuses only to exercise the structural validator. Actual repository verifier statuses remain PREPARED=REPORT_ADAPTER_ONLY and nine NOT_IMPLEMENTED. This does not authenticate verifier origin, establish trusted attestation, authorize journal append or enable Apply. No native Excel COM/real XLSM test was run. Warning details remain suppressed by CI and counts are not zero. Gate 2 remains closed.
