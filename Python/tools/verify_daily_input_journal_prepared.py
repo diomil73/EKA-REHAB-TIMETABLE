@@ -144,7 +144,7 @@ def verify_prepared_reopen(
     before_hash = file_sha256(path)
     workbook = None
     try:
-        workbook = load_workbook(path, read_only=False, data_only=False, keep_vba=True)
+        workbook = load_workbook(path, read_only=False, data_only=False, keep_vba=False)
         if "DAILY_INPUT" not in workbook.sheetnames:
             raise PreparedJournalReadbackError("Daily sheet unavailable")
         if _source_date(workbook["DAILY_INPUT"]["B2"].value) != prepared.service_date:
