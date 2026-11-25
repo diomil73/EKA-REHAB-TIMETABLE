@@ -19,7 +19,11 @@ from types import MappingProxyType
 from typing import Mapping
 
 from .daily_input_operation import DailyInputOperation
-from .daily_input_phase_evidence import EvidenceKind, PhaseEvidenceContractError as EvidencePolicyError, required_evidence_for_transition
+from .daily_input_phase_evidence import (
+    EvidenceKind,
+    PhaseEvidenceContractError as EvidencePolicyError,
+    required_evidence_for_transition,
+)
 
 PHASE_VERIFIER_REPORT_SCHEMA = "diomil-phase-verifier-report-v1"
 _HEX = re.compile(r"^[0-9a-f]{64}$")
