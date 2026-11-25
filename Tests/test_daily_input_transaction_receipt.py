@@ -15,6 +15,10 @@ from rehab_excel.daily_input_transaction_receipt import (
 )
 
 
+def previous_operation():
+    return DailyInputOperation("op-20261125-001", "a" * 64, "2026-11-25")
+
+
 def operation():
     return DailyInputOperation(
         "op-20261125-001", "a" * 64, "2026-11-25",
@@ -143,7 +147,7 @@ def test_binding_matches_operation_phase_evidence_and_pinned_verifier():
     op = operation()
     receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     validate_receipt_binding(
-        receipt, op, required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+        receipt, op, previous_operation=previous_operation(),
         expected_previous_receipt_sha256="b" * 64,
         verifier_registry={"native-reopen-verifier": "v1"},
     )
@@ -155,13 +159,13 @@ def test_binding_rejects_operation_or_evidence_drift():
     with pytest.raises(TransactionReceiptError, match="identity/revision"):
         validate_receipt_binding(
             receipt, replace(op, source_sha256="b" * 64),
-            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            previous_operation=previous_operation(),
             expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
     with pytest.raises(TransactionReceiptError, match="evidence kind"):
         validate_receipt_binding(
-            receipt, op, required_evidence=(EvidenceKind.PROJECTIONS_REOPEN,),
+            receipt, op, previous_operation=previous_operation(),
             expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
@@ -170,7 +174,7 @@ def test_binding_rejects_operation_or_evidence_drift():
 def test_binding_rejects_unpinned_verifier_and_wrong_predecessor():
     receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     args = dict(
-        required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+        previous_operation=previous_operation(),
         expected_previous_receipt_sha256="b" * 64,
         verifier_registry={"native-reopen-verifier": "v2"},
     )
@@ -178,7 +182,7 @@ def test_binding_rejects_unpinned_verifier_and_wrong_predecessor():
         validate_receipt_binding(receipt, operation(), **args)
     with pytest.raises(TransactionReceiptError, match="predecessor"):
         validate_receipt_binding(
-            receipt, operation(), required_evidence=args["required_evidence"],
+            receipt, operation(), previous_operation=previous_operation(),
             expected_previous_receipt_sha256="c" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
@@ -226,7 +230,7 @@ def test_binding_rechecks_digest_even_for_direct_dataclass_instances():
     with pytest.raises(TransactionReceiptError, match="SHA-256 mismatch"):
         validate_receipt_binding(
             forged, operation(),
-            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            previous_operation=previous_operation(),
             expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v2"},
         )
