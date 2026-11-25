@@ -289,3 +289,55 @@ def test_native_source_capture_rejects_native_planner_formula_result_mismatch(tm
         capture.verify_daily_input_source_native_capture_readonly(
             path, excel_factory=lambda: app,
         )
+
+
+def test_native_source_capture_supports_canonical_blank_guarded_planner_identity_formula(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    formula = 'IF(PATIENTS!C2="","",PATIENTS!A2)'
+    formulas = {"PATIENT_PLANNER": {"A2": formula}}
+    monkeypatch.setattr(
+        capture, "WorkbookPackageProbe",
+        lambda _path: _Probe(_path, sheets, formulas=formulas),
+    )
+    native_sheets = _required_sheets()
+    native_sheets["PATIENT_PLANNER"]["A2"] = "001"
+    app = _App(
+        native_sheets,
+        formulas={"PATIENT_PLANNER": {"A2": f"={formula}"}},
+    )
+
+    result = capture.verify_daily_input_source_native_capture_readonly(
+        path, excel_factory=lambda: app,
+    )
+
+    assert result.checked_formula_cells == 1
+    assert app.book.closed is True
+    assert app.quit is True
+
+
+def test_native_source_capture_checks_blank_guarded_formula_blank_branch(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    sheets["PATIENTS"].pop("C2")
+    formula = 'IF(PATIENTS!C2="","",PATIENTS!A2)'
+    formulas = {"PATIENT_PLANNER": {"A2": formula}}
+    monkeypatch.setattr(
+        capture, "WorkbookPackageProbe",
+        lambda _path: _Probe(_path, sheets, formulas=formulas),
+    )
+    native_sheets = _required_sheets()
+    native_sheets["PATIENTS"].pop("C2")
+    native_sheets["PATIENT_PLANNER"]["A2"] = ""
+    app = _App(
+        native_sheets,
+        formulas={"PATIENT_PLANNER": {"A2": f"={formula}"}},
+    )
+
+    result = capture.verify_daily_input_source_native_capture_readonly(
+        path, excel_factory=lambda: app,
+    )
+
+    assert result.checked_formula_cells == 1
+    assert app.book.closed is True
+    assert app.quit is True
