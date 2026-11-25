@@ -97,7 +97,7 @@ def _expected(doctor=False):
 def _fake_app(items, *, room="A01", identity=None, status="active",
               infectious=None, readonly=True, version="16.0",
               wrong_formula=False, formula_error=False,
-              source_formula_column=None):
+              source_formula_column=None, source_value_mismatch=False):
     item = items[0]
     identity = identity if identity is not None else (
         f"{item.display_name}\n✚ {item.responsible_doctor}"
@@ -131,6 +131,8 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
             formula = "=PATIENT_PLANNER!B99"
         if formula_error and col == 4:
             value = "#REF!"
+        if source_value_mismatch and col == 4:
+            value = "MISMATCHED FORMULA RESULT"
         values[(item.target_row, col)] = Cell(value, formula)
     values[(item.target_row, 11)] = Cell(status, "=PATIENT_PLANNER!E2")
     planner_values = {
@@ -189,7 +191,7 @@ def test_native_master_readback_checks_literal_doctor_identity(tmp_path):
     assert app.quit is True
 
 
-@pytest.mark.parametrize("failure", ["room", "identity", "status", "infectious", "formula", "formula_error", "source_formula", "readonly", "version"])
+@pytest.mark.parametrize("failure", ["room", "identity", "status", "infectious", "formula", "formula_error", "source_formula", "source_value_mismatch", "readonly", "version"])
 def test_native_master_readback_fails_closed_and_cleans_up(tmp_path, failure):
     path = tmp_path / "synthetic-master.xlsm"
     expected = _expected()
@@ -202,6 +204,7 @@ def test_native_master_readback_fails_closed_and_cleans_up(tmp_path, failure):
         "wrong_formula": failure == "formula",
         "formula_error": failure == "formula_error",
         "source_formula_column": "F" if failure == "source_formula" else None,
+        "source_value_mismatch": failure == "source_value_mismatch",
         "readonly": failure != "readonly",
         "version": "" if failure == "version" else "16.0",
     }
