@@ -3154,3 +3154,19 @@ GitHub Actions run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6
 - Both synthetic safety jobs passed.
 
 This is a full-grid native comparison primitive only. The expected-grid builder, native AssignmentID extraction, exact shared-slot reconciliation, same-operation source-ledger linkage and PROJECTIONS_REOPEN adapter are still pending. Tests use fake COM; no real Excel was run. Verifier registry unchanged; `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`. Detailed scope and next steps: design doc §8. Gate 2 remains closed.
+
+ 
+### 4.231 Complete THERAPIST_DAILY expected-grid builder added; CI green — 25/11/2026
+
+Added `daily_input_therapist_projection_expected.py` and its synthetic tests. `build_therapist_daily_expected_grid()` requires immutable stable-ID-bound base entries, materialized sessions, exact DailySessionState coverage, patient/student registries and independent provider headers. It reuses the established base-slot renderer and patient-centric preview patches to produce all 126 expected patient cells, and separately derives active therapist AssignmentID facts. It rejects unstable IDs, identity/date drift, duplicate display names within a visible cell, invalid provider mapping and StudentID/TherapistID collisions.
+
+A student replacement test exposed a renderer defect: the final preview patch pass had lost provider kind and tried to resolve a known student as a therapist. Fixed the final cell resolver to recognize known StudentIDs and replaced stale `student.student_number` access with canonical `student.student_id` in patient-centric and outpatient presentation paths.
+
+**GitHub Actions run 45660810319**, code/test HEAD `5a91058f0c9f78f63c19a70366987d8685796af7`, SUCCESS across all four jobs:
+- Windows: **2866 passed, 36 warnings, 42.21s**.
+- Ubuntu: **2866 passed, 32 warnings, 23.47s**.
+- Both synthetic safety jobs passed.
+
+One intermediate run exposed the student-rendering defect (2864 passed, 1 failed); it was fixed and the final full cross-platform run is green. These are synthetic tests/fake COM only; no real Excel was opened.
+
+**Boundary:** the builder consumes source facts supplied by its caller; it does not independently load/verify the full source, PATIENT_EXITS, recurring events, DAILY_INPUT, authoritative ledger or active replacement facts. It does not yet produce observed AssignmentID facts or a report adapter. Combined with the native 126-cell reader, it is still a pair of primitives, not a completed `PROJECTIONS_REOPEN` verifier. Registry unchanged; Gate 2 closed. Details: design doc §9.
