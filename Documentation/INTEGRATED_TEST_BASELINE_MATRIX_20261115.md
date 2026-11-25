@@ -952,3 +952,13 @@ GitHub Actions run `45660810319`, HEAD `5a91058f0c9f78f63c19a70366987d8685796af7
 - Both synthetic safety jobs passed.
 
 New builder returns an explicit expected value for all 126 patient cells and expected active therapist AssignmentID facts using the existing patient-centric renderer. It includes synthetic absence, therapist replacement, student replacement, duplicate-display-name and identity-collision cases. Student rendering defect corrected. This is synthetic regression; no actual Excel COM execution. Full source capture/ledger linkage and operation-bound PROJECTIONS_REOPEN adapter remain pending.
+
+ 
+### 2026-11-25 — Composite DAILY_INPUT projection evidence regression
+
+GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`, SUCCESS:
+- Windows Python 3.11: **2877 passed, 33 warnings, 45.11s**.
+- Ubuntu Python 3.11: **2877 passed, 35 warnings, 18.84s**.
+- Both synthetic safety jobs passed.
+
+New composite binds prior INPUT_AND_LEDGER native readback, MASTER preflight source digest, full expected therapist grid digest and fresh native MASTER/therapist readbacks to the same workbook bytes/date. Synthetic tests reject cross-file/date/count/metadata mismatch and workbook mutation. Fake COM only; no real Excel. This is not a phase adapter or trusted attestation. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
