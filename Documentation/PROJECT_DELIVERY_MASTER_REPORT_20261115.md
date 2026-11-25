@@ -1329,3 +1329,13 @@ This supersedes the provisional Windows-pending status for this run. Initial thr
 ## 2026-11-25 — Read-only THERAPIST_DAILY distinct-clock verifier partial scope
 
 Introduced a saved OOXML structural comparator for the two THERAPIST_DAILY provider blocks, matching the existing VBA workload strip's distinct-clock interpretation. It fails closed on unknown providers, missing or extra occupied clocks, formula/error occupancy, orphan values and source mutation; synthetic tests cover these cases. Distinct clock slots are not the same as number of sessions/patients. No guessed provider capacity, historical attendance, replacement approval or operational permission. This is not a complete PROJECTIONS_REOPEN phase verifier, not a report adapter and not real native Excel COM. Status remains NOT_IMPLEMENTED, Gate 2 closed. CI outcome pending final verification.
+
+
+### Final cross-platform synthetic CI — THERAPIST_DAILY occupied clocks — 2026-11-25
+
+GitHub Actions run `45618473467`, code/test commit `922afe7bf7e534273781f76ebdf23e600c5ef3bc`, finished **SUCCESS** across all four jobs:
+- Ubuntu Python 3.11 full suite: **2815 passed, 98 warnings, 21.23s**.
+- Windows Python 3.11 full suite: **2815 passed, 98 warnings, 48.36s**.
+- Both Windows and Ubuntu synthetic safety jobs: success.
+
+The warnings are nonzero and CI suppresses their detail. This validates synthetic OOXML readback and static provider/clock expectations only, not native COM, real workbook behavior, full therapist/patient session projection, trusted attestation, phase evidence completion, or Gate 2 permission. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. No production workbook or VBA changes.
