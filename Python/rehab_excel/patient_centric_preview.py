@@ -289,8 +289,8 @@ def _provider_cell(
             candidates.extend(
                 (
                     state.label,
-                    f"φοιτ {student.student_number}",
-                    f"φοιτητής {student.student_number}",
+                    f"φοιτ {student.student_id}",
+                    f"φοιτητής {student.student_id}",
                 )
             )
     candidates.extend((provider_labels.get(provider_id, provider_id), provider_id))
