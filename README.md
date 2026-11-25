@@ -68,3 +68,6 @@ The latest DAILY_INPUT projection diagnostics and their strict non-authorizing b
 
  
 The current continuation has advanced through the full 126-cell expected THERAPIST_DAILY grid builder. Its latest cross-platform synthetic regression is GitHub Actions run `45660810319` (2866 passed on Windows and Ubuntu). The expected-grid builder still consumes independently validated source facts from its caller; it is not yet a full source/ledger verifier or PROJECTIONS_REOPEN phase adapter. See `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7–§9.
+
+ 
+The latest DAILY_INPUT projection work also includes a non-authorizing composite that binds the prior INPUT_AND_LEDGER native readback, independent MASTER preflight digest, full expected THERAPIST_DAILY grid and fresh native readbacks to the same workbook bytes/date. Its limitations and next source-capture step are documented in `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §10. It is not a PROJECTIONS_REOPEN phase adapter; Gate 2 remains closed.
