@@ -178,7 +178,8 @@ def build_daily_input_projection_preflight(
         if (any(not is_stable_assignment_id(item.base_entry_id) for item in effective)
                 or len({item.base_entry_id for item in effective}) != len(effective)):
             raise DailyInputProjectionPreflightError("Effective recurring assignment identity is invalid")
-        if any(item.patient_id not in {patient.patient_id for patient in patients} for item in effective):
+        known_patient_ids = {patient.patient_id for patient in patients}
+        if any(item.patient_id not in known_patient_ids for item in effective):
             raise DailyInputProjectionPreflightError("Effective recurring entry references an unknown patient")
         validate_effective_weekly_patient_slots(effective)
 
