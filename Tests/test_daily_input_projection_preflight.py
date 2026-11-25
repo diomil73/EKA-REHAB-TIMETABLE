@@ -81,13 +81,14 @@ def _install_readers(monkeypatch, path, *, headers=HEADERS, stable=STABLE_ENTRIE
         provider_headers=headers,
         cells=tuple(
             TherapistDailyCellExpectation(
-                f"{chr(ord('B') + col)}{row}", None,
+                f"{chr(ord('B') + col)}{row}",
+                "FICTIONAL PATIENTS" if assignments and row == 2 and col == 0 else None,
             )
             for row in (*range(2, 9), *range(12, 19))
             for col in range(9)
         ),
         expected_assignments=assignments,
-        occupied_cells=0,
+        occupied_cells=1 if assignments else 0,
     )
     master_rows = (MasterProjectionRow(
         target_row=2, planner_row=2, patient_id="P1", room="A1",
