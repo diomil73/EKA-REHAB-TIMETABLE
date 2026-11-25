@@ -1325,3 +1325,7 @@ GitHub Actions run `45617783680` for corrected code commit `905418df1c33b4008fd2
 - Both synthetic safety jobs passed.
 
 This supersedes the provisional Windows-pending status for this run. Initial three failing new tests were corrected, not ignored. Warning details are suppressed by CI, counts are retained. This is saved-OOXML verification and synthetic tests only. Full PROJECTIONS_REOPEN remains NOT_IMPLEMENTED and no native Excel, therapist projection, authenticated attestation, Apply or Gate 2 action occurred.
+
+## 2026-11-25 — Read-only THERAPIST_DAILY distinct-clock verifier partial scope
+
+Introduced a saved OOXML structural comparator for the two THERAPIST_DAILY provider blocks, matching the existing VBA workload strip's distinct-clock interpretation. It fails closed on unknown providers, missing or extra occupied clocks, formula/error occupancy, orphan values and source mutation; synthetic tests cover these cases. Distinct clock slots are not the same as number of sessions/patients. No guessed provider capacity, historical attendance, replacement approval or operational permission. This is not a complete PROJECTIONS_REOPEN phase verifier, not a report adapter and not real native Excel COM. Status remains NOT_IMPLEMENTED, Gate 2 closed. CI outcome pending final verification.
