@@ -2782,3 +2782,12 @@ This remains fake-COM regression only, not real Excel acceptance. Treatment outp
 ### MASTER expanded K/L boundary
 
 In the 13-column layout, K (psychologists) and L (afternoon programme) remain outside the current native MASTER readback. The existing projection writer clears them and rewrites A:J plus M status; its test expects K/L blank. Patient-program VBA may repopulate K on edit; afternoon physiotherapy is separately stored and shown in the patient panel. A green A:J/M result is not proof of K/L. No code behavior changed. See design doc §15.
+
+ 
+### PATIENT_PLANNER formula compatibility correction
+
+Native source capture supports both direct same-row PATIENTS A:E links and the exact blank-guarded A:E formulas emitted by `planner_identity_formulas()`. It preserves Excel's exact-empty behavior and checks formula results against literal PATIENTS values. An integrated real-OOXML/fake-COM test now covers the production formula set. Native MASTER readback also has coverage for the expanded 13-column schema with status in M; K/L remain outside proof.
+
+CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed.
+
+No real Excel/operational XLSM. Gate 2 remains closed.
