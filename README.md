@@ -74,3 +74,6 @@ The latest DAILY_INPUT projection work also includes a non-authorizing composite
 
  
 The native THERAPIST_DAILY reader also preserves compatibility with unused blank provider columns while rejecting any occupancy beneath a blank header. The latest full cross-platform regression is run `45663881144` (2880 passed on Windows and Ubuntu). Detailed scope: `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §11.
+
+ 
+The DAILY_INPUT work now includes an explicit-date source preflight and one-call native INPUT_AND_LEDGER / MASTER / THERAPIST_DAILY diagnostic. It is non-authorizing, uses synthetic/fake-COM regression coverage only, and does not complete PROJECTIONS_REOPEN. See `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §12.
