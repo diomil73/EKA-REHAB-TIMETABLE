@@ -123,7 +123,7 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
         (3, 11): Cell("Κατάσταση"),
     }
     for col, source in SOURCE_COLUMNS.items():
-        value = source_values[source]
+        value = identity if col == 3 else source_values[source]
         formula = None if col == 3 and item.responsible_doctor else (
             f"=PATIENT_PLANNER!{source}{item.planner_row}"
         )
