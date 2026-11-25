@@ -79,3 +79,13 @@ All are BLOCKED for positive authorization until a deliberate operational design
 Synthetic negative tests cover canonical claim parsing, invalid algorithm and signature shape, bad timestamps, unexpected fields, report/source/operation drift, tampered report self-digest and unconditional denial of otherwise matching self-asserted claims.
 
 They do not execute a signer, verify any real cryptographic signature, prove a trusted time/key custody facility, run native Excel COM, alter operational workbooks, or authorize journal Apply/Restore. PREPARED remains REPORT_ADAPTER_ONLY and nine other verifier kinds remain NOT_IMPLEMENTED. Gate 2 stays closed.
+
+
+### CI confirmation for attestation claim contract — 25/11/2026
+
+GitHub Actions workflow `45598412259` for code head `a66088e91792b49095559bccdf9c800ede2ad7b0` completed SUCCESS:
+- Windows / Python 3.11: **2756 passed**, 68 warnings, 44.39s.
+- Ubuntu / Python 3.11: **2756 passed**, 68 warnings, 30.26s.
+- Both synthetic safety jobs: success.
+
+The workflow uses `--disable-warnings`; warning details are suppressed but warning totals remain visible. No native COM was run. These are tests of fail-closed metadata handling, not proof of cryptographic attestation or operational Apply/Restore. The trusted verifier signer/key custody/build pinning remain unimplemented; all claims are rejected by the current attestation boundary. Gate 2 stays closed.
