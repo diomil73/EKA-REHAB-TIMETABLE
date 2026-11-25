@@ -218,3 +218,12 @@ def test_expected_grid_rejects_student_and_therapist_id_collision(tmp_path):
     with pytest.raises(TherapistDailyExpectedGridError):
         _grid(path, entries=entries, patients=patients, sessions=sessions,
               states=states, headers=headers, students=(student,))
+
+
+def test_expected_grid_binds_to_exact_source_workbook_bytes(tmp_path):
+    from hashlib import sha256
+
+    path = tmp_path / "expected-grid-hash.xlsm"
+    _workbook(path)
+    result = _grid(path)
+    assert result.source_workbook_sha256 == sha256(path.read_bytes()).hexdigest()
