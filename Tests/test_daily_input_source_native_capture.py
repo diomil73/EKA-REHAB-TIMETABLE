@@ -9,8 +9,14 @@ from rehab_excel.patient_planner_projection import planner_identity_formulas
 
 
 REQUIRED = {
-    "PATIENTS": {"A1": "PatientID", "A2": "001", "C2": "FICTIONAL"},
-    "PATIENT_PLANNER": {"A1": "PatientID", "A2": 1},
+    "PATIENTS": {
+        "A1": "PatientID", "A2": "001", "B2": "A1",
+        "C2": "FICTIONAL", "D2": "N", "E2": "Active",
+    },
+    "PATIENT_PLANNER": {
+        "A1": "PatientID", "A2": "001", "B2": "A1",
+        "C2": "FICTIONAL", "D2": "N", "E2": "Active",
+    },
     "SETTINGS": {"A1": "THERAPIST"},
     "DAILY_INPUT": {"A1": "ServiceDate"},
     "DAILY_CHANGE_LEDGER": {"A1": "LedgerID"},
