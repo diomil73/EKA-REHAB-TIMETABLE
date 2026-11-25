@@ -2038,3 +2038,12 @@ Added native read-only COM capture for all populated literal cells in the fixed 
 CI run `45675024806`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including source Excel-version CLI output.
 
 No real Excel or operational XLSM. This does not attest source provenance, authenticate shared-slot approvals, create operation-bound receipts, or complete PROJECTIONS_REOPEN. Gate 2 closed.
+
+ 
+### 2026-11-25 — Expanded native MASTER formula/value scan
+
+Native MASTER readback now checks the full 10-column formula block plus status formula, exact source links and all 11 evaluated cells per row. It compares infectious flag, room, patient/doctor identity and status; literal doctor identity is explicitly handled. Composite evidence binds exact formula/evaluated-cell counts.
+
+CI run `45676238896`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs passed.
+
+Treatment-related formula results are not yet compared to independent expected business values; formatting/style/package coverage and trusted operation attestation remain open. No real Excel. Gate 2 closed.
