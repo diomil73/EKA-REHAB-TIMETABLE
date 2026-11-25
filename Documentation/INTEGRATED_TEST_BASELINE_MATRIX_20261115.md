@@ -855,3 +855,10 @@ GitHub Actions run `45618473467`, code/test commit `922afe7bf7e534273781f76ebdf2
 - Both Windows and Ubuntu synthetic safety jobs: success.
 
 The warnings are nonzero and CI suppresses their detail. This validates synthetic OOXML readback and static provider/clock expectations only, not native COM, real workbook behavior, full therapist/patient session projection, trusted attestation, phase evidence completion, or Gate 2 permission. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. No production workbook or VBA changes.
+
+
+### 2026-11-25 — THERAPIST_DAILY occupied-clock boundary hardening
+
+Review of `daily_input_therapist_projection_readback.py` found that the numeric-time decoder used `round(value * 1440) % 1440`. A valid Excel floating-point time just below 1.0 could round to 1440 minutes and silently become **00:00** instead of failing; this risks false equivalence when checking occupied clocks. Removed the modulo wrap and now reject numeric values rounding outside a 24-hour day. The preflight `expected_clocks` tuple now rejects sub-minute Python `time` values, preventing implicitly unequal resolutions from being compared to minute-based workbook occupancy. Added three synthetic adversarial tests (near-24:00 and two sub-minute expectations) in `Tests/test_daily_input_therapist_projection_readback.py`.
+
+This is a narrowly scoped source/diagnostic hardening, not a clinical capacity-policy change, native Excel proof, authenticated verifier, nor authorization. Source code commit `ee81a24b22f1e139e8a10714f9a09245a0498790`, test commit `d6f3e17046ac208cfd2723fcfac71c6abe37f2d6`; GitHub CI result must be confirmed separately. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed. No workbook or VBA change.
