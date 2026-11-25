@@ -5,6 +5,7 @@ import pytest
 from openpyxl.utils import get_column_letter
 
 import rehab_excel.daily_input_source_native_capture as capture
+from rehab_excel.patient_planner_projection import planner_identity_formulas
 
 
 REQUIRED = {
@@ -364,3 +365,46 @@ def test_native_source_capture_matches_excel_guard_for_whitespace_name_value(tmp
         path, excel_factory=lambda: app,
     )
     assert result.checked_formula_cells == 1
+
+
+def test_native_source_capture_accepts_all_five_production_planner_identity_formulas(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    sheets["PATIENTS"].update({
+        "B2": "A1", "D2": "N", "E2": "Active",
+    })
+    formulas = {
+        "PATIENT_PLANNER": {
+            f"{column}2": formula[1:]
+            for column, formula in zip("ABCDE", planner_identity_formulas(2))
+        }
+    }
+    monkeypatch.setattr(
+        capture, "WorkbookPackageProbe",
+        lambda _path: _Probe(_path, sheets, formulas=formulas),
+    )
+    native_sheets = _required_sheets()
+    native_sheets["PATIENTS"].update({
+        "B2": "A1", "D2": "N", "E2": "Active",
+    })
+    native_sheets["PATIENT_PLANNER"].update({
+        "A2": "001", "B2": "A1", "C2": "FICTIONAL",
+        "D2": "N", "E2": "Active",
+    })
+    app = _App(
+        native_sheets,
+        formulas={
+            "PATIENT_PLANNER": {
+                f"{column}2": formula
+                for column, formula in zip("ABCDE", planner_identity_formulas(2))
+            }
+        },
+    )
+
+    result = capture.verify_daily_input_source_native_capture_readonly(
+        path, excel_factory=lambda: app,
+    )
+
+    assert result.checked_formula_cells == 5
+    assert app.book.closed is True
+    assert app.quit is True
