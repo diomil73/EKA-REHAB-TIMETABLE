@@ -91,7 +91,7 @@ def test_registry_covers_every_evidence_kind_exactly_once():
 
 def test_only_prepared_has_existing_diagnostic_and_no_verifier_is_receipt_integrated():
     assert VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT].implementation_status == (
-        VerifierImplementationStatus.EXISTING_DIAGNOSTIC_ONLY
+        VerifierImplementationStatus.REPORT_ADAPTER_ONLY
     )
     assert all(
         item.implementation_status == VerifierImplementationStatus.NOT_IMPLEMENTED
@@ -180,7 +180,7 @@ def test_prepared_native_readback_requires_exact_snapshot_digest_and_remains_dia
     with pytest.raises(PhaseVerifierContractError, match="PREPARED snapshot digest is required"):
         validate_phase_verifier_report(report, prepared_operation())
     report = create_phase_verifier_report(**prepared_report_fields())
-    with pytest.raises(PhaseVerifierNotImplementedError, match="not integrated"):
+    with pytest.raises(PhaseVerifierNotImplementedError, match="trusted verifier attestation is not integrated"):
         validate_phase_verifier_report(report, prepared_operation())
 
 
