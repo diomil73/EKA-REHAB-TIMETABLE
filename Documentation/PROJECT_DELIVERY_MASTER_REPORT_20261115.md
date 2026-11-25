@@ -1245,3 +1245,13 @@ A GitHub source-only review is recorded in `Documentation/DAILY_INPUT_INTERNAL_V
 Two implementation gaps must be closed before positive phase authorization: (1) transitions with multiple required evidence kinds need an exact, complete evidence bundle validator; (2) receipt binding must derive required evidence from the lifecycle transition internally instead of accepting a caller-supplied evidence tuple. Trusted verifier/build-manifest attestation is also absent; SHA-256 is not authenticity.
 
 The next technical phase remains INPUT_AND_LEDGER native Excel COM read-only verification, layered on top of (not replacing or duplicating) the existing OOXML consistency check. The zero-change business rule must be explicitly decided before implementation. No local tests or Excel COM were run during this offline review. Latest user local run before the two warning-related commits: 109 passed, 1 symlink skip, 17 warnings. Those commits still await local rerun. Gate 2 remains closed.
+
+## 2026-11-25 — Transition evidence bundle validator implemented and CI verified
+
+Implemented `Python/rehab_excel/daily_input_transition_evidence.py` and `Tests/test_daily_input_transition_evidence.py`. The validator derives exact obligations from the lifecycle transition, requires one report and receipt per required EvidenceKind, rejects missing/duplicate/extra evidence, checks shared operation/revision/phase identity, cross-binds report and receipt artifact/verifier metadata, verifies receipt predecessor order and hashes exact artifact bytes.
+
+Hardened `validate_receipt_binding()` to derive required evidence internally from a mandatory previous operation; removed caller-selected evidence lists.
+
+Full GitHub Actions regression for `ed3bdec7e3e22a69b1162867f346321503b26498`: Windows 2740 passed / 72 warnings / 44.59s; Ubuntu 2740 passed / 68 warnings / 28.33s. Both synthetic safety jobs succeeded. Overall workflow success.
+
+Important limitation: this is a structural completeness/consistency validator, not an authentication or authorization mechanism. The complete-bundle synthetic success test temporarily substitutes IMPLEMENTED statuses in memory only. Actual registry remains PREPARED REPORT_ADAPTER_ONLY and nine NOT_IMPLEMENTED. No trusted attestation, native Excel COM, real XLSM, journal append, Apply/Restore or Gate 2 enablement is established. Warning details are suppressed by CI and warnings remain open.
