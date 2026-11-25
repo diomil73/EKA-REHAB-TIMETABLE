@@ -1208,3 +1208,9 @@ After the local baseline run (68 passed, 1 skipped, exit 0), source review found
 Follow-up local run after PREPARED_SNAPSHOT tightening: 5 failed, 64 passed, 1 skipped. All five failures traced to receipt test fixtures using revision-zero PREPARED defaults while claiming later-phase INPUT_AND_LEDGER_REOPEN evidence, or using PREPARED_SNAPSHOT for a later revision. Production phase guard was behaving as designed. Test fixtures corrected on the authoritative branch: later-phase operation and receipt now use revision 1 INPUT_AND_LEDGER_COMMITTED, INPUT_AND_LEDGER_REOPEN and a bound PREPARED predecessor digest; missing-predecessor test explicitly removes the predecessor while retaining the correct later-phase evidence kind. Changes committed; rerun pending.
 
 The single skip is confirmed as Windows symlink creation unavailable. Six ZipFile unraisable deallocation warnings remain unresolved and are not suppressed. No native workbook/VBA or operational handler changed; Gate 2 remains closed.
+
+## 2026-11-25 — Receipt regression green and ZipFile resource-lifecycle follow-up
+
+Corrected receipt regression run: 69 passed, 1 skipped, 6 warnings in 5.22s. The skipped test is the symlink-escape case because symlink creation is unavailable in the Windows environment. Six ZipFile deallocation warnings remain.
+
+Source review found the read-only rollback journal loader requested keep_vba=True despite never writing or preserving VBA; the VBA package is independently checked by ZIP-level package inspection. Changed that loader to keep_vba=False (commit 4a7c168dfecb2eb30de79ae0dc87c3d3c4b763ec) to remove unnecessary VBA ZipFile retention. This correction is committed but NOT YET TESTED. Next local run must confirm whether warnings disappear. No workbook/VBA/operational transaction code changed; Gate 2 remains closed.
