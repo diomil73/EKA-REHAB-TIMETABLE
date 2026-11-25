@@ -465,3 +465,6 @@ Before continuing DAILY_INPUT verifier work, read:
 Latest code/test HEAD: `e7ce7526de2c000cff9410819267f73fdc6ffc79`; later commits may be documentation-only. The latest full cross-platform CI is run `45657152050`, 2848 passed on Windows and Ubuntu, with 35 and 34 warnings respectively. The local focused Windows suite is 214 passed, 1 symlink-specific skip, no warnings summary.
 
 The newly added native MASTER diagnostic is partial and fake-COM tested only. It does not complete PROJECTIONS_REOPEN. Continue with independent native therapist AssignmentID extraction and full projection/source-ledger linkage. Gate 2 remains closed.
+
+ 
+The next therapist verifier must reuse the stable recurring ID and daily-state source chain mapped in `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7. The visible THERAPIST_DAILY sheet has no AssignmentID field; do not infer stable identities from its labels or occupied-clock totals.
