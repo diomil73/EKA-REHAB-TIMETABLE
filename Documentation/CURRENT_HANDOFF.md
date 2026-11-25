@@ -2777,3 +2777,8 @@ Native source capture now permits only direct same-row PATIENTS links in PATIENT
 CI run `45677349897`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
 
 This remains fake-COM regression only, not real Excel acceptance. Treatment outputs are source-equality checked but not all independently business-value checked; styles/package resources and trusted operation-bound receipt remain open. Gate 2 closed.
+
+ 
+### MASTER expanded K/L boundary
+
+In the 13-column layout, K (psychologists) and L (afternoon programme) remain outside the current native MASTER readback. The existing projection writer clears them and rewrites A:J plus M status; its test expects K/L blank. Patient-program VBA may repopulate K on edit; afternoon physiotherapy is separately stored and shown in the patient panel. A green A:J/M result is not proof of K/L. No code behavior changed. See design doc §15.
