@@ -74,8 +74,6 @@ def _native_cell(ws, address: str):
     if bool(cell.HasFormula):
         raise DailyInputSourceNativeCaptureError("Native source cell contains a formula")
     value = cell.Value2
-    if type(value) is str and value.startswith("#"):
-        raise DailyInputSourceNativeCaptureError("Native source cell contains an error-like value")
     return value
 
 
@@ -88,13 +86,6 @@ def _same_literal(expected: object, actual: object) -> bool:
         if not isinstance(actual, (int, float)) or isinstance(actual, bool):
             return False
         return math.isfinite(float(expected)) and math.isfinite(float(actual)) and float(expected) == float(actual)
-    if isinstance(actual, (int, float)) and not isinstance(actual, bool):
-        if not isinstance(expected, str):
-            return False
-        try:
-            return float(expected) == float(actual)
-        except ValueError:
-            return False
     return type(expected) is str and type(actual) is str and expected == actual
 
 
@@ -145,10 +136,8 @@ def verify_daily_input_source_native_capture_readonly(
             raise DailyInputSourceNativeCaptureError("Source sheet contains formula cells")
         if errors:
             raise DailyInputSourceNativeCaptureError("Source sheet contains stored Excel error cells")
-        values = probe.cell_values(name)
+        values = probe.typed_cell_values(name)
         for address, value in values.items():
-            if type(value) is str and value.startswith("#"):
-                raise DailyInputSourceNativeCaptureError("Source sheet contains error-like literal")
             column_letters, row_number = coordinate_from_string(address)
             column_number = column_index_from_string(column_letters)
             row_limit, column_limit = SOURCE_SHEET_LIMITS[name]
