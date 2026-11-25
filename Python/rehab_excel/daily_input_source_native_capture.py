@@ -72,14 +72,21 @@ class DailyInputSourceNativeCapture:
         return sum(item.formula_cells_checked for item in self.sheets)
 
 
-def _planner_formula_source(address: str, formula: str) -> tuple[int, int, str]:
+def _planner_formula_source(address: str, formula: str) -> tuple[int, int, str, bool]:
     column_letters, row_number = coordinate_from_string(address)
-    if column_letters.upper() not in {"A", "B", "C", "D", "E"}:
+    column_letters = column_letters.upper()
+    if column_letters not in {"A", "B", "C", "D", "E"}:
         raise DailyInputSourceNativeCaptureError("Unsupported PATIENT_PLANNER formula column")
-    expected = f"PATIENTS!{column_letters.upper()}{row_number}"
-    if formula.replace("$", "").strip().casefold() != expected.casefold():
-        raise DailyInputSourceNativeCaptureError("Unsupported PATIENT_PLANNER formula semantics")
-    return row_number, column_index_from_string(column_letters), expected
+    direct = f"PATIENTS!{column_letters}{row_number}"
+    guarded = (
+        f'IF(PATIENTS!C{row_number}="","",PATIENTS!{column_letters}{row_number})'
+    )
+    normalized = formula.replace("$", "").strip()
+    if normalized.casefold() == direct.casefold():
+        return row_number, column_index_from_string(column_letters), direct, False
+    if normalized.casefold() == guarded.casefold():
+        return row_number, column_index_from_string(column_letters), guarded, True
+    raise DailyInputSourceNativeCaptureError("Unsupported PATIENT_PLANNER formula semantics")
 
 
 def _native_cell(ws, address: str):
@@ -226,7 +233,7 @@ def verify_daily_input_source_native_capture_readonly(
                 if not _same_literal(expected, actual):
                     raise DailyInputSourceNativeCaptureError("Native source literal differs from saved OOXML")
             for address, formula in formulas.items():
-                row_number, column_number, expected_source = _planner_formula_source(address, formula)
+                row_number, column_number, expected_source, guarded_formula = _planner_formula_source(address, formula)
                 cell = ws.Cells(row_number, column_number)
                 if not bool(cell.HasFormula):
                     raise DailyInputSourceNativeCaptureError("Native PATIENT_PLANNER formula is missing")
@@ -240,7 +247,12 @@ def verify_daily_input_source_native_capture_readonly(
                 formula_value = cell.Value2
                 if type(source_value) is str and source_value.startswith("#"):
                     raise DailyInputSourceNativeCaptureError("Native PATIENTS source contains an Excel error")
-                if not _same_literal(source_value, formula_value):
+                expected_value = source_value
+                if guarded_formula:
+                    name_value = patients_ws.Cells(row_number, 3).Value2
+                    if name_value is None or not str(name_value).strip():
+                        expected_value = ""
+                if not _same_literal(expected_value, formula_value):
                     raise DailyInputSourceNativeCaptureError("Native PATIENT_PLANNER formula result differs from PATIENTS")
             results.append(NativeSourceSheetResult(
                 sheet_name=name,
