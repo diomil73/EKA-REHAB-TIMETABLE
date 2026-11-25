@@ -637,3 +637,8 @@ Candidate `UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm` retained its recorded ba
 ## 2026-11-25 — CC native inventory / UI placement findings
 
 Read-only native inventory of CC completed successfully (66 components; hash unchanged). `modDayAmendmentAction` and `modUnifiedDaySave` are present; `modDailyInputJournal` is absent. The unified operational-day save shape exists on `MASTER_SCHEDULE` and points to `SaveOperationalDay`; no matching day-save/amendment shape exists on `DAILY_INPUT`. The Day Amendment UI inspector therefore fails its DAILY_INPUT button expectation, while the separate unified-save inspector passes. No workbook mutation or transaction occurred. This distinguishes a sheet/control placement contract issue from the separate missing-journal dependency. Next step is source-level reconciliation of installer, control constants and intended workflow, without installing or modifying anything.
+
+
+## 2026-11-25 — Source-level Amendment UI contract
+
+The source defines the Amendment button as `ekaToolbar_DayAmendment` bound to `StartClosedDayAmendment` on `DAILY_INPUT`. Its installer replaces `modDayAmendmentAction`, creates that button on `DAILY_INPUT`, verifies it and saves. The separate unified-save button on `MASTER_SCHEDULE` does not satisfy this Amendment contract. The Amendment VBA calls `DailyInputJournalApplyEnabled()`; the current CC inventory lacks `modDailyInputJournal`, and the Amendment UI installer does not install it. Do not run the installer on CC until the journal dependency/provisioning contract is resolved. No workbook mutation performed.
