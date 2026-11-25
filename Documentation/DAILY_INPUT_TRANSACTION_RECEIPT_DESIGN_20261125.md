@@ -167,3 +167,11 @@ SKIPPED [1] Tests\\test_daily_input_transaction_receipt.py:208: Symlinks unavail
 ```
 
 This is a confirmed green test run. The sole skip is the symlink-specific receipt artifact test, unavailable on this Windows platform. It is not a failed assertion. The run does not implement or authenticate any native phase verifier, does not authorize journal append/Apply/Restore and does not change Gate 2. PREPARED is still diagnostic-only pending report/receipt integration; other phase verifiers remain unimplemented.
+
+## 13. PREPARED phase-report adapter — report production only, no trusted acceptance — 25/11/2026
+
+Added Python/rehab_excel/daily_input_prepared_phase_adapter.py and Tests/test_daily_input_prepared_phase_adapter.py. The adapter calls the existing verify_prepared_reopen(..., native_excel=True) diagnostic, captures the native Excel COM Version, requires the XLSM evidence artifact to be contained within an explicit evidence root, hashes the exact saved workbook bytes, sets prepared_snapshot_sha256 equal to that same evidence_sha256, and writes a canonical report exclusively without overwriting existing output. The PREPARED verifier contract status is REPORT_ADAPTER_ONLY.
+
+This is not a trusted verifier attestation. The adapter can create a report after successful native readback, but validate_phase_verifier_report() still rejects it until a trusted attestation/provenance mechanism is implemented. It does not append a transaction receipt or journal row and does not enable Apply/Restore. No operational workbook or VBA change.
+
+The new adapter tests are NOT YET RUN locally. The confirmed prior focused baseline remains 110 passed, 1 skipped in 4.79s, before this adapter commit. Re-run adapter + PREPARED readback + phase-verifier contract tests before relying on this addition.
