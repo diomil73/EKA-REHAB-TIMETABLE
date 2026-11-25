@@ -89,3 +89,6 @@ The DAILY_INPUT native source capture supports only direct PATIENTS A:E formulas
 
  
 In the expanded 13-column MASTER schema, K (psychology) and L (afternoon programme) remain outside the current native projection proof; only A:J and M status are checked. See design doc §15.
+
+ 
+Native source capture supports both direct and blank-guarded same-row PATIENTS A:E formulas, including the production identity formula and exact-empty behavior. Expanded 13-column MASTER status-M verification is covered; K/L remain outside proof. Latest regression: run `45679125582`, 2922 passed on Windows and Ubuntu.
