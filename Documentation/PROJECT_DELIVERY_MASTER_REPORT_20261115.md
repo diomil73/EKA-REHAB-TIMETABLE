@@ -1218,3 +1218,9 @@ Source review found the read-only rollback journal loader requested keep_vba=Tru
 ## 2026-11-25 — Remaining two ZipFile warnings isolated to synthetic non-macro fixtures
 
 After the production read-only journal loader switched to keep_vba=False, warnings fell from six to two. Remaining warnings are attached only to formula/style variants of test_business_cell_or_package_resource_change_fails_closed. The rollback test fixture is an ordinary openpyxl Workbook saved with an .xlsm extension and contains no VBA project; two test-only load_workbook calls unnecessarily used keep_vba=True. Changed those two calls to keep_vba=False (commit 30f278bf1fe6d624fe7774ac51c3a6f3466a6378). This does not alter production XLSM behavior. The change is committed but NOT YET TESTED; rerun to confirm warning removal. Do not suppress warnings.
+
+## 2026-11-25 — Phase-verifier contracts and report envelope added
+
+Added daily_input_phase_verifier_contract.py and test_daily_input_phase_verifier_contract.py. This is a strict, immutable contract registry covering all ten EvidenceKind values plus canonical report creation/decoding, report digest checking, operation/revision/phase binding, transition evidence derivation from the lifecycle policy, exact contract scope and method matching, native Excel version requirements, and rollback package/PREPARED snapshot digest requirements.
+
+Important boundary: all verifier entries are NOT_IMPLEMENTED. This is not an executable native Excel verifier and does not authenticate report origin. A synthetic VERIFIED report is rejected until an independent verifier implementation exists. No caller-supplied Boolean or caller-supplied evidence list can satisfy a phase obligation; the required list is derived from the lifecycle transition. No workbook/VBA/operational handler or Gate 2 setting changed. Tests have been added but NOT RUN locally.
