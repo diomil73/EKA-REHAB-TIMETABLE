@@ -942,3 +942,13 @@ GitHub Actions run `45658828780`, code/test HEAD `71ff839699782615e9968d4213c9b8
 - Both synthetic safety jobs passed.
 
 The new diagnostic requires all 126 expected patient-grid cells and all 18 provider headers, then checks the native Excel read-only grid and time labels. Tests use fake COM only. It is not a complete assignment-ID or phase verifier; the expected-grid builder, AssignmentID membership extraction and operation/source-ledger binding remain pending. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+### 2026-11-25 — Expected THERAPIST_DAILY grid builder cross-platform regression
+
+GitHub Actions run `45660810319`, HEAD `5a91058f0c9f78f63c19a70366987d8685796af7`, SUCCESS:
+- Windows: **2866 passed, 36 warnings, 42.21s**.
+- Ubuntu: **2866 passed, 32 warnings, 23.47s**.
+- Both synthetic safety jobs passed.
+
+New builder returns an explicit expected value for all 126 patient cells and expected active therapist AssignmentID facts using the existing patient-centric renderer. It includes synthetic absence, therapist replacement, student replacement, duplicate-display-name and identity-collision cases. Student rendering defect corrected. This is synthetic regression; no actual Excel COM execution. Full source capture/ledger linkage and operation-bound PROJECTIONS_REOPEN adapter remain pending.
