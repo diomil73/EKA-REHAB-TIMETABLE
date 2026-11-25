@@ -59,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     print("DAILY_INPUT PROJECTION NATIVE READBACK GREEN")
     print(f"service_date: {result.service_date.isoformat()}")
     print(f"source_workbook_sha256: {result.source_workbook_sha256}")
+    print(f"native_source_excel_version: {result.source_capture.native_excel_version}")
     print(f"native_source_sheets_checked: {result.native_source_sheet_count}")
     print(f"native_source_populated_cells_checked: {result.native_source_cells_checked}")
     print(f"patients: {result.patient_count}")
