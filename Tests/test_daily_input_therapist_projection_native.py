@@ -205,3 +205,34 @@ def test_native_therapist_rejects_duplicate_provider_within_block(tmp_path):
             excel_factory=lambda: app,
         )
     assert app.quit is False
+
+
+def test_native_therapist_accepts_blank_provider_slot_when_all_cells_blank(tmp_path):
+    path = _workbook(tmp_path)
+    headers, cells = _expected()
+    headers = (*headers[:-1], "")
+    cells = tuple(
+        TherapistDailyCellExpectation(item.cell, None if item.cell.startswith("J") else item.value)
+        for item in cells
+    )
+    app, book = _fake_app(headers, cells)
+    result = verify_therapist_daily_native_readonly(
+        path, expected_provider_headers=headers, expected_cells=cells,
+        excel_factory=lambda: app,
+    )
+    assert result.checked_provider_headers == 18
+    assert result.checked_grid_cells == 126
+    assert result.occupied_grid_cells == 1
+    assert book.closed is False
+
+
+def test_native_therapist_rejects_occupancy_under_blank_provider_header(tmp_path):
+    path = _workbook(tmp_path)
+    headers, cells = _expected()
+    headers = (*headers[:-1], "")
+    app, _book = _fake_app(headers, cells)
+    with pytest.raises(TherapistDailyNativeReadbackError):
+        verify_therapist_daily_native_readonly(
+            path, expected_provider_headers=headers, expected_cells=cells,
+            excel_factory=lambda: app,
+        )
