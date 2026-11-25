@@ -77,6 +77,10 @@ class DailyInputProjectionPreflightNativeReadback:
     def native_source_formula_cells_checked(self) -> int:
         return self.source_capture.checked_formula_cells
 
+    @property
+    def native_source_identity_mirror_rows_checked(self) -> int:
+        return self.source_capture.identity_mirror_rows_checked
+
 
 def verify_daily_input_projection_preflight_native_readonly(
     workbook_path: str | Path,
@@ -128,6 +132,8 @@ def verify_daily_input_projection_preflight_native_readonly(
                 or len(set(captured_sheet_names)) != len(captured_sheet_names)
                 or type(source_capture.checked_formula_cells) is not int
                 or source_capture.checked_formula_cells < 0
+                or type(source_capture.identity_mirror_rows_checked) is not int
+                or source_capture.identity_mirror_rows_checked != preflight.patient_count
                 or not REQUIRED_SOURCE_SHEETS.issubset(set(captured_sheet_names))):
             raise DailyInputProjectionPreflightNativeError("Native source capture binding/scope mismatch")
 
