@@ -374,6 +374,8 @@ def test_native_excel_readback_uses_fresh_macro_disabled_readonly_instance(
             return self.workbook
 
     class FakeExcel:
+        Version = "16.0"
+
         def __init__(self):
             self.book = FakeWorkbook()
             self.Workbooks = FakeWorkbooks(self.book)
@@ -385,9 +387,10 @@ def test_native_excel_readback_uses_fresh_macro_disabled_readonly_instance(
 
     app = FakeExcel()
     monkeypatch.setattr(readback, "read_native_journal_rows", lambda ws: expected)
-    readback.verify_prepared_reopen(
+    native_version = readback.verify_prepared_reopen(
         source, handoff, payload, native_excel=True, excel_factory=lambda: app,
     )
+    assert native_version == "16.0"
     assert app.AutomationSecurity == 3
     assert app.EnableEvents is False
     assert app.DisplayAlerts is False
