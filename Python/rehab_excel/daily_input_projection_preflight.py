@@ -28,7 +28,6 @@ from .daily_replacement_facts import read_daily_replacement_facts
 from .daily_input_therapist_projection_expected import (
     TherapistDailyExpectedGrid, build_therapist_daily_expected_grid,
 )
-from .layout_contract import THERAPIST_DAILY_BLOCKS
 from .master_projection import MasterProjectionRow, build_master_projection
 from .outpatient_schedule_source import read_unified_base_schedule
 from .package_probe import WorkbookPackageProbe
@@ -176,6 +175,11 @@ def build_daily_input_projection_preflight(
         ))
         exits = tuple(read_patient_exits(source, patients=patients))
         effective = tuple(active_entries_on(effective, service_date, exits))
+        if (any(not is_stable_assignment_id(item.base_entry_id) for item in effective)
+                or len({item.base_entry_id for item in effective}) != len(effective)):
+            raise DailyInputProjectionPreflightError("Effective recurring assignment identity is invalid")
+        if any(item.patient_id not in {patient.patient_id for patient in patients} for item in effective):
+            raise DailyInputProjectionPreflightError("Effective recurring entry references an unknown patient")
         validate_effective_weekly_patient_slots(effective)
 
         sessions = tuple(materialize_sessions_for_date(effective, service_date))
