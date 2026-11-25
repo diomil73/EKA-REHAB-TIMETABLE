@@ -155,3 +155,47 @@ This is a native full-grid comparison primitive, **not a complete therapist assi
 Next engineering increment: build the complete expected-grid generator by reusing `read_unified_base_schedule()`, stable AssignmentID binding, date-effective entries, `materialize_sessions_for_date()`, the daily input/ledger, active replacement facts, `build_daily_session_states()` and the exact `patient_centric_preview` rendering semantics. It must provide all 126 cells, not just changed cells, and independently source the provider headers. Then join the full expected render map to immutable AssignmentID facts, rejecting duplicate display-name ambiguity, and bind all affected views to the same operation/source/date. Only after that should the PROJECTIONS_REOPEN report adapter be considered.
 
 No production workbook, VBA, UI, journal writer, receipt, Apply/Restore or Gate 2 setting changed. Gate 2 remains closed.
+
+ 
+## 9. Complete expected-grid builder added — source facts remain caller-supplied
+
+Added:
+- `Python/rehab_excel/daily_input_therapist_projection_expected.py`
+- `Tests/test_daily_input_therapist_projection_expected.py`
+
+Public builder: `build_therapist_daily_expected_grid()`.
+
+It requires immutable tuples for:
+- stable-ID-bound base schedule entries;
+- materialized sessions for one explicit service date;
+- exactly one DailySessionState per materialized session;
+- the independent patient registry;
+- optional student registry and provider label mapping;
+- all 18 expected provider headers from an independent roster/layout contract.
+
+The builder verifies stable AssignmentIDs, exact session/state/base-entry identity linkage, date consistency, unique PatientIDs and StudentIDs, provider-header agreement, and no StudentID/TherapistID collision. It constructs a complete 126-cell expectation, initially blank, fills every recurring provider/time group using the existing `render_base_slot()` semantics, then overlays the exact value patches from `build_patient_centric_preview_plan()`. It rejects ambiguous duplicate patient display names within a visible cell and any patch outside the confirmed grid.
+
+It separately derives `TherapistAssignmentFact` expectations from active states and replacements to therapist providers. Patient absences, cancellations, unresolved therapist absences and student replacements are not counted as therapist assignments. The returned expected assignments remain preflight expectations, not observed native facts.
+
+### Student provider rendering defect found and corrected
+
+The first synthetic student-replacement case exposed a real issue in the existing patient-centric renderer: the final patch pass stored provider/time keys without provider kind, then tried to resolve a student destination as a therapist. Updated `patient_centric_preview._provider_cell()` to resolve a known StudentID through its student label even in that final pass. Also replaced stale `student.student_number` references in `patient_centric_preview.py` and `outpatient_presentation.py` with the canonical `Student.student_id` field.
+
+An intermediate full CI run failed only the new student-replacement expected-grid test (2864 passed, 1 failed). The renderer fix, StudentID collision guard and dedicated collision test were added; the final complete run below is green.
+
+### CI
+
+GitHub Actions run `45660810319`, code/test HEAD `5a91058f0c9f78f63c19a70366987d8685796af7`, completed **SUCCESS** across all four jobs:
+- Windows Python 3.11: **2866 passed, 36 warnings, 42.21s**.
+- Ubuntu Python 3.11: **2866 passed, 32 warnings, 23.47s**.
+- Both synthetic safety jobs passed.
+
+The new tests use synthetic workbooks and fake COM only. No actual Microsoft Excel instance or real XLSM was opened.
+
+### Boundary
+
+The builder does not itself load or authenticate the current workbook's full source data, stable-ID registry, PATIENT_EXITS, recurring change events, DAILY_INPUT, authoritative ledger or active replacement facts. Those must be independently validated by its caller from the same exact source/operation/date. It also does not convert the native cell comparison into independently observed AssignmentID facts or a trusted phase report.
+
+The native full-grid reader and this builder are now separate compatible primitives, but they are not yet joined by a native composite diagnostic/report adapter. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; no verifier registry status changed. Gate 2 remains closed.
+
+Next: build a single non-authorizing composite diagnostic that binds the exact source workbook hash, preflight facts, expected grid, native COM full-grid result and expected AssignmentID membership. Then add an independent saved-source/native capture path for the source sheets and ledger, preserving stable weekly/outpatient source row indices. Only after this is independently tested should a PROJECTIONS_REOPEN report adapter be considered.
