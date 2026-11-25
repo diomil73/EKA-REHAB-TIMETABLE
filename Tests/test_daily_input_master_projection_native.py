@@ -3,6 +3,7 @@ from hashlib import sha256
 
 import pytest
 from openpyxl import Workbook
+from openpyxl.utils.cell import column_index_from_string
 
 from rehab_excel.daily_input_master_projection_native import (
     MasterProjectionNativeReadbackError,
@@ -44,14 +45,18 @@ class Sheet:
 
 
 class Book:
-    def __init__(self, sheet, *, readonly=True):
+    def __init__(self, sheet, planner_sheet, *, readonly=True):
         self.ReadOnly = readonly
         self.sheet = sheet
+        self.planner_sheet = planner_sheet
         self.closed = None
 
     def Worksheets(self, name):
-        assert name == "MASTER_SCHEDULE"
-        return self.sheet
+        if name == "MASTER_SCHEDULE":
+            return self.sheet
+        if name == "PATIENT_PLANNER":
+            return self.planner_sheet
+        raise AssertionError(name)
 
     def Close(self, SaveChanges=False):
         self.closed = SaveChanges
@@ -91,23 +96,34 @@ def _expected(doctor=False):
 
 def _fake_app(items, *, room="A01", identity=None, status="active",
               infectious=None, readonly=True, version="16.0",
-              wrong_formula=False, formula_error=False):
+              wrong_formula=False, formula_error=False,
+              source_formula_column=None):
     item = items[0]
     identity = identity if identity is not None else (
         f"{item.display_name}\n✚ {item.responsible_doctor}"
         if item.responsible_doctor else item.display_name
     )
+    infectious_value = item.infectious if infectious is None else infectious
+    source_values = {
+        "D": infectious_value,
+        "B": room,
+        "C": item.display_name,
+        "E": status,
+        "F": "NATIVE F VALUE",
+        "I": "NATIVE I VALUE",
+        "N": "NATIVE N VALUE",
+        "L": "NATIVE L VALUE",
+        "P": "NATIVE P VALUE",
+        "R": "NATIVE R VALUE",
+        "T": "NATIVE T VALUE",
+    }
     values = {
         (3, 2): Cell("Θάλαμος"),
         (3, 3): Cell("Ασθενής"),
         (3, 11): Cell("Κατάσταση"),
     }
     for col, source in SOURCE_COLUMNS.items():
-        value = {
-            1: item.infectious if infectious is None else infectious,
-            2: room,
-            3: identity,
-        }.get(col, "NATIVE FORMULA VALUE")
+        value = source_values[source]
         formula = None if col == 3 and item.responsible_doctor else (
             f"=PATIENT_PLANNER!{source}{item.planner_row}"
         )
@@ -117,7 +133,16 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
             value = "#REF!"
         values[(item.target_row, col)] = Cell(value, formula)
     values[(item.target_row, 11)] = Cell(status, "=PATIENT_PLANNER!E2")
-    book = Book(Sheet(values), readonly=readonly)
+    planner_values = {
+        (2, column_index_from_string(source)): Cell(value)
+        for source, value in source_values.items()
+    }
+    if source_formula_column:
+        planner_values[(2, column_index_from_string(source_formula_column))] = Cell(
+            source_values[source_formula_column],
+            f"=OTHER_SHEET!A1",
+        )
+    book = Book(Sheet(values), Sheet(planner_values), readonly=readonly)
     app = App(book, version=version)
     return app, book
 
@@ -164,7 +189,7 @@ def test_native_master_readback_checks_literal_doctor_identity(tmp_path):
     assert app.quit is True
 
 
-@pytest.mark.parametrize("failure", ["room", "identity", "status", "infectious", "formula", "formula_error", "readonly", "version"])
+@pytest.mark.parametrize("failure", ["room", "identity", "status", "infectious", "formula", "formula_error", "source_formula", "readonly", "version"])
 def test_native_master_readback_fails_closed_and_cleans_up(tmp_path, failure):
     path = tmp_path / "synthetic-master.xlsm"
     expected = _expected()
@@ -176,6 +201,7 @@ def test_native_master_readback_fails_closed_and_cleans_up(tmp_path, failure):
         "infectious": "YES" if failure == "infectious" else None,
         "wrong_formula": failure == "formula",
         "formula_error": failure == "formula_error",
+        "source_formula_column": "F" if failure == "source_formula" else None,
         "readonly": failure != "readonly",
         "version": "" if failure == "version" else "16.0",
     }
