@@ -10,6 +10,8 @@ def _result():
         input_ledger_source_changes=3,
         input_ledger_active_rows=3,
         master_projected_rows=12,
+        master_formula_cells_checked=131,
+        master_evaluated_cells_checked=132,
         therapist_grid_cells_checked=126,
         therapist_occupied_cells=17,
         master_excel_version="16.0",
@@ -58,6 +60,8 @@ def test_cli_runs_readonly_preflight_and_prints_only_aggregate_results(monkeypat
     assert "native_source_sheets_checked: 12" in output
     assert "native_source_populated_cells_checked: 1450" in output
     assert "patients: 100" in output
+    assert "master_formula_cells_checked: 131" in output
+    assert "master_evaluated_cells_checked: 132" in output
     assert "therapist_patient_cells_checked: 126" in output
     assert "private.xlsm" not in output
     assert calls[0][0] == "preflight"
