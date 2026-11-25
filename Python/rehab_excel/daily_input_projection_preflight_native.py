@@ -64,6 +64,14 @@ class DailyInputProjectionPreflightNativeReadback:
     def therapist_assignment_count(self) -> int:
         return self.preflight.therapist_assignment_count
 
+    @property
+    def native_source_sheet_count(self) -> int:
+        return self.source_capture.checked_sheet_count
+
+    @property
+    def native_source_cells_checked(self) -> int:
+        return self.source_capture.checked_populated_cells
+
 
 def verify_daily_input_projection_preflight_native_readonly(
     workbook_path: str | Path,
