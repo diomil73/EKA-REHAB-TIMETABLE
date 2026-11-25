@@ -187,8 +187,6 @@ def test_full_native_projection_wrapper_rejects_workbook_mutation_after_readback
     ledger, projections, source_capture = _results(path)
     monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
                         lambda source, **kwargs: source_capture)
-    monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
-                        lambda source, **kwargs: source_capture)
     monkeypatch.setattr(native, "verify_input_ledger_native_readonly", lambda *a, **k: ledger)
 
     def mutate(source, **kwargs):
