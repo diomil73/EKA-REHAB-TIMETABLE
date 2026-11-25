@@ -49,7 +49,7 @@ def prepared_report_fields(**overrides):
         "inspected_scope": list(contract.required_scope),
         "native_excel_version": "SYNTHETIC-EXCEL-VERSION",
         "package_audit_sha256": None,
-        "prepared_snapshot_sha256": None,
+        "prepared_snapshot_sha256": sha256(b"synthetic prepared report").hexdigest(),
         "verified_at_utc": "2026-11-25T10:00:00Z",
     }
     value.update(overrides)
@@ -174,7 +174,11 @@ def test_report_rejects_contract_scope_or_method_drift():
         )
 
 
-def test_prepared_native_readback_remains_diagnostic_only_until_receipt_integration():
+def test_prepared_native_readback_requires_exact_snapshot_digest_and_remains_diagnostic_only():
+    fields = prepared_report_fields(prepared_snapshot_sha256=None)
+    report = create_phase_verifier_report(**fields)
+    with pytest.raises(PhaseVerifierContractError, match="PREPARED snapshot digest is required"):
+        validate_phase_verifier_report(report, prepared_operation())
     report = create_phase_verifier_report(**prepared_report_fields())
     with pytest.raises(PhaseVerifierNotImplementedError, match="not integrated"):
         validate_phase_verifier_report(report, prepared_operation())
