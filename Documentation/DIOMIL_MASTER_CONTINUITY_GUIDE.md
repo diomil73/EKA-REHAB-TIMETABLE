@@ -2965,3 +2965,14 @@ GitHub Actions workflow `45598412259` for code head `a66088e91792b49095559bccdf9
 - Both synthetic safety jobs: success.
 
 The workflow uses `--disable-warnings`; warning details are suppressed but warning totals remain visible. No native COM was run. These are tests of fail-closed metadata handling, not proof of cryptographic attestation or operational Apply/Restore. The trusted verifier signer/key custody/build pinning remain unimplemented; all claims are rejected by the current attestation boundary. Gate 2 stays closed.
+
+
+## 4.220 INPUT_AND_LEDGER independent native COM readback diagnostic — 25/11/2026
+
+Added `Python/rehab_excel/daily_input_input_ledger_native.py` and `Tests/test_daily_input_input_ledger_native.py`.
+
+The diagnostic first invokes the existing strict saved OOXML comparison `verify_input_ledger_saved_readback()` against externally supplied, non-empty validated preflight changes. It then opens the exact same saved XLSM in a fresh isolated Excel COM instance with macros forced disabled, events/alerts/link updates disabled, ReadOnly=True and no Save. It reads Excel-visible DAILY_INPUT and protected veryHidden DAILY_CHANGE_LEDGER cells into private in-memory worksheets. Both native interpretations are independently compared to the same preflight change identities, not just to each other or to row counts. It checks workbook hashes before OOXML/COM, after COM, and closes the native instance with SaveChanges=False and Quit. It has finite inspection bounds, formula/error-cell rejection, schema/readback checks and synthetic fake-COM failure-path tests.
+
+This is a **read-only diagnostic**, not a phase report adapter, trusted attestation, operational positive native Excel proof or Gate 2 acceptance. The production verifier registry for INPUT_AND_LEDGER remains NOT_IMPLEMENTED. The in-memory snapshots use the existing canonical business interpreter rather than introducing divergent DAILY_INPUT parsing rules; this independently observes COM-visible cells but does not constitute a second independently specified business parser. The existing OOXML validator still rejects zero-change preflight input; this policy remains unresolved.
+
+GitHub Actions run for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f`: Ubuntu Python 3.11 **2770 passed / 77 warnings / 24.10s**; Windows and final workflow conclusions to be verified separately before claiming full green. The synthetic COM tests do not exercise native Excel on the user's PC. No workbook/VBA/Apply/Restore/journal/Gate 2 write or production data migration.
