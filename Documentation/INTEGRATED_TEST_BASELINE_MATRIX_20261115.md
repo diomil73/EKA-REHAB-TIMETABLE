@@ -776,3 +776,12 @@ The complete-bundle positive synthetic test uses temporary in-memory IMPLEMENTED
 ## 2026-11-25 — Trusted verifier attestation preflight: fail-closed, not authenticating
 
 Added a strict untrusted attestation claim parser and non-authorizing reject-only boundary in `daily_input_verifier_attestation.py`, synthetic tests in `test_daily_input_verifier_attestation.py`, and a threat-model/key-custody design in `Documentation/DAILY_INPUT_TRUSTED_VERIFIER_ATTESTATION_DESIGN_20261125.md`. It checks claim envelope format, report/source/operation identity and malformed signatures; even a correctly shaped claim cannot pass the boundary because no external trusted key/build verification exists. No signing, real signature checking, trusted root, journal authorization or positive Excel proof was added. CI execution result must be recorded separately after final workflow review. Gate 2 remains closed.
+
+### CI confirmation for attestation claim contract — 25/11/2026
+
+GitHub Actions workflow `45598412259` for code head `a66088e91792b49095559bccdf9c800ede2ad7b0` completed SUCCESS:
+- Windows / Python 3.11: **2756 passed**, 68 warnings, 44.39s.
+- Ubuntu / Python 3.11: **2756 passed**, 68 warnings, 30.26s.
+- Both synthetic safety jobs: success.
+
+The workflow uses `--disable-warnings`; warning details are suppressed but warning totals remain visible. No native COM was run. These are tests of fail-closed metadata handling, not proof of cryptographic attestation or operational Apply/Restore. The trusted verifier signer/key custody/build pinning remain unimplemented; all claims are rejected by the current attestation boundary. Gate 2 stays closed.
