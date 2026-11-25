@@ -89,7 +89,7 @@ def test_registry_covers_every_evidence_kind_exactly_once():
     assert len({item.verifier_id for item in contracts}) == len(EvidenceKind)
 
 
-def test_only_prepared_has_existing_diagnostic_and_no_verifier_is_receipt_integrated():
+def test_prepared_has_report_adapter_only_and_no_verifier_is_authorizing():
     assert VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT].implementation_status == (
         VerifierImplementationStatus.REPORT_ADAPTER_ONLY
     )
