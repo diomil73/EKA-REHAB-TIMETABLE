@@ -312,36 +312,38 @@ Added:
 - `Tests/test_daily_input_source_native_capture.py`
 - `Tests/test_package_probe_typed_cells.py`
 
-The capture now opens a separate native Excel COM session with macros disabled, events disabled, links not updated and the XLSM opened ReadOnly. It checks every source sheet present from this fixed allowlist:
+The capture opens a separate native Excel COM session with macros disabled, events disabled, links not updated and the XLSM opened ReadOnly. It checks every source sheet present from this fixed allowlist:
 `PATIENTS`, `PATIENT_PLANNER`, `SETTINGS`, `PROGRAM_WEEKLY_SLOTS`, `OUTPATIENT_SCHEDULE`, `RECURRING_ASSIGNMENT_IDS`, `PATIENT_EXITS`, `RECURRING_CHANGE_EVENTS`, `STUDENTS`, `DAILY_INPUT`, `DAILY_CHANGE_LEDGER`, `DAILY_REPLACEMENT_FACTS`.
 The required minimum is PATIENTS, PATIENT_PLANNER, SETTINGS, DAILY_INPUT and DAILY_CHANGE_LEDGER; optional extensions are checked whenever present.
 
 For each selected sheet it:
-- rejects every OOXML formula cell and stored Excel error cell;
-- reads typed OOXML literal values without collapsing text identifiers into numeric values;
-- enforces per-sheet fixed row/column bounds and requires the native UsedRange to cover all saved populated cells;
-- reads every populated cell through native COM, rejects native formula cells and compares the native value to the typed OOXML literal;
+- rejects stored Excel error cells and all unsupported formulas;
+- compares typed OOXML literal values with native COM values without collapsing text identifiers into numeric values;
+- enforces per-sheet fixed row/column bounds and requires native UsedRange to cover all saved populated/formula cells;
 - closes Excel without saving and requires the exact workbook SHA-256 to remain unchanged.
 
-The one-call projection wrapper now runs this source capture before native INPUT_AND_LEDGER, then MASTER and full THERAPIST_DAILY readbacks. It validates that the native source capture result is the expected immutable result type, binds to the same workbook hash, has a non-empty Excel version, has no duplicate sheet entries and includes all five required source sheets. The CLI reports aggregate source sheet/cell counts and the native source Excel version; no patient/provider cell values are printed.
+**PATIENT_PLANNER formula exception:** the workbook's established A:E identity/room/status bridge may contain direct same-row formulas to PATIENTS. Only exact `PATIENTS!A{row}` through `PATIENTS!E{row}` links are supported. Native Excel must report the same formula and its evaluated result must equal the corresponding literal PATIENTS cell. Formula cells elsewhere, other formulas in PATIENT_PLANNER, formulas in PATIENTS, and stored error cells fail closed. The diagnostic reports literal and supported formula counts separately.
 
-Latest completed full CI including the source-capture Excel-version CLI output and assertion: run `45675024806`, code/test HEAD `35051970554b5268648ce81a7e4fa3cc212ecfc0`, SUCCESS:
-- Windows Python 3.11: **2907 passed, 31 warnings, 45.12s**.
-- Ubuntu Python 3.11: **2907 passed, 31 warnings, 29.14s**.
+The one-call projection wrapper runs source capture before native INPUT_AND_LEDGER, then MASTER and full THERAPIST_DAILY readbacks. It validates source-capture result type, exact workbook hash, non-empty Excel version, unique sheet names, all five required sheets and nonnegative formula count. The CLI reports aggregate source sheet/literal/formula counts and source Excel version; no patient/provider cell values are printed.
+
+CI run `45677349897`, code/test HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS:
+- Windows Python 3.11: **2916 passed, 30 warnings, 34.64s**.
+- Ubuntu Python 3.11: **2916 passed, 32 warnings, 28.98s**.
 - Both synthetic safety jobs passed.
+
+Tests cover supported direct planner links, formula result comparison to PATIENTS, unsupported formula rejection, literal type preservation, formula/error rejection, fixed UsedRange bounds, source hash immutability, mandatory sheet scope and aggregate-only CLI output. Fake COM/synthetic only. No real Excel or operational XLSM was opened.
 
 ### Strict boundary remains
 
-This native capture verifies literal cell agreement for the listed source sheets. It does not attest to the provenance or authorization of those values, inspect styles/layout/package resources, authenticate shared-clock approval tuples, or bind an operation ID. It rejects all formulas in selected source sheets rather than implementing formula semantics. The source preflight remains composed from canonical OOXML readers, while native capture independently checks their saved literal source cells. Python result objects remain caller-constructible. No signed verifier attestation, report/receipt or phase adapter exists. No real operational XLSM has been opened in this work.
+This verifies saved literal source-cell agreement and one deliberately narrow PATIENT_PLANNER formula contract. It does not attest source provenance or authorization, inspect styles/layout/package resources, authenticate shared-clock approval tuples, or bind an operation ID. The source preflight remains composed from canonical OOXML readers. Python evidence objects remain caller-constructible. No signed verifier attestation, report/receipt or phase adapter exists.
 
 `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; Gate 2 remains closed.
 
- 
 ## 14. Expanded native MASTER formula/evaluated-value coverage
 
-Extended `daily_input_master_projection_native.py` to inspect the complete 10-column canonical MASTER source-formula block plus the status formula for every projected patient row. It checks each formula against its exact PATIENT_PLANNER source-column/row link, reads all 11 Excel-evaluated cells and rejects formula errors. The doctor-identity cell is the deliberate exception: when a responsible doctor is present, column C must be a literal and is compared to the independently expected patient/doctor text.
+Extended `daily_input_master_projection_native.py` to inspect the complete 10-column canonical MASTER source-formula block plus the status formula for every projected patient row. It checks each formula against its exact PATIENT_PLANNER source-column/row link, reads all 11 Excel-evaluated cells and rejects formula errors. Each formula result is also compared to the corresponding literal PATIENT_PLANNER source cell through native Excel; those source cells must not contain formulas. The source capture separately binds PATIENT_PLANNER literals/formulas to the supported source contract. The doctor-identity cell is the deliberate exception: when a responsible doctor is present, column C must be a literal and is compared to the independently expected patient/doctor text.
 
-In addition to formula linkage, native evaluated values are now compared for:
+In addition to source equality, native evaluated values are compared to independent preflight facts for:
 - infectious flag in MASTER column A;
 - room in column B;
 - patient/doctor identity in column C;
@@ -354,8 +356,10 @@ CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`, SUCCESS:
 - Ubuntu Python 3.11: **2911 passed, 33 warnings, 29.60s**.
 - Both synthetic safety jobs passed.
 
-Synthetic fake-COM tests cover all formula links, infectious mismatch, room/identity/status mismatch, missing/wrong formulas, formula error values, literal doctor identity and composite formula/evaluated count enforcement. No real Excel instance or operational XLSM was opened.
+A subsequent source-value comparison test verifies that every formula result matches its corresponding PATIENT_PLANNER literal cell. The full regression including this comparison and supported planner formulas is run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
+
+Synthetic fake-COM tests cover all formula links, formula-to-source value mismatches, infectious mismatch, room/identity/status mismatch, missing/wrong formulas, formula error values, source formula rejection, literal doctor identity and composite formula/evaluated count enforcement. No real Excel instance or operational XLSM was opened.
 
 ### Remaining MASTER boundary
 
-The seven other formula-driven business columns are checked for exact formula linkage and Excel error results, but their evaluated business values are not yet compared to independent expected facts. This does not verify full treatment-value semantics, formatting, styles, borders, row heights, conditional formatting or package resources. No operation ID, trusted verifier attestation, phase report or receipt is created. Gate 2 remains closed.
+The seven other treatment-related formula outputs are compared to their PATIENT_PLANNER source cells, but are not yet compared to independently derived expected treatment/business facts. This does not verify full treatment semantics, formatting, styles, borders, row heights, conditional formatting or package resources. No operation ID, trusted verifier attestation, phase report or receipt is created. Gate 2 remains closed.
