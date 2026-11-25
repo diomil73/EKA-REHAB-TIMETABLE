@@ -785,3 +785,10 @@ GitHub Actions workflow `45598412259` for code head `a66088e91792b49095559bccdf9
 - Both synthetic safety jobs: success.
 
 The workflow uses `--disable-warnings`; warning details are suppressed but warning totals remain visible. No native COM was run. These are tests of fail-closed metadata handling, not proof of cryptographic attestation or operational Apply/Restore. The trusted verifier signer/key custody/build pinning remain unimplemented; all claims are rejected by the current attestation boundary. Gate 2 stays closed.
+
+
+## 2026-11-25 — INPUT_AND_LEDGER native readback synthetic baseline
+
+Added `daily_input_input_ledger_native.py` and `test_daily_input_input_ledger_native.py`. Coverage includes: successful cross-view readback, exact saved input/ledger membership, native COM opened ReadOnly with macros disabled, disabled events/links/alerts, no Save, close/quit; failures for date, source reason, ledger identities, duplicate ledger entry, formula, visibility, protection, non-readonly Excel and cleanup failures, missing preflight, and OOXML rejection before COM launch. All examples use fictional synthetic data and fake COM objects.
+
+Ubuntu Python 3.11 full CI at `6e4d99296fc6679fbaeffd4a2003a17ac165719f`: 2770 passed, 77 warnings, 24.10s. Windows outcome not yet confirmed at this documentation checkpoint. No native real Excel execution. Registry INPUT_AND_LEDGER remains NOT_IMPLEMENTED. Gate 2 closed.
