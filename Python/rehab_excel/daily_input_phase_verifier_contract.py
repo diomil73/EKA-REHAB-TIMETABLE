@@ -101,6 +101,7 @@ _CONTRACTS = {
         ("saved_workbook_sha256", "daily_input_service_date", "journal_history_prefix",
          "prepared_row_exact_match", "payload_sha256", "journal_sheet_protection_visibility",
          "native_excel_readonly_reopen"), True,
+        requires_prepared_snapshot_binding=True,
         implementation_status=VerifierImplementationStatus.EXISTING_DIAGNOSTIC_ONLY,
     ),
     EvidenceKind.INPUT_AND_LEDGER_REOPEN: PhaseVerifierContract(
@@ -359,6 +360,8 @@ def validate_phase_verifier_report(
         raise PhaseVerifierContractError("Unexpected package audit digest")
     if contract.requires_prepared_snapshot_binding and report.prepared_snapshot_sha256 is None:
         raise PhaseVerifierContractError("PREPARED snapshot digest is required by verifier contract")
+    if kind == EvidenceKind.PREPARED_SNAPSHOT and report.prepared_snapshot_sha256 != report.evidence_sha256:
+        raise PhaseVerifierContractError("PREPARED snapshot digest must equal the inspected snapshot artifact digest")
     if not contract.requires_prepared_snapshot_binding and report.prepared_snapshot_sha256 is not None:
         raise PhaseVerifierContractError("Unexpected PREPARED snapshot digest")
     if report.verification_result != VerificationResult.VERIFIED.value:
