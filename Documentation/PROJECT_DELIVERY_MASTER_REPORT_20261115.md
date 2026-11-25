@@ -1504,3 +1504,10 @@ Fake COM only; no real Excel/operational XLSM. Full treatment business semantics
 ### 2026-11-25 — Expanded MASTER K/L scope boundary
 
 Current native MASTER proof covers canonical A:J formulas and M status only. In the expanded 13-column schema, K psychology and L afternoon are outside that proof. Existing writer clears K/L and its test expects blank; psychology may be separately refreshed by patient-program VBA, while afternoon is separately stored and displayed in the patient form. No code change made. A green A:J/M result is not proof of K/L content.
+
+ 
+### 2026-11-25 — Guarded PATIENT_PLANNER formula support
+
+Source capture supports direct and exact blank-guarded PATIENTS A:E formulas, including exact-empty versus whitespace semantics. Added a real-OOXML/fake-COM integration test and expanded 13-column MASTER status-M native readback test. K/L remain outside proof.
+
+CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed. No real Excel.
