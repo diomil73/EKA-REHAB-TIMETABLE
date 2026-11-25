@@ -124,7 +124,7 @@ def _load(path: str | Path):
             filename=workbook_path,
             read_only=True,
             data_only=True,
-            keep_vba=workbook_path.suffix.casefold() == ".xlsm",
+            keep_vba=False,
         )
 
 
