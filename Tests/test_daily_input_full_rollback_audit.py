@@ -122,7 +122,7 @@ def test_business_cell_or_package_resource_change_fails_closed(tmp_path, mutatio
         with ZipFile(restored, "a") as archive:
             archive.writestr("xl/activeX/fakeControl.bin", b"DIFFERENT")
     else:
-        workbook = load_workbook(restored, keep_vba=True)
+        workbook = load_workbook(restored, keep_vba=False)
         master = workbook["MASTER_SCHEDULE"]
         if mutation == "value":
             master["A1"] = "CHANGED FICTIONAL VALUE"
@@ -208,7 +208,7 @@ def test_pre_rollback_verifier_rejects_already_terminal_or_changed_business_stat
         )
     assert audit(source, restored).restored_journal_revisions == 3
 
-    changed = load_workbook(restored, keep_vba=True)
+    changed = load_workbook(restored, keep_vba=False)
     changed["MASTER_SCHEDULE"]["C3"] = "UNEXPECTED"
     changed.save(restored)
     changed.close()
