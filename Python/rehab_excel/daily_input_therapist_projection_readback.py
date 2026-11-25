@@ -106,7 +106,7 @@ def verify_therapist_daily_occupied_clocks(
         if not path.is_file() or path.suffix.casefold() != ".xlsm":
             raise TherapistDailyProjectionReadbackError("Saved XLSM required")
         before = _digest(path)
-        wb = load_workbook(path, read_only=True, data_only=False, keep_vba=True)
+        wb = load_workbook(path, read_only=True, data_only=False, keep_vba=False)
     except TherapistDailyProjectionReadbackError:
         raise
     except Exception as exc:
