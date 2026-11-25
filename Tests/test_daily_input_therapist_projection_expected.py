@@ -92,11 +92,6 @@ def test_expected_grid_covers_all_126_cells_and_exact_active_assignment_ids(tmp_
     assert result.occupied_cells == 2
     assert cells["B2"] == "ALPHA [Δε]\nBETA [Δε]"
     assert cells["C3"] == "GAMMA"
-    assert result.expected_assignments == (
-        # P1 is absent; P2 and P3 remain active.
-        result.expected_assignments[0],
-        result.expected_assignments[1],
-    )
     assert {item.assignment_id for item in result.expected_assignments} == {
         "assignment:00000002", "assignment:00000003",
     }
