@@ -13,15 +13,20 @@ from rehab_excel.master_projection import MasterProjectionRow
 from rehab_excel.daily_input_master_projection_readback import SOURCE_COLUMNS
 
 
-def _workbook(path, items, *, doctor=False):
+def _workbook(path, items, *, doctor=False, expanded=False):
     wb = Workbook()
     ws = wb.active
     ws.title = "MASTER_SCHEDULE"
-    ws["B3"], ws["C3"], ws["K3"] = "Θάλαμος", "Ασθενής", "Κατάσταση"
+    ws["B3"], ws["C3"] = "Θάλαμος", "Ασθενής"
+    status_col = 13 if expanded else 11
+    if expanded:
+        ws["K3"], ws["L3"], ws["M3"] = "ΨΥΧΟΛΟΓΟΙ", "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ", "Κατάσταση"
+    else:
+        ws["K3"] = "Κατάσταση"
     for item in items:
         for col, source in SOURCE_COLUMNS.items():
             ws.cell(item.target_row, col).value = f"=PATIENT_PLANNER!{source}{item.planner_row}"
-        ws.cell(item.target_row, 11).value = f"=PATIENT_PLANNER!E{item.planner_row}"
+        ws.cell(item.target_row, status_col).value = f"=PATIENT_PLANNER!E{item.planner_row}"
         if item.responsible_doctor:
             ws.cell(item.target_row, 3).value = f"{item.display_name}\n✚ {item.responsible_doctor}"
     wb.save(path)
@@ -97,7 +102,8 @@ def _expected(doctor=False):
 def _fake_app(items, *, room="A01", identity=None, status="active",
               infectious=None, readonly=True, version="16.0",
               wrong_formula=False, formula_error=False,
-              source_formula_column=None, source_value_mismatch=False):
+              source_formula_column=None, source_value_mismatch=False,
+              expanded=False):
     item = items[0]
     identity = identity if identity is not None else (
         f"{item.display_name}\n✚ {item.responsible_doctor}"
@@ -117,11 +123,19 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
         "R": "NATIVE R VALUE",
         "T": "NATIVE T VALUE",
     }
+    status_col = 13 if expanded else 11
     values = {
         (3, 2): Cell("Θάλαμος"),
         (3, 3): Cell("Ασθενής"),
-        (3, 11): Cell("Κατάσταση"),
     }
+    if expanded:
+        values.update({
+            (3, 11): Cell("ΨΥΧΟΛΟΓΟΙ"),
+            (3, 12): Cell("ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"),
+            (3, 13): Cell("Κατάσταση"),
+        })
+    else:
+        values[(3, 11)] = Cell("Κατάσταση")
     for col, source in SOURCE_COLUMNS.items():
         value = identity if col == 3 else source_values[source]
         formula = None if col == 3 and item.responsible_doctor else (
@@ -134,7 +148,7 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
         if source_value_mismatch and col == 4:
             value = "MISMATCHED FORMULA RESULT"
         values[(item.target_row, col)] = Cell(value, formula)
-    values[(item.target_row, 11)] = Cell(status, "=PATIENT_PLANNER!E2")
+    values[(item.target_row, status_col)] = Cell(status, "=PATIENT_PLANNER!E2")
     planner_values = {
         (2, column_index_from_string(source)): Cell(value)
         for source, value in source_values.items()
@@ -228,3 +242,21 @@ def test_native_master_readback_rejects_mutable_or_wrong_expectations(tmp_path):
             path, expected_projection=list(expected), excel_factory=lambda: app,
         )
     assert app.quit is False
+
+
+def test_native_master_readback_supports_expanded_psychology_afternoon_schema(tmp_path):
+    path = tmp_path / "synthetic-master-expanded.xlsm"
+    expected = _expected()
+    _workbook(path, expected, expanded=True)
+    app, book = _fake_app(expected, expanded=True)
+
+    result = verify_master_projection_native_readonly(
+        path, expected_projection=expected, excel_factory=lambda: app,
+    )
+
+    assert result.status_column == 13
+    assert result.projected_rows == 1
+    assert result.formula_cells_checked == 11
+    assert result.evaluated_cells_checked == 11
+    assert app.quit is True
+    assert book.closed is False
