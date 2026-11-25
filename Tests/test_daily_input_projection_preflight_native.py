@@ -111,7 +111,7 @@ def test_full_native_projection_wrapper_runs_all_three_readbacks(tmp_path, monke
         calls.append(("projection", source, kwargs))
         return projections
 
-    monkeypatch.setattr(native, "verify_input_and_ledger_native_readonly", input_reader)
+    monkeypatch.setattr(native, "verify_input_ledger_native_readonly", input_reader)
     monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly", projection_reader)
 
     result = native.verify_daily_input_projection_preflight_native_readonly(
@@ -145,7 +145,7 @@ def test_full_native_projection_wrapper_runs_all_three_readbacks(tmp_path, monke
 def test_full_native_projection_wrapper_rejects_preflight_hash_drift(tmp_path, monkeypatch):
     path = _path(tmp_path)
     pre = _preflight(path)
-    monkeypatch.setattr(native, "verify_input_and_ledger_native_readonly",
+    monkeypatch.setattr(native, "verify_input_ledger_native_readonly",
                         lambda *a, **k: pytest.fail("must stop before Excel"))
     path.write_bytes(path.read_bytes() + b"changed")
     with pytest.raises(native.DailyInputProjectionPreflightNativeError):
@@ -160,7 +160,7 @@ def test_full_native_projection_wrapper_rejects_input_ledger_binding_drift(tmp_p
         service_date=SERVICE_DATE, workbook_sha256="0" * 64,
         source_change_count=1, active_ledger_count=1, native_excel_version="16.0",
     )
-    monkeypatch.setattr(native, "verify_input_and_ledger_native_readonly", lambda *a, **k: wrong)
+    monkeypatch.setattr(native, "verify_input_ledger_native_readonly", lambda *a, **k: wrong)
     monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly",
                         lambda *a, **k: pytest.fail("must stop before projection readback"))
     with pytest.raises(native.DailyInputProjectionPreflightNativeError):
@@ -171,7 +171,7 @@ def test_full_native_projection_wrapper_rejects_workbook_mutation_after_readback
     path = _path(tmp_path)
     pre = _preflight(path)
     ledger, projections = _results(path)
-    monkeypatch.setattr(native, "verify_input_and_ledger_native_readonly", lambda *a, **k: ledger)
+    monkeypatch.setattr(native, "verify_input_ledger_native_readonly", lambda *a, **k: ledger)
 
     def mutate(source, **kwargs):
         source.write_bytes(source.read_bytes() + b"tamper")
@@ -192,7 +192,7 @@ def test_full_native_projection_wrapper_rejects_ledger_count_drift(tmp_path, mon
         active_ledger_count=2,
         native_excel_version="16.0",
     )
-    monkeypatch.setattr(native, "verify_input_and_ledger_native_readonly", lambda *a, **k: wrong)
+    monkeypatch.setattr(native, "verify_input_ledger_native_readonly", lambda *a, **k: wrong)
     monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly",
                         lambda *a, **k: pytest.fail("must stop before projection readback"))
     with pytest.raises(native.DailyInputProjectionPreflightNativeError):
