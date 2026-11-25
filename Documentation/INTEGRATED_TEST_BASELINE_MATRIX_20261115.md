@@ -1017,3 +1017,13 @@ CI run `45679125582`, HEAD `2b9c6294232e476216f8438e2d1880797a539b0d`, SUCCESS:
 - Both synthetic safety jobs passed.
 
 Covers exact blank-guarded PATIENT_PLANNER A:E formulas, whitespace-vs-empty semantics, integrated OOXML/native capture, and expanded 13-column MASTER status-M readback. K/L remain outside proof. Fake COM only.
+
+ 
+### 2026-11-25 — PATIENTS / PATIENT_PLANNER identity mirror regression
+
+CI run `45680015176`, HEAD `fbf6e5571ad7cf6be412f719f304ade5d3c1322c`, SUCCESS:
+- Windows Python 3.11: **2923 passed, 32 warnings, 44.62s**.
+- Ubuntu Python 3.11: **2923 passed, 29 warnings, 24.37s**.
+- Both synthetic safety jobs passed.
+
+Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric preservation, wrapper patient-count binding and mismatch rejection. Fake COM only.
