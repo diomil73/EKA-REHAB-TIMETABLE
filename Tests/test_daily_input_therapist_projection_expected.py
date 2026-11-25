@@ -8,7 +8,7 @@ from rehab_core.base_schedule import materialize_sessions_for_date
 from rehab_core.daily_state import build_daily_session_states
 from rehab_core.models import (
     AbsenceKind, BaseScheduleEntry, DailyAbsence, Patient,
-    ReplacementAssignment, ReplacementProviderKind,
+    ReplacementAssignment, ReplacementProviderKind, Student,
 )
 from rehab_excel.daily_input_therapist_projection_expected import (
     TherapistDailyExpectedGridError,
@@ -26,11 +26,11 @@ def _headers():
     )
 
 
-def _workbook(path):
+def _workbook(path, headers=None):
     wb = Workbook()
     ws = wb.active
     ws.title = "THERAPIST_DAILY"
-    headers = _headers()
+    headers = _headers() if headers is None else headers
     index = 0
     for header_row, first, last in THERAPIST_DAILY_BLOCKS:
         for col in range(2, 11):
@@ -59,7 +59,7 @@ def _patients(*, duplicate=False):
     )
 
 
-def _grid(path, *, entries=None, patients=None, states=None, sessions=None, headers=None):
+def _grid(path, *, entries=None, patients=None, states=None, sessions=None, headers=None, students=()):
     entries = _base_entries() if entries is None else entries
     patients = _patients() if patients is None else patients
     sessions = tuple(materialize_sessions_for_date(entries, SERVICE_DATE)) if sessions is None else sessions
@@ -79,6 +79,7 @@ def _grid(path, *, entries=None, patients=None, states=None, sessions=None, head
         sessions=tuple(sessions),
         states=tuple(states),
         patients=tuple(patients),
+        students=tuple(students),
     )
 
 
@@ -161,3 +162,39 @@ def test_expected_grid_rejects_provider_roster_drift(tmp_path):
     headers[0] = "WRONG PROVIDER"
     with pytest.raises(TherapistDailyExpectedGridError):
         _grid(path, headers=tuple(headers))
+
+
+def test_expected_grid_handles_student_replacement_with_canonical_student_id(tmp_path):
+    path = tmp_path / "student-grid.xlsm"
+    headers = list(_headers())
+    headers[-1] = "STUDENT A"
+    _workbook(path, tuple(headers))
+    entries = _base_entries()
+    sessions = tuple(materialize_sessions_for_date(entries, SERVICE_DATE))
+    student = Student(
+        "S001", "STUDENT A", date(2026, 1, 1), date(2027, 1, 1),
+    )
+    replacement = ReplacementAssignment(
+        replacement_id="replacement:student:0001",
+        target_session_id=sessions[0].session_id,
+        patient_id="P1",
+        original_therapist_id="THERAPIST 1",
+        replacement_therapist_id="S001",
+        replacement_date=SERVICE_DATE,
+        replacement_time=time(10, 0),
+        reason="fictional student cover",
+        replacement_provider_kind=ReplacementProviderKind.STUDENT,
+    )
+    states = tuple(build_daily_session_states(
+        sessions, replacements=(replacement,), target_date=SERVICE_DATE,
+    ))
+    result = _grid(
+        path, entries=entries, patients=_patients(), sessions=sessions,
+        states=states, headers=tuple(headers), students=(student,),
+    )
+    cells = {item.cell: item.value for item in result.cells}
+    assert cells["J14"] == "ALPHA [Δε 23/11]"
+    assert "→ STUDENT A 10:00" in cells["B2"]
+    assert {item.assignment_id for item in result.expected_assignments} == {
+        "assignment:00000002", "assignment:00000003",
+    }
