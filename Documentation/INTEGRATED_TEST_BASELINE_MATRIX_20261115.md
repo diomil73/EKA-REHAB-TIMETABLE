@@ -997,3 +997,13 @@ CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`, SUCCESS:
 - Both synthetic safety jobs passed.
 
 Covers complete 10-column formula linkage plus status, 11 evaluated cells per row, infectious/room/identity/status value checks, doctor literal identity, formula error rejection and composite evidence count binding. Fake COM only.
+
+ 
+### 2026-11-25 — PATIENT_PLANNER formula bridge / MASTER source-value equality
+
+CI run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS:
+- Windows Python 3.11: **2916 passed, 30 warnings, 34.64s**.
+- Ubuntu Python 3.11: **2916 passed, 32 warnings, 28.98s**.
+- Both synthetic safety jobs passed.
+
+Covers direct PATIENTS A:E formula semantics in PATIENT_PLANNER, native formula result equality, full MASTER formula outputs compared to PATIENT_PLANNER source cells, and independent infectious/room/identity/status checks. Fake COM only.
