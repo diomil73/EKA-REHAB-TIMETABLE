@@ -129,3 +129,6 @@ The new Python module implements only structural receipt encoding/decoding, oper
 - Phase orchestrator: not implemented.
 - Full rollback executor: not proven.
 - Gate 2: remains closed.
+## Addendum — PREPARED snapshot evidence is distinct
+
+The initial PREPARED revision (revision 0) must carry EvidenceKind.PREPARED_SNAPSHOT = prepared_snapshot_native_readback. FAILURE_DIAGNOSTIC is reserved for the FAILED phase and is not valid PREPARED evidence. PREPARED_SNAPSHOT is not valid for any later revision. The structural receipt codec enforces this phase/revision distinction. This remains structural validation only; the actual native snapshot verifier and trusted attestation are not implemented.
