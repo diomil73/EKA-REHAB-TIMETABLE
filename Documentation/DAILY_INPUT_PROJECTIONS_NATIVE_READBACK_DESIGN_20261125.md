@@ -335,3 +335,27 @@ Latest completed full CI including the source-capture Excel-version CLI output a
 This native capture verifies literal cell agreement for the listed source sheets. It does not attest to the provenance or authorization of those values, inspect styles/layout/package resources, authenticate shared-clock approval tuples, or bind an operation ID. It rejects all formulas in selected source sheets rather than implementing formula semantics. The source preflight remains composed from canonical OOXML readers, while native capture independently checks their saved literal source cells. Python result objects remain caller-constructible. No signed verifier attestation, report/receipt or phase adapter exists. No real operational XLSM has been opened in this work.
 
 `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; Gate 2 remains closed.
+
+ 
+## 14. Expanded native MASTER formula/evaluated-value coverage
+
+Extended `daily_input_master_projection_native.py` to inspect the complete 10-column canonical MASTER source-formula block plus the status formula for every projected patient row. It checks each formula against its exact PATIENT_PLANNER source-column/row link, reads all 11 Excel-evaluated cells and rejects formula errors. The doctor-identity cell is the deliberate exception: when a responsible doctor is present, column C must be a literal and is compared to the independently expected patient/doctor text.
+
+In addition to formula linkage, native evaluated values are now compared for:
+- infectious flag in MASTER column A;
+- room in column B;
+- patient/doctor identity in column C;
+- status in the schema-selected status column.
+
+The result records formula/evaluated-cell counts. The composite requires exact expected counts: 11 evaluated cells per projected row; 11 formula cells where doctor identity is formula-driven, or 10 where the doctor identity is literal. This prevents a partial native MASTER scan from being reported as complete.
+
+CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`, SUCCESS:
+- Windows Python 3.11: **2911 passed, 30 warnings, 45.81s**.
+- Ubuntu Python 3.11: **2911 passed, 33 warnings, 29.60s**.
+- Both synthetic safety jobs passed.
+
+Synthetic fake-COM tests cover all formula links, infectious mismatch, room/identity/status mismatch, missing/wrong formulas, formula error values, literal doctor identity and composite formula/evaluated count enforcement. No real Excel instance or operational XLSM was opened.
+
+### Remaining MASTER boundary
+
+The seven other formula-driven business columns are checked for exact formula linkage and Excel error results, but their evaluated business values are not yet compared to independent expected facts. This does not verify full treatment-value semantics, formatting, styles, borders, row heights, conditional formatting or package resources. No operation ID, trusted verifier attestation, phase report or receipt is created. Gate 2 remains closed.
