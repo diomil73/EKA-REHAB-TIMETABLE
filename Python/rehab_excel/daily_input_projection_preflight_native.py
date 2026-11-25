@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .authoritative_commit import file_sha256
 from .daily_input_input_ledger_native import (
-    InputLedgerNativeReadback, verify_input_and_ledger_native_readonly,
+    InputLedgerNativeReadback, verify_input_ledger_native_readonly,
 )
 from .daily_input_projection_native import (
     DailyInputProjectionNativeReadback, verify_daily_input_projection_native_readonly,
@@ -95,7 +95,7 @@ def verify_daily_input_projection_preflight_native_readonly(
         raise DailyInputProjectionPreflightNativeError("Preflight evidence does not bind to this workbook/date")
 
     try:
-        input_ledger = verify_input_and_ledger_native_readonly(
+        input_ledger = verify_input_ledger_native_readonly(
             source,
             validated_changes=preflight.validated_changes,
             patients=preflight.patients,
