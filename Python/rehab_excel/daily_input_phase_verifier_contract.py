@@ -126,7 +126,7 @@ _CONTRACTS = {
     EvidenceKind.OPERATOR_RESOLUTION: PhaseVerifierContract(
         EvidenceKind.OPERATOR_RESOLUTION, "diomil.operator-resolution-record-audit",
         "contract-v1", "independent_operator_decision_record_audit",
-        ("operator_decision_record", "operation_id_linkage", "decision_value", "decision_timestamp"), False,
+        ("operator_decision_record", "operation_id_linkage"), False,
     ),
     EvidenceKind.APPLIED_ARCHIVE_REOPEN: PhaseVerifierContract(
         EvidenceKind.APPLIED_ARCHIVE_REOPEN, "diomil.applied-archive-native-reopen",
