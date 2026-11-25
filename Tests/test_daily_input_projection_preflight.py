@@ -7,6 +7,7 @@ import rehab_excel.daily_input_projection_preflight as preflight
 from rehab_core.daily_state import DailySessionState, DailySessionStatus
 from rehab_core.models import AbsenceKind, BaseScheduleEntry, DailyAbsence, Patient, Session
 from rehab_excel.daily_input_reader import DailyInputReadResult, DailyInputSourceChange
+from rehab_excel.daily_input_therapist_assignment_membership import TherapistAssignmentFact
 from rehab_excel.daily_input_therapist_projection_expected import (
     TherapistDailyExpectedGrid,
 )
@@ -71,7 +72,7 @@ def _daily_input(target_date=SERVICE_DATE):
 
 
 def _install_readers(monkeypatch, path, *, headers=HEADERS, stable=STABLE_ENTRIES,
-                     daily_input=None, mutate=False):
+                     daily_input=None, mutate=False, assignments=()):
     calls = []
     digest = preflight.file_sha256(path)
     grid = TherapistDailyExpectedGrid(
@@ -85,7 +86,7 @@ def _install_readers(monkeypatch, path, *, headers=HEADERS, stable=STABLE_ENTRIE
             for row in (*range(2, 9), *range(12, 19))
             for col in range(9)
         ),
-        expected_assignments=(),
+        expected_assignments=assignments,
         occupied_cells=0,
     )
     master_rows = (MasterProjectionRow(
@@ -219,4 +220,55 @@ def test_preflight_rejects_source_mutation_during_expected_view_build(tmp_path, 
     with pytest.raises(preflight.DailyInputProjectionPreflightError):
         preflight.build_daily_input_projection_preflight(
             path, service_date=SERVICE_DATE, baseline_date=BASELINE_DATE,
+        )
+
+
+def test_preflight_requires_exact_independent_approval_for_shared_clock(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    assignments = (
+        TherapistAssignmentFact(
+            "assignment:00000001", "P1", "ΦΘ", "THERAPIST 1",
+            SERVICE_DATE, time(8, 30),
+        ),
+        TherapistAssignmentFact(
+            "assignment:00000002", "P2", "ΦΘ", "THERAPIST 1",
+            SERVICE_DATE, time(8, 30),
+        ),
+    )
+    _install_readers(monkeypatch, path, assignments=assignments)
+    with pytest.raises(preflight.DailyInputProjectionPreflightError):
+        preflight.build_daily_input_projection_preflight(
+            path, service_date=SERVICE_DATE, baseline_date=BASELINE_DATE,
+        )
+
+    approval = (("THERAPIST 1", time(8, 30), frozenset({"P1", "P2"})),)
+    grid, _master, _calls = _install_readers(
+        monkeypatch, path, assignments=assignments,
+    )
+    result = preflight.build_daily_input_projection_preflight(
+        path, service_date=SERVICE_DATE, baseline_date=BASELINE_DATE,
+        approved_shared_memberships=approval,
+    )
+    assert result.approved_shared_memberships == approval
+    assert result.approved_shared_clock_count == 1
+
+
+def test_preflight_rejects_shared_clock_approval_with_wrong_members(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    assignments = (
+        TherapistAssignmentFact(
+            "assignment:00000001", "P1", "ΦΘ", "THERAPIST 1",
+            SERVICE_DATE, time(8, 30),
+        ),
+        TherapistAssignmentFact(
+            "assignment:00000002", "P2", "ΦΘ", "THERAPIST 1",
+            SERVICE_DATE, time(8, 30),
+        ),
+    )
+    _install_readers(monkeypatch, path, assignments=assignments)
+    wrong = (("THERAPIST 1", time(8, 30), frozenset({"P1", "P3"})),)
+    with pytest.raises(preflight.DailyInputProjectionPreflightError):
+        preflight.build_daily_input_projection_preflight(
+            path, service_date=SERVICE_DATE, baseline_date=BASELINE_DATE,
+            approved_shared_memberships=wrong,
         )
