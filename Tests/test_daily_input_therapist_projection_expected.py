@@ -227,3 +227,15 @@ def test_expected_grid_binds_to_exact_source_workbook_bytes(tmp_path):
     _workbook(path)
     result = _grid(path)
     assert result.source_workbook_sha256 == sha256(path.read_bytes()).hexdigest()
+
+
+def test_expected_grid_accepts_blank_unused_provider_column(tmp_path):
+    path = tmp_path / "blank-provider-grid.xlsm"
+    headers = list(_headers())
+    headers[-1] = ""
+    _workbook(path, tuple(headers))
+    result = _grid(path, headers=tuple(headers))
+    cells = {item.cell: item.value for item in result.cells}
+    assert result.cells and len(result.cells) == 126
+    assert cells["J18"] is None
+    assert result.provider_headers[-1] == ""
