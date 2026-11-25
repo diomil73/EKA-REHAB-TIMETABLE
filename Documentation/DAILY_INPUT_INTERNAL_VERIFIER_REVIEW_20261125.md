@@ -316,3 +316,18 @@ A synthetic student replacement exposed that the existing preview's final provid
 GitHub Actions run `45660810319`, HEAD `5a91058f0c9f78f63c19a70366987d8685796af7`: Windows **2866 passed / 36 warnings / 42.21s**; Ubuntu **2866 passed / 32 warnings / 23.47s**; both synthetic safety jobs succeeded.
 
 The builder consumes caller-supplied facts. It does not independently capture or validate the source sheets, stable-ID registry, exits/recurring changes, DAILY_INPUT, authoritative ledger or replacement store. It is not joined to the native full-grid COM reader in a composite operation-bound diagnostic/report adapter. No trusted attestation or registry status change; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 remains closed.
+
+ 
+## 16. Composite native projection evidence binding — 25/11/2026
+
+Added `daily_input_projection_native.py` and tests. It requires:
+- prior `InputLedgerNativeReadback`;
+- immutable expected MASTER rows and an independently supplied source SHA-256 for those facts;
+- a complete `TherapistDailyExpectedGrid` whose builder captures the exact source workbook SHA-256 before/after construction;
+- fresh native MASTER and THERAPIST_DAILY readbacks.
+
+It requires all evidence to bind the same exact saved XLSM digest and service date, checks MASTER projected-row count against the expected tuple, therapist header/cell counts (18/126), occupied-cell count against the expected grid, INPUT_AND_LEDGER counts and non-empty Excel versions, and re-hashes the workbook after both native readbacks. It rejects invalid metadata types, Boolean-as-integer values, cross-source/date mismatch and workbook mutation.
+
+GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`: Windows **2877 passed / 33 warnings / 45.11s**; Ubuntu **2877 passed / 35 warnings / 18.84s**; both synthetic safety jobs succeeded.
+
+This remains a consistency composition only. It accepts the prior INPUT_AND_LEDGER result and caller-supplied preflight evidence; it does not authenticate those objects, bind operation ID, create a report/receipt, or independently capture the complete source/ledger/replacement facts. MASTER native evaluated values remain limited to room, identity and status. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed. Detailed boundary and next source-capture plan: `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §10.
