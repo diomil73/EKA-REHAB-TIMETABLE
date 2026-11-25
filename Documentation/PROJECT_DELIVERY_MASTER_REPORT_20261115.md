@@ -1511,3 +1511,10 @@ Current native MASTER proof covers canonical A:J formulas and M status only. In 
 Source capture supports direct and exact blank-guarded PATIENTS A:E formulas, including exact-empty versus whitespace semantics. Added a real-OOXML/fake-COM integration test and expanded 13-column MASTER status-M native readback test. K/L remain outside proof.
 
 CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed. No real Excel.
+
+ 
+### 2026-11-25 — PATIENTS / PATIENT_PLANNER mirror verification
+
+Native source capture now validates all A:E patient identity fields for every populated PATIENTS row, comparing supported formulas to their literal source and planner literals directly to PATIENTS. The wrapper binds the checked row count to preflight patient count.
+
+CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed. Fake COM only; no real Excel/operational XLSM.
