@@ -162,3 +162,45 @@ def test_rollback_contract_requires_native_package_and_prepared_snapshot_digests
     assert contract.requires_native_excel is True
     assert contract.requires_package_audit is True
     assert contract.requires_prepared_snapshot_binding is True
+
+def test_rollback_report_requires_package_audit_and_prepared_snapshot_hashes():
+    contract = VERIFIER_CONTRACTS[EvidenceKind.FULL_WORKBOOK_ROLLBACK]
+    rollback_operation = DailyInputOperation(
+        "op-verifier-rollback", "a" * 64, "2026-11-25",
+        phase=Phase.ROLLED_BACK, revision=2,
+        failure_code="SYNTHETIC_FAILURE", rollback_verified=True,
+    )
+    fields = {
+        "report_id": "rollback-report-001",
+        "operation_id": rollback_operation.operation_id,
+        "source_workbook_sha256": rollback_operation.source_sha256,
+        "service_date": rollback_operation.service_date,
+        "journal_revision": rollback_operation.revision,
+        "journal_phase": rollback_operation.phase.value,
+        "evidence_kind": EvidenceKind.FULL_WORKBOOK_ROLLBACK.value,
+        "verifier_id": contract.verifier_id,
+        "contract_version": contract.contract_version,
+        "verification_method": contract.verification_method,
+        "verification_result": VerificationResult.VERIFIED.value,
+        "evidence_artifact": "op-verifier-rollback/rollback-report.json",
+        "evidence_sha256": sha256(b"synthetic rollback evidence").hexdigest(),
+        "inspected_scope": list(contract.required_scope),
+        "native_excel_version": "SYNTHETIC-EXCEL-VERSION",
+        "package_audit_sha256": None,
+        "prepared_snapshot_sha256": None,
+        "verified_at_utc": "2026-11-25T11:30:00Z",
+    }
+    report = create_phase_verifier_report(**fields)
+    with pytest.raises(PhaseVerifierContractError, match="Package audit digest"):
+        validate_phase_verifier_report(
+            report, rollback_operation,
+            required_evidence=(EvidenceKind.FULL_WORKBOOK_ROLLBACK,),
+        )
+    fields["package_audit_sha256"] = "b" * 64
+    report = create_phase_verifier_report(**fields)
+    with pytest.raises(PhaseVerifierContractError, match="PREPARED snapshot digest"):
+        validate_phase_verifier_report(
+            report, rollback_operation,
+            required_evidence=(EvidenceKind.FULL_WORKBOOK_ROLLBACK,),
+        )
+
