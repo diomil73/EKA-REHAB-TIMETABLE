@@ -210,3 +210,13 @@ The legacy master writer's preview verification is partial, reading A/B/C/status
 ### MASTER structural readback CI defect and fix — 2026-11-25
 
 The first synthetic regression at code/test commit `0142629049c37dce62c396e55abf0175e6576d88` failed 3 new MASTER positive tests on Ubuntu (2797 passed, 3 failed, 96 warnings). The diagnosis was incorrect literal comparison against Greek text after Unicode `casefold()`: the terminal sigma in `Θάλαμος` and `Ασθενής` was normalized to `σ`, while the comparison constants had `ς`. Fixed both comparisons by casefolding the canonical header constants too in code commit `905418df1c33b4008fd2039a89b6c06d7b4ea7fd`. New Ubuntu Python 3.11 CI `45617783680` passed **2800 tests / 99 warnings / 25.97s**, and both synthetic safety jobs succeeded; full Windows result to be confirmed separately before full green. No real Excel run or workbook modification. This was a newly introduced test/code mismatch, not evidence of operational workbook correction.
+
+
+### Final cross-platform regression for MASTER structural readback — 2026-11-25
+
+GitHub Actions run `45617783680` for corrected code commit `905418df1c33b4008fd2039a89b6c06d7b4ea7fd`: **SUCCESS** overall, all four jobs successful.
+- Ubuntu Python 3.11: **2800 passed, 99 warnings, 25.97s**.
+- Windows Python 3.11: **2800 passed, 93 warnings, 42.87s**.
+- Both synthetic safety jobs passed.
+
+This supersedes the provisional Windows-pending status for this run. Initial three failing new tests were corrected, not ignored. Warning details are suppressed by CI, counts are retained. This is saved-OOXML verification and synthetic tests only. Full PROJECTIONS_REOPEN remains NOT_IMPLEMENTED and no native Excel, therapist projection, authenticated attestation, Apply or Gate 2 action occurred.
