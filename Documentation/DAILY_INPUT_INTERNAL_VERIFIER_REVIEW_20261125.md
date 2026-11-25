@@ -396,3 +396,12 @@ The native source capture supports both direct and exact blank-guarded same-row 
 Added native MASTER coverage for the expanded 13-column schema with status in M. This verifies A:J/M only; K psychology and L afternoon remain outside proof as documented in §15.
 
 CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed. No real Excel or operational XLSM.
+
+ 
+## 24. PATIENTS / PATIENT_PLANNER identity mirror completeness — 25/11/2026
+
+The native source capture now checks all five A:E identity fields for every populated PATIENTS patient row. It requires native formula presence to match OOXML, checks supported formulas against PATIENTS literals, and checks planner literal cells for exact equality with PATIENTS. Text and numeric values are not coerced. The one-call wrapper requires the mirror row count to equal preflight patient count.
+
+CI run `45680015176`, HEAD `fbf6e5571ad7cf6be412f719f304ade5d3c1322c`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed.
+
+This is consistency verification only, not provenance or authorization. Fake COM only; no real Excel. Gate 2 closed.
