@@ -289,7 +289,7 @@ def read_daily_replacement_fact_rows(
         path,
         read_only=True,
         data_only=False,
-        keep_vba=path.suffix.casefold() == ".xlsm",
+        keep_vba=False,
     )
     try:
         if SHEET_NAME not in wb.sheetnames:
