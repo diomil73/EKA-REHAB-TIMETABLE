@@ -282,7 +282,10 @@ def _provider_cell(
     target_date: date,
 ) -> str:
     candidates: list[str] = []
-    if provider_kind == ReplacementProviderKind.STUDENT:
+    # The final render pass stores provider/time keys without provider kind.
+    # If the key belongs to a known student, resolve its student label even when
+    # that final pass supplies the default THERAPIST kind.
+    if provider_kind == ReplacementProviderKind.STUDENT or provider_id in students:
         student = students.get(provider_id)
         if student is not None:
             state = student_display_state(student, target_date)
