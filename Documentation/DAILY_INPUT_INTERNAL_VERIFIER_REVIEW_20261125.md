@@ -131,3 +131,35 @@ Use injected fake COM objects for deterministic tests. A separate disposable rea
 - Operational acceptance and any positive transaction test.
 
 No production workbook, VBA, UI, Apply/Restore path, journal writer or Gate 2 setting was changed by this review.
+
+
+## 8. Transition evidence bundle validator implemented — 2026-11-25
+
+Added:
+- `Python/rehab_excel/daily_input_transition_evidence.py`
+- `Tests/test_daily_input_transition_evidence.py`
+
+The new `validate_transition_evidence_bundle()` derives obligations exclusively from `required_evidence_for_transition(previous_operation, operation)`. It requires immutable tuples containing exactly one phase report and one transaction receipt per required EvidenceKind; rejects duplicate, missing and extra kinds; validates each report against the same previous/candidate operation; cross-binds report and receipt artifact/verifier fields; checks receipt predecessor hashes in lifecycle-defined evidence order; and verifies the exact artifact bytes under the evidence root.
+
+Also changed `validate_receipt_binding()`: callers must now supply the previous operation, and the function derives the evidence obligations internally. The caller-supplied `required_evidence` parameter has been removed, preventing a caller from selecting a narrower subset.
+
+The bundle return value is explicitly structural, not an authorization token. It does not authenticate verifier origin or a trusted build manifest. Existing verifier registry statuses were not changed: PREPARED remains REPORT_ADAPTER_ONLY and the remaining nine verifier kinds remain NOT_IMPLEMENTED. The complete-bundle synthetic test temporarily substitutes IMPLEMENTED statuses in-memory solely to exercise structural ordering, predecessor chaining and artifact-byte validation; it does not alter the repository registry or establish any real verifier implementation.
+
+### Automated regression result
+
+GitHub Actions run `45597549259`, head `ed3bdec7e3e22a69b1162867f346321503b26498`:
+- Windows Python 3.11: **2740 passed, 72 warnings, 44.59s**.
+- Ubuntu Python 3.11: **2740 passed, 68 warnings, 28.33s**.
+- Both synthetic safety jobs succeeded.
+- Overall workflow conclusion: **success**.
+
+Two intermediate CI runs exposed assertion-expectation mismatches in the newly changed tests; the assertions were corrected and the final complete regression above is green. The workflow suppresses warning details; warning counts remain visible and are not claimed to be zero.
+
+This is GitHub Actions synthetic/unit regression only. No local PC test, native Excel COM execution, real XLSM smoke test, trusted verifier attestation, journal append, Apply/Restore enablement or Gate 2 change occurred.
+
+### Updated next steps
+
+1. **Completed:** exact transition evidence bundle validator and internally derived receipt obligations.
+2. Define and implement trusted verifier/build-manifest attestation and key custody without inventing or embedding a key.
+3. Implement INPUT_AND_LEDGER native Excel COM read-only verifier, reconciled independently with the existing OOXML comparator and the same trusted preflight facts.
+4. Continue with the phase-specific verifiers and operational crash-recovery integration only after their trust boundaries are independently satisfied.
