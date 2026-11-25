@@ -36,9 +36,10 @@ class _Sheet:
     def __init__(self, values, formulas=None):
         self.values = values
         self.formulas = formulas or {}
+        addresses = (*values.keys(), *(formulas or {}).keys())
         self.UsedRange = _Used(
-            max((int("".join(ch for ch in a if ch.isdigit())) for a in values), default=1),
-            max((sum((ord(ch) - 64) * 26 ** i for i, ch in enumerate(reversed("".join(ch for ch in a if ch.isalpha())))) for a in values), default=1),
+            max((int("".join(ch for ch in a if ch.isdigit())) for a in addresses), default=1),
+            max((sum((ord(ch) - 64) * 26 ** i for i, ch in enumerate(reversed("".join(ch for ch in a if ch.isalpha())))) for a in addresses), default=1),
         )
 
     def Cells(self, row, column):
@@ -246,7 +247,9 @@ def test_native_source_capture_allows_only_direct_patient_planner_source_links(t
         capture, "WorkbookPackageProbe",
         lambda _path: _Probe(_path, sheets, formulas=formulas),
     )
-    app = _App(sheets, formulas={"PATIENT_PLANNER": {"A2": "=PATIENTS!A2"}})
+    native_sheets = _required_sheets()
+    native_sheets["PATIENT_PLANNER"]["A2"] = "001"
+    app = _App(native_sheets, formulas={"PATIENT_PLANNER": {"A2": "=PATIENTS!A2"}})
 
     result = capture.verify_daily_input_source_native_capture_readonly(
         path, excel_factory=lambda: app,
