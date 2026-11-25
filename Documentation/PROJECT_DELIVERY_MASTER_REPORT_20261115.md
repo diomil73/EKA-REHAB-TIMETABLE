@@ -1202,3 +1202,9 @@ Synthetic tests were added for round-trip, tampering, malformed fields, unsafe p
 ## 2026-11-25 — PREPARED receipt evidence-kind correction
 
 After the local baseline run (68 passed, 1 skipped, exit 0), source review found the synthetic revision-0 receipt fixture used FAILURE_DIAGNOSTIC, which is semantically wrong for PREPARED. Added EvidenceKind.PREPARED_SNAPSHOT and enforced that it is exclusive to revision 0; FAILED diagnostic evidence remains reserved for FAILED. Updated the fixture and added a rejection test for phase/revision mismatch. The amended tests have not yet been executed. The prior green run applies to the prior code only. No workbook or VBA changed; Gate 2 remains closed.
+
+## 2026-11-25 — Receipt fixture phase/revision alignment correction
+
+Follow-up local run after PREPARED_SNAPSHOT tightening: 5 failed, 64 passed, 1 skipped. All five failures traced to receipt test fixtures using revision-zero PREPARED defaults while claiming later-phase INPUT_AND_LEDGER_REOPEN evidence, or using PREPARED_SNAPSHOT for a later revision. Production phase guard was behaving as designed. Test fixtures corrected on the authoritative branch: later-phase operation and receipt now use revision 1 INPUT_AND_LEDGER_COMMITTED, INPUT_AND_LEDGER_REOPEN and a bound PREPARED predecessor digest; missing-predecessor test explicitly removes the predecessor while retaining the correct later-phase evidence kind. Changes committed; rerun pending.
+
+The single skip is confirmed as Windows symlink creation unavailable. Six ZipFile unraisable deallocation warnings remain unresolved and are not suppressed. No native workbook/VBA or operational handler changed; Gate 2 remains closed.
