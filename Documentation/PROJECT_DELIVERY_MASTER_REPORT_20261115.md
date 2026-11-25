@@ -1456,3 +1456,10 @@ GitHub Actions run **45662463260**, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f9
 - Both synthetic safety jobs passed.
 
 This is non-authorizing structural composition, not an operation-bound report/receipt or trusted verifier. Full native source/ledger/replacement capture, operation identity, all MASTER evaluated values and trusted attestation remain open. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+### 2026-11-25 — THERAPIST_DAILY blank provider-slot compatibility
+
+The native full-grid reader and expected-grid builder now allow blank unused provider headers, but require all cells under such headers to remain empty. Duplicate populated names within a block fail. All 18 header positions and 126 patient cells remain inspected.
+
+GitHub Actions run `45663881144`: Windows **2880 passed, 34 warnings**; Ubuntu **2880 passed, 32 warnings**; both synthetic safety jobs passed. Fake COM only; no real Excel execution. No phase status change.
