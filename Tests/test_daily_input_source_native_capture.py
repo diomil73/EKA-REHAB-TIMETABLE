@@ -126,6 +126,7 @@ def test_native_source_capture_compares_all_literal_cells_and_optional_sheets(tm
     assert result.checked_sheet_count == 6
     assert result.checked_populated_cells == sum(len(x) for x in sheets.values())
     assert result.checked_formula_cells == 0
+    assert result.identity_mirror_rows_checked == 1
     assert app.book.closed is True
     assert app.quit is True
     assert app.AutomationSecurity == 3
@@ -313,6 +314,7 @@ def test_native_source_capture_supports_canonical_blank_guarded_planner_identity
     )
 
     assert result.checked_formula_cells == 1
+    assert result.identity_mirror_rows_checked == 1
     assert app.book.closed is True
     assert app.quit is True
 
@@ -465,5 +467,20 @@ def test_native_source_capture_integrates_real_ooxml_package_probe(tmp_path):
 
     assert result.checked_sheet_count == 5
     assert result.checked_formula_cells == 5
+    assert app.book.closed is True
+    assert app.quit is True
+
+
+def test_native_source_capture_rejects_literal_planner_identity_drift(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    sheets["PATIENT_PLANNER"]["A2"] = "WRONG-PATIENT-ID"
+    monkeypatch.setattr(capture, "WorkbookPackageProbe", lambda _path: _Probe(_path, sheets))
+    app = _App(sheets)
+
+    with pytest.raises(capture.DailyInputSourceNativeCaptureError):
+        capture.verify_daily_input_source_native_capture_readonly(
+            path, excel_factory=lambda: app,
+        )
     assert app.book.closed is True
     assert app.quit is True
