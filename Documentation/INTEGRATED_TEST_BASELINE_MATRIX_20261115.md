@@ -730,3 +730,7 @@ SKIPPED [1] Tests\\test_daily_input_transaction_receipt.py:208: Symlinks unavail
 ```
 
 Confirmed green: 110 passed, zero failed. One symlink-specific test is skipped because symlinks are unavailable on this Windows environment. This confirms the verifier contract/report codec, transaction receipt, lifecycle, journal, phase-evidence and rollback focused tests. It does not establish native phase-verifier integration or operational Apply/Restore. PREPARED remains diagnostic-only; other nine verifier contracts remain unimplemented. Gate 2 remains closed.
+
+## 2026-11-25 — PREPARED phase-report adapter tests pending
+
+New adapter: Python/rehab_excel/daily_input_prepared_phase_adapter.py. New tests: Tests/test_daily_input_prepared_phase_adapter.py. They cover native readback invocation, exact snapshot hash binding, report codec round-trip, evidence-root containment, no-overwrite and fail-closed status pending trusted attestation. NOT YET RUN. The confirmed 110 passed, 1 skipped focused run predates this addition and must not be represented as covering these new tests.
