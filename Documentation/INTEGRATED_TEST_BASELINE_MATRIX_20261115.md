@@ -891,3 +891,17 @@ GitHub Actions run `45622874406`, code/test head `166d7bf54345476422dad79e2c4de9
 - Windows and Ubuntu synthetic Python safety jobs: success.
 
 Added tests reject changed immutable AssignmentID, patient identity, treatment, provider, date, time, duplicate assignment, missing row, legacy ID, sub-minute drift, missing/extra/shared-approval mismatch. Tests are fictional in-memory examples, **not** a real workbook source or native Excel COM inspection. No patient-identifying data was copied into repository fixtures. The complete PROJECTIONS_REOPEN phase, including independent saved-source extraction/attested report, remains NOT_IMPLEMENTED and Gate 2 remains closed. CI warnings remain nonzero.
+
+## 2026-11-25 — Read-only OOXML VBA-archive retention cleanup; local rerun pending
+
+User's focused Windows run after the new native INPUT_AND_LEDGER and projection diagnostics: 214 passed, 1 symlink-specific skip, 40 PytestUnraisableExceptionWarning instances from `ZipFile.__del__` / `ValueError: I/O operation on closed file`. No test failures.
+
+Source inspection found unnecessary `keep_vba=True` in read-only paths and synthetic non-VBA XLSM fixtures. Changed to `keep_vba=False` in:
+- `daily_input_reader.py` (read-only reader, closes without saving)
+- `daily_input_applied_state.py` (saved OOXML readback, closes without saving)
+- `prepare_daily_input_journal_prepared.py` (PREPARED preflight inspection, closes without saving)
+- `daily_input_master_projection_readback.py` (read-only structural verifier)
+- `daily_input_therapist_projection_readback.py` (read-only structural verifier)
+- the MASTER and THERAPIST_DAILY synthetic test mutation fixtures.
+
+This does not write or save a workbook and does not alter VBA, workbook content, native COM security, transaction state or Apply/Restore behavior. The real Excel COM verifiers remain separate and unchanged. Source changes are committed; warning removal is NOT YET VERIFIED. Repeat the focused 13-file pytest command on Windows and report the actual warning count. Do not suppress warnings or infer a clean result from the code change alone.
