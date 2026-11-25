@@ -65,3 +65,6 @@ For the current verifier continuation, use `Documentation/CURRENT_HANDOFF.md` an
 
  
 The latest DAILY_INPUT projection diagnostics and their strict non-authorizing boundaries are recorded in `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7–§8. The native MASTER and THERAPIST_DAILY readback primitives are fake-COM tested; the complete expected therapist grid builder, AssignmentID membership proof, trusted attestation and real Excel acceptance remain pending.
+
+ 
+The current continuation has advanced through the full 126-cell expected THERAPIST_DAILY grid builder. Its latest cross-platform synthetic regression is GitHub Actions run `45660810319` (2866 passed on Windows and Ubuntu). The expected-grid builder still consumes independently validated source facts from its caller; it is not yet a full source/ledger verifier or PROJECTIONS_REOPEN phase adapter. See `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7–§9.
