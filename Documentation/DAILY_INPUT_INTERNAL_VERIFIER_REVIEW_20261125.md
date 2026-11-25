@@ -338,3 +338,14 @@ This remains a consistency composition only. It accepts the prior INPUT_AND_LEDG
 The native reader and expected-grid builder now permit empty provider headers for unused columns, matching the existing OOXML layout contract. They still inspect all 18 header positions and all 126 patient cells, reject duplicate populated names within a block, reject a nonblank native header where preflight expects blank, and reject occupancy beneath blank headers.
 
 GitHub Actions run `45663881144`, HEAD `46d4023b0ba8e5c65510fd1ddc5bb249fdadb3ce`: Windows **2880 passed / 34 warnings / 60.57s**; Ubuntu **2880 passed / 32 warnings / 27.13s**; both synthetic safety jobs succeeded. Fake COM only. No real Excel, report adapter or authorization.
+
+ 
+## 18. Source preflight assembly and one-call native wrapper — 25/11/2026
+
+Added the source preflight, native wrapper and aggregate-only CLI. The preflight composes existing readers for patient/settings registries, unified inpatient/outpatient recurring assignments, stable IDs, recurring effective changes, exits, dated sessions, DAILY_INPUT changes, replacements, daily states, students and expected MASTER/THERAPIST_DAILY views. Explicit service/baseline dates and source SHA-256 before/after are mandatory. Exact shared-clock membership is compared to an explicit approval tuple; the tuple is not authenticated and the CLI accepts no approvals.
+
+The native wrapper invokes INPUT_AND_LEDGER, then composite MASTER/THERAPIST_DAILY, binds service date and exact workbook digest, validates ledger counts against preflight changes and hashes the workbook after completion. The CLI requires Windows and explicit dates and prints only aggregate metadata.
+
+CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`: Windows **2897 passed / 29 warnings / 48.44s**; Ubuntu **2897 passed / 32 warnings / 19.99s**; both synthetic safety jobs succeeded.
+
+Limits: canonical readers are composed, not a complete independently audited native COM capture of every source sheet. Python result objects are caller-constructible; no verifier provenance, operation ID, signed attestation, report or receipt. Shared-slot approvals are unauthenticated. MASTER native evaluated values remain partial. Fake COM/synthetic tests only; no real Excel. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
