@@ -122,7 +122,7 @@ The new Python module implements only structural receipt encoding/decoding, oper
 - Journal codec: implemented as pure append-only codec.
 - Lifecycle state model: implemented as pure model.
 - PREPARED native bridge: implemented, diagnostic-only.
-- Independent phase verifiers: not registered.
+- Independent phase verifiers: PREPARED has a report-producing adapter but remains REPORT_ADAPTER_ONLY pending trusted attestation; the other nine evidence kinds remain NOT_IMPLEMENTED.
 - Structural receipt codec/validator: implemented in daily_input_transaction_receipt.py with synthetic tests added; tests not yet executed in this session.
 - Trusted receipt writer/authenticator: not implemented.
 - Trusted signing/attestation root: not selected or implemented.
