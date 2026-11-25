@@ -62,3 +62,6 @@ The consolidated, evidence-based project delivery report is `Documentation/PROJE
 ## 2026-11-25 — Latest DAILY_INPUT verifier checkpoint
 
 For the current verifier continuation, use `Documentation/CURRENT_HANDOFF.md` and `Documentation/DIOMIL_MASTER_CONTINUITY_GUIDE.md`. The partial native MASTER identity diagnostic, its strict scope and next implementation steps are documented in `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`. It does not complete PROJECTIONS_REOPEN; Gate 2 remains closed.
+
+ 
+The latest DAILY_INPUT projection diagnostics and their strict non-authorizing boundaries are recorded in `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7–§8. The native MASTER and THERAPIST_DAILY readback primitives are fake-COM tested; the complete expected therapist grid builder, AssignmentID membership proof, trusted attestation and real Excel acceptance remain pending.
