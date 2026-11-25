@@ -331,3 +331,10 @@ It requires all evidence to bind the same exact saved XLSM digest and service da
 GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`: Windows **2877 passed / 33 warnings / 45.11s**; Ubuntu **2877 passed / 35 warnings / 18.84s**; both synthetic safety jobs succeeded.
 
 This remains a consistency composition only. It accepts the prior INPUT_AND_LEDGER result and caller-supplied preflight evidence; it does not authenticate those objects, bind operation ID, create a report/receipt, or independently capture the complete source/ledger/replacement facts. MASTER native evaluated values remain limited to room, identity and status. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed. Detailed boundary and next source-capture plan: `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §10.
+
+ 
+## 17. THERAPIST_DAILY blank provider-slot compatibility — 25/11/2026
+
+The native reader and expected-grid builder now permit empty provider headers for unused columns, matching the existing OOXML layout contract. They still inspect all 18 header positions and all 126 patient cells, reject duplicate populated names within a block, reject a nonblank native header where preflight expects blank, and reject occupancy beneath blank headers.
+
+GitHub Actions run `45663881144`, HEAD `46d4023b0ba8e5c65510fd1ddc5bb249fdadb3ce`: Windows **2880 passed / 34 warnings / 60.57s**; Ubuntu **2880 passed / 32 warnings / 27.13s**; both synthetic safety jobs succeeded. Fake COM only. No real Excel, report adapter or authorization.
