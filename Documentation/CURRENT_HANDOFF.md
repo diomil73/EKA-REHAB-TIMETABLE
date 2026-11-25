@@ -2791,3 +2791,10 @@ Native source capture supports both direct same-row PATIENTS A:E links and the e
 CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed.
 
 No real Excel/operational XLSM. Gate 2 remains closed.
+
+ 
+### PATIENTS / PATIENT_PLANNER mirror check
+
+The native source capture now verifies A:E for every populated PATIENTS patient row. Planner formulas must match supported OOXML formulas and their source values; planner literals must exactly equal PATIENTS values. The one-call wrapper requires the identity-mirror row count to equal the preflight patient count, catching row/ID/room/name/status/infectious drift before later readbacks.
+
+CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed. No real Excel/operational XLSM.
