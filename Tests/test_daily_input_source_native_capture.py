@@ -321,6 +321,7 @@ def test_native_source_capture_checks_blank_guarded_formula_blank_branch(tmp_pat
     path = _source(tmp_path)
     sheets = _required_sheets()
     sheets["PATIENTS"].pop("C2")
+    sheets["PATIENT_PLANNER"]["C2"] = ""
     formula = 'IF(PATIENTS!C2="","",PATIENTS!A2)'
     formulas = {"PATIENT_PLANNER": {"A2": formula}}
     monkeypatch.setattr(
@@ -330,6 +331,7 @@ def test_native_source_capture_checks_blank_guarded_formula_blank_branch(tmp_pat
     native_sheets = _required_sheets()
     native_sheets["PATIENTS"].pop("C2")
     native_sheets["PATIENT_PLANNER"]["A2"] = ""
+    native_sheets["PATIENT_PLANNER"]["C2"] = ""
     app = _App(
         native_sheets,
         formulas={"PATIENT_PLANNER": {"A2": f"={formula}"}},
@@ -348,6 +350,7 @@ def test_native_source_capture_matches_excel_guard_for_whitespace_name_value(tmp
     path = _source(tmp_path)
     sheets = _required_sheets()
     sheets["PATIENTS"]["C2"] = " "
+    sheets["PATIENT_PLANNER"]["C2"] = " "
     formula = 'IF(PATIENTS!C2="","",PATIENTS!A2)'
     formulas = {"PATIENT_PLANNER": {"A2": formula}}
     monkeypatch.setattr(
@@ -356,6 +359,7 @@ def test_native_source_capture_matches_excel_guard_for_whitespace_name_value(tmp
     )
     native_sheets = _required_sheets()
     native_sheets["PATIENTS"]["C2"] = " "
+    native_sheets["PATIENT_PLANNER"]["C2"] = " "
     native_sheets["PATIENT_PLANNER"]["A2"] = "001"
     app = _App(
         native_sheets,
