@@ -250,7 +250,7 @@ def verify_daily_input_source_native_capture_readonly(
                 expected_value = source_value
                 if guarded_formula:
                     name_value = patients_ws.Cells(row_number, 3).Value2
-                    if name_value is None or not str(name_value).strip():
+                    if name_value is None or name_value == "":
                         expected_value = ""
                 if not _same_literal(expected_value, formula_value):
                     raise DailyInputSourceNativeCaptureError("Native PATIENT_PLANNER formula result differs from PATIENTS")
