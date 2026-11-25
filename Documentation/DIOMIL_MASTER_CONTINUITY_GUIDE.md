@@ -3234,3 +3234,10 @@ Native MASTER now compares every one of its 10 formula results plus status to th
 CI run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
 
 No real Excel/operational XLSM. This remains non-authorizing and does not compare every treatment output to independently derived business facts or verify MASTER styling/package resources. Gate 2 closed. Details: design doc §§13-14.
+
+ 
+### 4.238 Expanded MASTER psychology/afternoon columns remain outside native proof — 25/11/2026
+
+The 13-column MASTER schema has K=psychologists, L=afternoon programme, M=status. Current native readback verifies A:J and M only. The existing writer clears A:P then rewrites only A:J and M; its expanded-schema test explicitly expects K/L blank. The patient-program VBA can repopulate K on individual patient edits, but does not populate L. Afternoon physiotherapy is separately stored in AFTERNOON_PHYSIO_SLOTS and shown in the read-only patient panel. No MASTER L renderer is included.
+
+No behavior changed. A green A:J/M readback does not certify K/L. Any future K/L integration needs a separate source/display contract, writer, native readback and tests. Details: design doc §15.
