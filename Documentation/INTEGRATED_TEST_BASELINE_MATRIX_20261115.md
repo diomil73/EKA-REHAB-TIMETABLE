@@ -1007,3 +1007,13 @@ CI run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS:
 - Both synthetic safety jobs passed.
 
 Covers direct PATIENTS A:E formula semantics in PATIENT_PLANNER, native formula result equality, full MASTER formula outputs compared to PATIENT_PLANNER source cells, and independent infectious/room/identity/status checks. Fake COM only.
+
+ 
+### 2026-11-25 — Guarded planner formula / expanded MASTER schema
+
+CI run `45679125582`, HEAD `2b9c6294232e476216f8438e2d1880797a539b0d`, SUCCESS:
+- Windows Python 3.11: **2922 passed, 30 warnings, 42.15s**.
+- Ubuntu Python 3.11: **2922 passed, 31 warnings, 29.86s**.
+- Both synthetic safety jobs passed.
+
+Covers exact blank-guarded PATIENT_PLANNER A:E formulas, whitespace-vs-empty semantics, integrated OOXML/native capture, and expanded 13-column MASTER status-M readback. K/L remain outside proof. Fake COM only.
