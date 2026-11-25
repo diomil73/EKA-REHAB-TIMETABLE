@@ -2,7 +2,7 @@
 
 The capture compares Excel COM-visible values against independently parsed
 OOXML literals for every populated cell in a fixed source-sheet allowlist.
-Formula/error cells and ranges beyond fixed bounds fail closed. No writes.
+Only direct same-row PATIENTS links in PATIENT_PLANNER A:E are supported; all other formulas/errors and out-of-bounds ranges fail closed. No writes.
 """
 from __future__ import annotations
 
@@ -128,10 +128,12 @@ def verify_daily_input_source_native_capture_readonly(
 ) -> DailyInputSourceNativeCapture:
     """Compare all populated source-sheet literals through native Excel COM.
 
-    OOXML formula/error metadata is inspected first. Every literal populated
-    cell is then read from a macro-disabled, read-only native Excel session and
-    compared without coercing text identifiers into numbers. The source hash
-    must remain unchanged. This captures source values, not verifier trust.
+    OOXML formula/error metadata is inspected first. Literal populated cells
+    are compared through macro-disabled, read-only native Excel. PATIENT_PLANNER
+    may contain only direct same-row links to PATIENTS columns A:E; their native
+    formulas and evaluated values are checked against literal PATIENTS cells.
+    Text identifiers are never coerced into numbers. The source hash must remain
+    unchanged. This captures source values, not verifier trust.
     """
     source = Path(workbook_path).resolve(strict=True)
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
@@ -143,7 +145,7 @@ def verify_daily_input_source_native_capture_readonly(
     if missing:
         raise DailyInputSourceNativeCaptureError("Required source sheet missing")
     selected = tuple(name for name in SOURCE_SHEET_LIMITS if name in package_sheets)
-    package_facts: dict[str, tuple[dict[str, object], int, int]] = {}
+    package_facts: dict[str, tuple[dict[str, object], dict[str, str], int, int]] = {}
     for name in selected:
         formulas = probe.formula_cells(name)
         errors = probe.error_cells(name)
