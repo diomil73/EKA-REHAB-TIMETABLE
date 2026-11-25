@@ -1478,6 +1478,6 @@ No real Excel or operational XLSM tested. Caller-supplied shared-slot approval t
 
 Added a native read-only Excel capture of populated literal cells for the DAILY_INPUT source-sheet allowlist. It rejects formula/error cells, compares typed OOXML literals to native COM values, enforces fixed UsedRange bounds and checks exact workbook hash immutability. The one-call wrapper runs source capture before INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY.
 
-CI run `45674827673`: Windows **2907 passed / 30 warnings / 46.67s**; Ubuntu **2907 passed / 30 warnings / 17.42s**; both synthetic safety jobs passed. A final CLI output assertion for source Excel version is pending.
+CI run `45675024806`, HEAD `35051970554b5268648ce81a7e4fa3cc212ecfc0`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including the source Excel-version CLI assertion.
 
 Fake COM/synthetic only; no real Excel or operational XLSM. No trust attestation, operation ID, receipt or Gate 2 authorization.
