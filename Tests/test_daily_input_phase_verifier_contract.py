@@ -125,7 +125,7 @@ def test_report_rejects_unrequired_evidence_kind():
     with pytest.raises(PhaseVerifierContractError, match="not required"):
         validate_phase_verifier_report(
             report, operation(),
-            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            previous_operation=prepared_operation(),
         )
 
 
@@ -136,7 +136,7 @@ def test_report_rejects_contract_scope_or_method_drift():
     with pytest.raises(PhaseVerifierContractError, match="scope differs"):
         validate_phase_verifier_report(
             report, operation(),
-            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            previous_operation=prepared_operation(),
         )
 
 
@@ -145,7 +145,7 @@ def test_positive_phase_report_fails_closed_until_native_verifier_is_implemented
     with pytest.raises(PhaseVerifierNotImplementedError, match="No executable independent verifier"):
         validate_phase_verifier_report(
             report, operation(),
-            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            previous_operation=prepared_operation(),
         )
 
 
@@ -156,7 +156,7 @@ def test_rejected_report_cannot_satisfy_positive_phase_obligation():
     with pytest.raises(PhaseVerifierContractError, match="Only VERIFIED"):
         validate_phase_verifier_report(
             report, operation(),
-            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            previous_operation=prepared_operation(),
         )
 
 
@@ -208,6 +208,10 @@ def test_rollback_report_requires_package_audit_and_prepared_snapshot_hashes():
     with pytest.raises(PhaseVerifierContractError, match="PREPARED snapshot digest"):
         validate_phase_verifier_report(
             report, rollback_operation,
-            required_evidence=(EvidenceKind.FULL_WORKBOOK_ROLLBACK,),
+            previous_operation=DailyInputOperation(
+                rollback_operation.operation_id, rollback_operation.source_sha256,
+                rollback_operation.service_date, phase=Phase.FAILED, revision=1,
+                failure_code="SYNTHETIC_FAILURE",
+            ),
         )
 
