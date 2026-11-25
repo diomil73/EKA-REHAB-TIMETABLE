@@ -408,3 +408,58 @@ def test_native_source_capture_accepts_all_five_production_planner_identity_form
     assert result.checked_formula_cells == 5
     assert app.book.closed is True
     assert app.quit is True
+
+
+def test_native_source_capture_integrates_real_ooxml_package_probe(tmp_path):
+    from openpyxl import Workbook
+
+    path = tmp_path / "integrated-native-source.xlsm"
+    wb = Workbook()
+    patients = wb.active
+    patients.title = "PATIENTS"
+    patients.append(["PatientID", "Room", "Patient", "Infectious", "Status"])
+    patients.append(["001", "A1", "FICTIONAL PATIENT", "N", "Active"])
+
+    planner = wb.create_sheet("PATIENT_PLANNER")
+    planner.append(["PatientID", "Room", "Patient", "Infectious", "Status"])
+    for column, formula in zip("ABCDE", planner_identity_formulas(2)):
+        planner[f"{column}2"] = formula
+
+    for name in ("SETTINGS", "DAILY_INPUT", "DAILY_CHANGE_LEDGER"):
+        wb.create_sheet(name)["A1"] = name
+    wb.save(path)
+    wb.close()
+
+    sheets = {
+        "PATIENTS": {
+            "A1": "PatientID", "B1": "Room", "C1": "Patient",
+            "D1": "Infectious", "E1": "Status",
+            "A2": "001", "B2": "A1", "C2": "FICTIONAL PATIENT",
+            "D2": "N", "E2": "Active",
+        },
+        "PATIENT_PLANNER": {
+            "A1": "PatientID", "B1": "Room", "C1": "Patient",
+            "D1": "Infectious", "E1": "Status",
+            "A2": "001", "B2": "A1", "C2": "FICTIONAL PATIENT",
+            "D2": "N", "E2": "Active",
+        },
+        "SETTINGS": {"A1": "SETTINGS"},
+        "DAILY_INPUT": {"A1": "DAILY_INPUT"},
+        "DAILY_CHANGE_LEDGER": {"A1": "DAILY_CHANGE_LEDGER"},
+    }
+    formulas = {
+        "PATIENT_PLANNER": {
+            f"{column}2": formula
+            for column, formula in zip("ABCDE", planner_identity_formulas(2))
+        }
+    }
+    app = _App(sheets, formulas=formulas)
+
+    result = capture.verify_daily_input_source_native_capture_readonly(
+        path, excel_factory=lambda: app,
+    )
+
+    assert result.checked_sheet_count == 5
+    assert result.checked_formula_cells == 5
+    assert app.book.closed is True
+    assert app.quit is True
