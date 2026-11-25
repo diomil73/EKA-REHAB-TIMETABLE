@@ -28,7 +28,7 @@ def receipt_fields(**overrides):
         "service_date": "2026-11-25",
         "journal_revision": 0,
         "journal_phase": "PREPARED",
-        "evidence_kind": EvidenceKind.FAILURE_DIAGNOSTIC.value,
+        "evidence_kind": EvidenceKind.PREPARED_SNAPSHOT.value,
         "evidence_artifact": "op-20261125-001/prepared.bin",
         "evidence_sha256": sha256(b"fictional evidence").hexdigest(),
         "verifier_id": "native-reopen-verifier",
@@ -100,6 +100,20 @@ def test_revision_zero_requires_prepared_and_no_predecessor():
         create_transaction_receipt(**receipt_fields(journal_phase="COMPLETE"))
     with pytest.raises(TransactionReceiptError, match="Revision zero"):
         create_transaction_receipt(**receipt_fields(previous_receipt_sha256="b" * 64))
+
+
+def test_prepared_snapshot_evidence_is_exclusive_to_revision_zero():
+    with pytest.raises(TransactionReceiptError, match="PREPARED_SNAPSHOT"):
+        create_transaction_receipt(**receipt_fields(
+            evidence_kind=EvidenceKind.FAILURE_DIAGNOSTIC.value,
+        ))
+    with pytest.raises(TransactionReceiptError, match="PREPARED_SNAPSHOT"):
+        create_transaction_receipt(**receipt_fields(
+            journal_revision=1,
+            journal_phase=Phase.INPUT_AND_LEDGER_COMMITTED.value,
+            evidence_kind=EvidenceKind.PREPARED_SNAPSHOT.value,
+            previous_receipt_sha256="b" * 64,
+        ))
 
 
 def test_nonzero_revision_requires_predecessor_digest():
