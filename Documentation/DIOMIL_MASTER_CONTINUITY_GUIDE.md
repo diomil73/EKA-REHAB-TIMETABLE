@@ -2626,3 +2626,21 @@ Therefore private `PersistDaySavePayload` was invoked in native Excel via the di
 **Next safe sequence:** (1) inspect the exact control inventory and VBA project component inventory on a fresh disposable copy of CC without changing it; (2) compare against `install_day_amendment_ui.py`, the UI inspector's expected control identity/type and the exact `modDailyInputJournal` application-contract requirements; (3) trace why CC is missing the component and whether CC is the intended candidate for this workflow; (4) only after a separately approved disposable candidate passes non-mutating preflight, design a positive transaction with durable before/after evidence and a separately verified restore path. Keep CC and all frozen H2-H10 artifacts immutable.
 
 **Status:** positive Day Amendment lifecycle remains NOT PROVEN. No operational workbook mutation authorized.
+
+
+## 4.200 CC native UI reconciliation — SaveOperationalDay is on MASTER_SCHEDULE; Amendment control absent on DAILY_INPUT — 25/11/2026
+
+**Candidate:** `Excel/previews/UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm`. Baseline SHA-256 before inventory: `1BD5E58E905F91ACB55E5A706CD8B4563B5A98C170A9EC60FE76C95617420B13`. The same SHA-256 was reported after both read-only inspections; no source mutation was observed.
+
+**Native VBA inventory:** `audit_vba_project_inventory.py $demo` completed with exit code 0. It opened Excel ReadOnly with macros and events disabled, enumerated 66 VBA components, and reported source hash unchanged. `modDayAmendmentAction` exists (402 lines); `modUnifiedDaySave` exists (70 lines). `modDailyInputJournal` was not present in the 66-component inventory. A warning stated Excel did not allow manual calculation mode; inventory nevertheless completed. This inventory prints component names/types/line counts and UserForm control identities/types only, not VBA source or cell values.
+
+**Read-only UI inspection results:**
+- `inspect_day_amendment_ui_contract.py $demo` exited 2 with `Day-save button is missing from DAILY_INPUT`.
+- `inspect_unified_day_save_controls.py $demo` exited 0 and found on `MASTER_SCHEDULE`: `ekaToolbar_SaveOperationalDayMaster`, OnAction=`SaveOperationalDay`, Visible=True. It found only `ekaToolbar_ExitApp` on `DAILY_INPUT`; no matching day-save/amendment shape was found there. It also confirmed `modUnifiedDaySave` dispatcher is PRESENT.
+- Final reported source SHA-256 remained `1BD5E58E905F91ACB55E5A706CD8B4563B5A98C170A9EC60FE76C95617420B13`.
+
+**Interpretation and evidence boundary:** This is now more specific than the earlier generic “missing day-save button” finding. The candidate has a unified operational-day save button on MASTER_SCHEDULE and a dispatcher, while the Day Amendment UI contract inspector specifically expects a named control on DAILY_INPUT. The two findings are not contradictory: they inspect different sheet/control contracts. The inventory also independently confirms that `modDailyInputJournal` is absent, but the current amendment UI inspector's reported failure occurs at the shape lookup after it has resolved its configured amendment module; do not claim that the missing journal component caused this particular button error. No control installation, VBA modification, positive transaction, save/close/reopen, or rollback was performed.
+
+**Next safe step:** inspect the exact constants and installer contract for `modDayAmendmentAction` / `ekaToolbar_DayAmendment`, inspect the current `modUnifiedDaySave` dispatcher and its intended sheet placement, then compare these with historical accepted DEMO requirements and the intended operator workflow. Decide whether Amendment should have a separate DAILY_INPUT button or whether the inspector's expected location/name is stale. Separately trace the missing `modDailyInputJournal` application-contract dependency. Do not install controls or modules until these contracts are reconciled. Preserve CC and frozen historical workbooks.
+
+**Status:** read-only native inventory GREEN; unified save dispatcher/control on MASTER_SCHEDULE GREEN for presence only; Day Amendment UI contract FAILED on DAILY_INPUT; full Day Amendment positive lifecycle NOT PROVEN.
