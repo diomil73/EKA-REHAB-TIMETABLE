@@ -3126,3 +3126,12 @@ This is a **partial MASTER identity diagnostic only**. It does not check every e
 The new COM tests use injected fake COM objects. No real Excel instance or user XLSM was opened; this is not native operator acceptance. CI warnings are nonzero. No workbook, VBA, UI, journal writer, Apply/Restore or Gate 2 change. Gate 2 remains closed.
 
 Next: implement an independently sourced native THERAPIST_DAILY assignment reader that extracts immutable AssignmentID/PatientID/treatment/provider/date/time facts from saved authoritative source data. Do not infer assignment identity from display labels or occupied-clock counts. Only after all affected views and source-ledger linkage are independently checked should a PROJECTIONS_REOPEN report adapter be added.
+
+ 
+### 4.228 Therapist AssignmentID source-chain audit — next verifier design grounded — 25/11/2026
+
+A further source-only audit mapped existing reusable mechanisms for the next therapist verifier: `stable_recurring_ids.bind_stable_assignment_ids()` binds planner identities by PatientID/Treatment and weekly/outpatient identities by exact source row; `read_base_schedule()` plus `read_unified_base_schedule()` preserve existing inpatient/granular/outpatient source routing; `materialize_sessions_for_date()` forms dated session IDs from the stable base AssignmentID; `DAILY_REPLACEMENT_FACTS` carries exact target session and effective provider/time; `build_daily_session_states()` preserves base identity while deriving the effective day state.
+
+Critical limitation: THERAPIST_DAILY's visible provider/time/patient grid does not itself contain AssignmentID. The native verifier must derive expected effective assignments from the saved authoritative sources and resolve each visible patient/provider/time cell to exactly one assignment. Missing, duplicate or ambiguous joins must fail closed. It must preserve weekly/outpatient source row indices for ID lookup, account for date-effective schedules, daily ledger and replacement overlays, and keep student replacements distinct. Do not infer IDs from visible order or occupied-clock counts.
+
+Detailed source findings and unresolved label/zero-day questions are now in §7 of `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`. No therapist source reader or PROJECTIONS_REOPEN adapter has yet been implemented. Gate 2 remains closed.
