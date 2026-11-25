@@ -192,6 +192,12 @@ def build_therapist_daily_expected_grid(
     student_map = {item.student_id: item for item in students}
     if len(student_map) != len(students):
         raise TherapistDailyExpectedGridError("Duplicate StudentID")
+    therapist_ids = {
+        entry.therapist_id for entry in base_entries
+        if entry.therapist_id is not None
+    }
+    if therapist_ids & set(student_map):
+        raise TherapistDailyExpectedGridError("StudentID collides with a recurring therapist identity")
     if any(type(k) is not str or not k.strip() or type(v) is not str or not v.strip()
            for k, v in labels.items()):
         raise TherapistDailyExpectedGridError("Provider label map is invalid")
