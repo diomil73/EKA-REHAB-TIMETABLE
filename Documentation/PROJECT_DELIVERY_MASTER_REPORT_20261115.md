@@ -1418,3 +1418,15 @@ This is a partial diagnostic, not a complete PROJECTIONS_REOPEN verifier. Native
 ### 2026-11-25 — Therapist AssignmentID source chain mapped, verifier still pending
 
 Source audit mapped existing stable ID binding, inpatient/granular/outpatient schedule readers, dated session IDs, daily replacement facts and effective DailySessionState. A critical constraint is now explicit: THERAPIST_DAILY display cells do not carry AssignmentID. The future native verifier must derive expected assignments from authoritative native-captured sources and uniquely reconcile each visible patient/provider/time occupancy; ambiguous joins fail closed. It must preserve source row positions for weekly/outpatient ID binding, include daily input/ledger and replacement overlays, and distinguish student replacements. No AssignmentID reader is yet implemented and PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. See `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7.
+
+ 
+### 2026-11-25 — Native THERAPIST_DAILY full-grid readback primitive
+
+Added `daily_input_therapist_projection_native.py` and its fake-COM regression tests. The read-only diagnostic requires all 18 provider headers and a complete 126-cell expected patient-grid map, verifies both header/time blocks and every native Excel-visible cell value, rejects formula/error occupancy, captures Excel Version, closes without saving and checks unchanged workbook bytes.
+
+GitHub Actions run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6`, SUCCESS:
+- Windows: 2859 passed, 32 warnings.
+- Ubuntu: 2859 passed, 35 warnings.
+- Both synthetic safety jobs passed.
+
+This is a native-grid comparison primitive tested with fake COM, not actual Excel. The complete expected-grid builder, AssignmentID extraction, shared-slot membership proof and operation-bound source-ledger linkage remain pending. No report adapter or authorization; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. See design doc §8.
