@@ -1499,3 +1499,8 @@ Source capture supports only exact direct same-row PATIENTS links in PATIENT_PLA
 CI run `45677349897`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
 
 Fake COM only; no real Excel/operational XLSM. Full treatment business semantics and visual/package checks remain open.
+
+ 
+### 2026-11-25 — Expanded MASTER K/L scope boundary
+
+Current native MASTER proof covers canonical A:J formulas and M status only. In the expanded 13-column schema, K psychology and L afternoon are outside that proof. Existing writer clears K/L and its test expects blank; psychology may be separately refreshed by patient-program VBA, while afternoon is separately stored and displayed in the patient form. No code change made. A green A:J/M result is not proof of K/L content.
