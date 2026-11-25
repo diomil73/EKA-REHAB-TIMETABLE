@@ -58,7 +58,7 @@ def _evidence(path):
     )
     master = MasterProjectionNativeReadback(
         workbook_sha256=digest,
-        projected_rows=4,
+        projected_rows=0,
         header_row=3,
         status_column=11,
         native_excel_version="16.0",
@@ -104,7 +104,7 @@ def test_composite_binds_input_ledger_master_and_full_therapist_grid(tmp_path, m
 
     assert result.workbook_sha256 == digest
     assert result.service_date == SERVICE_DATE
-    assert result.master_projected_rows == 4
+    assert result.master_projected_rows == 0
     assert result.therapist_grid_cells_checked == 126
     assert result.therapist_occupied_cells == 0
     assert result.input_ledger_source_changes == 2
@@ -176,5 +176,33 @@ def test_composite_rejects_workbook_mutation_between_readbacks(tmp_path, monkeyp
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=(), expected_therapist_grid=grid,
+        )
+
+
+def test_composite_rejects_inconsistent_component_counts(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    digest, grid, ledger, master, therapist = _evidence(path)
+    wrong_master = MasterProjectionNativeReadback(digest, 1, 3, 11, "16.0")
+    _patch_readers(monkeypatch, wrong_master, therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=(), expected_therapist_grid=grid,
+        )
+
+    wrong_therapist = TherapistDailyNativeReadback(digest, 18, 126, 1, "16.0")
+    _patch_readers(monkeypatch, master, wrong_therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=(), expected_therapist_grid=grid,
+        )
+
+    wrong_ledger = InputLedgerNativeReadback(SERVICE_DATE, digest, 2, 1, "16.0")
+    _patch_readers(monkeypatch, master, therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=wrong_ledger,
             expected_projection=(), expected_therapist_grid=grid,
         )
