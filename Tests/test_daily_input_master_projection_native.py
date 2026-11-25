@@ -90,7 +90,8 @@ def _expected(doctor=False):
 
 
 def _fake_app(items, *, room="A01", identity=None, status="active",
-              readonly=True, version="16.0", wrong_formula=False):
+              infectious=None, readonly=True, version="16.0",
+              wrong_formula=False, formula_error=False):
     item = items[0]
     identity = identity if identity is not None else (
         f"{item.display_name}\n✚ {item.responsible_doctor}"
@@ -100,19 +101,25 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
         (3, 2): Cell("Θάλαμος"),
         (3, 3): Cell("Ασθενής"),
         (3, 11): Cell("Κατάσταση"),
-        (item.target_row, 2): Cell(room, "=PATIENT_PLANNER!B2"),
-        (item.target_row, 3): Cell(
-            identity,
-            None if item.responsible_doctor else "=PATIENT_PLANNER!C2",
-        ),
-        (item.target_row, 11): Cell(status, "=PATIENT_PLANNER!E2"),
     }
-    if wrong_formula:
-        values[(item.target_row, 2)] = Cell(room, "=PATIENT_PLANNER!B99")
+    for col, source in SOURCE_COLUMNS.items():
+        value = {
+            1: item.infectious if infectious is None else infectious,
+            2: room,
+            3: identity,
+        }.get(col, "NATIVE FORMULA VALUE")
+        formula = None if col == 3 and item.responsible_doctor else (
+            f"=PATIENT_PLANNER!{source}{item.planner_row}"
+        )
+        if wrong_formula and col == 2:
+            formula = "=PATIENT_PLANNER!B99"
+        if formula_error and col == 4:
+            value = "#REF!"
+        values[(item.target_row, col)] = Cell(value, formula)
+    values[(item.target_row, 11)] = Cell(status, "=PATIENT_PLANNER!E2")
     book = Book(Sheet(values), readonly=readonly)
     app = App(book, version=version)
     return app, book
-
 
 def test_native_master_readback_checks_values_and_closes_without_saving(tmp_path):
     path = tmp_path / "synthetic-master.xlsm"
@@ -129,6 +136,8 @@ def test_native_master_readback_checks_values_and_closes_without_saving(tmp_path
     assert result.header_row == 3
     assert result.status_column == 11
     assert result.native_excel_version == "16.0"
+    assert result.formula_cells_checked == 11
+    assert result.evaluated_cells_checked == 11
     assert result.workbook_sha256 == sha256(original).hexdigest()
     assert app.AutomationSecurity == 3
     assert app.Visible is False
@@ -150,10 +159,12 @@ def test_native_master_readback_checks_literal_doctor_identity(tmp_path):
         path, expected_projection=expected, excel_factory=lambda: app,
     )
     assert result.projected_rows == 1
+    assert result.formula_cells_checked == 10
+    assert result.evaluated_cells_checked == 11
     assert app.quit is True
 
 
-@pytest.mark.parametrize("failure", ["room", "identity", "status", "formula", "readonly", "version"])
+@pytest.mark.parametrize("failure", ["room", "identity", "status", "infectious", "formula", "formula_error", "readonly", "version"])
 def test_native_master_readback_fails_closed_and_cleans_up(tmp_path, failure):
     path = tmp_path / "synthetic-master.xlsm"
     expected = _expected()
@@ -162,7 +173,9 @@ def test_native_master_readback_fails_closed_and_cleans_up(tmp_path, failure):
         "room": "WRONG ROOM" if failure == "room" else "A01",
         "identity": "WRONG PATIENT" if failure == "identity" else None,
         "status": "inactive" if failure == "status" else "active",
+        "infectious": "YES" if failure == "infectious" else None,
         "wrong_formula": failure == "formula",
+        "formula_error": failure == "formula_error",
         "readonly": failure != "readonly",
         "version": "" if failure == "version" else "16.0",
     }
