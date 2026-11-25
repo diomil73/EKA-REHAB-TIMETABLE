@@ -1997,3 +1997,12 @@ Added a fresh-Excel-COM read-only diagnostic requiring explicit expected values 
 CI run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6c`: Windows **2859 passed / 32 warnings**; Ubuntu **2859 passed / 35 warnings**; both synthetic safety jobs succeeded.
 
 This is a fake-COM tested primitive, not actual Excel execution. The expected-grid generator and immutable AssignmentID observed-membership reader remain open. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED; Gate 2 remains closed.
+
+ 
+### 2026-11-25 — Complete THERAPIST_DAILY expected-grid builder
+
+Added the 126-cell expected-grid builder using stable AssignmentID base facts, dated sessions/states and the existing patient-centric renderer. It derives expected active therapist assignment facts, handles student replacements, and rejects unstable IDs, duplicate display-name ambiguity and StudentID/TherapistID collision. Fixed the student provider final-render resolution bug and stale Student.student_number field references.
+
+GitHub Actions run `45660810319`: Windows **2866 passed / 36 warnings**; Ubuntu **2866 passed / 32 warnings**; both synthetic safety jobs passed.
+
+The builder uses caller-supplied source facts and is not yet a full native source/ledger verifier. It is not joined to the native full-grid reader in an operation-bound adapter. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
