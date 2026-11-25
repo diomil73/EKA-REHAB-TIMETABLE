@@ -134,6 +134,8 @@ def _provider_roster(settings: WorkbookSettings, students: tuple[Student, ...]) 
 def _validate_shared_slot_approvals(
     assignments: tuple[TherapistAssignmentFact, ...],
     approvals: tuple[tuple[str, time, frozenset[str]], ...],
+    *,
+    service_date: date,
 ) -> None:
     if type(approvals) is not tuple:
         raise DailyInputProjectionPreflightError("Immutable source-bound shared-slot approvals required")
@@ -144,7 +146,13 @@ def _validate_shared_slot_approvals(
         if type(item) is not TherapistAssignmentFact:
             raise DailyInputProjectionPreflightError("Invalid expected therapist assignment fact")
         provider = _provider_key(item.provider)
-        if (not provider or not item.assignment_id or item.assignment_id in assignment_ids
+        if (not provider or type(item.assignment_id) is not str
+                or not is_stable_assignment_id(item.assignment_id)
+                or item.assignment_id in assignment_ids
+                or type(item.patient_id) is not str or not item.patient_id.strip()
+                or type(item.treatment) is not str or not item.treatment.strip()
+                or type(item.provider) is not str or not item.provider.strip()
+                or item.service_date != service_date
                 or type(item.start_time) is not time
                 or item.start_time.second or item.start_time.microsecond):
             raise DailyInputProjectionPreflightError("Malformed expected therapist assignment fact")
@@ -190,7 +198,10 @@ def build_daily_input_projection_preflight(
 
     baseline_date is explicit because recurring change history is only valid
     relative to a known programme baseline; it is never inferred from workbook
-    filenames or the current date. The resulting facts remain non-authorizing.
+    filenames or the current date. If a therapist/time has multiple patients,
+    approved_shared_memberships must come from an independent earlier operator
+    decision source; this builder never invents approvals from the collision.
+    The resulting facts remain non-authorizing.
     """
     if type(service_date) is not date or type(baseline_date) is not date:
         raise DailyInputProjectionPreflightError("Explicit service and programme baseline dates required")
@@ -297,6 +308,7 @@ def build_daily_input_projection_preflight(
         )
         _validate_shared_slot_approvals(
             expected_grid.expected_assignments, approved_shared_memberships,
+            service_date=service_date,
         )
         expected_projection = tuple(build_master_projection(
             source, patients=patients, target_date=service_date,
