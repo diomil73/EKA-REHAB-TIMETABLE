@@ -1310,3 +1310,8 @@ This supersedes provisional CI-pending notes. Tests use mock/injected native dia
 ## 2026-11-25 — MASTER structural saved OOXML verifier (partial PROJECTIONS work)
 
 Added `daily_input_master_projection_readback.py` to compare canonical saved MASTER formulas and patient/doctor text against an independently supplied projection; detects unexpected row/linkage/legacy tail content and workbook mutation. Corresponding synthetic tests cover expanded and standard schemas plus adversarial edits. This is not a complete PROJECTIONS_REOPEN verifier: therapist schedules, calculated results and native Excel reopen are not checked. Verifier registry remains NOT_IMPLEMENTED, and Gate 2 closed. CI outcome must be confirmed before this new module is claimed green.
+
+
+### MASTER structural readback CI defect and fix — 2026-11-25
+
+The first synthetic regression at code/test commit `0142629049c37dce62c396e55abf0175e6576d88` failed 3 new MASTER positive tests on Ubuntu (2797 passed, 3 failed, 96 warnings). The diagnosis was incorrect literal comparison against Greek text after Unicode `casefold()`: the terminal sigma in `Θάλαμος` and `Ασθενής` was normalized to `σ`, while the comparison constants had `ς`. Fixed both comparisons by casefolding the canonical header constants too in code commit `905418df1c33b4008fd2039a89b6c06d7b4ea7fd`. New Ubuntu Python 3.11 CI `45617783680` passed **2800 tests / 99 warnings / 25.97s**, and both synthetic safety jobs succeeded; full Windows result to be confirmed separately before full green. No real Excel run or workbook modification. This was a newly introduced test/code mismatch, not evidence of operational workbook correction.
