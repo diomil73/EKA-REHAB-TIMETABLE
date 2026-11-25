@@ -801,3 +801,12 @@ GitHub Actions run `45599055363` for code/test HEAD `6e4d99296fc6679fbaeffd4a200
 - Windows and Ubuntu synthetic safety jobs: both success.
 
 Previous interim notes that the Windows outcome was pending are superseded by this final confirmed result. Warning details are suppressed by the CI workflow; do not claim zero warnings. Native COM remains mocked in these tests, not real Excel; no report adapter/trusted attestation/journal append/Apply authorization or Gate 2 activation. An independent disposable-XLSM native Excel smoke test and explicit zero-change policy remain pending.
+
+
+## 2026-11-25 — INPUT_AND_LEDGER phase report adapter, non-authorizing
+
+Added `Python/rehab_excel/daily_input_input_ledger_phase_adapter.py` and `Tests/test_daily_input_input_ledger_phase_adapter.py`. The adapter requires an exact legal PREPARED -> INPUT_AND_LEDGER_COMMITTED transition, non-empty prior validated preflight facts, a saved XLSM confined within a controlled evidence root, and an exclusive new report path in that root. It executes the existing combined OOXML/native COM read-only input-and-ledger verifier and verifies the source file SHA-256 before and after diagnostic execution. It binds the generated canonical phase report to operation, service date, revision, phase, pinned verifier contract, exact workbook evidence bytes, and native Excel version. Existing report outputs are never overwritten. Invalid phase, inconsistent result, changed workbook, outside-root path and diagnostic failure are rejected before publication.
+
+The INPUT_AND_LEDGER contract status is now **REPORT_ADAPTER_ONLY**, like PREPARED. Eight remaining evidence kinds stay **NOT_IMPLEMENTED**. `validate_phase_verifier_report()` continues to reject INPUT_AND_LEDGER positive authorization while trusted attestation is not integrated; `require_trusted_verifier_attestation()` remains reject-only. Adapter output is neither signed nor a receipt, journal append, actual operational COM proof or Apply/Restore authorization.
+
+Synthetic negative/positive publication tests were added. The adapter tests use an injected fake native diagnostic; they do not execute the user's Excel. GitHub CI results for the current code/test head must be recorded after completion. The prior 2770-pass cross-platform CI belongs to the preceding diagnostic-only commit and must not be misrepresented as coverage of this new adapter. No business workbook, VBA, UI, journal writer or Gate 2 change. Zero-change policy and real disposable native Excel smoke test remain open.
