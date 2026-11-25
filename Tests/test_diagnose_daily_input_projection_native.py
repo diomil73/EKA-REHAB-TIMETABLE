@@ -18,6 +18,7 @@ def _result():
     return SimpleNamespace(
         service_date=date(2026, 11, 23),
         source_workbook_sha256="a" * 64,
+        source_capture=SimpleNamespace(native_excel_version="16.0"),
         native_source_sheet_count=12,
         native_source_cells_checked=1450,
         patient_count=100,
@@ -53,6 +54,7 @@ def test_cli_runs_readonly_preflight_and_prints_only_aggregate_results(monkeypat
     assert code == 0
     assert "DAILY_INPUT PROJECTION NATIVE READBACK GREEN" in output
     assert "NON-AUTHORIZING READ-ONLY DIAGNOSTIC ONLY" in output
+    assert "native_source_excel_version: 16.0" in output
     assert "native_source_sheets_checked: 12" in output
     assert "native_source_populated_cells_checked: 1450" in output
     assert "patients: 100" in output
