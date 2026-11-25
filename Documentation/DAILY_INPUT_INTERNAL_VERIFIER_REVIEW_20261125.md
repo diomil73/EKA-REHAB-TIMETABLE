@@ -270,3 +270,14 @@ GitHub Actions run `45622874406`, code/test head `166d7bf54345476422dad79e2c4de9
 - Windows and Ubuntu synthetic Python safety jobs: success.
 
 Added tests reject changed immutable AssignmentID, patient identity, treatment, provider, date, time, duplicate assignment, missing row, legacy ID, sub-minute drift, missing/extra/shared-approval mismatch. Tests are fictional in-memory examples, **not** a real workbook source or native Excel COM inspection. No patient-identifying data was copied into repository fixtures. The complete PROJECTIONS_REOPEN phase, including independent saved-source extraction/attested report, remains NOT_IMPLEMENTED and Gate 2 remains closed. CI warnings remain nonzero.
+
+ 
+## 12. Partial native MASTER identity readback added — 25/11/2026
+
+Added `Python/rehab_excel/daily_input_master_projection_native.py` and `Tests/test_daily_input_master_projection_native.py`. This new diagnostic first invokes the existing strict saved-OOXML MASTER structural comparator, then opens the exact saved XLSM in a fresh isolated Excel COM instance with macro security forced disabled, events/alerts/link updates disabled and ReadOnly=True. It checks native formula linkage and Excel-evaluated room, patient display identity and status against independently supplied immutable `MasterProjectionRow` facts; doctor-bearing identity is checked as the established multiline literal. It captures Excel Version, closes with SaveChanges=False, quits in finally and rejects cleanup failure or changed source bytes.
+
+CI run `45657152050`, HEAD `e7ce7526de2c000cff9410819267f73fdc6ffc79`: Windows **2848 passed / 35 warnings / 48.64s**; Ubuntu **2848 passed / 34 warnings / 28.83s**; both synthetic safety jobs succeeded.
+
+The fake-COM tests do not execute Microsoft Excel. This is not a full projection verifier: it does not independently reconstruct native therapist assignment IDs, prove all therapist-day projections or source-ledger linkage, verify every evaluated MASTER treatment value/style, produce a phase report/receipt or authenticate verifier provenance. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`. The verifier registry was not changed. No workbook/VBA/operational handler, journal writer, Apply/Restore or Gate 2 change.
+
+Detailed boundary and ordered next steps: `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`.
