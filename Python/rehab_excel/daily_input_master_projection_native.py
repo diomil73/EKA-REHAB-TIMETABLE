@@ -32,8 +32,8 @@ class MasterProjectionNativeReadback:
     header_row: int
     status_column: int
     native_excel_version: str
-    formula_cells_checked: int
-    evaluated_cells_checked: int
+    formula_cells_checked: int = 0
+    evaluated_cells_checked: int = 0
 
 
 def _text(value: object) -> str:
