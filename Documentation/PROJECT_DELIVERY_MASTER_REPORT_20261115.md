@@ -1389,3 +1389,15 @@ Source inspection found unnecessary `keep_vba=True` in read-only paths and synth
 - the MASTER and THERAPIST_DAILY synthetic test mutation fixtures.
 
 This does not write or save a workbook and does not alter VBA, workbook content, native COM security, transaction state or Apply/Restore behavior. The real Excel COM verifiers remain separate and unchanged. Source changes are committed; warning removal is NOT YET VERIFIED. Repeat the focused 13-file pytest command on Windows and report the actual warning count. Do not suppress warnings or infer a clean result from the code change alone.
+
+
+## 2026-11-25 — Focused DAILY_INPUT evidence-chain regression and warning cleanup verified
+
+The operator synchronized the authoritative branch and reran the focused 13-file Windows suite covering the PREPARED adapter, journal/prepared inspection, phase-verifier contract, transaction receipt, phase evidence, journal, transition evidence, attestation, INPUT_AND_LEDGER native verifier/adapter, MASTER projection readback, therapist assignment membership and therapist projection readback.
+
+- Result: **214 passed, 1 skipped in 12.34s**.
+- Pytest emitted no warnings summary: **zero warnings reported** in this exact focused run.
+- Skip: `Tests/test_daily_input_transaction_receipt.py:215`, symlink creation unavailable on this Windows platform.
+- The prior 40 ZipFile deallocation warnings are no longer reproduced in this focused suite after the narrowly scoped `keep_vba=False` changes to read-only OOXML paths and non-VBA synthetic fixture loads.
+
+No warnings were suppressed. This is a local focused Python result, not a full repository regression or native Excel/COM proof. No production workbook, VBA, transaction state, Apply/Restore or Gate 2 behavior changed. PREPARED and INPUT_AND_LEDGER remain report-adapter-only and non-authorizing; trusted attestation and the other independent phase verifiers remain open. Real native positive transaction and operator acceptance remain pending.
