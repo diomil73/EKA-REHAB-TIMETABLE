@@ -845,3 +845,13 @@ This supersedes the provisional Windows-pending status for this run. Initial thr
 ## 2026-11-25 — THERAPIST_DAILY occupied distinct-clock OOXML diagnostic baseline
 
 Files: `Python/rehab_excel/daily_input_therapist_projection_readback.py`; `Tests/test_daily_input_therapist_projection_readback.py`. Tests use fictional workbook cells and explicit preflight provider/clock expectations; check both blocks, distinct clock reuse, missing/extra provider, missing/extra slot, orphan occupancy, formula and invalid time, duplicate/incorrect expected facts, no write. This audit does not prove correct patient/day/session projections, formula calculations, therapist capacity or native Excel behavior. PROJECTIONS_REOPEN NOT_IMPLEMENTED. GitHub Actions full regression to be recorded after completion.
+
+
+### Final cross-platform synthetic CI — THERAPIST_DAILY occupied clocks — 2026-11-25
+
+GitHub Actions run `45618473467`, code/test commit `922afe7bf7e534273781f76ebdf23e600c5ef3bc`, finished **SUCCESS** across all four jobs:
+- Ubuntu Python 3.11 full suite: **2815 passed, 98 warnings, 21.23s**.
+- Windows Python 3.11 full suite: **2815 passed, 98 warnings, 48.36s**.
+- Both Windows and Ubuntu synthetic safety jobs: success.
+
+The warnings are nonzero and CI suppresses their detail. This validates synthetic OOXML readback and static provider/clock expectations only, not native COM, real workbook behavior, full therapist/patient session projection, trusted attestation, phase evidence completion, or Gate 2 permission. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. No production workbook or VBA changes.
