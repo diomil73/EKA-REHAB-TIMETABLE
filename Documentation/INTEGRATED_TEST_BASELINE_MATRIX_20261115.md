@@ -671,3 +671,15 @@ Reviewed the focused test set for Apply, Gate 2, rollback audit/native diagnosti
 These are distinct evidence classes. Source tests do not execute VBA; synthetic fixtures do not prove native workbook behavior; negative native tests prove rejection/fault-recovery behavior only. The reviewed set does not establish a positive permitted public-UI Excel transaction with durable receipt, Save/Close/Reopen readback, dependent projection/history verification and independently proven rollback. Gate 2 remains false.
 
 Next: map durable journal state transitions and trusted receipt binding across public entrypoints and mutation boundaries; close the orchestration gaps and verify disposable native fault injection before any positive operational transaction test.
+
+## 2026-11-25 — Durable journal phases and receipt chain audit
+
+Source-confirmed lifecycle: PREPARED → INPUT_AND_LEDGER_COMMITTED → PROJECTIONS_VERIFIED → optional PENDING_OPERATOR_DECISION → REPLACEMENTS_RESOLVED → APPLIED_ARCHIVE_VERIFIED → COMPLETE. Failure path is FAILED → ROLLED_BACK, with verified rollback required. COMPLETE and ROLLED_BACK are terminal.
+
+The append-only journal codec validates OperationID, sequential Revision, Phase, source hash/service date and checksummed canonical payload. It prevents a new operation before terminal verification. Its SHA-256 checksum detects corruption, not authenticity.
+
+Native VBA journal support is PREPARED-only at present. The apply switch returns literal False. The PREPARED bridge saves and independently reads back the PREPARED row but does not execute operational Apply or persist later phases. The pure phase-evidence policy lists native reopen requirements but explicitly has no registered independent verifiers; it cannot produce proof or authorize writes.
+
+Trusted receipt chain is not yet established. The rollback auditor expects a prepared-snapshot hash supplied as expected_snapshot_sha256, while its own documentation requires that digest to be bound by a separately verified durable transaction receipt. The auditor does not authenticate that receipt. Thus a caller-supplied digest cannot stand in for receipt authenticity.
+
+Implementation order: receipt schema and source/operation binding; independent native reopen verifiers for every evidence kind; VBA phase orchestrator; full rollback executor plus independent pre-terminal and terminal proof; disposable synthetic native fault-injection across every write/save/refresh boundary. Only after all are green may a positive public-UI transaction be considered on a disposable demo. Gate remains false.
