@@ -7,9 +7,8 @@ No phase report, receipt, trust attestation or Apply authorization is created.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
-from typing import Mapping
 
 from rehab_core.base_schedule import materialize_sessions_for_date
 from rehab_core.daily_state import DailySessionState, build_daily_session_states
