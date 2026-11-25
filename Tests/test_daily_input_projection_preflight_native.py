@@ -94,7 +94,10 @@ def _results(path):
     )
     source_capture = DailyInputSourceNativeCapture(
         workbook_sha256=digest, native_excel_version="16.0",
-        sheets=(NativeSourceSheetResult("PATIENTS", 2, 3, 3),),
+        sheets=tuple(
+            NativeSourceSheetResult(name, 2, 3, 3)
+            for name in ("PATIENTS", "PATIENT_PLANNER", "SETTINGS", "DAILY_INPUT", "DAILY_CHANGE_LEDGER")
+        ),
     )
     return ledger, projections, source_capture
 
@@ -136,8 +139,8 @@ def test_full_native_projection_wrapper_runs_source_and_three_projection_readbac
     assert result.session_count == 1
     assert result.daily_change_count == 1
     assert result.native_readback.therapist_grid_cells_checked == 126
-    assert result.native_source_sheet_count == 1
-    assert result.native_source_cells_checked == 2
+    assert result.native_source_sheet_count == 5
+    assert result.native_source_cells_checked == 10
     assert calls[0][0] == "input"
     assert calls[0][2]["validated_changes"] == pre.validated_changes
     assert calls[0][2]["patients"] == pre.patients
@@ -218,5 +221,21 @@ def test_full_native_projection_wrapper_rejects_ledger_count_drift(tmp_path, mon
     monkeypatch.setattr(native, "verify_input_ledger_native_readonly", lambda *a, **k: wrong)
     monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly",
                         lambda *a, **k: pytest.fail("must stop before projection readback"))
+    with pytest.raises(native.DailyInputProjectionPreflightNativeError):
+        native.verify_daily_input_projection_preflight_native_readonly(path, preflight=pre)
+
+
+def test_full_native_projection_wrapper_rejects_source_capture_hash_drift(tmp_path, monkeypatch):
+    path = _path(tmp_path)
+    pre = _preflight(path)
+    _ledger, _projections, source_capture = _results(path)
+    wrong = DailyInputSourceNativeCapture(
+        workbook_sha256="0" * 64, native_excel_version="16.0",
+        sheets=source_capture.sheets,
+    )
+    monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
+                        lambda *a, **k: wrong)
+    monkeypatch.setattr(native, "verify_input_ledger_native_readonly",
+                        lambda *a, **k: pytest.fail("must stop before ledger readback"))
     with pytest.raises(native.DailyInputProjectionPreflightNativeError):
         native.verify_daily_input_projection_preflight_native_readonly(path, preflight=pre)
