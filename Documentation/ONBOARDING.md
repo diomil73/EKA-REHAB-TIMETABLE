@@ -477,3 +477,6 @@ The expected THERAPIST_DAILY grid builder is now available and cross-platform sy
 
  
 The composite native projection consistency check is now green (GitHub Actions run `45662463260`, 2877 passed on Windows and Ubuntu). It binds prior INPUT_AND_LEDGER, MASTER and full therapist-grid evidence to the same workbook digest/date, but it is not a phase report or trusted verifier. Next: independently capture the full source/ledger/replacement sheets through native COM and expand MASTER evaluated-value verification. See design doc §10.
+
+ 
+The THERAPIST_DAILY native reader now supports intentionally blank unused provider columns while still checking all 18 headers and 126 patient cells. Occupancy beneath a blank header is rejected. Latest CI: run `45663881144`, 2880 passed on Windows and Ubuntu. This remains fake-COM source regression only.
