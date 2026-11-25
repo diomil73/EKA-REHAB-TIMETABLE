@@ -73,6 +73,10 @@ class DailyInputProjectionPreflightNativeReadback:
     def native_source_cells_checked(self) -> int:
         return self.source_capture.checked_populated_cells
 
+    @property
+    def native_source_formula_cells_checked(self) -> int:
+        return self.source_capture.checked_formula_cells
+
 
 def verify_daily_input_projection_preflight_native_readonly(
     workbook_path: str | Path,
@@ -122,6 +126,8 @@ def verify_daily_input_projection_preflight_native_readonly(
                 or type(source_capture.native_excel_version) is not str
                 or not source_capture.native_excel_version.strip()
                 or len(set(captured_sheet_names)) != len(captured_sheet_names)
+                or type(source_capture.checked_formula_cells) is not int
+                or source_capture.checked_formula_cells < 0
                 or not REQUIRED_SOURCE_SHEETS.issubset(set(captured_sheet_names))):
             raise DailyInputProjectionPreflightNativeError("Native source capture binding/scope mismatch")
 
