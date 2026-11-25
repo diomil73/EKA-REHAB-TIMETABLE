@@ -303,3 +303,37 @@ No verifier registry status changed. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENT
 3. Extend native MASTER evaluated-value/style/package checks to the complete business contract.
 4. Bind independently observed therapist assignment identity and all projection evidence to an operation ID.
 5. Only then design the phase report/receipt adapter and operational real-XLSM smoke test.
+
+ 
+## 13. Native literal source-sheet capture
+
+Added:
+- `Python/rehab_excel/daily_input_source_native_capture.py`
+- `Tests/test_daily_input_source_native_capture.py`
+- `Tests/test_package_probe_typed_cells.py`
+
+The capture now opens a separate native Excel COM session with macros disabled, events disabled, links not updated and the XLSM opened ReadOnly. It checks every source sheet present from this fixed allowlist:
+`PATIENTS`, `PATIENT_PLANNER`, `SETTINGS`, `PROGRAM_WEEKLY_SLOTS`, `OUTPATIENT_SCHEDULE`, `RECURRING_ASSIGNMENT_IDS`, `PATIENT_EXITS`, `RECURRING_CHANGE_EVENTS`, `STUDENTS`, `DAILY_INPUT`, `DAILY_CHANGE_LEDGER`, `DAILY_REPLACEMENT_FACTS`.
+The required minimum is PATIENTS, PATIENT_PLANNER, SETTINGS, DAILY_INPUT and DAILY_CHANGE_LEDGER; optional extensions are checked whenever present.
+
+For each selected sheet it:
+- rejects every OOXML formula cell and stored Excel error cell;
+- reads typed OOXML literal values without collapsing text identifiers into numeric values;
+- enforces per-sheet fixed row/column bounds and requires the native UsedRange to cover all saved populated cells;
+- reads every populated cell through native COM, rejects native formula cells and compares the native value to the typed OOXML literal;
+- closes Excel without saving and requires the exact workbook SHA-256 to remain unchanged.
+
+The one-call projection wrapper now runs this source capture before native INPUT_AND_LEDGER, then MASTER and full THERAPIST_DAILY readbacks. It validates that the native source capture result is the expected immutable result type, binds to the same workbook hash, has a non-empty Excel version, has no duplicate sheet entries and includes all five required source sheets. The CLI reports aggregate source sheet/cell counts and the native source Excel version; no patient/provider cell values are printed.
+
+Latest completed full CI covering source capture, formula/error rejection, typed literal preservation, fixed bounds, wrapper integration and aggregate-only CLI output before the final CLI-version-output assertion: run `45674827673`, HEAD `c9f7413c7ec409327a76a1a493a66dead0c22765`, SUCCESS:
+- Windows Python 3.11: **2907 passed, 30 warnings, 46.67s**.
+- Ubuntu Python 3.11: **2907 passed, 30 warnings, 17.42s**.
+- Both synthetic safety jobs passed.
+
+A subsequent small CLI output addition exposes the source-capture Excel version and has its own CI run in progress; record its result when complete.
+
+### Strict boundary remains
+
+This native capture verifies literal cell agreement for the listed source sheets. It does not attest to the provenance or authorization of those values, inspect styles/layout/package resources, authenticate shared-clock approval tuples, or bind an operation ID. It rejects all formulas in selected source sheets rather than implementing formula semantics. The source preflight remains composed from canonical OOXML readers, while native capture independently checks their saved literal source cells. Python result objects remain caller-constructible. No signed verifier attestation, report/receipt or phase adapter exists. No real operational XLSM has been opened in this work.
+
+`PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; Gate 2 remains closed.
