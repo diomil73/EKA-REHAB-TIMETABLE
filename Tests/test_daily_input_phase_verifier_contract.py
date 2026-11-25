@@ -1,4 +1,3 @@
-from dataclasses import replace
 from hashlib import sha256
 
 import pytest
@@ -25,6 +24,10 @@ def operation():
         "op-verifier-001", "a" * 64, "2026-11-25",
         phase=Phase.INPUT_AND_LEDGER_COMMITTED, revision=1,
     )
+
+
+def prepared_operation():
+    return DailyInputOperation("op-verifier-001", "a" * 64, "2026-11-25")
 
 
 def report_fields(**overrides):
@@ -108,7 +111,7 @@ def test_report_rejects_identity_drift_before_verifier_availability_check():
     with pytest.raises(PhaseVerifierContractError, match="operation identity/revision"):
         validate_phase_verifier_report(
             report, operation(),
-            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            previous_operation=prepared_operation(),
         )
 
 
@@ -194,7 +197,11 @@ def test_rollback_report_requires_package_audit_and_prepared_snapshot_hashes():
     with pytest.raises(PhaseVerifierContractError, match="Package audit digest"):
         validate_phase_verifier_report(
             report, rollback_operation,
-            required_evidence=(EvidenceKind.FULL_WORKBOOK_ROLLBACK,),
+            previous_operation=DailyInputOperation(
+                rollback_operation.operation_id, rollback_operation.source_sha256,
+                rollback_operation.service_date, phase=Phase.FAILED, revision=1,
+                failure_code="SYNTHETIC_FAILURE",
+            ),
         )
     fields["package_audit_sha256"] = "b" * 64
     report = create_phase_verifier_report(**fields)
