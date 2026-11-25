@@ -2068,3 +2068,10 @@ The 13-column MASTER K (psychologists) and L (afternoon programme) cells are out
 Native source capture accepts direct and exact blank-guarded same-row PATIENTS A:E formulas, matching `planner_identity_formulas()` and Excel's exact-empty behavior. Added integration coverage using a real OOXML package plus fake COM, and expanded 13-column MASTER status-M verification. K/L remain outside proof.
 
 CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed. No real Excel/operational XLSM.
+
+ 
+### 2026-11-25 — PATIENTS / PATIENT_PLANNER identity mirror validation
+
+Native source capture checks all A:E identity cells for every populated patient row. Formula cells must match supported OOXML/native semantics; literal cells must exactly match PATIENTS. Wrapper requires mirror row count to equal preflight patient count.
+
+CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed. No real Excel. Gate 2 remains closed.
