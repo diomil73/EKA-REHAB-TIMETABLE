@@ -1306,3 +1306,7 @@ GitHub Actions run `45599851668`, code/test HEAD `de03afc8d8cc5d824c45c755d3f086
 - Synthetic safety jobs on both Windows and Ubuntu: success.
 
 This supersedes provisional CI-pending notes. Tests use mock/injected native diagnostic for the phase adapter. No real native Excel/COM execution on the user's machine, actual signed attestation, receipt, positive operational transaction or Gate 2 enablement. INPUT_AND_LEDGER and PREPARED are REPORT_ADAPTER_ONLY. Other eight kinds remain NOT_IMPLEMENTED. Warnings are not zero and warning details are suppressed by CI.
+
+## 2026-11-25 — MASTER structural saved OOXML verifier (partial PROJECTIONS work)
+
+Added `daily_input_master_projection_readback.py` to compare canonical saved MASTER formulas and patient/doctor text against an independently supplied projection; detects unexpected row/linkage/legacy tail content and workbook mutation. Corresponding synthetic tests cover expanded and standard schemas plus adversarial edits. This is not a complete PROJECTIONS_REOPEN verifier: therapist schedules, calculated results and native Excel reopen are not checked. Verifier registry remains NOT_IMPLEMENTED, and Gate 2 closed. CI outcome must be confirmed before this new module is claimed green.
