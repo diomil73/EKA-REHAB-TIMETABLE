@@ -2912,6 +2912,6 @@ GitHub Actions full regression run for commit `a559a35c9a618b0d83764349d3aaa48e0
 - Ubuntu / Python 3.11: **2734 passed**, 69 warnings, 30.31s; job success.
 - Both synthetic Python safety jobs also succeeded.
 
-The workflow runs the entire `Tests` directory using `pytest -q --disable-warnings --maxfail=35`; the warning totals are reported but their details are suppressed by the workflow flag. Do not claim zero warnings. The run includes the new PREPARED adapter tests. Subsequent commits `0282e319` and `a8b1c59d` only update the module status docstring and a test function name; a fresh full workflow for the latest head is running.
+The workflow runs the entire `Tests` directory using `pytest -q --disable-warnings --maxfail=35`; the warning totals are reported but their details are suppressed by the workflow flag. Do not claim zero warnings. The run includes the new PREPARED adapter tests. A subsequent full workflow for head `a8b1c59d5ec7faabfb8cbbce41bd80cc09582930` also completed successfully: Windows 2734 passed / 71 warnings / 35.24s; Ubuntu 2734 passed / 69 warnings / 18.87s. Both synthetic safety jobs succeeded. Changes after that head are documentation-only.
 
 The user's local pre-adapter focused run remains 110 passed, 1 symlink skip. The next local action is to pull the latest branch head and run the adapter + PREPARED readback + verifier-contract focused tests. PREPARED remains REPORT_ADAPTER_ONLY: no trusted attestation, transaction receipt acceptance, journal Apply, or Restore authorization. Gate 2 remains closed.
