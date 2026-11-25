@@ -8,6 +8,7 @@ from openpyxl import Workbook
 import rehab_excel.daily_input_projection_native as composite
 from rehab_excel.daily_input_input_ledger_native import InputLedgerNativeReadback
 from rehab_excel.daily_input_master_projection_native import MasterProjectionNativeReadback
+from rehab_excel.master_projection import MasterProjectionRow
 from rehab_excel.daily_input_therapist_projection_expected import TherapistDailyExpectedGrid
 from rehab_excel.daily_input_therapist_projection_native import (
     TherapistDailyCellExpectation,
@@ -255,3 +256,57 @@ def test_composite_requires_master_preflight_digest_to_match_source(tmp_path, mo
             expected_therapist_grid=grid,
         )
     assert calls == []
+
+
+def test_composite_requires_complete_master_formula_and_evaluated_value_coverage(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    digest, grid, ledger, _master, therapist = _evidence(path)
+    expected = (
+        MasterProjectionRow(5, 2, "P-001", "A01", "FICTIONAL PATIENT",
+                            False, "active", None),
+    )
+    master = MasterProjectionNativeReadback(
+        digest, 1, 3, 11, "16.0",
+        formula_cells_checked=11, evaluated_cells_checked=11,
+    )
+    _patch_readers(monkeypatch, master, therapist)
+    result = verify_daily_input_projection_native_readonly(
+        path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+        expected_projection=expected, expected_projection_source_sha256=digest,
+        expected_therapist_grid=grid,
+    )
+    assert result.master_formula_cells_checked == 11
+    assert result.master_evaluated_cells_checked == 11
+
+    short_master = MasterProjectionNativeReadback(
+        digest, 1, 3, 11, "16.0",
+        formula_cells_checked=10, evaluated_cells_checked=11,
+    )
+    _patch_readers(monkeypatch, short_master, therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=expected, expected_projection_source_sha256=digest,
+            expected_therapist_grid=grid,
+        )
+
+
+def test_composite_accounts_for_literal_doctor_identity_in_master_coverage(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    digest, grid, ledger, _master, therapist = _evidence(path)
+    expected = (
+        MasterProjectionRow(5, 2, "P-001", "A01", "FICTIONAL PATIENT",
+                            False, "active", "DOCTOR X"),
+    )
+    master = MasterProjectionNativeReadback(
+        digest, 1, 3, 11, "16.0",
+        formula_cells_checked=10, evaluated_cells_checked=11,
+    )
+    _patch_readers(monkeypatch, master, therapist)
+    result = verify_daily_input_projection_native_readonly(
+        path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+        expected_projection=expected, expected_projection_source_sha256=digest,
+        expected_therapist_grid=grid,
+    )
+    assert result.master_formula_cells_checked == 10
+    assert result.master_evaluated_cells_checked == 11
