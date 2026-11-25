@@ -744,3 +744,18 @@ GitHub Actions full `Tests` regression for commit `a559a35c9a618b0d83764349d3aaa
 - Both synthetic Python safety jobs succeeded.
 
 Workflow uses `pytest -q --disable-warnings --maxfail=35`; warning counts are visible, individual warning details are suppressed. This run includes the new PREPARED phase-report adapter and its tests. Latest code/test head `a8b1c59d5ec7faabfb8cbbce41bd80cc09582930` also completed full regression successfully: Windows 2734 passed / 71 warnings / 35.24s; Ubuntu 2734 passed / 69 warnings / 18.87s. Both synthetic safety jobs succeeded. Subsequent commits are documentation-only. User-local focused baseline before adapter: 110 passed, 1 symlink-specific skip. Latest adapter-specific Windows local test run is still required.
+
+
+## 2026-11-25 — Offline internal verifier source audit
+
+Added `Documentation/DAILY_INPUT_INTERNAL_VERIFIER_REVIEW_20261125.md` after reviewing the phase evidence policy, report/receipt codecs, existing INPUT_AND_LEDGER OOXML readback, PREPARED native COM pattern, applied archive, replacement facts and rollback audit.
+
+New coverage gaps recorded:
+- Transition evidence bundle completeness for phases requiring multiple EvidenceKind values.
+- Receipt validation must derive required evidence internally, not accept a caller-selected subset.
+- Trusted verifier/build-manifest attestation remains absent; hashes are integrity only.
+- INPUT_AND_LEDGER requires an independent native Excel COM read-only proof reconciled with the existing OOXML proof and the same preflight facts.
+- Explicit zero-change semantics are unresolved because the current OOXML readback requires non-empty validated changes.
+- Phase-specific downstream verifier scopes and failure/crash-path test requirements are documented.
+
+No tests or Excel were executed. User's latest local result (before commits `1f4a6c7` and `8179412`): 109 passed, 1 symlink skip, 17 warnings. Latest warning-related commits await local rerun. No zero-warning claim. Gate 2 remains closed.
