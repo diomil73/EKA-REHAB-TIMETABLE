@@ -3241,3 +3241,14 @@ No real Excel/operational XLSM. This remains non-authorizing and does not compar
 The 13-column MASTER schema has K=psychologists, L=afternoon programme, M=status. Current native readback verifies A:J and M only. The existing writer clears A:P then rewrites only A:J and M; its expanded-schema test explicitly expects K/L blank. The patient-program VBA can repopulate K on individual patient edits, but does not populate L. Afternoon physiotherapy is separately stored in AFTERNOON_PHYSIO_SLOTS and shown in the read-only patient panel. No MASTER L renderer is included.
 
 No behavior changed. A green A:J/M readback does not certify K/L. Any future K/L integration needs a separate source/display contract, writer, native readback and tests. Details: design doc §15.
+
+ 
+### 4.239 PATIENT_PLANNER guarded identity formulas and expanded MASTER schema test — 25/11/2026
+
+The native source capture now supports both the legacy direct same-row PATIENTS A:E formula and the exact blank-guarded formula emitted by `planner_identity_formulas()`. It mirrors Excel's exact-empty comparison, including the whitespace case, and compares formula outputs to literal PATIENTS source cells. All other formula semantics remain rejected.
+
+Added an integrated real-OOXML/fake-COM test and a native MASTER test for the expanded 13-column schema (status in M). K/L remain explicitly outside proof.
+
+CI run `45679125582`, HEAD `2b9c6294232e476216f8438e2d1880797a539b0d`, SUCCESS: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed.
+
+No real Excel/operational XLSM. Details: design doc §§13-16.
