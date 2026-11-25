@@ -2834,3 +2834,11 @@ Added Python/rehab_excel/daily_input_transaction_receipt.py and Tests/test_daily
 Safety boundary is explicit: SHA-256 is not a signature; verifier registry labels are only trusted if sourced from a separately trusted build manifest. The module cannot authenticate receipt origin, cannot authorize journal append, cannot enable Apply, and contains no workbook/VBA write path. It is structural validation only. Synthetic tests were added for canonical round-trip, tamper detection, malformed/missing/extra fields, path traversal, phase/operation/evidence/verifier binding, chain predecessor, evidence byte mutation and symlink escape. These tests have NOT been executed in this session; no green result is claimed.
 
 Next: execute the focused pytest module and relevant existing journal/phase/rollback tests in the repository environment; fix any failures; then review whether artifact verification and receipt schema align with native verifier outputs. Do not create real receipts, install VBA, open Gate 2 or run positive operational handlers. Trusted signing/attestation root and runtime phase verifiers remain unimplemented.
+
+## 4.209 PREPARED receipt evidence-kind correction — 25/11/2026
+
+Review after the first local focused run (68 passed, 1 skipped, exit 0) found a semantic gap in the receipt fixture/schema: revision 0 PREPARED receipts had been using FAILURE_DIAGNOSTIC as a placeholder evidence kind. This contradicted the receipt design, which requires the exact pre-mutation PREPARED snapshot to be bound to revision 0.
+
+Corrected by adding EvidenceKind.PREPARED_SNAPSHOT = prepared_snapshot_native_readback; receipt codec now requires this evidence kind exclusively at journal revision 0 and rejects it on later revisions. Synthetic receipt fixture now uses PREPARED_SNAPSHOT, with an explicit test rejecting FAILURE_DIAGNOSTIC at PREPARED and PREPARED_SNAPSHOT at later revision.
+
+This is a source-review correction made after the recorded 68/1 test run. The amended tests have NOT yet been executed locally. Previous result remains valid only for the previous code revision. Gate 2 remains closed; no workbook/VBA/operational code changed. Next: sync latest commits, rerun focused suite with -rs to record the skip reason, then investigate six ZipFile unraisable warnings without suppressing them.
