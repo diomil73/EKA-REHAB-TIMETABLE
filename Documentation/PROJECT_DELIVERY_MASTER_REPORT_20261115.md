@@ -1365,3 +1365,13 @@ Added `Python/rehab_excel/daily_input_therapist_assignment_membership.py` and `T
 **Important trust boundary:** the comparator cannot authenticate its caller or itself reconstruct actual patient assignment IDs from the display cells of THERAPIST_DAILY. Its observed tuple must be produced by a separate independently trustworthy saved-source/COM verifier in later work. The comparator is **not** a completed positive projection verifier, report adapter, trusted attestation or Apply/Restore authorization. No workbook IO, VBA mutation, journal append or Gate 2 activation. `PROJECTIONS_REOPEN` stays NOT_IMPLEMENTED. This pure unit test suite tests in-memory fictional identity sets; it cannot prove real native Excel or full clinical assignment correctness.
 
 GitHub code/test commits `f15e366ea01c436d46c939c05709f16cc6b33cd0` / `166d7bf54345476422dad79e2c4de964891c9214`. CI outcome must be separately recorded once confirmed.
+
+
+### Confirmed cross-platform assignment membership regression — 2026-11-25
+
+GitHub Actions run `45622874406`, code/test head `166d7bf54345476422dad79e2c4de964891c9214`, finished **SUCCESS** in all four jobs:
+- Windows Python 3.11: **2839 passed, 93 warnings, 60.67s**.
+- Ubuntu Python 3.11: **2839 passed, 93 warnings, 19.48s**.
+- Windows and Ubuntu synthetic Python safety jobs: success.
+
+Added tests reject changed immutable AssignmentID, patient identity, treatment, provider, date, time, duplicate assignment, missing row, legacy ID, sub-minute drift, missing/extra/shared-approval mismatch. Tests are fictional in-memory examples, **not** a real workbook source or native Excel COM inspection. No patient-identifying data was copied into repository fixtures. The complete PROJECTIONS_REOPEN phase, including independent saved-source extraction/attested report, remains NOT_IMPLEMENTED and Gate 2 remains closed. CI warnings remain nonzero.
