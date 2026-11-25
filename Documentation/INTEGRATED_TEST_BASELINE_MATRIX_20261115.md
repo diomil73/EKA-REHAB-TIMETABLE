@@ -642,3 +642,8 @@ Read-only native inventory of CC completed successfully (66 components; hash unc
 ## 2026-11-25 — Source-level Amendment UI contract
 
 The source defines the Amendment button as `ekaToolbar_DayAmendment` bound to `StartClosedDayAmendment` on `DAILY_INPUT`. Its installer replaces `modDayAmendmentAction`, creates that button on `DAILY_INPUT`, verifies it and saves. The separate unified-save button on `MASTER_SCHEDULE` does not satisfy this Amendment contract. The Amendment VBA calls `DailyInputJournalApplyEnabled()`; the current CC inventory lacks `modDailyInputJournal`, and the Amendment UI installer does not install it. Do not run the installer on CC until the journal dependency/provisioning contract is resolved. No workbook mutation performed.
+
+
+## 2026-11-25 — Journal PREPARED-only state and UI installer conflict
+
+The journal native provisioner creates/validates the protected journal sheet only and explicitly installs no operational hooks. The separate `modDailyInputJournal` source is a PREPARED-only bridge; `DailyInputJournalApplyEnabled()` deliberately returns False, and the complete Apply/Restore state machine is not enabled. Journal prepared preflight is read-only; transition proposals remain non-authorizing. The Unified Save installer centralizes saving on `MASTER_SCHEDULE`, routes to CloseDay or Amendment handlers based on snapshot state, and explicitly deletes the DAILY_INPUT Amendment button. This conflicts with the standalone Amendment UI installer that expects the button on DAILY_INPUT. The integrated application UI contract and module provisioning sequence must be reconciled before any installation. Do not modify original CC; no positive operational transaction is yet ready or proven.
