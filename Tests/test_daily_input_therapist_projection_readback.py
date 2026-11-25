@@ -51,7 +51,7 @@ def test_saved_therapist_occupied_clock_count_distinct_across_blocks(tmp_path):
 ])
 def test_rejects_saved_therapist_view_mismatch(tmp_path, change):
     path, expected = fixture(tmp_path)
-    wb = load_workbook(path, keep_vba=True)
+    wb = load_workbook(path, keep_vba=False)
     ws = wb["THERAPIST_DAILY"]
     if change == "wrong-time":
         ws["A3"] = "11:00"
@@ -102,7 +102,7 @@ def test_no_default_capacity_or_journal_permission():
 
 def test_clock_rounding_must_not_wrap_24h_to_midnight(tmp_path):
     path, expected = fixture(tmp_path)
-    wb = load_workbook(path, keep_vba=True)
+    wb = load_workbook(path, keep_vba=False)
     # A saved numeric time can be just below 24:00 and round to 1440
     # minutes. This must never silently masquerade as 00:00.
     wb["THERAPIST_DAILY"]["A2"] = 0.9999999
