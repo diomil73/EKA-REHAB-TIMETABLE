@@ -296,3 +296,12 @@ A follow-up source-only review mapped existing code that should be reused for th
 The visible THERAPIST_DAILY grid contains only provider/time/patient occupancy display, not AssignmentID. Therefore the future native verifier must derive expected effective assignments from the authoritative native-captured sources and resolve each displayed patient/provider/time to exactly one assignment. Missing or ambiguous joins must fail closed. It must preserve exact weekly/outpatient source row indices for stable-ID binding, include PATIENT_EXITS/recurring changes/daily input ledger/replacement overlays, and separate student from therapist replacements. It must not infer IDs from labels, ordering or occupied-clock counts.
 
 This is a source map and design constraint, not an implementation. Full detail and unresolved label/zero-day questions: `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7. No verifier registry status changed; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+## 14. Native THERAPIST_DAILY full-grid readback primitive — 25/11/2026
+
+Added `daily_input_therapist_projection_native.py` and `test_daily_input_therapist_projection_native.py`. The diagnostic requires exactly 18 provider headers and explicit expected text/blank values for all 126 patient cells in B2:J8 and B12:J18. It opens a fresh macro-disabled Excel COM instance read-only, checks provider headers and the fixed time grid, compares all native cell values exactly, rejects formulas/errors/non-text values, captures Excel Version, closes without saving, quits and verifies unchanged workbook bytes. It deliberately does not infer AssignmentIDs from display labels.
+
+GitHub Actions run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6`: Windows **2859 passed / 32 warnings / 44.28s**; Ubuntu **2859 passed / 35 warnings / 19.52s**; both synthetic safety jobs passed.
+
+This is a fake-COM tested primitive, not an actual Excel run and not a complete PROJECTIONS_REOPEN verifier. The full 126-cell expected-grid generator, independent AssignmentID observed-membership extraction, shared-slot proof and operation-bound DAILY_INPUT/ledger linkage remain unimplemented. No phase report, receipt, trusted attestation or authorization. Registry unchanged; Gate 2 closed. Details: `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §8.
