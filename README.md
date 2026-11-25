@@ -71,3 +71,6 @@ The current continuation has advanced through the full 126-cell expected THERAPI
 
  
 The latest DAILY_INPUT projection work also includes a non-authorizing composite that binds the prior INPUT_AND_LEDGER native readback, independent MASTER preflight digest, full expected THERAPIST_DAILY grid and fresh native readbacks to the same workbook bytes/date. Its limitations and next source-capture step are documented in `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §10. It is not a PROJECTIONS_REOPEN phase adapter; Gate 2 remains closed.
+
+ 
+The native THERAPIST_DAILY reader also preserves compatibility with unused blank provider columns while rejecting any occupancy beneath a blank header. The latest full cross-platform regression is run `45663881144` (2880 passed on Windows and Ubuntu). Detailed scope: `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §11.
