@@ -19,7 +19,7 @@ from types import MappingProxyType
 from typing import Mapping
 
 from .daily_input_operation import DailyInputOperation
-from .daily_input_phase_evidence import EvidenceKind
+from .daily_input_phase_evidence import EvidenceKind, PhaseEvidenceContractError as EvidencePolicyError, required_evidence_for_transition
 
 PHASE_VERIFIER_REPORT_SCHEMA = "diomil-phase-verifier-report-v1"
 _HEX = re.compile(r"^[0-9a-f]{64}$")
@@ -298,7 +298,7 @@ def validate_phase_verifier_report(
     report: DailyInputPhaseVerifierReport,
     operation: DailyInputOperation,
     *,
-    required_evidence: tuple[EvidenceKind, ...],
+    previous_operation: DailyInputOperation | None = None,
 ) -> None:
     """Fail closed unless report matches the exact contract and an implemented verifier.
 
@@ -315,6 +315,17 @@ def validate_phase_verifier_report(
         kind = EvidenceKind(report.evidence_kind)
     except ValueError as exc:
         raise PhaseVerifierContractError("Unknown report evidence kind") from exc
+    if operation.phase.value == "PREPARED" and operation.revision == 0:
+        if previous_operation is not None:
+            raise PhaseVerifierContractError("Initial PREPARED report cannot have a previous operation")
+        required_evidence = (EvidenceKind.PREPARED_SNAPSHOT,)
+    else:
+        if previous_operation is None:
+            raise PhaseVerifierContractError("Previous operation is required to derive transition evidence")
+        try:
+            required_evidence = required_evidence_for_transition(previous_operation, operation)
+        except EvidencePolicyError as exc:
+            raise PhaseVerifierContractError("Operation transition has no valid evidence contract") from exc
     contract = VERIFIER_CONTRACTS.get(kind)
     if contract is None:
         raise PhaseVerifierContractError("No verifier contract exists for evidence kind")
