@@ -962,3 +962,8 @@ GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c
 - Both synthetic safety jobs passed.
 
 New composite binds prior INPUT_AND_LEDGER native readback, MASTER preflight source digest, full expected therapist grid digest and fresh native MASTER/therapist readbacks to the same workbook bytes/date. Synthetic tests reject cross-file/date/count/metadata mismatch and workbook mutation. Fake COM only; no real Excel. This is not a phase adapter or trusted attestation. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+### 2026-11-25 — Blank THERAPIST_DAILY provider slots
+
+GitHub Actions run `45663881144`, HEAD `46d4023b0ba8e5c65510fd1ddc5bb249fdadb3ce`: Windows **2880 passed / 34 warnings**; Ubuntu **2880 passed / 32 warnings**; both synthetic safety jobs passed. Added coverage for unused blank provider columns and rejection of occupancy beneath a blank header. All 18 header positions and 126 patient cells are still checked. Fake COM only.
