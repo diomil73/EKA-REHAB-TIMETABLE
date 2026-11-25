@@ -48,6 +48,7 @@ def verify_daily_input_projection_native_readonly(
     service_date: date,
     input_ledger_readback: InputLedgerNativeReadback,
     expected_projection: tuple[MasterProjectionRow, ...],
+    expected_projection_source_sha256: str,
     expected_therapist_grid: TherapistDailyExpectedGrid,
     master_excel_factory=None,
     therapist_excel_factory=None,
@@ -67,6 +68,11 @@ def verify_daily_input_projection_native_readonly(
         type(item) is not MasterProjectionRow for item in expected_projection
     ):
         raise DailyInputProjectionNativeReadbackError("Immutable independent MASTER expectations required")
+    if type(expected_projection_source_sha256) is not str or (
+        len(expected_projection_source_sha256) != 64
+        or any(ch not in "0123456789abcdef" for ch in expected_projection_source_sha256)
+    ):
+        raise DailyInputProjectionNativeReadbackError("Independent MASTER preflight source digest required")
     if type(expected_therapist_grid) is not TherapistDailyExpectedGrid:
         raise DailyInputProjectionNativeReadbackError("Complete expected therapist grid required")
     if input_ledger_readback.service_date != service_date:
@@ -92,6 +98,7 @@ def verify_daily_input_projection_native_readonly(
         raise DailyInputProjectionNativeReadbackError("Saved projection evidence unavailable") from exc
 
     if (input_ledger_readback.workbook_sha256 != before_hash
+            or expected_projection_source_sha256 != before_hash
             or expected_therapist_grid.source_workbook_sha256 != before_hash):
         raise DailyInputProjectionNativeReadbackError("Preflight/readback evidence belongs to different workbook bytes")
 
