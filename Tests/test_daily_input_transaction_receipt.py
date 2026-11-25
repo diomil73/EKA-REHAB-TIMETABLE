@@ -156,16 +156,19 @@ def test_binding_matches_operation_phase_evidence_and_pinned_verifier():
 def test_binding_rejects_operation_or_evidence_drift():
     op = operation()
     receipt = create_transaction_receipt(**input_ledger_receipt_fields())
-    with pytest.raises(TransactionReceiptError, match="identity/revision"):
+    with pytest.raises(TransactionReceiptError, match="derive receipt evidence obligations"):
         validate_receipt_binding(
             receipt, replace(op, source_sha256="b" * 64),
             previous_operation=previous_operation(),
             expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
+    wrong_kind_receipt = create_transaction_receipt(**input_ledger_receipt_fields(
+        evidence_kind=EvidenceKind.PROJECTIONS_REOPEN.value,
+    ))
     with pytest.raises(TransactionReceiptError, match="evidence kind"):
         validate_receipt_binding(
-            receipt, op, previous_operation=previous_operation(),
+            wrong_kind_receipt, op, previous_operation=previous_operation(),
             expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
