@@ -117,3 +117,21 @@ def test_prepared_adapter_never_overwrites_an_existing_report_or_workbook(tmp_pa
             report_id="prepared-adapter-report",
         )
     assert report_path.read_bytes() == before
+
+def test_prepared_adapter_rejects_workbook_bytes_changed_during_verifier_run(tmp_path, monkeypatch):
+    import tools.verify_daily_input_journal_prepared as readback
+
+    root, workbook, payload, handoff, report_path = prepared_fixture(tmp_path)
+
+    def mutate_after_verification(path, received_handoff, received_payload, *, native_excel, excel_factory):
+        assert native_excel is True
+        path.write_bytes(path.read_bytes() + b" changed during verification")
+        return "16.0"
+
+    monkeypatch.setattr(readback, "verify_prepared_reopen", mutate_after_verification)
+    with pytest.raises(PreparedPhaseReportAdapterError, match="bytes changed"):
+        create_prepared_snapshot_phase_report(
+            workbook, handoff, payload, evidence_root=root, report_path=report_path,
+            report_id="prepared-adapter-report",
+        )
+    assert not report_path.exists()
