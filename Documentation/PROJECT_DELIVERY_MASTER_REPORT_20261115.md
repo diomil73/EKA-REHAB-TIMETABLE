@@ -1236,3 +1236,12 @@ Added daily_input_prepared_phase_adapter.py and test_daily_input_prepared_phase_
 ## 2026-11-25 — PREPARED adapter included in full CI regression
 
 GitHub Actions for adapter-bearing commit `a559a35c9a618b0d83764349d3aaa48e0e9cd211`: Windows full regression 2734 passed / 71 warnings / 34.45s; Ubuntu full regression 2734 passed / 69 warnings / 30.31s. Both synthetic safety jobs passed. Warning details are suppressed by the workflow's --disable-warnings option. This validates the automated regression suite, not native COM execution against the user's real workbook. PREPARED remains REPORT_ADAPTER_ONLY pending trusted attestation. Latest code/test head `a8b1c59d5ec7faabfb8cbbce41bd80cc09582930` also passed full regression: Windows 2734 passed / 71 warnings / 35.24s; Ubuntu 2734 passed / 69 warnings / 18.87s. Both synthetic safety jobs succeeded. Later commits are documentation-only.
+
+
+## 2026-11-25 — Offline internal verifier audit and next-phase preparation
+
+A GitHub source-only review is recorded in `Documentation/DAILY_INPUT_INTERNAL_VERIFIER_REVIEW_20261125.md`. It covers all ten evidence kinds, the existing INPUT_AND_LEDGER OOXML readback, PREPARED COM readback pattern, applied archive, replacement facts, rollback audit and the report/receipt trust boundary.
+
+Two implementation gaps must be closed before positive phase authorization: (1) transitions with multiple required evidence kinds need an exact, complete evidence bundle validator; (2) receipt binding must derive required evidence from the lifecycle transition internally instead of accepting a caller-supplied evidence tuple. Trusted verifier/build-manifest attestation is also absent; SHA-256 is not authenticity.
+
+The next technical phase remains INPUT_AND_LEDGER native Excel COM read-only verification, layered on top of (not replacing or duplicating) the existing OOXML consistency check. The zero-change business rule must be explicitly decided before implementation. No local tests or Excel COM were run during this offline review. Latest user local run before the two warning-related commits: 109 passed, 1 symlink skip, 17 warnings. Those commits still await local rerun. Gate 2 remains closed.
