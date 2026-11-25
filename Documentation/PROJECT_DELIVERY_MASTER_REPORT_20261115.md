@@ -1463,3 +1463,12 @@ This is non-authorizing structural composition, not an operation-bound report/re
 The native full-grid reader and expected-grid builder now allow blank unused provider headers, but require all cells under such headers to remain empty. Duplicate populated names within a block fail. All 18 header positions and 126 patient cells remain inspected.
 
 GitHub Actions run `45663881144`: Windows **2880 passed, 34 warnings**; Ubuntu **2880 passed, 32 warnings**; both synthetic safety jobs passed. Fake COM only; no real Excel execution. No phase status change.
+
+ 
+### 2026-11-25 — DAILY_INPUT preflight and one-call native diagnostic
+
+Added independent source-preflight assembly and a one-call native wrapper for INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY. The CLI requires explicit service/baseline dates and emits aggregate-only diagnostics. It binds all preflight/native results to one exact XLSM SHA-256 and checks counts/date and workbook immutability.
+
+CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`, SUCCESS: Windows **2897 passed / 29 warnings / 48.44s**; Ubuntu **2897 passed / 32 warnings / 19.99s**; both synthetic safety jobs passed.
+
+No real Excel or operational XLSM tested. Caller-supplied shared-slot approval tuples are not authenticated; source capture is still composed from OOXML readers; no operation-bound attestation/report/receipt; MASTER treatment/style coverage remains open. Gate 2 remains closed.
