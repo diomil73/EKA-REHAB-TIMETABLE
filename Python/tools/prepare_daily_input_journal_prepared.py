@@ -132,7 +132,7 @@ def prepare_prepared_handoff(
 
     book = None
     try:
-        book = load_workbook(source, read_only=False, data_only=False, keep_vba=True)
+        book = load_workbook(source, read_only=False, data_only=False, keep_vba=False)
         if "DAILY_INPUT" not in book.sheetnames:
             raise PreparedJournalPreflightError("Missing DAILY_INPUT")
         workbook_date = _source_date(book["DAILY_INPUT"]["B2"].value)
@@ -217,7 +217,7 @@ def verify_prepared_source(
 
     book = None
     try:
-        book = load_workbook(source, read_only=False, data_only=False, keep_vba=True)
+        book = load_workbook(source, read_only=False, data_only=False, keep_vba=False)
         if "DAILY_INPUT" not in book.sheetnames:
             raise PreparedJournalPreflightError("Missing DAILY_INPUT")
         if _source_date(book["DAILY_INPUT"]["B2"].value) != handoff["service_date"]:
