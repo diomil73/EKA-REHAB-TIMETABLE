@@ -695,3 +695,7 @@ SHA-256 alone is not authenticity. No trusted signer/attestation root exists in 
 Added daily_input_transaction_receipt.py and test_daily_input_transaction_receipt.py. Coverage targets canonical JSON/digest, strict schema, hashes/timestamp, path traversal/symlink containment, operation/phase/evidence binding, verifier registry labels, predecessor chain and exact evidence artifact bytes. Module is non-authorizing: digest is not authenticity, registry labels require trusted build-manifest provenance, and no journal writes/Gate enablement are exposed.
 
 Tests were added but NOT RUN in this session. Required next action is local pytest execution for the new module plus journal, phase-evidence and rollback-audit regression suites. No workbook or VBA changed; Gate 2 remains closed. Trusted signing/attestation root and actual native phase verifiers are still absent.
+
+## 2026-11-25 — Receipt PREPARED evidence-kind follow-up
+
+Initial focused run: 68 passed, 1 skipped, exit code 0, with six PytestUnraisableExceptionWarning instances involving ZipFile deallocation in full rollback audit tests. Follow-up source review corrected PREPARED evidence semantics: new EvidenceKind.PREPARED_SNAPSHOT is required only for revision 0; FAILURE_DIAGNOSTIC is not a valid PREPARED receipt kind. Added one test covering both invalid phase/revision combinations. This follow-up revision is NOT YET TESTED. One skip likely relates to symlink support on Windows; confirm with pytest -rs. Warnings are recorded for investigation, not suppressed.
