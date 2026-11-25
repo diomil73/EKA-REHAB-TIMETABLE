@@ -201,3 +201,7 @@ GitHub Actions run `45599851668`, code/test HEAD `de03afc8d8cc5d824c45c755d3f086
 - Synthetic safety jobs on both Windows and Ubuntu: success.
 
 This supersedes provisional CI-pending notes. Tests use mock/injected native diagnostic for the phase adapter. No real native Excel/COM execution on the user's machine, actual signed attestation, receipt, positive operational transaction or Gate 2 enablement. INPUT_AND_LEDGER and PREPARED are REPORT_ADAPTER_ONLY. Other eight kinds remain NOT_IMPLEMENTED. Warnings are not zero and warning details are suppressed by CI.
+
+## 10. MASTER projection OOXML structural review — 2026-11-25
+
+The legacy master writer's preview verification is partial, reading A/B/C/status formulas, doctor identity and tail. A new independent saved OOXML comparator `verify_master_projection_saved_readback()` compares the full canonical formula set, two template column schemas, doctor text and row gaps to an earlier expected MasterProjectionRow tuple; hashes source bytes before and after. Fictional synthetic negative tests exercise adversarial changed MASTER cells and expected ordering. This is deliberately **partial PROJECTIONS evidence**, not authorization: the therapist projection and actual native Excel recalculated views remain unverified; PROJECTIONS_REOPEN status unchanged NOT_IMPLEMENTED. Never promote an OOXML-only positive result to trusted native proof.
