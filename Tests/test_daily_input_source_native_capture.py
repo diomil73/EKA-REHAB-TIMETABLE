@@ -341,3 +341,26 @@ def test_native_source_capture_checks_blank_guarded_formula_blank_branch(tmp_pat
     assert result.checked_formula_cells == 1
     assert app.book.closed is True
     assert app.quit is True
+
+
+def test_native_source_capture_matches_excel_guard_for_whitespace_name_value(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    sheets["PATIENTS"]["C2"] = " "
+    formula = 'IF(PATIENTS!C2="","",PATIENTS!A2)'
+    formulas = {"PATIENT_PLANNER": {"A2": formula}}
+    monkeypatch.setattr(
+        capture, "WorkbookPackageProbe",
+        lambda _path: _Probe(_path, sheets, formulas=formulas),
+    )
+    native_sheets = _required_sheets()
+    native_sheets["PATIENTS"]["C2"] = " "
+    native_sheets["PATIENT_PLANNER"]["A2"] = "001"
+    app = _App(
+        native_sheets,
+        formulas={"PATIENT_PLANNER": {"A2": f"={formula}"}},
+    )
+    result = capture.verify_daily_input_source_native_capture_readonly(
+        path, excel_factory=lambda: app,
+    )
+    assert result.checked_formula_cells == 1
