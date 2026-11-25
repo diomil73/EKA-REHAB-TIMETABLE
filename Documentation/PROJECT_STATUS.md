@@ -2035,6 +2035,6 @@ Still not trusted native capture of all source sheets; shared-clock approvals ar
 
 Added native read-only COM capture for all populated literal cells in the fixed source-sheet allowlist, with five mandatory sheets, optional extension sheets, formula/error rejection, typed OOXML/COM value comparison, fixed bounds and before/after workbook hash checks. The projection wrapper now composes source capture + INPUT_AND_LEDGER + MASTER + THERAPIST_DAILY.
 
-CI run `45674827673`: Windows **2907 passed / 30 warnings**; Ubuntu **2907 passed / 30 warnings**; both synthetic safety jobs passed. Latest CLI source Excel version output assertion pending a separate run.
+CI run `45675024806`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including source Excel-version CLI output.
 
 No real Excel or operational XLSM. This does not attest source provenance, authenticate shared-slot approvals, create operation-bound receipts, or complete PROJECTIONS_REOPEN. Gate 2 closed.
