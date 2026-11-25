@@ -97,6 +97,7 @@ def verify_daily_input_projection_preflight_native_readonly(
     try:
         input_ledger = verify_input_ledger_native_readonly(
             source,
+            service_date=preflight.service_date,
             validated_changes=preflight.validated_changes,
             patients=preflight.patients,
             sessions=preflight.sessions,
