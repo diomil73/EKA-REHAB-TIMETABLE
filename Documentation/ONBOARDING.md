@@ -452,3 +452,16 @@ Code commit: `702db942b5e9416344438f744efa7a6889dcc5e7`. This commit was made af
 **Concrete new gate, not a synthetic replacement for the user's real-data DEMO:** `Python/rehab_excel/trial_special_fields_audit.py`, `Python/tools/audit_real_manual_specials.py`, `Tests/test_trial_special_fields_audit.py` provide the first **single-source-only** private read-only inspection of actual manual A:V columns **F** (reclining, known 30-minute ΦΘ-related operation), **U** (legacy afternoon, no auto-import) and **V** (morning pool). No review/clinical approval/clean XLSM required for this *diagnostic* first command. It checks original source sheet/header, SHA-256 before/after, cached and raw Excel formula values (never omit formula-only cells), missing-patient source rows, time parseability, all counts and no PII emitted. The tool **never creates sessions, guesses F/V weekdays or imports old U**. It returns 0 if F/U/V truly empty (not whole source approval), 3 for pending real special records, 2 on safety stop. Exact local command, interpretations and privacy gates: `Documentation/REAL_MANUAL_SPECIAL_FIELDS_AUDIT_20261116.md`.
 
 **Verified code evidence:** `95157af7dbb32c6cb8aca210c503ffbb7f63be17`, GitHub Actions `43804737124`, **1,991 passing pytest in both Windows and Linux**, all four full/synthetic CI jobs successful. This is not proof that the real private manual has been scanned or a working native Excel was built. **Real-data DEMO remains NOT DELIVERED.** F/V day/provider/duration-aware scheduling approval, U source scope and independently reviewed outpatient programme remain blockers. Next meaningful step is run the read-only audit against the operator-approved private CURRENT manual snapshot, capture only totals, finish explicit F/V mapping and standalone outpatient source, then eligible private native seed and full side-by-side weekday/operator acceptance. Frozen H2–H10 proof artifacts remain untouched.
+
+ 
+## Latest continuation checkpoint — 2026-11-25
+
+Before continuing DAILY_INPUT verifier work, read:
+- `DIOMIL_MASTER_CONTINUITY_GUIDE.md` §4.226–§4.227
+- `CURRENT_HANDOFF.md` (authoritative latest handoff section)
+- `DAILY_INPUT_INTERNAL_VERIFIER_REVIEW_20261125.md` §12
+- `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`
+
+Latest code/test HEAD: `e7ce7526de2c000cff9410819267f73fdc6ffc79`; later commits may be documentation-only. The latest full cross-platform CI is run `45657152050`, 2848 passed on Windows and Ubuntu, with 35 and 34 warnings respectively. The local focused Windows suite is 214 passed, 1 symlink-specific skip, no warnings summary.
+
+The newly added native MASTER diagnostic is partial and fake-COM tested only. It does not complete PROJECTIONS_REOPEN. Continue with independent native therapist AssignmentID extraction and full projection/source-ledger linkage. Gate 2 remains closed.
