@@ -2047,3 +2047,12 @@ Native MASTER readback now checks the full 10-column formula block plus status f
 CI run `45676238896`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs passed.
 
 Treatment-related formula results are not yet compared to independent expected business values; formatting/style/package coverage and trusted operation attestation remain open. No real Excel. Gate 2 closed.
+
+ 
+### 2026-11-25 — PATIENT_PLANNER formula bridge and MASTER formula result equality
+
+Native source capture now allows only direct same-row PATIENTS links in PATIENT_PLANNER A:E and verifies native formula text plus evaluated result against literal PATIENTS cells. All other formulas/errors fail closed. Native MASTER checks all 10 formula results plus status against literal PATIENT_PLANNER source values and independently compares infectious flag, room, identity and status.
+
+CI run `45677349897`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
+
+No real Excel/operational XLSM. Remaining: independent treatment-value semantics, styles/package resources, trusted approval provenance, operation ID/report/receipt. Gate 2 closed.
