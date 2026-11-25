@@ -135,3 +135,15 @@ def test_prepared_adapter_rejects_workbook_bytes_changed_during_verifier_run(tmp
             report_id="prepared-adapter-report",
         )
     assert not report_path.exists()
+
+def test_prepared_adapter_rejects_missing_native_excel_version(tmp_path, monkeypatch):
+    import tools.verify_daily_input_journal_prepared as readback
+
+    root, workbook, payload, handoff, report_path = prepared_fixture(tmp_path)
+    monkeypatch.setattr(readback, "verify_prepared_reopen", lambda *a, **k: None)
+    with pytest.raises(PreparedPhaseReportAdapterError, match="version was not reported"):
+        create_prepared_snapshot_phase_report(
+            workbook, handoff, payload, evidence_root=root, report_path=report_path,
+            report_id="prepared-adapter-report",
+        )
+    assert not report_path.exists()
