@@ -2759,3 +2759,12 @@ The native projection diagnostic now begins with a separate read-only COM captur
 CI run `45675024806`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including the source Excel-version CLI output assertion.
 
 Still no real operational Excel run, trusted approval provenance, operation-bound attestation, report/receipt or Gate 2 authorization. See design doc §13.
+
+ 
+### Native MASTER formula/value coverage extension
+
+The native MASTER reader now checks all 10 canonical formula columns plus status per projected row, validates exact PATIENT_PLANNER links, reads all 11 evaluated cells, rejects formula errors and compares infectious flag, room, patient/doctor identity and status to independent preflight facts. Literal doctor identity is handled separately. Composite evidence binds the expected formula/evaluated counts.
+
+CI run `45676238896`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs passed.
+
+Remaining: treatment formula results are link/error checked but not yet compared to independent expected values; styles/package resources remain unverified. Fake COM only, no real Excel. Gate 2 remains closed.
