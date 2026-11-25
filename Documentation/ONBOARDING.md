@@ -474,3 +474,6 @@ The native THERAPIST_DAILY comparison primitive is now present. Before adding a 
 
  
 The expected THERAPIST_DAILY grid builder is now available and cross-platform synthetic CI is green (run `45660810319`, 2866 passed on both Windows and Ubuntu). It requires caller-supplied independently validated stable-ID schedule/session/state facts and does not itself verify DAILY_INPUT/ledger/replacement sources. Next is a composite native diagnostic that binds this expected grid to the full-grid COM readback and exact operation/source/date evidence. See design doc §9.
+
+ 
+The composite native projection consistency check is now green (GitHub Actions run `45662463260`, 2877 passed on Windows and Ubuntu). It binds prior INPUT_AND_LEDGER, MASTER and full therapist-grid evidence to the same workbook digest/date, but it is not a phase report or trusted verifier. Next: independently capture the full source/ledger/replacement sheets through native COM and expand MASTER evaluated-value verification. See design doc §10.
