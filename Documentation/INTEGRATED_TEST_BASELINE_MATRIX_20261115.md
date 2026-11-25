@@ -659,3 +659,15 @@ PREPARED-only journal VBA bridge is present in source; Apply gate deliberately r
 Existing source handlers identified: Apply (`modDailyInputAction`), automatic replacement (`modGlobalReplacementAction`), manual replacement (`modReplacementOperator`), ledger/replacement Restore (`daily_restore_in_session_vba.py`), Amendment (`modDayAmendmentAction`), and strict full-workbook rollback audit (`daily_input_full_rollback_audit.py`). Operational paths remain locked by `DailyInputJournalApplyEnabled=False`.
 
 Local rollback attempts already exist, so “no rollback code exists” is inaccurate. However, Apply's outer `IncompleteApply` branch retains the operation snapshot and warns about partial saved changes rather than automatically restoring it. Other local copy-back/restore paths explicitly disclaim independent native Save/Close/Reopen proof. The full-package audit is read-only and is not a rollback executor; it also requires separate trusted receipt and native Excel reopen. Integrated durable phase orchestration, recovery and positive native transaction proof remain NOT ESTABLISHED. Keep gate closed.
+
+
+## 2026-11-25 — Test coverage map: handlers, evidence classes and positive-proof gap
+
+Reviewed the focused test set for Apply, Gate 2, rollback audit/native diagnostic, automatic and manual Replacement, in-session Restore, and Day Amendment. Existing tests cover:
+- Source contracts and mutation-guard ordering (`test_daily_input_action_vba`, `test_daily_input_gate2_guard_matrix`, `test_global_replacement_action_vba`, `test_day_amendment_action_vba`, `test_daily_restore_in_session_vba`, `test_replacement_operator_recovery`).
+- Synthetic package/journal audit and CLI wiring (`test_daily_input_full_rollback_audit`, `test_verify_daily_input_full_rollback`).
+- Disposable native Excel negative/fault-injection diagnostics (`test_diagnose_daily_input_gate2_apply_worker_native`, `test_diagnose_daily_input_gate2_restore_worker_native`, `test_diagnose_daily_input_gate2_day_amendment_worker_native`, `test_diagnose_daily_input_full_rollback_native`).
+
+These are distinct evidence classes. Source tests do not execute VBA; synthetic fixtures do not prove native workbook behavior; negative native tests prove rejection/fault-recovery behavior only. The reviewed set does not establish a positive permitted public-UI Excel transaction with durable receipt, Save/Close/Reopen readback, dependent projection/history verification and independently proven rollback. Gate 2 remains false.
+
+Next: map durable journal state transitions and trusted receipt binding across public entrypoints and mutation boundaries; close the orchestration gaps and verify disposable native fault injection before any positive operational transaction test.
