@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from openpyxl.utils.cell import column_index_from_string
 import sys
 
 from .authoritative_commit import file_sha256
@@ -50,6 +51,31 @@ def _truthy(value: object) -> bool:
     if isinstance(value, (int, float)):
         return str(value).strip().upper() in {"1", "1.0"}
     return _text(value).upper() in {"Ν", "N", "YES", "Y", "TRUE", "1"}
+
+
+def _same_native_value(actual: object, expected: object) -> bool:
+    if actual is None or expected is None:
+        return actual is None and expected is None
+    if type(actual) is bool or type(expected) is bool:
+        return type(actual) is bool and type(expected) is bool and actual is expected
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        return float(actual) == float(expected)
+    return type(actual) is str and type(expected) is str and actual == expected
+
+
+def _source_literal(ws, row: int, column: str) -> object:
+    try:
+        cell = ws.Cells(row, column_index_from_string(column))
+        if bool(cell.HasFormula):
+            raise MasterProjectionNativeReadbackError("Native PATIENT_PLANNER source contains a formula")
+        value = cell.Value2
+    except MasterProjectionNativeReadbackError:
+        raise
+    except Exception as exc:
+        raise MasterProjectionNativeReadbackError("Native PATIENT_PLANNER source value unavailable") from exc
+    if type(value) is str and value.startswith("#"):
+        raise MasterProjectionNativeReadbackError("Native PATIENT_PLANNER source contains an Excel error")
+    return value
 
 
 def _formula(cell, expected: str) -> None:
@@ -148,6 +174,7 @@ def verify_master_projection_native_readonly(
         if not bool(book.ReadOnly):
             raise MasterProjectionNativeReadbackError("Native Excel workbook is not read-only")
         ws = book.Worksheets("MASTER_SCHEDULE")
+        planner_ws = book.Worksheets("PATIENT_PLANNER")
 
         headers = []
         for row in range(1, 11):
@@ -191,6 +218,9 @@ def verify_master_projection_native_readonly(
 
                 _formula(cell, f"=PATIENT_PLANNER!{source_column}{item.planner_row}")
                 value = _value(cell)
+                source_value = _source_literal(planner_ws, item.planner_row, source_column)
+                if not _same_native_value(value, source_value):
+                    raise MasterProjectionNativeReadbackError("Native MASTER formula result differs from PATIENT_PLANNER source")
                 formula_cells_checked += 1
                 evaluated_cells_checked += 1
                 if column == 1 and _truthy(value) is not item.infectious:
@@ -204,7 +234,11 @@ def verify_master_projection_native_readonly(
 
             status_cell = ws.Cells(row, status_col)
             _formula(status_cell, f"=PATIENT_PLANNER!E{item.planner_row}")
-            actual_status = _text(_value(status_cell))
+            status_value = _value(status_cell)
+            source_status = _source_literal(planner_ws, item.planner_row, "E")
+            if not _same_native_value(status_value, source_status):
+                raise MasterProjectionNativeReadbackError("Native MASTER status formula result differs from PATIENT_PLANNER source")
+            actual_status = _text(status_value)
             formula_cells_checked += 1
             evaluated_cells_checked += 1
             if actual_status != _text(item.status):
