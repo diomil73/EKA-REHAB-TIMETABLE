@@ -792,3 +792,12 @@ The workflow uses `--disable-warnings`; warning details are suppressed but warni
 Added `daily_input_input_ledger_native.py` and `test_daily_input_input_ledger_native.py`. Coverage includes: successful cross-view readback, exact saved input/ledger membership, native COM opened ReadOnly with macros disabled, disabled events/links/alerts, no Save, close/quit; failures for date, source reason, ledger identities, duplicate ledger entry, formula, visibility, protection, non-readonly Excel and cleanup failures, missing preflight, and OOXML rejection before COM launch. All examples use fictional synthetic data and fake COM objects.
 
 Ubuntu Python 3.11 full CI at `6e4d99296fc6679fbaeffd4a2003a17ac165719f`: 2770 passed, 77 warnings, 24.10s. Windows outcome not yet confirmed at this documentation checkpoint. No native real Excel execution. Registry INPUT_AND_LEDGER remains NOT_IMPLEMENTED. Gate 2 closed.
+
+### Native INPUT_AND_LEDGER synthetic CI final confirmation — 25/11/2026
+
+GitHub Actions run `45599055363` for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f` finished **SUCCESS** on all four jobs:
+- Windows Python 3.11 full regression: **2770 passed**, 77 warnings, 33.58s.
+- Ubuntu Python 3.11 full regression: **2770 passed**, 77 warnings, 24.10s.
+- Windows and Ubuntu synthetic safety jobs: both success.
+
+Previous interim notes that the Windows outcome was pending are superseded by this final confirmed result. Warning details are suppressed by the CI workflow; do not claim zero warnings. Native COM remains mocked in these tests, not real Excel; no report adapter/trusted attestation/journal append/Apply authorization or Gate 2 activation. An independent disposable-XLSM native Excel smoke test and explicit zero-change policy remain pending.
