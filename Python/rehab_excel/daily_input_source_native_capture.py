@@ -89,7 +89,7 @@ def _same_literal(expected: object, actual: object) -> bool:
     return type(expected) is str and type(actual) is str and expected == actual
 
 
-def _used_range_bounds(ws, *, sheet_name: str) -> tuple[int, int]:
+def _used_range_bounds(ws, *, sheet_name: str) -> tuple[int, int, int, int]:
     try:
         used = ws.UsedRange
         first_row = int(used.Row)
@@ -103,7 +103,7 @@ def _used_range_bounds(ws, *, sheet_name: str) -> tuple[int, int]:
             or last_column < first_column or last_row > row_limit
             or last_column > column_limit):
         raise DailyInputSourceNativeCaptureError("Native source used range exceeds fixed bounds")
-    return last_row, last_column
+    return first_row, first_column, last_row, last_column
 
 
 def verify_daily_input_source_native_capture_readonly(
@@ -184,9 +184,14 @@ def verify_daily_input_source_native_capture_readonly(
                 ws = book.Worksheets(name)
             except Exception as exc:
                 raise DailyInputSourceNativeCaptureError("Native source worksheet missing") from exc
-            last_row, last_column = _used_range_bounds(ws, sheet_name=name)
+            first_row, first_column, last_row, last_column = _used_range_bounds(ws, sheet_name=name)
             values, package_last_row, package_last_column = package_facts[name]
-            if package_last_row > last_row or package_last_column > last_column:
+            package_first_row = min((coordinate_from_string(a)[1] for a in values), default=1)
+            package_first_column = min((
+                column_index_from_string(coordinate_from_string(a)[0]) for a in values
+            ), default=1)
+            if (package_first_row < first_row or package_first_column < first_column
+                    or package_last_row > last_row or package_last_column > last_column):
                 raise DailyInputSourceNativeCaptureError("Native used range does not cover saved source cells")
             for address, expected in values.items():
                 actual = _native_cell(ws, address)
