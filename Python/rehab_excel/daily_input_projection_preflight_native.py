@@ -107,6 +107,9 @@ def verify_daily_input_projection_preflight_native_readonly(
             raise DailyInputProjectionPreflightNativeError("Native INPUT_AND_LEDGER verifier returned invalid result")
         if input_ledger.workbook_sha256 != before_hash or input_ledger.service_date != preflight.service_date:
             raise DailyInputProjectionPreflightNativeError("Native INPUT_AND_LEDGER readback binding mismatch")
+        if (input_ledger.source_change_count != len(preflight.validated_changes)
+                or input_ledger.active_ledger_count != len(preflight.validated_changes)):
+            raise DailyInputProjectionPreflightNativeError("Native INPUT_AND_LEDGER change count differs from preflight")
 
         projections = verify_daily_input_projection_native_readonly(
             source,
