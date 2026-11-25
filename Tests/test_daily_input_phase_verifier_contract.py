@@ -89,14 +89,17 @@ def test_registry_covers_every_evidence_kind_exactly_once():
     assert len({item.verifier_id for item in contracts}) == len(EvidenceKind)
 
 
-def test_prepared_has_report_adapter_only_and_no_verifier_is_authorizing():
+def test_prepared_and_input_ledger_have_report_adapters_only_and_no_authorizing_verifier():
     assert VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT].implementation_status == (
+        VerifierImplementationStatus.REPORT_ADAPTER_ONLY
+    )
+    assert VERIFIER_CONTRACTS[EvidenceKind.INPUT_AND_LEDGER_REOPEN].implementation_status == (
         VerifierImplementationStatus.REPORT_ADAPTER_ONLY
     )
     assert all(
         item.implementation_status == VerifierImplementationStatus.NOT_IMPLEMENTED
         for kind, item in VERIFIER_CONTRACTS.items()
-        if kind != EvidenceKind.PREPARED_SNAPSHOT
+        if kind not in {EvidenceKind.PREPARED_SNAPSHOT, EvidenceKind.INPUT_AND_LEDGER_REOPEN}
     )
     assert all(
         item.implementation_status != VerifierImplementationStatus.IMPLEMENTED
@@ -184,9 +187,9 @@ def test_prepared_native_readback_requires_exact_snapshot_digest_and_remains_dia
         validate_phase_verifier_report(report, prepared_operation())
 
 
-def test_positive_phase_report_fails_closed_until_native_verifier_is_implemented():
+def test_positive_phase_report_fails_closed_until_trusted_attestation_is_integrated():
     report = create_phase_verifier_report(**report_fields())
-    with pytest.raises(PhaseVerifierNotImplementedError, match="No executable independent verifier"):
+    with pytest.raises(PhaseVerifierNotImplementedError, match="trusted verifier attestation is not integrated"):
         validate_phase_verifier_report(
             report, operation(),
             previous_operation=prepared_operation(),
