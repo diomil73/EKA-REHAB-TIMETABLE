@@ -1278,3 +1278,12 @@ The workflow uses `--disable-warnings`; warning details are suppressed but warni
 Added a source-bound read-only native Excel COM verifier diagnostic and fake-COM tests. The verifier reuses the existing OOXML readback, independently inspects DAILY_INPUT and the protected veryHidden DAILY_CHANGE_LEDGER in a fresh macro-disabled/read-only COM instance, compares complete native business-change identities against the same preflight facts, and verifies saved-workbook hash stability. It always attempts workbook Close(SaveChanges=False) and Excel.Quit and fails closed on cleanup problems.
 
 The INPUT_AND_LEDGER registry remains NOT_IMPLEMENTED (no report adapter, attestation, receipt/journal transition or operational authorization). Ubuntu CI on the code/test commit 6e4d9929: 2770 passed / 77 warnings / 24.10s. Windows result awaits verification. Native Excel on a real disposable XLSM remains a required PC-only test; fake COM cannot replace it. Gate 2 remains closed.
+
+### Native INPUT_AND_LEDGER synthetic CI final confirmation — 25/11/2026
+
+GitHub Actions run `45599055363` for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f` finished **SUCCESS** on all four jobs:
+- Windows Python 3.11 full regression: **2770 passed**, 77 warnings, 33.58s.
+- Ubuntu Python 3.11 full regression: **2770 passed**, 77 warnings, 24.10s.
+- Windows and Ubuntu synthetic safety jobs: both success.
+
+Previous interim notes that the Windows outcome was pending are superseded by this final confirmed result. Warning details are suppressed by the CI workflow; do not claim zero warnings. Native COM remains mocked in these tests, not real Excel; no report adapter/trusted attestation/journal append/Apply authorization or Gate 2 activation. An independent disposable-XLSM native Excel smoke test and explicit zero-change policy remain pending.
