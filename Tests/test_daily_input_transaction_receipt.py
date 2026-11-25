@@ -144,7 +144,7 @@ def test_binding_matches_operation_phase_evidence_and_pinned_verifier():
     receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     validate_receipt_binding(
         receipt, op, required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
-        expected_previous_receipt_sha256=None,
+        expected_previous_receipt_sha256="b" * 64,
         verifier_registry={"native-reopen-verifier": "v1"},
     )
 
@@ -179,7 +179,7 @@ def test_binding_rejects_unpinned_verifier_and_wrong_predecessor():
     with pytest.raises(TransactionReceiptError, match="predecessor"):
         validate_receipt_binding(
             receipt, operation(), required_evidence=args["required_evidence"],
-            expected_previous_receipt_sha256="b" * 64,
+            expected_previous_receipt_sha256="c" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
 
