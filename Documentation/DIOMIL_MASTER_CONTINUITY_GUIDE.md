@@ -3142,3 +3142,15 @@ Detailed source findings and unresolved label/zero-day questions are now in §7 
 The display-label source audit is now complete. `patient_centric_preview.py` renders a single patient as the display name; shared patients as name plus recurring day pattern; same-patient multi-assignment cells as one name plus a treatment/day detail line; replacement source/destination cells with their existing arrow and date-label conventions. Student provider labels are separate, and outpatient distinction is a cell fill, not a patient-name prefix.
 
 The next native verifier should reuse the established renderer semantics to compute exact expected cell text from independently sourced daily states and compare native COM values. It must fail closed on ambiguous duplicate patient display names and missing/extra affected provider-time cells. No new verifier implementation is claimed. Full source map: design doc §7–§7.1.
+
+ 
+### 4.230 Native THERAPIST_DAILY full-grid readback primitive added; expected-grid builder still pending — 25/11/2026
+
+Added `Python/rehab_excel/daily_input_therapist_projection_native.py` and fake-COM tests. The diagnostic requires all 18 provider headers and explicit expected values for all 126 patient cells across B2:J8 and B12:J18. It opens a fresh macro-disabled Excel COM instance read-only, checks provider headers and fixed time rows, compares every cell exactly, rejects formula/error/non-text occupancy, captures Excel version, closes without saving and verifies the workbook hash is unchanged.
+
+GitHub Actions run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6`, SUCCESS:
+- Windows: **2859 passed, 32 warnings, 44.28s**.
+- Ubuntu: **2859 passed, 35 warnings, 19.52s**.
+- Both synthetic safety jobs passed.
+
+This is a full-grid native comparison primitive only. The expected-grid builder, native AssignmentID extraction, exact shared-slot reconciliation, same-operation source-ledger linkage and PROJECTIONS_REOPEN adapter are still pending. Tests use fake COM; no real Excel was run. Verifier registry unchanged; `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`. Detailed scope and next steps: design doc §8. Gate 2 remains closed.
