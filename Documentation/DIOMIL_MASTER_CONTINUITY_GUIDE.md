@@ -3252,3 +3252,12 @@ Added an integrated real-OOXML/fake-COM test and a native MASTER test for the ex
 CI run `45679125582`, HEAD `2b9c6294232e476216f8438e2d1880797a539b0d`, SUCCESS: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed.
 
 No real Excel/operational XLSM. Details: design doc §§13-16.
+
+ 
+### 4.240 PATIENTS/PATIENT_PLANNER A:E mirror completeness — 25/11/2026
+
+Native source capture now checks all five identity columns A:E for every populated PATIENTS patient row. It validates supported native formulas against their literal PATIENTS source; when planner cells are literals, they must exactly equal PATIENTS values with text/numeric identity preserved. Native formula presence must match OOXML. The wrapper requires the mirror row count to equal the preflight patient count.
+
+CI run `45680015176`, HEAD `fbf6e5571ad7cf6be412f719f304ade5d3c1322c`, SUCCESS: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed.
+
+This catches patient/planner row and identity drift before native projection readbacks. Fake COM only; no real Excel. Gate 2 closed. Details: design doc §17.
