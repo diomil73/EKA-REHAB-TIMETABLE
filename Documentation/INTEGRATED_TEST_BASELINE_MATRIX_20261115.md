@@ -977,3 +977,13 @@ CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`, SUCCESS:
 - Both synthetic safety jobs passed.
 
 Covers synthetic preflight assembly, shared-clock exact approval membership, native wrapper orchestration/hash/date/count drift, and safe aggregate-only CLI. Fake COM and synthetic data only. No real Excel/operational workbook. Not a phase adapter or trusted attestation.
+
+ 
+### 2026-11-25 — Native source-sheet capture regression
+
+CI run `45674827673`, HEAD `c9f7413c7ec409327a76a1a493a66dead0c22765`, SUCCESS:
+- Windows Python 3.11: **2907 passed, 30 warnings, 46.67s**.
+- Ubuntu Python 3.11: **2907 passed, 30 warnings, 17.42s**.
+- Both synthetic safety jobs passed.
+
+Covers typed OOXML cell parsing, native literal source capture, formula/error rejection, fixed UsedRange bounds, source hash immutability, mandatory sheet scope and full wrapper integration. Fake COM only. No real Excel.
