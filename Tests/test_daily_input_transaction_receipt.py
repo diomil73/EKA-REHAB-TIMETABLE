@@ -16,7 +16,10 @@ from rehab_excel.daily_input_transaction_receipt import (
 
 
 def operation():
-    return DailyInputOperation("op-20261125-001", "a" * 64, "2026-11-25")
+    return DailyInputOperation(
+        "op-20261125-001", "a" * 64, "2026-11-25",
+        phase=Phase.INPUT_AND_LEDGER_COMMITTED, revision=1,
+    )
 
 
 def receipt_fields(**overrides):
@@ -38,6 +41,18 @@ def receipt_fields(**overrides):
         "verified_at_utc": "2026-11-25T10:30:00Z",
         "previous_receipt_sha256": None,
     }
+    value.update(overrides)
+    return value
+
+
+def input_ledger_receipt_fields(**overrides):
+    """A later-phase receipt fixture linked to its PREPARED predecessor."""
+    value = receipt_fields(
+        journal_revision=1,
+        journal_phase=Phase.INPUT_AND_LEDGER_COMMITTED.value,
+        evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value,
+        previous_receipt_sha256="b" * 64,
+    )
     value.update(overrides)
     return value
 
@@ -120,14 +135,13 @@ def test_nonzero_revision_requires_predecessor_digest():
     with pytest.raises(TransactionReceiptError, match="requires previous"):
         create_transaction_receipt(**receipt_fields(
             journal_revision=1, journal_phase=Phase.INPUT_AND_LEDGER_COMMITTED.value,
+        evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value,
         ))
 
 
 def test_binding_matches_operation_phase_evidence_and_pinned_verifier():
     op = operation()
-    receipt = create_transaction_receipt(**receipt_fields(
-        evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value,
-    ))
+    receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     validate_receipt_binding(
         receipt, op, required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
         expected_previous_receipt_sha256=None,
@@ -137,9 +151,7 @@ def test_binding_matches_operation_phase_evidence_and_pinned_verifier():
 
 def test_binding_rejects_operation_or_evidence_drift():
     op = operation()
-    receipt = create_transaction_receipt(**receipt_fields(
-        evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value,
-    ))
+    receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     with pytest.raises(TransactionReceiptError, match="identity/revision"):
         validate_receipt_binding(
             receipt, replace(op, source_sha256="b" * 64),
@@ -156,9 +168,7 @@ def test_binding_rejects_operation_or_evidence_drift():
 
 
 def test_binding_rejects_unpinned_verifier_and_wrong_predecessor():
-    receipt = create_transaction_receipt(**receipt_fields(
-        evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value,
-    ))
+    receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     args = dict(
         required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
         expected_previous_receipt_sha256=None,
@@ -211,9 +221,7 @@ def test_receipt_is_not_an_authorization_surface():
     assert not hasattr(module, "enable_apply")
 
 def test_binding_rechecks_digest_even_for_direct_dataclass_instances():
-    receipt = create_transaction_receipt(**receipt_fields(
-        evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value,
-    ))
+    receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     forged = replace(receipt, verifier_version="v2")
     with pytest.raises(TransactionReceiptError, match="SHA-256 mismatch"):
         validate_receipt_binding(
