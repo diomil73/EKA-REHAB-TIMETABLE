@@ -83,3 +83,6 @@ The DAILY_INPUT native diagnostic now captures literal source cells from the wor
 
  
 The native MASTER diagnostic now checks all 10 canonical formula columns plus status, reads all 11 evaluated cells per projected row, and compares infectious flag, room, patient/doctor identity and status. Latest cross-platform regression: run `45676238896`, 2911 passed on Windows and Ubuntu. Remaining value/style/package boundaries are documented in design doc §14.
+
+ 
+The DAILY_INPUT native source capture supports only direct PATIENTS A:E formulas in PATIENT_PLANNER and verifies their native results against PATIENTS literals. MASTER formula results are now compared to PATIENT_PLANNER source values. Latest regression: run `45677349897`, 2916 passed on Windows and Ubuntu. See design doc §§13-14.
