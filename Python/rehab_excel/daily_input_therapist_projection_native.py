@@ -180,8 +180,8 @@ def verify_therapist_daily_native_readonly(
             for char in column_letters:
                 column_number = column_number * 26 + ord(char) - ord("A") + 1
             actual = _read_literal(ws.Cells(row_number, column_number))
-            header_index = (0 if row_number <= 8 else 9) + column_number - 2
-            if not expected_provider_headers[header_index].strip() and actual:
+            cell_header_index = (0 if row_number <= 8 else 9) + column_number - 2
+            if not expected_provider_headers[cell_header_index].strip() and actual:
                 raise TherapistDailyNativeReadbackError("Native therapist occupancy exists under a blank provider header")
             if actual != expected:
                 raise TherapistDailyNativeReadbackError("Native therapist patient-cell value differs from preflight")
