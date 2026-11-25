@@ -2,9 +2,10 @@
 
 This module is NOT a native Excel verifier. It defines the pinned evidence
 contract for each EvidenceKind and validates the shape/binding of a report.
-No verifier is integrated with the phase report/receipt contract yet. PREPARED
-has an existing diagnostic-only readback path; the other implementations remain
-NOT_IMPLEMENTED until independent adapters inspect exact saved workbook bytes.
+PREPARED has a report-producing adapter over its existing native readback,
+but remains non-authorizing until trusted verifier attestation is integrated.
+The other evidence kinds remain NOT_IMPLEMENTED until independent adapters
+inspect the required saved workbook/artifact scope.
 It cannot authenticate a report, authorize a journal append, or enable Apply.
 """
 from __future__ import annotations
