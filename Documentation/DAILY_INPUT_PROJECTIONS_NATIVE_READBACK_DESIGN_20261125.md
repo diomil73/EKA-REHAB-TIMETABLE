@@ -375,3 +375,21 @@ No change was made to this behavior. This is a documented scope boundary, not a 
 Added fake-COM coverage for the expanded MASTER schema with K=`ΨΥΧΟΛΟΓΟΙ`, L=`ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ`, M=`Κατάσταση`. The native reader correctly identifies status column M and verifies the same A:J/M formula and evaluated-value contract. This test does not certify K/L content; those columns remain explicitly outside scope under §15.
 
 CI run `45679125582`, HEAD `2b9c6294232e476216f8438e2d1880797a539b0d`, SUCCESS: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed.
+
+ 
+## 17. PATIENTS / PATIENT_PLANNER identity mirror completeness
+
+The native source capture now validates the A:E identity bridge for every populated PATIENTS patient row, not only cells that happen to contain formulas:
+- native PATIENTS A:E cells must be literal;
+- if PATIENT_PLANNER has a formula at an A:E cell, the native formula must be present exactly where OOXML records it and its supported formula result has already been checked against PATIENTS;
+- if PATIENT_PLANNER has no formula at that cell, its native literal must exactly equal the corresponding PATIENTS literal, preserving text/numeric identity;
+- unexpected/missing native formulas and any literal drift fail closed.
+
+It counts identity-mirror rows and the one-call wrapper requires that count to equal the independently built preflight patient count. This catches missing/extra patient rows, wrong planner IDs, room/name/status/infectious drift and row misalignment before INPUT_AND_LEDGER or projection readbacks proceed.
+
+CI run `45680015176`, HEAD `fbf6e5571ad7cf6be412f719f304ade5d3c1322c`, SUCCESS:
+- Windows Python 3.11: **2923 passed, 32 warnings, 44.62s**.
+- Ubuntu Python 3.11: **2923 passed, 29 warnings, 24.37s**.
+- Both synthetic safety jobs passed.
+
+This remains source consistency, not proof of source provenance or operator approval. The mirror check does not validate styles or all treatment business semantics. Fake COM/synthetic only; no real Excel or operational XLSM.
