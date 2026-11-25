@@ -734,3 +734,13 @@ Confirmed green: 110 passed, zero failed. One symlink-specific test is skipped b
 ## 2026-11-25 — PREPARED phase-report adapter tests pending
 
 New adapter: Python/rehab_excel/daily_input_prepared_phase_adapter.py. New tests: Tests/test_daily_input_prepared_phase_adapter.py. They cover native readback invocation, exact snapshot hash binding, report codec round-trip, evidence-root containment, no-overwrite and fail-closed status pending trusted attestation. NOT YET RUN. The confirmed 110 passed, 1 skipped focused run predates this addition and must not be represented as covering these new tests.
+
+## 2026-11-25 — Full CI regression including PREPARED report adapter
+
+GitHub Actions full `Tests` regression for commit `a559a35c9a618b0d83764349d3aaa48e0e9cd211`:
+
+- Windows / Python 3.11: 2734 passed, 71 warnings, 34.45s, job success.
+- Ubuntu / Python 3.11: 2734 passed, 69 warnings, 30.31s, job success.
+- Both synthetic Python safety jobs succeeded.
+
+Workflow uses `pytest -q --disable-warnings --maxfail=35`; warning counts are visible, individual warning details are suppressed. This run includes the new PREPARED phase-report adapter and its tests. Later commits changed only documentation text and a test function name; latest-head full regression is running. User-local focused baseline before adapter: 110 passed, 1 symlink-specific skip. Latest adapter-specific Windows local test run is still required.
