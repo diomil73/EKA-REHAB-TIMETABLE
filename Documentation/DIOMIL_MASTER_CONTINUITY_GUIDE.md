@@ -2976,3 +2976,12 @@ The diagnostic first invokes the existing strict saved OOXML comparison `verify_
 This is a **read-only diagnostic**, not a phase report adapter, trusted attestation, operational positive native Excel proof or Gate 2 acceptance. The production verifier registry for INPUT_AND_LEDGER remains NOT_IMPLEMENTED. The in-memory snapshots use the existing canonical business interpreter rather than introducing divergent DAILY_INPUT parsing rules; this independently observes COM-visible cells but does not constitute a second independently specified business parser. The existing OOXML validator still rejects zero-change preflight input; this policy remains unresolved.
 
 GitHub Actions run for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f`: Ubuntu Python 3.11 **2770 passed / 77 warnings / 24.10s**; Windows and final workflow conclusions to be verified separately before claiming full green. The synthetic COM tests do not exercise native Excel on the user's PC. No workbook/VBA/Apply/Restore/journal/Gate 2 write or production data migration.
+
+### Native INPUT_AND_LEDGER synthetic CI final confirmation — 25/11/2026
+
+GitHub Actions run `45599055363` for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f` finished **SUCCESS** on all four jobs:
+- Windows Python 3.11 full regression: **2770 passed**, 77 warnings, 33.58s.
+- Ubuntu Python 3.11 full regression: **2770 passed**, 77 warnings, 24.10s.
+- Windows and Ubuntu synthetic safety jobs: both success.
+
+Previous interim notes that the Windows outcome was pending are superseded by this final confirmed result. Warning details are suppressed by the CI workflow; do not claim zero warnings. Native COM remains mocked in these tests, not real Excel; no report adapter/trusted attestation/journal append/Apply authorization or Gate 2 activation. An independent disposable-XLSM native Excel smoke test and explicit zero-change policy remain pending.
