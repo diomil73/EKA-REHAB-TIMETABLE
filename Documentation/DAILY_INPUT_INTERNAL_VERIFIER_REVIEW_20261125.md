@@ -305,3 +305,14 @@ Added `daily_input_therapist_projection_native.py` and `test_daily_input_therapi
 GitHub Actions run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6`: Windows **2859 passed / 32 warnings / 44.28s**; Ubuntu **2859 passed / 35 warnings / 19.52s**; both synthetic safety jobs passed.
 
 This is a fake-COM tested primitive, not an actual Excel run and not a complete PROJECTIONS_REOPEN verifier. The full 126-cell expected-grid generator, independent AssignmentID observed-membership extraction, shared-slot proof and operation-bound DAILY_INPUT/ledger linkage remain unimplemented. No phase report, receipt, trusted attestation or authorization. Registry unchanged; Gate 2 closed. Details: `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §8.
+
+ 
+## 15. Full expected THERAPIST_DAILY grid builder — 25/11/2026
+
+Added `daily_input_therapist_projection_expected.py` and its tests. The builder requires immutable stable-ID-bound base entries, dated sessions, exact one-to-one DailySessionState coverage, patient/student registries and independently supplied provider headers. It reuses `render_base_slot()` and `build_patient_centric_preview_plan()` to create the complete expected 126-cell display, including existing absence/replacement annotations. It separately derives expected active therapist AssignmentID facts, excluding absent/cancelled and student-replaced sessions. It rejects duplicate/unstable AssignmentIDs, state/session mismatch, unknown patients, ambiguous duplicate display names in a visible cell and StudentID/TherapistID collisions.
+
+A synthetic student replacement exposed that the existing preview's final provider/time patch pass had discarded provider kind. Corrected `patient_centric_preview._provider_cell()` to recognize a known StudentID during final resolution. Replaced stale `student.student_number` references with `student.student_id` in `patient_centric_preview.py` and `outpatient_presentation.py`.
+
+GitHub Actions run `45660810319`, HEAD `5a91058f0c9f78f63c19a70366987d8685796af7`: Windows **2866 passed / 36 warnings / 42.21s**; Ubuntu **2866 passed / 32 warnings / 23.47s**; both synthetic safety jobs succeeded.
+
+The builder consumes caller-supplied facts. It does not independently capture or validate the source sheets, stable-ID registry, exits/recurring changes, DAILY_INPUT, authoritative ledger or replacement store. It is not joined to the native full-grid COM reader in a composite operation-bound diagnostic/report adapter. No trusted attestation or registry status change; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 remains closed.
