@@ -2020,3 +2020,12 @@ Still pending: independent native capture/verification of all source sheets, exi
 ### 2026-11-25 — THERAPIST_DAILY blank-slot compatibility
 
 Native full-grid readback now supports intentionally unused blank provider headers, while rejecting occupancy beneath them and duplicate populated names within a block. All 18 headers and 126 patient cells remain checked. GitHub Actions run `45663881144`: Windows 2880 passed / 34 warnings; Ubuntu 2880 passed / 32 warnings; both synthetic safety jobs passed. No real Excel execution; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+### 2026-11-25 — DAILY_INPUT source preflight and one-call native diagnostic
+
+Added an explicit-date OOXML preflight assembling PATIENTS/SETTINGS, inpatient/outpatient recurring programme, stable IDs, effective recurring changes, exits, dated sessions, DAILY_INPUT, replacements, daily states, students, MASTER projection and full therapist grid. Added one-call native INPUT_AND_LEDGER + MASTER + THERAPIST_DAILY readback wrapper and aggregate-only Windows CLI. Exact source SHA-256/date/count bindings and source immutability are checked.
+
+CI run `45667684716`: Windows **2897 passed / 29 warnings**; Ubuntu **2897 passed / 32 warnings**; both synthetic safety jobs passed.
+
+Still not trusted native capture of all source sheets; shared-clock approvals are not authenticated; evidence objects lack operation-bound provenance; no phase report/receipt; full MASTER treatment/style readback remains open. Fake COM only. PROJECTIONS_REOPEN NOT_IMPLEMENTED; Gate 2 closed.
