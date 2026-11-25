@@ -234,3 +234,24 @@ def test_composite_rejects_boolean_or_missing_result_metadata(tmp_path, monkeypa
             path, service_date=SERVICE_DATE, input_ledger_readback=bad_ledger,
             expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
+
+
+def test_composite_requires_master_preflight_digest_to_match_source(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    digest, grid, ledger, master, therapist = _evidence(path)
+    calls = _patch_readers(monkeypatch, master, therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=(), expected_projection_source_sha256="0" * 64,
+            expected_therapist_grid=grid,
+        )
+    assert calls == []
+
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=(), expected_projection_source_sha256="not-a-sha",
+            expected_therapist_grid=grid,
+        )
+    assert calls == []
