@@ -325,12 +325,10 @@ For each selected sheet it:
 
 The one-call projection wrapper now runs this source capture before native INPUT_AND_LEDGER, then MASTER and full THERAPIST_DAILY readbacks. It validates that the native source capture result is the expected immutable result type, binds to the same workbook hash, has a non-empty Excel version, has no duplicate sheet entries and includes all five required source sheets. The CLI reports aggregate source sheet/cell counts and the native source Excel version; no patient/provider cell values are printed.
 
-Latest completed full CI covering source capture, formula/error rejection, typed literal preservation, fixed bounds, wrapper integration and aggregate-only CLI output before the final CLI-version-output assertion: run `45674827673`, HEAD `c9f7413c7ec409327a76a1a493a66dead0c22765`, SUCCESS:
-- Windows Python 3.11: **2907 passed, 30 warnings, 46.67s**.
-- Ubuntu Python 3.11: **2907 passed, 30 warnings, 17.42s**.
+Latest completed full CI including the source-capture Excel-version CLI output and assertion: run `45675024806`, code/test HEAD `35051970554b5268648ce81a7e4fa3cc212ecfc0`, SUCCESS:
+- Windows Python 3.11: **2907 passed, 31 warnings, 45.12s**.
+- Ubuntu Python 3.11: **2907 passed, 31 warnings, 29.14s**.
 - Both synthetic safety jobs passed.
-
-A subsequent small CLI output addition exposes the source-capture Excel version and has its own CI run in progress; record its result when complete.
 
 ### Strict boundary remains
 
