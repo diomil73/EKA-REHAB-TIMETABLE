@@ -2061,3 +2061,10 @@ No real Excel/operational XLSM. Remaining: independent treatment-value semantics
 ### 2026-11-25 — MASTER expanded K/L boundary documented
 
 The 13-column MASTER K (psychologists) and L (afternoon programme) cells are outside the current native projection verifier, which covers A:J and M status. Existing projection writer clears K/L and its test expects them blank; separate patient-form paths exist for psychology/afternoon. No change made. Green native A:J/M readback does not certify K/L. A dedicated source/display contract and verifier remain future work.
+
+ 
+### 2026-11-25 — PATIENT_PLANNER formula compatibility and expanded MASTER schema
+
+Native source capture accepts direct and exact blank-guarded same-row PATIENTS A:E formulas, matching `planner_identity_formulas()` and Excel's exact-empty behavior. Added integration coverage using a real OOXML package plus fake COM, and expanded 13-column MASTER status-M verification. K/L remain outside proof.
+
+CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed. No real Excel/operational XLSM.
