@@ -198,3 +198,23 @@ def test_expected_grid_handles_student_replacement_with_canonical_student_id(tmp
     assert {item.assignment_id for item in result.expected_assignments} == {
         "assignment:00000002", "assignment:00000003",
     }
+
+ 
+ 
+def test_expected_grid_rejects_student_and_therapist_id_collision(tmp_path):
+    path = tmp_path / "student-id-collision.xlsm"
+    headers = _workbook(path)
+    entries = (
+        BaseScheduleEntry("assignment:00000001", "P1", "ΦΘ", time(8, 30), "Δε", "S001"),
+    )
+    patients = (Patient("P1", "ALPHA"),)
+    sessions = tuple(materialize_sessions_for_date(entries, SERVICE_DATE))
+    states = tuple(build_daily_session_states(
+        sessions,
+        absences=(DailyAbsence(AbsenceKind.PATIENT, "P1", SERVICE_DATE),),
+        target_date=SERVICE_DATE,
+    ))
+    student = Student("S001", "STUDENT A", date(2026, 1, 1), date(2027, 1, 1))
+    with pytest.raises(TherapistDailyExpectedGridError):
+        _grid(path, entries=entries, patients=patients, sessions=sessions,
+              states=states, headers=headers, students=(student,))
