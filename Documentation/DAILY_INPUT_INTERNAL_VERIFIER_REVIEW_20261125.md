@@ -387,3 +387,12 @@ Remaining: treatment outputs are not all compared to independent business expect
 The 13-column schema reserves K for psychology, L for afternoon programme and M for status. The native MASTER readback currently verifies A:J plus M. Existing `MasterProjectionWriter` clears A:P then writes only A:J/M; its expanded-schema regression expects K/L blank. The patient-program VBA separately writes K on individual edits; afternoon physiotherapy is stored in `AFTERNOON_PHYSIO_SLOTS` and displayed in the patient form, not through a Master L renderer.
 
 No behavior was changed. A green A:J/M readback is not evidence of K/L correctness. K/L need a separately specified source/display/writer/native-readback contract before inclusion in phase proof.
+
+ 
+## 23. Guarded PATIENT_PLANNER formula compatibility and expanded MASTER schema — 25/11/2026
+
+The native source capture supports both direct and exact blank-guarded same-row PATIENTS A:E formulas emitted by `planner_identity_formulas()`. It compares native formula text and evaluated result to literal PATIENTS cells and mirrors Excel's exact-empty comparison, so whitespace is not treated as blank. Added an integrated real-OOXML/fake-COM regression.
+
+Added native MASTER coverage for the expanded 13-column schema with status in M. This verifies A:J/M only; K psychology and L afternoon remain outside proof as documented in §15.
+
+CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed. No real Excel or operational XLSM.
