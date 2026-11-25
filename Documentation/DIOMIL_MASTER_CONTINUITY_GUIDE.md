@@ -3170,3 +3170,15 @@ A student replacement test exposed a renderer defect: the final preview patch pa
 One intermediate run exposed the student-rendering defect (2864 passed, 1 failed); it was fixed and the final full cross-platform run is green. These are synthetic tests/fake COM only; no real Excel was opened.
 
 **Boundary:** the builder consumes source facts supplied by its caller; it does not independently load/verify the full source, PATIENT_EXITS, recurring events, DAILY_INPUT, authoritative ledger or active replacement facts. It does not yet produce observed AssignmentID facts or a report adapter. Combined with the native 126-cell reader, it is still a pair of primitives, not a completed `PROJECTIONS_REOPEN` verifier. Registry unchanged; Gate 2 closed. Details: design doc §9.
+
+ 
+### 4.232 Composite DAILY_INPUT / MASTER / THERAPIST_DAILY readback binding added — 25/11/2026
+
+Added `daily_input_projection_native.py` and tests. The composite requires a prior successful INPUT_AND_LEDGER native readback, independent MASTER expected rows plus their source SHA-256, and the full expected therapist grid plus its source SHA-256. It runs fresh native MASTER and THERAPIST_DAILY readbacks and requires all three components and the before/after workbook bytes to share the exact same XLSM digest and service date. It checks expected/observed row counts, all 18 provider headers, all 126 patient cells, occupied-cell count, ledger/source counts and non-empty Excel versions; mismatches, bad metadata and workbook mutation fail closed. The expected-grid builder now binds its result to the workbook hash before and after construction.
+
+GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`, SUCCESS:
+- Windows: **2877 passed, 33 warnings, 45.11s**.
+- Ubuntu: **2877 passed, 35 warnings, 18.84s**.
+- Both synthetic safety jobs passed.
+
+This is a non-authorizing consistency composition. It does not authenticate supplied evidence objects, bind an operation ID, produce a report/receipt, independently capture every source/ledger/replacement sheet, or establish trusted attestation. MASTER native evaluated-value scope is still limited to room, patient identity and status. It does not complete PROJECTIONS_REOPEN; registry unchanged, Gate 2 closed. Full boundary and next work: design doc §10.
