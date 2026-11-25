@@ -713,3 +713,9 @@ A source-level resource-lifecycle correction was committed: _read_journal() now 
 ## 2026-11-25 — ZipFile warnings narrowed to synthetic fixture keep_vba setting
 
 Latest local result: 69 passed, 1 skipped, 2 warnings in 4.37s. Warnings remain only for formula/style variants of the synthetic business-cell mutation test. The test fixture is a non-macro openpyxl workbook with .xlsm extension; two test loads used keep_vba=True unnecessarily. Both were changed to keep_vba=False in test code (commit 30f278bf1fe6d624fe7774ac51c3a6f3466a6378). This is a test-only cleanup, not a production workbook change. Rerun pending; warnings remain open until confirmed absent. Symlink skip remains Windows environment limitation.
+
+## 2026-11-25 — Phase-verifier contract/report tests added — execution pending
+
+New files: Python/rehab_excel/daily_input_phase_verifier_contract.py and Tests/test_daily_input_phase_verifier_contract.py. Synthetic coverage includes all ten EvidenceKind registry entries, immutable registry, canonical report/digest, tamper and schema rejection, caller Boolean rejection, unsafe locators, transition-derived evidence obligations, identity and scope mismatch, rejection of non-VERIFIED outcomes, explicit fail-closed behavior while all actual verifiers remain NOT_IMPLEMENTED, and rollback package/PREPARED snapshot requirements.
+
+These tests have NOT been executed locally. Latest reported focused baseline before the two test-only keep_vba fixture changes: 69 passed, 1 skipped, 2 warnings. The fixture correction is unverified until rerun. Do not claim phase verifiers operational; this addition is contract metadata/report validation only.
