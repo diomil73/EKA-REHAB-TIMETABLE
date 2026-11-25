@@ -195,3 +195,16 @@ def test_receipt_is_not_an_authorization_surface():
     assert "DailyInputJournalApplyEnabled = True" not in source
     assert "ThisWorkbook.Save" not in source
     assert not hasattr(module, "enable_apply")
+
+def test_binding_rechecks_digest_even_for_direct_dataclass_instances():
+    receipt = create_transaction_receipt(**receipt_fields(
+        evidence_kind=EvidenceKind.INPUT_AND_LEDGER_REOPEN.value,
+    ))
+    forged = replace(receipt, verifier_version="v2")
+    with pytest.raises(TransactionReceiptError, match="SHA-256 mismatch"):
+        validate_receipt_binding(
+            forged, operation(),
+            required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
+            expected_previous_receipt_sha256=None,
+            verifier_registry={"native-reopen-verifier": "v2"},
+        )
