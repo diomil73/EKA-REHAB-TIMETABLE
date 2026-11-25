@@ -363,3 +363,17 @@ Synthetic fake-COM tests cover all formula links, formula-to-source value mismat
 ### Remaining MASTER boundary
 
 The seven other treatment-related formula outputs are compared to their PATIENT_PLANNER source cells, but are not yet compared to independently derived expected treatment/business facts. This does not verify full treatment semantics, formatting, styles, borders, row heights, conditional formatting or package resources. No operation ID, trusted verifier attestation, phase report or receipt is created. Gate 2 remains closed.
+
+ 
+## 15. Explicit MASTER expanded-schema K/L boundary
+
+The 13-column MASTER schema is `A:J` canonical formula projection, `K` psychologist, `L` afternoon programme, `M` status. The native MASTER verifier currently checks A:J and M only. This is not an accidental assumption that K/L are canonical formulas: `daily_input_master_projection_readback.py` explicitly leaves them outside that formula contract.
+
+The current `MasterProjectionWriter` clears `A:P` for each projection row, then writes only the 10 canonical formula columns and status. Its existing expanded-schema test explicitly asserts that K2 and L2 are blank after projection. The separate VBA patient-program renderer can repopulate K (psychology) when a patient programme is edited, but it does not populate L. Afternoon physiotherapy is stored separately in `AFTERNOON_PHYSIO_SLOTS` and exposed through the read-only patient-form panel; no Master L renderer is part of this current projection path.
+
+Therefore:
+- K/L are deliberately outside the present DAILY_INPUT native projection proof;
+- a green A:J/M readback must not be interpreted as proof that psychology or afternoon programme content is present or correct;
+- any future decision to populate K/L in MASTER needs a separate explicit source-to-display contract, writer, native readback and tests before it can be included in the phase proof.
+
+No change was made to this behavior. This is a documented scope boundary, not a claim that K/L are correct or complete.
