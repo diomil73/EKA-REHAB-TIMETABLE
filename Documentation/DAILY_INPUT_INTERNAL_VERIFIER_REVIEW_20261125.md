@@ -380,3 +380,10 @@ Native MASTER compares each of the 10 canonical formula results plus status to t
 CI run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs succeeded.
 
 Remaining: treatment outputs are not all compared to independent business expectations; MASTER styles/package resources, trusted approval provenance, operation ID and phase report/receipt remain open. Fake COM only; no real Excel. Gate 2 closed.
+
+ 
+## 22. Expanded MASTER K/L columns remain outside current proof — 25/11/2026
+
+The 13-column schema reserves K for psychology, L for afternoon programme and M for status. The native MASTER readback currently verifies A:J plus M. Existing `MasterProjectionWriter` clears A:P then writes only A:J/M; its expanded-schema regression expects K/L blank. The patient-program VBA separately writes K on individual edits; afternoon physiotherapy is stored in `AFTERNOON_PHYSIO_SLOTS` and displayed in the patient form, not through a Master L renderer.
+
+No behavior was changed. A green A:J/M readback is not evidence of K/L correctness. K/L need a separately specified source/display/writer/native-readback contract before inclusion in phase proof.
