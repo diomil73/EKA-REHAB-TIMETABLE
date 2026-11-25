@@ -18,7 +18,8 @@ from .daily_input_projection_native import (
 )
 from .daily_input_projection_preflight import DailyInputProjectionPreflight
 from .daily_input_source_native_capture import (
-    DailyInputSourceNativeCapture, verify_daily_input_source_native_capture_readonly,
+    DailyInputSourceNativeCapture, REQUIRED_SOURCE_SHEETS,
+    verify_daily_input_source_native_capture_readonly,
 )
 
 
@@ -112,14 +113,16 @@ def verify_daily_input_projection_preflight_native_readonly(
             source,
             excel_factory=source_excel_factory,
         )
+        captured_sheet_names = (
+            tuple(item.sheet_name for item in source_capture.sheets)
+            if type(source_capture) is DailyInputSourceNativeCapture else ()
+        )
         if (type(source_capture) is not DailyInputSourceNativeCapture
                 or source_capture.workbook_sha256 != before_hash
                 or type(source_capture.native_excel_version) is not str
                 or not source_capture.native_excel_version.strip()
-                or source_capture.checked_sheet_count < len({
-                    "PATIENTS", "PATIENT_PLANNER", "SETTINGS",
-                    "DAILY_INPUT", "DAILY_CHANGE_LEDGER",
-                })):
+                or len(set(captured_sheet_names)) != len(captured_sheet_names)
+                or not REQUIRED_SOURCE_SHEETS.issubset(set(captured_sheet_names))):
             raise DailyInputProjectionPreflightNativeError("Native source capture binding/scope mismatch")
 
         input_ledger = verify_input_ledger_native_readonly(
