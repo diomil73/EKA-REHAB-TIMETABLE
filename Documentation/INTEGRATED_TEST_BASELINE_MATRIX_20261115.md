@@ -703,3 +703,9 @@ Initial focused run: 68 passed, 1 skipped, exit code 0, with six PytestUnraisabl
 ## 2026-11-25 — Receipt fixture follow-up run and correction
 
 After PREPARED_SNAPSHOT enforcement, the local combined suite reported 5 failed, 64 passed, 1 skipped, with six ZipFile unraisable warnings. Failures were test setup inconsistencies: later-phase receipt tests still generated revision-zero PREPARED receipts, and the missing-predecessor test did not select later-phase evidence. Test fixtures were corrected to represent revision 1 INPUT_AND_LEDGER_COMMITTED / INPUT_AND_LEDGER_REOPEN and a PREPARED predecessor digest. The missing-predecessor test now removes only that digest. Correction is committed but NOT YET RERUN. Skip reason: symlinks unavailable on Windows. ZipFile warnings remain open investigation; do not silence them.
+
+## 2026-11-25 — Receipt suite green; rollback ZipFile warning follow-up pending
+
+Focused combined suite: 69 passed, 1 skipped, 6 warnings in 5.22s. Symlink escape test skipped because Windows symlink creation is unavailable. The warnings are PytestUnraisableExceptionWarning from ZipFile.__del__ in full rollback audit cases.
+
+A source-level resource-lifecycle correction was committed: _read_journal() now calls openpyxl load_workbook with keep_vba=False because it is read-only and VBA package preservation is unnecessary there; package VBA presence is verified separately. Commit 4a7c168dfecb2eb30de79ae0dc87c3d3c4b763ec. This change is NOT YET TESTED. Re-run focused tests with warnings visible; do not filter or suppress them.
