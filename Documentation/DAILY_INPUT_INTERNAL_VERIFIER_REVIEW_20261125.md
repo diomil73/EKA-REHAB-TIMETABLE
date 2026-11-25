@@ -360,3 +360,12 @@ The full native wrapper now composes source capture, INPUT_AND_LEDGER, MASTER an
 CI run `45675024806`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including the CLI source Excel-version assertion.
 
 This checks literal cell agreement only. It does not authenticate source provenance, formulas, formatting, hidden names, styles, package resources or approvals; no operation-bound attestation/report/receipt. Fake COM only; no real Excel. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
+
+ 
+## 20. Expanded native MASTER formula/evaluated-value scan — 25/11/2026
+
+Native MASTER readback now inspects all 10 canonical formula columns plus status for each projected row, verifies exact PATIENT_PLANNER source links, reads all 11 evaluated cells and rejects formula errors. It compares infectious flag, room, patient/doctor identity and status to independent preflight facts. Responsible-doctor identity is required as a literal when present. The composite validates formula/evaluated counts, including the doctor-literal exception.
+
+CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs succeeded.
+
+Remaining: treatment formula outputs are checked for exact links and errors, not yet compared to independent expected business values; styles/package resources remain open. Fake COM only; no real Excel, operation ID, attestation, report or receipt. Gate 2 closed.
