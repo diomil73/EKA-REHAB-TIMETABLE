@@ -72,7 +72,7 @@ def verify_master_projection_saved_readback(
         if not path.is_file() or path.suffix.casefold() != ".xlsm":
             raise MasterProjectionSavedReadbackError("Existing saved XLSM required")
         before = _digest(path)
-        wb = load_workbook(path, read_only=False, data_only=False, keep_vba=True)
+        wb = load_workbook(path, read_only=False, data_only=False, keep_vba=False)
     except MasterProjectionSavedReadbackError:
         raise
     except Exception as exc:
