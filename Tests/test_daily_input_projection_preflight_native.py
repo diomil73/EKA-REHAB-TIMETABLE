@@ -118,6 +118,8 @@ def test_full_native_projection_wrapper_runs_source_and_three_projection_readbac
 
     monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
                         lambda source, **kwargs: source_capture)
+    monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
+                        lambda source, **kwargs: source_capture)
     monkeypatch.setattr(native, "verify_input_ledger_native_readonly", input_reader)
     monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly", projection_reader)
 
@@ -173,6 +175,10 @@ def test_full_native_projection_wrapper_rejects_input_ledger_binding_drift(tmp_p
                         lambda source, **kwargs: source_capture)
     monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
                         lambda source, **kwargs: source_capture)
+    monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
+                        lambda source, **kwargs: source_capture)
+    monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
+                        lambda source, **kwargs: source_capture)
     monkeypatch.setattr(native, "verify_input_ledger_native_readonly", lambda *a, **k: wrong)
     monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly",
                         lambda *a, **k: pytest.fail("must stop before projection readback"))
@@ -184,6 +190,8 @@ def test_full_native_projection_wrapper_rejects_workbook_mutation_after_readback
     path = _path(tmp_path)
     pre = _preflight(path)
     ledger, projections, source_capture = _results(path)
+    monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
+                        lambda source, **kwargs: source_capture)
     monkeypatch.setattr(native, "verify_daily_input_source_native_capture_readonly",
                         lambda source, **kwargs: source_capture)
     monkeypatch.setattr(native, "verify_input_ledger_native_readonly", lambda *a, **k: ledger)
