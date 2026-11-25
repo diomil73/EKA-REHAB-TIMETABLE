@@ -905,3 +905,15 @@ Source inspection found unnecessary `keep_vba=True` in read-only paths and synth
 - the MASTER and THERAPIST_DAILY synthetic test mutation fixtures.
 
 This does not write or save a workbook and does not alter VBA, workbook content, native COM security, transaction state or Apply/Restore behavior. The real Excel COM verifiers remain separate and unchanged. Source changes are committed; warning removal is NOT YET VERIFIED. Repeat the focused 13-file pytest command on Windows and report the actual warning count. Do not suppress warnings or infer a clean result from the code change alone.
+
+
+## 2026-11-25 — Focused DAILY_INPUT evidence-chain Windows verification
+
+Operator-confirmed local focused suite after synchronizing the current branch:
+
+- **214 passed, 1 skipped in 12.34s**.
+- No pytest warnings summary was emitted; **zero warnings were reported** for this exact 13-file run.
+- The one skip is `Tests/test_daily_input_transaction_receipt.py:215`, because symlink creation is unavailable on the Windows platform.
+- This confirms that the previously reported 40 `ZipFile.__del__` / `PytestUnraisableExceptionWarning` events are no longer reproduced in the focused suite after the targeted read-only `keep_vba=False` cleanup.
+
+Scope: focused Python tests only. This is not a full-repository warning count, native Excel/COM transaction proof, signed verifier attestation, operational Apply/Restore authorization or Gate 2 acceptance. PREPARED and INPUT_AND_LEDGER remain REPORT_ADAPTER_ONLY; other phase verifier implementations and trusted attestation remain incomplete. Gate 2 remains closed.
