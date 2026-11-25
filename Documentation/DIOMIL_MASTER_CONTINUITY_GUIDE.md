@@ -3203,3 +3203,14 @@ Added `daily_input_projection_preflight.py`, `daily_input_projection_preflight_n
 CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`, SUCCESS: Windows **2897 passed / 29 warnings**; Ubuntu **2897 passed / 32 warnings**; both synthetic safety jobs passed.
 
 Strict limits: existing OOXML/canonical readers are composed, not yet replaced by independently audited native COM capture of every source sheet. Shared-slot approvals are caller-supplied exact-membership tuples, not authenticated or operation-bound; CLI accepts none. Evidence objects have no protected provenance, no operation ID/report/receipt exists, and full MASTER treatment/style checks remain open. Fake COM/synthetic tests only; no real Excel. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED; Gate 2 closed. Full details and next steps in design doc §12.
+
+ 
+### 4.235 Native source-sheet literal capture added — 25/11/2026
+
+Added `daily_input_source_native_capture.py`. It checks all populated literal cells through macro-disabled, read-only native Excel COM for every present sheet in the fixed source allowlist: PATIENTS, PATIENT_PLANNER, SETTINGS, PROGRAM_WEEKLY_SLOTS, OUTPATIENT_SCHEDULE, RECURRING_ASSIGNMENT_IDS, PATIENT_EXITS, RECURRING_CHANGE_EVENTS, STUDENTS, DAILY_INPUT, DAILY_CHANGE_LEDGER and DAILY_REPLACEMENT_FACTS. Required minimum: PATIENTS, PATIENT_PLANNER, SETTINGS, DAILY_INPUT and DAILY_CHANGE_LEDGER. Formula/error cells fail closed; typed text/numeric identity is preserved; fixed UsedRange bounds and workbook SHA-256 immutability are checked.
+
+The one-call native wrapper now runs source capture, INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY. It validates mandatory captured sheet coverage and digest binding. CLI prints aggregate-only sheet/cell counts and source Excel version.
+
+CI run `45674827673`, HEAD `c9f7413c7ec409327a76a1a493a66dead0c22765`, SUCCESS: Windows **2907 passed / 30 warnings**; Ubuntu **2907 passed / 30 warnings**; both synthetic safety jobs passed. A final small CLI version-output assertion is being checked separately.
+
+No real Excel/operational XLSM run. This is literal-source consistency, not trusted provenance, operation-bound attestation, phase receipt or authorization. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED; Gate 2 closed. Details: design doc §13.
