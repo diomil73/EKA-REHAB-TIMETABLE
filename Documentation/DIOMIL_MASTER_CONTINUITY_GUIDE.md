@@ -2891,3 +2891,15 @@ SKIPPED [1] Tests\\test_daily_input_transaction_receipt.py:208: Symlinks unavail
 This is the first confirmed local execution of the new phase-verifier contract/report tests together with the transaction receipt, operation, journal, phase-evidence and rollback focused suites. No failures. The single skip is the symlink-specific receipt artifact test, skipped because symlinks are unavailable on this Windows environment; it is an environment limitation, not a product test failure. Replace the previous unexecuted-test note for this suite with this confirmed baseline. Overall: 110 passed, 1 platform skip, 4.79 seconds. This does not mean the native phase verifiers are implemented: PREPARED remains EXISTING_DIAGNOSTIC_ONLY and the other nine remain NOT_IMPLEMENTED. Gate 2 stays closed; no operational workbook/VBA test was performed by this pytest run.
 
 Next: integrate the existing independently proven PREPARED readback into the canonical phase-verifier report/receipt chain, then implement INPUT_AND_LEDGER_REOPEN. Keep the work non-authorizing.
+
+## 4.215 PREPARED phase-report adapter added — awaiting local execution — 25/11/2026
+
+Added:
+- Python/rehab_excel/daily_input_prepared_phase_adapter.py
+- Tests/test_daily_input_prepared_phase_adapter.py
+
+The adapter reuses the existing independent verify_prepared_reopen() path with native_excel=True; it does not repeat or replace the workbook diagnostic. The existing readback now returns the native Excel COM Version when exposed. The adapter requires the exact saved XLSM evidence artifact to reside inside a designated evidence root, verifies the native readback, hashes the exact workbook bytes, binds prepared_snapshot_sha256 to that same evidence_sha256, binds operation/source/date/revision 0/PREPARED, records the pinned verifier contract scope and native Excel version, and exclusively creates a canonical phase report file. It refuses to overwrite report output or accept a workbook outside the evidence root.
+
+Security boundary: PREPARED status is now REPORT_ADAPTER_ONLY, not IMPLEMENTED. The adapter can emit a report after the native diagnostic succeeds, but the report is not signed or authenticated. validate_phase_verifier_report() deliberately rejects it until trusted verifier attestation is integrated. The other nine EvidenceKind contracts remain NOT_IMPLEMENTED. No receipt append, journal write, Apply/Restore, VBA change or workbook mutation is enabled.
+
+Added synthetic adapter tests for native verifier invocation, exact snapshot digest binding, report round-trip, evidence-root containment, no-overwrite and non-authorizing rejection. These tests have NOT YET BEEN RUN locally. The previously confirmed focused baseline remains 110 passed, 1 skipped; that run predates this adapter addition. Next local action: sync and run the adapter tests together with PREPARED readback and phase-verifier contract tests.
