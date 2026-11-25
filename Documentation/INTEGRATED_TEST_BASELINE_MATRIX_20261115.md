@@ -820,3 +820,9 @@ GitHub Actions run `45599851668`, code/test HEAD `de03afc8d8cc5d824c45c755d3f086
 - Synthetic safety jobs on both Windows and Ubuntu: success.
 
 This supersedes provisional CI-pending notes. Tests use mock/injected native diagnostic for the phase adapter. No real native Excel/COM execution on the user's machine, actual signed attestation, receipt, positive operational transaction or Gate 2 enablement. INPUT_AND_LEDGER and PREPARED are REPORT_ADAPTER_ONLY. Other eight kinds remain NOT_IMPLEMENTED. Warnings are not zero and warning details are suppressed by CI.
+
+## 2026-11-25 — PROJECTIONS_REOPEN partial structural baseline
+
+New source and tests: `Python/rehab_excel/daily_input_master_projection_readback.py`, `Tests/test_daily_input_master_projection_readback.py`. Compares all canonical PATIENT_PLANNER formula links, optional displayed doctor identity, 11/13-column schemas, unique header, blank clinic separators/tail and no legacy N:P residue, with SHA-256 before/after. Reuses existing MasterProjectionRow contract, not a new scheduling interpretation. Synthetic corruption cases include wrong row/order/ID/formula/status, unapproved literals, missing headers, stale cells and missing sheet.
+
+Not covered: recalculated cell values, therapist schedule projections, linkage to applied DAILY_INPUT/ledger, native Excel COM, signing/provenance, verified receipts or operational transaction. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. CI pending verification at documentation checkpoint. No real CC workbook writes.
