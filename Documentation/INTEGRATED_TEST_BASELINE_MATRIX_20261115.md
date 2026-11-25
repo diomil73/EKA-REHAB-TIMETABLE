@@ -719,3 +719,14 @@ Latest local result: 69 passed, 1 skipped, 2 warnings in 4.37s. Warnings remain 
 New files: Python/rehab_excel/daily_input_phase_verifier_contract.py and Tests/test_daily_input_phase_verifier_contract.py. Synthetic coverage includes all ten EvidenceKind registry entries, immutable registry, canonical report/digest, tamper and schema rejection, caller Boolean rejection, unsafe locators, transition-derived evidence obligations, identity and scope mismatch, rejection of non-VERIFIED outcomes, explicit fail-closed behavior while PREPARED remains diagnostic-only and the other actual verifiers remain NOT_IMPLEMENTED, and rollback package/PREPARED snapshot requirements.
 
 These tests have NOT been executed locally. Latest reported focused baseline before the two test-only keep_vba fixture changes: 69 passed, 1 skipped, 2 warnings. The fixture correction is unverified until rerun. Do not claim phase verifiers operational; this addition is contract metadata/report validation only.
+
+## 2026-11-25 — Confirmed Windows focused baseline after phase-verifier contract/report addition
+
+User ran the focused suite and reported:
+
+```
+110 passed, 1 skipped in 4.79s
+SKIPPED [1] Tests\\test_daily_input_transaction_receipt.py:208: Symlinks unavailable on this platform
+```
+
+Confirmed green: 110 passed, zero failed. One symlink-specific test is skipped because symlinks are unavailable on this Windows environment. This confirms the verifier contract/report codec, transaction receipt, lifecycle, journal, phase-evidence and rollback focused tests. It does not establish native phase-verifier integration or operational Apply/Restore. PREPARED remains diagnostic-only; other nine verifier contracts remain unimplemented. Gate 2 remains closed.
