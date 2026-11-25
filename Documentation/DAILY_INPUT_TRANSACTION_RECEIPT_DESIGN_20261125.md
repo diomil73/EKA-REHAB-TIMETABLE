@@ -132,3 +132,27 @@ The new Python module implements only structural receipt encoding/decoding, oper
 ## Addendum — PREPARED snapshot evidence is distinct
 
 The initial PREPARED revision (revision 0) must carry EvidenceKind.PREPARED_SNAPSHOT = prepared_snapshot_native_readback. FAILURE_DIAGNOSTIC is reserved for the FAILED phase and is not valid PREPARED evidence. PREPARED_SNAPSHOT is not valid for any later revision. The structural receipt codec enforces this phase/revision distinction. This remains structural validation only; the actual native snapshot verifier and trusted attestation are not implemented.
+
+## 10. Phase-verifier contract registry and report envelope — contract only, no verifier implementation — 25/11/2026
+
+Added:
+- Python/rehab_excel/daily_input_phase_verifier_contract.py
+- Tests/test_daily_input_phase_verifier_contract.py
+
+The new module defines one immutable contract for each EvidenceKind and a strict canonical JSON report envelope. Contracts name the verifier ID, contract version, verification method, exact inspection scope, and whether native Excel reopen, package audit, and PREPARED snapshot binding are required. The report binds operation ID, source workbook SHA-256, service date, journal revision/phase, evidence kind, verifier contract identity, method, result, relative artifact locator/hash, inspected scope, native Excel version where applicable, package audit digest where required, PREPARED snapshot digest where required, UTC timestamp and report digest.
+
+Evidence mapping follows this document's §6:
+- PREPARED_SNAPSHOT: saved workbook bytes, PREPARED snapshot identity and PREPARED journal revision.
+- INPUT_AND_LEDGER_REOPEN: DAILY_INPUT plus authoritative ledger.
+- PROJECTIONS_REOPEN: MASTER_SCHEDULE plus affected therapist projections and source linkage.
+- PENDING_DECISION_INVENTORY: pending replacement inventory.
+- REPLACEMENTS_REOPEN: replacement facts and suspensions.
+- OPERATOR_RESOLUTION: independent operation-bound decision-record audit.
+- APPLIED_ARCHIVE_REOPEN: applied archive.
+- FINAL_WORKBOOK_REOPEN: full workbook and required invariants.
+- FAILURE_DIAGNOSTIC: retained operation-bound failure artifact.
+- FULL_WORKBOOK_ROLLBACK: restored workbook, non-journal package comparison, journal prefix and exact PREPARED snapshot identity.
+
+Critical status: every contract is explicitly NOT_IMPLEMENTED. The registry is immutable metadata, not an executable verifier registry or trust root. The report codec validates schema, canonical digest, operation/phase binding and contract scope; it does not execute Excel, authenticate a report, or prove that the claimed inspection occurred. A synthetic report marked VERIFIED is still rejected for positive phase use while its independent verifier is NOT_IMPLEMENTED. No caller-supplied verified Boolean is accepted. The required evidence list is derived internally from required_evidence_for_transition(previous, candidate), not passed by the caller.
+
+The module remains non-authorizing. SHA-256 is not a signature. No journal append, Apply enablement, VBA write, workbook mutation or positive transaction path is exposed. The next implementation step is the actual independent native Excel read-only verifier adapter(s), beginning with PREPARED_SNAPSHOT and INPUT_AND_LEDGER_REOPEN, plus separately verifiable non-Excel decision/failure artifact auditors. Trusted build-manifest/attestation provenance remains unresolved. Tests have been added but NOT YET EXECUTED locally.
