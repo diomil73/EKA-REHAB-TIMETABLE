@@ -26,15 +26,16 @@ class _Used:
 
 
 class _Cell:
-    HasFormula = False
-
-    def __init__(self, value):
+    def __init__(self, value, formula=None):
         self.Value2 = value
+        self.Formula = formula or ""
+        self.HasFormula = bool(formula)
 
 
 class _Sheet:
-    def __init__(self, values):
+    def __init__(self, values, formulas=None):
         self.values = values
+        self.formulas = formulas or {}
         self.UsedRange = _Used(
             max((int("".join(ch for ch in a if ch.isdigit())) for a in values), default=1),
             max((sum((ord(ch) - 64) * 26 ** i for i, ch in enumerate(reversed("".join(ch for ch in a if ch.isalpha())))) for a in values), default=1),
@@ -42,7 +43,7 @@ class _Sheet:
 
     def Cells(self, row, column):
         address = f"{get_column_letter(column)}{row}"
-        return _Cell(self.values.get(address))
+        return _Cell(self.values.get(address), self.formulas.get(address))
 
 
 class _Book:
@@ -67,8 +68,12 @@ class _App:
     EnableEvents = True
     AskToUpdateLinks = True
 
-    def __init__(self, sheets):
-        self.book = _Book({name: _Sheet(values) for name, values in sheets.items()})
+    def __init__(self, sheets, formulas=None):
+        formulas = formulas or {}
+        self.book = _Book({
+            name: _Sheet(values, formulas.get(name, {}))
+            for name, values in sheets.items()
+        })
         self.Workbooks = type("Workbooks", (), {"Open": lambda _self, *a, **k: self.book})()
         self.quit = False
 
@@ -118,6 +123,7 @@ def test_native_source_capture_compares_all_literal_cells_and_optional_sheets(tm
     assert result.native_excel_version == "16.0"
     assert result.checked_sheet_count == 6
     assert result.checked_populated_cells == sum(len(x) for x in sheets.values())
+    assert result.checked_formula_cells == 0
     assert app.book.closed is True
     assert app.quit is True
     assert app.AutomationSecurity == 3
@@ -230,3 +236,53 @@ def test_native_source_capture_rejects_used_range_beyond_fixed_bound(tmp_path, m
         )
     assert app.book.closed is True
     assert app.quit is True
+
+
+def test_native_source_capture_allows_only_direct_patient_planner_source_links(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    formulas = {"PATIENT_PLANNER": {"A2": "PATIENTS!A2"}}
+    monkeypatch.setattr(
+        capture, "WorkbookPackageProbe",
+        lambda _path: _Probe(_path, sheets, formulas=formulas),
+    )
+    app = _App(sheets, formulas={"PATIENT_PLANNER": {"A2": "=PATIENTS!A2"}})
+
+    result = capture.verify_daily_input_source_native_capture_readonly(
+        path, excel_factory=lambda: app,
+    )
+
+    assert result.checked_formula_cells == 1
+    assert result.checked_populated_cells == sum(len(x) for x in sheets.values())
+    assert app.book.closed is True
+    assert app.quit is True
+
+
+def test_native_source_capture_rejects_unsupported_patient_planner_formula(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    formulas = {"PATIENT_PLANNER": {"A2": "OTHER_SHEET!A2"}}
+    monkeypatch.setattr(
+        capture, "WorkbookPackageProbe",
+        lambda _path: _Probe(_path, sheets, formulas=formulas),
+    )
+    with pytest.raises(capture.DailyInputSourceNativeCaptureError):
+        capture.verify_daily_input_source_native_capture_readonly(
+            path, excel_factory=lambda: pytest.fail("Excel must not open"),
+        )
+
+
+def test_native_source_capture_rejects_native_planner_formula_result_mismatch(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    formulas = {"PATIENT_PLANNER": {"A2": "PATIENTS!A2"}}
+    monkeypatch.setattr(
+        capture, "WorkbookPackageProbe",
+        lambda _path: _Probe(_path, sheets, formulas=formulas),
+    )
+    app = _App(sheets, formulas={"PATIENT_PLANNER": {"A2": "=PATIENTS!A2"}})
+    app.book.sheets["PATIENT_PLANNER"].values["A2"] = "WRONG VALUE"
+    with pytest.raises(capture.DailyInputSourceNativeCaptureError):
+        capture.verify_daily_input_source_native_capture_readonly(
+            path, excel_factory=lambda: app,
+        )
