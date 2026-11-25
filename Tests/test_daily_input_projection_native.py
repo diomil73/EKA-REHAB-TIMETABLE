@@ -206,3 +206,31 @@ def test_composite_rejects_inconsistent_component_counts(tmp_path, monkeypatch):
             path, service_date=SERVICE_DATE, input_ledger_readback=wrong_ledger,
             expected_projection=(), expected_therapist_grid=grid,
         )
+
+
+def test_composite_rejects_boolean_or_missing_result_metadata(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    digest, grid, ledger, master, therapist = _evidence(path)
+    bad_master = MasterProjectionNativeReadback(digest, True, 3, 11, "16.0")
+    _patch_readers(monkeypatch, bad_master, therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=(), expected_therapist_grid=grid,
+        )
+
+    bad_therapist = TherapistDailyNativeReadback(digest, 18, 126, True, "16.0")
+    _patch_readers(monkeypatch, master, bad_therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=(), expected_therapist_grid=grid,
+        )
+
+    bad_ledger = InputLedgerNativeReadback(SERVICE_DATE, digest, 2, 2, None)
+    _patch_readers(monkeypatch, master, therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=bad_ledger,
+            expected_projection=(), expected_therapist_grid=grid,
+        )
