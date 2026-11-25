@@ -36,8 +36,11 @@ def verify_native_excel_readonly(
     expected_rows: tuple[tuple, ...],
     *,
     excel_factory=None,
-) -> None:
-    """Open the saved workbook in a fresh, macro-disabled native Excel instance."""
+) -> str | None:
+    """Open the saved workbook in a fresh, macro-disabled native Excel instance.
+
+    Returns the native Excel version when the COM application exposes it.
+    """
     if excel_factory is None:
         if sys.platform != "win32":
             raise PreparedJournalReadbackError("Native Excel readback requires Windows")
@@ -49,8 +52,12 @@ def verify_native_excel_readonly(
 
     app = None
     workbook = None
+    excel_version = None
     try:
         app = excel_factory()
+        raw_version = getattr(app, "Version", None)
+        if raw_version is not None:
+            excel_version = str(raw_version).strip() or None
         app.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
         app.Visible = False
         app.DisplayAlerts = False
@@ -68,6 +75,7 @@ def verify_native_excel_readonly(
         actual_rows = read_native_journal_rows(worksheet)
         if actual_rows != expected_rows:
             raise PreparedJournalReadbackError("Native Excel journal rows differ after reopen")
+        return excel_version
     except PreparedJournalReadbackError:
         raise
     except Exception:
@@ -92,8 +100,11 @@ def verify_prepared_reopen(
     *,
     native_excel: bool = False,
     excel_factory=None,
-) -> None:
-    """Require exactly one proposed PREPARED row appended to unchanged history."""
+) -> str | None:
+    """Require exactly one proposed PREPARED row appended to unchanged history.
+
+    Returns the native Excel version when native_excel=True and COM exposes it.
+    """
     expected_fields = {
         "status", "operation_id", "service_date", "source_sha256",
         "payload_sha256", "existing_journal_rows", "journal_prefix_sha256",
@@ -166,11 +177,13 @@ def verify_prepared_reopen(
     if tuple(proposed_row) != expected[-1] or rows != expected:
         raise PreparedJournalReadbackError("Prepared record differs after reopen")
     if native_excel:
-        verify_native_excel_readonly(path, expected, excel_factory=excel_factory)
+        excel_version = verify_native_excel_readonly(path, expected, excel_factory=excel_factory)
         if file_sha256(path) != before_hash:
             raise PreparedJournalReadbackError("Workbook changed during native Excel readback")
         if file_sha256(payload) != handoff["payload_sha256"]:
             raise PreparedJournalReadbackError("Prepared payload changed during native readback")
+        return excel_version
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
