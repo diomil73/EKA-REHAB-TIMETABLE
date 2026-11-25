@@ -3182,3 +3182,15 @@ GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c
 - Both synthetic safety jobs passed.
 
 This is a non-authorizing consistency composition. It does not authenticate supplied evidence objects, bind an operation ID, produce a report/receipt, independently capture every source/ledger/replacement sheet, or establish trusted attestation. MASTER native evaluated-value scope is still limited to room, patient identity and status. It does not complete PROJECTIONS_REOPEN; registry unchanged, Gate 2 closed. Full boundary and next work: design doc §10.
+
+ 
+### 4.233 THERAPIST_DAILY blank provider slots handled safely — 25/11/2026
+
+Aligned the new native reader and expected-grid builder with the existing layout contract: all 18 header positions are inspected, but unused provider slots may be blank. Duplicate populated names within one block fail; native Excel must preserve blank headers; every patient cell beneath a blank header must be empty. A first CI run exposed a header-count variable reuse bug, corrected with a separate cell-header index.
+
+GitHub Actions run `45663881144`, HEAD `46d4023b0ba8e5c65510fd1ddc5bb249fdadb3ce`, SUCCESS:
+- Windows: **2880 passed, 34 warnings, 60.57s**.
+- Ubuntu: **2880 passed, 32 warnings, 27.13s**.
+- Both synthetic safety jobs passed.
+
+This is compatibility hardening for unused columns, not a completed PROJECTIONS_REOPEN verifier. Tests use fake COM; no real Excel. Registry unchanged; Gate 2 closed. Details: design doc §11.
