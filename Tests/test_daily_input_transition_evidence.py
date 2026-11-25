@@ -11,6 +11,7 @@ from rehab_excel.daily_input_operation import (
 from rehab_excel.daily_input_phase_evidence import EvidenceKind, required_evidence_for_transition
 from rehab_excel.daily_input_phase_verifier_contract import (
     VERIFIER_CONTRACTS,
+    PhaseVerifierNotImplementedError,
     VerifierImplementationStatus,
     VerificationResult,
     create_phase_verifier_report,
@@ -141,7 +142,7 @@ def test_bundle_rejects_caller_selected_subset_and_extra_evidence(tmp_path):
 
 def test_bundle_fails_closed_while_independent_verifiers_are_unimplemented(tmp_path):
     previous, operation, reports, receipts, registry = _build_bundle(tmp_path)
-    with pytest.raises(Exception, match="No executable independent verifier"):
+    with pytest.raises(PhaseVerifierNotImplementedError, match="No executable independent verifier"):
         validate_transition_evidence_bundle(
             previous, operation, reports=reports, receipts=receipts,
             expected_previous_receipt_sha256="b" * 64,
