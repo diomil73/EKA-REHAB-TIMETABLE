@@ -17,6 +17,9 @@ from .daily_input_projection_native import (
     DailyInputProjectionNativeReadback, verify_daily_input_projection_native_readonly,
 )
 from .daily_input_projection_preflight import DailyInputProjectionPreflight
+from .daily_input_source_native_capture import (
+    DailyInputSourceNativeCapture, verify_daily_input_source_native_capture_readonly,
+)
 
 
 class DailyInputProjectionPreflightNativeError(RuntimeError):
@@ -27,6 +30,7 @@ class DailyInputProjectionPreflightNativeError(RuntimeError):
 class DailyInputProjectionPreflightNativeReadback:
     preflight: DailyInputProjectionPreflight = field(repr=False)
     native_readback: DailyInputProjectionNativeReadback = field(repr=False)
+    source_capture: DailyInputSourceNativeCapture = field(repr=False)
 
     @property
     def source_workbook_sha256(self) -> str:
@@ -65,6 +69,7 @@ def verify_daily_input_projection_preflight_native_readonly(
     workbook_path: str | Path,
     *,
     preflight: DailyInputProjectionPreflight,
+    source_excel_factory=None,
     input_ledger_excel_factory=None,
     master_excel_factory=None,
     therapist_excel_factory=None,
@@ -95,6 +100,13 @@ def verify_daily_input_projection_preflight_native_readonly(
         raise DailyInputProjectionPreflightNativeError("Preflight evidence does not bind to this workbook/date")
 
     try:
+        source_capture = verify_daily_input_source_native_capture_readonly(
+            source,
+            excel_factory=source_excel_factory,
+        )
+        if source_capture.workbook_sha256 != before_hash:
+            raise DailyInputProjectionPreflightNativeError("Native source capture binding mismatch")
+
         input_ledger = verify_input_ledger_native_readonly(
             source,
             service_date=preflight.service_date,
@@ -137,4 +149,5 @@ def verify_daily_input_projection_preflight_native_readonly(
     return DailyInputProjectionPreflightNativeReadback(
         preflight=preflight,
         native_readback=projections,
+        source_capture=source_capture,
     )
