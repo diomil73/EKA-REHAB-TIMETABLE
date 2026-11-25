@@ -2706,3 +2706,10 @@ The current source audit found a reusable identity chain: stable AssignmentIDs a
 
  
 The display-label audit for THERAPIST_DAILY is now resolved against `patient_centric_preview.py`: shared patients include day-pattern suffixes, same-patient multi-assignment cells include treatment/day detail lines, replacement source/destination cells have specific arrow/date conventions, student provider labels are separate, and outpatient distinction is fill-only. Reuse the established renderer to derive exact expected cell text; do not write an ad hoc patient-name parser. Fail closed on duplicate display-name ambiguity. Details: design doc §7.1.
+
+ 
+### New native therapist projection diagnostic
+
+Added `daily_input_therapist_projection_native.py` and fake-COM tests. It requires an independently supplied full expected render map for all 126 THERAPIST_DAILY patient cells and all 18 provider headers, then compares the complete native Excel read-only grid and time rows. CI run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6c`, SUCCESS: Windows 2859 passed / 32 warnings; Ubuntu 2859 passed / 35 warnings; both synthetic safety jobs passed.
+
+The expected-grid generator is not yet implemented. No AssignmentID is inferred from display labels, and no phase report adapter exists. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED. Next: build the complete 126-cell expected grid from the established stable-ID, unified schedule, date-effective, daily ledger/replacement and patient-centric renderer paths. See design doc §8.
