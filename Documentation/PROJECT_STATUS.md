@@ -1983,3 +1983,8 @@ Added a partial native MASTER readback diagnostic that checks Excel-evaluated ro
 Next work: native THERAPIST_DAILY saved-source extraction of immutable AssignmentID membership, then exact reconciliation of all affected therapist/day projections to the same DAILY_INPUT and authoritative ledger facts. Do not infer IDs from visible labels or occupied clock counts.
 
 Current trust boundary: PREPARED and INPUT_AND_LEDGER are REPORT_ADAPTER_ONLY; PROJECTIONS_REOPEN and remaining phase evidence kinds are NOT_IMPLEMENTED. No trusted verifier attestation, positive transaction, Apply/Restore authorization or Gate 2 activation. Real native Excel and real-data operator acceptance remain pending.
+
+ 
+### Therapist AssignmentID verifier source audit — 2026-11-25
+
+Existing reusable source chain identified: immutable AssignmentID binding, inpatient/granular/outpatient schedule readers, dated session IDs, replacement facts and effective daily state. The visible THERAPIST_DAILY grid contains no AssignmentID, so the next reader must derive expected effective assignments from native-captured source facts and uniquely reconcile visible patient/provider/time occupancy. Ambiguous joins must fail closed. No observed AssignmentID reader or full PROJECTIONS_REOPEN adapter exists yet. See `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7.
