@@ -75,6 +75,7 @@ def verify_daily_input_projection_native_readonly(
             or type(input_ledger_readback.active_ledger_count) is not int
             or input_ledger_readback.source_change_count < 0
             or input_ledger_readback.active_ledger_count != input_ledger_readback.source_change_count
+            or type(input_ledger_readback.native_excel_version) is not str
             or not input_ledger_readback.native_excel_version.strip()):
         raise DailyInputProjectionNativeReadbackError("INPUT_AND_LEDGER evidence envelope is inconsistent")
     if expected_therapist_grid.service_date != service_date:
@@ -104,7 +105,10 @@ def verify_daily_input_projection_native_readonly(
             raise DailyInputProjectionNativeReadbackError("Native MASTER verifier returned an invalid result")
         if master.workbook_sha256 != before_hash:
             raise DailyInputProjectionNativeReadbackError("MASTER readback workbook digest mismatch")
-        if (master.projected_rows != len(expected_projection)
+        if (type(master.projected_rows) is not int
+                or master.projected_rows < 0
+                or master.projected_rows != len(expected_projection)
+                or type(master.native_excel_version) is not str
                 or not master.native_excel_version.strip()):
             raise DailyInputProjectionNativeReadbackError("MASTER readback scope/version mismatch")
 
@@ -118,8 +122,15 @@ def verify_daily_input_projection_native_readonly(
             raise DailyInputProjectionNativeReadbackError("Native therapist verifier returned an invalid result")
         if therapist.workbook_sha256 != before_hash:
             raise DailyInputProjectionNativeReadbackError("Therapist readback workbook digest mismatch")
-        if (therapist.checked_grid_cells != 126 or therapist.checked_provider_headers != 18
+        if (type(therapist.checked_grid_cells) is not int
+                or type(therapist.checked_provider_headers) is not int
+                or type(therapist.occupied_grid_cells) is not int
+                or type(expected_therapist_grid.occupied_cells) is not int
+                or therapist.checked_grid_cells != 126
+                or therapist.checked_provider_headers != 18
+                or not 0 <= therapist.occupied_grid_cells <= 126
                 or therapist.occupied_grid_cells != expected_therapist_grid.occupied_cells
+                or type(therapist.native_excel_version) is not str
                 or not therapist.native_excel_version.strip()):
             raise DailyInputProjectionNativeReadbackError("Native therapist verifier did not match the complete expected grid")
     except DailyInputProjectionNativeReadbackError:
