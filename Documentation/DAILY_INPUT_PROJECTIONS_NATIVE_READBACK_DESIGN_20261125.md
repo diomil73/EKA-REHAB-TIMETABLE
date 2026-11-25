@@ -234,3 +234,22 @@ Therefore `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`. No verifier registry s
 ### Next engineering step
 
 Build a separate macro-disabled native COM source-capture/readback for the exact source sheets and operation facts. Preserve source row positions needed by the stable-ID binder, validate PATIENTS/PATIENT_PLANNER/PROGRAM_WEEKLY_SLOTS/OUTPATIENT_SCHEDULE/RECURRING_ASSIGNMENT_IDS, exits and recurring changes, DAILY_INPUT/ledger and active replacement facts, and feed only that independently captured result into the expected-grid builder. The capture must reject formula/error cells or unsupported formula semantics, enforce fixed bounds, preserve source hashes, and fail on missing/duplicate/ambiguous identities. Then expand MASTER native evaluated-value checks and only later consider a report adapter.
+
+ 
+## 11. Blank THERAPIST_DAILY provider columns — layout compatibility hardening
+
+A review of the existing OOXML therapist projection contract showed that unused provider header slots may be blank; the existing comparator rejects occupancy under a blank header but does not require all 18 header cells to be populated. The new native reader and expected-grid builder were corrected accordingly:
+- expected provider headers still contain exactly 18 positions (B:J in both blocks), but an unused position may be an empty string;
+- duplicate non-empty provider names are rejected within each block;
+- a blank header must remain blank in native Excel;
+- every patient cell under a blank header must be empty;
+- all 126 patient cells and all 18 header positions are still inspected.
+
+The first CI attempt exposed a test/diagnostic counter bug: the loop index used to select a cell's header overwrote the count of inspected headers. Corrected it by using a separate `cell_header_index`; the diagnostic now reports all 18 header positions checked.
+
+GitHub Actions run `45663881144`, code/test HEAD `46d4023b0ba8e5c65510fd1ddc5bb249fdadb3ce`, completed **SUCCESS** across all four jobs:
+- Windows Python 3.11: **2880 passed, 34 warnings, 60.57s**.
+- Ubuntu Python 3.11: **2880 passed, 32 warnings, 27.13s**.
+- Both synthetic safety jobs passed.
+
+The added tests cover a valid unused blank provider column and reject occupancy under a blank header. Tests use synthetic workbooks/fake COM; no real Excel instance was opened. This is layout-compatibility hardening only; no verifier registry status changed. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED and Gate 2 remains closed.
