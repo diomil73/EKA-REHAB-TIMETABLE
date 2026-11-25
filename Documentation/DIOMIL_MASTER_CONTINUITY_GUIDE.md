@@ -3223,3 +3223,14 @@ Native MASTER readback now inspects all 10 canonical formula columns plus the st
 CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`, SUCCESS: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs passed.
 
 The other treatment-related formula results are checked for exact linkage and errors, but not yet compared to independent business-value expectations. Styles/package/formatting and trusted operation-bound evidence remain open. Fake COM only; no real Excel. Gate 2 closed. Details: design doc §14.
+
+ 
+### 4.237 PATIENT_PLANNER formula bridge and MASTER source-value equality — 25/11/2026
+
+Refined native source capture to support the established PATIENT_PLANNER A:E bridge only when each formula is an exact same-row direct reference to PATIENTS A:E. Native Excel formula text and evaluated result must match the corresponding literal PATIENTS cell. All other source formulas and all stored errors fail closed. Literal and formula cell counts are reported separately.
+
+Native MASTER now compares every one of its 10 formula results plus status to the corresponding literal PATIENT_PLANNER source cell, while also comparing infectious flag, room, patient/doctor identity and status to independent preflight expectations. Formula counts remain exact, including the doctor-literal exception.
+
+CI run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
+
+No real Excel/operational XLSM. This remains non-authorizing and does not compare every treatment output to independently derived business facts or verify MASTER styling/package resources. Gate 2 closed. Details: design doc §§13-14.
