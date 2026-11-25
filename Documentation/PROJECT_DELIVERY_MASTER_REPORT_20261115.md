@@ -1271,3 +1271,10 @@ GitHub Actions workflow `45598412259` for code head `a66088e91792b49095559bccdf9
 - Both synthetic safety jobs: success.
 
 The workflow uses `--disable-warnings`; warning details are suppressed but warning totals remain visible. No native COM was run. These are tests of fail-closed metadata handling, not proof of cryptographic attestation or operational Apply/Restore. The trusted verifier signer/key custody/build pinning remain unimplemented; all claims are rejected by the current attestation boundary. Gate 2 stays closed.
+
+
+## 2026-11-25 — Native INPUT_AND_LEDGER diagnostic added without operational enablement
+
+Added a source-bound read-only native Excel COM verifier diagnostic and fake-COM tests. The verifier reuses the existing OOXML readback, independently inspects DAILY_INPUT and the protected veryHidden DAILY_CHANGE_LEDGER in a fresh macro-disabled/read-only COM instance, compares complete native business-change identities against the same preflight facts, and verifies saved-workbook hash stability. It always attempts workbook Close(SaveChanges=False) and Excel.Quit and fails closed on cleanup problems.
+
+The INPUT_AND_LEDGER registry remains NOT_IMPLEMENTED (no report adapter, attestation, receipt/journal transition or operational authorization). Ubuntu CI on the code/test commit 6e4d9929: 2770 passed / 77 warnings / 24.10s. Windows result awaits verification. Native Excel on a real disposable XLSM remains a required PC-only test; fake COM cannot replace it. Gate 2 remains closed.
