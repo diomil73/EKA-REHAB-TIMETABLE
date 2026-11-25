@@ -193,7 +193,7 @@ def read_daily_input(
     session_list = list(sessions)
     therapist_name_list = tuple(therapist_names)
     ignored = {int(row) for row in ignore_rows}
-    wb = load_workbook(workbook_path, read_only=False, data_only=False, keep_vba=True)
+    wb = load_workbook(workbook_path, read_only=False, data_only=False, keep_vba=False)
     try:
         if SHEET_NAME not in wb.sheetnames:
             raise DailyInputReadError(f"Workbook has no {SHEET_NAME} sheet")
