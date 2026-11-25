@@ -2029,3 +2029,12 @@ Added an explicit-date OOXML preflight assembling PATIENTS/SETTINGS, inpatient/o
 CI run `45667684716`: Windows **2897 passed / 29 warnings**; Ubuntu **2897 passed / 32 warnings**; both synthetic safety jobs passed.
 
 Still not trusted native capture of all source sheets; shared-clock approvals are not authenticated; evidence objects lack operation-bound provenance; no phase report/receipt; full MASTER treatment/style readback remains open. Fake COM only. PROJECTIONS_REOPEN NOT_IMPLEMENTED; Gate 2 closed.
+
+ 
+### 2026-11-25 — Native literal source-sheet capture
+
+Added native read-only COM capture for all populated literal cells in the fixed source-sheet allowlist, with five mandatory sheets, optional extension sheets, formula/error rejection, typed OOXML/COM value comparison, fixed bounds and before/after workbook hash checks. The projection wrapper now composes source capture + INPUT_AND_LEDGER + MASTER + THERAPIST_DAILY.
+
+CI run `45674827673`: Windows **2907 passed / 30 warnings**; Ubuntu **2907 passed / 30 warnings**; both synthetic safety jobs passed. Latest CLI source Excel version output assertion pending a separate run.
+
+No real Excel or operational XLSM. This does not attest source provenance, authenticate shared-slot approvals, create operation-bound receipts, or complete PROJECTIONS_REOPEN. Gate 2 closed.
