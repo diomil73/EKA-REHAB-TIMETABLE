@@ -44,6 +44,7 @@ class PhaseVerifierNotImplementedError(PhaseVerifierContractError):
 
 class VerifierImplementationStatus(StrEnum):
     NOT_IMPLEMENTED = "NOT_IMPLEMENTED"
+    EXISTING_DIAGNOSTIC_ONLY = "EXISTING_DIAGNOSTIC_ONLY"
     IMPLEMENTED = "IMPLEMENTED"
 
 
@@ -93,7 +94,10 @@ _CONTRACTS = {
     EvidenceKind.PREPARED_SNAPSHOT: PhaseVerifierContract(
         EvidenceKind.PREPARED_SNAPSHOT, "diomil.prepared-snapshot-native-reopen",
         "contract-v1", "native_excel_readonly_reopen",
-        ("saved_workbook_bytes", "prepared_snapshot_identity", "prepared_journal_revision"), True,
+        ("saved_workbook_sha256", "daily_input_service_date", "journal_history_prefix",
+         "prepared_row_exact_match", "payload_sha256", "journal_sheet_protection_visibility",
+         "native_excel_readonly_reopen"), True,
+        implementation_status=VerifierImplementationStatus.EXISTING_DIAGNOSTIC_ONLY,
     ),
     EvidenceKind.INPUT_AND_LEDGER_REOPEN: PhaseVerifierContract(
         EvidenceKind.INPUT_AND_LEDGER_REOPEN, "diomil.input-ledger-native-reopen",
@@ -355,6 +359,10 @@ def validate_phase_verifier_report(
         raise PhaseVerifierContractError("Unexpected PREPARED snapshot digest")
     if report.verification_result != VerificationResult.VERIFIED.value:
         raise PhaseVerifierContractError("Only VERIFIED reports can satisfy a positive phase obligation")
+    if contract.implementation_status == VerifierImplementationStatus.EXISTING_DIAGNOSTIC_ONLY:
+        raise PhaseVerifierNotImplementedError(
+            f"Existing diagnostic verifier for {kind.value} is not integrated with the phase report/receipt contract"
+        )
     if contract.implementation_status != VerifierImplementationStatus.IMPLEMENTED:
         raise PhaseVerifierNotImplementedError(
             f"No executable independent verifier is registered for {kind.value}"
