@@ -219,7 +219,7 @@ def _rgb(cell) -> str | None:
 
 
 def _existing_roles(workbook_path: Path) -> dict[str, tuple[str | None, str | None]]:
-    wb = load_workbook(workbook_path, read_only=False, data_only=False, keep_vba=True)
+    wb = load_workbook(workbook_path, read_only=False, data_only=False, keep_vba=False)
     try:
         ws = wb["THERAPIST_DAILY"]
         roles: dict[str, tuple[str | None, str | None]] = {}
