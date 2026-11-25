@@ -2948,3 +2948,11 @@ The result is explicitly structural and non-authorizing. It does not authenticat
 Warning details are suppressed by the workflow; warning counts remain open. No local PC/native Excel COM/real XLSM execution occurred. No journal writer, operational Apply/Restore path or Gate 2 setting changed.
 
 Next: trusted verifier/build-manifest attestation and key-custody design, followed by INPUT_AND_LEDGER native Excel COM read-only verification. The existing OOXML readback remains a separate consistency proof.
+
+## 4.219 Trusted verifier attestation preflight contract and threat model — 25/11/2026
+
+Added `Python/rehab_excel/daily_input_verifier_attestation.py`, `Tests/test_daily_input_verifier_attestation.py`, and `Documentation/DAILY_INPUT_TRUSTED_VERIFIER_ATTESTATION_DESIGN_20261125.md`.
+
+The new module defines a strict canonical UTF-8 JSON envelope for **untrusted** provenance claims, including verifier/contract/evidence kind, exact report SHA-256, claimed verifier build SHA-256, source workbook SHA-256, operation/date/revision/phase, signer key ID, Ed25519-shaped signature bytes, and validity timestamps. Malformed or identity-mismatched claims fail closed. Crucially `require_trusted_verifier_attestation()` **always rejects** even a matching synthetic claim because no independently pinned public-key trust root, cryptographic signature validation, trusted signer or build-manifest verifier is configured. A claimed signature/build digest is never accepted as proof. This work is not an attestation implementation and must not be described as authenticating any report.
+
+The threat model documents signer independence, Windows TPM/CNG versus independent service key custody choices, replay/expiry/revocation, build provenance and crash windows. No private key or trust root was created or stored. No report/receipt verifier registry or Gate 2 status was changed. CI tests are being reviewed separately; no PC/Excel COM/real XLSM execution occurred. PREPARED remains REPORT_ADAPTER_ONLY, other nine kinds NOT_IMPLEMENTED. Next: review CI, then choose/administer production trust root only with deliberate operator/administrator input; continue non-authorizing code preparations in GitHub.
