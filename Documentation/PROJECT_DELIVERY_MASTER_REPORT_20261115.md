@@ -1481,3 +1481,12 @@ Added a native read-only Excel capture of populated literal cells for the DAILY_
 CI run `45675024806`, HEAD `35051970554b5268648ce81a7e4fa3cc212ecfc0`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including the source Excel-version CLI assertion.
 
 Fake COM/synthetic only; no real Excel or operational XLSM. No trust attestation, operation ID, receipt or Gate 2 authorization.
+
+ 
+### 2026-11-25 — Expanded native MASTER formula/value scan
+
+Added full native formula-link inspection across all 10 canonical MASTER source columns plus status, with 11 evaluated cells inspected per patient row. Infectious flag, room, patient/doctor identity and status are compared to independent expectations; formula errors fail closed; doctor identity is a literal exception. Composite result validates expected formula/evaluated counts.
+
+CI run `45676238896`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs passed.
+
+The other treatment formula results are link/error checked only, not independently value-compared. Style/package and trusted operation-bound receipt remain open. Fake COM only; no real Excel.
