@@ -652,3 +652,10 @@ The journal native provisioner creates/validates the protected journal sheet onl
 ## 2026-11-25 — DAILY_INPUT lifecycle evidence review
 
 PREPARED-only journal VBA bridge is present in source; Apply gate deliberately returns False. Pure lifecycle state model defines legal phases but does not persist or orchestrate Excel effects. Evidence policy enumerates native reopen obligations but confirms no independent phase verifiers are registered and does not authorize writes. Therefore operational transaction orchestration, positive Apply/Restore/Amendment, phase receipts and full-workbook rollback remain NOT IMPLEMENTED / NOT PROVEN. Keep Apply gate closed. Next: inventory handlers and persistence boundaries, implement independent verifiers and VBA orchestration, then test rollback/fault injection on disposable synthetic native Excel copies.
+
+
+## 2026-11-25 — Handler inventory and rollback scope
+
+Existing source handlers identified: Apply (`modDailyInputAction`), automatic replacement (`modGlobalReplacementAction`), manual replacement (`modReplacementOperator`), ledger/replacement Restore (`daily_restore_in_session_vba.py`), Amendment (`modDayAmendmentAction`), and strict full-workbook rollback audit (`daily_input_full_rollback_audit.py`). Operational paths remain locked by `DailyInputJournalApplyEnabled=False`.
+
+Local rollback attempts already exist, so “no rollback code exists” is inaccurate. However, Apply's outer `IncompleteApply` branch retains the operation snapshot and warns about partial saved changes rather than automatically restoring it. Other local copy-back/restore paths explicitly disclaim independent native Save/Close/Reopen proof. The full-package audit is read-only and is not a rollback executor; it also requires separate trusted receipt and native Excel reopen. Integrated durable phase orchestration, recovery and positive native transaction proof remain NOT ESTABLISHED. Keep gate closed.
