@@ -63,7 +63,10 @@ def _clock(value) -> time:
     if type(value) in (int, float):
         if value < 0 or value >= 1:
             raise TherapistDailyProjectionReadbackError("Time cell out of range")
-        minutes = round(value * 1440) % 1440
+        minutes = round(value * 1440)
+        # A value rounding to 24:00 cannot silently alias 00:00.
+        if minutes >= 1440:
+            raise TherapistDailyProjectionReadbackError("Time cell rounds beyond day boundary")
         return time(minutes // 60, minutes % 60)
     if type(value) is str:
         raw = value.strip().replace(".", ":")
@@ -90,7 +93,8 @@ def verify_therapist_daily_occupied_clocks(
     for value in expected_clocks:
         if (type(value) is not tuple or len(value) != 2
                 or type(value[1]) is not tuple
-                or any(type(t) is not time for t in value[1])):
+                or any(type(t) is not time or t.second != 0 or t.microsecond != 0
+                       for t in value[1])):
             raise TherapistDailyProjectionReadbackError("Malformed provider clock expectation")
         provider = _name(value[0])
         if provider in expected or len(set(value[1])) != len(value[1]):
