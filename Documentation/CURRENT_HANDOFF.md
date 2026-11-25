@@ -2727,3 +2727,12 @@ GitHub Actions run `45660810319`, HEAD `5a91058f0c9f78f63c19a70366987d8685796af7
 - Both synthetic safety jobs passed.
 
 No real Excel was run. The builder still relies on caller-supplied, independently validated source facts; it does not read/authenticate PATIENT_EXITS, recurring events, DAILY_INPUT, ledger or replacements itself. The native full-grid reader and expected-grid builder are not yet joined into an operation-bound diagnostic/report adapter. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED. See design doc §9.
+
+ 
+### Composite native projection binding checkpoint
+
+Added `daily_input_projection_native.py`. It binds a prior native INPUT_AND_LEDGER readback, independent MASTER expected facts + source digest, the full 126-cell expected therapist grid + source digest, and fresh native MASTER/THERAPIST_DAILY readbacks to the same exact saved XLSM bytes and service date. It rejects digest/date/count/metadata drift and source mutation.
+
+GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`, SUCCESS: Windows 2877 passed / 33 warnings; Ubuntu 2877 passed / 35 warnings; both synthetic safety jobs passed.
+
+This is non-authorizing composition only. It does not execute the prior INPUT_AND_LEDGER verifier, authenticate caller-supplied result objects, bind operation ID, produce a report/receipt, or independently capture all source/ledger/replacement facts. MASTER native value scope remains room/name/status only. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED. Detailed limits/next work: design doc §10.
