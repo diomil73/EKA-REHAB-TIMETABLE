@@ -967,3 +967,13 @@ New composite binds prior INPUT_AND_LEDGER native readback, MASTER preflight sou
 ### 2026-11-25 — Blank THERAPIST_DAILY provider slots
 
 GitHub Actions run `45663881144`, HEAD `46d4023b0ba8e5c65510fd1ddc5bb249fdadb3ce`: Windows **2880 passed / 34 warnings**; Ubuntu **2880 passed / 32 warnings**; both synthetic safety jobs passed. Added coverage for unused blank provider columns and rejection of occupancy beneath a blank header. All 18 header positions and 126 patient cells are still checked. Fake COM only.
+
+ 
+### 2026-11-25 — DAILY_INPUT preflight/native wrapper regression
+
+CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`, SUCCESS:
+- Windows Python 3.11: **2897 passed, 29 warnings, 48.44s**.
+- Ubuntu Python 3.11: **2897 passed, 32 warnings, 19.99s**.
+- Both synthetic safety jobs passed.
+
+Covers synthetic preflight assembly, shared-clock exact approval membership, native wrapper orchestration/hash/date/count drift, and safe aggregate-only CLI. Fake COM and synthetic data only. No real Excel/operational workbook. Not a phase adapter or trusted attestation.
