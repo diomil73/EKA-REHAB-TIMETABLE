@@ -2,8 +2,9 @@
 
 This module is NOT a native Excel verifier. It defines the pinned evidence
 contract for each EvidenceKind and validates the shape/binding of a report.
-All implementations remain NOT_IMPLEMENTED until an independent adapter
-inspects exact saved workbook bytes through native Excel (where required).
+No verifier is integrated with the phase report/receipt contract yet. PREPARED
+has an existing diagnostic-only readback path; the other implementations remain
+NOT_IMPLEMENTED until independent adapters inspect exact saved workbook bytes.
 It cannot authenticate a report, authorize a journal append, or enable Apply.
 """
 from __future__ import annotations
@@ -43,7 +44,7 @@ class PhaseVerifierContractError(ValueError):
 
 
 class PhaseVerifierNotImplementedError(PhaseVerifierContractError):
-    """No executable independent verifier is registered for this evidence kind."""
+    """No receipt-integrated independent verifier is available for this evidence kind."""
 
 
 class VerifierImplementationStatus(StrEnum):
