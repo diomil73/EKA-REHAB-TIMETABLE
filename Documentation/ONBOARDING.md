@@ -468,3 +468,6 @@ The newly added native MASTER diagnostic is partial and fake-COM tested only. It
 
  
 The next therapist verifier must reuse the stable recurring ID and daily-state source chain mapped in `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7. The visible THERAPIST_DAILY sheet has no AssignmentID field; do not infer stable identities from its labels or occupied-clock totals.
+
+ 
+The native THERAPIST_DAILY comparison primitive is now present. Before adding a phase adapter, implement the complete 126-cell expected-grid builder from the existing unified schedule, stable AssignmentID, daily-state/replacement and patient-centric renderer sources. The primitive and its exact limitations are in `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §8. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
