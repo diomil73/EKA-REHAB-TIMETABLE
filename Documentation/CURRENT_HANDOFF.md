@@ -2713,3 +2713,17 @@ The display-label audit for THERAPIST_DAILY is now resolved against `patient_cen
 Added `daily_input_therapist_projection_native.py` and fake-COM tests. It requires an independently supplied full expected render map for all 126 THERAPIST_DAILY patient cells and all 18 provider headers, then compares the complete native Excel read-only grid and time rows. CI run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6c`, SUCCESS: Windows 2859 passed / 32 warnings; Ubuntu 2859 passed / 35 warnings; both synthetic safety jobs passed.
 
 The expected-grid generator is not yet implemented. No AssignmentID is inferred from display labels, and no phase report adapter exists. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED. Next: build the complete 126-cell expected grid from the established stable-ID, unified schedule, date-effective, daily ledger/replacement and patient-centric renderer paths. See design doc §8.
+
+ 
+### Latest therapist expected-grid builder checkpoint
+
+Added `daily_input_therapist_projection_expected.py` and tests. It builds the complete 126-cell expected therapist display from caller-supplied immutable stable-ID base entries, dated sessions/states and patient/student registries, reusing the existing patient-centric renderer. It also derives expected active therapist AssignmentID facts and rejects unstable identities, per-cell duplicate display names and StudentID/TherapistID collisions.
+
+A student-replacement test found and fixed a real preview resolver defect: final render lost provider kind. Student labels now resolve by canonical StudentID, and stale `student_number` access was removed from the patient-centric and outpatient presentation paths.
+
+GitHub Actions run `45660810319`, HEAD `5a91058f0c9f78f63c19a70366987d8685796af7`, SUCCESS:
+- Windows: 2866 passed, 36 warnings.
+- Ubuntu: 2866 passed, 32 warnings.
+- Both synthetic safety jobs passed.
+
+No real Excel was run. The builder still relies on caller-supplied, independently validated source facts; it does not read/authenticate PATIENT_EXITS, recurring events, DAILY_INPUT, ledger or replacements itself. The native full-grid reader and expected-grid builder are not yet joined into an operation-bound diagnostic/report adapter. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED. See design doc §9.
