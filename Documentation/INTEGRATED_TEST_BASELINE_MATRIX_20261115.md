@@ -932,3 +932,13 @@ The new diagnostic tests the saved OOXML structure and then uses an injected COM
 ### 2026-11-25 — Therapist AssignmentID verifier design source map
 
 Source-only review mapped the stable identity chain through `stable_recurring_ids.py`, `reader.py`, `outpatient_schedule_source.py`, `materialize_sessions_for_date()`, `DAILY_REPLACEMENT_FACTS` and `build_daily_session_states()`. THERAPIST_DAILY does not store AssignmentID in its display cells; future observed membership must be reconstructed only by an unambiguous join from native-captured patient/provider/time cells to independently derived effective assignments. Ambiguity, missing joins, or unsupported student/zero-day semantics must fail closed. This is design/source evidence only, not a test or verifier implementation. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+### 2026-11-25 — Native THERAPIST_DAILY full-grid diagnostic CI
+
+GitHub Actions run `45658828780`, code/test HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6`, SUCCESS across all four jobs:
+- Windows: **2859 passed, 32 warnings, 44.28s**.
+- Ubuntu: **2859 passed, 35 warnings, 19.52s**.
+- Both synthetic safety jobs passed.
+
+The new diagnostic requires all 126 expected patient-grid cells and all 18 provider headers, then checks the native Excel read-only grid and time labels. Tests use fake COM only. It is not a complete assignment-ID or phase verifier; the expected-grid builder, AssignmentID membership extraction and operation/source-ledger binding remain pending. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
