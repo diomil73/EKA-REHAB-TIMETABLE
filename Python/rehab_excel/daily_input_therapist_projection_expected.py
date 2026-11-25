@@ -15,12 +15,11 @@ from rehab_core.daily_state import DailySessionState, DailySessionStatus
 from rehab_core.models import (
     BaseScheduleEntry, Patient, ReplacementProviderKind, Session, Student,
 )
-from rehab_core.students import student_display_state
 
 from .daily_input_therapist_assignment_membership import TherapistAssignmentFact
 from .daily_input_therapist_projection_native import TherapistDailyCellExpectation
 from .layout_contract import (
-    THERAPIST_DAILY_BLOCKS, THERAPIST_DAILY_GRID_RANGES,
+    THERAPIST_DAILY_BLOCKS,
 )
 from .package_probe import WorkbookPackageProbe
 from .patient_centric_preview import (
