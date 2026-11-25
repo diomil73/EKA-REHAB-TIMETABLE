@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from hashlib import sha256
 import json
 import re
 
@@ -148,10 +147,16 @@ def require_trusted_verifier_attestation(
         raise VerifierAttestationError("Invalid phase verifier report")
     if claim is None or type(claim) is not UntrustedVerifierAttestationClaim:
         raise VerifierAttestationUnavailable("Trusted verifier attestation unavailable")
-    from .daily_input_phase_verifier_contract import decode_phase_verifier_report
+    from .daily_input_phase_verifier_contract import (
+        PhaseVerifierContractError,
+        decode_phase_verifier_report,
+    )
 
     # Recompute report self-digest; a dataclass may otherwise be modified.
-    decode_phase_verifier_report(report.to_json())
+    try:
+        decode_phase_verifier_report(report.to_json())
+    except PhaseVerifierContractError as exc:
+        raise VerifierAttestationError("Phase report integrity failed") from exc
     try:
         contract = VERIFIER_CONTRACTS[EvidenceKind(claim.evidence_kind)]
     except (ValueError, KeyError) as exc:
