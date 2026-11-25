@@ -3211,6 +3211,6 @@ Added `daily_input_source_native_capture.py`. It checks all populated literal ce
 
 The one-call native wrapper now runs source capture, INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY. It validates mandatory captured sheet coverage and digest binding. CLI prints aggregate-only sheet/cell counts and source Excel version.
 
-CI run `45674827673`, HEAD `c9f7413c7ec409327a76a1a493a66dead0c22765`, SUCCESS: Windows **2907 passed / 30 warnings**; Ubuntu **2907 passed / 30 warnings**; both synthetic safety jobs passed. A final small CLI version-output assertion is being checked separately.
+CI run `45675024806`, HEAD `35051970554b5268648ce81a7e4fa3cc212ecfc0`, SUCCESS: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including the CLI source Excel-version assertion.
 
 No real Excel/operational XLSM run. This is literal-source consistency, not trusted provenance, operation-bound attestation, phase receipt or authorization. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED; Gate 2 closed. Details: design doc §13.
