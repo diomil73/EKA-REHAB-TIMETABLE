@@ -165,7 +165,7 @@ def read_recurring_change_events(
     path = Path(workbook_path)
     workbook = load_workbook(
         path, read_only=True, data_only=True,
-        keep_vba=path.suffix.lower() == ".xlsm",
+        keep_vba=False,
     )
     try:
         if SHEET_NAME not in workbook.sheetnames:
