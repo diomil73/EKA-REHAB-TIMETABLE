@@ -357,6 +357,6 @@ Added native COM capture of every populated literal cell for all present sheets 
 
 The full native wrapper now composes source capture, INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY; it checks required captured sheet names, exact source digest, service date and ledger counts. CLI reports only aggregate source counts and Excel version.
 
-CI run `45674827673`: Windows **2907 passed / 30 warnings / 46.67s**; Ubuntu **2907 passed / 30 warnings / 17.42s**; both synthetic safety jobs passed. The later CLI version-output assertion is under separate CI.
+CI run `45675024806`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including the CLI source Excel-version assertion.
 
 This checks literal cell agreement only. It does not authenticate source provenance, formulas, formatting, hidden names, styles, package resources or approvals; no operation-bound attestation/report/receipt. Fake COM only; no real Excel. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
