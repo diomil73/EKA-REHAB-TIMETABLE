@@ -281,3 +281,18 @@ CI run `45657152050`, HEAD `e7ce7526de2c000cff9410819267f73fdc6ffc79`: Windows *
 The fake-COM tests do not execute Microsoft Excel. This is not a full projection verifier: it does not independently reconstruct native therapist assignment IDs, prove all therapist-day projections or source-ledger linkage, verify every evaluated MASTER treatment value/style, produce a phase report/receipt or authenticate verifier provenance. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`. The verifier registry was not changed. No workbook/VBA/operational handler, journal writer, Apply/Restore or Gate 2 change.
 
 Detailed boundary and ordered next steps: `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`.
+
+ 
+## 13. Therapist assignment source-chain audit — 25/11/2026
+
+A follow-up source-only review mapped existing code that should be reused for the next independent THERAPIST_DAILY reader:
+- stable ID binding: `stable_recurring_ids.bind_stable_assignment_ids()`;
+- canonical inpatient/granular source: `reader.read_base_schedule()` with `PROGRAM_WEEKLY_SLOTS` overlay;
+- unified inpatient/outpatient source: `outpatient_schedule_source.read_unified_base_schedule()`;
+- dated session identity: `materialize_sessions_for_date()` builds `{base_entry_id}@{service_date}`;
+- daily replacement source: `DAILY_REPLACEMENT_FACTS` records exact TargetSessionId, original/effective provider, date/time, provider kind and status;
+- effective daily state: `build_daily_session_states()` preserves original session identity and computes the effective provider/time/status.
+
+The visible THERAPIST_DAILY grid contains only provider/time/patient occupancy display, not AssignmentID. Therefore the future native verifier must derive expected effective assignments from the authoritative native-captured sources and resolve each displayed patient/provider/time to exactly one assignment. Missing or ambiguous joins must fail closed. It must preserve exact weekly/outpatient source row indices for stable-ID binding, include PATIENT_EXITS/recurring changes/daily input ledger/replacement overlays, and separate student from therapist replacements. It must not infer IDs from labels, ordering or occupied-clock counts.
+
+This is a source map and design constraint, not an implementation. Full detail and unresolved label/zero-day questions: `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7. No verifier registry status changed; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
