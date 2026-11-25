@@ -862,3 +862,13 @@ The warnings are nonzero and CI suppresses their detail. This validates syntheti
 Review of `daily_input_therapist_projection_readback.py` found that the numeric-time decoder used `round(value * 1440) % 1440`. A valid Excel floating-point time just below 1.0 could round to 1440 minutes and silently become **00:00** instead of failing; this risks false equivalence when checking occupied clocks. Removed the modulo wrap and now reject numeric values rounding outside a 24-hour day. The preflight `expected_clocks` tuple now rejects sub-minute Python `time` values, preventing implicitly unequal resolutions from being compared to minute-based workbook occupancy. Added three synthetic adversarial tests (near-24:00 and two sub-minute expectations) in `Tests/test_daily_input_therapist_projection_readback.py`.
 
 This is a narrowly scoped source/diagnostic hardening, not a clinical capacity-policy change, native Excel proof, authenticated verifier, nor authorization. Source code commit `ee81a24b22f1e139e8a10714f9a09245a0498790`, test commit `d6f3e17046ac208cfd2723fcfac71c6abe37f2d6`; GitHub CI result must be confirmed separately. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed. No workbook or VBA change.
+
+
+### Confirmed CI: THERAPIST_DAILY clock boundary hardening — 2026-11-25
+
+GitHub Actions run `45619012770`, code/test head `d6f3e17046ac208cfd2723fcfac71c6abe37f2d6`, completed **SUCCESS** overall:
+- Windows Python 3.11: **2818 passed, 92 warnings, 29.70s**.
+- Ubuntu Python 3.11: **2818 passed, 96 warnings, 27.97s**.
+- Synthetic safety jobs on both platforms: SUCCESS.
+
+The added clock-wrap/sub-minute tests passed. This is synthetic saved-OOXML verification only; no real Excel COM/native recalculation, authenticated attestation, complete provider-session proof or production changes. Warning counts remain nonzero and details are suppressed by CI. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
