@@ -194,3 +194,39 @@ def test_native_source_capture_rejects_source_mutation_during_excel_cleanup(tmp_
         capture.verify_daily_input_source_native_capture_readonly(
             path, excel_factory=lambda: app,
         )
+
+
+def test_native_source_capture_rejects_formula_reported_by_excel(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    monkeypatch.setattr(capture, "WorkbookPackageProbe", lambda _path: _Probe(_path, sheets))
+    app = _App(sheets)
+    original_cells = app.book.sheets["PATIENTS"].Cells
+
+    def formula_cell(row, column):
+        cell = original_cells(row, column)
+        if (row, column) == (2, 1):
+            cell.HasFormula = True
+        return cell
+
+    app.book.sheets["PATIENTS"].Cells = formula_cell
+    with pytest.raises(capture.DailyInputSourceNativeCaptureError):
+        capture.verify_daily_input_source_native_capture_readonly(
+            path, excel_factory=lambda: app,
+        )
+    assert app.book.closed is True
+    assert app.quit is True
+
+
+def test_native_source_capture_rejects_used_range_beyond_fixed_bound(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    sheets = _required_sheets()
+    monkeypatch.setattr(capture, "WorkbookPackageProbe", lambda _path: _Probe(_path, sheets))
+    app = _App(sheets)
+    app.book.sheets["PATIENTS"].UsedRange = _Used(10001, 3)
+    with pytest.raises(capture.DailyInputSourceNativeCaptureError):
+        capture.verify_daily_input_source_native_capture_readonly(
+            path, excel_factory=lambda: app,
+        )
+    assert app.book.closed is True
+    assert app.quit is True
