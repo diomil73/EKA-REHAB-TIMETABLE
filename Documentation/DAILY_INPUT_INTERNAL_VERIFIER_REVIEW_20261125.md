@@ -163,3 +163,12 @@ This is GitHub Actions synthetic/unit regression only. No local PC test, native 
 2. Define and implement trusted verifier/build-manifest attestation and key custody without inventing or embedding a key.
 3. Implement INPUT_AND_LEDGER native Excel COM read-only verifier, reconciled independently with the existing OOXML comparator and the same trusted preflight facts.
 4. Continue with the phase-specific verifiers and operational crash-recovery integration only after their trust boundaries are independently satisfied.
+
+
+## 9. INPUT_AND_LEDGER read-only native COM diagnostic added — 2026-11-25
+
+Implementation `Python/rehab_excel/daily_input_input_ledger_native.py` preserves the independent OOXML comparison and then reads native COM-visible DAILY_INPUT and DAILY_CHANGE_LEDGER from the same saved XLSM. It uses a fresh macros-disabled read-only Excel instance, never saves, and compares the native workbook's full change identities to externally supplied trusted preflight facts. The diagnostic takes fixed read bounds and rejects missing schemas, formula/error cells, wrong visibility/protection, bad identities or changed bytes.
+
+Tests in `Tests/test_daily_input_input_ledger_native.py` use fake COM and synthetic fictional data. This prepares native readback without executing Windows Excel during CI; a disposable native XLSM smoke test is still mandatory when PC is available. INPUT_AND_LEDGER remains NOT_IMPLEMENTED in the phase verifier registry because trusted report/attestation integration and real native proof are absent. This diagnostic is never a journal Apply/Restore authorization.
+
+Ubuntu full CI for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f`: 2770 passed / 77 warnings / 24.10s; Windows CI pending confirmation at this checkpoint. No workbook/VBA/operational writes and Gate 2 stays closed.
