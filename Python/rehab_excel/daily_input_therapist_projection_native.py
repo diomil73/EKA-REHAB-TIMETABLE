@@ -78,14 +78,18 @@ def verify_therapist_daily_native_readonly(
         raise TherapistDailyNativeReadbackError("Both complete provider header rows are required")
     header_keys = []
     for value in expected_provider_headers:
-        if type(value) is not str or not value.strip():
-            raise TherapistDailyNativeReadbackError("Provider header expectation is blank or invalid")
+        if type(value) is not str:
+            raise TherapistDailyNativeReadbackError("Provider header expectation is invalid")
+        if not value.strip():
+            header_keys.append("")
+            continue
         try:
             header_keys.append(_name(value))
         except Exception as exc:
             raise TherapistDailyNativeReadbackError("Provider header expectation is invalid") from exc
     for start in (0, 9):
-        if len(set(header_keys[start:start + 9])) != 9:
+        populated = [key for key in header_keys[start:start + 9] if key]
+        if len(set(populated)) != len(populated):
             raise TherapistDailyNativeReadbackError("Duplicate provider in one therapist header block")
 
     if type(expected_cells) is not tuple or any(
@@ -148,8 +152,11 @@ def verify_therapist_daily_native_readonly(
                     raise TherapistDailyNativeReadbackError("Native provider header cannot be a formula")
                 actual = str(cell.Value or "").strip()
                 expected = expected_provider_headers[header_index]
-                if _name(actual) != _name(expected):
-                    raise TherapistDailyNativeReadbackError("Native therapist provider header mismatch")
+                if expected.strip():
+                    if _name(actual) != _name(expected):
+                        raise TherapistDailyNativeReadbackError("Native therapist provider header mismatch")
+                elif actual:
+                    raise TherapistDailyNativeReadbackError("Unexpected provider under a blank header")
                 header_index += 1
 
             for row, expected_time in zip(
