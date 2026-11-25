@@ -192,7 +192,7 @@ def test_failed_cli_has_no_output_or_leaked_sensitive_detail(tmp_path, capsys):
 
 def _append_proposal_to_synthetic_book(source, handoff):
     """Test fixture only. Real caller must use guarded native VBA+Save."""
-    workbook = load_workbook(source, keep_vba=True)
+    workbook = load_workbook(source, keep_vba=False)
     ws = workbook[JOURNAL_SHEET]
     ws.append(handoff["prepared_row"])
     workbook.save(source)
@@ -232,7 +232,7 @@ def test_independent_readback_detects_corrupted_previous_history_even_if_valid(t
     ):
         old = advance_daily_input_operation(old, phase)
         mutated = append_operation_journal(mutated, old)
-    workbook = load_workbook(source, keep_vba=True)
+    workbook = load_workbook(source, keep_vba=False)
     ws = workbook[JOURNAL_SHEET]
     for idx, row in enumerate(mutated, 2):
         for col, value in enumerate(row, 1):
@@ -251,7 +251,7 @@ def test_independent_readback_stops_on_unverified_reopen(tmp_path, mutation):
         source, response, payload, operation_id="fixture-proposal",
     )
     _append_proposal_to_synthetic_book(source, proposal)
-    workbook = load_workbook(source, keep_vba=True)
+    workbook = load_workbook(source, keep_vba=False)
     journal = workbook[JOURNAL_SHEET]
     if mutation == "extra-row":
         first = DailyInputOperation("fixture-proposal", proposal["source_sha256"], "2026-11-23")
