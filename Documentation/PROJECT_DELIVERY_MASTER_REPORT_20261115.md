@@ -1136,3 +1136,9 @@ The operator rechecked candidate `UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm` (
 
 For `UNIFIED_H10_DEMO_THERAPIST_20261110_CC.xlsm`, read-only native inventory completed (66 VBA components, exit 0; original SHA-256 unchanged). The workbook contains `modDayAmendmentAction` (402 lines) and `modUnifiedDaySave` (70 lines), but not `modDailyInputJournal`. The UI control audit found `ekaToolbar_SaveOperationalDayMaster` on `MASTER_SCHEDULE` with `OnAction=SaveOperationalDay`, and confirmed the dispatcher exists. On `DAILY_INPUT`, only the Exit control matched; no day-save/amendment shape was found. Consequently `inspect_day_amendment_ui_contract.py` fails because its expected Day Amendment button is absent from DAILY_INPUT, while the unified save-control audit succeeds because a different save button exists on MASTER_SCHEDULE. These are distinct contracts, not contradictory results. No workbook was changed. Next: reconcile amendment button name/location and installer expectations against intended operator workflow, and separately trace the missing `modDailyInputJournal` dependency before any installation or positive transaction.
 
+
+
+## 2026-11-25 — Amendment installer contract clarified
+
+Source confirms that the Amendment UI contract intentionally requires `ekaToolbar_DayAmendment` on `DAILY_INPUT`, bound to `StartClosedDayAmendment`. The installer calls `install_day_amendment_action`, which replaces `modDayAmendmentAction` and adds that shape, then saves. This is distinct from the unified save button on `MASTER_SCHEDULE`, so the two inspector results are consistent. However, the Amendment module calls `DailyInputJournalApplyEnabled()`, and the CC inventory lacks `modDailyInputJournal`. The Amendment UI installer does not provision this missing journal dependency. Therefore it must NOT be run on CC yet. Next: inspect the unified-save installer and native journal provisioning/dependency contract, then plan changes only on a disposable clone.
+
