@@ -3033,3 +3033,13 @@ This supersedes the provisional Windows-pending status for this run. Initial thr
 Added `Python/rehab_excel/daily_input_therapist_projection_readback.py` and `Tests/test_daily_input_therapist_projection_readback.py`. The diagnostic reads the saved workbook without writing, using the established `modTherapistWorkloadStrip` VBA two-block layout (header rows 1 and 11, patient-slot rows 2–8 and 12–18, provider columns B:J). It requires an independently derived immutable exact provider-to-distinct-occupied-clock expectation, checks every nonempty provider header, rejects orphan occupancy under blank headers, malformed/header/formula/error cells, wrong/extra/missing provider or occupied time, repeats the same clock across two blocks as **one** occupied slot, and rejects file mutation by SHA-256 readback. This is NOT the historical delivered-session count and MUST NOT infer capacity from a default six; shared same-time patients and multiple sessions do not create extra occupied slots. No patient names are logged in failures.
 
 **Scope is intentionally narrow:** this is OOXML literal workbook structure only. The actual THERAPIST_DAILY may use formulas and native display/derived values that require real Excel COM; the diagnostic rejects formula occupancy rather than asserting recalculated success. It does NOT reconstruct patient/session identities, determine approved provider availability, verify therapist-day history, match projected sessions to independently authenticated source-ledger facts, test Apply, or authenticate any signed receipt. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. Real native Excel/therapist views and complete cross-sheet projection proof are still pending. The initial synthetic tests were added; CI result recorded separately when confirmed. Gate 2 remains closed and the original CC workbook unchanged.
+
+
+### Final cross-platform synthetic CI — THERAPIST_DAILY occupied clocks — 2026-11-25
+
+GitHub Actions run `45618473467`, code/test commit `922afe7bf7e534273781f76ebdf23e600c5ef3bc`, finished **SUCCESS** across all four jobs:
+- Ubuntu Python 3.11 full suite: **2815 passed, 98 warnings, 21.23s**.
+- Windows Python 3.11 full suite: **2815 passed, 98 warnings, 48.36s**.
+- Both Windows and Ubuntu synthetic safety jobs: success.
+
+The warnings are nonzero and CI suppresses their detail. This validates synthetic OOXML readback and static provider/clock expectations only, not native COM, real workbook behavior, full therapist/patient session projection, trusted attestation, phase evidence completion, or Gate 2 permission. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. No production workbook or VBA changes.
