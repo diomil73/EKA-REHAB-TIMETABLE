@@ -84,8 +84,8 @@ def verify_master_projection_saved_readback(
         ws = wb["MASTER_SCHEDULE"]
         header_rows = [
             row for row in range(1, 11)
-            if str(ws.cell(row, 2).value or "").strip().casefold() == "θάλαμος"
-            and str(ws.cell(row, 3).value or "").strip().casefold() == "ασθενής"
+            if str(ws.cell(row, 2).value or "").strip().casefold() == "Θάλαμος".casefold()
+            and str(ws.cell(row, 3).value or "").strip().casefold() == "Ασθενής".casefold()
         ]
         if len(header_rows) != 1:
             raise MasterProjectionSavedReadbackError("MASTER header missing or ambiguous")
