@@ -156,13 +156,13 @@ def test_binding_rejects_operation_or_evidence_drift():
         validate_receipt_binding(
             receipt, replace(op, source_sha256="b" * 64),
             required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
-            expected_previous_receipt_sha256=None,
+            expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
     with pytest.raises(TransactionReceiptError, match="evidence kind"):
         validate_receipt_binding(
             receipt, op, required_evidence=(EvidenceKind.PROJECTIONS_REOPEN,),
-            expected_previous_receipt_sha256=None,
+            expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v1"},
         )
 
@@ -171,7 +171,7 @@ def test_binding_rejects_unpinned_verifier_and_wrong_predecessor():
     receipt = create_transaction_receipt(**input_ledger_receipt_fields())
     args = dict(
         required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
-        expected_previous_receipt_sha256=None,
+        expected_previous_receipt_sha256="b" * 64,
         verifier_registry={"native-reopen-verifier": "v2"},
     )
     with pytest.raises(TransactionReceiptError, match="not pinned"):
@@ -227,6 +227,6 @@ def test_binding_rechecks_digest_even_for_direct_dataclass_instances():
         validate_receipt_binding(
             forged, operation(),
             required_evidence=(EvidenceKind.INPUT_AND_LEDGER_REOPEN,),
-            expected_previous_receipt_sha256=None,
+            expected_previous_receipt_sha256="b" * 64,
             verifier_registry={"native-reopen-verifier": "v2"},
         )
