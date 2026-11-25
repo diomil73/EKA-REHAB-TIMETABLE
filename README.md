@@ -86,3 +86,6 @@ The native MASTER diagnostic now checks all 10 canonical formula columns plus st
 
  
 The DAILY_INPUT native source capture supports only direct PATIENTS A:E formulas in PATIENT_PLANNER and verifies their native results against PATIENTS literals. MASTER formula results are now compared to PATIENT_PLANNER source values. Latest regression: run `45677349897`, 2916 passed on Windows and Ubuntu. See design doc §§13-14.
+
+ 
+In the expanded 13-column MASTER schema, K (psychology) and L (afternoon programme) remain outside the current native projection proof; only A:J and M status are checked. See design doc §15.
