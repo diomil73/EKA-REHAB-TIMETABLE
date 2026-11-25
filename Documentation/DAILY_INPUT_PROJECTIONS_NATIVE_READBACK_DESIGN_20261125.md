@@ -322,26 +322,26 @@ For each selected sheet it:
 - enforces per-sheet fixed row/column bounds and requires native UsedRange to cover all saved populated/formula cells;
 - closes Excel without saving and requires the exact workbook SHA-256 to remain unchanged.
 
-**PATIENT_PLANNER formula exception:** the workbook's established A:E identity/room/status bridge may contain direct same-row formulas to PATIENTS. Only exact `PATIENTS!A{row}` through `PATIENTS!E{row}` links are supported. Native Excel must report the same formula and its evaluated result must equal the corresponding literal PATIENTS cell. Formula cells elsewhere, other formulas in PATIENT_PLANNER, formulas in PATIENTS, and stored error cells fail closed. The diagnostic reports literal and supported formula counts separately.
+**PATIENT_PLANNER formula exception:** the established A:E identity bridge may contain either a direct same-row link to PATIENTS or the exact blank-guarded formula emitted by `planner_identity_formulas()`: `IF(PATIENTS!C{row}="","",PATIENTS!{column}{row})`. Only columns A:E and same-row references are supported. Native Excel must report the same formula and its evaluated result must match the corresponding literal PATIENTS cell. For the guarded form, Excel's exact-empty comparison is preserved: a genuinely empty PATIENTS name produces an empty string, while whitespace is not treated as empty. All other source formulas and stored error cells fail closed. Literal and supported formula counts are reported separately.
 
 The one-call projection wrapper runs source capture before native INPUT_AND_LEDGER, then MASTER and full THERAPIST_DAILY readbacks. It validates source-capture result type, exact workbook hash, non-empty Excel version, unique sheet names, all five required sheets and nonnegative formula count. The CLI reports aggregate source sheet/literal/formula counts and source Excel version; no patient/provider cell values are printed.
 
-CI run `45677349897`, code/test HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS:
-- Windows Python 3.11: **2916 passed, 30 warnings, 34.64s**.
-- Ubuntu Python 3.11: **2916 passed, 32 warnings, 28.98s**.
+CI run `45679125582`, code/test HEAD `2b9c6294232e476216f8438e2d1880797a539b0d`, SUCCESS:
+- Windows Python 3.11: **2922 passed, 30 warnings, 42.15s**.
+- Ubuntu Python 3.11: **2922 passed, 31 warnings, 29.86s**.
 - Both synthetic safety jobs passed.
 
-Tests cover supported direct planner links, formula result comparison to PATIENTS, unsupported formula rejection, literal type preservation, formula/error rejection, fixed UsedRange bounds, source hash immutability, mandatory sheet scope and aggregate-only CLI output. Fake COM/synthetic only. No real Excel or operational XLSM was opened.
+Tests cover supported direct and blank-guarded planner links, all five production identity formulas, formula result comparison to PATIENTS, exact blank-guard behavior, real OOXML package parsing, unsupported formula rejection, literal type preservation, formula/error rejection, fixed UsedRange bounds, source hash immutability, mandatory sheet scope and aggregate-only CLI output. Fake COM/synthetic only. No real Excel or operational XLSM was opened.
 
 ### Strict boundary remains
 
-This verifies saved literal source-cell agreement and one deliberately narrow PATIENT_PLANNER formula contract. It does not attest source provenance or authorization, inspect styles/layout/package resources, authenticate shared-clock approval tuples, or bind an operation ID. The source preflight remains composed from canonical OOXML readers. Python evidence objects remain caller-constructible. No signed verifier attestation, report/receipt or phase adapter exists.
+This verifies saved literal source-cell agreement and a deliberately narrow PATIENT_PLANNER formula contract. It does not attest source provenance or authorization, inspect styles/layout/package resources, authenticate shared-clock approval tuples, or bind an operation ID. The source preflight remains composed from canonical OOXML readers. Python evidence objects remain caller-constructible. No signed verifier attestation, report/receipt or phase adapter exists.
 
 `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; Gate 2 remains closed.
 
 ## 14. Expanded native MASTER formula/evaluated-value coverage
 
-Extended `daily_input_master_projection_native.py` to inspect the complete 10-column canonical MASTER source-formula block plus the status formula for every projected patient row. It checks each formula against its exact PATIENT_PLANNER source-column/row link, reads all 11 Excel-evaluated cells and rejects formula errors. Each formula result is also compared to the corresponding literal PATIENT_PLANNER source cell through native Excel; those source cells must not contain formulas. The source capture separately binds PATIENT_PLANNER literals/formulas to the supported source contract. The doctor-identity cell is the deliberate exception: when a responsible doctor is present, column C must be a literal and is compared to the independently expected patient/doctor text.
+The native MASTER reader inspects the complete 10-column canonical source-formula block plus the status formula for every projected patient row. It checks each formula against its exact PATIENT_PLANNER source-column/row link, reads all 11 Excel-evaluated cells, rejects formula errors and compares every formula result to the corresponding literal PATIENT_PLANNER source cell. Those source cells must not contain formulas. The source capture separately binds PATIENT_PLANNER literals/formulas to the supported source contract. The doctor-identity cell is the deliberate exception: when a responsible doctor is present, column C must be a literal and is compared to the independently expected patient/doctor text.
 
 In addition to source equality, native evaluated values are compared to independent preflight facts for:
 - infectious flag in MASTER column A;
@@ -351,20 +351,12 @@ In addition to source equality, native evaluated values are compared to independ
 
 The result records formula/evaluated-cell counts. The composite requires exact expected counts: 11 evaluated cells per projected row; 11 formula cells where doctor identity is formula-driven, or 10 where the doctor identity is literal. This prevents a partial native MASTER scan from being reported as complete.
 
-CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`, SUCCESS:
-- Windows Python 3.11: **2911 passed, 30 warnings, 45.81s**.
-- Ubuntu Python 3.11: **2911 passed, 33 warnings, 29.60s**.
-- Both synthetic safety jobs passed.
-
-A subsequent source-value comparison test verifies that every formula result matches its corresponding PATIENT_PLANNER literal cell. The full regression including this comparison and supported planner formulas is run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`, SUCCESS: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
-
 Synthetic fake-COM tests cover all formula links, formula-to-source value mismatches, infectious mismatch, room/identity/status mismatch, missing/wrong formulas, formula error values, source formula rejection, literal doctor identity and composite formula/evaluated count enforcement. No real Excel instance or operational XLSM was opened.
 
 ### Remaining MASTER boundary
 
 The seven other treatment-related formula outputs are compared to their PATIENT_PLANNER source cells, but are not yet compared to independently derived expected treatment/business facts. This does not verify full treatment semantics, formatting, styles, borders, row heights, conditional formatting or package resources. No operation ID, trusted verifier attestation, phase report or receipt is created. Gate 2 remains closed.
 
- 
 ## 15. Explicit MASTER expanded-schema K/L boundary
 
 The 13-column MASTER schema is `A:J` canonical formula projection, `K` psychologist, `L` afternoon programme, `M` status. The native MASTER verifier currently checks A:J and M only. This is not an accidental assumption that K/L are canonical formulas: `daily_input_master_projection_readback.py` explicitly leaves them outside that formula contract.
@@ -377,3 +369,9 @@ Therefore:
 - any future decision to populate K/L in MASTER needs a separate explicit source-to-display contract, writer, native readback and tests before it can be included in the phase proof.
 
 No change was made to this behavior. This is a documented scope boundary, not a claim that K/L are correct or complete.
+
+## 16. Native MASTER verification of the expanded 13-column schema
+
+Added fake-COM coverage for the expanded MASTER schema with K=`ΨΥΧΟΛΟΓΟΙ`, L=`ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ`, M=`Κατάσταση`. The native reader correctly identifies status column M and verifies the same A:J/M formula and evaluated-value contract. This test does not certify K/L content; those columns remain explicitly outside scope under §15.
+
+CI run `45679125582`, HEAD `2b9c6294232e476216f8438e2d1880797a539b0d`, SUCCESS: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2922 passed / 31 warnings / 29.86s**; both synthetic safety jobs passed.
