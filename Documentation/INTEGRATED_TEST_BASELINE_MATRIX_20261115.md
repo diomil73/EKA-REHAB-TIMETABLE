@@ -841,3 +841,7 @@ GitHub Actions run `45617783680` for corrected code commit `905418df1c33b4008fd2
 - Both synthetic safety jobs passed.
 
 This supersedes the provisional Windows-pending status for this run. Initial three failing new tests were corrected, not ignored. Warning details are suppressed by CI, counts are retained. This is saved-OOXML verification and synthetic tests only. Full PROJECTIONS_REOPEN remains NOT_IMPLEMENTED and no native Excel, therapist projection, authenticated attestation, Apply or Gate 2 action occurred.
+
+## 2026-11-25 — THERAPIST_DAILY occupied distinct-clock OOXML diagnostic baseline
+
+Files: `Python/rehab_excel/daily_input_therapist_projection_readback.py`; `Tests/test_daily_input_therapist_projection_readback.py`. Tests use fictional workbook cells and explicit preflight provider/clock expectations; check both blocks, distinct clock reuse, missing/extra provider, missing/extra slot, orphan occupancy, formula and invalid time, duplicate/incorrect expected facts, no write. This audit does not prove correct patient/day/session projections, formula calculations, therapist capacity or native Excel behavior. PROJECTIONS_REOPEN NOT_IMPLEMENTED. GitHub Actions full regression to be recorded after completion.
