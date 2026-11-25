@@ -77,3 +77,6 @@ The native THERAPIST_DAILY reader also preserves compatibility with unused blank
 
  
 The DAILY_INPUT work now includes an explicit-date source preflight and one-call native INPUT_AND_LEDGER / MASTER / THERAPIST_DAILY diagnostic. It is non-authorizing, uses synthetic/fake-COM regression coverage only, and does not complete PROJECTIONS_REOPEN. See `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §12.
+
+ 
+The DAILY_INPUT native diagnostic now captures literal source cells from the workbook's source-sheet allowlist through macro-disabled, read-only Excel COM before checking INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY. Formula/error cells fail closed; see `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §13. This is not operational authorization.
