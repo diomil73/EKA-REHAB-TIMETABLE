@@ -2644,3 +2644,19 @@ Therefore private `PersistDaySavePayload` was invoked in native Excel via the di
 **Next safe step:** inspect the exact constants and installer contract for `modDayAmendmentAction` / `ekaToolbar_DayAmendment`, inspect the current `modUnifiedDaySave` dispatcher and its intended sheet placement, then compare these with historical accepted DEMO requirements and the intended operator workflow. Decide whether Amendment should have a separate DAILY_INPUT button or whether the inspector's expected location/name is stale. Separately trace the missing `modDailyInputJournal` application-contract dependency. Do not install controls or modules until these contracts are reconciled. Preserve CC and frozen historical workbooks.
 
 **Status:** read-only native inventory GREEN; unified save dispatcher/control on MASTER_SCHEDULE GREEN for presence only; Day Amendment UI contract FAILED on DAILY_INPUT; full Day Amendment positive lifecycle NOT PROVEN.
+
+
+## 4.201 Source contract reconciliation — Amendment installer owns DAILY_INPUT button and rewrites module; do not run on CC yet — 25/11/2026
+
+Operator output confirms:
+- `inspect_day_amendment_ui_contract.py`: fails because the named button is absent from `DAILY_INPUT`.
+- `inspect_unified_day_save_controls.py`: passes and finds `ekaToolbar_SaveOperationalDayMaster` / `SaveOperationalDay` on `MASTER_SCHEDULE`, with dispatcher present.
+- CC source hash remains unchanged at `1BD5E58E905F91ACB55E5A706CD8B4563B5A98C170A9EC60FE76C95617420B13`.
+
+Source inspection resolves the UI contract: `DAY_AMENDMENT_BUTTON_NAME = ekaToolbar_DayAmendment`; `DAY_AMENDMENT_MACRO_NAME = StartClosedDayAmendment`; `DAY_AMENDMENT_MODULE_NAME = modDayAmendmentAction`. `install_day_amendment_action` explicitly removes/recreates that module and adds the named shape on `DAILY_INPUT`, bound to `StartClosedDayAmendment`. `install_day_amendment_ui.py` calls that function, verifies module and shape, then saves the workbook. Therefore the current inspector expectation is consistent with the installer source; it is not merely an arbitrary stale sheet expectation. The MASTER unified-save control is a separate control/contract and does not substitute for the Amendment button.
+
+Critical dependency: the generated `modDayAmendmentAction` source calls `DailyInputJournalApplyEnabled()` at the public entrypoint and again inside persistence. The CC native inventory did not contain `modDailyInputJournal`. Thus even if the Amendment UI installer were run, it would rewrite the amendment module and add the button, but it does not install or satisfy the missing journal dependency. The new UI could therefore be visible while the operation remains locked/unavailable or VBA project compilation is unresolved. Do not run `install_day_amendment_ui.py` on CC yet; it opens ReadOnly=False, rewrites a VBA component, adds a shape and saves.
+
+**Next safe step:** inspect `install_unified_day_save_ui.py`, `provision_daily_input_journal_native.py`, and the exact source/contract for `DailyInputJournalApplyEnabled` to understand the intended provisioning sequence and application artifact contract. Use only source inspection or a disposable clone for any subsequent installation. Preserve CC and all frozen historical workbooks. No operational mutation or transaction has been performed.
+
+**Status:** unified save control on MASTER confirmed present; Amendment control missing from DAILY_INPUT; installer contract understood; journal dependency still missing; positive Amendment transaction NOT PROVEN.
