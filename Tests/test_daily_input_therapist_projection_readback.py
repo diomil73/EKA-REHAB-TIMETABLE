@@ -98,3 +98,23 @@ def test_no_default_capacity_or_journal_permission():
     assert "DEFAULT_CAPACITY" not in source
     assert "DailyInputJournalApplyEnabled = True" not in source
     assert "DispatchEx" not in source
+
+
+def test_clock_rounding_must_not_wrap_24h_to_midnight(tmp_path):
+    path, expected = fixture(tmp_path)
+    wb = load_workbook(path, keep_vba=True)
+    # A saved numeric time can be just below 24:00 and round to 1440
+    # minutes. This must never silently masquerade as 00:00.
+    wb["THERAPIST_DAILY"]["A2"] = 0.9999999
+    wb.save(path)
+    wb.close()
+    with pytest.raises(TherapistDailyProjectionReadbackError, match="day boundary"):
+        verify_therapist_daily_occupied_clocks(path, expected_clocks=expected)
+
+
+@pytest.mark.parametrize("clock", [time(8, 0, 1), time(8, 0, 0, 1)])
+def test_expected_clock_requires_exact_minute_resolution(tmp_path, clock):
+    path, expected = fixture(tmp_path)
+    changed = ((expected[0][0], (clock, time(9), time(10))), expected[1])
+    with pytest.raises(TherapistDailyProjectionReadbackError, match="Malformed"):
+        verify_therapist_daily_occupied_clocks(path, expected_clocks=changed)
