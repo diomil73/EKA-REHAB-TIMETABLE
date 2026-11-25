@@ -1356,3 +1356,12 @@ GitHub Actions run `45619012770`, code/test head `d6f3e17046ac208cfd2723fcfac71c
 - Synthetic safety jobs on both platforms: SUCCESS.
 
 The added clock-wrap/sub-minute tests passed. This is synthetic saved-OOXML verification only; no real Excel COM/native recalculation, authenticated attestation, complete provider-session proof or production changes. Warning counts remain nonzero and details are suppressed by CI. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
+
+
+### 2026-11-25 — THERAPIST_DAILY assignment identity and shared-slot membership contract
+
+Added `Python/rehab_excel/daily_input_therapist_assignment_membership.py` and `Tests/test_daily_input_therapist_assignment_membership.py`. The **pure** `verify_therapist_assignment_memberships()` comparator requires two separately sourced immutable tuples of `TherapistAssignmentFact` (preflight expected and saved-readback observed) keyed by *stable* immutable AssignmentID, each binding PatientID, treatment, normalized provider, explicit service date and exact-minute start time. It rejects missing, duplicate, swapped, stale, legacy/row-derived, cross-date or sub-minute facts even if occupied-provider-clock counts are unchanged. For same-provider simultaneous different patients, the exact group of patient IDs must match independent prior approved shared-slot membership; excess/missing/duplicate approvals fail closed. It does not invent provider limits or automatically authorize shared treatments.
+
+**Important trust boundary:** the comparator cannot authenticate its caller or itself reconstruct actual patient assignment IDs from the display cells of THERAPIST_DAILY. Its observed tuple must be produced by a separate independently trustworthy saved-source/COM verifier in later work. The comparator is **not** a completed positive projection verifier, report adapter, trusted attestation or Apply/Restore authorization. No workbook IO, VBA mutation, journal append or Gate 2 activation. `PROJECTIONS_REOPEN` stays NOT_IMPLEMENTED. This pure unit test suite tests in-memory fictional identity sets; it cannot prove real native Excel or full clinical assignment correctness.
+
+GitHub code/test commits `f15e366ea01c436d46c939c05709f16cc6b33cd0` / `166d7bf54345476422dad79e2c4de964891c9214`. CI outcome must be separately recorded once confirmed.
