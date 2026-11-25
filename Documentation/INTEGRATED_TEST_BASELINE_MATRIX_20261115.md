@@ -772,3 +772,7 @@ GitHub Actions full regression for head `ed3bdec7e3e22a69b1162867f346321503b2649
 - Both synthetic safety jobs succeeded; overall workflow success.
 
 The complete-bundle positive synthetic test uses temporary in-memory IMPLEMENTED contract statuses only to exercise the structural validator. Actual repository verifier statuses remain PREPARED=REPORT_ADAPTER_ONLY and nine NOT_IMPLEMENTED. This does not authenticate verifier origin, establish trusted attestation, authorize journal append or enable Apply. No native Excel COM/real XLSM test was run. Warning details remain suppressed by CI and counts are not zero. Gate 2 remains closed.
+
+## 2026-11-25 — Trusted verifier attestation preflight: fail-closed, not authenticating
+
+Added a strict untrusted attestation claim parser and non-authorizing reject-only boundary in `daily_input_verifier_attestation.py`, synthetic tests in `test_daily_input_verifier_attestation.py`, and a threat-model/key-custody design in `Documentation/DAILY_INPUT_TRUSTED_VERIFIER_ATTESTATION_DESIGN_20261125.md`. It checks claim envelope format, report/source/operation identity and malformed signatures; even a correctly shaped claim cannot pass the boundary because no external trusted key/build verification exists. No signing, real signature checking, trusted root, journal authorization or positive Excel proof was added. CI execution result must be recorded separately after final workflow review. Gate 2 remains closed.
