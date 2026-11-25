@@ -40,6 +40,8 @@ class DailyInputProjectionNativeReadback:
     input_ledger_active_rows: int
     master_excel_version: str
     therapist_excel_version: str
+    master_formula_cells_checked: int = 0
+    master_evaluated_cells_checked: int = 0
 
 
 def verify_daily_input_projection_native_readonly(
@@ -112,9 +114,18 @@ def verify_daily_input_projection_native_readonly(
             raise DailyInputProjectionNativeReadbackError("Native MASTER verifier returned an invalid result")
         if master.workbook_sha256 != before_hash:
             raise DailyInputProjectionNativeReadbackError("MASTER readback workbook digest mismatch")
+        expected_master_formula_cells = (
+            len(expected_projection) * 11
+            - sum(bool(item.responsible_doctor) for item in expected_projection)
+        )
+        expected_master_evaluated_cells = len(expected_projection) * 11
         if (type(master.projected_rows) is not int
                 or master.projected_rows < 0
                 or master.projected_rows != len(expected_projection)
+                or type(master.formula_cells_checked) is not int
+                or type(master.evaluated_cells_checked) is not int
+                or master.formula_cells_checked != expected_master_formula_cells
+                or master.evaluated_cells_checked != expected_master_evaluated_cells
                 or type(master.native_excel_version) is not str
                 or not master.native_excel_version.strip()):
             raise DailyInputProjectionNativeReadbackError("MASTER readback scope/version mismatch")
@@ -159,4 +170,6 @@ def verify_daily_input_projection_native_readonly(
         input_ledger_active_rows=input_ledger_readback.active_ledger_count,
         master_excel_version=master.native_excel_version,
         therapist_excel_version=therapist.native_excel_version,
+        master_formula_cells_checked=master.formula_cells_checked,
+        master_evaluated_cells_checked=master.evaluated_cells_checked,
     )
