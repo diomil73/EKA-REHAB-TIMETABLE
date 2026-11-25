@@ -172,3 +172,13 @@ Implementation `Python/rehab_excel/daily_input_input_ledger_native.py` preserves
 Tests in `Tests/test_daily_input_input_ledger_native.py` use fake COM and synthetic fictional data. This prepares native readback without executing Windows Excel during CI; a disposable native XLSM smoke test is still mandatory when PC is available. INPUT_AND_LEDGER remains NOT_IMPLEMENTED in the phase verifier registry because trusted report/attestation integration and real native proof are absent. This diagnostic is never a journal Apply/Restore authorization.
 
 Ubuntu full CI for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f`: 2770 passed / 77 warnings / 24.10s; Windows CI pending confirmation at this checkpoint. No workbook/VBA/operational writes and Gate 2 stays closed.
+
+
+### Native INPUT_AND_LEDGER synthetic CI final confirmation — 25/11/2026
+
+GitHub Actions run `45599055363` for code/test HEAD `6e4d99296fc6679fbaeffd4a2003a17ac165719f` finished **SUCCESS** on all four jobs:
+- Windows Python 3.11 full regression: **2770 passed**, 77 warnings, 33.58s.
+- Ubuntu Python 3.11 full regression: **2770 passed**, 77 warnings, 24.10s.
+- Windows and Ubuntu synthetic safety jobs: both success.
+
+Previous interim notes that the Windows outcome was pending are superseded by this final confirmed result. Warning details are suppressed by the CI workflow; do not claim zero warnings. Native COM remains mocked in these tests, not real Excel; no report adapter/trusted attestation/journal append/Apply authorization or Gate 2 activation. An independent disposable-XLSM native Excel smoke test and explicit zero-change policy remain pending.
