@@ -2056,3 +2056,8 @@ Native source capture now allows only direct same-row PATIENTS links in PATIENT_
 CI run `45677349897`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
 
 No real Excel/operational XLSM. Remaining: independent treatment-value semantics, styles/package resources, trusted approval provenance, operation ID/report/receipt. Gate 2 closed.
+
+ 
+### 2026-11-25 — MASTER expanded K/L boundary documented
+
+The 13-column MASTER K (psychologists) and L (afternoon programme) cells are outside the current native projection verifier, which covers A:J and M status. Existing projection writer clears K/L and its test expects them blank; separate patient-form paths exist for psychology/afternoon. No change made. Green native A:J/M readback does not certify K/L. A dedicated source/display contract and verifier remain future work.
