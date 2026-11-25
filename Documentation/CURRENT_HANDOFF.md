@@ -2661,3 +2661,40 @@ Synthetic test `Tests/test_trial_demo_weekly_navigation.py` checks form/module w
 **Next separate real-data source bridge:** `Python/rehab_excel/trial_private_outpatient_audit.py` and `Python/tools/audit_real_outpatient_source.py` inspect only a PRIVATE, institution-approved current outpatient export in `.xlsx` form. They require the already-supported `PATIENTS` and `OUTPATIENT_SCHEDULE` sheets and their existing exact leading column headers. Reuse `read_patient_registry`, `read_outpatient_schedule` and `parse_day_pattern` to check outpatient identity/type/name consistency, Mon-Fri days, times, provider for ΦΘ, no robotic outpatient, per-weekday duplicate bookings, no formula-only or orphan source rows and SHA-256 read-only preservation. CLI emits only aggregate counts; never names/IDs/paths. `Tests/test_trial_private_outpatient_audit.py` uses only fictional private fixtures. **This is a diagnostic admission precondition, not an outpatient import or proof of completeness**. Full native outbound bridging from this separate approved source into the same private XLSM remains PENDING. Do not infer outpatients from the existing inpatient A:V review or omit them from the final pilot. Full command and schema: `Documentation/REAL_OUTPATIENT_SOURCE_EXISTING_SCHEMA_AUDIT_20261116.md`.
 
 **Real workbook and operator acceptance status remains unchanged:** no current actual source files available in GitHub, no private native Excel produced or verified, outpatient source admission/merged seed and F/U/V approvals still open, 1:1 real manual comparison pending. Previous 2,002 test green code checkpoint `3cfdf61b` with GitHub run `43805735643` establishes the earlier MASTER bulk-display integration, not outpatient native acceptance. Check the new outpatient audit CI separately. Frozen H2–H10 acceptance files stay immutable.
+
+ 
+## AUTHORITATIVE LATEST HANDOFF — 2026-11-25 — DAILY_INPUT evidence chain
+
+Current branch: `work/afternoon-medical-scope-20261115`  
+Latest code/test HEAD: `e7ce7526de2c000cff9410819267f73fdc6ffc79`  
+Latest documentation commits follow this code/test HEAD; confirm live branch HEAD before any local sync.
+
+### Most recent confirmed operator result
+
+The operator synchronized the branch and ran the focused 13-file Windows suite: **214 passed, 1 skipped in 12.34s**, with no pytest warnings summary (zero warnings reported for that exact focused run). The skip is the symlink-specific receipt test because symlink creation is unavailable on that Windows platform. This confirms the earlier 40 ZipFile deallocation warnings are no longer reproduced in that focused suite. Do not generalize to full repository or CI warning totals.
+
+### New code/test checkpoint
+
+Added the partial native MASTER diagnostic:
+- `Python/rehab_excel/daily_input_master_projection_native.py`
+- `Tests/test_daily_input_master_projection_native.py`
+- Detailed contract: `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`
+
+GitHub Actions run `45657152050` completed SUCCESS, all four jobs:
+- Windows Python 3.11: **2848 passed, 35 warnings, 48.64s**.
+- Ubuntu Python 3.11: **2848 passed, 34 warnings, 28.83s**.
+- Both synthetic safety jobs passed.
+
+The diagnostic layers native Excel COM read-only room/patient-identity/status evaluation over the existing OOXML MASTER formula audit. It uses an injected fake COM for CI tests. No real Excel COM execution occurred. It is a partial MASTER diagnostic only, not a complete PROJECTIONS_REOPEN verifier or report adapter. Native THERAPIST_DAILY AssignmentID extraction, full provider/session membership, all affected projection scopes and source-ledger linkage remain open.
+
+### Exact next engineering steps
+
+1. Audit the independent preflight source of every expected MASTER projected field; never derive expected values from the MASTER being checked.
+2. Build a read-only native THERAPIST_DAILY saved-source reader that reconstructs actual immutable AssignmentID, PatientID, treatment, provider, service date and exact-minute start-time facts from a trustworthy source. Do not infer assignment IDs from display labels or clock counts.
+3. Reconcile those observed facts against independent preflight facts and approved shared-slot membership.
+4. Verify every affected therapist/day view and link the complete MASTER + therapist projection set to the exact DAILY_INPUT and authoritative ledger facts for the same operation/source/date.
+5. Only then add the PROJECTIONS_REOPEN report adapter. Keep its registry status non-authorizing until independent trusted verifier/build-manifest attestation exists.
+
+PREPARED and INPUT_AND_LEDGER remain REPORT_ADAPTER_ONLY. PROJECTIONS_REOPEN and the other remaining evidence kinds remain NOT_IMPLEMENTED. No actual positive transaction, receipt authorization, journal append, Apply/Restore, real-data demo acceptance or Gate 2 enablement. Gate 2 stays closed.
+
+No user action is required for the source/synthetic engineering steps above. PC/native Excel smoke tests and any real-data/operational approval remain reserved for the operator.
