@@ -180,3 +180,20 @@ def test_full_native_projection_wrapper_rejects_workbook_mutation_after_readback
     monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly", mutate)
     with pytest.raises(native.DailyInputProjectionPreflightNativeError):
         native.verify_daily_input_projection_preflight_native_readonly(path, preflight=pre)
+
+
+def test_full_native_projection_wrapper_rejects_ledger_count_drift(tmp_path, monkeypatch):
+    path = _path(tmp_path)
+    pre = _preflight(path)
+    wrong = InputLedgerNativeReadback(
+        service_date=SERVICE_DATE,
+        workbook_sha256=pre.source_workbook_sha256,
+        source_change_count=2,
+        active_ledger_count=2,
+        native_excel_version="16.0",
+    )
+    monkeypatch.setattr(native, "verify_input_and_ledger_native_readonly", lambda *a, **k: wrong)
+    monkeypatch.setattr(native, "verify_daily_input_projection_native_readonly",
+                        lambda *a, **k: pytest.fail("must stop before projection readback"))
+    with pytest.raises(native.DailyInputProjectionPreflightNativeError):
+        native.verify_daily_input_projection_preflight_native_readonly(path, preflight=pre)
