@@ -3194,3 +3194,12 @@ GitHub Actions run `45663881144`, HEAD `46d4023b0ba8e5c65510fd1ddc5bb249fdadb3ce
 - Both synthetic safety jobs passed.
 
 This is compatibility hardening for unused columns, not a completed PROJECTIONS_REOPEN verifier. Tests use fake COM; no real Excel. Registry unchanged; Gate 2 closed. Details: design doc §11.
+
+ 
+### 4.234 DAILY_INPUT independent preflight + one-call native diagnostic — 25/11/2026
+
+Added `daily_input_projection_preflight.py`, `daily_input_projection_preflight_native.py` and `diagnose_daily_input_projection_native.py`. The preflight composes existing canonical readers for PATIENTS/SETTINGS, unified inpatient/outpatient programme, stable recurring IDs, effective recurring changes, patient exits, dated sessions, DAILY_INPUT, replacement facts, daily states, STUDENTS, and expected MASTER/THERAPIST_DAILY projections. It requires explicit service and baseline dates and binds all expected facts to the same workbook SHA-256 before/after construction. The one-call wrapper runs native INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY readbacks and rechecks workbook hash/date/count bindings.
+
+CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`, SUCCESS: Windows **2897 passed / 29 warnings**; Ubuntu **2897 passed / 32 warnings**; both synthetic safety jobs passed.
+
+Strict limits: existing OOXML/canonical readers are composed, not yet replaced by independently audited native COM capture of every source sheet. Shared-slot approvals are caller-supplied exact-membership tuples, not authenticated or operation-bound; CLI accepts none. Evidence objects have no protected provenance, no operation ID/report/receipt exists, and full MASTER treatment/style checks remain open. Fake COM/synthetic tests only; no real Excel. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED; Gate 2 closed. Full details and next steps in design doc §12.
