@@ -115,7 +115,7 @@ Initial tests use fictional synthetic artifacts. Native Excel tests use disposab
 
 ## 10. Explicit non-goals
 
-This receipt design does not implement transaction orchestrator, native phase verifiers, rollback executor, VBA hooks, UI controls or operational Apply/Restore. It does not prove positive transactions. Statistics, dashboards and management analytics remain outside first practice DEMO critical path.
+The new Python module implements only structural receipt encoding/decoding, operation/evidence/verifier-label binding, and evidence-file byte/path verification. It does not authenticate receipt origin. This receipt design does not implement transaction orchestrator, native phase verifiers, rollback executor, VBA hooks, UI controls or operational Apply/Restore. It does not prove positive transactions. Statistics, dashboards and management analytics remain outside first practice DEMO critical path.
 
 ## 11. Current readiness
 
@@ -123,7 +123,8 @@ This receipt design does not implement transaction orchestrator, native phase ve
 - Lifecycle state model: implemented as pure model.
 - PREPARED native bridge: implemented, diagnostic-only.
 - Independent phase verifiers: not registered.
-- Trusted receipt writer/validator: not implemented.
+- Structural receipt codec/validator: implemented in daily_input_transaction_receipt.py with synthetic tests added; tests not yet executed in this session.
+- Trusted receipt writer/authenticator: not implemented.
 - Trusted signing/attestation root: not selected or implemented.
 - Phase orchestrator: not implemented.
 - Full rollback executor: not proven.
