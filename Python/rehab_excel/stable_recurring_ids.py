@@ -55,7 +55,7 @@ def bind_stable_assignment_ids(
     """
     path = Path(workbook_path)
     wb = load_workbook(path, read_only=True, data_only=True,
-                       keep_vba=path.suffix.lower() == ".xlsm")
+                       keep_vba=False)
     try:
         planner_ids: dict[tuple[str, str], str] = {}
         declared_planner_ids: set[str] = set()
