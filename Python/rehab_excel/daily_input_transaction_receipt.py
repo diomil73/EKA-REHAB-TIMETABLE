@@ -129,8 +129,16 @@ class DailyInputTransactionReceipt:
             raise TransactionReceiptError("Only VERIFIED evidence can have a success receipt")
         _validate_timestamp(self.verified_at_utc)
         if self.journal_revision == 0:
-            if self.journal_phase != "PREPARED" or self.previous_receipt_sha256 is not None:
-                raise TransactionReceiptError("Revision zero must be PREPARED with no prior receipt")
+            if (
+                self.journal_phase != "PREPARED"
+                or self.evidence_kind != EvidenceKind.PREPARED_SNAPSHOT.value
+                or self.previous_receipt_sha256 is not None
+            ):
+                raise TransactionReceiptError(
+                    "Revision zero must bind PREPARED_SNAPSHOT with no prior receipt"
+                )
+        elif self.evidence_kind == EvidenceKind.PREPARED_SNAPSHOT.value:
+            raise TransactionReceiptError("PREPARED_SNAPSHOT is valid only at revision zero")
         elif self.previous_receipt_sha256 is None:
             raise TransactionReceiptError("Non-initial receipt requires previous_receipt_sha256")
 
