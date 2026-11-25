@@ -1401,3 +1401,15 @@ The operator synchronized the authoritative branch and reran the focused 13-file
 - The prior 40 ZipFile deallocation warnings are no longer reproduced in this focused suite after the narrowly scoped `keep_vba=False` changes to read-only OOXML paths and non-VBA synthetic fixture loads.
 
 No warnings were suppressed. This is a local focused Python result, not a full repository regression or native Excel/COM proof. No production workbook, VBA, transaction state, Apply/Restore or Gate 2 behavior changed. PREPARED and INPUT_AND_LEDGER remain report-adapter-only and non-authorizing; trusted attestation and the other independent phase verifiers remain open. Real native positive transaction and operator acceptance remain pending.
+
+ 
+## 2026-11-25 — Partial native MASTER projection readback added
+
+Added `daily_input_master_projection_native.py` and fake-COM regression tests. The diagnostic reuses the existing saved-OOXML MASTER formula/schema comparator, then opens the exact saved XLSM in a fresh macro-disabled, read-only native Excel COM instance and compares Excel-evaluated room, patient display identity and status values with independently supplied `MasterProjectionRow` preflight facts. It handles the responsible-doctor literal identity separately, captures Excel Version, closes without saving, quits and verifies unchanged workbook bytes.
+
+GitHub Actions run **45657152050**, head `e7ce7526de2c000cff9410819267f73fdc6ffc79`, SUCCESS:
+- Windows: **2848 passed, 35 warnings, 48.64s**.
+- Ubuntu: **2848 passed, 34 warnings, 28.83s**.
+- Both synthetic safety jobs: success.
+
+This is a partial diagnostic, not a complete PROJECTIONS_REOPEN verifier. Native therapist assignment extraction, exact AssignmentID membership, shared-slot reconciliation and full source-input/ledger linkage remain open. No report adapter, receipt, trusted attestation, production workbook/VBA change, Apply/Restore or Gate 2 activation. The fake-COM tests do not run Microsoft Excel. Detailed scope: `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`.
