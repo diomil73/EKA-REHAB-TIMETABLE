@@ -58,6 +58,7 @@ class DailyInputSourceNativeCapture:
     workbook_sha256: str
     native_excel_version: str
     sheets: tuple[NativeSourceSheetResult, ...]
+    identity_mirror_rows_checked: int = 0
 
     @property
     def checked_sheet_count(self) -> int:
@@ -261,6 +262,36 @@ def verify_daily_input_source_native_capture_readonly(
                 used_last_column=last_column,
                 formula_cells_checked=len(formulas),
             ))
+
+        patient_values, _patient_formulas, _patient_last_row, _patient_last_column = package_facts["PATIENTS"]
+        _planner_values, planner_formulas, _planner_last_row, _planner_last_column = package_facts["PATIENT_PLANNER"]
+        identity_rows = sorted(
+            int(address[1:])
+            for address, value in patient_values.items()
+            if address.startswith("C") and address[1:].isdigit()
+            and int(address[1:]) >= 2
+            and value is not None and str(value).strip()
+        )
+        planner_ws = book.Worksheets("PATIENT_PLANNER")
+        for row_number in identity_rows:
+            for column_letters in "ABCDE":
+                address = f"{column_letters}{row_number}"
+                column_number = column_index_from_string(column_letters)
+                patient_cell = patients_ws.Cells(row_number, column_number)
+                if bool(patient_cell.HasFormula):
+                    raise DailyInputSourceNativeCaptureError("Native PATIENTS identity cell must be literal")
+                patient_value = patient_cell.Value2
+                planner_cell = planner_ws.Cells(row_number, column_number)
+                native_formula = bool(planner_cell.HasFormula)
+                package_formula = address in planner_formulas
+                if native_formula != package_formula:
+                    raise DailyInputSourceNativeCaptureError("PATIENT_PLANNER identity formula presence differs from OOXML")
+                if native_formula:
+                    continue  # Formula text/result were checked above.
+                planner_value = planner_cell.Value2
+                if not _same_literal(patient_value, planner_value):
+                    raise DailyInputSourceNativeCaptureError("PATIENT_PLANNER literal identity differs from PATIENTS")
+        identity_mirror_rows_checked = len(identity_rows)
     except DailyInputSourceNativeCaptureError:
         raise
     except Exception as exc:
@@ -284,4 +315,5 @@ def verify_daily_input_source_native_capture_readonly(
         workbook_sha256=before_hash,
         native_excel_version=str(raw_version).strip(),
         sheets=tuple(results),
+        identity_mirror_rows_checked=identity_mirror_rows_checked,
     )
