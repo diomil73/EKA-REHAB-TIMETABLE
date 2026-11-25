@@ -810,3 +810,13 @@ Added `Python/rehab_excel/daily_input_input_ledger_phase_adapter.py` and `Tests/
 The INPUT_AND_LEDGER contract status is now **REPORT_ADAPTER_ONLY**, like PREPARED. Eight remaining evidence kinds stay **NOT_IMPLEMENTED**. `validate_phase_verifier_report()` continues to reject INPUT_AND_LEDGER positive authorization while trusted attestation is not integrated; `require_trusted_verifier_attestation()` remains reject-only. Adapter output is neither signed nor a receipt, journal append, actual operational COM proof or Apply/Restore authorization.
 
 Synthetic negative/positive publication tests were added. The adapter tests use an injected fake native diagnostic; they do not execute the user's Excel. GitHub CI results for the current code/test head must be recorded after completion. The prior 2770-pass cross-platform CI belongs to the preceding diagnostic-only commit and must not be misrepresented as coverage of this new adapter. No business workbook, VBA, UI, journal writer or Gate 2 change. Zero-change policy and real disposable native Excel smoke test remain open.
+
+
+### Confirmed complete regression for INPUT_AND_LEDGER phase adapter — 25/11/2026
+
+GitHub Actions run `45599851668`, code/test HEAD `de03afc8d8cc5d824c45c755d3f0861100a6b278`, completed **SUCCESS**:
+- Windows Python 3.11: **2779 passed**, 79 warnings, 39.81 seconds.
+- Ubuntu Python 3.11: **2779 passed**, 80 warnings, 17.06 seconds.
+- Synthetic safety jobs on both Windows and Ubuntu: success.
+
+This supersedes provisional CI-pending notes. Tests use mock/injected native diagnostic for the phase adapter. No real native Excel/COM execution on the user's machine, actual signed attestation, receipt, positive operational transaction or Gate 2 enablement. INPUT_AND_LEDGER and PREPARED are REPORT_ADAPTER_ONLY. Other eight kinds remain NOT_IMPLEMENTED. Warnings are not zero and warning details are suppressed by CI.
