@@ -106,7 +106,7 @@ def read_students(path: str | Path) -> list[Student]:
         workbook_path,
         read_only=True,
         data_only=True,
-        keep_vba=workbook_path.suffix.casefold() == ".xlsm",
+        keep_vba=False,
     )
     try:
         if STUDENT_REGISTRY_SHEET not in wb.sheetnames:
