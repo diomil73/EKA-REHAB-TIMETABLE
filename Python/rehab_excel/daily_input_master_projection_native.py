@@ -14,11 +14,11 @@ import sys
 
 from .authoritative_commit import file_sha256
 from .daily_input_master_projection_readback import (
+    SOURCE_COLUMNS,
     MasterProjectionSavedReadbackError,
     verify_master_projection_saved_readback,
 )
 from .master_projection import MasterProjectionRow
-from .daily_input_master_projection_readback import SOURCE_COLUMNS
 
 
 class MasterProjectionNativeReadbackError(RuntimeError):
