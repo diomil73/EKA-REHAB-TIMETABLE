@@ -1490,3 +1490,12 @@ Added full native formula-link inspection across all 10 canonical MASTER source 
 CI run `45676238896`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs passed.
 
 The other treatment formula results are link/error checked only, not independently value-compared. Style/package and trusted operation-bound receipt remain open. Fake COM only; no real Excel.
+
+ 
+### 2026-11-25 — Native source formula bridge and MASTER result equality
+
+Source capture supports only exact direct same-row PATIENTS links in PATIENT_PLANNER A:E; native formulas and results are compared to literal PATIENTS cells. Native MASTER compares all 10 formula outputs plus status to literal PATIENT_PLANNER source values, and checks infectious flag, room, patient/doctor identity and status against preflight facts.
+
+CI run `45677349897`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
+
+Fake COM only; no real Excel/operational XLSM. Full treatment business semantics and visual/package checks remain open.
