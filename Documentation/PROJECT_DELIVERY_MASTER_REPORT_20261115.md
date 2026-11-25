@@ -1444,3 +1444,15 @@ GitHub Actions run **45660810319**, HEAD `5a91058f0c9f78f63c19a70366987d8685796a
 - Both synthetic safety jobs passed.
 
 No real Excel execution. The builder relies on caller-supplied facts and does not yet independently capture/verify the complete workbook source, daily input ledger and replacements. It is not a phase adapter; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
+
+ 
+### 2026-11-25 — Composite native projection readback consistency check
+
+Added `daily_input_projection_native.py`. It binds a prior INPUT_AND_LEDGER native result, independent MASTER preflight rows and digest, the full expected therapist grid and digest, and fresh native MASTER/THERAPIST_DAILY readbacks to one exact saved workbook SHA-256 and service date. It checks all expected counts, full 126-cell grid, 18 provider headers, occupied count, evidence metadata and workbook immutability.
+
+GitHub Actions run **45662463260**, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`, SUCCESS:
+- Windows: **2877 passed, 33 warnings, 45.11s**.
+- Ubuntu: **2877 passed, 35 warnings, 18.84s**.
+- Both synthetic safety jobs passed.
+
+This is non-authorizing structural composition, not an operation-bound report/receipt or trusted verifier. Full native source/ledger/replacement capture, operation identity, all MASTER evaluated values and trusted attestation remain open. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
