@@ -7,7 +7,7 @@ No phase report, receipt, trust attestation or Apply authorization is created.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 
 from rehab_core.base_schedule import materialize_sessions_for_date
@@ -25,6 +25,7 @@ from rehab_core.recurring_therapy_changes import (
 from .authoritative_commit import file_sha256
 from .daily_input_reader import DailyInputReadResult, read_daily_input
 from .daily_replacement_facts import read_daily_replacement_facts
+from .daily_input_therapist_assignment_membership import TherapistAssignmentFact
 from .daily_input_therapist_projection_expected import (
     TherapistDailyExpectedGrid, build_therapist_daily_expected_grid,
 )
@@ -38,6 +39,7 @@ from .recurring_change_event_source import read_recurring_change_events
 from .stable_recurring_ids import bind_stable_assignment_ids, is_stable_assignment_id
 from .student_registry import read_students
 from .daily_input_therapist_projection_readback import _name
+from rehab_core.recurring_conflicts import _provider_key
 
 
 class DailyInputProjectionPreflightError(RuntimeError):
@@ -62,6 +64,7 @@ class DailyInputProjectionPreflight:
     students: tuple[Student, ...] = field(repr=False)
     expected_projection: tuple[MasterProjectionRow, ...] = field(repr=False)
     expected_therapist_grid: TherapistDailyExpectedGrid = field(repr=False)
+    approved_shared_memberships: tuple[tuple[str, time, frozenset[str]], ...] = field(repr=False)
 
     @property
     def validated_changes(self) -> tuple:
@@ -90,6 +93,10 @@ class DailyInputProjectionPreflight:
     @property
     def therapist_assignment_count(self) -> int:
         return len(self.expected_therapist_grid.expected_assignments)
+
+    @property
+    def approved_shared_clock_count(self) -> int:
+        return len(self.approved_shared_memberships)
 
 
 def _provider_headers(path: Path) -> tuple[str, ...]:
@@ -123,11 +130,61 @@ def _provider_roster(settings: WorkbookSettings, students: tuple[Student, ...]) 
     return allowed, provider_labels
 
 
+
+def _validate_shared_slot_approvals(
+    assignments: tuple[TherapistAssignmentFact, ...],
+    approvals: tuple[tuple[str, time, frozenset[str]], ...],
+) -> None:
+    if type(approvals) is not tuple:
+        raise DailyInputProjectionPreflightError("Immutable source-bound shared-slot approvals required")
+    provider_slots: dict[tuple[str, time], set[str]] = {}
+    patient_slots: set[tuple[str, time]] = set()
+    assignment_ids: set[str] = set()
+    for item in assignments:
+        if type(item) is not TherapistAssignmentFact:
+            raise DailyInputProjectionPreflightError("Invalid expected therapist assignment fact")
+        provider = _provider_key(item.provider)
+        if (not provider or not item.assignment_id or item.assignment_id in assignment_ids
+                or type(item.start_time) is not time
+                or item.start_time.second or item.start_time.microsecond):
+            raise DailyInputProjectionPreflightError("Malformed expected therapist assignment fact")
+        assignment_ids.add(item.assignment_id)
+        patient_slot = (item.patient_id.casefold(), item.start_time)
+        if patient_slot in patient_slots:
+            raise DailyInputProjectionPreflightError("Duplicate patient clock in expected therapist assignments")
+        patient_slots.add(patient_slot)
+        provider_slots.setdefault((provider, item.start_time), set()).add(item.patient_id)
+
+    required = {
+        key: frozenset(patient_ids)
+        for key, patient_ids in provider_slots.items()
+        if len(patient_ids) > 1
+    }
+    approved: dict[tuple[str, time], frozenset[str]] = {}
+    for item in approvals:
+        if (type(item) is not tuple or len(item) != 3
+                or type(item[0]) is not str or not _provider_key(item[0])
+                or type(item[1]) is not time or item[1].second or item[1].microsecond
+                or type(item[2]) is not frozenset or len(item[2]) < 2
+                or any(type(pid) is not str or not pid.strip() or pid != pid.strip()
+                       for pid in item[2])
+                or len({pid.casefold() for pid in item[2]}) != len(item[2])):
+            raise DailyInputProjectionPreflightError("Malformed shared-slot approval")
+        key = (_provider_key(item[0]), item[1])
+        if key in approved:
+            raise DailyInputProjectionPreflightError("Duplicate shared-slot approval")
+        approved[key] = item[2]
+    if required != approved:
+        raise DailyInputProjectionPreflightError("Expected shared-slot membership lacks exact independent approval")
+
+
+
 def build_daily_input_projection_preflight(
     workbook_path: str | Path,
     *,
     service_date: date,
     baseline_date: date,
+    approved_shared_memberships: tuple[tuple[str, time, frozenset[str]], ...] = (),
 ) -> DailyInputProjectionPreflight:
     """Assemble canonical source facts for native read-only verification.
 
@@ -238,6 +295,9 @@ def build_daily_input_projection_preflight(
             provider_labels=provider_labels,
             students=students,
         )
+        _validate_shared_slot_approvals(
+            expected_grid.expected_assignments, approved_shared_memberships,
+        )
         expected_projection = tuple(build_master_projection(
             source, patients=patients, target_date=service_date,
         ))
@@ -261,6 +321,7 @@ def build_daily_input_projection_preflight(
             students=students,
             expected_projection=expected_projection,
             expected_therapist_grid=expected_grid,
+            approved_shared_memberships=approved_shared_memberships,
         )
     except DailyInputProjectionPreflightError:
         raise
