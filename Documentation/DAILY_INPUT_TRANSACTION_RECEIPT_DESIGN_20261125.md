@@ -182,3 +182,10 @@ GitHub Actions full regression for adapter-bearing commit `a559a35c9a618b0d83764
 - Windows: 2734 passed, 71 warnings, 34.45s.
 - Ubuntu: 2734 passed, 69 warnings, 30.31s.
 Both synthetic safety jobs succeeded. The workflow suppresses warning detail with `--disable-warnings`; warnings are not claimed to be zero. This is CI regression evidence, not proof of real native Excel COM execution on a user's workbook. Latest code/test head `a8b1c59d5ec7faabfb8cbbce41bd80cc09582930` also completed successfully: Windows 2734 passed / 71 warnings / 35.24s; Ubuntu 2734 passed / 69 warnings / 18.87s. Both synthetic safety jobs succeeded. Later commits are documentation-only. PREPARED remains REPORT_ADAPTER_ONLY and no phase/receipt/Apply/Restore authorization is granted.
+
+
+## 15. Attestation trust boundary preflight — 25/11/2026
+
+Added `daily_input_verifier_attestation.py`, `test_daily_input_verifier_attestation.py` and the dedicated threat model `DAILY_INPUT_TRUSTED_VERIFIER_ATTESTATION_DESIGN_20261125.md`. The new schema validates **untrusted claims only**, not signatures or trust. It explicitly denies every claim at `require_trusted_verifier_attestation()` even if all reported fields match. This protects against treating self-signed metadata as authentication while allowing schema/mismatch tests in GitHub CI.
+
+The production trust root, signer custody, externally pinned verifier build manifest, signature verification, revocation and key rotation are **not implemented**. No caller Boolean may stand in for verification. Gate 2 remains closed; all code remains non-authorizing. CI status requires separate confirmation.
