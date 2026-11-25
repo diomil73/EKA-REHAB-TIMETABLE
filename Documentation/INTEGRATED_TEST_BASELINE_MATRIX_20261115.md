@@ -927,3 +927,8 @@ Added `daily_input_master_projection_native.py` plus synthetic fake-COM tests. F
 - Both synthetic safety jobs passed.
 
 The new diagnostic tests the saved OOXML structure and then uses an injected COM fake to test read-only native Excel lifecycle and evaluated MASTER room/name/status matching. It is not an actual Excel execution. This adds only a partial MASTER identity diagnostic; native therapist assignment extraction and complete projection/source-ledger proof remain pending. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; no report adapter or authorization. Warning counts remain nonzero.
+
+ 
+### 2026-11-25 — Therapist AssignmentID verifier design source map
+
+Source-only review mapped the stable identity chain through `stable_recurring_ids.py`, `reader.py`, `outpatient_schedule_source.py`, `materialize_sessions_for_date()`, `DAILY_REPLACEMENT_FACTS` and `build_daily_session_states()`. THERAPIST_DAILY does not store AssignmentID in its display cells; future observed membership must be reconstructed only by an unambiguous join from native-captured patient/provider/time cells to independently derived effective assignments. Ambiguity, missing joins, or unsupported student/zero-day semantics must fail closed. This is design/source evidence only, not a test or verifier implementation. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
