@@ -83,7 +83,7 @@ def verify_daily_input_projection_preflight_native_readonly(
     master_excel_factory=None,
     therapist_excel_factory=None,
 ) -> DailyInputProjectionPreflightNativeReadback:
-    """Run the three native readbacks against one independently built preflight.
+    """Run native source capture plus INPUT_AND_LEDGER, MASTER and therapist readbacks.
 
     Each verifier opens a fresh Excel instance, forces macros disabled, opens
     ReadOnly and closes without saving. All three results must bind to the
