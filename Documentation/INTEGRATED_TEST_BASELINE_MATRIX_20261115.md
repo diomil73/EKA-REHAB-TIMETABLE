@@ -987,3 +987,13 @@ CI run `45674827673`, HEAD `c9f7413c7ec409327a76a1a493a66dead0c22765`, SUCCESS:
 - Both synthetic safety jobs passed.
 
 Covers typed OOXML cell parsing, native literal source capture, formula/error rejection, fixed UsedRange bounds, source hash immutability, mandatory sheet scope and full wrapper integration. Fake COM only. No real Excel.
+
+ 
+### 2026-11-25 — Expanded native MASTER formula/evaluated-value regression
+
+CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`, SUCCESS:
+- Windows Python 3.11: **2911 passed, 30 warnings, 45.81s**.
+- Ubuntu Python 3.11: **2911 passed, 33 warnings, 29.60s**.
+- Both synthetic safety jobs passed.
+
+Covers complete 10-column formula linkage plus status, 11 evaluated cells per row, infectious/room/identity/status value checks, doctor literal identity, formula error rejection and composite evidence count binding. Fake COM only.
