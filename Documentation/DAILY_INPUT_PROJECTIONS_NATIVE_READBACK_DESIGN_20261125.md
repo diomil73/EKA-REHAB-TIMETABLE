@@ -107,3 +107,19 @@ Therefore the next native reader must not pretend that the display itself contai
 - The complete verifier must reconcile the same operation ID, source workbook digest, service date and preflight facts across DAILY_INPUT, ledger, MASTER and therapist projection. The existing single-sheet comparators remain supplementary checks, not substitutes.
 
 This audit identifies a plausible reuse path, not a completed verifier. No new therapist reader or phase adapter is claimed by this section.
+
+ 
+### 7.1 Exact patient-cell rendering contract inspected
+
+The unresolved display-label question has now been traced to `patient_centric_preview.py`:
+
+- A single patient/assignment in a provider-time cell renders the patient's display name.
+- When different patients share the provider-time cell, each patient line receives its recurring day pattern in brackets.
+- When the same patient has multiple assignments at the same provider/time, the patient name appears once and the following detail line lists each day pattern and treatment label.
+- A temporary replacement keeps the original patient line styled/struck as appropriate and adds a source note `→ provider time`; the destination cell includes the patient name plus the temporary weekday/date label.
+- Student replacement provider labels come from `student_display_state()`; they must remain a separate provider kind, not be counted as a therapist.
+- Outpatient distinction is applied as cell presentation (fill) by `outpatient_presentation.py`; it does not add an outpatient prefix to the patient text in this renderer.
+
+This means a future verifier should not invent a parser for loosely formatted patient names. It should reuse the exact established rendering functions/semantics to derive expected cell text from independently sourced daily states, then compare the native COM-visible cell value exactly. It must additionally reject ambiguous duplicate display names where the rendered cell cannot distinguish different PatientIDs, and it must compare the full set of affected provider/time cells so an unpatched stale cell cannot pass by omission.
+
+This closes the source-audit question about patient-label transformation. It does not create the full expected-grid renderer or a native therapist verifier; those remain the next implementation.
