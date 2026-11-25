@@ -2816,3 +2816,13 @@ The full-workbook rollback auditor requires a prepared-snapshot SHA-256 to be bo
 6. Only after the above are green, consider a positive native Excel public-UI transaction on a disposable demo workbook. Do not enable Gate 2 or use original CC for positive tests before explicit readiness review.
 
 Status: lifecycle model and proof-obligation taxonomy exist; durable PREPARED probe exists; operational phase writers/orchestrator, registered independent phase verifiers and trusted transaction receipt chain are NOT IMPLEMENTED / NOT PROVEN. Gate remains false.
+
+## 4.207 Transaction Receipt System — non-authorizing design contract — 25/11/2026
+
+Created and committed Documentation/DAILY_INPUT_TRANSACTION_RECEIPT_DESIGN_20261125.md (design only). Proposed receipt v1 binds receipt_id, operation_id, source_workbook_sha256, service_date, journal_revision, journal_phase, evidence_kind, relative evidence_artifact locator, evidence_sha256, pinned verifier_id/version, verification_method/result, UTC verification time, previous receipt digest and canonical receipt digest.
+
+Rules: exact match to decoded append-only journal; evidence kind must match phase requirements; evidence artifact must remain under controlled root and hash to exact saved bytes; workbook proof must come from independent native Excel reopen; COMPLETE and ROLLED_BACK require their respective full native evidence. Receipt chain and journal revisions must agree. Crash windows between artifact, receipt and journal persistence fail closed and recovery must be idempotent.
+
+Critical trust boundary: SHA-256 is integrity/corruption detection, not authenticity. No trusted signing/attestation root exists in the reviewed repository. Therefore this design is explicitly non-authorizing. No signing key is invented or embedded in VBA/Python. Production trust-root/key-custody choice is the only anticipated user/administrator decision. Structural validation can be implemented/tested first, but Gate 2 remains false.
+
+No runtime code, workbook, VBA, UI or operational handler was changed. No receipt writer, phase verifier, orchestrator or rollback executor is claimed implemented. Original CC remains untouched.
