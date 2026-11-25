@@ -50,6 +50,7 @@ class NativeSourceSheetResult:
     populated_cells_checked: int
     used_last_row: int
     used_last_column: int
+    formula_cells_checked: int = 0
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,20 @@ class DailyInputSourceNativeCapture:
     @property
     def checked_populated_cells(self) -> int:
         return sum(item.populated_cells_checked for item in self.sheets)
+
+    @property
+    def checked_formula_cells(self) -> int:
+        return sum(item.formula_cells_checked for item in self.sheets)
+
+
+def _planner_formula_source(address: str, formula: str) -> tuple[int, int, str]:
+    column_letters, row_number = coordinate_from_string(address)
+    if column_letters.upper() not in {"A", "B", "C", "D", "E"}:
+        raise DailyInputSourceNativeCaptureError("Unsupported PATIENT_PLANNER formula column")
+    expected = f"PATIENTS!{column_letters.upper()}{row_number}"
+    if formula.replace("$", "").strip().casefold() != expected.casefold():
+        raise DailyInputSourceNativeCaptureError("Unsupported PATIENT_PLANNER formula semantics")
+    return row_number, column_index_from_string(column_letters), expected
 
 
 def _native_cell(ws, address: str):
@@ -132,21 +147,27 @@ def verify_daily_input_source_native_capture_readonly(
     for name in selected:
         formulas = probe.formula_cells(name)
         errors = probe.error_cells(name)
-        if formulas:
-            raise DailyInputSourceNativeCaptureError("Source sheet contains formula cells")
         if errors:
             raise DailyInputSourceNativeCaptureError("Source sheet contains stored Excel error cells")
+        if formulas and name != "PATIENT_PLANNER":
+            raise DailyInputSourceNativeCaptureError("Source sheet contains unsupported formula cells")
+        for address, formula in formulas.items():
+            _planner_formula_source(address, formula)
         values = probe.typed_cell_values(name)
+        for address in formulas:
+            values.pop(address, None)
         for address, value in values.items():
             column_letters, row_number = coordinate_from_string(address)
             column_number = column_index_from_string(column_letters)
             row_limit, column_limit = SOURCE_SHEET_LIMITS[name]
             if row_number > row_limit or column_number > column_limit:
                 raise DailyInputSourceNativeCaptureError("OOXML source cell exceeds fixed bounds")
+        all_addresses = (*values.keys(), *formulas.keys())
         package_facts[name] = (
             values,
-            max((coordinate_from_string(a)[1] for a in values), default=1),
-            max((column_index_from_string(coordinate_from_string(a)[0]) for a in values), default=1),
+            formulas,
+            max((coordinate_from_string(a)[1] for a in all_addresses), default=1),
+            max((column_index_from_string(coordinate_from_string(a)[0]) for a in all_addresses), default=1),
         )
 
     if excel_factory is None:
@@ -179,16 +200,21 @@ def verify_daily_input_source_native_capture_readonly(
         if not bool(book.ReadOnly):
             raise DailyInputSourceNativeCaptureError("Native Excel was not opened read-only")
 
+        try:
+            patients_ws = book.Worksheets("PATIENTS")
+        except Exception as exc:
+            raise DailyInputSourceNativeCaptureError("Native PATIENTS source worksheet missing") from exc
         for name in selected:
             try:
                 ws = book.Worksheets(name)
             except Exception as exc:
                 raise DailyInputSourceNativeCaptureError("Native source worksheet missing") from exc
             first_row, first_column, last_row, last_column = _used_range_bounds(ws, sheet_name=name)
-            values, package_last_row, package_last_column = package_facts[name]
-            package_first_row = min((coordinate_from_string(a)[1] for a in values), default=1)
+            values, formulas, package_last_row, package_last_column = package_facts[name]
+            all_addresses = (*values.keys(), *formulas.keys())
+            package_first_row = min((coordinate_from_string(a)[1] for a in all_addresses), default=1)
             package_first_column = min((
-                column_index_from_string(coordinate_from_string(a)[0]) for a in values
+                column_index_from_string(coordinate_from_string(a)[0]) for a in all_addresses
             ), default=1)
             if (package_first_row < first_row or package_first_column < first_column
                     or package_last_row > last_row or package_last_column > last_column):
@@ -197,11 +223,29 @@ def verify_daily_input_source_native_capture_readonly(
                 actual = _native_cell(ws, address)
                 if not _same_literal(expected, actual):
                     raise DailyInputSourceNativeCaptureError("Native source literal differs from saved OOXML")
+            for address, formula in formulas.items():
+                row_number, column_number, expected_source = _planner_formula_source(address, formula)
+                cell = ws.Cells(row_number, column_number)
+                if not bool(cell.HasFormula):
+                    raise DailyInputSourceNativeCaptureError("Native PATIENT_PLANNER formula is missing")
+                actual_formula = str(cell.Formula or "").replace("$", "").lstrip("=").strip().casefold()
+                if actual_formula != expected_source.casefold():
+                    raise DailyInputSourceNativeCaptureError("Native PATIENT_PLANNER formula linkage mismatch")
+                source_cell = patients_ws.Cells(row_number, column_number)
+                if bool(source_cell.HasFormula):
+                    raise DailyInputSourceNativeCaptureError("Native PATIENTS source cell must be literal")
+                source_value = source_cell.Value2
+                formula_value = cell.Value2
+                if type(source_value) is str and source_value.startswith("#"):
+                    raise DailyInputSourceNativeCaptureError("Native PATIENTS source contains an Excel error")
+                if not _same_literal(source_value, formula_value):
+                    raise DailyInputSourceNativeCaptureError("Native PATIENT_PLANNER formula result differs from PATIENTS")
             results.append(NativeSourceSheetResult(
                 sheet_name=name,
                 populated_cells_checked=len(values),
                 used_last_row=last_row,
                 used_last_column=last_column,
+                formula_cells_checked=len(formulas),
             ))
     except DailyInputSourceNativeCaptureError:
         raise
