@@ -79,9 +79,10 @@ def create_prepared_snapshot_phase_report(
             source_sha256=handoff["source_sha256"],
             service_date=handoff["service_date"],
         )
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, AttributeError):
         raise PreparedPhaseReportAdapterError("PREPARED operation identity is invalid") from None
     contract = VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT]
+    before_snapshot_digest = file_sha256(workbook)
     try:
         native_version = verify_prepared_reopen(
             workbook, handoff, payload, native_excel=True, excel_factory=excel_factory,
@@ -92,6 +93,8 @@ def create_prepared_snapshot_phase_report(
         raise PreparedPhaseReportAdapterError("Native Excel version was not reported")
 
     snapshot_digest = file_sha256(workbook)
+    if snapshot_digest != before_snapshot_digest:
+        raise PreparedPhaseReportAdapterError("PREPARED workbook bytes changed during verifier adapter run")
     if file_sha256(payload) != handoff["payload_sha256"]:
         raise PreparedPhaseReportAdapterError("PREPARED payload changed after native readback")
     artifact = root.joinpath(*PurePosixPath(relative_artifact).parts).resolve(strict=True)
