@@ -349,3 +349,14 @@ The native wrapper invokes INPUT_AND_LEDGER, then composite MASTER/THERAPIST_DAI
 CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`: Windows **2897 passed / 29 warnings / 48.44s**; Ubuntu **2897 passed / 32 warnings / 19.99s**; both synthetic safety jobs succeeded.
 
 Limits: canonical readers are composed, not a complete independently audited native COM capture of every source sheet. Python result objects are caller-constructible; no verifier provenance, operation ID, signed attestation, report or receipt. Shared-slot approvals are unauthenticated. MASTER native evaluated values remain partial. Fake COM/synthetic tests only; no real Excel. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
+
+ 
+## 19. Native literal source-sheet capture — 25/11/2026
+
+Added native COM capture of every populated literal cell for all present sheets in the fixed source allowlist. The minimum required set is PATIENTS, PATIENT_PLANNER, SETTINGS, DAILY_INPUT and DAILY_CHANGE_LEDGER. Optional programme, identity, exit, recurring-change, student, outpatient and replacement sheets are captured when present. Formula/error cells fail closed. Typed OOXML values preserve text versus numeric identity; native COM values must match. Per-sheet UsedRange bounds are fixed, and workbook bytes are hashed before/after. Excel opens macro-disabled/read-only and closes without saving.
+
+The full native wrapper now composes source capture, INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY; it checks required captured sheet names, exact source digest, service date and ledger counts. CLI reports only aggregate source counts and Excel version.
+
+CI run `45674827673`: Windows **2907 passed / 30 warnings / 46.67s**; Ubuntu **2907 passed / 30 warnings / 17.42s**; both synthetic safety jobs passed. The later CLI version-output assertion is under separate CI.
+
+This checks literal cell agreement only. It does not authenticate source provenance, formulas, formatting, hidden names, styles, package resources or approvals; no operation-bound attestation/report/receipt. Fake COM only; no real Excel. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED; Gate 2 closed.
