@@ -2678,3 +2678,26 @@ Critical dependency: the generated `modDayAmendmentAction` source calls `DailyIn
 **Next work:** reconcile the authoritative UI contract in one integrated application build; map the intended module provisioning sequence and all dependencies; inspect the complete native journal VBA and transaction lifecycle evidence requirements. Any assembly must occur on a disposable clone, with CC and frozen sources preserved. Do not run either installer against the original CC. Do not attempt positive Apply/Restore/Amendment until the full lifecycle and rollback are implemented and proven.
 
 **Status:** native journal sheet provisioning capability exists; PREPARED-only VBA bridge source exists but is absent from CC and intentionally returns disabled; transition proposals remain non-authorizing; Unified Save routing exists as source and its UI contract conflicts with the standalone Amendment installer; positive operational transactions NOT READY / NOT PROVEN.
+
+
+## 4.203 DAILY_INPUT lifecycle source review — PREPARED probe only; phase verifiers and transaction orchestrator absent — 25/11/2026
+
+**Source:** operator-provided complete PowerShell output for `daily_input_journal_vba.py`, `daily_input_operation.py`, and `daily_input_phase_evidence.py`.
+
+**VBA journal module findings:**
+- `JOURNAL_MODULE_NAME = modDailyInputJournal`.
+- `DailyInputJournalApplyEnabled()` deliberately returns `False`; source comments explicitly state the complete Apply/Restore state machine is not enabled and the gate prevents legacy unjournaled Apply from mutating the workbook.
+- The available entrypoints `ProbeDailyInputPreparedJournal` and `RunPreparedDailyInputJournalProbe` only persist PREPARED.
+- `PersistPreparedDailyInputJournal` rechecks source/payload/handoff, validates a five-field row and digest, checks operation ID uniqueness and journal structure/protection, appends PREPARED, saves the workbook, then calls an independent native Excel readback verifier.
+- On failure it deliberately does not delete/rewrite a possibly durable journal row; it restores protection/veryHidden state where possible, returns False, and fails closed. This is not a full business-operation rollback because no business Apply has been executed by this probe.
+- `install_daily_input_journal` replaces/recreates the module with this PREPARED-only bridge; it does not enable Apply/Restore.
+
+**Pure lifecycle model findings:** `daily_input_operation.py` defines phases PREPARED, INPUT_AND_LEDGER_COMMITTED, PROJECTIONS_VERIFIED, PENDING_OPERATOR_DECISION, REPLACEMENTS_RESOLVED, APPLIED_ARCHIVE_VERIFIED, COMPLETE, FAILED, ROLLED_BACK and legal transitions/replay semantics. The module explicitly states it is pure, does not persist a journal, and does not claim Excel side effects are atomic. `COMPLETE` is the only success state. `ROLLED_BACK` requires retained failure code and `rollback_verified=True`.
+
+**Evidence policy findings:** `daily_input_phase_evidence.py` defines evidence kinds and per-phase requirements (native reopen of input/ledger, master/therapist projections, pending replacement inventory, replacement facts, operator resolution, applied archive, final workbook, retained failure diagnostic, full-workbook rollback). Its docstring explicitly says no independent phase verifiers are registered yet; this policy is not an authorization gate by itself. Returned values are requirements lists, never verified receipts or permission to append.
+
+**Readiness conclusion:** This is a designed lifecycle contract plus a working PREPARED technical bridge, not an operational transaction implementation. No evidence from this output establishes positive Apply, Restore, Amendment, independently verified phase receipts, or full-workbook rollback. The missing phase verifiers and native VBA orchestrator are hard blockers for positive operational transactions. Do not set `DailyInputJournalApplyEnabled=True` or bypass the gate.
+
+**Next development sequence:** (1) inventory existing authoritative Apply/Restore/Amendment handlers and persistence boundaries; (2) implement independent native phase verifiers for each required evidence kind; (3) implement the VBA transaction orchestrator that durably records each phase before/after the corresponding controlled effect as specified, with recovery behavior for interrupted states; (4) implement full-workbook rollback and independent native reopen verification; (5) add fault injection at each boundary; (6) prove positive transactions on disposable synthetic workbooks with receipts and save/close/reopen; (7) only then consider operational application assembly. Keep the real CC workbook unchanged.
+
+**Status:** PREPARED-only journal bridge source reviewed; pure state machine source reviewed; evidence requirements source reviewed; phase verifiers NOT IMPLEMENTED/NOT REGISTERED; operational transaction orchestrator NOT PROVEN; positive Apply/Restore/Amendment NOT READY; full rollback NOT PROVEN.
