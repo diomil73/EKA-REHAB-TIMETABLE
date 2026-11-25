@@ -2736,3 +2736,8 @@ Added `daily_input_projection_native.py`. It binds a prior native INPUT_AND_LEDG
 GitHub Actions run `45662463260`, HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`, SUCCESS: Windows 2877 passed / 33 warnings; Ubuntu 2877 passed / 35 warnings; both synthetic safety jobs passed.
 
 This is non-authorizing composition only. It does not execute the prior INPUT_AND_LEDGER verifier, authenticate caller-supplied result objects, bind operation ID, produce a report/receipt, or independently capture all source/ledger/replacement facts. MASTER native value scope remains room/name/status only. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED. Detailed limits/next work: design doc §10.
+
+ 
+### THERAPIST_DAILY unused provider slots
+
+The native reader/expected-grid builder now allow an unused provider header to be blank while still checking all 18 header positions and all 126 patient cells. Duplicate populated headers within a block fail, and occupancy beneath a blank header fails. CI run `45663881144`: Windows 2880 passed / 34 warnings; Ubuntu 2880 passed / 32 warnings; both synthetic safety jobs passed. Fake COM only; no actual Excel. See design doc §11.
