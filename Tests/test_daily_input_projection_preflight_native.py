@@ -98,6 +98,7 @@ def _results(path):
             NativeSourceSheetResult(name, 2, 3, 3)
             for name in ("PATIENTS", "PATIENT_PLANNER", "SETTINGS", "DAILY_INPUT", "DAILY_CHANGE_LEDGER")
         ),
+        identity_mirror_rows_checked=1,
     )
     return ledger, projections, source_capture
 
