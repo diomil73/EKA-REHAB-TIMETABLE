@@ -2698,3 +2698,8 @@ The diagnostic layers native Excel COM read-only room/patient-identity/status ev
 PREPARED and INPUT_AND_LEDGER remain REPORT_ADAPTER_ONLY. PROJECTIONS_REOPEN and the other remaining evidence kinds remain NOT_IMPLEMENTED. No actual positive transaction, receipt authorization, journal append, Apply/Restore, real-data demo acceptance or Gate 2 enablement. Gate 2 stays closed.
 
 No user action is required for the source/synthetic engineering steps above. PC/native Excel smoke tests and any real-data/operational approval remain reserved for the operator.
+
+ 
+### Additional source-chain findings for the next therapist verifier
+
+The current source audit found a reusable identity chain: stable AssignmentIDs are bound by `stable_recurring_ids.py`; dated sessions retain the AssignmentID prefix in `session_id`; daily replacement facts retain the exact target session and effective provider/time; `DailySessionState` preserves base identity while computing effective daily state. The visible THERAPIST_DAILY grid contains provider/time/patient display cells, not AssignmentID. The next reader must derive effective expected assignments from the authoritative source/ledger/replacement data and uniquely reconcile every visible cell. Ambiguous or missing joins are safety stops. Full detail: §7 of `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`.
