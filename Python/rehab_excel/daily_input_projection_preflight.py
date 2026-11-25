@@ -138,7 +138,7 @@ def _validate_shared_slot_approvals(
     service_date: date,
 ) -> None:
     if type(approvals) is not tuple:
-        raise DailyInputProjectionPreflightError("Immutable source-bound shared-slot approvals required")
+        raise DailyInputProjectionPreflightError("Immutable explicit prior shared-slot approvals required")
     provider_slots: dict[tuple[str, time], set[str]] = {}
     patient_slots: set[tuple[str, time]] = set()
     assignment_ids: set[str] = set()
