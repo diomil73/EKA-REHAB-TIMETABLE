@@ -156,3 +156,14 @@ Evidence mapping follows this document's §6:
 Critical status: PREPARED_SNAPSHOT is EXISTING_DIAGNOSTIC_ONLY because verify_daily_input_journal_prepared.py already supports independent saved-byte inspection and optional native Excel read-only reopen; it is not yet integrated with this report/receipt contract. The remaining nine contracts are NOT_IMPLEMENTED, and none is IMPLEMENTED for positive phase authorization. The registry is immutable metadata, not an executable verifier registry or trust root. The report codec validates schema, canonical digest, operation/phase binding and contract scope; it does not execute Excel, authenticate a report, or prove that the claimed inspection occurred. A synthetic report marked VERIFIED is still rejected for positive phase use while its contract is NOT_IMPLEMENTED or only EXISTING_DIAGNOSTIC_ONLY. No caller-supplied verified Boolean is accepted. The required evidence list is derived internally from required_evidence_for_transition(previous, candidate), not passed by the caller.
 
 The module remains non-authorizing. SHA-256 is not a signature. No journal append, Apply enablement, VBA write, workbook mutation or positive transaction path is exposed. The next implementation step is to adapt the already native-proven PREPARED readback diagnostic into the report/receipt envelope without repeating its completed native diagnostic; then implement the independent INPUT_AND_LEDGER_REOPEN native Excel verifier, plus separately verifiable non-Excel decision/failure artifact auditors. Trusted build-manifest/attestation provenance remains unresolved. Tests have been added but NOT YET EXECUTED locally.
+
+## 12. Test execution update — 25/11/2026
+
+The focused Windows suite covering the phase-verifier contract/report codec, transaction receipts, operation lifecycle, journal, phase-evidence policy and rollback audit has now been executed locally by the user:
+
+```
+110 passed, 1 skipped in 4.79s
+SKIPPED [1] Tests\\test_daily_input_transaction_receipt.py:208: Symlinks unavailable on this platform
+```
+
+This is a confirmed green test run. The sole skip is the symlink-specific receipt artifact test, unavailable on this Windows platform. It is not a failed assertion. The run does not implement or authenticate any native phase verifier, does not authorize journal append/Apply/Restore and does not change Gate 2. PREPARED is still diagnostic-only pending report/receipt integration; other phase verifiers remain unimplemented.
