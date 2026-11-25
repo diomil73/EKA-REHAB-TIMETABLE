@@ -2741,3 +2741,12 @@ This is non-authorizing composition only. It does not execute the prior INPUT_AN
 ### THERAPIST_DAILY unused provider slots
 
 The native reader/expected-grid builder now allow an unused provider header to be blank while still checking all 18 header positions and all 126 patient cells. Duplicate populated headers within a block fail, and occupancy beneath a blank header fails. CI run `45663881144`: Windows 2880 passed / 34 warnings; Ubuntu 2880 passed / 32 warnings; both synthetic safety jobs passed. Fake COM only; no actual Excel. See design doc §11.
+
+ 
+### DAILY_INPUT full preflight/native diagnostic checkpoint — 25/11/2026
+
+New modules assemble the existing canonical source readers for one explicit service date and programme baseline, build MASTER and full therapist-grid expectations, then orchestrate native INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY readbacks against the same workbook hash/date. CLI: `Python/tools/diagnose_daily_input_projection_native.py`; requires Windows plus explicit `--service-date` and `--baseline-date`; macro-disabled/read-only, aggregate-only output.
+
+CI run `45667684716`: Windows **2897 passed / 29 warnings**; Ubuntu **2897 passed / 32 warnings**; both synthetic safety jobs passed.
+
+Do not mistake this for operational authorization: tests use fake COM/synthetic data only. Shared-clock approvals are not authenticated and the CLI accepts none. No operation-bound attestation, report/receipt, complete native source-sheet capture or full MASTER treatment/style readback. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED; Gate 2 closed. See design doc §12.
