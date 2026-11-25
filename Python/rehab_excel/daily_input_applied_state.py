@@ -159,7 +159,7 @@ def verify_input_ledger_saved_readback(
         if _source_change_keys(actual.source_changes) != expected:
             raise DailyInputDaySwitchError("Saved DAILY_INPUT differs from preflight source changes")
 
-        wb = load_workbook(source, read_only=False, data_only=False, keep_vba=True)
+        wb = load_workbook(source, read_only=False, data_only=False, keep_vba=False)
         try:
             if "DAILY_CHANGE_LEDGER" not in wb.sheetnames:
                 raise DailyInputDaySwitchError("Saved daily change ledger missing")
