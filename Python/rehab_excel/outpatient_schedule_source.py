@@ -79,7 +79,7 @@ def read_outpatient_schedule(
         workbook_path,
         read_only=True,
         data_only=True,
-        keep_vba=workbook_path.suffix.casefold() == ".xlsm",
+        keep_vba=False,
     )
     try:
         if OUTPATIENT_SCHEDULE_SHEET not in wb.sheetnames:
