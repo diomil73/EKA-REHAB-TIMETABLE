@@ -917,3 +917,13 @@ Operator-confirmed local focused suite after synchronizing the current branch:
 - This confirms that the previously reported 40 `ZipFile.__del__` / `PytestUnraisableExceptionWarning` events are no longer reproduced in the focused suite after the targeted read-only `keep_vba=False` cleanup.
 
 Scope: focused Python tests only. This is not a full-repository warning count, native Excel/COM transaction proof, signed verifier attestation, operational Apply/Restore authorization or Gate 2 acceptance. PREPARED and INPUT_AND_LEDGER remain REPORT_ADAPTER_ONLY; other phase verifier implementations and trusted attestation remain incomplete. Gate 2 remains closed.
+
+ 
+## 2026-11-25 — Native MASTER projection diagnostic source regression
+
+Added `daily_input_master_projection_native.py` plus synthetic fake-COM tests. Full GitHub Actions run **45657152050** for HEAD `e7ce7526de2c000cff9410819267f73fdc6ffc79` completed SUCCESS:
+- Windows Python 3.11: **2848 passed, 35 warnings, 48.64s**.
+- Ubuntu Python 3.11: **2848 passed, 34 warnings, 28.83s**.
+- Both synthetic safety jobs passed.
+
+The new diagnostic tests the saved OOXML structure and then uses an injected COM fake to test read-only native Excel lifecycle and evaluated MASTER room/name/status matching. It is not an actual Excel execution. This adds only a partial MASTER identity diagnostic; native therapist assignment extraction and complete projection/source-ledger proof remain pending. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; no report adapter or authorization. Warning counts remain nonzero.
