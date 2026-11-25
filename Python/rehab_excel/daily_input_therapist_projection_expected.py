@@ -87,16 +87,20 @@ def _validate_provider_headers(
 ) -> None:
     if type(expected) is not tuple or len(expected) != 18:
         raise TherapistDailyExpectedGridError("Exactly 18 independent provider headers required")
-    if any(type(value) is not str or not value.strip() for value in expected):
-        raise TherapistDailyExpectedGridError("Provider header expectation is blank")
+    if any(type(value) is not str for value in expected):
+        raise TherapistDailyExpectedGridError("Provider header expectation invalid")
     keys = []
     for value in expected:
+        if not value.strip():
+            keys.append("")
+            continue
         try:
             keys.append(_name(value))
         except Exception as exc:
             raise TherapistDailyExpectedGridError("Provider header expectation invalid") from exc
     for start in (0, 9):
-        if len(set(keys[start:start + 9])) != 9:
+        populated = [key for key in keys[start:start + 9] if key]
+        if len(set(populated)) != len(populated):
             raise TherapistDailyExpectedGridError("Duplicate provider in a therapist header block")
 
     try:
@@ -109,7 +113,9 @@ def _validate_provider_headers(
         for col in range(9)
     )
     try:
-        if tuple(_name(value) for value in actual) != tuple(_name(value) for value in expected):
+        normalized_actual = tuple(_name(value) if value else "" for value in actual)
+        normalized_expected = tuple(_name(value) if value else "" for value in expected)
+        if normalized_actual != normalized_expected:
             raise TherapistDailyExpectedGridError("Saved provider headers differ from independent roster")
     except TherapistDailyExpectedGridError:
         raise
