@@ -224,3 +224,13 @@ This supersedes the provisional Windows-pending status for this run. Initial thr
 ## 11. THERAPIST_DAILY structural view scope — 2026-11-25
 
 Found workload-strip VBA uses provider labels at rows 1 and 11, columns B:J and clock-indexed cells at rows 2–8 and 12–18. Added an explicit saved OOXML diagnostic comparing the exact providers and DISTINCT occupied clock values to independent preflight, without counting session lines as separate occupied slots. This is narrower than the full PROJECTIONS_REOPEN contract. It rejects raw formula occupancy rather than trusting cached values, and requires a later native Excel readback and detailed independently derived session/therapist facts. Missing approved capacity is never converted into zero or six by this verifier. No Gate 2/Apply/Restore changes. CI pending.
+
+
+### Final cross-platform synthetic CI — THERAPIST_DAILY occupied clocks — 2026-11-25
+
+GitHub Actions run `45618473467`, code/test commit `922afe7bf7e534273781f76ebdf23e600c5ef3bc`, finished **SUCCESS** across all four jobs:
+- Ubuntu Python 3.11 full suite: **2815 passed, 98 warnings, 21.23s**.
+- Windows Python 3.11 full suite: **2815 passed, 98 warnings, 48.36s**.
+- Both Windows and Ubuntu synthetic safety jobs: success.
+
+The warnings are nonzero and CI suppresses their detail. This validates synthetic OOXML readback and static provider/clock expectations only, not native COM, real workbook behavior, full therapist/patient session projection, trusted attestation, phase evidence completion, or Gate 2 permission. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. No production workbook or VBA changes.
