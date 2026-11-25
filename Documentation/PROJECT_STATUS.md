@@ -1988,3 +1988,12 @@ Current trust boundary: PREPARED and INPUT_AND_LEDGER are REPORT_ADAPTER_ONLY; P
 ### Therapist AssignmentID verifier source audit — 2026-11-25
 
 Existing reusable source chain identified: immutable AssignmentID binding, inpatient/granular/outpatient schedule readers, dated session IDs, replacement facts and effective daily state. The visible THERAPIST_DAILY grid contains no AssignmentID, so the next reader must derive expected effective assignments from native-captured source facts and uniquely reconcile visible patient/provider/time occupancy. Ambiguous joins must fail closed. No observed AssignmentID reader or full PROJECTIONS_REOPEN adapter exists yet. See `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7.
+
+ 
+### 2026-11-25 — Native THERAPIST_DAILY full-grid comparison primitive
+
+Added a fresh-Excel-COM read-only diagnostic requiring explicit expected values for all 126 patient-grid cells and both provider header rows. It checks the fixed time grid, every cell value, formula/error rejection, Excel version, cleanup and unchanged source hash.
+
+CI run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6c`: Windows **2859 passed / 32 warnings**; Ubuntu **2859 passed / 35 warnings**; both synthetic safety jobs succeeded.
+
+This is a fake-COM tested primitive, not actual Excel execution. The expected-grid generator and immutable AssignmentID observed-membership reader remain open. `PROJECTIONS_REOPEN` remains NOT_IMPLEMENTED; Gate 2 remains closed.
