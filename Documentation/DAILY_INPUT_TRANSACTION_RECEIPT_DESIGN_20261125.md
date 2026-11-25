@@ -175,3 +175,10 @@ Added Python/rehab_excel/daily_input_prepared_phase_adapter.py and Tests/test_da
 This is not a trusted verifier attestation. The adapter can create a report after successful native readback, but validate_phase_verifier_report() still rejects it until a trusted attestation/provenance mechanism is implemented. It does not append a transaction receipt or journal row and does not enable Apply/Restore. No operational workbook or VBA change.
 
 The new adapter tests are NOT YET RUN locally. The confirmed prior focused baseline remains 110 passed, 1 skipped in 4.79s, before this adapter commit. Re-run adapter + PREPARED readback + phase-verifier contract tests before relying on this addition.
+
+## 14. Full regression evidence after PREPARED adapter — 25/11/2026
+
+GitHub Actions full regression for adapter-bearing commit `a559a35c9a618b0d83764349d3aaa48e0e9cd211` succeeded on both Windows and Ubuntu:
+- Windows: 2734 passed, 71 warnings, 34.45s.
+- Ubuntu: 2734 passed, 69 warnings, 30.31s.
+Both synthetic safety jobs succeeded. The workflow suppresses warning detail with `--disable-warnings`; warnings are not claimed to be zero. This is CI regression evidence, not proof of real native Excel COM execution on a user's workbook. Latest-head run is pending after non-functional docstring/test-name changes. PREPARED remains REPORT_ADAPTER_ONLY and no phase/receipt/Apply/Restore authorization is granted.
