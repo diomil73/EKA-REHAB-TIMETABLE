@@ -71,6 +71,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"input_ledger_source_changes: {native.input_ledger_source_changes}")
     print(f"input_ledger_active_rows: {native.input_ledger_active_rows}")
     print(f"master_projected_rows: {native.master_projected_rows}")
+    print(f"master_formula_cells_checked: {native.master_formula_cells_checked}")
+    print(f"master_evaluated_cells_checked: {native.master_evaluated_cells_checked}")
     print(f"therapist_provider_header_positions_checked: 18")
     print(f"therapist_patient_cells_checked: {native.therapist_grid_cells_checked}")
     print(f"therapist_occupied_cells: {native.therapist_occupied_cells}")
