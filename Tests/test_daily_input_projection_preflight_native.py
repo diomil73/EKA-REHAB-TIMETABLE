@@ -10,6 +10,7 @@ from rehab_core.models import BaseScheduleEntry, Patient, Session
 from rehab_excel.daily_input_input_ledger_native import InputLedgerNativeReadback
 from rehab_excel.daily_input_projection_native import DailyInputProjectionNativeReadback
 from rehab_excel.daily_input_projection_preflight import DailyInputProjectionPreflight
+from rehab_excel.daily_input_source_native_capture import DailyInputSourceNativeCapture, NativeSourceSheetResult
 from rehab_excel.daily_input_reader import DailyInputReadResult, DailyInputSourceChange
 from rehab_excel.daily_input_therapist_projection_expected import TherapistDailyExpectedGrid
 from rehab_excel.daily_input_therapist_projection_native import TherapistDailyCellExpectation
@@ -91,13 +92,17 @@ def _results(path):
         input_ledger_source_changes=1, input_ledger_active_rows=1,
         master_excel_version="16.0", therapist_excel_version="16.0",
     )
-    return ledger, projections
+    source_capture = DailyInputSourceNativeCapture(
+        workbook_sha256=digest, native_excel_version="16.0",
+        sheets=(NativeSourceSheetResult("PATIENTS", 2, 3, 3),),
+    )
+    return ledger, projections, source_capture
 
 
 def test_full_native_projection_wrapper_runs_all_three_readbacks(tmp_path, monkeypatch):
     path = _path(tmp_path)
     pre = _preflight(path)
-    ledger, projections = _results(path)
+    ledger, projections, source_capture = _results(path)
     calls = []
     input_factory = lambda: "input-factory"
     master_factory = lambda: "master-factory"
@@ -127,6 +132,8 @@ def test_full_native_projection_wrapper_runs_all_three_readbacks(tmp_path, monke
     assert result.session_count == 1
     assert result.daily_change_count == 1
     assert result.native_readback.therapist_grid_cells_checked == 126
+    assert result.native_source_sheet_count == 1
+    assert result.native_source_cells_checked == 2
     assert calls[0][0] == "input"
     assert calls[0][2]["validated_changes"] == pre.validated_changes
     assert calls[0][2]["patients"] == pre.patients
@@ -155,7 +162,7 @@ def test_full_native_projection_wrapper_rejects_preflight_hash_drift(tmp_path, m
 def test_full_native_projection_wrapper_rejects_input_ledger_binding_drift(tmp_path, monkeypatch):
     path = _path(tmp_path)
     pre = _preflight(path)
-    ledger, projections = _results(path)
+    ledger, projections, source_capture = _results(path)
     wrong = InputLedgerNativeReadback(
         service_date=SERVICE_DATE, workbook_sha256="0" * 64,
         source_change_count=1, active_ledger_count=1, native_excel_version="16.0",
