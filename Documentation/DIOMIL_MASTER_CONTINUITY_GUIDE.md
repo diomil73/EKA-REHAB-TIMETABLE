@@ -3110,3 +3110,19 @@ This closes the focused warning-investigation checkpoint. No warning suppression
 **Evidence boundary:** Python tests only. No new native Excel/COM transaction, real workbook mutation, VBA change, positive Apply/Restore, receipt authorization, Gate 2 opening or operational acceptance occurred. PREPARED and INPUT_AND_LEDGER remain REPORT_ADAPTER_ONLY pending trusted attestation; the remaining evidence kinds remain unimplemented as recorded in §4.219–§4.225. Gate 2 remains closed.
 
 Next engineering step: continue the independent native phase-verifier chain from the current exact state, prioritizing trusted verifier/build-manifest attestation and then the remaining independent phase verifiers. Do not repeat the warning cleanup or this focused test run absent a relevant code change.
+
+ 
+## 4.227 Native MASTER projection readback diagnostic added; full projections phase still open — 25/11/2026
+
+Added `Python/rehab_excel/daily_input_master_projection_native.py` and `Tests/test_daily_input_master_projection_native.py`. The new `verify_master_projection_native_readonly()` layers a fresh, macro-disabled, read-only Excel COM reopen over the existing independent saved-OOXML MASTER formula/schema audit. It compares Excel-evaluated room, patient display identity and status values to an immutable `MasterProjectionRow` tuple supplied by independent preflight, verifies the responsible-doctor literal case, captures Excel Version, closes without saving, quits Excel and rejects workbook-byte changes or cleanup failure.
+
+This is a **partial MASTER identity diagnostic only**. It does not check every evaluated MASTER treatment value/style, native THERAPIST_DAILY assignment identities, AssignmentID extraction, exact shared-slot membership, or full source-input/ledger linkage. It has no phase-report adapter and does not satisfy `PROJECTIONS_REOPEN`. The verifier registry is unchanged: `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; PREPARED and INPUT_AND_LEDGER remain `REPORT_ADAPTER_ONLY`. The detailed scope and next steps are in `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`.
+
+**GitHub Actions run 45657152050**, code/test HEAD `e7ce7526de2c000cff9410819267f73fdc6ffc79`, completed SUCCESS across all four jobs:
+- Windows Python 3.11: **2848 passed, 35 warnings, 48.64s**.
+- Ubuntu Python 3.11: **2848 passed, 34 warnings, 28.83s**.
+- Both synthetic safety jobs succeeded.
+
+The new COM tests use injected fake COM objects. No real Excel instance or user XLSM was opened; this is not native operator acceptance. CI warnings are nonzero. No workbook, VBA, UI, journal writer, Apply/Restore or Gate 2 change. Gate 2 remains closed.
+
+Next: implement an independently sourced native THERAPIST_DAILY assignment reader that extracts immutable AssignmentID/PatientID/treatment/provider/date/time facts from saved authoritative source data. Do not infer assignment identity from display labels or occupied-clock counts. Only after all affected views and source-ledger linkage are independently checked should a PROJECTIONS_REOPEN report adapter be added.
