@@ -2736,3 +2736,36 @@ Critical dependency: the generated `modDayAmendmentAction` source calls `DailyIn
 **Next safe work:** build a source-level transaction map of entrypoints, guards, mutation boundaries, local rollback scope, durable saves and verification gaps; map tests/diagnostics to each. Do not run positive handlers or change gate. Next user-facing diagnostic should be a read-only source inventory/test inventory, not workbook mutation.
 
 **Status:** individual Apply/replacement/restore/amendment handlers identified; journal gate locked; local rollback attempts present; independent full rollback audit code present; integrated durable transaction orchestration and positive native transaction proof NOT ESTABLISHED.
+
+
+## 4.205 Handler → Test → Evidence → Gap coverage matrix — 25/11/2026
+
+**Scope:** source/test inventory from branch `work/afternoon-medical-scope-20261115`, focused on Apply, Replacement, Restore, Amendment and transaction rollback. This is a mapping of existing automated test intent, not a claim that the tests were run in this session.
+
+| Handler / area | Existing test coverage found | What that evidence establishes | Remaining gap |
+|---|---|---|---|
+| Apply VBA entrypoint | `Tests/test_daily_input_action_vba.py` | Source contracts for in-session flow, payload patch/readback, rollback copy, dependent replacement routing and user messages | Does not execute actual Apply in Excel or prove durable positive transaction |
+| Apply / transaction gate | `Tests/test_daily_input_gate2_guard_matrix.py` | Source-level guard matrix; explicit gate false; checks guard precedes mutation | Deliberately negative/source-only; no positive gate-open path |
+| Apply native negative worker | `Tests/test_diagnose_daily_input_gate2_apply_worker_native.py` | Separate disposable native Excel worker is covered by tests; intended to prove rejection while gate closed | Not successful Apply; no complete transaction receipt |
+| Full rollback package audit | `Tests/test_daily_input_full_rollback_audit.py` | Synthetic XLSM package fixtures; exact non-journal package preservation, journal prefix/terminal state, invalid receipt/VBA and mutation rejection | Synthetic package proof, not real operational transaction |
+| Full rollback CLI/native verifier | `Tests/test_verify_daily_input_full_rollback.py`, `Tests/test_diagnose_daily_input_full_rollback_native.py` | CLI order and safety; native diagnostic uses disposable copies, injects synthetic failure, performs package audit and native read-only checks | Diagnostic exercises rollback infrastructure with synthetic fault; does not invoke operational Apply/Restore |
+| Automatic Replacement | `Tests/test_global_replacement_action_vba.py` | Source contracts for guided confirmation, in-place persistence, local rollback, recovery retention and gate enforcement | No positive native Excel replacement transaction proof |
+| Manual Replacement | `Tests/test_replacement_operator_recovery.py` | Workflow options, revalidation, undo/defer behavior, read-only support tools | Does not establish end-to-end durable commit/rollback for manual operator sequence |
+| Restore | `Tests/test_daily_restore_in_session_vba.py` | Source transformation, in-session preview sync, rollback-copy retention and failure messaging | Does not prove successful native restore plus independent recovery proof in a real workbook |
+| Restore gate / native negative | `Tests/test_diagnose_daily_input_gate2_restore_worker_native.py` and `Tests/test_daily_input_gate2_guard_matrix.py` | Guarded rejection path and source-level guard coverage | Negative worker only; no positive native Restore |
+| Day Amendment | `Tests/test_day_amendment_action_vba.py` | Source contracts for payload preflight, duplicate checks, patient/therapist/event rows, readback, save and local cleanup | No successful native Excel amendment with independently verified receipt/rollback |
+| Amendment worker negative | `Tests/test_diagnose_daily_input_gate2_day_amendment_worker_native.py` | Disposable native negative test for private persistence worker; verifies no payload read/create, unchanged copy/source | Not full operational transaction proof; public UI wrapper not invoked |
+
+### Evidence classes must remain distinct
+1. **Source-contract tests:** verify expected code shape, guards, call order and fail-closed wiring. They do not execute the VBA transaction.
+2. **Synthetic Python/package tests:** verify algorithms against synthetic fixtures. They do not prove native Excel workbook behavior.
+3. **Native Excel negative diagnostics:** prove that a closed gate rejects selected operations in disposable copies. They do not prove successful permitted operations.
+4. **Positive native operational transaction:** must demonstrate a valid operation through the public Excel entrypoint, durable receipt, Save/Close/Reopen readback, dependent projections/history and a separately verified rollback path. No such complete positive proof was established by this inventory.
+
+### Coverage conclusion
+Existing test coverage is broad at the component/source-contract and negative-gate levels. The key missing evidence is not another generic smoke test: it is positive, permitted native Excel transaction proof with durable receipts and independent recovery proof. The gate remains false. Do not enable it or invoke operational Apply/Restore/Replacement/Amendment as a positive test.
+
+### Next work package
+Before any positive operation, map the durable journal state machine and receipt binding to each public handler and each mutation boundary. Then implement/verify the missing orchestrator and run only disposable synthetic native Excel fault-injection tests until rollback proof is complete. Positive operational entrypoint testing remains blocked until those prerequisites are green.
+
+**Status:** coverage inventory completed; positive end-to-end transaction coverage NOT FOUND in the reviewed test set; Gate 2 remains closed.
