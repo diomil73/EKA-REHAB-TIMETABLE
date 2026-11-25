@@ -1413,3 +1413,8 @@ GitHub Actions run **45657152050**, head `e7ce7526de2c000cff9410819267f73fdc6ffc
 - Both synthetic safety jobs: success.
 
 This is a partial diagnostic, not a complete PROJECTIONS_REOPEN verifier. Native therapist assignment extraction, exact AssignmentID membership, shared-slot reconciliation and full source-input/ledger linkage remain open. No report adapter, receipt, trusted attestation, production workbook/VBA change, Apply/Restore or Gate 2 activation. The fake-COM tests do not run Microsoft Excel. Detailed scope: `Documentation/DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`.
+
+ 
+### 2026-11-25 — Therapist AssignmentID source chain mapped, verifier still pending
+
+Source audit mapped existing stable ID binding, inpatient/granular/outpatient schedule readers, dated session IDs, daily replacement facts and effective DailySessionState. A critical constraint is now explicit: THERAPIST_DAILY display cells do not carry AssignmentID. The future native verifier must derive expected assignments from authoritative native-captured sources and uniquely reconcile each visible patient/provider/time occupancy; ambiguous joins fail closed. It must preserve source row positions for weekly/outpatient ID binding, include daily input/ledger and replacement overlays, and distinguish student replacements. No AssignmentID reader is yet implemented and PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. See `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md` §7.
