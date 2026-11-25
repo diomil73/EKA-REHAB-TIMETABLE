@@ -1255,3 +1255,10 @@ Hardened `validate_receipt_binding()` to derive required evidence internally fro
 Full GitHub Actions regression for `ed3bdec7e3e22a69b1162867f346321503b26498`: Windows 2740 passed / 72 warnings / 44.59s; Ubuntu 2740 passed / 68 warnings / 28.33s. Both synthetic safety jobs succeeded. Overall workflow success.
 
 Important limitation: this is a structural completeness/consistency validator, not an authentication or authorization mechanism. The complete-bundle synthetic success test temporarily substitutes IMPLEMENTED statuses in memory only. Actual registry remains PREPARED REPORT_ADAPTER_ONLY and nine NOT_IMPLEMENTED. No trusted attestation, native Excel COM, real XLSM, journal append, Apply/Restore or Gate 2 enablement is established. Warning details are suppressed by CI and warnings remain open.
+
+
+## 2026-11-25 — Trusted verifier attestation requirements and threat model
+
+Implemented only the pre-authorization structural claim contract `daily_input_verifier_attestation.py` and synthetic fail-closed tests. Documented required separation of consistency, integrity and cryptographic authenticity in `DAILY_INPUT_TRUSTED_VERIFIER_ATTESTATION_DESIGN_20261125.md`. Signature-algorithm and claimed signer fields are checked for syntax but do not prove authenticity. `require_trusted_verifier_attestation()` is intentionally reject-only until a separately administered trust root, cryptographic signature verifier, measured build provenance, key custody and revocation/expiry policy are deployed.
+
+No embedded key, signing facility, trust root, workbook/VBA changes, journal mutation, Apply/Restore enablement or Gate 2 changes. CI outcome will be recorded once checked. User PC is not needed for this phase.
