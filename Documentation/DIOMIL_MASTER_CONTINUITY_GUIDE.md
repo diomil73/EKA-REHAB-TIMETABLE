@@ -2878,3 +2878,16 @@ The required evidence obligation is derived inside validate_phase_verifier_repor
 Added synthetic tests for registry completeness/immutability, report canonical round-trip/digest tampering, strict fields/no caller Boolean, unsafe locators, operation identity, evidence-kind derivation, scope drift, rejected result, fail-closed unimplemented verifier, and rollback package/PREPARED hash requirements. Tests have NOT YET BEEN RUN locally.
 
 Current local test baseline before the latest two test-fixture keep_vba changes: 69 passed, 1 skipped, 2 ZipFile warnings. The two test-only keep_vba=False changes are committed but not yet rerun. Symlink skip remains a Windows environment limitation. Gate 2 remains closed; no workbook/VBA/operational code changed. Next: sync and run the new verifier-contract tests plus receipt/journal/phase/rollback focused suite. Then adapt the already native-proven PREPARED readback diagnostic into the report/receipt envelope without repeating its completed native diagnostic; next implement the INPUT_AND_LEDGER_REOPEN native Excel verifier. Do not authorize journal writes.
+
+## 4.214 Phase-verifier focused suite green — 25/11/2026
+
+User executed the focused suite after syncing the verifier registry/report-contract commits:
+
+```
+110 passed, 1 skipped in 4.79s
+SKIPPED [1] Tests\\test_daily_input_transaction_receipt.py:208: Symlinks unavailable on this platform
+```
+
+This is the first confirmed local execution of the new phase-verifier contract/report tests together with the transaction receipt, operation, journal, phase-evidence and rollback focused suites. No failures. The single skip is the symlink-specific receipt artifact test, skipped because symlinks are unavailable on this Windows environment; it is an environment limitation, not a product test failure. Replace the previous unexecuted-test note for this suite with this confirmed baseline. Overall: 110 passed, 1 platform skip, 4.79 seconds. This does not mean the native phase verifiers are implemented: PREPARED remains EXISTING_DIAGNOSTIC_ONLY and the other nine remain NOT_IMPLEMENTED. Gate 2 stays closed; no operational workbook/VBA test was performed by this pytest run.
+
+Next: integrate the existing independently proven PREPARED readback into the canonical phase-verifier report/receipt chain, then implement INPUT_AND_LEDGER_REOPEN. Keep the work non-authorizing.
