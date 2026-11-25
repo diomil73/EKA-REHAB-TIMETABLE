@@ -22,6 +22,7 @@ class PhaseEvidenceContractError(ValueError):
 
 
 class EvidenceKind(StrEnum):
+    PREPARED_SNAPSHOT = "prepared_snapshot_native_readback"
     INPUT_AND_LEDGER_REOPEN = "input_and_ledger_native_reopen"
     PROJECTIONS_REOPEN = "master_and_therapist_projections_native_reopen"
     PENDING_DECISION_INVENTORY = "pending_replacement_inventory_reopen"
