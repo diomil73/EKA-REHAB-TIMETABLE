@@ -2903,3 +2903,15 @@ The adapter reuses the existing independent verify_prepared_reopen() path with n
 Security boundary: PREPARED status is now REPORT_ADAPTER_ONLY, not IMPLEMENTED. The adapter can emit a report after the native diagnostic succeeds, but the report is not signed or authenticated. validate_phase_verifier_report() deliberately rejects it until trusted verifier attestation is integrated. The other nine EvidenceKind contracts remain NOT_IMPLEMENTED. No receipt append, journal write, Apply/Restore, VBA change or workbook mutation is enabled.
 
 Added synthetic adapter tests for native verifier invocation, exact snapshot digest binding, report round-trip, evidence-root containment, no-overwrite and non-authorizing rejection. These tests have NOT YET BEEN RUN locally. The previously confirmed focused baseline remains 110 passed, 1 skipped; that run predates this adapter addition. Next local action: sync and run the adapter tests together with PREPARED readback and phase-verifier contract tests.
+
+## 4.216 Full GitHub Actions regression green with PREPARED report adapter — 25/11/2026
+
+GitHub Actions full regression run for commit `a559a35c9a618b0d83764349d3aaa48e0e9cd211`, which includes the PREPARED report adapter, its tests, the native Excel version readback return, stable before/after workbook-byte binding and fail-closed tests:
+
+- Windows / Python 3.11: **2734 passed**, 71 warnings, 34.45s; job success.
+- Ubuntu / Python 3.11: **2734 passed**, 69 warnings, 30.31s; job success.
+- Both synthetic Python safety jobs also succeeded.
+
+The workflow runs the entire `Tests` directory using `pytest -q --disable-warnings --maxfail=35`; the warning totals are reported but their details are suppressed by the workflow flag. Do not claim zero warnings. The run includes the new PREPARED adapter tests. Subsequent commits `0282e319` and `a8b1c59d` only update the module status docstring and a test function name; a fresh full workflow for the latest head is running.
+
+The user's local pre-adapter focused run remains 110 passed, 1 symlink skip. The next local action is to pull the latest branch head and run the adapter + PREPARED readback + verifier-contract focused tests. PREPARED remains REPORT_ADAPTER_ONLY: no trusted attestation, transaction receipt acceptance, journal Apply, or Restore authorization. Gate 2 remains closed.
