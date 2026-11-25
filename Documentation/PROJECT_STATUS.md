@@ -2015,3 +2015,8 @@ Added a non-authorizing composite that binds the prior INPUT_AND_LEDGER native r
 CI run `45662463260`: Windows **2877 passed / 33 warnings**; Ubuntu **2877 passed / 35 warnings**; both synthetic safety jobs passed.
 
 Still pending: independent native capture/verification of all source sheets, exits/recurring events, daily ledger and replacements; full MASTER treatment evaluated values; operation identity and trusted verifier attestation; report/receipt integration. This does not complete PROJECTIONS_REOPEN. Gate 2 remains closed.
+
+ 
+### 2026-11-25 — THERAPIST_DAILY blank-slot compatibility
+
+Native full-grid readback now supports intentionally unused blank provider headers, while rejecting occupancy beneath them and duplicate populated names within a block. All 18 headers and 126 patient cells remain checked. GitHub Actions run `45663881144`: Windows 2880 passed / 34 warnings; Ubuntu 2880 passed / 32 warnings; both synthetic safety jobs passed. No real Excel execution; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
