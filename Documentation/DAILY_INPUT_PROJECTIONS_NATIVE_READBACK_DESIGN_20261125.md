@@ -199,3 +199,38 @@ The builder does not itself load or authenticate the current workbook's full sou
 The native full-grid reader and this builder are now separate compatible primitives, but they are not yet joined by a native composite diagnostic/report adapter. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; no verifier registry status changed. Gate 2 remains closed.
 
 Next: build a single non-authorizing composite diagnostic that binds the exact source workbook hash, preflight facts, expected grid, native COM full-grid result and expected AssignmentID membership. Then add an independent saved-source/native capture path for the source sheets and ledger, preserving stable weekly/outpatient source row indices. Only after this is independently tested should a PROJECTIONS_REOPEN report adapter be considered.
+
+ 
+## 10. Composite DAILY_INPUT / MASTER / THERAPIST_DAILY native readback binding
+
+Added:
+- `Python/rehab_excel/daily_input_projection_native.py`
+- `Tests/test_daily_input_projection_native.py`
+
+Public diagnostic: `verify_daily_input_projection_native_readonly()`.
+
+This composes three separately produced results over one exact saved XLSM:
+1. a previously successful `InputLedgerNativeReadback` for DAILY_INPUT and DAILY_CHANGE_LEDGER;
+2. a fresh native MASTER readback against immutable `MasterProjectionRow` facts;
+3. a fresh native THERAPIST_DAILY full-grid readback against the complete expected 126-cell grid.
+
+It now requires an explicit SHA-256 for the independent MASTER preflight facts. It checks that this digest, the prior INPUT_AND_LEDGER result, the expected-grid source digest, both fresh native readbacks and the workbook bytes before/after composition all identify the same exact XLSM. It also binds one service date, checks the MASTER row count, the exact 18-header/126-cell therapist scope, the occupied-cell count, ledger/source counts and non-empty native Excel versions. Boolean-as-integer and missing/invalid metadata fail closed. The expected-grid builder now hashes the source before and after construction and carries that exact digest in its immutable result.
+
+### CI
+
+GitHub Actions run `45662463260`, code/test HEAD `6b55d2242b7ba1d3ec01ce01f5affa235717f94c`, completed **SUCCESS** across all four jobs:
+- Windows Python 3.11: **2877 passed, 33 warnings, 45.11s**.
+- Ubuntu Python 3.11: **2877 passed, 35 warnings, 18.84s**.
+- Both synthetic safety jobs passed.
+
+Tests inject fake COM readback results and exercise matching source/date, cross-file digest mismatch, date mismatch, incomplete grid counts, invalid metadata types and workbook mutation between sub-readbacks. No real Microsoft Excel instance or real XLSM was opened.
+
+### Strict boundary
+
+This is a **non-authorizing consistency composition**, not a PROJECTIONS_REOPEN phase adapter. It does not execute INPUT_AND_LEDGER itself; it accepts a prior readback object and checks its bindings. It does not authenticate caller-supplied result objects, prove their verifier provenance, bind an operation ID, create a report/receipt or establish trusted attestation. The expected MASTER and therapist facts still come from caller-supplied preflight; the builder does not independently capture/validate the complete source sheets, exits/recurring events, DAILY_INPUT, ledger and replacement store. Native MASTER evaluated-value scope remains limited to room, patient identity and status; full MASTER treatment-value/style verification remains open. AssignmentID facts in the expected grid are not independently extracted from the display cells; exact native text comparison is not itself a signed observed-identity attestation.
+
+Therefore `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`. No verifier registry status changed. Gate 2 remains closed.
+
+### Next engineering step
+
+Build a separate macro-disabled native COM source-capture/readback for the exact source sheets and operation facts. Preserve source row positions needed by the stable-ID binder, validate PATIENTS/PATIENT_PLANNER/PROGRAM_WEEKLY_SLOTS/OUTPATIENT_SCHEDULE/RECURRING_ASSIGNMENT_IDS, exits and recurring changes, DAILY_INPUT/ledger and active replacement facts, and feed only that independently captured result into the expected-grid builder. The capture must reject formula/error cells or unsupported formula semantics, enforce fixed bounds, preserve source hashes, and fail on missing/duplicate/ambiguous identities. Then expand MASTER native evaluated-value checks and only later consider a report adapter.
