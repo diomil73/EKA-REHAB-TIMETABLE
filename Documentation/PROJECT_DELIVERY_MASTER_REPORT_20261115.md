@@ -1232,3 +1232,7 @@ User executed the focused Windows suite: 110 passed, 1 skipped in 4.79s. The onl
 ## 2026-11-25 — PREPARED phase-report adapter added; execution pending
 
 Added daily_input_prepared_phase_adapter.py and test_daily_input_prepared_phase_adapter.py. The adapter reuses the existing native PREPARED readback, captures native Excel version, binds the exact saved XLSM bytes as both evidence artifact and PREPARED snapshot digest, enforces evidence-root containment and exclusive report creation. Status is REPORT_ADAPTER_ONLY. The report is intentionally rejected by phase validation until trusted verifier attestation is integrated. No receipt/journal write, Apply/Restore enablement, workbook/VBA mutation or Gate 2 change. Tests have not yet been executed locally. Previous confirmed focused suite remains 110 passed, 1 skipped, but predates this change.
+
+## 2026-11-25 — PREPARED adapter included in full CI regression
+
+GitHub Actions for adapter-bearing commit `a559a35c9a618b0d83764349d3aaa48e0e9cd211`: Windows full regression 2734 passed / 71 warnings / 34.45s; Ubuntu full regression 2734 passed / 69 warnings / 30.31s. Both synthetic safety jobs passed. Warning details are suppressed by the workflow's --disable-warnings option. This validates the automated regression suite, not native COM execution against the user's real workbook. PREPARED remains REPORT_ADAPTER_ONLY pending trusted attestation. Latest head has only docstring/test-name changes and its full workflow is running.
