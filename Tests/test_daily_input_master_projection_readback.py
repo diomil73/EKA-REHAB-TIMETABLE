@@ -60,7 +60,7 @@ def test_saved_master_exact_linkage_and_no_write(tmp_path, expanded, doctor):
 ])
 def test_master_rejects_corrupt_saved_cells(tmp_path, corruption):
     path, items = fixture(tmp_path, expanded=True, doctor=True)
-    wb = load_workbook(path, keep_vba=True)
+    wb = load_workbook(path, keep_vba=False)
     ws = wb["MASTER_SCHEDULE"]
     if corruption == "wrong-formula":
         ws["F5"] = "=PATIENT_PLANNER!N4"
@@ -110,7 +110,7 @@ def test_untrusted_expected_projection_is_rejected(tmp_path, corruption):
 
 def test_missing_sheet_fails_closed(tmp_path):
     path, items = fixture(tmp_path)
-    wb = load_workbook(path, keep_vba=True)
+    wb = load_workbook(path, keep_vba=False)
     del wb["MASTER_SCHEDULE"]
     wb.create_sheet("NOT_MASTER")
     wb.save(path)
