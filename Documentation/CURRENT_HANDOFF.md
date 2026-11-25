@@ -2756,6 +2756,6 @@ Do not mistake this for operational authorization: tests use fake COM/synthetic 
 
 The native projection diagnostic now begins with a separate read-only COM capture of every populated literal cell in the present source-sheet allowlist (PATIENTS, PATIENT_PLANNER, SETTINGS, weekly/outpatient schedules, stable IDs, exits, recurring changes, students, DAILY_INPUT, ledger and replacement facts). Formula/error cells, out-of-bounds ranges, typed-value mismatches and workbook hash drift fail closed. Five core sheets are mandatory. The wrapper then runs INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY native readbacks.
 
-CI run `45674827673`: Windows **2907 passed / 30 warnings**; Ubuntu **2907 passed / 30 warnings**; both synthetic safety jobs passed. Final source Excel version CLI output assertion is being checked in the next CI run.
+CI run `45675024806`: Windows **2907 passed / 31 warnings / 45.12s**; Ubuntu **2907 passed / 31 warnings / 29.14s**; both synthetic safety jobs passed, including the source Excel-version CLI output assertion.
 
 Still no real operational Excel run, trusted approval provenance, operation-bound attestation, report/receipt or Gate 2 authorization. See design doc §13.
