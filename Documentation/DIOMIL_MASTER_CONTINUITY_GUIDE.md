@@ -3097,3 +3097,16 @@ Source inspection found unnecessary `keep_vba=True` in read-only paths and synth
 - the MASTER and THERAPIST_DAILY synthetic test mutation fixtures.
 
 This does not write or save a workbook and does not alter VBA, workbook content, native COM security, transaction state or Apply/Restore behavior. The real Excel COM verifiers remain separate and unchanged. Source changes are committed; warning removal is NOT YET VERIFIED. Repeat the focused 13-file pytest command on Windows and report the actual warning count. Do not suppress warnings or infer a clean result from the code change alone.
+
+
+## 4.226 Focused native-evidence chain tests green; ZipFile warnings no longer reported — 25/11/2026
+
+The operator synchronized the authoritative branch and reran the requested focused 13-file Windows pytest suite with `-rs --tb=short` after the read-only OOXML VBA-archive retention cleanup and the new PREPARED / INPUT_AND_LEDGER report adapters.
+
+**Actual local result:** `214 passed, 1 skipped in 12.34s`. Pytest emitted no warnings summary; therefore **zero warnings were reported in this run**. This confirms the previously observed 40 `PytestUnraisableExceptionWarning` events are no longer reproduced by this focused suite. The skip is `Tests/test_daily_input_transaction_receipt.py:215`, because symlink creation is unavailable on this Windows platform. It is an environment limitation, not a passing symlink-escape test.
+
+This closes the focused warning-investigation checkpoint. No warning suppression was used. Do not generalize this to the entire repository or to GitHub CI warning totals: the result covers only the exact 13-file focused suite and this local Python/Windows environment.
+
+**Evidence boundary:** Python tests only. No new native Excel/COM transaction, real workbook mutation, VBA change, positive Apply/Restore, receipt authorization, Gate 2 opening or operational acceptance occurred. PREPARED and INPUT_AND_LEDGER remain REPORT_ADAPTER_ONLY pending trusted attestation; the remaining evidence kinds remain unimplemented as recorded in §4.219–§4.225. Gate 2 remains closed.
+
+Next engineering step: continue the independent native phase-verifier chain from the current exact state, prioritizing trusted verifier/build-manifest attestation and then the remaining independent phase verifiers. Do not repeat the warning cleanup or this focused test run absent a relevant code change.
