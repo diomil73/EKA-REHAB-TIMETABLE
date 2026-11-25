@@ -1472,3 +1472,12 @@ Added independent source-preflight assembly and a one-call native wrapper for IN
 CI run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`, SUCCESS: Windows **2897 passed / 29 warnings / 48.44s**; Ubuntu **2897 passed / 32 warnings / 19.99s**; both synthetic safety jobs passed.
 
 No real Excel or operational XLSM tested. Caller-supplied shared-slot approval tuples are not authenticated; source capture is still composed from OOXML readers; no operation-bound attestation/report/receipt; MASTER treatment/style coverage remains open. Gate 2 remains closed.
+
+ 
+### 2026-11-25 — Native literal source capture added
+
+Added a native read-only Excel capture of populated literal cells for the DAILY_INPUT source-sheet allowlist. It rejects formula/error cells, compares typed OOXML literals to native COM values, enforces fixed UsedRange bounds and checks exact workbook hash immutability. The one-call wrapper runs source capture before INPUT_AND_LEDGER, MASTER and THERAPIST_DAILY.
+
+CI run `45674827673`: Windows **2907 passed / 30 warnings / 46.67s**; Ubuntu **2907 passed / 30 warnings / 17.42s**; both synthetic safety jobs passed. A final CLI output assertion for source Excel version is pending.
+
+Fake COM/synthetic only; no real Excel or operational XLSM. No trust attestation, operation ID, receipt or Gate 2 authorization.
