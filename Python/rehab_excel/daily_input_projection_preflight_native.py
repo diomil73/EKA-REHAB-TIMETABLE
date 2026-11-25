@@ -112,8 +112,15 @@ def verify_daily_input_projection_preflight_native_readonly(
             source,
             excel_factory=source_excel_factory,
         )
-        if source_capture.workbook_sha256 != before_hash:
-            raise DailyInputProjectionPreflightNativeError("Native source capture binding mismatch")
+        if (type(source_capture) is not DailyInputSourceNativeCapture
+                or source_capture.workbook_sha256 != before_hash
+                or type(source_capture.native_excel_version) is not str
+                or not source_capture.native_excel_version.strip()
+                or source_capture.checked_sheet_count < len({
+                    "PATIENTS", "PATIENT_PLANNER", "SETTINGS",
+                    "DAILY_INPUT", "DAILY_CHANGE_LEDGER",
+                })):
+            raise DailyInputProjectionPreflightNativeError("Native source capture binding/scope mismatch")
 
         input_ledger = verify_input_ledger_native_readonly(
             source,
