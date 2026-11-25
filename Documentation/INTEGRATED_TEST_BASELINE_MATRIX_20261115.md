@@ -709,3 +709,7 @@ After PREPARED_SNAPSHOT enforcement, the local combined suite reported 5 failed,
 Focused combined suite: 69 passed, 1 skipped, 6 warnings in 5.22s. Symlink escape test skipped because Windows symlink creation is unavailable. The warnings are PytestUnraisableExceptionWarning from ZipFile.__del__ in full rollback audit cases.
 
 A source-level resource-lifecycle correction was committed: _read_journal() now calls openpyxl load_workbook with keep_vba=False because it is read-only and VBA package preservation is unnecessary there; package VBA presence is verified separately. Commit 4a7c168dfecb2eb30de79ae0dc87c3d3c4b763ec. This change is NOT YET TESTED. Re-run focused tests with warnings visible; do not filter or suppress them.
+
+## 2026-11-25 — ZipFile warnings narrowed to synthetic fixture keep_vba setting
+
+Latest local result: 69 passed, 1 skipped, 2 warnings in 4.37s. Warnings remain only for formula/style variants of the synthetic business-cell mutation test. The test fixture is a non-macro openpyxl workbook with .xlsm extension; two test loads used keep_vba=True unnecessarily. Both were changed to keep_vba=False in test code (commit 30f278bf1fe6d624fe7774ac51c3a6f3466a6378). This is a test-only cleanup, not a production workbook change. Rerun pending; warnings remain open until confirmed absent. Symlink skip remains Windows environment limitation.
