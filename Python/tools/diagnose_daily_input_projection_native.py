@@ -63,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"native_source_sheets_checked: {result.native_source_sheet_count}")
     print(f"native_source_populated_cells_checked: {result.native_source_cells_checked}")
     print(f"native_source_formula_cells_checked: {result.native_source_formula_cells_checked}")
+    print(f"native_patient_planner_identity_rows_checked: {result.native_source_identity_mirror_rows_checked}")
     print(f"patients: {result.patient_count}")
     print(f"stable_base_assignments: {result.base_assignment_count}")
     print(f"dated_sessions: {result.session_count}")
