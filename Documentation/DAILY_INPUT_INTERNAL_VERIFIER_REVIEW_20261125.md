@@ -220,3 +220,7 @@ GitHub Actions run `45617783680` for corrected code commit `905418df1c33b4008fd2
 - Both synthetic safety jobs passed.
 
 This supersedes the provisional Windows-pending status for this run. Initial three failing new tests were corrected, not ignored. Warning details are suppressed by CI, counts are retained. This is saved-OOXML verification and synthetic tests only. Full PROJECTIONS_REOPEN remains NOT_IMPLEMENTED and no native Excel, therapist projection, authenticated attestation, Apply or Gate 2 action occurred.
+
+## 11. THERAPIST_DAILY structural view scope — 2026-11-25
+
+Found workload-strip VBA uses provider labels at rows 1 and 11, columns B:J and clock-indexed cells at rows 2–8 and 12–18. Added an explicit saved OOXML diagnostic comparing the exact providers and DISTINCT occupied clock values to independent preflight, without counting session lines as separate occupied slots. This is narrower than the full PROJECTIONS_REOPEN contract. It rejects raw formula occupancy rather than trusting cached values, and requires a later native Excel readback and detailed independently derived session/therapist facts. Missing approved capacity is never converted into zero or six by this verifier. No Gate 2/Apply/Restore changes. CI pending.
