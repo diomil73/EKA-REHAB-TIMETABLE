@@ -2769,3 +2769,50 @@ Existing test coverage is broad at the component/source-contract and negative-ga
 Before any positive operation, map the durable journal state machine and receipt binding to each public handler and each mutation boundary. Then implement/verify the missing orchestrator and run only disposable synthetic native Excel fault-injection tests until rollback proof is complete. Positive operational entrypoint testing remains blocked until those prerequisites are green.
 
 **Status:** coverage inventory completed; positive end-to-end transaction coverage NOT FOUND in the reviewed test set; Gate 2 remains closed.
+
+## 4.206 Durable phase journal, proof obligations and receipt-binding audit — 25/11/2026
+
+### A. Lifecycle state machine found in source
+Python/rehab_excel/daily_input_operation.py defines:
+PREPARED → INPUT_AND_LEDGER_COMMITTED → PROJECTIONS_VERIFIED → [PENDING_OPERATOR_DECISION] → REPLACEMENTS_RESOLVED → APPLIED_ARCHIVE_VERIFIED → COMPLETE.
+At any nonterminal stage, failure may transition to FAILED → ROLLED_BACK; ROLLED_BACK requires rollback_verified=True. COMPLETE and ROLLED_BACK are terminal. The pure module explicitly says it does not persist journal rows or make Excel side effects atomic.
+
+### B. Durable journal codec and schema
+daily_input_journal.py defines the append-only sheet schema:
+OperationID | Revision | Phase | PayloadSHA256 | Payload.
+Each payload binds operation ID, source workbook SHA-256, service date, phase, sequential revision, failure code/detail, operator resolution and rollback_verified. The codec checks canonical payload/checksum, row/payload metadata consistency, legal sequential transitions, non-reused operation IDs, and prevents a new operation until the prior operation is COMPLETE or verified ROLLED_BACK. The digest detects corruption; it is explicitly not an authenticity proof.
+
+### C. Native VBA bridge status
+daily_input_journal_vba.py currently implements only a PREPARED technical probe. DailyInputJournalApplyEnabled() returns literal False. The probe appends PREPARED after source/handoff/payload preflight, validates protected/veryHidden journal structure, saves and invokes independent native readback. Its error path intentionally does not delete or rewrite a possibly durable row. It does not execute Apply or implement later lifecycle phases. daily_input_action_vba.py explicitly labels this bridge diagnostic-only and exits before the legacy Apply path while the gate is false.
+
+### D. Phase evidence is a policy list, not a receipt or verifier
+daily_input_phase_evidence.py enumerates proof obligations:
+- INPUT_AND_LEDGER_COMMITTED: native reopen of input and ledger
+- PROJECTIONS_VERIFIED: native reopen of Master and Therapist projections
+- PENDING_OPERATOR_DECISION: reopened pending replacement inventory
+- REPLACEMENTS_RESOLVED: native reopen of replacement facts
+- APPLIED_ARCHIVE_VERIFIED: native reopen of applied archive
+- COMPLETE: full-workbook final native reopen
+- FAILED: retained failure diagnostic
+- ROLLED_BACK: full-workbook rollback native reopen
+For operator-resolved replacements, operator-resolution record verification is an additional obligation. The module explicitly registers no independent phase verifiers; its return value is only a requirements list, not a verified receipt, authorization, or proof that a workbook was reopened.
+
+### E. Receipt-binding gap
+The full-workbook rollback auditor requires a prepared-snapshot SHA-256 to be bound by a separately verified durable transaction receipt. Its API accepts expected_snapshot_sha256 as an argument and checks the bytes against that value, but the auditor does not itself authenticate or retrieve a trusted receipt. A caller-provided digest alone is not authenticity. Therefore receipt creation, trusted binding to operation ID/revision/source identity, independent verification and durable storage remain unimplemented/unproven in the reviewed integration.
+
+### F. Handler-to-phase alignment
+- Apply: currently blocked at the public entrypoint by the false journal gate; existing Apply code has local patch rollback and an outer full-workbook SaveCopyAs, but its late IncompleteApply branch does not automatically restore the entire operation.
+- Replacement: local replacement facts/suspensions/projection persistence and recovery code exist; still blocked by the same gate and not connected to a durable operation-phase receipt chain.
+- Restore: in-session ledger/restore handler has local recovery copy and guarded entrypoint; no integrated DAILY_INPUT lifecycle journal, trusted receipt chain or independently proven positive transaction.
+- Day Amendment and CloseDay: their persistence workers are guarded by the same journal function; no full phase orchestration or positive transaction proof.
+- Full rollback auditor: read-only auditor only; it is not the executor that restores the workbook.
+
+### G. Required implementation sequence
+1. Define a trusted receipt schema binding operation ID, source workbook hash, service date, journal revision/phase, exact snapshot path/content hash, evidence kind, verifier identity/result and timestamp/transaction context.
+2. Implement independent read-only native Excel verifiers for every phase evidence kind; they must reopen saved bytes and derive evidence rather than accept caller booleans.
+3. Implement the VBA transaction orchestrator to persist each legal journal revision only after its corresponding verifier succeeds; retain recovery snapshot and failure artifacts until terminal verification.
+4. Implement deterministic full-workbook rollback executor plus separate pre-terminal and terminal verifiers; bind the prepared snapshot to the trusted receipt.
+5. Fault-inject each mutation/save/refresh/replacement/archive/receipt boundary on disposable synthetic XLSM copies; prove crash/interruption recovery and journal-prefix integrity.
+6. Only after the above are green, consider a positive native Excel public-UI transaction on a disposable demo workbook. Do not enable Gate 2 or use original CC for positive tests before explicit readiness review.
+
+Status: lifecycle model and proof-obligation taxonomy exist; durable PREPARED probe exists; operational phase writers/orchestrator, registered independent phase verifiers and trusted transaction receipt chain are NOT IMPLEMENTED / NOT PROVEN. Gate remains false.
