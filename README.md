@@ -92,3 +92,6 @@ In the expanded 13-column MASTER schema, K (psychology) and L (afternoon program
 
  
 Native source capture supports both direct and blank-guarded same-row PATIENTS A:E formulas, including the production identity formula and exact-empty behavior. Expanded 13-column MASTER status-M verification is covered; K/L remain outside proof. Latest regression: run `45679125582`, 2922 passed on Windows and Ubuntu.
+
+ 
+Native source capture also verifies the complete PATIENTS/PATIENT_PLANNER A:E identity mirror for every populated patient row and binds its count to preflight patient count. Latest regression: run `45680015176`, 2923 passed on Windows and Ubuntu.
