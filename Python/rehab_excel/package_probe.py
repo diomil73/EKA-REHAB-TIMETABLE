@@ -279,15 +279,17 @@ class WorkbookPackageProbe:
                     values[address.upper()] = shared[int(raw)]
                 elif kind == "b":
                     values[address.upper()] = raw == "1"
+                elif kind == "e":
+                    values[address.upper()] = raw
                 elif kind in (None, "n"):
+                    if raw == "":
+                        continue
                     try:
                         number = float(raw)
                     except ValueError as exc:
                         raise ValueError("Invalid numeric OOXML cell value") from exc
                     values[address.upper()] = int(number) if number.is_integer() else number
                 elif kind == "str":
-                    values[address.upper()] = raw
-                elif kind == "e":
                     values[address.upper()] = raw
                 else:
                     raise ValueError("Unsupported OOXML literal cell type")
