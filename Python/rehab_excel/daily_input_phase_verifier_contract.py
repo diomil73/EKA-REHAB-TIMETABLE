@@ -50,6 +50,7 @@ class PhaseVerifierNotImplementedError(PhaseVerifierContractError):
 class VerifierImplementationStatus(StrEnum):
     NOT_IMPLEMENTED = "NOT_IMPLEMENTED"
     EXISTING_DIAGNOSTIC_ONLY = "EXISTING_DIAGNOSTIC_ONLY"
+    REPORT_ADAPTER_ONLY = "REPORT_ADAPTER_ONLY"
     IMPLEMENTED = "IMPLEMENTED"
 
 
@@ -103,7 +104,7 @@ _CONTRACTS = {
          "prepared_row_exact_match", "payload_sha256", "journal_sheet_protection_visibility",
          "native_excel_readonly_reopen"), True,
         requires_prepared_snapshot_binding=True,
-        implementation_status=VerifierImplementationStatus.EXISTING_DIAGNOSTIC_ONLY,
+        implementation_status=VerifierImplementationStatus.REPORT_ADAPTER_ONLY,
     ),
     EvidenceKind.INPUT_AND_LEDGER_REOPEN: PhaseVerifierContract(
         EvidenceKind.INPUT_AND_LEDGER_REOPEN, "diomil.input-ledger-native-reopen",
@@ -370,6 +371,10 @@ def validate_phase_verifier_report(
     if contract.implementation_status == VerifierImplementationStatus.EXISTING_DIAGNOSTIC_ONLY:
         raise PhaseVerifierNotImplementedError(
             f"Existing diagnostic verifier for {kind.value} is not integrated with the phase report/receipt contract"
+        )
+    if contract.implementation_status == VerifierImplementationStatus.REPORT_ADAPTER_ONLY:
+        raise PhaseVerifierNotImplementedError(
+            f"Phase report adapter for {kind.value} exists, but trusted verifier attestation is not integrated"
         )
     if contract.implementation_status != VerifierImplementationStatus.IMPLEMENTED:
         raise PhaseVerifierNotImplementedError(
