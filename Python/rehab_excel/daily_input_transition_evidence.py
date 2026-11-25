@@ -22,6 +22,7 @@ from .daily_input_phase_evidence import (
 )
 from .daily_input_phase_verifier_contract import (
     DailyInputPhaseVerifierReport,
+    PhaseVerifierNotImplementedError,
     validate_phase_verifier_report,
 )
 from .daily_input_transaction_receipt import (
@@ -138,7 +139,7 @@ def validate_transition_evidence_bundle(
                 verifier_registry=verifier_registry,
             )
             verify_receipt_artifact_bytes(receipt, evidence_root)
-        except TransitionEvidenceBundleError:
+        except (TransitionEvidenceBundleError, PhaseVerifierNotImplementedError):
             raise
         except (ValueError, OSError) as exc:
             raise TransitionEvidenceBundleError(
