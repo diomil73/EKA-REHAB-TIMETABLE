@@ -24,6 +24,7 @@ def _result():
         native_source_sheet_count=12,
         native_source_cells_checked=1450,
         native_source_formula_cells_checked=24,
+        native_source_identity_mirror_rows_checked=100,
         patient_count=100,
         base_assignment_count=300,
         session_count=80,
@@ -61,6 +62,7 @@ def test_cli_runs_readonly_preflight_and_prints_only_aggregate_results(monkeypat
     assert "native_source_sheets_checked: 12" in output
     assert "native_source_populated_cells_checked: 1450" in output
     assert "native_source_formula_cells_checked: 24" in output
+    assert "native_patient_planner_identity_rows_checked: 100" in output
     assert "patients: 100" in output
     assert "master_formula_cells_checked: 131" in output
     assert "master_evaluated_cells_checked: 132" in output
