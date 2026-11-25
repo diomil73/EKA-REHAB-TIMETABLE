@@ -2956,3 +2956,12 @@ Added `Python/rehab_excel/daily_input_verifier_attestation.py`, `Tests/test_dail
 The new module defines a strict canonical UTF-8 JSON envelope for **untrusted** provenance claims, including verifier/contract/evidence kind, exact report SHA-256, claimed verifier build SHA-256, source workbook SHA-256, operation/date/revision/phase, signer key ID, Ed25519-shaped signature bytes, and validity timestamps. Malformed or identity-mismatched claims fail closed. Crucially `require_trusted_verifier_attestation()` **always rejects** even a matching synthetic claim because no independently pinned public-key trust root, cryptographic signature validation, trusted signer or build-manifest verifier is configured. A claimed signature/build digest is never accepted as proof. This work is not an attestation implementation and must not be described as authenticating any report.
 
 The threat model documents signer independence, Windows TPM/CNG versus independent service key custody choices, replay/expiry/revocation, build provenance and crash windows. No private key or trust root was created or stored. No report/receipt verifier registry or Gate 2 status was changed. CI tests are being reviewed separately; no PC/Excel COM/real XLSM execution occurred. PREPARED remains REPORT_ADAPTER_ONLY, other nine kinds NOT_IMPLEMENTED. Next: review CI, then choose/administer production trust root only with deliberate operator/administrator input; continue non-authorizing code preparations in GitHub.
+
+### CI confirmation for attestation claim contract — 25/11/2026
+
+GitHub Actions workflow `45598412259` for code head `a66088e91792b49095559bccdf9c800ede2ad7b0` completed SUCCESS:
+- Windows / Python 3.11: **2756 passed**, 68 warnings, 44.39s.
+- Ubuntu / Python 3.11: **2756 passed**, 68 warnings, 30.26s.
+- Both synthetic safety jobs: success.
+
+The workflow uses `--disable-warnings`; warning details are suppressed but warning totals remain visible. No native COM was run. These are tests of fail-closed metadata handling, not proof of cryptographic attestation or operational Apply/Restore. The trusted verifier signer/key custody/build pinning remain unimplemented; all claims are rejected by the current attestation boundary. Gate 2 stays closed.
