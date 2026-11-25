@@ -1430,3 +1430,17 @@ GitHub Actions run `45658828780`, HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6
 - Both synthetic safety jobs passed.
 
 This is a native-grid comparison primitive tested with fake COM, not actual Excel. The complete expected-grid builder, AssignmentID extraction, shared-slot membership proof and operation-bound source-ledger linkage remain pending. No report adapter or authorization; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED. See design doc §8.
+
+ 
+### 2026-11-25 — Full expected THERAPIST_DAILY grid builder and student renderer correction
+
+Added `daily_input_therapist_projection_expected.py` and tests. The builder produces all 126 expected patient-grid values using stable-ID base entries, dated sessions/states, the independent patient/student registry and the existing patient-centric renderer. It derives expected active therapist AssignmentID facts and fails closed on unstable IDs, identity/date drift, duplicate display-name ambiguity and StudentID/TherapistID collisions.
+
+The student replacement test exposed a renderer bug in the final provider/time patch pass. Fixed student resolution by canonical StudentID and corrected stale `student.student_number` references in both patient-centric and outpatient presentation.
+
+GitHub Actions run **45660810319**, HEAD `5a91058f0c9f78f63c19a70366987d8685796af7`, SUCCESS:
+- Windows: **2866 passed, 36 warnings, 42.21s**.
+- Ubuntu: **2866 passed, 32 warnings, 23.47s**.
+- Both synthetic safety jobs passed.
+
+No real Excel execution. The builder relies on caller-supplied facts and does not yet independently capture/verify the complete workbook source, daily input ledger and replacements. It is not a phase adapter; PROJECTIONS_REOPEN remains NOT_IMPLEMENTED.
