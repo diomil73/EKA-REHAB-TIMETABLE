@@ -111,6 +111,7 @@ _CONTRACTS = {
         EvidenceKind.INPUT_AND_LEDGER_REOPEN, "diomil.input-ledger-native-reopen",
         "contract-v1", "native_excel_readonly_reopen",
         ("sheet:DAILY_INPUT", "authoritative_ledger", "operation_identity", "saved_workbook_sha256"), True,
+        implementation_status=VerifierImplementationStatus.REPORT_ADAPTER_ONLY,
     ),
     EvidenceKind.PROJECTIONS_REOPEN: PhaseVerifierContract(
         EvidenceKind.PROJECTIONS_REOPEN, "diomil.projections-native-reopen",
