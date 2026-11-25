@@ -369,3 +369,14 @@ Native MASTER readback now inspects all 10 canonical formula columns plus status
 CI run `45676238896`, HEAD `1ebf531b276bf11960f21153e92db0fa16392bbc`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs succeeded.
 
 Remaining: treatment formula outputs are checked for exact links and errors, not yet compared to independent expected business values; styles/package resources remain open. Fake COM only; no real Excel, operation ID, attestation, report or receipt. Gate 2 closed.
+
+ 
+## 21. Supported PATIENT_PLANNER formulas and MASTER source equality — 25/11/2026
+
+Native source capture allows only exact direct same-row PATIENTS links in PATIENT_PLANNER A:E. It checks native formula text and evaluated result against literal PATIENTS cells. All other source formulas and stored errors fail closed. Formula and literal counts are reported separately.
+
+Native MASTER compares each of the 10 canonical formula results plus status to the corresponding literal PATIENT_PLANNER cell, then checks infectious flag, room, patient/doctor identity and status against independent preflight facts. Exact formula/evaluated counts are enforced by the composite.
+
+CI run `45677349897`, HEAD `6506354e2c4d38873ccf4707564ae2327dfc6854`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs succeeded.
+
+Remaining: treatment outputs are not all compared to independent business expectations; MASTER styles/package resources, trusted approval provenance, operation ID and phase report/receipt remain open. Fake COM only; no real Excel. Gate 2 closed.
