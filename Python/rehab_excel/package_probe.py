@@ -213,3 +213,38 @@ class WorkbookPackageProbe:
 
         macros = re.findall(r"<x:FmlaMacro>\s*(.*?)\s*</x:FmlaMacro>", text)
         return tuple(re.sub(r"^\[\d+\]!", "", macro) for macro in macros)
+
+
+    def formula_cells(self, sheet_name: str) -> dict[str, str]:
+        """Return formula text by cell address without evaluating formulas."""
+        part = self.sheet_part(sheet_name)
+        with ZipFile(self.path) as archive:
+            root = ET.fromstring(archive.read(part))
+        result: dict[str, str] = {}
+        sheet_data = root.find(f"{{{MAIN_NS}}}sheetData")
+        if sheet_data is None:
+            return result
+        for row in sheet_data:
+            for cell in row.findall(f"{{{MAIN_NS}}}c"):
+                address = cell.attrib.get("r")
+                formula = cell.find(f"{{{MAIN_NS}}}f")
+                if address and formula is not None:
+                    result[address.upper()] = formula.text or ""
+        return result
+
+    def error_cells(self, sheet_name: str) -> dict[str, str]:
+        """Return stored Excel error cells by address."""
+        part = self.sheet_part(sheet_name)
+        with ZipFile(self.path) as archive:
+            root = ET.fromstring(archive.read(part))
+        result: dict[str, str] = {}
+        sheet_data = root.find(f"{{{MAIN_NS}}}sheetData")
+        if sheet_data is None:
+            return result
+        for row in sheet_data:
+            for cell in row.findall(f"{{{MAIN_NS}}}c"):
+                address = cell.attrib.get("r")
+                if address and cell.attrib.get("t") == "e":
+                    value = cell.find(f"{{{MAIN_NS}}}v")
+                    result[address.upper()] = value.text if value is not None else ""
+        return result
