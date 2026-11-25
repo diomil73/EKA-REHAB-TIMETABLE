@@ -136,7 +136,7 @@ def test_adapter_rejects_zero_changes_and_wrong_service_date(tmp_path, monkeypat
     with pytest.raises(InputLedgerPhaseReportAdapterError, match="preflight"):
         create(root, workbook, output, previous, operation, validated_changes=())
     assert calls == []
-    with pytest.raises(InputLedgerPhaseReportAdapterError, match="service date"):
+    with pytest.raises(InputLedgerPhaseReportAdapterError, match="Invalid phase transition"):
         create(root, workbook, output, previous, replace(operation, service_date="invalid"))
     assert calls == []
 
