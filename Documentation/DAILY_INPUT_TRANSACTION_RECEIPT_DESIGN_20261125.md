@@ -131,7 +131,7 @@ The new Python module implements only structural receipt encoding/decoding, oper
 - Gate 2: remains closed.
 ## Addendum — PREPARED snapshot evidence is distinct
 
-The initial PREPARED revision (revision 0) must carry EvidenceKind.PREPARED_SNAPSHOT = prepared_snapshot_native_readback. FAILURE_DIAGNOSTIC is reserved for the FAILED phase and is not valid PREPARED evidence. PREPARED_SNAPSHOT is not valid for any later revision. The structural receipt codec enforces this phase/revision distinction. This remains structural validation only; the actual native snapshot verifier and trusted attestation are not implemented.
+The initial PREPARED revision (revision 0) must carry EvidenceKind.PREPARED_SNAPSHOT = prepared_snapshot_native_readback. FAILURE_DIAGNOSTIC is reserved for the FAILED phase and is not valid PREPARED evidence. PREPARED_SNAPSHOT is not valid for any later revision. The structural receipt codec enforces this phase/revision distinction. An existing PREPARED native readback diagnostic is documented in the continuity guide §4.144, but it is not yet adapted to emit this phase-verifier report and receipt chain. Trusted attestation remains unimplemented.
 
 ## 10. Phase-verifier contract registry and report envelope — contract only, no verifier implementation — 25/11/2026
 
