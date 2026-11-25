@@ -123,3 +123,35 @@ The unresolved display-label question has now been traced to `patient_centric_pr
 This means a future verifier should not invent a parser for loosely formatted patient names. It should reuse the exact established rendering functions/semantics to derive expected cell text from independently sourced daily states, then compare the native COM-visible cell value exactly. It must additionally reject ambiguous duplicate display names where the rendered cell cannot distinguish different PatientIDs, and it must compare the full set of affected provider/time cells so an unpatched stale cell cannot pass by omission.
 
 This closes the source-audit question about patient-label transformation. It does not create the full expected-grid renderer or a native therapist verifier; those remain the next implementation.
+
+ 
+## 8. Native THERAPIST_DAILY full-grid cell readback primitive added
+
+Added:
+- `Python/rehab_excel/daily_input_therapist_projection_native.py`
+- `Tests/test_daily_input_therapist_projection_native.py`
+
+Public diagnostic: `verify_therapist_daily_native_readonly()`.
+
+It requires:
+- exactly 18 independently supplied provider headers, ordered B:J in row 1 then B:J in row 11;
+- an immutable expectation for **every one of the 126 patient-grid cells** in B2:J8 and B12:J18, including explicit blank expectations.
+
+It opens the exact saved XLSM through a fresh macro-disabled Excel COM instance, requires ReadOnly, checks both provider header blocks and the fixed native time grid against the existing layout contract, rejects formula/error/non-text occupancy cells, compares every one of the 126 Excel-visible cell values exactly to the independent expected render map, captures Excel Version, closes without saving, quits and verifies unchanged workbook bytes. Cleanup failures fail closed. The reader does not infer AssignmentIDs from display text.
+
+### CI
+
+GitHub Actions run `45658828780`, code/test HEAD `71ff839699782615e9968d4213c9b8d42ea90bc6`, completed **SUCCESS** across all four jobs:
+- Windows Python 3.11: **2859 passed, 32 warnings, 44.28s**.
+- Ubuntu Python 3.11: **2859 passed, 35 warnings, 19.52s**.
+- Both synthetic safety jobs passed.
+
+The new tests use fake COM and synthetic workbooks. No Microsoft Excel process or actual workbook was opened. Warnings are nonzero.
+
+### Boundary and next step
+
+This is a native full-grid comparison primitive, **not a complete therapist assignment verifier**. It does not itself generate the expected 126-cell grid, independently reconstruct observed AssignmentIDs, prove exact shared-slot membership, or link the therapist grid to the same operation-bound DAILY_INPUT/ledger facts. It has no phase report adapter and does not change the verifier registry. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`.
+
+Next engineering increment: build the complete expected-grid generator by reusing `read_unified_base_schedule()`, stable AssignmentID binding, date-effective entries, `materialize_sessions_for_date()`, the daily input/ledger, active replacement facts, `build_daily_session_states()` and the exact `patient_centric_preview` rendering semantics. It must provide all 126 cells, not just changed cells, and independently source the provider headers. Then join the full expected render map to immutable AssignmentID facts, rejecting duplicate display-name ambiguity, and bind all affected views to the same operation/source/date. Only after that should the PROJECTIONS_REOPEN report adapter be considered.
+
+No production workbook, VBA, UI, journal writer, receipt, Apply/Restore or Gate 2 setting changed. Gate 2 remains closed.
