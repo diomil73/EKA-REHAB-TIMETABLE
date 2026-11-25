@@ -26,7 +26,6 @@ from .daily_input_phase_verifier_contract import (
 )
 from .daily_input_transaction_receipt import (
     DailyInputTransactionReceipt,
-    TransactionReceiptError,
     validate_receipt_binding,
     verify_receipt_artifact_bytes,
 )
