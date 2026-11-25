@@ -2701,3 +2701,38 @@ Critical dependency: the generated `modDayAmendmentAction` source calls `DailyIn
 **Next development sequence:** (1) inventory existing authoritative Apply/Restore/Amendment handlers and persistence boundaries; (2) implement independent native phase verifiers for each required evidence kind; (3) implement the VBA transaction orchestrator that durably records each phase before/after the corresponding controlled effect as specified, with recovery behavior for interrupted states; (4) implement full-workbook rollback and independent native reopen verification; (5) add fault injection at each boundary; (6) prove positive transactions on disposable synthetic workbooks with receipts and save/close/reopen; (7) only then consider operational application assembly. Keep the real CC workbook unchanged.
 
 **Status:** PREPARED-only journal bridge source reviewed; pure state machine source reviewed; evidence requirements source reviewed; phase verifiers NOT IMPLEMENTED/NOT REGISTERED; operational transaction orchestrator NOT PROVEN; positive Apply/Restore/Amendment NOT READY; full rollback NOT PROVEN.
+
+
+## 4.204 Authoritative handler source inventory — handlers exist, but integrated transaction/rollback is not proven — 25/11/2026
+
+**Source evidence:** user-provided PowerShell inventory plus direct source review on branch `work/afternoon-medical-scope-20261115`.
+
+### Apply
+- `daily_input_action_vba.py` defines `modDailyInputAction.ApplyDailyInputPreview` and `ApplyValidatedDailyInputPayload`.
+- Both paths check `DailyInputJournalApplyEnabled()` before operational work. The currently defined PREPARED bridge returns False, so these handlers are locked.
+- The payload worker validates patch targets, creates an in-session `SaveCopyAs` rollback file, applies and verifies each patch, then saves.
+- Its local error path copies patches back and saves, but explicitly states this is NOT independent proof of restored formulas/styles/ledger/replacement facts or durable Save/Close/Reopen.
+- The outer Apply flow creates a full-operation snapshot before Apply, then refreshes operational views and may invoke replacements. If a dependent phase fails, `IncompleteApply` warns that partial changes may have been saved and retains the snapshot; it does not automatically restore it. This is a major orchestration/recovery gap, not proof that full rollback is implemented.
+
+### Replacement
+- `global_replacement_action_vba.py` defines `ResolveDailyReplacementsInPlace`; it is guarded by the same disabled journal gate. It contains a rollback copy and local recovery logic, but explicitly does not treat copy-back plus Save as independently verified recovery.
+- `replacement_operator_vba.py` defines manual workflow, operator choice, postpone, undo and auto-completion handlers. These perform individual fact/suspension writes, saves and projection refreshes; some have local row/fact rollback. They are not shown by this inventory to participate in one durable operation journal transaction.
+- Therefore automatic/manual replacement handlers exist as code, but positive replacement under the complete transaction lifecycle is NOT proven.
+
+### Restore distinction
+- `daily_restore_in_session_vba.py` builds a preview from `restore_daily_replacement_facts.py`, copies selected sheets from that preview into the open workbook, saves, and uses an in-session rollback copy if an error occurs. Its own source comment says in-session copy-back is not independent Save/Close/Reopen proof.
+- Do not conflate this authoritative ledger/replacement-fact restore path with a complete DAILY_INPUT transaction rollback. They are different operations and different scopes.
+
+### Day Amendment
+- `day_amendment_action_vba.py` defines `StartClosedDayAmendment` and `PersistDaySavePayload`; both are guarded by the disabled journal gate. It validates and appends snapshot, therapist, patient and event history rows and performs in-memory readback plus Save. Its error path clears rows/restores old status and saves, but explicitly says this is not independently verified rollback.
+- Amendment is present as a handler, not currently an enabled/proven positive transaction.
+
+### Full rollback audit
+- `daily_input_full_rollback_audit.py` implements a strict read-only package audit: compares all non-journal XLSM ZIP members byte-for-byte, checks the journal append-only prefix/revision chain from PREPARED through FAILED and optionally ROLLED_BACK, requires VBA, and binds the PREPARED snapshot digest.
+- The audit itself explicitly requires separate trusted snapshot receipt and independent native Excel read-only reopen. It is an audit/verifier component, not the rollback executor and not Apply authorization.
+
+**Updated conclusion:** Earlier wording that rollback is wholly absent would be too broad. Local/in-session rollback attempts and a strict full-package rollback audit already exist. What remains unproven/missing is a unified transaction orchestrator that durably journals each phase, coordinates Apply + projections + replacements + Amendment/restore as applicable, automatically recovers interrupted/partial operations, and obtains independent native Save/Close/Reopen receipts before reporting COMPLETE or ROLLED_BACK. Keep the journal gate closed.
+
+**Next safe work:** build a source-level transaction map of entrypoints, guards, mutation boundaries, local rollback scope, durable saves and verification gaps; map tests/diagnostics to each. Do not run positive handlers or change gate. Next user-facing diagnostic should be a read-only source inventory/test inventory, not workbook mutation.
+
+**Status:** individual Apply/replacement/restore/amendment handlers identified; journal gate locked; local rollback attempts present; independent full rollback audit code present; integrated durable transaction orchestration and positive native transaction proof NOT ESTABLISHED.
