@@ -253,3 +253,53 @@ GitHub Actions run `45663881144`, code/test HEAD `46d4023b0ba8e5c65510fd1ddc5bb2
 - Both synthetic safety jobs passed.
 
 The added tests cover a valid unused blank provider column and reject occupancy under a blank header. Tests use synthetic workbooks/fake COM; no real Excel instance was opened. This is layout-compatibility hardening only; no verifier registry status changed. PROJECTIONS_REOPEN remains NOT_IMPLEMENTED and Gate 2 remains closed.
+
+ 
+## 12. Independent source preflight assembly and one-call native diagnostic
+
+Added:
+- `Python/rehab_excel/daily_input_projection_preflight.py`
+- `Python/rehab_excel/daily_input_projection_preflight_native.py`
+- `Python/tools/diagnose_daily_input_projection_native.py`
+- `Tests/test_daily_input_projection_preflight.py`
+- `Tests/test_daily_input_projection_preflight_native.py`
+- `Tests/test_diagnose_daily_input_projection_native.py`
+
+The preflight assembles existing canonical readers for one explicit service date and programme baseline date:
+1. PATIENTS identity registry and SETTINGS provider roster;
+2. unified inpatient/outpatient recurring programme;
+3. stable recurring AssignmentIDs and recurring effective-date changes;
+4. patient exits and active recurring entries;
+5. dated sessions and effective weekly patient-slot validation;
+6. DAILY_INPUT source changes;
+7. active replacement facts and resulting daily session states;
+8. STUDENTS and provider roster validation;
+9. expected THERAPIST_DAILY 18-header / 126-cell grid and MASTER projection;
+10. SHA-256 before/after the complete preflight.
+
+The programme baseline date is deliberately mandatory and never inferred from filenames/current date. Empty/no-session days and empty DAILY_INPUT change sets currently fail closed. The preflight rejects missing/duplicate patient identities, unstable/duplicate recurring identities, unknown patient/provider references, date mismatch and workbook mutation.
+
+Multiple patients assigned to the same provider clock require an explicit exact-membership approval tuple. The preflight does not infer approval from the collision. This tuple is only caller-supplied prior-decision data: it is immutable and exact-membership checked, but this implementation does **not** authenticate who approved it, bind it to an operation ID, or prove its source provenance. The CLI supplies no approvals and therefore fails closed on shared clocks until an independently trusted approval source is integrated.
+
+The one-call native wrapper checks that the preflight and expected therapist grid refer to the exact source workbook hash/date, performs a native INPUT_AND_LEDGER readback, binds its exact source/active counts to the preflight changes, then runs the composite native MASTER and THERAPIST_DAILY readbacks. It checks the final workbook hash again. The CLI is Windows-only, macro-disabled/read-only through the underlying COM readers, requires explicit `--service-date` and `--baseline-date`, prints aggregate counts/hash/version only, and suppresses exception text that could expose patient/provider data.
+
+Latest completed full CI before this documentation-only wording correction: run `45667684716`, HEAD `36e7e1d3646d378a49c5acfe92b80fd2acac6ca2`, SUCCESS across all four jobs:
+- Windows Python 3.11: **2897 passed, 29 warnings, 48.44s**.
+- Ubuntu Python 3.11: **2897 passed, 32 warnings, 19.99s**.
+- Both synthetic safety jobs passed.
+
+Synthetic tests cover preflight composition, unstable identities, invalid dates/providers, source mutation, shared-clock approval exactness, wrapper call sequence, hash/date/count drift, and safe aggregate-only CLI behavior. They use fake readers/COM and synthetic bytes. **No actual Microsoft Excel instance or real operational XLSM was opened.**
+
+### Strict status boundary
+
+This is a composed, non-authorizing diagnostic path. It is not yet a trusted source-capture attestation or PROJECTIONS_REOPEN phase adapter. Existing source readers are composed, not replaced by a single independently audited native COM capture of every source sheet. The approval tuple is not authenticated. Evidence objects are Python dataclasses and can be caller-constructed; there is no protected verifier registry/provenance token, operation ID, signed report or receipt. MASTER native evaluated-value scope remains limited to room, patient identity and status; treatment-value/style/package coverage remains open. Assignment identity in expected facts is not a trusted native observed-ID attestation. The CLI deliberately does not accept shared-slot approvals.
+
+No verifier registry status changed. `PROJECTIONS_REOPEN` remains `NOT_IMPLEMENTED`; Gate 2 remains closed.
+
+### Next work
+
+1. Independently capture and validate all source facts through native read-only Excel, with fixed worksheet/range bounds and exact sheet identities.
+2. Define a trusted, operation-bound source for shared-slot approvals; never infer approval from observed duplicate clocks.
+3. Extend native MASTER evaluated-value/style/package checks to the complete business contract.
+4. Bind independently observed therapist assignment identity and all projection evidence to an operation ID.
+5. Only then design the phase report/receipt adapter and operational real-XLSM smoke test.
