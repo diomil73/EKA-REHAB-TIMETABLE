@@ -98,7 +98,7 @@ def test_composite_binds_input_ledger_master_and_full_therapist_grid(tmp_path, m
         path,
         service_date=SERVICE_DATE,
         input_ledger_readback=ledger,
-        expected_projection=(),
+        expected_projection=(), expected_projection_source_sha256=digest,
         expected_therapist_grid=grid,
     )
 
@@ -138,7 +138,7 @@ def test_composite_rejects_cross_source_or_date_binding_mismatch(tmp_path, monke
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
     assert calls == []
 
@@ -151,7 +151,7 @@ def test_composite_rejects_master_or_therapist_digest_drift(tmp_path, monkeypatc
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
     wrong_therapist = TherapistDailyNativeReadback("0" * 64, 18, 126, 0, "16.0")
@@ -159,7 +159,7 @@ def test_composite_rejects_master_or_therapist_digest_drift(tmp_path, monkeypatc
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
 
@@ -176,7 +176,7 @@ def test_composite_rejects_workbook_mutation_between_readbacks(tmp_path, monkeyp
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
 
@@ -188,7 +188,7 @@ def test_composite_rejects_inconsistent_component_counts(tmp_path, monkeypatch):
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
     wrong_therapist = TherapistDailyNativeReadback(digest, 18, 126, 1, "16.0")
@@ -196,7 +196,7 @@ def test_composite_rejects_inconsistent_component_counts(tmp_path, monkeypatch):
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
     wrong_ledger = InputLedgerNativeReadback(SERVICE_DATE, digest, 2, 1, "16.0")
@@ -204,7 +204,7 @@ def test_composite_rejects_inconsistent_component_counts(tmp_path, monkeypatch):
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=wrong_ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
 
@@ -216,7 +216,7 @@ def test_composite_rejects_boolean_or_missing_result_metadata(tmp_path, monkeypa
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
     bad_therapist = TherapistDailyNativeReadback(digest, 18, 126, True, "16.0")
@@ -224,7 +224,7 @@ def test_composite_rejects_boolean_or_missing_result_metadata(tmp_path, monkeypa
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
 
     bad_ledger = InputLedgerNativeReadback(SERVICE_DATE, digest, 2, 2, None)
@@ -232,5 +232,5 @@ def test_composite_rejects_boolean_or_missing_result_metadata(tmp_path, monkeypa
     with pytest.raises(DailyInputProjectionNativeReadbackError):
         verify_daily_input_projection_native_readonly(
             path, service_date=SERVICE_DATE, input_ledger_readback=bad_ledger,
-            expected_projection=(), expected_therapist_grid=grid,
+            expected_projection=(), expected_projection_source_sha256=digest, expected_therapist_grid=grid,
         )
