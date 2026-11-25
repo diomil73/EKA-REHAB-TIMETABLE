@@ -99,7 +99,7 @@ def _package_members(path: Path, *, require_vba: bool) -> tuple[dict[str, bytes]
 def _read_journal(path: Path) -> tuple:
     workbook = None
     try:
-        workbook = load_workbook(path, data_only=False, read_only=False, keep_vba=True)
+        workbook = load_workbook(path, data_only=False, read_only=False, keep_vba=False)
         if JOURNAL_SHEET not in workbook.sheetnames:
             raise FullRollbackAuditError("Journal worksheet unavailable")
         ws = workbook[JOURNAL_SHEET]
