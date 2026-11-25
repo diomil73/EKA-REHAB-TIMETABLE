@@ -248,3 +248,47 @@ class WorkbookPackageProbe:
                     value = cell.find(f"{{{MAIN_NS}}}v")
                     result[address.upper()] = value.text if value is not None else ""
         return result
+
+
+    def typed_cell_values(self, sheet_name: str) -> dict[str, object]:
+        """Return stored literal values with OOXML cell types preserved."""
+        shared = self._load_shared_strings()
+        part = self.sheet_part(sheet_name)
+        with ZipFile(self.path) as archive:
+            root = ET.fromstring(archive.read(part))
+        values: dict[str, object] = {}
+        sheet_data = root.find(f"{{{MAIN_NS}}}sheetData")
+        if sheet_data is None:
+            return values
+        for row in sheet_data:
+            for cell in row.findall(f"{{{MAIN_NS}}}c"):
+                address = cell.attrib.get("r")
+                if not address:
+                    continue
+                kind = cell.attrib.get("t")
+                if kind == "inlineStr":
+                    values[address.upper()] = "".join(
+                        node.text or "" for node in cell.iter(f"{{{MAIN_NS}}}t")
+                    )
+                    continue
+                value_node = cell.find(f"{{{MAIN_NS}}}v")
+                if value_node is None:
+                    continue
+                raw = value_node.text or ""
+                if kind == "s":
+                    values[address.upper()] = shared[int(raw)]
+                elif kind == "b":
+                    values[address.upper()] = raw == "1"
+                elif kind in (None, "n"):
+                    try:
+                        number = float(raw)
+                    except ValueError as exc:
+                        raise ValueError("Invalid numeric OOXML cell value") from exc
+                    values[address.upper()] = int(number) if number.is_integer() else number
+                elif kind == "str":
+                    values[address.upper()] = raw
+                elif kind == "e":
+                    values[address.upper()] = raw
+                else:
+                    raise ValueError("Unsupported OOXML literal cell type")
+        return values
