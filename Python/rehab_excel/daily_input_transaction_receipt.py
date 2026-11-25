@@ -193,6 +193,9 @@ def validate_receipt_binding(
     """
     if type(receipt) is not DailyInputTransactionReceipt or type(operation) is not DailyInputOperation:
         raise TransactionReceiptError("Invalid receipt or operation type")
+    expected_digest = sha256(_canonical_json(receipt.unsigned_dict()).encode("ascii")).hexdigest()
+    if receipt.receipt_sha256 != expected_digest:
+        raise TransactionReceiptError("Receipt SHA-256 mismatch")
     if (receipt.operation_id, receipt.source_workbook_sha256, receipt.service_date,
             receipt.journal_revision, receipt.journal_phase) != (
             operation.operation_id, operation.source_sha256, operation.service_date,
