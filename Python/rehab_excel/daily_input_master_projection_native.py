@@ -18,6 +18,7 @@ from .daily_input_master_projection_readback import (
     verify_master_projection_saved_readback,
 )
 from .master_projection import MasterProjectionRow
+from .daily_input_master_projection_readback import SOURCE_COLUMNS
 
 
 class MasterProjectionNativeReadbackError(RuntimeError):
@@ -31,6 +32,8 @@ class MasterProjectionNativeReadback:
     header_row: int
     status_column: int
     native_excel_version: str
+    formula_cells_checked: int
+    evaluated_cells_checked: int
 
 
 def _text(value: object) -> str:
@@ -39,6 +42,14 @@ def _text(value: object) -> str:
     if type(value) is str:
         return value.strip()
     return str(value).strip()
+
+
+def _truthy(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return str(value).strip().upper() in {"1", "1.0"}
+    return _text(value).upper() in {"Ν", "N", "YES", "Y", "TRUE", "1"}
 
 
 def _formula(cell, expected: str) -> None:
@@ -83,7 +94,14 @@ def verify_master_projection_native_readonly(
     """
     if type(expected_projection) is not tuple:
         raise MasterProjectionNativeReadbackError("Immutable independent MASTER expectations required")
-    if any(type(item) is not MasterProjectionRow for item in expected_projection):
+    if any(
+        type(item) is not MasterProjectionRow
+        or type(item.infectious) is not bool
+        or type(item.room) is not str
+        or type(item.display_name) is not str
+        or (item.status is not None and type(item.status) is not str)
+        for item in expected_projection
+    ):
         raise MasterProjectionNativeReadbackError("Invalid independent MASTER expectation")
     try:
         source = Path(workbook_path).resolve(strict=True)
@@ -151,26 +169,44 @@ def verify_master_projection_native_readonly(
         else:
             raise MasterProjectionNativeReadbackError("Native MASTER schema unsupported")
 
+        formula_cells_checked = 0
+        evaluated_cells_checked = 0
         for item in expected_projection:
             row = item.target_row
-            _formula(ws.Cells(row, 2), f"=PATIENT_PLANNER!B{item.planner_row}")
-            _formula(ws.Cells(row, status_col), f"=PATIENT_PLANNER!E{item.planner_row}")
             expected_identity = item.display_name
             if item.responsible_doctor:
                 expected_identity = f"{item.display_name}\n✚ {item.responsible_doctor}"
-                cell = ws.Cells(row, 3)
-                if bool(cell.HasFormula):
-                    raise MasterProjectionNativeReadbackError("Native doctor identity must be a literal")
-                actual_identity = _text(cell.Value)
-            else:
-                _formula(ws.Cells(row, 3), f"=PATIENT_PLANNER!C{item.planner_row}")
-                actual_identity = _text(_value(ws.Cells(row, 3)))
-            actual_room = _text(_value(ws.Cells(row, 2)))
-            actual_status = _text(_value(ws.Cells(row, status_col)))
-            if actual_room != item.room.strip():
-                raise MasterProjectionNativeReadbackError("Native MASTER room value differs from preflight")
-            if actual_identity != expected_identity.strip():
-                raise MasterProjectionNativeReadbackError("Native MASTER patient identity differs from preflight")
+            actual_identity = ""
+
+            for column, source_column in SOURCE_COLUMNS.items():
+                cell = ws.Cells(row, column)
+                if column == 3 and item.responsible_doctor:
+                    if bool(cell.HasFormula):
+                        raise MasterProjectionNativeReadbackError("Native doctor identity must be a literal")
+                    actual_identity = _text(cell.Value)
+                    if actual_identity != expected_identity.strip():
+                        raise MasterProjectionNativeReadbackError("Native MASTER patient/doctor identity differs from preflight")
+                    evaluated_cells_checked += 1
+                    continue
+
+                _formula(cell, f"=PATIENT_PLANNER!{source_column}{item.planner_row}")
+                value = _value(cell)
+                formula_cells_checked += 1
+                evaluated_cells_checked += 1
+                if column == 1 and _truthy(value) is not item.infectious:
+                    raise MasterProjectionNativeReadbackError("Native MASTER infectious flag differs from preflight")
+                if column == 2 and _text(value) != item.room.strip():
+                    raise MasterProjectionNativeReadbackError("Native MASTER room value differs from preflight")
+                if column == 3:
+                    actual_identity = _text(value)
+                    if actual_identity != expected_identity.strip():
+                        raise MasterProjectionNativeReadbackError("Native MASTER patient identity differs from preflight")
+
+            status_cell = ws.Cells(row, status_col)
+            _formula(status_cell, f"=PATIENT_PLANNER!E{item.planner_row}")
+            actual_status = _text(_value(status_cell))
+            formula_cells_checked += 1
+            evaluated_cells_checked += 1
             if actual_status != _text(item.status):
                 raise MasterProjectionNativeReadbackError("Native MASTER status differs from preflight")
 
@@ -180,6 +216,8 @@ def verify_master_projection_native_readonly(
             header_row=header,
             status_column=status_col,
             native_excel_version=version,
+            formula_cells_checked=formula_cells_checked,
+            evaluated_cells_checked=evaluated_cells_checked,
         )
     except MasterProjectionNativeReadbackError:
         raise
