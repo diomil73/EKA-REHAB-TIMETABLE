@@ -683,3 +683,9 @@ Native VBA journal support is PREPARED-only at present. The apply switch returns
 Trusted receipt chain is not yet established. The rollback auditor expects a prepared-snapshot hash supplied as expected_snapshot_sha256, while its own documentation requires that digest to be bound by a separately verified durable transaction receipt. The auditor does not authenticate that receipt. Thus a caller-supplied digest cannot stand in for receipt authenticity.
 
 Implementation order: receipt schema and source/operation binding; independent native reopen verifiers for every evidence kind; VBA phase orchestrator; full rollback executor plus independent pre-terminal and terminal proof; disposable synthetic native fault-injection across every write/save/refresh boundary. Only after all are green may a positive public-UI transaction be considered on a disposable demo. Gate remains false.
+
+## 2026-11-25 — Transaction Receipt System design baseline
+
+Design-only contract added at Documentation/DAILY_INPUT_TRANSACTION_RECEIPT_DESIGN_20261125.md. Proposed canonical receipt binds operation/source identity, service date, journal revision/phase, phase-required evidence kind, relative artifact locator and exact SHA-256, pinned verifier identity/version/method, UTC time, previous receipt digest and receipt digest. Native workbook evidence requires independent Excel reopen. Receipt and journal chain must match; incomplete crash-window states fail closed.
+
+SHA-256 alone is not authenticity. No trusted signer/attestation root exists in the reviewed repository; no key is embedded or invented. Structural receipt validation may be developed first, but receipt design is not authorization and Gate 2 remains false. No runtime code, VBA or workbook was changed.
