@@ -9,7 +9,7 @@ create a phase receipt, write the workbook, or authorize Gate 2 Apply/Restore.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 import sys
 
@@ -22,7 +22,6 @@ from .daily_input_applied_state import (
     _source_change_keys, active_input_ledger_keys,
     verify_input_ledger_saved_readback,
 )
-from .daily_input_day_switch import DailyInputDaySwitchError
 from .daily_input_reader import _interpret_daily_input, _parse_date
 
 
@@ -109,6 +108,11 @@ def _snapshot_native_ledger(ws, *, limit: int):
         for row in range(1, last + 1):
             for col in range(1, width + 1):
                 value = _cell(ws, row, col)
+                if row >= 2 and col == 2 and type(value) in (int, float):
+                    try:
+                        value = from_excel(value)
+                    except (TypeError, ValueError, OverflowError) as exc:
+                        raise InputLedgerNativeReadbackError("Invalid native ledger date") from exc
                 if value is not None:
                     ledger.cell(row, col).value = value
         return scratch
