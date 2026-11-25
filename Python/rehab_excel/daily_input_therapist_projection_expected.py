@@ -16,6 +16,7 @@ from rehab_core.models import (
     BaseScheduleEntry, Patient, ReplacementProviderKind, Session, Student,
 )
 
+from .authoritative_commit import file_sha256
 from .daily_input_therapist_assignment_membership import TherapistAssignmentFact
 from .daily_input_therapist_projection_native import TherapistDailyCellExpectation
 from .layout_contract import (
@@ -37,6 +38,7 @@ class TherapistDailyExpectedGridError(ValueError):
 @dataclass(frozen=True)
 class TherapistDailyExpectedGrid:
     service_date: date
+    source_workbook_sha256: str
     provider_headers: tuple[str, ...]
     cells: tuple[TherapistDailyCellExpectation, ...]
     expected_assignments: tuple[TherapistAssignmentFact, ...]
@@ -156,6 +158,7 @@ def build_therapist_daily_expected_grid(
     source = Path(workbook_path).resolve(strict=True)
     if not source.is_file() or source.suffix.casefold() != ".xlsm":
         raise TherapistDailyExpectedGridError("Existing saved XLSM layout required")
+    before_hash = file_sha256(source)
     _validate_provider_headers(source, expected_provider_headers)
 
     patient_map = {item.patient_id: item for item in patients}
@@ -304,8 +307,11 @@ def build_therapist_daily_expected_grid(
         TherapistDailyCellExpectation(address, expected_values[address])
         for address in sorted(expected_values)
     )
+    if file_sha256(source) != before_hash:
+        raise TherapistDailyExpectedGridError("Workbook bytes changed during expected-grid construction")
     return TherapistDailyExpectedGrid(
         service_date=service_date,
+        source_workbook_sha256=before_hash,
         provider_headers=expected_provider_headers,
         cells=cells,
         expected_assignments=tuple(assignments),
