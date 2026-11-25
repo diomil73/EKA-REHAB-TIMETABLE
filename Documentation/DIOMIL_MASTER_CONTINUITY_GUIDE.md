@@ -2929,3 +2929,22 @@ Important findings before any positive authorization:
 - Downstream projections, pending inventory, replacement facts, operator decision, applied archive, final workbook, failure artifact and full rollback scopes are mapped in the review document.
 
 The audit is source review only. No Python tests, Excel COM, real XLSM, VBA, workbook, UI, operational handler or Gate 2 change was executed. The last local user run remains 109 passed / 1 symlink skip / 17 warnings and predates commits `1f4a6c7` and `8179412`; rerun is pending. No warning-removal claim. Next PC task remains the focused pytest command already provided.
+
+## 4.218 Transition evidence bundle validator — implementation and CI green — 25/11/2026
+
+Implemented `Python/rehab_excel/daily_input_transition_evidence.py` with tests in `Tests/test_daily_input_transition_evidence.py`.
+
+The validator derives the exact evidence obligations from the previous and candidate lifecycle states. It requires exactly one report and one receipt per required EvidenceKind; rejects missing, duplicate and extra evidence; binds every item to the same operation/revision/phase; cross-checks report and receipt artifact/verifier metadata; enforces a single predecessor chain in lifecycle-defined evidence order; and hashes the exact evidence artifact bytes under the supplied evidence root.
+
+Updated `validate_receipt_binding()` so callers must supply the previous operation and evidence obligations are derived internally. Removed the caller-selected `required_evidence` parameter.
+
+The result is explicitly structural and non-authorizing. It does not authenticate verifier origin/build attestation. Registry statuses remain unchanged: PREPARED is REPORT_ADAPTER_ONLY; the other nine verifier kinds remain NOT_IMPLEMENTED. The synthetic full-bundle test temporarily marks the two relevant contracts IMPLEMENTED in-memory to exercise the structural success path only; no real verifier implementation or registry change is claimed.
+
+**GitHub Actions full regression, head `ed3bdec7e3e22a69b1162867f346321503b26498`:**
+- Windows: 2740 passed, 72 warnings, 44.59s.
+- Ubuntu: 2740 passed, 68 warnings, 28.33s.
+- Both synthetic safety jobs passed; overall workflow success.
+
+Warning details are suppressed by the workflow; warning counts remain open. No local PC/native Excel COM/real XLSM execution occurred. No journal writer, operational Apply/Restore path or Gate 2 setting changed.
+
+Next: trusted verifier/build-manifest attestation and key-custody design, followed by INPUT_AND_LEDGER native Excel COM read-only verification. The existing OOXML readback remains a separate consistency proof.
