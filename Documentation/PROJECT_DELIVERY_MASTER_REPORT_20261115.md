@@ -1174,3 +1174,15 @@ Reviewed test files on `work/afternoon-medical-scope-20261115`: `test_daily_inpu
 Coverage separates into source-contract tests, synthetic package/algorithm tests, and native Excel negative disposable-copy diagnostics. These support guards, source wiring, rejection behavior, package-audit rules and local recovery contracts. They do not establish a positive permitted Apply/Restore/Replacement/Amendment transaction through the public Excel UI with durable receipt, Save/Close/Reopen verification and independently proven rollback. No complete positive end-to-end proof was found in this reviewed set. Gate 2 remains false.
 
 Next work package: map durable journal states and trusted receipt binding to every public entrypoint/mutation boundary; complete the transaction orchestrator and disposable native fault-injection/recovery proof before considering any positive operational test.
+
+## 2026-11-25 — Durable phase and receipt-binding audit
+
+The lifecycle enum and legal transitions are defined in daily_input_operation.py, but the module is pure and does not persist journal state or make Excel mutations atomic. The append-only codec in daily_input_journal.py defines OperationID | Revision | Phase | PayloadSHA256 | Payload, validates checksums/canonical payload and legal revision chains, and blocks a new operation until the previous one reaches COMPLETE or verified ROLLED_BACK. Its checksum is corruption detection, not authenticity.
+
+The native VBA journal module currently implements only the PREPARED technical probe. DailyInputJournalApplyEnabled() is literal False. The probe validates and appends PREPARED, saves and performs independent readback; it does not implement the later phase writers or operational Apply. Apply explicitly exits while this gate is false.
+
+daily_input_phase_evidence.py defines the native reopen proof obligations for input+ledger, projections, pending replacement inventory, replacement facts, applied archive, final workbook, failure diagnostic and full rollback. It explicitly registers no independent phase verifiers; the policy output is not evidence or authorization.
+
+Receipt binding remains a material gap: the rollback auditor requires a snapshot digest bound by a separately verified durable transaction receipt, but its API receives expected_snapshot_sha256 from the caller and does not authenticate/retrieve that receipt. A digest alone is not an authenticity proof.
+
+Next implementation sequence: define trusted receipt schema; implement independent native reopen verifiers for every phase; build VBA orchestration that appends phases only after verified evidence; implement full-workbook rollback executor and terminal proof; fault-inject every boundary on disposable synthetic XLSM; then reassess positive native demo transaction. Gate 2 remains false.
