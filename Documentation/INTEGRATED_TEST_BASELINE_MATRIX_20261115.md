@@ -689,3 +689,9 @@ Implementation order: receipt schema and source/operation binding; independent n
 Design-only contract added at Documentation/DAILY_INPUT_TRANSACTION_RECEIPT_DESIGN_20261125.md. Proposed canonical receipt binds operation/source identity, service date, journal revision/phase, phase-required evidence kind, relative artifact locator and exact SHA-256, pinned verifier identity/version/method, UTC time, previous receipt digest and receipt digest. Native workbook evidence requires independent Excel reopen. Receipt and journal chain must match; incomplete crash-window states fail closed.
 
 SHA-256 alone is not authenticity. No trusted signer/attestation root exists in the reviewed repository; no key is embedded or invented. Structural receipt validation may be developed first, but receipt design is not authorization and Gate 2 remains false. No runtime code, VBA or workbook was changed.
+
+## 2026-11-25 — Structural receipt codec/test addition
+
+Added daily_input_transaction_receipt.py and test_daily_input_transaction_receipt.py. Coverage targets canonical JSON/digest, strict schema, hashes/timestamp, path traversal/symlink containment, operation/phase/evidence binding, verifier registry labels, predecessor chain and exact evidence artifact bytes. Module is non-authorizing: digest is not authenticity, registry labels require trusted build-manifest provenance, and no journal writes/Gate enablement are exposed.
+
+Tests were added but NOT RUN in this session. Required next action is local pytest execution for the new module plus journal, phase-evidence and rollback-audit regression suites. No workbook or VBA changed; Gate 2 remains closed. Trusted signing/attestation root and actual native phase verifiers are still absent.
