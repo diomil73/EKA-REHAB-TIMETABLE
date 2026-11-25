@@ -1968,3 +1968,18 @@ Code commit: `702db942b5e9416344438f744efa7a6889dcc5e7`. This commit was made af
 **Next separate real-data source bridge:** `Python/rehab_excel/trial_private_outpatient_audit.py` and `Python/tools/audit_real_outpatient_source.py` inspect only a PRIVATE, institution-approved current outpatient export in `.xlsx` form. They require the already-supported `PATIENTS` and `OUTPATIENT_SCHEDULE` sheets and their existing exact leading column headers. Reuse `read_patient_registry`, `read_outpatient_schedule` and `parse_day_pattern` to check outpatient identity/type/name consistency, Mon-Fri days, times, provider for ΦΘ, no robotic outpatient, per-weekday duplicate bookings, no formula-only or orphan source rows and SHA-256 read-only preservation. CLI emits only aggregate counts; never names/IDs/paths. `Tests/test_trial_private_outpatient_audit.py` uses only fictional private fixtures. **This is a diagnostic admission precondition, not an outpatient import or proof of completeness**. Full native outbound bridging from this separate approved source into the same private XLSM remains PENDING. Do not infer outpatients from the existing inpatient A:V review or omit them from the final pilot. Full command and schema: `Documentation/REAL_OUTPATIENT_SOURCE_EXISTING_SCHEMA_AUDIT_20261116.md`.
 
 **Real workbook and operator acceptance status remains unchanged:** no current actual source files available in GitHub, no private native Excel produced or verified, outpatient source admission/merged seed and F/U/V approvals still open, 1:1 real manual comparison pending. Previous 2,002 test green code checkpoint `3cfdf61b` with GitHub run `43805735643` establishes the earlier MASTER bulk-display integration, not outpatient native acceptance. Check the new outpatient audit CI separately. Frozen H2–H10 acceptance files stay immutable.
+
+ 
+## 2026-11-25 — DAILY_INPUT projection verifier progress
+
+**Latest code/test HEAD:** `e7ce7526de2c000cff9410819267f73fdc6ffc79`  
+**CI:** GitHub Actions `45657152050`, SUCCESS, all four jobs.
+- Windows: 2848 passed, 35 warnings.
+- Ubuntu: 2848 passed, 34 warnings.
+- Both synthetic safety jobs passed.
+
+Added a partial native MASTER readback diagnostic that checks Excel-evaluated room, patient identity and status against independent preflight facts after the existing saved-OOXML formula/schema audit. Its fake-COM regression is green. It is not actual Excel execution and does not complete PROJECTIONS_REOPEN.
+
+Next work: native THERAPIST_DAILY saved-source extraction of immutable AssignmentID membership, then exact reconciliation of all affected therapist/day projections to the same DAILY_INPUT and authoritative ledger facts. Do not infer IDs from visible labels or occupied clock counts.
+
+Current trust boundary: PREPARED and INPUT_AND_LEDGER are REPORT_ADAPTER_ONLY; PROJECTIONS_REOPEN and remaining phase evidence kinds are NOT_IMPLEMENTED. No trusted verifier attestation, positive transaction, Apply/Restore authorization or Gate 2 activation. Real native Excel and real-data operator acceptance remain pending.
