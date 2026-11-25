@@ -2768,3 +2768,12 @@ The native MASTER reader now checks all 10 canonical formula columns plus status
 CI run `45676238896`: Windows **2911 passed / 30 warnings / 45.81s**; Ubuntu **2911 passed / 33 warnings / 29.60s**; both synthetic safety jobs passed.
 
 Remaining: treatment formula results are link/error checked but not yet compared to independent expected values; styles/package resources remain unverified. Fake COM only, no real Excel. Gate 2 remains closed.
+
+ 
+### Source formula and MASTER readback refinement
+
+Native source capture now permits only direct same-row PATIENTS links in PATIENT_PLANNER A:E; native formula text and result must match literal PATIENTS values. Other formulas and stored errors fail closed. The native MASTER reader now compares all 10 formula results plus status to their literal PATIENT_PLANNER source cells, in addition to independent checks for infectious flag, room, identity and status.
+
+CI run `45677349897`: Windows **2916 passed / 30 warnings / 34.64s**; Ubuntu **2916 passed / 32 warnings / 28.98s**; both synthetic safety jobs passed.
+
+This remains fake-COM regression only, not real Excel acceptance. Treatment outputs are source-equality checked but not all independently business-value checked; styles/package resources and trusted operation-bound receipt remain open. Gate 2 closed.
