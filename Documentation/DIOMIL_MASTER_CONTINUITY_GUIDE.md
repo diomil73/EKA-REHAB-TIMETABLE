@@ -3135,3 +3135,10 @@ A further source-only audit mapped existing reusable mechanisms for the next the
 Critical limitation: THERAPIST_DAILY's visible provider/time/patient grid does not itself contain AssignmentID. The native verifier must derive expected effective assignments from the saved authoritative sources and resolve each visible patient/provider/time cell to exactly one assignment. Missing, duplicate or ambiguous joins must fail closed. It must preserve weekly/outpatient source row indices for ID lookup, account for date-effective schedules, daily ledger and replacement overlays, and keep student replacements distinct. Do not infer IDs from visible order or occupied-clock counts.
 
 Detailed source findings and unresolved label/zero-day questions are now in §7 of `DAILY_INPUT_PROJECTIONS_NATIVE_READBACK_DESIGN_20261125.md`. No therapist source reader or PROJECTIONS_REOPEN adapter has yet been implemented. Gate 2 remains closed.
+
+ 
+### 4.229 Exact THERAPIST_DAILY patient-cell rendering contract traced — 25/11/2026
+
+The display-label source audit is now complete. `patient_centric_preview.py` renders a single patient as the display name; shared patients as name plus recurring day pattern; same-patient multi-assignment cells as one name plus a treatment/day detail line; replacement source/destination cells with their existing arrow and date-label conventions. Student provider labels are separate, and outpatient distinction is a cell fill, not a patient-name prefix.
+
+The next native verifier should reuse the established renderer semantics to compute exact expected cell text from independently sourced daily states and compare native COM values. It must fail closed on ambiguous duplicate patient display names and missing/extra affected provider-time cells. No new verifier implementation is claimed. Full source map: design doc §7–§7.1.
