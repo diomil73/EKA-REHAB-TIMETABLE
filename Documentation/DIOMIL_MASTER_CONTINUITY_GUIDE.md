@@ -3353,3 +3353,18 @@ The user clarified the clinical and operational scope. This supersedes the tenta
 - Until PC review: keep L unimplemented/blank in the bulk projection; do not write a guessed line format, grouping or ordering; do not alter the existing morning day selection/combinations or AM schedule; do not create PM appointments or populate PM data.
 
 **Current mobile-safe work:** documentation, source-contract review and independent synthetic engineering unrelated to choosing the PM visual layout may continue. At the next PC session, first inspect the real disposable DEMO layout and agree the visual presentation, then design/implement the PM day-selection and combination behavior by reusing the morning rules, with exact PatientID linkage and the 45-minute general duration policy. Only then proceed to PM persistence/readback/history and MASTER integration. No production workbook is to be used for exploratory layout trials.
+
+### 4.246 MASTER psychology K bulk-projection implementation — 26/11/2026
+
+**Scope:** implement only the already-approved psychology column K parity. No afternoon L implementation, UI/layout decision, VBA change, production workbook change or native Excel execution.
+
+- `Win32ComMasterProjectionBackend.apply` now reads the three established PATIENT_PLANNER fields by exact headers: `Ψυχ_Ώρα`, `Ψυχ_Ημέρες`, `Ψυχ_Ψυχολόγος`.
+- It reproduces the existing `PatientProgramMasterRender.BuildTreatmentDisplay` component order and omission behavior: formatted time, days, provider, each non-empty component on a separate line. Recognized Excel time/date/numeric values are normalized to `hh:mm`; unrecognized text is preserved.
+- K is populated only in the expanded schema where K/L/M headers match the agreed schema. Legacy schema remains unchanged. L is still cleared/blank, deliberately.
+- Before rendering K, the writer verifies that the PATIENT_PLANNER row's PatientID matches the projection's PatientID. Numeric identifiers are normalized consistently. A mismatch fails closed.
+- Saved-output `_verify_projection` independently reads the written workbook and recomputes expected K from the PATIENT_PLANNER source values. The existing expanded-schema synthetic test now exercises a complete three-line psychology value, and a focused helper test covers empty components and text-time preservation.
+- This is Python source implementation plus synthetic test coverage only. No VBA was modified. No real Excel or operational workbook was opened. It does not establish native Excel GREEN or operator acceptance.
+
+**CI:** GitHub Actions full cross-platform regression is running under workflow run `45870586916`, commit `3a697096dc7e850e431b9ba3a7add31167b64032`. Synthetic safety jobs have passed on Windows and Ubuntu; full regression jobs were still in progress at the time of this checkpoint. Do not call the changed tests GREEN until both full regression jobs complete successfully and their summaries are read. No repeat of prior 214-test focused suite is needed; the workflow runs the full current suite due to this writer change.
+
+**Next:** inspect both full CI job results and resolve any failures narrowly. If GREEN, record exact totals and leave native Excel verification for the next PC session. Keep PM visual design, weekday-combination UI and 45-minute duration integration deferred until the user reviews the disposable DEMO at a PC.
