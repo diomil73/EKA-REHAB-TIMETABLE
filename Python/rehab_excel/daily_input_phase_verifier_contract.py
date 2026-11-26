@@ -2,10 +2,11 @@
 
 This module is NOT a native Excel verifier. It defines the pinned evidence
 contract for each EvidenceKind and validates the shape/binding of a report.
-PREPARED_SNAPSHOT and INPUT_AND_LEDGER_REOPEN have report-producing adapters
-over native readback, but both remain non-authorizing until trusted verifier
-attestation is integrated. The other evidence kinds remain NOT_IMPLEMENTED
-until independent adapters inspect the required saved workbook/artifact scope.
+PREPARED_SNAPSHOT, INPUT_AND_LEDGER_REOPEN and PROJECTIONS_REOPEN have
+report-producing adapters over native readback, but all three remain
+non-authorizing until trusted verifier attestation is integrated. The other
+evidence kinds remain NOT_IMPLEMENTED until independent adapters inspect the
+required saved workbook/artifact scope.
 It cannot authenticate a report, authorize a journal append, or enable Apply.
 """
 from __future__ import annotations
