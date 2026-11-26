@@ -3394,3 +3394,16 @@ The K projection contract is now bound end-to-end to independent source expectat
 - Intermediate CI runs exposed incomplete expanded-schema fixtures (missing independent K expectations); fixtures were corrected. No production logic was weakened and no warnings were suppressed to obtain GREEN.
 
 **Evidence classification:** full Python regression and synthetic safety GREEN on Windows and Ubuntu. This is not native Excel execution: no actual COM save/close/reopen test, no operator visual acceptance, no VBA change and no operational workbook change. K still requires a disposable native Excel preview check on the next PC session. PM L remains blank and deferred; Gate 2 remains closed.
+
+### 4.249 Psychology source header and patient-row binding hardened — 26/11/2026
+
+Further hardened expanded MASTER psychology preflight after the independent K chain in §4.248:
+
+- Expanded MASTER now requires exactly one `PatientID`, `Ψυχ_Ώρα`, `Ψυχ_Ημέρες`, and `Ψυχ_Ψυχολόγος` header in PATIENT_PLANNER. Missing or duplicate headers fail closed instead of silently treating missing data as blank.
+- Every projected inpatient's PATIENT_PLANNER PatientID is checked against the PATIENTS registry row before expected K is derived. A mismatch fails closed.
+- The check is deliberately scoped to projected inpatients only. Outpatient rows in PATIENTS are not newly required to have PATIENT_PLANNER rows, preserving the established MASTER scope.
+- Added synthetic tests for missing header, duplicate psychology header and PatientID row drift.
+
+Full GitHub Actions run `45872660668`, tested HEAD `1f0b57ff7c578475f50383d7bcdb212caa876aea`: **Windows 2935 passed, 28 warnings; Ubuntu 2935 passed, 30 warnings**. Synthetic safety jobs passed on both platforms.
+
+This remains Python/synthetic evidence. No native Excel COM execution, VBA modification, production workbook edit or operator visual acceptance. Next PC step remains a fresh disposable XLSM native save/close/reopen check for K and blank L. Gate 2 remains closed.
