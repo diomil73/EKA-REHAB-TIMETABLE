@@ -1598,3 +1598,11 @@ Expanded MASTER preflight now fails closed unless PATIENT_PLANNER has exactly on
 Added synthetic regressions for missing/duplicate headers and PatientID drift. Full CI run `45872660668`, HEAD `1f0b57ff7c578475f50383d7bcdb212caa876aea`: **Windows 2935 passed / 28 warnings; Ubuntu 2935 passed / 30 warnings**. Both synthetic safety jobs passed.
 
 No native Excel, VBA or production workbook operation has occurred. K still needs disposable native Excel verification; PM L remains blank.
+
+### 2026-11-26 — Afternoon weekday-combination parity explicitly regression-tested
+
+Added synthetic coverage proving afternoon drafts reuse the shared morning weekday-group parser: explicit groups `ΔΕ-ΤΡ/ΠΕ-ΠΑ` produce exactly those four weekday rows at the selected time/provider; repeating a weekday across groups fails closed. Existing 45-minute overlap review remains a separate read-only safety layer.
+
+Full CI run `45874054596`, HEAD `04e2d71b79281625b5d16bb20efcc9a5d7646e20`: **Windows 2938 passed / 30 warnings; Ubuntu 2938 passed / 29 warnings**. Both synthetic safety jobs passed.
+
+No PM UI/layout, MASTER L renderer, persistence, schema change, VBA or workbook write. This validates weekday parsing only, not native Excel or operational acceptance.
