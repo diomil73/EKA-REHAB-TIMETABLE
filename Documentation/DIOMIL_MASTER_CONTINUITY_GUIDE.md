@@ -3407,3 +3407,17 @@ Further hardened expanded MASTER psychology preflight after the independent K ch
 Full GitHub Actions run `45872660668`, tested HEAD `1f0b57ff7c578475f50383d7bcdb212caa876aea`: **Windows 2935 passed, 28 warnings; Ubuntu 2935 passed, 30 warnings**. Synthetic safety jobs passed on both platforms.
 
 This remains Python/synthetic evidence. No native Excel COM execution, VBA modification, production workbook edit or operator visual acceptance. Next PC step remains a fresh disposable XLSM native save/close/reopen check for K and blank L. Gate 2 remains closed.
+
+### 4.250 Afternoon edit preview composed with existing 45-minute overlap checker — 26/11/2026
+
+The full post-edit afternoon schedule review now calls `review_afternoon_existing_scheduler_overlaps` rather than only the exact-start shared-slot gate. This reuses `automatic_patient_schedule._intervals_overlap` and its established 45-minute standard ΦΘ duration.
+
+- Rejects staggered overlapping sessions for the same therapist across different patients.
+- Rejects overlapping sessions for the same patient across different therapists.
+- Allows adjacent 45-minute sessions.
+- Preserves exact-membership approval for same-start group slots.
+- The edit review remains read-only and non-authorizing; no workbook writer, VBA, patient UI, or production integration is added.
+
+Synthetic regression `test_edit_plan_rejects_staggered_overlapping_45_minute_physio_slots`.
+
+Full CI run `45872972784`, tested HEAD `a81a70cc7d225995267af369376a6b2d0358c237`: **Windows 2936 passed / 28 warnings; Ubuntu 2936 passed / 30 warnings**. Both synthetic safety jobs GREEN. Native Excel acceptance remains outstanding.
