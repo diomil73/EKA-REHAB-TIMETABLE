@@ -7,10 +7,66 @@ import re
 import unicodedata
 from typing import Iterable, Sequence
 
+from openpyxl.utils import get_column_letter, column_index_from_string
+
 from rehab_core.models import Patient, PatientType
 
 from .package_probe import WorkbookPackageProbe
 from .patient_registry_source import read_patient_registry
+
+_PSYCHOLOGY_HEADERS = {
+    "time": "Ψυχ_Ώρα",
+    "days": "Ψυχ_Ημέρες",
+    "provider": "Ψυχ_Ψυχολόγος",
+}
+
+
+def _psychology_time_text(value: object) -> str:
+    """Mirror the existing VBA TimeText behavior for stored Excel values."""
+    if value is None:
+        return ""
+    from datetime import time as _time
+    from openpyxl.utils.datetime import from_excel
+
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ""
+        for parser in (datetime.fromisoformat, _time.fromisoformat):
+            try:
+                return parser(text).strftime("%H:%M")
+            except (TypeError, ValueError):
+                pass
+        try:
+            parsed = from_excel(float(text))
+        except (TypeError, ValueError, OverflowError):
+            return text
+        return parsed.strftime("%H:%M") if isinstance(parsed, (datetime, _time)) else text
+    if isinstance(value, (datetime, _time)):
+        return value.strftime("%H:%M")
+    if isinstance(value, (int, float)):
+        try:
+            parsed = from_excel(value)
+        except (TypeError, ValueError, OverflowError):
+            return str(value).strip()
+        if isinstance(parsed, (datetime, _time)):
+            return parsed.strftime("%H:%M")
+    return str(value).strip()
+
+
+def _build_psychology_display(raw_time: object, raw_days: object, raw_provider: object) -> str:
+    """Mirror PatientProgramMasterRender.BuildTreatmentDisplay for Ψυχ."""
+    parts: list[str] = []
+    time_text = _psychology_time_text(raw_time)
+    if time_text:
+        parts.append(time_text)
+    days = str(raw_days or "").strip()
+    if days:
+        parts.append(days)
+    provider = str(raw_provider or "").strip()
+    if provider:
+        parts.append(provider)
+    return "\n".join(parts)
 
 
 class MasterProjectionError(RuntimeError):
@@ -27,6 +83,7 @@ class MasterProjectionRow:
     infectious: bool
     status: str | None
     responsible_doctor: str | None = None
+    psychology_display: str | None = None
 
 
 def _sort_text(value: str) -> str:
@@ -70,7 +127,7 @@ def _projection_metadata(
     path: str | Path,
     *,
     room_order: Sequence[str] | None,
-) -> tuple[tuple[str, ...], dict[str, int], int]:
+ ) -> tuple[tuple[str, ...], dict[str, int], int, dict[str, str] | None]:
     """Read lightweight MASTER metadata directly from the OOXML package.
 
     These values are stored workbook data and do not require Excel formula
@@ -121,6 +178,7 @@ def _projection_metadata(
         rooms = tuple(room_order)
 
     header_row = 1
+    psychology_by_id: dict[str, str] | None = None
     if "MASTER_SCHEDULE" in sheet_names:
         master_values = probe.cell_values("MASTER_SCHEDULE")
         for row in range(1, 11):
@@ -130,7 +188,46 @@ def _projection_metadata(
                 header_row = row
                 break
 
-    return rooms, row_by_id, header_row
+        k = str(master_values.get(f"K{header_row}", "") or "").strip().casefold()
+        l = str(master_values.get(f"L{header_row}", "") or "").strip().casefold()
+        m = str(master_values.get(f"M{header_row}", "") or "").strip().casefold()
+        if (
+            k == "ψυχολογοι".casefold()
+            and l == "απογευματινο προγραμμα".casefold()
+            and m == "κατάσταση".casefold()
+        ):
+            if "PATIENT_PLANNER" not in sheet_names:
+                raise MasterProjectionError("Expanded MASTER requires PATIENT_PLANNER")
+            planner_values = probe.cell_values("PATIENT_PLANNER")
+            planner_headers: dict[str, int] = {}
+            for address, raw in planner_values.items():
+                match = re.fullmatch(r"([A-Z]+)1", address)
+                if match is None:
+                    continue
+                planner_headers.setdefault(str(raw or "").strip().casefold(),
+                                           column_index_from_string(match.group(1)))
+            psychology_columns = {
+                key: planner_headers.get(header.casefold())
+                for key, header in _PSYCHOLOGY_HEADERS.items()
+            }
+            psychology_by_id = {}
+            for patient_id, planner_row in row_by_id.items():
+                values = {
+                    key: (
+                        planner_values.get(
+                            f"{get_column_letter(column)}{planner_row}"
+                        )
+                        if column is not None else None
+                    )
+                    for key, column in psychology_columns.items()
+                }
+                psychology_by_id[patient_id] = _build_psychology_display(
+                    values["time"], values["days"], values["provider"]
+                )
+        elif k != "κατάσταση".casefold():
+            raise MasterProjectionError("Unsupported MASTER_SCHEDULE column schema")
+
+    return rooms, row_by_id, header_row, psychology_by_id
 
 
 def build_master_projection(
@@ -155,7 +252,7 @@ def build_master_projection(
             patient for patient in patient_list
             if patient_active_on(patient.patient_id, target_date, exits)
         )
-    rooms, row_by_id, master_header_row = _projection_metadata(
+    rooms, row_by_id, master_header_row, psychology_by_id = _projection_metadata(
         path,
         room_order=room_order,
     )
@@ -217,6 +314,10 @@ def build_master_projection(
                 infectious=patient.infectious,
                 status=patient.status,
                 responsible_doctor=patient.responsible_doctor,
+                psychology_display=(
+                    psychology_by_id.get(patient.patient_id)
+                    if psychology_by_id is not None else None
+                ),
             )
         )
         next_target_row += 1
