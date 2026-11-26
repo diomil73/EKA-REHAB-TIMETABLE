@@ -1518,3 +1518,14 @@ CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2
 Native source capture now validates all A:E patient identity fields for every populated PATIENTS row, comparing supported formulas to their literal source and planner literals directly to PATIENTS. The wrapper binds the checked row count to preflight patient count.
 
 CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed. Fake COM only; no real Excel/operational XLSM.
+
+
+### 2026-11-26 — PREPARED_SNAPSHOT artifact-digest binding regression test
+
+Reviewed the PREPARED phase-report path. The contract requires the prepared snapshot digest to be present and exactly equal to the evidence artifact digest. The PREPARED adapter computes both from the same saved XLSM bytes after macro-disabled native read-only reopen, checks workbook-byte immutability across the verifier run, and emits only a non-authorizing report.
+
+Added `Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot_report_rejects_digest_mismatch`, a synthetic negative case that supplies a different prepared snapshot digest and asserts fail-closed validation. The matching-digest path remains diagnostic-only and is still rejected for positive phase authorization until trusted attestation exists.
+
+Commit: `6043c5a0a4ce8052f5d4333bcfb33984fb9eee8c`.
+
+**Tests for this addition: NOT YET EXECUTED.** No new Windows/Linux green result is claimed. The prior focused 110 passed / 1 skipped predates the adapter and this added mismatch case. The Windows focused rerun with `-rs` and warning-count inspection remains pending. No real Excel/operational workbook was used; no VBA, journal, Apply/Restore, production workbook or Gate 2 behavior changed.
