@@ -151,7 +151,10 @@ def test_create_master_projection_preview_preserves_source_and_verifies(tmp_path
     monkeypatch.setattr(
         "rehab_excel.master_projection_writer.build_master_projection",
         lambda _path: (
-            MasterProjectionRow(2, 3, "2", "A02", "ΒΑΡΒΑΡΑΣ", True, "παρών"),
+            MasterProjectionRow(
+                2, 3, "2", "A02", "ΒΑΡΒΑΡΑΣ", True, "παρών",
+                psychology_display="12:00\\nΔΕ, ΤΕ, ΠΑ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ",
+            ),
             MasterProjectionRow(3, 4, "3", "A09", "ΤΕΣΤ", True, "παρών"),
             MasterProjectionRow(4, 2, "1", "A09", "ΧΑΣΙΚΟΣ", False, "παρών"),
         ),
