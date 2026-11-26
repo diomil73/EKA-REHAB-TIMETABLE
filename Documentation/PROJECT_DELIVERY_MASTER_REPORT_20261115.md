@@ -1606,3 +1606,13 @@ Added synthetic coverage proving afternoon drafts reuse the shared morning weekd
 Full CI run `45874054596`, HEAD `04e2d71b79281625b5d16bb20efcc9a5d7646e20`: **Windows 2938 passed / 30 warnings; Ubuntu 2938 passed / 29 warnings**. Both synthetic safety jobs passed.
 
 No PM UI/layout, MASTER L renderer, persistence, schema change, VBA or workbook write. This validates weekday parsing only, not native Excel or operational acceptance.
+
+### 2026-11-26 — PROJECTIONS_REOPEN report adapter implemented, non-authorizing
+
+Added `daily_input_projections_phase_adapter.py` and synthetic tests. It accepts only the legal INPUT_AND_LEDGER_COMMITTED -> PROJECTIONS_VERIFIED transition, binds an independent `DailyInputProjectionPreflight`, and reuses the existing composite native diagnostic for source capture, INPUT_AND_LEDGER, MASTER and full THERAPIST_DAILY readback. It verifies exact workbook hash/date, MASTER row count, 126 therapist cells, 18 headers, occupied cells, assignment and ledger linkage counts, patient identity mirror count and consistent Excel version. It publishes a canonical report exclusively within the evidence root.
+
+Important digest distinction: `operation.source_sha256` remains the original operation source identity; the current saved post-commit XLSM is separately bound by `evidence_sha256`. The adapter does not require these two hashes to be equal.
+
+Contract status is REPORT_ADAPTER_ONLY. No trusted attestation, receipt append, journal write, Apply/Restore permission, Gate 2 change, VBA or production workbook change.
+
+Final CI run `45875449647`, HEAD `1bc189a4903fea1890f82efee9555546bf587eac`: **Windows 2946 passed / 30 warnings; Ubuntu 2946 passed / 30 warnings**; both synthetic safety jobs passed. Earlier attempts found test/doc wording drift and a malformed LF argument; corrected before final GREEN. Native Excel paths were exercised only through synthetic fake-COM tests, not a user's workbook.

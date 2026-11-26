@@ -3434,3 +3434,20 @@ Continued mobile-safe PM engineering without touching the deferred visual layout
 Full GitHub Actions run `45874054596`, tested HEAD `04e2d71b79281625b5d16bb20efcc9a5d7646e20`: **Windows 2938 passed / 30 warnings; Ubuntu 2938 passed / 29 warnings**. Synthetic safety jobs passed on both platforms.
 
 This is Python/synthetic evidence only. It confirms the existing weekday parser behavior; it does not constitute PC visual acceptance or approval of a complete PM scheduling workflow. At PC review, compare the actual morning selector behavior with the PM design before implementing UI. The sole outstanding PC-only test and Gate 2 restrictions remain unchanged.
+
+### 4.252 PROJECTIONS_REOPEN report adapter — report-only, cross-platform GREEN — 26/11/2026
+
+Added `Python/rehab_excel/daily_input_projections_phase_adapter.py` and `Tests/test_daily_input_projections_phase_adapter.py`.
+
+- The adapter accepts only the legal `INPUT_AND_LEDGER_COMMITTED -> PROJECTIONS_VERIFIED` transition and an exact `DailyInputProjectionPreflight` object.
+- It reuses the existing `verify_daily_input_projection_preflight_native_readonly` composite diagnostic. That diagnostic performs fresh macro-disabled, read-only native source capture, INPUT_AND_LEDGER readback, MASTER readback and the complete 126-cell / 18-header THERAPIST_DAILY readback against the same saved XLSM bytes and service date.
+- The adapter verifies the native result type, source/evidence workbook digests, service date, projected row count, full therapist-grid scope, occupied-cell count, assignment count, ledger linkage counts, patient identity-mirror count and consistent Excel version across source/MASTER/therapist instances.
+- It writes a canonical `PROJECTIONS_REOPEN` report exclusively inside the evidence root. It checks the current saved workbook digest separately from `operation.source_sha256`: the latter is the original operation source identity, while `evidence_sha256` binds the post-commit workbook bytes. They must not be conflated.
+- `PROJECTIONS_REOPEN` is now explicitly `REPORT_ADAPTER_ONLY`. Report self-digest and successful fake-COM tests are not trusted attestation. No receipt append, journal write, Apply/Restore permission or Gate 2 change.
+- Synthetic tests cover exact legal phase binding, original-source vs evidence digest distinction, source mutation, wrong hash/version/scope, path confinement, output collision and fail-closed report publication.
+
+Final full GitHub Actions run `45875449647`, tested HEAD `1bc189a4903fea1890f82efee9555546bf587eac`: **Windows 2946 passed / 30 warnings; Ubuntu 2946 passed / 30 warnings**. Both synthetic safety jobs passed. Earlier CI attempts exposed stale source-inspection/registry assertions and an incorrectly escaped LF literal in the new adapter; these were corrected before the final GREEN run.
+
+**Current verifier inventory:** PREPARED_SNAPSHOT, INPUT_AND_LEDGER_REOPEN and PROJECTIONS_REOPEN are REPORT_ADAPTER_ONLY; the other seven evidence kinds remain NOT_IMPLEMENTED. None is trusted or authorizing. Native Excel tests here use fake COM; no actual user's Excel workbook or production data was opened. Gate 2 remains closed.
+
+**Next:** continue with the next independent phase evidence contract, beginning with the pending replacement inventory. Reuse the already-built preflight facts and exact artifact-bound report pattern; do not create a second projection verifier or repeat the full regression without a code change. Keep ZipFile warning investigation separate: current CI runs use `--disable-warnings` and Python 3.11, so they do not identify the local Python 3.14 ZipFile deallocator warnings. That requires the one focused PC diagnostic with warning detail enabled.

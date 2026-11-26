@@ -89,3 +89,9 @@ GitHub Actions workflow `45598412259` for code head `a66088e91792b49095559bccdf9
 - Both synthetic safety jobs: success.
 
 The workflow uses `--disable-warnings`; warning details are suppressed but warning totals remain visible. No native COM was run. These are tests of fail-closed metadata handling, not proof of cryptographic attestation or operational Apply/Restore. The trusted verifier signer/key custody/build pinning remain unimplemented; all claims are rejected by the current attestation boundary. Gate 2 stays closed.
+
+### 2026-11-26 — PROJECTIONS_REOPEN report-only adapter added
+
+The first three evidence kinds now have report-only adapters: PREPARED_SNAPSHOT, INPUT_AND_LEDGER_REOPEN and PROJECTIONS_REOPEN. The projection adapter composes native source capture, input/ledger, MASTER and full therapist-grid readbacks, then publishes an operation/date/source-bound report. Its synthetic tests do not authenticate the verifier or execute a user's real Excel workbook.
+
+The current registry therefore contains **3 REPORT_ADAPTER_ONLY** and **7 NOT_IMPLEMENTED** kinds. No kind is `IMPLEMENTED`; trusted signer/build provenance remains unresolved and all positive report validation remains fail-closed. The report distinguishes original `operation.source_sha256` from the current post-commit `evidence_sha256`. Gate 2 remains closed.

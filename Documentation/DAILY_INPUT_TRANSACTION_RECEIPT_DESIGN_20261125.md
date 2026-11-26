@@ -211,3 +211,15 @@ Added synthetic negative regression:
 Commit: `6043c5a0a4ce8052f5d4333bcfb33984fb9eee8c`.
 
 Test execution is **PENDING**. This is a contract test, not native Excel evidence or trusted attestation. PREPARED remains REPORT_ADAPTER_ONLY; SHA-256 report integrity is not authenticity. No receipt append, journal write, Apply/Restore authorization or Gate 2 opening is introduced.
+
+## 17. PROJECTIONS_REOPEN phase report adapter — 26/11/2026
+
+Added `Python/rehab_excel/daily_input_projections_phase_adapter.py` and synthetic tests. The adapter requires the legal `INPUT_AND_LEDGER_COMMITTED -> PROJECTIONS_VERIFIED` transition and an exact independent `DailyInputProjectionPreflight`. It reuses `verify_daily_input_projection_preflight_native_readonly`, which runs fresh macro-disabled/read-only native source capture, INPUT_AND_LEDGER, MASTER and complete THERAPIST_DAILY grid diagnostics over the same exact saved XLSM bytes/date.
+
+Before publishing, the adapter checks source/evidence digest binding, date, result types, MASTER projected row count, all 126 therapist cells and 18 headers, occupied cells, expected assignment count, input/ledger source and active row counts, identity-mirror row count and consistent native Excel version. It writes the canonical phase report exclusively under the evidence root and verifies the workbook remains byte-identical.
+
+Do not equate `operation.source_sha256` (the original operation source identity) with the current post-commit workbook digest. The report binds the former in `source_workbook_sha256` and the latter in `evidence_sha256`.
+
+The verifier contract is REPORT_ADAPTER_ONLY. This is report production over synthetic fake-COM tests, not trusted attestation, not a receipt, not a journal append and not Apply/Restore permission. Seven evidence kinds remain NOT_IMPLEMENTED; Gate 2 remains closed.
+
+Final CI run `45875449647`, HEAD `1bc189a4903fea1890f82efee9555546bf587eac`: Windows **2946 passed / 30 warnings**, Ubuntu **2946 passed / 30 warnings**; both synthetic safety jobs passed. Initial CI attempts caught stale policy/registry test assertions and a malformed LF literal; all corrected before final GREEN.

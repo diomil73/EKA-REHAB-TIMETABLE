@@ -1120,3 +1120,12 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Synthetic safety jobs GREEN on both platforms.
 - New coverage: PM draft parser accepts multiple explicit weekday groups `ΔΕ-ΤΡ/ΠΕ-ΠΑ` with one explicit time/provider and rejects a weekday repeated across groups.
 - Uses the shared `parse_weekday_groups` from morning mapping. No UI, PM persistence, MASTER L display, workbook or VBA changes. No native Excel/operational proof.
+
+### 2026-11-26 — PROJECTIONS_REOPEN report adapter full regression
+
+- Run `45875449647`; tested HEAD `1bc189a4903fea1890f82efee9555546bf587eac`.
+- Full regression: **Windows 2946 passed / 30 warnings; Ubuntu 2946 passed / 30 warnings**.
+- Synthetic safety jobs: GREEN on both platforms.
+- Added report adapter for legal INPUT_AND_LEDGER_COMMITTED -> PROJECTIONS_VERIFIED transition. Reuses composite native diagnostic for source capture, input/ledger, MASTER and complete therapist grid; binds the report to exact post-commit evidence bytes, service date and preflight scope.
+- Synthetic negative coverage: source/evidence hash distinction, wrong digest/version/scope, workbook mutation, path confinement, output collision and phase identity.
+- Status REPORT_ADAPTER_ONLY; no trusted attestation, no receipt/journal authorization, no real native Excel or production workbook execution.
