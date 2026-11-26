@@ -1559,3 +1559,11 @@ The user clarified that afternoon programme design/display must wait until a PC 
 Afternoon patients are a subset of the morning patient population and must join by the same PatientID. Afternoon assignment is optional by weekday: support explicit day selection and the same valid weekday-combination behavior as the existing morning programme; never assume daily attendance or create duplicate patient identities. The general treatment duration is 45 minutes, recorded as a future scheduling rule, but the current five-field AFTERNOON_PHYSIO_SLOTS source contains start time only. Do not infer or persist end times until the PM design is reviewed and the duration policy is integrated explicitly.
 
 Current action: defer PM UI, MASTER L display and scheduling integration. At PC, inspect the disposable DEMO and agree layout first, then reuse morning weekday-selection/combination semantics and implement PM persistence/readback/history safely. No production workbook experiments.
+
+### 2026-11-26 — MASTER psychology K bulk projection implemented; cross-platform CI pending
+
+Implemented the existing VBA psychology display contract in the expanded MASTER bulk writer: read `Ψυχ_Ώρα`, `Ψυχ_Ημέρες`, `Ψυχ_Ψυχολόγος` from PATIENT_PLANNER; render time, days and provider in that order with non-empty parts newline-separated; normalize recognized time values to `hh:mm`; preserve unrecognized text. Enforces the PATIENT_PLANNER row PatientID match before writing. Saved-output verification recomputes and checks K from source values.
+
+The writer deliberately leaves L blank and clears stale content. No PM display/scheduling code, VBA, production workbook or native Excel operation changed. New/updated synthetic tests cover expanded K rendering and formatting semantics.
+
+GitHub Actions full Windows + Ubuntu regression run `45870586916` is in progress at this checkpoint. Synthetic safety jobs are GREEN on both OSes; complete regression results are pending. Do not claim overall test GREEN until both complete. No local PC action requested.
