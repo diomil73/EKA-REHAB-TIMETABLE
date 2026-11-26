@@ -3316,3 +3316,27 @@ A deeper live source read after §4.242 found that the source-capture and compos
 **Next mobile engineering task:** perform a source-bound K/L contract audit using the existing psychology renderer, \`afternoon_slots_source.py\`, patient-ID-to-MASTER projection mapping and the existing MASTER style shell. Then implement the smallest integrated K/L projection extension in the existing MASTER writer/readback path, with synthetic fixtures only. Preserve the current K renderer semantics, independent AM/PM namespaces, empty PM-by-default rule, exact PatientID joins and source immutability. Do not infer or import legacy U values, create PM appointments, approve shared PM groups, or invent new clinical rules. If an exact display convention is not defined by the approved sources, leave that point explicitly unresolved rather than guessing. Extend native readback only after the writer/source contract is fixed.
 
 **Unchanged safety gates:** no real patient data in GitHub/CI; no PC-local commands while mobile-only; no production XLSM, VBA, journal writer, Apply/Restore, positive transaction or Gate 2 activation. The one outstanding PC test remains only \`test_prepared_snapshot_report_rejects_digest_mismatch\`; do not repeat the 214-test suite.
+
+### 4.244 MASTER K/L source contract audit — 26/11/2026
+
+The detailed source audit is complete. No workbook, VBA or runtime code was changed in this audit.
+
+**K — psychology, established display contract confirmed**
+- Existing \`PatientProgramMasterRender.BuildTreatmentDisplay\` resolves \`Ψυχ_Ώρα\`, \`Ψυχ_Ημέρες\`, and \`Ψυχ_Ψυχολόγος\` by exact PATIENT_PLANNER headers.
+- Display order is time, newline, days, newline, provider; empty components are omitted. Time values are formatted \`hh:mm\` when Excel recognizes them as date/numeric, otherwise trimmed text is retained.
+- \`RefreshMasterPatientProgram\` writes that display to MASTER column K only when the K header is exactly \`ΨΥΧΟΛΟΓΟΙ\`.
+- Bulk writer must preserve this exact behavior. Do not duplicate or alter the VBA renderer; implement the same display semantics in the Python projection path and test against synthetic fixtures.
+
+**L — afternoon physiotherapy, source contract confirmed but display convention not yet specified**
+- The independent sheet is \`AFTERNOON_PHYSIO_SLOTS\`, headers exactly \`PatientID, Treatment, Weekday, StartTime, Therapist\`; Treatment is exactly \`ΦΘ\`.
+- Each stored row is one explicit patient + weekday + start time + therapist fact. Blank/header-only means zero afternoon appointments. There is no import from legacy source column U and no auto-seeding.
+- The selected-patient panel currently emits individual rows as \`PM_ROW<TAB>weekday<TAB>HH:MM<TAB>provider\`. This is a transport/UI contract, not a confirmed MASTER cell display format.
+- No approved source defines whether MASTER L should show one line per raw weekday row, group identical time/provider rows into a weekday list, or use another exact layout. Do not silently choose or aggregate these rows in the MASTER renderer. No duration/end-time may be inferred.
+
+**Implementation sequence**
+1. Implement/test K parity with the established VBA display contract in the bulk MASTER writer and readback.
+2. Keep L blank and fail-closed until its exact cell display convention is approved. Do not claim K/L complete while L is pending.
+3. Once the display convention is confirmed, implement L with source PatientID joins, raw explicit facts only, stale-row clearing, empty-by-default behavior and independent saved/native readback.
+4. Continue to keep PM persistence, scheduling, history, medical deferral and shared-slot approval separate from this MASTER display task.
+
+This audit prevents a display guess from becoming an accidental clinical data rule.
