@@ -1086,3 +1086,12 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Includes expanded MASTER psychology K rendering, saved-output readback, empty-component/time formatting checks and K/L stale-row-boundary test.
 - An initial run failed two new tests due to a missing `datetime` import; corrected, then full cross-platform regression passed. Preserve this history; do not count the initial attempt as GREEN.
 - No native Excel proof, no VBA or production workbook change. K still needs disposable native Excel verification on PC. PM L/UI and day-combination work remain deferred until PC review.
+
+### 2026-11-26 — MASTER K independent preflight/readback binding final regression
+
+- Run: `45872223262`; tested HEAD: `e1c8cab22f7039c62ed31d57a80978851534bf91`.
+- Full regression: **Windows 2934 passed / 30 warnings; Ubuntu 2934 passed / 33 warnings**.
+- Synthetic safety jobs: GREEN on both platforms.
+- New end-to-end expected-value binding: `build_master_projection` derives psychology K by PatientID from PATIENT_PLANNER; writer verifies live source identity/value before write; saved OOXML and native readback compare K to the same independent expectation and require L blank.
+- Expanded test fixtures now include a psychology expectation on every projected row. Earlier incomplete-fixture failures were fixed; retain the failure history.
+- No native Excel COM or operational workbook proof; no VBA change. K still requires disposable native Excel verification. PM L/UI remains deferred pending PC review.
