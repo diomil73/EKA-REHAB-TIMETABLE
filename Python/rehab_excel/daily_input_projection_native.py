@@ -118,7 +118,10 @@ def verify_daily_input_projection_native_readonly(
             len(expected_projection) * 11
             - sum(bool(item.responsible_doctor) for item in expected_projection)
         )
-        expected_master_evaluated_cells = len(expected_projection) * 11
+        expected_master_evaluated_cells = (
+            len(expected_projection) * 11
+            + sum(item.psychology_display is not None for item in expected_projection)
+        )
         if (type(master.projected_rows) is not int
                 or master.projected_rows < 0
                 or master.projected_rows != len(expected_projection)
