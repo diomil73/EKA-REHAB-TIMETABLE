@@ -3421,3 +3421,16 @@ The full post-edit afternoon schedule review now calls `review_afternoon_existin
 Synthetic regression `test_edit_plan_rejects_staggered_overlapping_45_minute_physio_slots`.
 
 Full CI run `45872972784`, tested HEAD `a81a70cc7d225995267af369376a6b2d0358c237`: **Windows 2936 passed / 28 warnings; Ubuntu 2936 passed / 30 warnings**. Both synthetic safety jobs GREEN. Native Excel acceptance remains outstanding.
+
+### 4.251 Afternoon weekday-combination parity explicitly covered — 26/11/2026
+
+Continued mobile-safe PM engineering without touching the deferred visual layout or operational persistence.
+
+- `prepare_afternoon_physio_drafts` already delegates weekday parsing to the shared `parse_weekday_groups` used by the established morning mapping logic. A single explicit time/provider is broadcast only across the explicitly supplied weekday groups; each resulting weekday becomes its own PM source fact.
+- Added synthetic regression for multiple explicit groups `ΔΕ-ΤΡ/ΠΕ-ΠΑ`, confirming only those four weekdays are emitted and the explicit time/provider are preserved.
+- Added regression that a weekday repeated across groups (`ΔΕ-ΤΡ/ΤΡ-ΠΑ`) is rejected, rather than duplicated or silently normalized.
+- No default-to-daily behavior, no invented days, no multiple time/provider grouping, no UI, no MASTER L renderer, no source schema change and no workbook writes.
+
+Full GitHub Actions run `45874054596`, tested HEAD `04e2d71b79281625b5d16bb20efcc9a5d7646e20`: **Windows 2938 passed / 30 warnings; Ubuntu 2938 passed / 29 warnings**. Synthetic safety jobs passed on both platforms.
+
+This is Python/synthetic evidence only. It confirms the existing weekday parser behavior; it does not constitute PC visual acceptance or approval of a complete PM scheduling workflow. At PC review, compare the actual morning selector behavior with the PM design before implementing UI. The sole outstanding PC-only test and Gate 2 restrictions remain unchanged.
