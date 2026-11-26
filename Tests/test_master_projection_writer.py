@@ -253,7 +253,7 @@ def test_master_writer_supports_expanded_psychology_afternoon_schema(tmp_path, m
         ws = wb["MASTER_SCHEDULE"]
         assert ws["K1"].value == "ΨΥΧΟΛΟΓΟΙ"
         assert ws["L1"].value == "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
-        assert ws["K2"].value == "12:00\\nΔΕ, ΤΕ, ΠΑ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
+        assert ws["K2"].value == "12:00\nΔΕ, ΤΕ, ΠΑ\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
         assert ws["L2"].value in (None, "")
         assert ws["M2"].value == "=PATIENT_PLANNER!E3"
     finally:
@@ -305,7 +305,7 @@ def test_date_effective_master_writer_excludes_discharge_after_last_day(tmp_path
 
 def test_psychology_display_matches_existing_component_order_and_omits_empty_parts():
     assert _build_psychology_display(0.5, "ΔΕ, ΠΕ", "ΔΟΚΙΜΑΣΤΗΣ") == (
-        "12:00\\nΔΕ, ΠΕ\\nΔΟΚΙΜΑΣΤΗΣ"
+        "12:00\nΔΕ, ΠΕ\nΔΟΚΙΜΑΣΤΗΣ"
     )
     assert _build_psychology_display(None, "ΔΕ, ΠΕ", "") == "ΔΕ, ΠΕ"
     assert _build_psychology_display("  ", None, "ΔΟΚΙΜΑΣΤΗΣ") == "ΔΟΚΙΜΑΣΤΗΣ"
