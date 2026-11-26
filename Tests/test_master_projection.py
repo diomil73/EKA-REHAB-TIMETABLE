@@ -256,3 +256,43 @@ def test_expanded_master_projection_derives_psychology_display_from_planner_sour
 
     assert len(rows) == 1
     assert rows[0].psychology_display == "16:30\nΔΕ, ΠΕ\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
+
+def test_expanded_master_projection_rejects_ambiguous_or_drifted_planner_source(tmp_path):
+    from openpyxl import load_workbook
+    from rehab_excel.master_projection import MasterProjectionError
+
+    for corruption in ("missing-header", "duplicate-header", "patient-id-drift"):
+        path = _workbook(tmp_path)
+        wb = load_workbook(path)
+        try:
+            planner = wb.create_sheet("PATIENT_PLANNER")
+            planner.append([
+                "PatientID", "", "", "", "", "", "", "",
+                "Ψυχ_Ώρα", "Ψυχ_Ημέρες", "Ψυχ_Ψυχολόγος",
+            ])
+            planner.append([1])
+            planner.append([
+                2, None, None, None, None, None, None, None,
+                time(16, 30), "ΔΕ, ΠΕ", "SYNTHETIC PROVIDER",
+            ])
+            planner.append([3])
+            master = wb.create_sheet("MASTER_SCHEDULE")
+            master.append([
+                "", "Θάλαμος", "Ασθενής", "", "", "", "", "", "", "",
+                "ΨΥΧΟΛΟΓΟΙ", "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ", "Κατάσταση",
+            ])
+            if corruption == "missing-header":
+                planner["J1"] = None
+            elif corruption == "duplicate-header":
+                planner["L1"] = "Ψυχ_Ώρα"
+            else:
+                planner["A3"] = 99
+            wb.save(path)
+        finally:
+            wb.close()
+
+        with pytest.raises(MasterProjectionError):
+            build_master_projection(
+                path,
+                patients=[Patient("2", "ΒΑΡΒΑΡΑΣ", room="A02")],
+            )
