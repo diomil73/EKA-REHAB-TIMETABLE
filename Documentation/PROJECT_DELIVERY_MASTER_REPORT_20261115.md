@@ -1578,3 +1578,15 @@ Final GitHub Actions run `45870877451`, code HEAD `7799df57f9dc916fec7acb8eaa66a
 - Synthetic safety jobs: both GREEN.
 
 The first attempt found a missing `datetime` import; it was fixed and the final full cross-platform run passed. This is Python/synthetic evidence only. Native Excel save/reopen, visual acceptance, VBA and operational workbook were not exercised or changed. PM L remains deferred until PC review.
+
+### 2026-11-26 — MASTER psychology K independent source binding GREEN
+
+Completed the independent source-to-writer-to-readback chain for expanded MASTER psychology K:
+- Projection preflight derives the expected K display from PATIENT_PLANNER's `Ψυχ_Ώρα`, `Ψυχ_Ημέρες`, `Ψυχ_Ψυχολόγος` headers and maps by PatientID.
+- Native writer verifies PatientID and that live source values still match the independent expectation before writing K.
+- Saved OOXML and native Excel readback require K to match the independent expectation and L to remain blank; K must be a literal, not a formula.
+- All expanded synthetic fixtures now supply an independent psychology expectation for each projected patient.
+
+Full GitHub Actions run `45872223262`, HEAD `e1c8cab22f7039c62ed31d57a80978851534bf91`: **Windows 2934 passed / 30 warnings; Ubuntu 2934 passed / 33 warnings**. Both synthetic safety jobs passed. Intermediate failures were due to incomplete test fixtures and were corrected before final GREEN.
+
+No native Excel COM run, VBA edit, production workbook edit or visual acceptance has occurred. Disposable native Excel verification remains for the next PC session. Afternoon L remains deliberately blank.
