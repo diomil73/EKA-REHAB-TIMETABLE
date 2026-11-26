@@ -2,8 +2,9 @@
 
 This module does NOT verify a workbook, accept caller-supplied proof flags, write
 journal rows or enable Apply. It defines the evidence an independent verifier
-must establish *before* a durable phase can be appended. No independent phase
-verifiers are registered yet: this policy is NOT an authorization gate by itself.
+must establish *before* a durable phase can be appended. PREPARED_SNAPSHOT and
+INPUT_AND_LEDGER_REOPEN have report-only adapters, but no trusted phase verifier
+is registered yet. This policy is NOT an authorization gate by itself.
 """
 from __future__ import annotations
 
