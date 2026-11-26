@@ -27,6 +27,7 @@ def fixture(tmp_path, *, expanded=False, doctor=False):
         MasterProjectionRow(
             5, 2, "P-001", "A01", "FICTIONAL PATIENT 1", False, "active",
             responsible_doctor="DOCTOR X" if doctor else None,
+            psychology_display="16:30\\nΔΕ, ΠΕ\\nSYNTHETIC PROVIDER" if expanded else None,
         ),
         MasterProjectionRow(6, 3, "P-002", "B01", "FICTIONAL PATIENT 2", False, "active"),
     )
@@ -57,6 +58,7 @@ def test_saved_master_exact_linkage_and_no_write(tmp_path, expanded, doctor):
     "wrong-formula", "literal-instead-formula", "wrong-status", "doctor",
     "unexpected-separator", "unexpected-tail", "legacy-tail",
     "missing-header", "unsupported-status", "duplicate-header",
+    "psychology", "afternoon", "psychology-formula",
 ])
 def test_master_rejects_corrupt_saved_cells(tmp_path, corruption):
     path, items = fixture(tmp_path, expanded=True, doctor=True)
@@ -82,6 +84,12 @@ def test_master_rejects_corrupt_saved_cells(tmp_path, corruption):
         ws["M3"] = "UNKNOWN"
     elif corruption == "duplicate-header":
         ws["B2"], ws["C2"] = "Θάλαμος", "Ασθενής"
+    elif corruption == "psychology":
+        ws["K5"] = "WRONG PSYCHOLOGY"
+    elif corruption == "afternoon":
+        ws["L5"] = "UNAPPROVED PM DATA"
+    elif corruption == "psychology-formula":
+        ws["K5"] = "=PATIENT_PLANNER!K2"
     wb.save(path)
     wb.close()
     original = path.read_bytes()
