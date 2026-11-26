@@ -184,9 +184,9 @@ def test_adapter_rejects_wrong_phase_or_preflight_identity_before_native(tmp_pat
     with pytest.raises(adapter.ProjectionsPhaseReportAdapterError, match="Invalid phase transition"):
         create(root, workbook, output, previous, previous, preflight)
     assert calls == []
-    bad = replace(operation, source_sha256="a" * 64)
+    bad_preflight = replace(preflight, service_date=date(2026, 11, 24))
     with pytest.raises(adapter.ProjectionsPhaseReportAdapterError, match="Preflight/operation"):
-        create(root, workbook, output, previous, bad, preflight)
+        create(root, workbook, output, previous, operation, bad_preflight)
     assert calls == []
 
 
