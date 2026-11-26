@@ -83,7 +83,7 @@ def _build_psychology_display(raw_time: object, raw_days: object, raw_provider: 
     provider = str(raw_provider or "").strip()
     if provider:
         parts.append(provider)
-    return "\\n".join(parts)
+    return "\n".join(parts)
 
 
 def _patient_id_text(value: object) -> str:
