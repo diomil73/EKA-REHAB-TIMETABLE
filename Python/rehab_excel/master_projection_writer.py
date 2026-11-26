@@ -14,77 +14,11 @@ from .master_projection import (
     MasterProjectionRow,
     build_master_projection,
     remap_master_formula,
+    _PSYCHOLOGY_HEADERS,
+    _build_psychology_display,
 )
 from .native_excel import NativeStylePalette, excel_rgb
 from .master_visual_style import HEADER_COLORS, BODY_COLORS, ROW_SEPARATOR_GRAY, SOFT_VERTICAL_GRAY
-
-_PSYCHOLOGY_HEADERS = {
-    "time": "Ψυχ_Ώρα",
-    "days": "Ψυχ_Ημέρες",
-    "provider": "Ψυχ_Ψυχολόγος",
-}
-
-
-def _psychology_time_text(value: object) -> str:
-    """Match the existing VBA TimeText behavior for stored Excel values."""
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return ""
-        # VBA IsDate/IsNumeric formats recognized values as hh:mm. Keep
-        # unrecognized text unchanged rather than guessing a locale-specific parse.
-        from datetime import time as _time
-        from openpyxl.utils.datetime import from_excel
-
-        for parser in (datetime.fromisoformat, _time.fromisoformat):
-            try:
-                parsed = parser(text)
-                return parsed.strftime("%H:%M")
-            except (TypeError, ValueError):
-                pass
-        try:
-            numeric = float(text)
-        except ValueError:
-            return text
-        try:
-            parsed = from_excel(numeric)
-            if isinstance(parsed, (datetime, _time)):
-                return parsed.strftime("%H:%M")
-        except (TypeError, ValueError, OverflowError):
-            return text
-        return text
-
-    from datetime import time as _time
-    from openpyxl.utils.datetime import from_excel
-
-    if isinstance(value, (datetime, _time)):
-        return value.strftime("%H:%M")
-    if isinstance(value, (int, float)):
-        try:
-            parsed = from_excel(value)
-        except (TypeError, ValueError, OverflowError):
-            return str(value).strip()
-        if isinstance(parsed, (datetime, _time)):
-            return parsed.strftime("%H:%M")
-    return str(value).strip()
-
-
-def _build_psychology_display(raw_time: object, raw_days: object, raw_provider: object) -> str:
-    """Mirror PatientProgramMasterRender.BuildTreatmentDisplay for Ψυχ."""
-    parts: list[str] = []
-    time_text = _psychology_time_text(raw_time)
-    if time_text:
-        parts.append(time_text)
-    days = str(raw_days or "").strip()
-    if days:
-        parts.append(days)
-    provider = str(raw_provider or "").strip()
-    if provider:
-        parts.append(provider)
-    return "\n".join(parts)
-
 
 def _patient_id_text(value: object) -> str:
     text = str(value or "").strip()
@@ -374,11 +308,16 @@ class Win32ComMasterProjectionBackend:
                         planner.Cells(item.planner_row, psychology_columns["provider"]).Value
                         if psychology_columns.get("provider") else None
                     )
-                    psychology_cell = ws.Cells(row, 11)
-                    psychology_cell.NumberFormat = "General"
-                    psychology_cell.Value = _build_psychology_display(
+                    actual_psychology = _build_psychology_display(
                         raw_time, raw_days, raw_provider
                     )
+                    if item.psychology_display is None or actual_psychology != item.psychology_display:
+                        raise MasterProjectionWriteError(
+                            f"PATIENT_PLANNER psychology source changed for PatientID {item.patient_id!r}"
+                        )
+                    psychology_cell = ws.Cells(row, 11)
+                    psychology_cell.NumberFormat = "General"
+                    psychology_cell.Value = item.psychology_display
                     psychology_cell.WrapText = True
                     psychology_cell.HorizontalAlignment = -4108
                     psychology_cell.VerticalAlignment = -4108
@@ -451,24 +390,6 @@ def _verify_projection(
         status_col = 13 if status_header == "κατάσταση".casefold() else 11
         total_cols = 13 if status_col == 13 else 11
         planner = wb["PATIENT_PLANNER"] if total_cols == 13 and "PATIENT_PLANNER" in wb.sheetnames else None
-        psychology_columns = (
-            {
-                key: next(
-                    (
-                        index
-                        for index, value in enumerate(
-                            next(planner.iter_rows(min_row=1, max_row=1, values_only=True)),
-                            start=1,
-                        )
-                        if str(value or "").strip().casefold() == header.casefold()
-                    ),
-                    None,
-                )
-                for key, header in _PSYCHOLOGY_HEADERS.items()
-            }
-            if planner is not None
-            else {}
-        )
         if total_cols == 13 and planner is None:
             return False
         for item in projection:
@@ -490,32 +411,11 @@ def _verify_projection(
                 if str(ws.cell(row, col).value or "") != value:
                     return False
             if planner is not None:
-                planner_values = next(
-                    planner.iter_rows(
-                        min_row=item.planner_row,
-                        max_row=item.planner_row,
-                        values_only=True,
-                    ),
-                    (),
-                )
-                raw_time = (
-                    planner_values[psychology_columns["time"] - 1]
-                    if psychology_columns.get("time") and psychology_columns["time"] <= len(planner_values)
-                    else None
-                )
-                raw_days = (
-                    planner_values[psychology_columns["days"] - 1]
-                    if psychology_columns.get("days") and psychology_columns["days"] <= len(planner_values)
-                    else None
-                )
-                raw_provider = (
-                    planner_values[psychology_columns["provider"] - 1]
-                    if psychology_columns.get("provider") and psychology_columns["provider"] <= len(planner_values)
-                    else None
-                )
-                if str(ws.cell(row, 11).value or "") != _build_psychology_display(
-                    raw_time, raw_days, raw_provider
-                ):
+                if item.psychology_display is None:
+                    return False
+                if str(ws.cell(row, 11).value or "") != item.psychology_display:
+                    return False
+                if ws.cell(row, 12).value not in (None, ""):
                     return False
             for col in (14, 15, 16):
                 if ws.cell(row, col).value not in (None, ""):
