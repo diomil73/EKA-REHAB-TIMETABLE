@@ -27,7 +27,7 @@ def fixture(tmp_path, *, expanded=False, doctor=False):
         MasterProjectionRow(
             5, 2, "P-001", "A01", "FICTIONAL PATIENT 1", False, "active",
             responsible_doctor="DOCTOR X" if doctor else None,
-            psychology_display="16:30\\nΔΕ, ΠΕ\\nSYNTHETIC PROVIDER" if expanded else None,
+            psychology_display="16:30\nΔΕ, ΠΕ\nSYNTHETIC PROVIDER" if expanded else None,
         ),
         MasterProjectionRow(6, 3, "P-002", "B01", "FICTIONAL PATIENT 2", False, "active"),
     )
