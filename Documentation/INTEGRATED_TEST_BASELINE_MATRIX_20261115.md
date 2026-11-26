@@ -1112,3 +1112,11 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Synthetic safety jobs: GREEN on both platforms.
 - `review_afternoon_edit_plan` now checks the complete proposed schedule with the existing scheduler's 45-minute ΦΘ overlap function, in addition to exact shared-slot approval. Staggered same-therapist overlap and same-patient overlap fail; adjacent slots pass.
 - Pure/read-only policy only. No persistence, UI, VBA or native Excel operational proof.
+
+### 2026-11-26 — Afternoon weekday-combination parity regression
+
+- Run `45874054596`; tested HEAD `04e2d71b79281625b5d16bb20efcc9a5d7646e20`.
+- Full regression: **Windows 2938 passed / 30 warnings; Ubuntu 2938 passed / 29 warnings**.
+- Synthetic safety jobs GREEN on both platforms.
+- New coverage: PM draft parser accepts multiple explicit weekday groups `ΔΕ-ΤΡ/ΠΕ-ΠΑ` with one explicit time/provider and rejects a weekday repeated across groups.
+- Uses the shared `parse_weekday_groups` from morning mapping. No UI, PM persistence, MASTER L display, workbook or VBA changes. No native Excel/operational proof.
