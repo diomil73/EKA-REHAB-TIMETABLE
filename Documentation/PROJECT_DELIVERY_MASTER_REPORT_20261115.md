@@ -1590,3 +1590,11 @@ Completed the independent source-to-writer-to-readback chain for expanded MASTER
 Full GitHub Actions run `45872223262`, HEAD `e1c8cab22f7039c62ed31d57a80978851534bf91`: **Windows 2934 passed / 30 warnings; Ubuntu 2934 passed / 33 warnings**. Both synthetic safety jobs passed. Intermediate failures were due to incomplete test fixtures and were corrected before final GREEN.
 
 No native Excel COM run, VBA edit, production workbook edit or visual acceptance has occurred. Disposable native Excel verification remains for the next PC session. Afternoon L remains deliberately blank.
+
+### 2026-11-26 — MASTER psychology source headers and PatientID binding hardened
+
+Expanded MASTER preflight now fails closed unless PATIENT_PLANNER has exactly one each of `PatientID`, `Ψυχ_Ώρα`, `Ψυχ_Ημέρες`, and `Ψυχ_Ψυχολόγος`. It verifies each projected inpatient's PATIENT_PLANNER row ID matches the PATIENTS registry row before deriving K. The check is scoped to projected inpatients, avoiding a new requirement for outpatient rows to have planner records.
+
+Added synthetic regressions for missing/duplicate headers and PatientID drift. Full CI run `45872660668`, HEAD `1f0b57ff7c578475f50383d7bcdb212caa876aea`: **Windows 2935 passed / 28 warnings; Ubuntu 2935 passed / 30 warnings**. Both synthetic safety jobs passed.
+
+No native Excel, VBA or production workbook operation has occurred. K still needs disposable native Excel verification; PM L remains blank.
