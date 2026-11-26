@@ -238,7 +238,7 @@ def test_master_writer_supports_expanded_psychology_afternoon_schema(tmp_path, m
         lambda _path: (
             MasterProjectionRow(
                 2, 3, "2", "A02", "ΒΑΡΒΑΡΑΣ", True, "παρών",
-                psychology_display="12:00\\nΔΕ, ΤΕ, ΠΑ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ",
+                psychology_display="12:00\nΔΕ, ΤΕ, ΠΑ\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ",
             ),
         ),
     )
