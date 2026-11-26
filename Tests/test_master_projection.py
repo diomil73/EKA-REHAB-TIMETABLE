@@ -230,3 +230,29 @@ def test_date_effective_master_rejects_invalid_service_date(tmp_path):
 
     with __import__("pytest").raises(MasterProjectionError, match="valid target date"):
         build_master_projection(_workbook(tmp_path), target_date="2026-11-17")
+
+def test_expanded_master_projection_derives_psychology_display_from_planner_source(tmp_path):
+    from datetime import time
+    from openpyxl import load_workbook
+
+    path = _workbook(tmp_path)
+    wb = load_workbook(path)
+    try:
+        planner = wb.create_sheet("PATIENT_PLANNER")
+        planner.append(["PatientID", "", "", "", "", "", "", "", "Ψυχ_Ώρα", "Ψυχ_Ημέρες", "Ψυχ_Ψυχολόγος"])
+        planner.append([1])
+        planner.append([2, None, None, None, None, None, None, None, time(16, 30), "ΔΕ, ΠΕ", "ΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"])
+        planner.append([3])
+        master = wb.create_sheet("MASTER_SCHEDULE")
+        master.append(["", "Θάλαμος", "Ασθενής", "", "", "", "", "", "", "", "ΨΥΧΟΛΟΓΟΙ", "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ", "Κατάσταση"])
+        wb.save(path)
+    finally:
+        wb.close()
+
+    rows = build_master_projection(
+        path,
+        patients=[Patient("2", "ΒΑΡΒΑΡΑΣ", room="A02")],
+    )
+
+    assert len(rows) == 1
+    assert rows[0].psychology_display == "16:30\\nΔΕ, ΠΕ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
