@@ -26,6 +26,8 @@ from .daily_input_projection_preflight_native import (
     DailyInputProjectionPreflightNativeReadback,
     verify_daily_input_projection_preflight_native_readonly,
 )
+from .daily_input_projection_native import DailyInputProjectionNativeReadback
+from .daily_input_source_native_capture import DailyInputSourceNativeCapture
 
 
 class ProjectionsPhaseReportAdapterError(RuntimeError):
@@ -69,7 +71,11 @@ def create_projections_phase_report(
     except ValueError as exc:
         raise ProjectionsPhaseReportAdapterError("Invalid operation service date") from exc
     if (preflight.service_date != day
+            or type(preflight.validated_changes) is not tuple
             or not preflight.validated_changes
+            or type(preflight.source_workbook_sha256) is not str
+            or len(preflight.source_workbook_sha256) != 64
+            or any(ch not in "0123456789abcdef" for ch in preflight.source_workbook_sha256)
             or type(report_id) is not str or not report_id.strip()):
         raise ProjectionsPhaseReportAdapterError("Preflight/operation identity mismatch")
 
@@ -108,11 +114,15 @@ def create_projections_phase_report(
     final_hash = file_sha256(workbook)
     if type(native) is not DailyInputProjectionPreflightNativeReadback:
         raise ProjectionsPhaseReportAdapterError("Native projection verifier returned invalid result")
+    if (type(native.native_readback) is not DailyInputProjectionNativeReadback
+            or type(native.source_capture) is not DailyInputSourceNativeCapture):
+        raise ProjectionsPhaseReportAdapterError("Native projection evidence components are invalid")
     if (native.source_workbook_sha256 != initial_hash
             or native.native_readback.workbook_sha256 != initial_hash
             or native.source_capture.workbook_sha256 != initial_hash
             or final_hash != initial_hash
-            or native.service_date != day):
+            or native.service_date != day
+            or native.native_readback.service_date != day):
         raise ProjectionsPhaseReportAdapterError("Workbook bytes/date changed during projection verification")
 
     projection = native.native_readback
@@ -126,7 +136,18 @@ def create_projections_phase_report(
     if (any(type(value) is not str or not value.strip() for value in versions)
             or len(set(versions)) != 1):
         raise ProjectionsPhaseReportAdapterError("Native Excel versions are missing or inconsistent")
-    if (projection.master_projected_rows != len(preflight.expected_projection)
+    integer_counts = (
+        projection.master_projected_rows,
+        projection.therapist_grid_cells_checked,
+        projection.therapist_occupied_cells,
+        projection.expected_therapist_assignments,
+        projection.input_ledger_source_changes,
+        projection.input_ledger_active_rows,
+        expected_grid.occupied_cells,
+        native.native_source_identity_mirror_rows_checked,
+    )
+    if (any(type(value) is not int or value < 0 for value in integer_counts)
+            or projection.master_projected_rows != len(preflight.expected_projection)
             or projection.therapist_grid_cells_checked != 126
             or projection.therapist_occupied_cells != expected_grid.occupied_cells
             or projection.expected_therapist_assignments != len(expected_grid.expected_assignments)
