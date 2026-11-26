@@ -1035,6 +1035,6 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Scope: synthetic negative contract test; mismatched `prepared_snapshot_sha256` must not equal the exact saved evidence artifact `evidence_sha256`.
 - Expected: fail closed before any positive-phase verifier availability/authorization decision.
 - Code path: PREPARED contract equality guard; PREPARED report adapter binds both digests to the same saved XLSM bytes and checks byte immutability during readback.
-- Execution: **PENDING**. Do not count this test as passed until a real pytest run reports it.
+- Execution: **PENDING for this one newly added test only**. The prior 13-file Windows focused suite is already GREEN at 214 passed / 1 symlink-specific skip / no warnings summary and includes both phase-report adapters; do not repeat it. When the operator returns to the PC, run only `Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot_report_rejects_digest_mismatch -q -rs`. No PC command during mobile-only mode.
 - Native Excel / operational acceptance: NOT ESTABLISHED. This test uses synthetic report data only.
 - Transaction authorization / Apply / Restore / Gate 2: unchanged; Gate 2 CLOSED.
