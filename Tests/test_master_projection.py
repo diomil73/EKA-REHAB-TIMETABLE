@@ -258,6 +258,8 @@ def test_expanded_master_projection_derives_psychology_display_from_planner_sour
     assert rows[0].psychology_display == "16:30\nΔΕ, ΠΕ\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
 
 def test_expanded_master_projection_rejects_ambiguous_or_drifted_planner_source(tmp_path):
+    from datetime import time
+    import pytest
     from openpyxl import load_workbook
     from rehab_excel.master_projection import MasterProjectionError
 
