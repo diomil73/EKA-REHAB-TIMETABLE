@@ -69,7 +69,6 @@ def create_projections_phase_report(
     except ValueError as exc:
         raise ProjectionsPhaseReportAdapterError("Invalid operation service date") from exc
     if (preflight.service_date != day
-            or preflight.source_workbook_sha256 != operation.source_sha256
             or not preflight.validated_changes
             or type(report_id) is not str or not report_id.strip()):
         raise ProjectionsPhaseReportAdapterError("Preflight/operation identity mismatch")
