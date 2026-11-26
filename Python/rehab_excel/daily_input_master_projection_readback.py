@@ -101,6 +101,22 @@ def verify_master_projection_saved_readback(
         else:
             raise MasterProjectionSavedReadbackError("Unsupported MASTER status column")
 
+        expanded_schema = status == 13
+        if expanded_schema and any(
+            type(item.psychology_display) is not str
+            for item in expected_projection
+        ):
+            raise MasterProjectionSavedReadbackError(
+                "Expanded MASTER requires independent psychology expectations"
+            )
+        if not expanded_schema and any(
+            item.psychology_display is not None
+            for item in expected_projection
+        ):
+            raise MasterProjectionSavedReadbackError(
+                "Legacy MASTER cannot accept expanded psychology expectations"
+            )
+
         if rows and rows[0] <= header:
             raise MasterProjectionSavedReadbackError("Projection overlaps header")
         expected_by_row = {item.target_row: item for item in expected_projection}
@@ -128,6 +144,16 @@ def verify_master_projection_saved_readback(
                 cell = ws.cell(row, col)
                 if cell.data_type != "f" or cell.value != expected:
                     raise MasterProjectionSavedReadbackError("MASTER formula linkage mismatch")
+            if expanded_schema:
+                psychology_cell = ws.cell(row, 11)
+                if psychology_cell.data_type == "f" or psychology_cell.value != item.psychology_display:
+                    raise MasterProjectionSavedReadbackError(
+                        "MASTER psychology literal differs from independent preflight"
+                    )
+                if ws.cell(row, 12).value not in (None, ""):
+                    raise MasterProjectionSavedReadbackError(
+                        "MASTER afternoon column must remain blank until approved"
+                    )
             for col in (14, 15, 16):
                 if ws.cell(row, col).value not in (None, ""):
                     raise MasterProjectionSavedReadbackError("Unexpected MASTER legacy tail data")
