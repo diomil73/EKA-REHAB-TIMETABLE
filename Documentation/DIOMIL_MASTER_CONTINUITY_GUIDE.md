@@ -3261,3 +3261,16 @@ Native source capture now checks all five identity columns A:E for every populat
 CI run `45680015176`, HEAD `fbf6e5571ad7cf6be412f719f304ade5d3c1322c`, SUCCESS: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed.
 
 This catches patient/planner row and identity drift before native projection readbacks. Fake COM only; no real Excel. Gate 2 closed. Details: design doc §17.
+
+
+### 4.241 PREPARED_SNAPSHOT evidence digest binding regression added — 26/11/2026
+
+Reviewed the phase-verifier contract and PREPARED report adapter against the receipt design. The contract already requires a non-null `prepared_snapshot_sha256` for PREPARED_SNAPSHOT and now explicitly requires it to equal `evidence_sha256`, the digest of the exact saved workbook artifact. The adapter binds both values to the same post-readback XLSM byte digest and rechecks that the workbook did not change during native readback.
+
+Added `Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot_report_rejects_digest_mismatch`. It constructs a structurally valid synthetic PREPARED report with a deliberately different prepared-snapshot digest and requires validation to fail with the exact binding error. The existing positive-shape test still confirms that a matching digest reaches the deliberate `REPORT_ADAPTER_ONLY` / trusted-attestation stop.
+
+Commit: `6043c5a0a4ce8052f5d4333bcfb33984fb9eee8c` (test-only; parent branch content preserved).
+
+**Execution status: NOT YET RUN.** No pytest result is claimed for this added test or the updated branch. The focused Windows rerun with `-rs` remains required when the PC is available. Do not suppress or infer away the ZipFile deallocation warnings. The earlier 110 passed / 1 symlink-specific skip predates the PREPARED adapter and this regression test.
+
+No production code, VBA, workbook, journal writer, receipt authorization, Apply/Restore behavior or Gate 2 state changed. PREPARED and INPUT_AND_LEDGER remain `REPORT_ADAPTER_ONLY`; trusted verifier attestation is unavailable; all other phase verifiers remain unimplemented. Gate 2 remains CLOSED.
