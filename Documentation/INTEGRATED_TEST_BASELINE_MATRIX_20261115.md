@@ -1095,3 +1095,12 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - New end-to-end expected-value binding: `build_master_projection` derives psychology K by PatientID from PATIENT_PLANNER; writer verifies live source identity/value before write; saved OOXML and native readback compare K to the same independent expectation and require L blank.
 - Expanded test fixtures now include a psychology expectation on every projected row. Earlier incomplete-fixture failures were fixed; retain the failure history.
 - No native Excel COM or operational workbook proof; no VBA change. K still requires disposable native Excel verification. PM L/UI remains deferred pending PC review.
+
+### 2026-11-26 — Psychology source header and PatientID binding regression
+
+- Run: `45872660668`; tested HEAD: `1f0b57ff7c578475f50383d7bcdb212caa876aea`.
+- Full regression: **Windows 2935 passed / 28 warnings; Ubuntu 2935 passed / 30 warnings**.
+- Synthetic safety jobs: GREEN on both platforms.
+- Expanded MASTER requires unique PATIENT_PLANNER headers for PatientID and all three psychology source fields. Projected inpatient PatientID must match the planner row before K is derived. Outpatients are intentionally excluded from this new row-presence requirement.
+- New synthetic coverage: missing psychology header, duplicate psychology header, PatientID row drift.
+- No native Excel COM proof, no VBA or production workbook change. Native disposable XLSM check still pending.
