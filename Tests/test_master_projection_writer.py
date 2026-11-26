@@ -10,6 +10,7 @@ from rehab_excel.master_projection_writer import (
     Win32ComMasterProjectionBackend,
     create_master_projection_preview,
     refresh_master_projection_in_place,
+    _build_psychology_display,
 )
 
 
@@ -43,6 +44,24 @@ class _FakeBackend:
                 ws.cell(row, 9).value = f"=PATIENT_PLANNER!R{item.planner_row}"
                 ws.cell(row, 10).value = f"=PATIENT_PLANNER!T{item.planner_row}"
                 ws.cell(row, status_col).value = f"=PATIENT_PLANNER!E{item.planner_row}"
+                if expanded and "PATIENT_PLANNER" in wb.sheetnames:
+                    planner = wb["PATIENT_PLANNER"]
+                    headers = {
+                        str(value).strip().casefold(): index
+                        for index, value in enumerate(
+                            next(planner.iter_rows(min_row=1, max_row=1, values_only=True)),
+                            start=1,
+                        )
+                        if value is not None
+                    }
+                    def planner_value(header):
+                        col = headers.get(header.casefold())
+                        return planner.cell(item.planner_row, col).value if col else None
+                    ws.cell(row, 11).value = _build_psychology_display(
+                        planner_value("Ψυχ_Ώρα"),
+                        planner_value("Ψυχ_Ημέρες"),
+                        planner_value("Ψυχ_Ψυχολόγος"),
+                    )
             tail_start = max((item.target_row for item in projection), default=1) + 1
             for row in range(tail_start, ws.max_row + 1):
                 for col in range(1, total_cols + 1):
@@ -202,6 +221,13 @@ def test_master_writer_supports_expanded_psychology_afternoon_schema(tmp_path, m
         ws["K1"] = "ΨΥΧΟΛΟΓΟΙ"
         ws["L1"] = "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
         ws["M1"] = "Κατάσταση"
+        planner = wb["PATIENT_PLANNER"]
+        planner["I1"] = "Ψυχ_Ώρα"
+        planner["J1"] = "Ψυχ_Ημέρες"
+        planner["K1"] = "Ψυχ_Ψυχολόγος"
+        planner["I3"] = 0.5
+        planner["J3"] = "ΔΕ, ΤΕ, ΠΑ"
+        planner["K3"] = "ΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
         wb.save(source)
     finally:
         wb.close()
@@ -227,7 +253,7 @@ def test_master_writer_supports_expanded_psychology_afternoon_schema(tmp_path, m
         ws = wb["MASTER_SCHEDULE"]
         assert ws["K1"].value == "ΨΥΧΟΛΟΓΟΙ"
         assert ws["L1"].value == "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
-        assert ws["K2"].value in (None, "")
+        assert ws["K2"].value == "12:00\\nΔΕ, ΤΕ, ΠΑ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
         assert ws["L2"].value in (None, "")
         assert ws["M2"].value == "=PATIENT_PLANNER!E3"
     finally:
@@ -276,3 +302,57 @@ def test_date_effective_master_writer_excludes_discharge_after_last_day(tmp_path
     finally:
         wb.close()
     assert len(read_patient_registry(source)) == 3
+
+def test_psychology_display_matches_existing_component_order_and_omits_empty_parts():
+    assert _build_psychology_display(0.5, "ΔΕ, ΠΕ", "ΔΟΚΙΜΑΣΤΗΣ") == (
+        "12:00\\nΔΕ, ΠΕ\\nΔΟΚΙΜΑΣΤΗΣ"
+    )
+    assert _build_psychology_display(None, "ΔΕ, ΠΕ", "") == "ΔΕ, ΠΕ"
+    assert _build_psychology_display("  ", None, "ΔΟΚΙΜΑΣΤΗΣ") == "ΔΟΚΙΜΑΣΤΗΣ"
+    assert _build_psychology_display("μετά τις 16:00", "", "") == "μετά τις 16:00"
+
+
+def test_expanded_master_writer_rejects_patient_planner_row_identity_mismatch(tmp_path, monkeypatch):
+    source = _book(tmp_path)
+    wb = load_workbook(source)
+    try:
+        ws = wb["MASTER_SCHEDULE"]
+        ws.insert_cols(11, amount=2)
+        ws["K1"] = "ΨΥΧΟΛΟΓΟΙ"
+        ws["L1"] = "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
+        ws["M1"] = "Κατάσταση"
+        wb["PATIENT_PLANNER"]["A3"] = "WRONG-ID"
+        wb["PATIENT_PLANNER"]["I1"] = "Ψυχ_Ώρα"
+        wb["PATIENT_PLANNER"]["J1"] = "Ψυχ_Ημέρες"
+        wb["PATIENT_PLANNER"]["K1"] = "Ψυχ_Ψυχολόγος"
+        wb.save(source)
+    finally:
+        wb.close()
+
+    output = tmp_path / "expanded_identity_mismatch.xlsm"
+    monkeypatch.setattr(
+        "rehab_excel.master_projection_writer.build_master_projection",
+        lambda _path: (
+            MasterProjectionRow(2, 3, "2", "A02", "ΒΑΡΒΑΡΑΣ", True, "παρών"),
+        ),
+    )
+    # The fake backend must enforce the same identity guard as the native backend.
+    class _IdentityGuardBackend(_FakeBackend):
+        def apply(self, workbook_path, projection):
+            wb = load_workbook(workbook_path, keep_vba=False)
+            try:
+                planner = wb["PATIENT_PLANNER"]
+                for item in projection:
+                    if str(planner.cell(item.planner_row, 1).value or "").strip() != item.patient_id:
+                        raise MasterProjectionWriteError("PATIENT_PLANNER row identity mismatch")
+            finally:
+                wb.close()
+
+    try:
+        create_master_projection_preview(
+            source, output, backend=_IdentityGuardBackend(), overwrite=True,
+        )
+    except MasterProjectionWriteError as exc:
+        assert "identity mismatch" in str(exc)
+    else:
+        raise AssertionError("Expected PATIENT_PLANNER identity mismatch to fail closed")
