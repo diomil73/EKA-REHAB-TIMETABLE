@@ -124,8 +124,8 @@ def test_policy_is_read_only_and_does_not_authorize_apply():
     from inspect import getsource
     import rehab_excel.daily_input_phase_evidence as policy
 
-    source = getsource(policy)
-    assert "no trusted phase verifier is registered yet" in source.lower()
+    source = " ".join(getsource(policy).lower().split())
+    assert "no trusted phase verifier is registered yet" in source
     assert "SaveCopyAs" not in source
     assert "ThisWorkbook.Save" not in source
     assert "DailyInputJournalApplyEnabled = True" not in source
