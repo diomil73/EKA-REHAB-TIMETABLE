@@ -168,7 +168,7 @@ class Win32ComMasterProjectionBackend:
     def _last_value_row(cls, ws) -> int:
         _total_cols, status_col = cls._schema(ws)
         rows = []
-        for col in (1, 2, 3, status_col, 14, 15, 16):
+        for col in (1, 2, 3, 11, 12, status_col, 14, 15, 16):
             try:
                 rows.append(int(ws.Cells(ws.Rows.Count, col).End(-4162).Row))
             except Exception:
