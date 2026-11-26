@@ -199,25 +199,44 @@ def _projection_metadata(
             if "PATIENT_PLANNER" not in sheet_names:
                 raise MasterProjectionError("Expanded MASTER requires PATIENT_PLANNER")
             planner_values = probe.cell_values("PATIENT_PLANNER")
-            planner_headers: dict[str, int] = {}
+            planner_headers: dict[str, list[int]] = {}
             for address, raw in planner_values.items():
                 match = re.fullmatch(r"([A-Z]+)1", address)
                 if match is None:
                     continue
-                planner_headers.setdefault(str(raw or "").strip().casefold(),
-                                           column_index_from_string(match.group(1)))
+                planner_headers.setdefault(str(raw or "").strip().casefold(), []).append(
+                    column_index_from_string(match.group(1))
+                )
+            required_headers = {
+                "patient_id": "PatientID",
+                **_PSYCHOLOGY_HEADERS,
+            }
+            required_columns: dict[str, int] = {}
+            for key, header_name in required_headers.items():
+                matches = planner_headers.get(header_name.casefold(), [])
+                if len(matches) != 1:
+                    raise MasterProjectionError(
+                        f"PATIENT_PLANNER requires one unambiguous {header_name} header"
+                    )
+                required_columns[key] = matches[0]
             psychology_columns = {
-                key: planner_headers.get(header.casefold())
-                for key, header in _PSYCHOLOGY_HEADERS.items()
+                key: required_columns[key]
+                for key in _PSYCHOLOGY_HEADERS
             }
             psychology_by_id = {}
             for patient_id, planner_row in row_by_id.items():
+                planner_patient_id = _package_patient_id(
+                    planner_values.get(
+                        f"{get_column_letter(required_columns['patient_id'])}{planner_row}"
+                    )
+                )
+                if planner_patient_id != patient_id:
+                    raise MasterProjectionError(
+                        f"PATIENT_PLANNER row {planner_row} does not match PATIENTS PatientID"
+                    )
                 values = {
-                    key: (
-                        planner_values.get(
-                            f"{get_column_letter(column)}{planner_row}"
-                        )
-                        if column is not None else None
+                    key: planner_values.get(
+                        f"{get_column_letter(column)}{planner_row}"
                     )
                     for key, column in psychology_columns.items()
                 }
