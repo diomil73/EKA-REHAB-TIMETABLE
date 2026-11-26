@@ -197,3 +197,17 @@ Added `Python/rehab_excel/daily_input_input_ledger_phase_adapter.py` and `Tests/
 The INPUT_AND_LEDGER contract status is now **REPORT_ADAPTER_ONLY**, like PREPARED. Eight remaining evidence kinds stay **NOT_IMPLEMENTED**. `validate_phase_verifier_report()` continues to reject INPUT_AND_LEDGER positive authorization while trusted attestation is not integrated; `require_trusted_verifier_attestation()` remains reject-only. Adapter output is neither signed nor a receipt, journal append, actual operational COM proof or Apply/Restore authorization.
 
 Synthetic negative/positive publication tests were added. The adapter tests use an injected fake native diagnostic; they do not execute the user's Excel. GitHub CI results for the current code/test head must be recorded after completion. The prior 2770-pass cross-platform CI belongs to the preceding diagnostic-only commit and must not be misrepresented as coverage of this new adapter. No business workbook, VBA, UI, journal writer or Gate 2 change. Zero-change policy and real disposable native Excel smoke test remain open.
+
+
+## 16. PREPARED_SNAPSHOT exact artifact digest equality regression — 26/11/2026
+
+The PREPARED report contract must bind `prepared_snapshot_sha256` to the exact workbook evidence artifact digest `evidence_sha256`. Presence-only validation is insufficient: a report could otherwise name one XLSM artifact while separately claiming another PREPARED snapshot identity.
+
+The current contract rejects both a missing digest and any non-equal digest. The PREPARED report adapter computes the two fields from the same saved workbook bytes after native read-only reopen and checks that those bytes remain unchanged across verification.
+
+Added synthetic negative regression:
+`Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot_report_rejects_digest_mismatch`.
+
+Commit: `6043c5a0a4ce8052f5d4333bcfb33984fb9eee8c`.
+
+Test execution is **PENDING**. This is a contract test, not native Excel evidence or trusted attestation. PREPARED remains REPORT_ADAPTER_ONLY; SHA-256 report integrity is not authenticity. No receipt append, journal write, Apply/Restore authorization or Gate 2 opening is introduced.
