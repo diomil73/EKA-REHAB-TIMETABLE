@@ -1529,3 +1529,13 @@ Added `Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot
 Commit: `6043c5a0a4ce8052f5d4333bcfb33984fb9eee8c`.
 
 **This one new mismatch regression: NOT YET EXECUTED.** No new Windows/Linux green result is claimed. Do not repeat the earlier 13-file focused suite: the operator already reported **214 passed, 1 symlink-specific skip, no warnings summary** after both phase-report adapters and the `keep_vba=False` cleanup (see §4.226 / matrix). That suite predates only this added mismatch case. When the operator explicitly returns to the PC, run only `python -m pytest Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot_report_rejects_digest_mismatch -q -rs`. No local PC action is requested while mobile-only. No real Excel/operational workbook was used; no VBA, journal, Apply/Restore, production workbook or Gate 2 behavior changed.
+
+### 2026-11-26 — Projection chain source-capture status corrected; MASTER K/L remains mandatory
+
+A further live repository audit confirms that native source capture, the complete expected THERAPIST_DAILY 126-cell grid, canonical source preflight and one-call native source + INPUT_AND_LEDGER + MASTER + THERAPIST_DAILY composition already exist (design doc §§12–17). Do not rebuild these components. Latest recorded full synthetic CI is run \`45680015176\`, HEAD \`fbf6e5571ad7cf6be412f719f304ade5d3c1322c\`: Windows 2923 passed / 32 warnings; Ubuntu 2923 passed / 29 warnings; synthetic safety jobs passed. Fake COM only; no real Excel.
+
+The phase gap remains: \`PROJECTIONS_REOPEN\` has no registered phase-report adapter, operation-bound trusted report/receipt, authenticated shared-slot approval source or trusted verifier/build attestation. It remains \`NOT_IMPLEMENTED\`.
+
+**Mandatory MASTER K/L finding:** the expanded schema uses K=psychology, L=afternoon programme, M=status. The existing patient-program VBA renderer writes K on the individual patient refresh path, but \`master_projection_writer.py\` clears A:P and writes only A:J plus status, so bulk rebuild leaves K/L blank. The separate \`AFTERNOON_PHYSIO_SLOTS\` store, read-only patient panel and pure edit proposal exist, but there is no integrated MASTER L renderer or operational PM persistence/history acceptance. K/L are not among the six deferred items. Do not count the expanded MASTER as complete or treat the gap as cosmetic.
+
+Next cloud work: source-bound audit of the existing K renderer and PM slot schema, then the smallest safe extension of the existing MASTER writer/readback path. Preserve PatientID joins, independent AM/PM namespaces and blank-by-default PM; do not import legacy U, invent appointments or auto-approve shared slots. No native operator/production XLSM action while mobile-only.
