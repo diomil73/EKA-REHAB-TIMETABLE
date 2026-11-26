@@ -1104,3 +1104,11 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Expanded MASTER requires unique PATIENT_PLANNER headers for PatientID and all three psychology source fields. Projected inpatient PatientID must match the planner row before K is derived. Outpatients are intentionally excluded from this new row-presence requirement.
 - New synthetic coverage: missing psychology header, duplicate psychology header, PatientID row drift.
 - No native Excel COM proof, no VBA or production workbook change. Native disposable XLSM check still pending.
+
+### 2026-11-26 — Afternoon edit review uses existing 45-minute overlap semantics
+
+- Run `45872972784`; tested HEAD `a81a70cc7d225995267af369376a6b2d0358c237`.
+- Full regression: **Windows 2936 passed / 28 warnings; Ubuntu 2936 passed / 30 warnings**.
+- Synthetic safety jobs: GREEN on both platforms.
+- `review_afternoon_edit_plan` now checks the complete proposed schedule with the existing scheduler's 45-minute ΦΘ overlap function, in addition to exact shared-slot approval. Staggered same-therapist overlap and same-patient overlap fail; adjacent slots pass.
+- Pure/read-only policy only. No persistence, UI, VBA or native Excel operational proof.
