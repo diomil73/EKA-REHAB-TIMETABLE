@@ -29,12 +29,17 @@ def fixture(tmp_path, *, expanded=False, doctor=False):
             responsible_doctor="DOCTOR X" if doctor else None,
             psychology_display="16:30\nΔΕ, ΠΕ\nSYNTHETIC PROVIDER" if expanded else None,
         ),
-        MasterProjectionRow(6, 3, "P-002", "B01", "FICTIONAL PATIENT 2", False, "active"),
+        MasterProjectionRow(
+            6, 3, "P-002", "B01", "FICTIONAL PATIENT 2", False, "active",
+            psychology_display="12:00\\nΤΕ, ΠΑ\\nSYNTHETIC PROVIDER" if expanded else None,
+        ),
     )
     for item in items:
         for col, source in SOURCE_COLUMNS.items():
             ws.cell(item.target_row, col).value = f"=PATIENT_PLANNER!{source}{item.planner_row}"
         ws.cell(item.target_row, status).value = f"=PATIENT_PLANNER!E{item.planner_row}"
+        if expanded:
+            ws.cell(item.target_row, 11).value = item.psychology_display
         if item.responsible_doctor:
             ws.cell(item.target_row, 3).value = f"{item.display_name}\n✚ {item.responsible_doctor}"
     wb.save(path)
