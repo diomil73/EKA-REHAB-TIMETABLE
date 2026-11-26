@@ -27,6 +27,8 @@ def _workbook(path, items, *, doctor=False, expanded=False):
         for col, source in SOURCE_COLUMNS.items():
             ws.cell(item.target_row, col).value = f"=PATIENT_PLANNER!{source}{item.planner_row}"
         ws.cell(item.target_row, status_col).value = f"=PATIENT_PLANNER!E{item.planner_row}"
+        if expanded:
+            ws.cell(item.target_row, 11).value = item.psychology_display
         if item.responsible_doctor:
             ws.cell(item.target_row, 3).value = f"{item.display_name}\n✚ {item.responsible_doctor}"
     wb.save(path)
