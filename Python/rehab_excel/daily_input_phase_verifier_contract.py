@@ -117,6 +117,7 @@ _CONTRACTS = {
         EvidenceKind.PROJECTIONS_REOPEN, "diomil.projections-native-reopen",
         "contract-v1", "native_excel_readonly_reopen",
         ("sheet:MASTER_SCHEDULE", "affected_therapist_projections", "source_input_ledger_linkage"), True,
+        implementation_status=VerifierImplementationStatus.REPORT_ADAPTER_ONLY,
     ),
     EvidenceKind.PENDING_DECISION_INVENTORY: PhaseVerifierContract(
         EvidenceKind.PENDING_DECISION_INVENTORY, "diomil.pending-decision-inventory-reopen",
