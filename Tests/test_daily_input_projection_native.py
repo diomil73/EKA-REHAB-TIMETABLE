@@ -317,7 +317,7 @@ def test_composite_requires_independent_psychology_literal_in_expanded_master(tm
     expected = (
         MasterProjectionRow(
             5, 2, "P-001", "A01", "FICTIONAL PATIENT", False, "active",
-            psychology_display="16:30\\nΔΕ, ΠΕ\\nSYNTHETIC PROVIDER",
+            psychology_display="16:30\nΔΕ, ΠΕ\nSYNTHETIC PROVIDER",
         ),
     )
     master = MasterProjectionNativeReadback(
