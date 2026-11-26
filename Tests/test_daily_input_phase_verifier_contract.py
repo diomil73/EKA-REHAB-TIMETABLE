@@ -187,6 +187,18 @@ def test_prepared_native_readback_requires_exact_snapshot_digest_and_remains_dia
         validate_phase_verifier_report(report, prepared_operation())
 
 
+
+def test_prepared_snapshot_report_rejects_digest_mismatch():
+    report = create_phase_verifier_report(**prepared_report_fields(
+        prepared_snapshot_sha256="d" * 64,
+    ))
+    with pytest.raises(
+        PhaseVerifierContractError,
+        match="PREPARED snapshot digest must equal the inspected snapshot artifact digest",
+    ):
+        validate_phase_verifier_report(report, prepared_operation())
+
+
 def test_positive_phase_report_fails_closed_until_trusted_attestation_is_integrated():
     report = create_phase_verifier_report(**report_fields())
     with pytest.raises(PhaseVerifierNotImplementedError, match="trusted verifier attestation is not integrated"):
