@@ -1038,3 +1038,12 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Execution: **PENDING for this one newly added test only**. The prior 13-file Windows focused suite is already GREEN at 214 passed / 1 symlink-specific skip / no warnings summary and includes both phase-report adapters; do not repeat it. When the operator returns to the PC, run only `Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot_report_rejects_digest_mismatch -q -rs`. No PC command during mobile-only mode.
 - Native Excel / operational acceptance: NOT ESTABLISHED. This test uses synthetic report data only.
 - Transaction authorization / Apply / Restore / Gate 2: unchanged; Gate 2 CLOSED.
+
+### 2026-11-26 — Projection chain inventory correction and MASTER K/L coverage gap
+
+- Existing implementation inventory: native source-sheet capture; PATIENTS/PATIENT_PLANNER A:E identity mirror; complete therapist expected-grid builder (126 cells); canonical date-specific source preflight; one-call native source + INPUT_AND_LEDGER + MASTER + THERAPIST_DAILY readback; exact workbook digest/date/count composition.
+- Latest recorded full cross-platform synthetic CI: run \`45680015176\`, HEAD \`fbf6e5571ad7cf6be412f719f304ade5d3c1322c\`; Windows 2923 passed / 32 warnings; Ubuntu 2923 passed / 29 warnings; both synthetic safety jobs passed. Fake COM only, not real Excel.
+- No repeat of those already-green tests absent a relevant code change.
+- Remaining phase gap: \`PROJECTIONS_REOPEN\` still has no report adapter/registered verifier, trusted operation-bound attestation or authenticated shared-slot approval source; remains NOT_IMPLEMENTED.
+- Newly confirmed mandatory application gap: MASTER K (psychology) is rendered by the existing patient-program VBA refresh path but is cleared/not repopulated by bulk \`master_projection_writer.py\`; MASTER L (afternoon programme) has a separate \`AFTERNOON_PHYSIO_SLOTS\` source contract and read-only patient panel but no MASTER renderer or operational persistence/history acceptance. The current expanded MASTER test explicitly expects K/L blank, so it is not coverage of the required business content.
+- K/L are not authorized deferrals. New focused synthetic tests must be added only alongside the actual K/L integration, covering source-to-PatientID-to-MASTER mapping, blank PM default, exact day/time/provider rendering, stale-row clearing and no AM/PM cross-contamination. Native Excel proof remains PC-only.
