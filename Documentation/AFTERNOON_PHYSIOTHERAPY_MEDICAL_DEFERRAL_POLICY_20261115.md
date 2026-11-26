@@ -626,3 +626,11 @@ The pure afternoon patient edit review is now composed with `review_afternoon_ex
 Synthetic regression added: `test_edit_plan_rejects_staggered_overlapping_45_minute_physio_slots`.
 
 Full GitHub Actions run `45872972784`, HEAD `a81a70cc7d225995267af369376a6b2d0358c237`: **Windows 2936 passed / 28 warnings; Ubuntu 2936 passed / 30 warnings**. Both synthetic safety jobs passed.
+
+## 2026-11-26 — Explicit weekday-combination parser regression
+
+Mobile-safe synthetic work confirmed the PM draft adapter reuses the shared morning `parse_weekday_groups` behavior. One explicit time/provider may be applied only to the explicitly named weekday groups; e.g. `ΔΕ-ΤΡ/ΠΕ-ΠΑ` creates four separate weekday facts. Repeated weekdays across groups fail closed. No implicit daily assignment is created.
+
+CI run `45874054596`, HEAD `04e2d71b79281625b5d16bb20efcc9a5d7646e20`: Windows **2938 passed / 30 warnings**, Ubuntu **2938 passed / 29 warnings**; both synthetic safety jobs passed.
+
+This does not approve a PM UI or visual layout, and does not change the five-column source, MASTER L, persistence, VBA or any workbook. PC review remains required before integrated PM design.
