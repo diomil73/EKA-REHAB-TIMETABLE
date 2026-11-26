@@ -3340,3 +3340,16 @@ The detailed source audit is complete. No workbook, VBA or runtime code was chan
 4. Continue to keep PM persistence, scheduling, history, medical deferral and shared-slot approval separate from this MASTER display task.
 
 This audit prevents a display guess from becoming an accidental clinical data rule.
+
+### 4.245 Afternoon physiotherapy scope clarification — defer UI/display until PC review — 26/11/2026
+
+The user clarified the clinical and operational scope. This supersedes the tentative L-cell display proposal in §4.244; no display format is approved yet.
+
+- **Do not implement the afternoon MASTER L renderer or finalize its visual layout now.** Wait until the user is back at a PC, where candidate layouts can be reviewed in the actual workbook context. Do not ask the user to approve a text mock-up from mobile.
+- Afternoon patients are a subset of the morning patients, not a separate patient population. The same PatientID must connect both schedules; never create duplicate patients or a separate PM patient registry.
+- A patient may have afternoon physiotherapy on only selected weekdays, not necessarily every weekday. The afternoon programme must support explicit weekday selection and the same valid day-combination behavior as the existing morning programme. Do not assume all weekdays, expand a selection to every day, or infer a recurring pattern.
+- The general treatment duration is **45 minutes**. Treat this as the user's stated general rule for future PM scheduling design, not permission to invent end times in the current five-column source or to assume exceptions are impossible. The current \`AFTERNOON_PHYSIO_SLOTS\` schema stores start time only; no duration/end-time is currently persisted there.
+- Existing PM source, blank-by-default behavior, selected-patient read-only panel and pure edit proposal remain as previously implemented. They do not yet provide complete editable PM scheduling, history, daily integration, or MASTER display.
+- Until PC review: keep L unimplemented/blank in the bulk projection; do not write a guessed line format, grouping or ordering; do not alter the existing morning day selection/combinations or AM schedule; do not create PM appointments or populate PM data.
+
+**Current mobile-safe work:** documentation, source-contract review and independent synthetic engineering unrelated to choosing the PM visual layout may continue. At the next PC session, first inspect the real disposable DEMO layout and agree the visual presentation, then design/implement the PM day-selection and combination behavior by reusing the morning rules, with exact PatientID linkage and the 45-minute general duration policy. Only then proceed to PM persistence/readback/history and MASTER integration. No production workbook is to be used for exploratory layout trials.
