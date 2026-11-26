@@ -195,6 +195,21 @@ def verify_master_projection_native_readonly(
             status_col = 13
         else:
             raise MasterProjectionNativeReadbackError("Native MASTER schema unsupported")
+        expanded_schema = status_col == 13
+        if expanded_schema and any(
+            type(item.psychology_display) is not str
+            for item in expected_projection
+        ):
+            raise MasterProjectionNativeReadbackError(
+                "Expanded MASTER requires independent psychology expectations"
+            )
+        if not expanded_schema and any(
+            item.psychology_display is not None
+            for item in expected_projection
+        ):
+            raise MasterProjectionNativeReadbackError(
+                "Legacy MASTER cannot accept expanded psychology expectations"
+            )
 
         formula_cells_checked = 0
         evaluated_cells_checked = 0
@@ -243,6 +258,39 @@ def verify_master_projection_native_readonly(
             evaluated_cells_checked += 1
             if actual_status != _text(item.status):
                 raise MasterProjectionNativeReadbackError("Native MASTER status differs from preflight")
+
+            if expanded_schema:
+                psychology_cell = ws.Cells(row, 11)
+                try:
+                    if bool(psychology_cell.HasFormula):
+                        raise MasterProjectionNativeReadbackError(
+                            "Native MASTER psychology must be a literal projection"
+                        )
+                    actual_psychology = _text(psychology_cell.Value)
+                except MasterProjectionNativeReadbackError:
+                    raise
+                except Exception as exc:
+                    raise MasterProjectionNativeReadbackError(
+                        "Native MASTER psychology value unavailable"
+                    ) from exc
+                if actual_psychology != item.psychology_display:
+                    raise MasterProjectionNativeReadbackError(
+                        "Native MASTER psychology differs from independent preflight"
+                    )
+                evaluated_cells_checked += 1
+
+                afternoon_cell = ws.Cells(row, 12)
+                try:
+                    if bool(afternoon_cell.HasFormula) or afternoon_cell.Value not in (None, ""):
+                        raise MasterProjectionNativeReadbackError(
+                            "MASTER afternoon column must remain blank until approved"
+                        )
+                except MasterProjectionNativeReadbackError:
+                    raise
+                except Exception as exc:
+                    raise MasterProjectionNativeReadbackError(
+                        "Native MASTER afternoon cell unavailable"
+                    ) from exc
 
         result = MasterProjectionNativeReadback(
             workbook_sha256=before_hash,
