@@ -127,7 +127,8 @@ def _projection_metadata(
     path: str | Path,
     *,
     room_order: Sequence[str] | None,
- ) -> tuple[tuple[str, ...], dict[str, int], int, dict[str, str] | None]:
+    psychology_patient_ids: Iterable[str] = (),
+) -> tuple[tuple[str, ...], dict[str, int], int, dict[str, str] | None]:
     """Read lightweight MASTER metadata directly from the OOXML package.
 
     These values are stored workbook data and do not require Excel formula
@@ -224,7 +225,12 @@ def _projection_metadata(
                 for key in _PSYCHOLOGY_HEADERS
             }
             psychology_by_id = {}
-            for patient_id, planner_row in row_by_id.items():
+            for patient_id in psychology_patient_ids:
+                planner_row = row_by_id.get(patient_id)
+                if planner_row is None:
+                    raise MasterProjectionError(
+                        f"PatientID {patient_id!r} has no PATIENTS row"
+                    )
                 planner_patient_id = _package_patient_id(
                     planner_values.get(
                         f"{get_column_letter(required_columns['patient_id'])}{planner_row}"
@@ -271,18 +277,18 @@ def build_master_projection(
             patient for patient in patient_list
             if patient_active_on(patient.patient_id, target_date, exits)
         )
-    rooms, row_by_id, master_header_row, psychology_by_id = _projection_metadata(
-        path,
-        room_order=room_order,
-    )
-
-    room_rank = {_sort_text(room): index for index, room in enumerate(rooms)}
-
     inpatients = [
         patient
         for patient in patient_list
         if patient.patient_type == PatientType.INPATIENT
     ]
+    rooms, row_by_id, master_header_row, psychology_by_id = _projection_metadata(
+        path,
+        room_order=room_order,
+        psychology_patient_ids=(patient.patient_id for patient in inpatients),
+    )
+
+    room_rank = {_sort_text(room): index for index, room in enumerate(rooms)}
 
     def sort_key(patient: Patient):
         room = patient.room or ""
