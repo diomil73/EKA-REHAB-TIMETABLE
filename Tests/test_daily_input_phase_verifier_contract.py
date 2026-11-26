@@ -89,17 +89,24 @@ def test_registry_covers_every_evidence_kind_exactly_once():
     assert len({item.verifier_id for item in contracts}) == len(EvidenceKind)
 
 
-def test_prepared_and_input_ledger_have_report_adapters_only_and_no_authorizing_verifier():
+def test_first_three_phase_kinds_have_report_adapters_only_and_no_authorizing_verifier():
     assert VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT].implementation_status == (
         VerifierImplementationStatus.REPORT_ADAPTER_ONLY
     )
     assert VERIFIER_CONTRACTS[EvidenceKind.INPUT_AND_LEDGER_REOPEN].implementation_status == (
         VerifierImplementationStatus.REPORT_ADAPTER_ONLY
     )
+    assert VERIFIER_CONTRACTS[EvidenceKind.PROJECTIONS_REOPEN].implementation_status == (
+        VerifierImplementationStatus.REPORT_ADAPTER_ONLY
+    )
     assert all(
         item.implementation_status == VerifierImplementationStatus.NOT_IMPLEMENTED
         for kind, item in VERIFIER_CONTRACTS.items()
-        if kind not in {EvidenceKind.PREPARED_SNAPSHOT, EvidenceKind.INPUT_AND_LEDGER_REOPEN}
+        if kind not in {
+            EvidenceKind.PREPARED_SNAPSHOT,
+            EvidenceKind.INPUT_AND_LEDGER_REOPEN,
+            EvidenceKind.PROJECTIONS_REOPEN,
+        }
     )
     assert all(
         item.implementation_status != VerifierImplementationStatus.IMPLEMENTED
