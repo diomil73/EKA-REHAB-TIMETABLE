@@ -78,7 +78,7 @@ All are BLOCKED for positive authorization until a deliberate operational design
 
 Synthetic negative tests cover canonical claim parsing, invalid algorithm and signature shape, bad timestamps, unexpected fields, report/source/operation drift, tampered report self-digest and unconditional denial of otherwise matching self-asserted claims.
 
-They do not execute a signer, verify any real cryptographic signature, prove a trusted time/key custody facility, run native Excel COM, alter operational workbooks, or authorize journal Apply/Restore. PREPARED_SNAPSHOT and INPUT_AND_LEDGER_REOPEN are REPORT_ADAPTER_ONLY; the other eight verifier kinds remain NOT_IMPLEMENTED. Neither report adapter is trusted or authorizing. Gate 2 stays closed.
+They do not execute a signer, verify any real cryptographic signature, prove a trusted time/key custody facility, run native Excel COM, alter operational workbooks, or authorize journal Apply/Restore. PREPARED_SNAPSHOT, INPUT_AND_LEDGER_REOPEN and PROJECTIONS_REOPEN are REPORT_ADAPTER_ONLY; the other seven verifier kinds remain NOT_IMPLEMENTED. None of these report adapters is trusted or authorizing. Gate 2 stays closed.
 
 
 ### CI confirmation for attestation claim contract — 25/11/2026
