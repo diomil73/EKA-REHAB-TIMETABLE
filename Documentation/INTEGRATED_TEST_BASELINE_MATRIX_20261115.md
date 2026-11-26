@@ -1077,3 +1077,12 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Tests changed: `Tests/test_master_projection_writer.py`, including expanded-schema K output and a focused display helper regression. No local execution claimed.
 - GitHub Actions run `45870586916`: synthetic safety jobs passed on Windows and Ubuntu; full Windows/Ubuntu Python regression jobs were still running at checkpoint. Record exact totals only after completion.
 - No native Excel proof, no VBA change, no operational workbook change. Do not repeat previous focused suite; this change triggered the full current regression workflow.
+
+### 2026-11-26 — MASTER K implementation final cross-platform CI result
+
+- Run: `45870877451`; code HEAD: `7799df57f9dc916fec7acb8eaa66ac4725297531`.
+- Complete Python regression: **Windows 2926 passed / 35 warnings; Ubuntu 2926 passed / 29 warnings**.
+- Synthetic safety jobs: GREEN on both platforms.
+- Includes expanded MASTER psychology K rendering, saved-output readback, empty-component/time formatting checks and K/L stale-row-boundary test.
+- An initial run failed two new tests due to a missing `datetime` import; corrected, then full cross-platform regression passed. Preserve this history; do not count the initial attempt as GREEN.
+- No native Excel proof, no VBA or production workbook change. K still needs disposable native Excel verification on PC. PM L/UI and day-combination work remain deferred until PC review.

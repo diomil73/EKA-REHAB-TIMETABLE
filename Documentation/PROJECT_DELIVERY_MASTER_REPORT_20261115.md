@@ -1567,3 +1567,14 @@ Implemented the existing VBA psychology display contract in the expanded MASTER 
 The writer deliberately leaves L blank and clears stale content. No PM display/scheduling code, VBA, production workbook or native Excel operation changed. New/updated synthetic tests cover expanded K rendering and formatting semantics.
 
 GitHub Actions full Windows + Ubuntu regression run `45870586916` is in progress at this checkpoint. Synthetic safety jobs are GREEN on both OSes; complete regression results are pending. Do not claim overall test GREEN until both complete. No local PC action requested.
+
+### 2026-11-26 — MASTER K implementation cross-platform GREEN
+
+The expanded MASTER bulk writer now renders psychology K from the established PATIENT_PLANNER fields and checks the PatientID row binding. Saved-output verification independently recomputes K. K/L are included in the stale-row clearing boundary; L remains blank by design.
+
+Final GitHub Actions run `45870877451`, code HEAD `7799df57f9dc916fec7acb8eaa66ac4725297531`:
+- Ubuntu: **2926 passed, 29 warnings**.
+- Windows: **2926 passed, 35 warnings**.
+- Synthetic safety jobs: both GREEN.
+
+The first attempt found a missing `datetime` import; it was fixed and the final full cross-platform run passed. This is Python/synthetic evidence only. Native Excel save/reopen, visual acceptance, VBA and operational workbook were not exercised or changed. PM L remains deferred until PC review.

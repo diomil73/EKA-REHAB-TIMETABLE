@@ -3368,3 +3368,16 @@ The user clarified the clinical and operational scope. This supersedes the tenta
 **CI:** GitHub Actions full cross-platform regression is running under workflow run `45870586916`, commit `3a697096dc7e850e431b9ba3a7add31167b64032`. Synthetic safety jobs have passed on Windows and Ubuntu; full regression jobs were still in progress at the time of this checkpoint. Do not call the changed tests GREEN until both full regression jobs complete successfully and their summaries are read. No repeat of prior 214-test focused suite is needed; the workflow runs the full current suite due to this writer change.
 
 **Next:** inspect both full CI job results and resolve any failures narrowly. If GREEN, record exact totals and leave native Excel verification for the next PC session. Keep PM visual design, weekday-combination UI and 45-minute duration integration deferred until the user reviews the disposable DEMO at a PC.
+
+### 4.247 MASTER K synthetic full regression GREEN; native review still pending — 26/11/2026
+
+The K psychology bulk-projection implementation in §4.246 is now covered by a complete cross-platform CI run.
+
+- Final GitHub Actions run: `45870877451`, tested code HEAD `7799df57f9dc916fec7acb8eaa66ac4725297531`.
+- Ubuntu complete regression: **2926 passed, 29 warnings**.
+- Windows complete regression: **2926 passed, 35 warnings**.
+- Synthetic safety regression: **GREEN on both Windows and Ubuntu**.
+- The first attempt exposed a missing `datetime` import in the new time formatter; the failure was isolated from the full logs, corrected, and the final complete run passed. No warnings were hidden or broadly suppressed by this code change.
+- A further regression covers the MASTER stale-row boundary: K and L columns are now included when determining the last content row, so stale psychology/PM cell content is within the clear range. L remains deliberately blank after rebuild.
+
+**Evidence classification:** Python/source and synthetic cross-platform GREEN only. No native Excel COM execution, no actual XLSM save/close/reopen proof, no manual layout acceptance, no VBA change, and no production workbook change. K is implemented in the bulk writer but still requires disposable native Excel confirmation at the next PC session. PM L remains unimplemented pending PC visual review and the agreed weekday-combination design. Gate 2 remains closed.
