@@ -196,3 +196,19 @@ def test_existing_scheduler_overlap_adapter_never_checks_morning_entries():
     )
     # This API takes afternoon rows only; there is no morning collection.
     assert review_afternoon_existing_scheduler_overlaps((slot("SYNTH-P1"),)).ready
+
+def test_edit_plan_rejects_staggered_overlapping_45_minute_physio_slots():
+    from rehab_excel.afternoon_patient_edit_plan import prepare_afternoon_patient_edit
+    from rehab_excel.afternoon_shared_slot_gate import review_afternoon_edit_plan
+
+    current = (slot("SYNTH-P1", hour=16),)
+    plan = prepare_afternoon_patient_edit(
+        current,
+        patient_id="SYNTH-P2",
+        replacement_rows=(
+            AfternoonSlot("SYNTH-P2", "ΦΘ", "ΔΕ", time(16, 30), "SYNTH-PT"),
+        ),
+        known_patient_ids=("SYNTH-P1", "SYNTH-P2"),
+    )
+    with pytest.raises(AfternoonSharedSlotError):
+        review_afternoon_edit_plan(plan)
