@@ -1047,3 +1047,9 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Remaining phase gap: \`PROJECTIONS_REOPEN\` still has no report adapter/registered verifier, trusted operation-bound attestation or authenticated shared-slot approval source; remains NOT_IMPLEMENTED.
 - Newly confirmed mandatory application gap: MASTER K (psychology) is rendered by the existing patient-program VBA refresh path but is cleared/not repopulated by bulk \`master_projection_writer.py\`; MASTER L (afternoon programme) has a separate \`AFTERNOON_PHYSIO_SLOTS\` source contract and read-only patient panel but no MASTER renderer or operational persistence/history acceptance. The current expanded MASTER test explicitly expects K/L blank, so it is not coverage of the required business content.
 - K/L are not authorized deferrals. New focused synthetic tests must be added only alongside the actual K/L integration, covering source-to-PatientID-to-MASTER mapping, blank PM default, exact day/time/provider rendering, stale-row clearing and no AM/PM cross-contamination. Native Excel proof remains PC-only.
+
+### 2026-11-26 — K/L display contract audit
+
+- K psychology display is defined by the existing VBA renderer: \`Ψυχ_Ώρα\`, \`Ψυχ_Ημέρες\`, \`Ψυχ_Ψυχολόγος\`, in that order, non-empty parts newline-separated; recognized date/numeric time becomes \`hh:mm\`. Bulk writer parity can be implemented and tested synthetically.
+- L source schema is explicit and independent, but no MASTER display convention is approved. Patient-panel \`PM_ROW\` is a transport format, not cell formatting policy. Do not guess grouping, ordering or duration. Keep L empty until exact convention is confirmed.
+- No code changed in this audit. Native Excel remains PC-only.
