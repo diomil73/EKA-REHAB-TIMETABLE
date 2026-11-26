@@ -310,3 +310,27 @@ def test_psychology_display_matches_existing_component_order_and_omits_empty_par
     assert _build_psychology_display(None, "ΔΕ, ΠΕ", "") == "ΔΕ, ΠΕ"
     assert _build_psychology_display("  ", None, "ΔΟΚΙΜΑΣΤΗΣ") == "ΔΟΚΙΜΑΣΤΗΣ"
     assert _build_psychology_display("μετά τις 16:00", "", "") == "μετά τις 16:00"
+
+def test_expanded_master_last_row_includes_stale_psychology_and_afternoon_cells(monkeypatch):
+    class _Cell:
+        def __init__(self, row):
+            self.Row = row
+
+        def End(self, _direction):
+            return self
+
+    class _Rows:
+        Count = 100
+
+    class _Worksheet:
+        Rows = _Rows()
+
+        def Cells(self, _row, col):
+            return _Cell({1: 5, 11: 20, 12: 30, 13: 4}.get(col, 1))
+
+    monkeypatch.setattr(
+        Win32ComMasterProjectionBackend,
+        "_schema",
+        classmethod(lambda _cls, _ws: (13, 13)),
+    )
+    assert Win32ComMasterProjectionBackend._last_value_row(_Worksheet()) == 30
