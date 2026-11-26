@@ -3381,3 +3381,16 @@ The K psychology bulk-projection implementation in §4.246 is now covered by a c
 - A further regression covers the MASTER stale-row boundary: K and L columns are now included when determining the last content row, so stale psychology/PM cell content is within the clear range. L remains deliberately blank after rebuild.
 
 **Evidence classification:** Python/source and synthetic cross-platform GREEN only. No native Excel COM execution, no actual XLSM save/close/reopen proof, no manual layout acceptance, no VBA change, and no production workbook change. K is implemented in the bulk writer but still requires disposable native Excel confirmation at the next PC session. PM L remains unimplemented pending PC visual review and the agreed weekday-combination design. Gate 2 remains closed.
+
+### 4.248 MASTER psychology K independent preflight/readback binding — cross-platform GREEN — 26/11/2026
+
+The K projection contract is now bound end-to-end to independent source expectations rather than being calculated only inside the writer.
+
+- `build_master_projection` reads the established PATIENT_PLANNER psychology headers from the source OOXML package and derives `MasterProjectionRow.psychology_display` by PatientID. This is the independent expected value carried through preflight.
+- The native COM writer checks the PATIENT_PLANNER row PatientID and verifies the live source values still produce the independent expected K display before writing the literal K cell. Any identity or source drift fails closed.
+- Saved OOXML readback checks K against that immutable expectation and confirms L is blank. Native readback separately checks K against the same expectation, rejects formulas in K, and confirms L remains blank.
+- Expanded schema without a string expectation is rejected; legacy schema cannot receive an expanded psychology expectation. The synthetic fixtures were updated to include independent K expectations for every expanded row.
+- Final full GitHub Actions run `45872223262`, code HEAD `e1c8cab22f7039c62ed31d57a80978851534bf91`: **Windows 2934 passed, 30 warnings; Ubuntu 2934 passed, 33 warnings**. Both synthetic safety jobs also passed.
+- Intermediate CI runs exposed incomplete expanded-schema fixtures (missing independent K expectations); fixtures were corrected. No production logic was weakened and no warnings were suppressed to obtain GREEN.
+
+**Evidence classification:** full Python regression and synthetic safety GREEN on Windows and Ubuntu. This is not native Excel execution: no actual COM save/close/reopen test, no operator visual acceptance, no VBA change and no operational workbook change. K still requires a disposable native Excel preview check on the next PC session. PM L remains blank and deferred; Gate 2 remains closed.
