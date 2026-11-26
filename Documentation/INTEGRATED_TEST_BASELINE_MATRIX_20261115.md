@@ -1060,3 +1060,11 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - PM patients are a subset of AM patients and must retain the same PatientID. Afternoon days are selected explicitly; reuse the existing morning weekday/day-combination rules. Never assume daily attendance or create a separate PM patient registry.
 - General treatment duration is 45 minutes. Existing PM source stores StartTime only; no end time/duration is persisted. Do not fabricate an end time or silently change the source schema.
 - No code/workbook/test changed for this user clarification. No repeat tests.
+
+### 2026-11-26 — PM requirements clarified; implementation deferred to PC review
+
+- No afternoon MASTER L renderer/layout work until the user can inspect the actual disposable DEMO at a PC. No guessed cell display convention.
+- Afternoon patients are a subset of morning patients; preserve the same PatientID identity.
+- PM sessions are optional on selected weekdays. Reuse the existing morning weekday selection and valid day-combination rules; do not default to all weekdays.
+- General session duration is 45 minutes, but the current PM sheet stores start time only. No end-time inference or schema expansion before the PC design review.
+- No PM runtime tests are warranted until code changes are made. Existing PM source/schema tests are already recorded; do not repeat them.
