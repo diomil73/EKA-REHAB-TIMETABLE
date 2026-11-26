@@ -18,7 +18,7 @@ from .master_projection import (
 from .native_excel import NativeStylePalette, excel_rgb
 from .master_visual_style import HEADER_COLORS, BODY_COLORS, ROW_SEPARATOR_GRAY, SOFT_VERTICAL_GRAY
 
-_PSychology_HEADERS = {
+_PSYCHOLOGY_HEADERS = {
     "time": "Ψυχ_Ώρα",
     "days": "Ψυχ_Ημέρες",
     "provider": "Ψυχ_Ψυχολόγος",
@@ -84,6 +84,17 @@ def _build_psychology_display(raw_time: object, raw_days: object, raw_provider: 
     if provider:
         parts.append(provider)
     return "\\n".join(parts)
+
+
+def _patient_id_text(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        numeric = float(text)
+    except ValueError:
+        return text
+    return str(int(numeric)) if numeric.is_integer() else text
 
 
 def _header_column(ws, header_name: str) -> int | None:
@@ -303,7 +314,7 @@ class Win32ComMasterProjectionBackend:
             psychology_columns = (
                 {
                     key: _header_column(planner, header)
-                    for key, header in _PSychology_HEADERS.items()
+                    for key, header in _PSYCHOLOGY_HEADERS.items()
                 }
                 if planner is not None
                 else {}
@@ -343,9 +354,9 @@ class Win32ComMasterProjectionBackend:
 
                 if planner is not None:
                     patient_id_col = _header_column(planner, "PatientID") or 1
-                    planner_patient_id = str(
-                        planner.Cells(item.planner_row, patient_id_col).Value or ""
-                    ).strip()
+                    planner_patient_id = _patient_id_text(
+                        planner.Cells(item.planner_row, patient_id_col).Value
+                    )
                     if planner_patient_id != item.patient_id:
                         raise MasterProjectionWriteError(
                             f"PATIENT_PLANNER row {item.planner_row} does not match "
@@ -453,7 +464,7 @@ def _verify_projection(
                     ),
                     None,
                 )
-                for key, header in _PSychology_HEADERS.items()
+                for key, header in _PSYCHOLOGY_HEADERS.items()
             }
             if planner is not None
             else {}
