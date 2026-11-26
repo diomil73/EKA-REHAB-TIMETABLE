@@ -92,10 +92,11 @@ class App:
         self.quit = True
 
 
-def _expected(doctor=False):
+def _expected(doctor=False, psychology_display=None):
     return (
         MasterProjectionRow(5, 2, "P-001", "A01", "FICTIONAL PATIENT 1",
-                            False, "active", "DOCTOR X" if doctor else None),
+                            False, "active", "DOCTOR X" if doctor else None,
+                            psychology_display),
     )
 
 
@@ -103,7 +104,8 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
               infectious=None, readonly=True, version="16.0",
               wrong_formula=False, formula_error=False,
               source_formula_column=None, source_value_mismatch=False,
-              expanded=False):
+              expanded=False, psychology_value=None, afternoon_value=None,
+              psychology_formula=False):
     item = items[0]
     identity = identity if identity is not None else (
         f"{item.display_name}\n✚ {item.responsible_doctor}"
@@ -149,6 +151,13 @@ def _fake_app(items, *, room="A01", identity=None, status="active",
             value = "MISMATCHED FORMULA RESULT"
         values[(item.target_row, col)] = Cell(value, formula)
     values[(item.target_row, status_col)] = Cell(status, "=PATIENT_PLANNER!E2")
+    if expanded:
+        psychology = item.psychology_display if psychology_value is None else psychology_value
+        values[(item.target_row, 11)] = Cell(
+            psychology,
+            "=PATIENT_PLANNER!K2" if psychology_formula else None,
+        )
+        values[(item.target_row, 12)] = Cell(afternoon_value)
     planner_values = {
         (2, column_index_from_string(source)): Cell(value)
         for source, value in source_values.items()
@@ -246,7 +255,9 @@ def test_native_master_readback_rejects_mutable_or_wrong_expectations(tmp_path):
 
 def test_native_master_readback_supports_expanded_psychology_afternoon_schema(tmp_path):
     path = tmp_path / "synthetic-master-expanded.xlsm"
-    expected = _expected()
+    expected = _expected(
+        psychology_display="16:30\\nΔΕ, ΠΕ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ",
+    )
     _workbook(path, expected, expanded=True)
     app, book = _fake_app(expected, expanded=True)
 
@@ -257,6 +268,28 @@ def test_native_master_readback_supports_expanded_psychology_afternoon_schema(tm
     assert result.status_column == 13
     assert result.projected_rows == 1
     assert result.formula_cells_checked == 11
-    assert result.evaluated_cells_checked == 11
+    assert result.evaluated_cells_checked == 12
+    assert app.quit is True
+    assert book.closed is False
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"psychology_value": "WRONG PSYCHOLOGY"},
+        {"afternoon_value": "UNAPPROVED PM DATA"},
+        {"psychology_formula": True},
+    ],
+)
+def test_native_master_readback_rejects_unverified_k_or_nonblank_l(tmp_path, kwargs):
+    path = tmp_path / "synthetic-master-expanded-invalid.xlsm"
+    expected = _expected(psychology_display="16:30\\nΔΕ\\nSYNTHETIC PROVIDER")
+    _workbook(path, expected, expanded=True)
+    app, book = _fake_app(expected, expanded=True, **kwargs)
+
+    with pytest.raises(MasterProjectionNativeReadbackError):
+        verify_master_projection_native_readonly(
+            path, expected_projection=expected, excel_factory=lambda: app,
+        )
+
     assert app.quit is True
     assert book.closed is False
