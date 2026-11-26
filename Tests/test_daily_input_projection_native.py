@@ -310,3 +310,37 @@ def test_composite_accounts_for_literal_doctor_identity_in_master_coverage(tmp_p
     )
     assert result.master_formula_cells_checked == 10
     assert result.master_evaluated_cells_checked == 11
+
+def test_composite_requires_independent_psychology_literal_in_expanded_master(tmp_path, monkeypatch):
+    path = _source(tmp_path)
+    digest, grid, ledger, _master, therapist = _evidence(path)
+    expected = (
+        MasterProjectionRow(
+            5, 2, "P-001", "A01", "FICTIONAL PATIENT", False, "active",
+            psychology_display="16:30\\nΔΕ, ΠΕ\\nSYNTHETIC PROVIDER",
+        ),
+    )
+    master = MasterProjectionNativeReadback(
+        digest, 1, 3, 13, "16.0",
+        formula_cells_checked=11, evaluated_cells_checked=12,
+    )
+    _patch_readers(monkeypatch, master, therapist)
+    result = verify_daily_input_projection_native_readonly(
+        path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+        expected_projection=expected, expected_projection_source_sha256=digest,
+        expected_therapist_grid=grid,
+    )
+    assert result.master_formula_cells_checked == 11
+    assert result.master_evaluated_cells_checked == 12
+
+    incomplete = MasterProjectionNativeReadback(
+        digest, 1, 3, 13, "16.0",
+        formula_cells_checked=11, evaluated_cells_checked=11,
+    )
+    _patch_readers(monkeypatch, incomplete, therapist)
+    with pytest.raises(DailyInputProjectionNativeReadbackError):
+        verify_daily_input_projection_native_readonly(
+            path, service_date=SERVICE_DATE, input_ledger_readback=ledger,
+            expected_projection=expected, expected_projection_source_sha256=digest,
+            expected_therapist_grid=grid,
+        )
