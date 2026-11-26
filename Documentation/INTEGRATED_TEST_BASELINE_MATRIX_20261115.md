@@ -1053,3 +1053,10 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - K psychology display is defined by the existing VBA renderer: \`Ψυχ_Ώρα\`, \`Ψυχ_Ημέρες\`, \`Ψυχ_Ψυχολόγος\`, in that order, non-empty parts newline-separated; recognized date/numeric time becomes \`hh:mm\`. Bulk writer parity can be implemented and tested synthetically.
 - L source schema is explicit and independent, but no MASTER display convention is approved. Patient-panel \`PM_ROW\` is a transport format, not cell formatting policy. Do not guess grouping, ordering or duration. Keep L empty until exact convention is confirmed.
 - No code changed in this audit. Native Excel remains PC-only.
+
+### 2026-11-26 — Afternoon PM implementation deferred pending PC visual review
+
+- Do not implement MASTER L display/layout until reviewed on PC in a disposable DEMO workbook; the earlier line-format suggestion is not approved.
+- PM patients are a subset of AM patients and must retain the same PatientID. Afternoon days are selected explicitly; reuse the existing morning weekday/day-combination rules. Never assume daily attendance or create a separate PM patient registry.
+- General treatment duration is 45 minutes. Existing PM source stores StartTime only; no end time/duration is persisted. Do not fabricate an end time or silently change the source schema.
+- No code/workbook/test changed for this user clarification. No repeat tests.
