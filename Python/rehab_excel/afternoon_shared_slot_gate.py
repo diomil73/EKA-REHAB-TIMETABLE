@@ -122,7 +122,7 @@ def review_afternoon_edit_plan(
 
     if not isinstance(plan, AfternoonEditPlan):
         raise AfternoonSharedSlotError("Validated afternoon edit plan required")
-    return review_afternoon_shared_slots(plan.after, approvals)
+    return review_afternoon_existing_scheduler_overlaps(plan.after, approvals)
 
 
 def review_afternoon_existing_scheduler_overlaps(
