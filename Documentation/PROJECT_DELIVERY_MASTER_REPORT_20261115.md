@@ -1551,3 +1551,11 @@ For L, the independent source contract is clear (PatientID, ΦΘ, Weekday, Start
 The user clarified that afternoon patients are a subset of morning patients, with afternoon sessions on selected weekdays only. The PM schedule must reuse the existing morning weekday selection and valid day-combination behavior, keyed to the same PatientID; no separate patient population or all-week assumption is allowed. General treatment duration is 45 minutes, but the current PM source stores start time only and no end time/duration.
 
 The proposed MASTER L display format is **not approved**. Do not implement L or finalize PM layout while the user is mobile. Defer visual review until the user is at a PC and can inspect a disposable DEMO workbook. No code or workbook changed for this clarification.
+
+### 2026-11-26 — Afternoon programme deferred pending PC visual review; day combinations required
+
+The user clarified that afternoon programme design/display must wait until a PC session so it can be assessed in the actual disposable DEMO workbook. No MASTER L cell format, grouping or ordering is approved; do not implement a guessed renderer now.
+
+Afternoon patients are a subset of the morning patient population and must join by the same PatientID. Afternoon assignment is optional by weekday: support explicit day selection and the same valid weekday-combination behavior as the existing morning programme; never assume daily attendance or create duplicate patient identities. The general treatment duration is 45 minutes, recorded as a future scheduling rule, but the current five-field AFTERNOON_PHYSIO_SLOTS source contains start time only. Do not infer or persist end times until the PM design is reviewed and the duration policy is integrated explicitly.
+
+Current action: defer PM UI, MASTER L display and scheduling integration. At PC, inspect the disposable DEMO and agree layout first, then reuse morning weekday-selection/combination semantics and implement PM persistence/readback/history safely. No production workbook experiments.
