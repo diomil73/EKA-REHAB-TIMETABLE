@@ -183,9 +183,9 @@ def create_projections_phase_report(
         raise ProjectionsPhaseReportAdapterError("Phase report contract rejected diagnostic") from exc
 
     try:
-        with output.open("x", encoding="utf-8", newline="\\n") as handle:
+        with output.open("x", encoding="utf-8", newline="\n") as handle:
             handle.write(report.to_json())
-            handle.write("\\n")
+            handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
     except FileExistsError as exc:
