@@ -1545,3 +1545,9 @@ Next cloud work: source-bound audit of the existing K renderer and PM slot schem
 Source inspection confirms the exact K psychology display contract: read PATIENT_PLANNER headers \`Ψυχ_Ώρα\`, \`Ψυχ_Ημέρες\`, \`Ψυχ_Ψυχολόγος\`; render non-empty parts in that order separated by newlines, formatting recognized date/numeric time as \`hh:mm\`. Existing patient refresh writes K when the header is \`ΨΥΧΟΛΟΓΟΙ\`. Bulk writer must reproduce this behavior without changing the existing VBA renderer.
 
 For L, the independent source contract is clear (PatientID, ΦΘ, Weekday, StartTime, Therapist; header-only means no appointments), but the selected-patient \`PM_ROW\` TSV is not an approved MASTER cell display convention. It is not specified whether identical time/provider rows should be grouped by weekday or displayed individually. No implementation may guess or infer duration. K can proceed independently; L stays blank until exact display format is confirmed.
+
+### 2026-11-26 — User clarification: afternoon scheduling/UI deferred to PC review
+
+The user clarified that afternoon patients are a subset of morning patients, with afternoon sessions on selected weekdays only. The PM schedule must reuse the existing morning weekday selection and valid day-combination behavior, keyed to the same PatientID; no separate patient population or all-week assumption is allowed. General treatment duration is 45 minutes, but the current PM source stores start time only and no end time/duration.
+
+The proposed MASTER L display format is **not approved**. Do not implement L or finalize PM layout while the user is mobile. Defer visual review until the user is at a PC and can inspect a disposable DEMO workbook. No code or workbook changed for this clarification.
