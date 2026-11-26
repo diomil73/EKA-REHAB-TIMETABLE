@@ -1,4 +1,5 @@
 """Synthetic tests for non-authorizing PROJECTIONS_REOPEN report adapter."""
+from dataclasses import replace
 from datetime import date, time
 from hashlib import sha256
 from pathlib import Path
@@ -182,10 +183,7 @@ def test_adapter_rejects_wrong_phase_or_preflight_identity_before_native(tmp_pat
     with pytest.raises(adapter.ProjectionsPhaseReportAdapterError, match="Invalid phase transition"):
         create(root, workbook, output, previous, previous, preflight)
     assert calls == []
-    bad = DailyInputOperation(
-        operation.operation_id, "a" * 64, operation.service_date,
-        operation.revision, operation.phase,
-    )
+    bad = replace(operation, source_sha256="a" * 64)
     with pytest.raises(adapter.ProjectionsPhaseReportAdapterError, match="Preflight/operation"):
         create(root, workbook, output, previous, bad, preflight)
     assert calls == []
