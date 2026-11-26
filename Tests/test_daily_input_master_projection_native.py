@@ -256,7 +256,7 @@ def test_native_master_readback_rejects_mutable_or_wrong_expectations(tmp_path):
 def test_native_master_readback_supports_expanded_psychology_afternoon_schema(tmp_path):
     path = tmp_path / "synthetic-master-expanded.xlsm"
     expected = _expected(
-        psychology_display="16:30\\nΔΕ, ΠΕ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ",
+        psychology_display="16:30\nΔΕ, ΠΕ\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ",
     )
     _workbook(path, expected, expanded=True)
     app, book = _fake_app(expected, expanded=True)
@@ -282,7 +282,7 @@ def test_native_master_readback_supports_expanded_psychology_afternoon_schema(tm
 )
 def test_native_master_readback_rejects_unverified_k_or_nonblank_l(tmp_path, kwargs):
     path = tmp_path / "synthetic-master-expanded-invalid.xlsm"
-    expected = _expected(psychology_display="16:30\\nΔΕ\\nSYNTHETIC PROVIDER")
+    expected = _expected(psychology_display="16:30\nΔΕ\nSYNTHETIC PROVIDER")
     _workbook(path, expected, expanded=True)
     app, book = _fake_app(expected, expanded=True, **kwargs)
 
