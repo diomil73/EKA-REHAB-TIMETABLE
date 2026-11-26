@@ -255,4 +255,4 @@ def test_expanded_master_projection_derives_psychology_display_from_planner_sour
     )
 
     assert len(rows) == 1
-    assert rows[0].psychology_display == "16:30\\nΔΕ, ΠΕ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
+    assert rows[0].psychology_display == "16:30\nΔΕ, ΠΕ\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
