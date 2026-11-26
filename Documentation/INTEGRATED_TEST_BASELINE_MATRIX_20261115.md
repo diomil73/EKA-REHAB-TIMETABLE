@@ -1027,3 +1027,14 @@ CI run `45680015176`, HEAD `fbf6e5571ad7cf6be412f719f304ade5d3c1322c`, SUCCESS:
 - Both synthetic safety jobs passed.
 
 Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric preservation, wrapper patient-count binding and mismatch rejection. Fake COM only.
+
+
+### 2026-11-26 — PREPARED_SNAPSHOT digest mismatch regression added
+
+- Test: `Tests/test_daily_input_phase_verifier_contract.py::test_prepared_snapshot_report_rejects_digest_mismatch`.
+- Scope: synthetic negative contract test; mismatched `prepared_snapshot_sha256` must not equal the exact saved evidence artifact `evidence_sha256`.
+- Expected: fail closed before any positive-phase verifier availability/authorization decision.
+- Code path: PREPARED contract equality guard; PREPARED report adapter binds both digests to the same saved XLSM bytes and checks byte immutability during readback.
+- Execution: **PENDING**. Do not count this test as passed until a real pytest run reports it.
+- Native Excel / operational acceptance: NOT ESTABLISHED. This test uses synthetic report data only.
+- Transaction authorization / Apply / Restore / Gate 2: unchanged; Gate 2 CLOSED.
