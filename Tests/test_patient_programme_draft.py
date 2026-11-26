@@ -75,3 +75,22 @@ def test_draft_cannot_be_partially_instantiated():
 def test_invalid_day_cannot_enter_patient_draft():
     with pytest.raises(PatientProgrammeDraftError):
         AfternoonPhysioDraft(time(16, 0), "ΚΥ", "SYNTH-PT")
+
+def test_afternoon_accepts_multiple_explicit_weekday_combinations():
+    entries = prepare_afternoon_physio_drafts(
+        clock="16:30",
+        days="ΔΕ-ΤΡ/ΠΕ-ΠΑ",
+        therapist="SYNTH-PT-PM",
+    )
+    assert tuple(entry.weekday for entry in entries) == ("ΔΕ", "ΤΡ", "ΠΕ", "ΠΑ")
+    assert all(entry.start_time == time(16, 30) for entry in entries)
+    assert all(entry.physiotherapist == "SYNTH-PT-PM" for entry in entries)
+
+
+def test_afternoon_rejects_repeated_weekday_across_combinations():
+    with pytest.raises(PatientProgrammeDraftError):
+        prepare_afternoon_physio_drafts(
+            clock="16:30",
+            days="ΔΕ-ΤΡ/ΤΡ-ΠΑ",
+            therapist="SYNTH-PT-PM",
+        )
