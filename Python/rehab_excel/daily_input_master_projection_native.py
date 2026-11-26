@@ -114,9 +114,10 @@ def verify_master_projection_native_readonly(
     """Compare saved OOXML links and native Excel-evaluated identity fields.
 
     The native instance is fresh, macro-disabled, read-only, and always closed
-    without saving. Only the room, patient display identity and status values
-    represented by MasterProjectionRow are compared here. This does not claim
-    that all MASTER columns or any therapist projection have been verified.
+    without saving. The room, patient display identity, status, expanded-schema psychology K and
+    blank afternoon L are checked against independent preflight expectations.
+    This does not claim that all MASTER columns or any therapist projection
+    have been verified.
     """
     if type(expected_projection) is not tuple:
         raise MasterProjectionNativeReadbackError("Immutable independent MASTER expectations required")
