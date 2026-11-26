@@ -612,3 +612,17 @@ The operator clarified the intended afternoon programme behavior:
 - The user explicitly deferred the PM visual layout and implementation. Wait until the user is at a PC and can inspect the actual disposable DEMO workbook. Do not implement a guessed MASTER L display or PM UI from mobile.
 
 This clarification supersedes any earlier suggestion to display one PM source row per MASTER cell line. No PM display convention is approved. Existing morning scheduling behavior must remain unchanged.
+
+## 2026-11-26 — Patient edit review now enforces existing 45-minute overlap policy
+
+The pure afternoon patient edit review is now composed with `review_afternoon_existing_scheduler_overlaps`, not only the exact-start shared-membership gate. Every proposed full-sheet `after` state is checked using the existing `automatic_patient_schedule._intervals_overlap` function and the established ΦΘ standard 45-minute duration.
+
+- Same therapist, different patients, staggered starts that overlap within 45 minutes are rejected.
+- Same patient overlapping sessions are rejected even if therapists differ.
+- Adjacent non-overlapping 45-minute slots remain accepted.
+- Exact same-start group slots remain possible only with an exact patient-membership approval.
+- This remains a pure preview/review contract. It does not write Excel, approve a real booking, add a UI control, or change morning scheduling.
+
+Synthetic regression added: `test_edit_plan_rejects_staggered_overlapping_45_minute_physio_slots`.
+
+Full GitHub Actions run `45872972784`, HEAD `a81a70cc7d225995267af369376a6b2d0358c237`: **Windows 2936 passed / 28 warnings; Ubuntu 2936 passed / 30 warnings**. Both synthetic safety jobs passed.
