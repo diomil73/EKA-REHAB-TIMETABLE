@@ -1068,3 +1068,12 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - PM sessions are optional on selected weekdays. Reuse the existing morning weekday selection and valid day-combination rules; do not default to all weekdays.
 - General session duration is 45 minutes, but the current PM sheet stores start time only. No end-time inference or schema expansion before the PC design review.
 - No PM runtime tests are warranted until code changes are made. Existing PM source/schema tests are already recorded; do not repeat them.
+
+### 2026-11-26 — MASTER K writer change; full CI pending
+
+- Changed: expanded MASTER writer now renders psychology K from PATIENT_PLANNER exact headers `Ψυχ_Ώρα`, `Ψυχ_Ημέρες`, `Ψυχ_Ψυχολόγος`, matching existing VBA component order and omission behavior. Recognized time values render as `hh:mm`; unknown text remains literal.
+- Fail-closed identity check: PATIENT_PLANNER row PatientID must match the projection PatientID before K is written.
+- Saved-output verification checks K against source values. L remains deliberately blank; PM layout/scheduling deferred to PC review.
+- Tests changed: `Tests/test_master_projection_writer.py`, including expanded-schema K output and a focused display helper regression. No local execution claimed.
+- GitHub Actions run `45870586916`: synthetic safety jobs passed on Windows and Ubuntu; full Windows/Ubuntu Python regression jobs were still running at checkpoint. Record exact totals only after completion.
+- No native Excel proof, no VBA change, no operational workbook change. Do not repeat previous focused suite; this change triggered the full current regression workflow.
