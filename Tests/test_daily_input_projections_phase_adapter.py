@@ -39,7 +39,7 @@ def fixture(tmp_path):
     output = root / "projections-report.json"
     digest = sha256(workbook.read_bytes()).hexdigest()
 
-    initial = DailyInputOperation("projection-demo-001", digest, DAY.isoformat())
+    initial = DailyInputOperation("projection-demo-001", "a" * 64, DAY.isoformat())
     previous = advance_daily_input_operation(initial, Phase.INPUT_AND_LEDGER_COMMITTED)
     operation = advance_daily_input_operation(previous, Phase.PROJECTIONS_VERIFIED)
 
@@ -112,6 +112,7 @@ def test_adapter_emits_exact_bound_report_but_cannot_authorize(tmp_path, monkeyp
     assert report.journal_phase == operation.phase.value
     assert report.journal_revision == operation.revision
     assert report.source_workbook_sha256 == operation.source_sha256
+    assert report.source_workbook_sha256 != sha256(workbook.read_bytes()).hexdigest()
     assert report.evidence_sha256 == sha256(workbook.read_bytes()).hexdigest()
     assert report.evidence_artifact == workbook.name
     assert report.native_excel_version == "16.0"
