@@ -2798,3 +2798,12 @@ No real Excel/operational XLSM. Gate 2 remains closed.
 The native source capture now verifies A:E for every populated PATIENTS patient row. Planner formulas must match supported OOXML formulas and their source values; planner literals must exactly equal PATIENTS values. The one-call wrapper requires the identity-mirror row count to equal the preflight patient count, catching row/ID/room/name/status/infectious drift before later readbacks.
 
 CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed. No real Excel/operational XLSM.
+
+
+### 2026-11-28 — Υποχρεωτικός PowerShell execution rule
+
+Επαναλήφθηκε γνωστό σφάλμα τμηματικής επικόλλησης: try ολοκληρώθηκε χωριστά, finally εκτελέστηκε στο νέο prompt ως άγνωστη εντολή, το Start-Transcript έμεινε ανοικτό και το Move-Item απέτυχε λόγω file lock. Το FINAL_STATUS=B του wrapper δεν είναι έγκυρο schema αποτέλεσμα. Το schema comparison των τριών frozen candidates παραμένει PENDING, όχι B.
+
+**Από εδώ και πέρα:** για μακρά/κρίσιμη εργασία προτιμάται πλήρες μοναδικό .ps1 που εκτελείται μία φορά με powershell.exe -NoProfile -ExecutionPolicy Bypass -File <script.ps1>. Εναλλακτικά, ένα πλήρες & { ... } σε μία μόνο επικόλληση/υποβολή. Ποτέ χωριστά else/catch/finally, braces ή here-string terminators. Μην μετακινείς ενεργό transcript· πρώτα Stop-Transcript. Έλεγχε αμέσως κάθε $LASTEXITCODE και σταμάτα στο πρώτο failure. Πλήρης κανόνας: Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md και §4.253 του master guide.
+
+**Τρέχουσα τοπική κατάσταση:** branch work/afternoon-medical-scope-20261115, τελευταίο operator-confirmed local HEAD b2be9373, clean tracked status. Το PREPARED_SNAPSHOT focused test: 1 passed. Στοχευμένο warning diagnostic: 109 passed, 1 skipped (symlink unavailable), exit 0. Το εγκεκριμένο CC source απέτυχε σωστά στο projection preflight λόγω απουσίας Ψυχ_Ώρα από PATIENT_PLANNER. Η σύγκριση των τριών frozen candidates δεν ολοκληρώθηκε λόγω PowerShell wrapper split· μην επαναλάβεις τα ήδη πράσινα tests ή τον structural auditor χωρίς λόγο. Επόμενο βήμα: νέα, σωστά εκτελούμενη read-only schema comparison των τριών frozen candidates, με έλεγχο των baseline hashes και ακριβών headers. Κανένα workbook δεν έχει μεταβληθεί.
