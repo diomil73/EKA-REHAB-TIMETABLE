@@ -22,6 +22,7 @@ from rehab_excel.vba_semantic_audit import (
 
 from rehab_excel.vba_form_storage import (
     form_storage_evidence, compare_form_storage_evidence, stream_change_categories,
+    assert_form_storage_preserved,
     VbaFormStorageError,
 )
 from rehab_excel.vba_form_designer_audit import (
@@ -104,6 +105,8 @@ def main() -> int:
             print(f"OLE_{name.upper()}={count_value}")
         for name, count_value in sorted(categories.items()):
             print(f"OLE_{name.upper()}={count_value}")
+        ole_form_count = assert_form_storage_preserved(source_ole, preview_ole)
+        print(f"USERFORM_OLE_STREAMS_PRESERVED={ole_form_count}")
         designer_count = assert_userform_designers_preserved(source_designers, preview_designers)
         print(f"USERFORM_DESIGNERS_MATCHED={designer_count}")
         count = assert_vba_semantics_preserved(
@@ -111,6 +114,7 @@ def main() -> int:
             preview_components,
             journal_codename=None,
             expect_new_document=False,
+            independently_verified_form_storages=True,
         )
         print("VBA_COMPONENT_SEMANTICS=GREEN")
         print(f"COMPONENTS_MATCHED={count}")
