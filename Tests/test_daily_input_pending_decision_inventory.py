@@ -14,6 +14,7 @@ from rehab_excel.daily_input_operation import (
 from rehab_excel.daily_input_pending_decision_inventory import (
     PendingDecisionInventoryError,
     build_pending_decision_inventory,
+    validate_pending_decision_inventory,
     write_pending_decision_inventory,
 )
 from rehab_excel.daily_input_projection_preflight import DailyInputProjectionPreflight
@@ -203,3 +204,11 @@ def test_inventory_artifact_rejects_path_outside_evidence_root(tmp_path):
             inventory, evidence_root=root, artifact_path=outside,
         )
     assert not outside.exists()
+
+
+def test_artifact_writer_revalidates_caller_constructed_inventory():
+    previous, operation, preflight = fixture()
+    inventory = build_pending_decision_inventory(previous, operation, preflight)
+    forged = replace(inventory, inventory_sha256="f" * 64)
+    with pytest.raises(PendingDecisionInventoryError, match="digest mismatch"):
+        validate_pending_decision_inventory(forged)
