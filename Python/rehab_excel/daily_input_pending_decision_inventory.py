@@ -10,7 +10,7 @@ authorize a lifecycle transition.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, time
 from hashlib import sha256
 import json
 import os
@@ -138,7 +138,7 @@ def build_pending_decision_inventory(
                 or type(session.session_id) is not str or not session.session_id.strip()
                 or type(session.patient_id) is not str or not session.patient_id.strip()
                 or type(session.therapist_id) is not str or not session.therapist_id.strip()
-                or type(session.start_time).__name__ != "time"
+                or type(session.start_time) is not time
                 or session.start_time.second or session.start_time.microsecond
                 or (session.treatment is not None and type(session.treatment) is not str)
                 or type(session.robotic) is not bool):
