@@ -114,9 +114,10 @@ def create(data, **overrides):
         previous_operation=previous, operation=operation, preflight=preflight,
         evidence_root=root, report_path=report_path, report_id="pending-report-001",
     )
+    selected_inventory_path = overrides.pop("inventory_path", inventory_path)
     args.update(overrides)
     return create_pending_decision_phase_report(
-        workbook, inventory_path, **args,
+        workbook, selected_inventory_path, **args,
     )
 
 
@@ -143,7 +144,7 @@ def test_adapter_publishes_exact_inventory_bound_native_report_but_cannot_author
     assert report.source_workbook_sha256 == data[5].source_sha256
     assert report.evidence_artifact == data[2].name
     assert report.evidence_sha256 == data[8].artifact_sha256
-    assert report.evidence_sha256 != data[8].artifact_sha256[:0] + data[6].source_workbook_sha256
+    assert report.evidence_sha256 != data[6].source_workbook_sha256
     assert report.native_excel_version == "16.0"
     assert report.inspected_scope == (
         "pending_replacement_inventory", "operation_identity", "saved_workbook_sha256",
