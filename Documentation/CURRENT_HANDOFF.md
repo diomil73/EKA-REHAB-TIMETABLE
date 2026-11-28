@@ -2807,3 +2807,14 @@ CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2
 **Από εδώ και πέρα:** για μακρά/κρίσιμη εργασία προτιμάται πλήρες μοναδικό .ps1 που εκτελείται μία φορά με powershell.exe -NoProfile -ExecutionPolicy Bypass -File <script.ps1>. Εναλλακτικά, ένα πλήρες & { ... } σε μία μόνο επικόλληση/υποβολή. Ποτέ χωριστά else/catch/finally, braces ή here-string terminators. Μην μετακινείς ενεργό transcript· πρώτα Stop-Transcript. Έλεγχε αμέσως κάθε $LASTEXITCODE και σταμάτα στο πρώτο failure. Πλήρης κανόνας: Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md και §4.253 του master guide.
 
 **Τρέχουσα τοπική κατάσταση:** branch work/afternoon-medical-scope-20261115, τελευταίο operator-confirmed local HEAD b2be9373, clean tracked status. Το PREPARED_SNAPSHOT focused test: 1 passed. Στοχευμένο warning diagnostic: 109 passed, 1 skipped (symlink unavailable), exit 0. Το εγκεκριμένο CC source απέτυχε σωστά στο projection preflight λόγω απουσίας Ψυχ_Ώρα από PATIENT_PLANNER. Η σύγκριση των τριών frozen candidates δεν ολοκληρώθηκε λόγω PowerShell wrapper split· μην επαναλάβεις τα ήδη πράσινα tests ή τον structural auditor χωρίς λόγο. Επόμενο βήμα: νέα, σωστά εκτελούμενη read-only schema comparison των τριών frozen candidates, με έλεγχο των baseline hashes και ακριβών headers. Κανένα workbook δεν έχει μεταβληθεί.
+
+
+### 2026-11-28 — Pending replacement inventory snapshot added
+
+Added \`daily_input_pending_decision_inventory.py\` and synthetic tests. It derives every and only unresolved \`THERAPIST_ABSENT\` session from the exact immutable \`DailyInputProjectionPreflight\` states, checks exact SessionID/PatientID/date/original-provider/original-time joins, counts all five daily statuses, binds the operation source hash separately from the current evidence-workbook hash, and creates deterministic canonical JSON. The evidence writer is exclusive, root-confined and revalidates the inventory digest before writing.
+
+Full CI run **46161976361**, exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows **2958 passed / 28 warnings**, Ubuntu **2958 passed / 27 warnings**; both synthetic safety jobs passed.
+
+This is a target inventory model/artifact only. It does not contain provider options or operator decisions, is not a workbook sheet or native Excel verifier, does not write XLSM/VBA or create a phase report/receipt. \`PENDING_DECISION_INVENTORY\` remains \`NOT_IMPLEMENTED\`. Next mobile step: build its separate native-readback report adapter by reusing the existing composite source-capture diagnostic. Gate 2 remains closed.
+
+**PC-only queue unchanged:** read-only schema comparison of the three frozen H10 candidates remains pending after the earlier split PowerShell wrapper. The invalid \`FINAL_STATUS=B\` remains unusable. No frozen workbook was modified.

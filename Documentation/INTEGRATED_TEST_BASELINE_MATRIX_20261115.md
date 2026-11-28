@@ -1138,3 +1138,13 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - No workbook write/native Excel action occurred.
 - Mandatory future method: one complete .ps1 executed once, or one complete & { ... } pasted in a single submission. Never split compound clauses or here-string delimiters. Stop transcript before moving its file; check $LASTEXITCODE immediately. See Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md and guide §4.253.
 - This incident adds no pass/fail count and does not invalidate earlier green focused results.
+
+
+### 2026-11-28 — Pending replacement inventory snapshot builder
+
+- Code/test HEAD: \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`.
+- GitHub Actions run: [46161976361](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46161976361), SUCCESS.
+- Full regression: **Windows 2958 passed / 28 warnings; Ubuntu 2958 passed / 27 warnings**.
+- Synthetic safety jobs: SUCCESS on Windows and Ubuntu.
+- Added canonical read-only inventory derived from exact preflight states; includes every/only therapist-absent pending target, validates exact base-session identity joins, counts all five states, binds source and evidence hashes separately, and writes an exclusive root-confined artifact.
+- This is not native Excel proof, not a phase-report adapter, not a workbook write and not transaction authorization. \`PENDING_DECISION_INVENTORY\` remains NOT_IMPLEMENTED.

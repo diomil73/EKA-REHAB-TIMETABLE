@@ -61,3 +61,18 @@ A wrapper failure is never a candidate _B.
 - Separate Python GREEN, native Excel GREEN and operational acceptance.
 - Do not repeat already-green local tests without technical cause.
 - Update this handover, master guide, delivery report, matrix and current handoff after every meaningful checkpoint.
+
+
+## Latest engineering checkpoint — 2026-11-28
+
+The mobile-safe DAILY_INPUT evidence work has advanced beyond the previous PROJECTIONS_REOPEN report adapter. Added:
+- \`Python/rehab_excel/daily_input_pending_decision_inventory.py\`
+- \`Tests/test_daily_input_pending_decision_inventory.py\`
+
+It creates a deterministic, operation-bound snapshot of every unresolved therapist-absence target from the existing projection preflight state model, validates exact session/state identity, counts all five statuses, distinguishes original operation source hash from current evidence-workbook hash, and writes a new exclusive evidence artifact. It does not include provider options or decisions and is not a native verifier/report adapter.
+
+Final synthetic full CI: run **46161976361**, exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows 2958 passed / 28 warnings; Ubuntu 2958 passed / 27 warnings; both safety jobs passed.
+
+**Next mobile engineering task:** implement the separate PENDING_DECISION_INVENTORY native-readback phase-report adapter using the existing composite native source-capture diagnostic. Keep it REPORT_ADAPTER_ONLY and non-authorizing. Then continue to REPLACEMENTS_REOPEN. Do not repeat the already-green full regression absent another code change.
+
+**PC task remains separate:** read-only schema comparison of the three frozen H10 candidates; previous split PowerShell wrapper result is invalid and no candidate was classified BAD. No frozen workbook changed.

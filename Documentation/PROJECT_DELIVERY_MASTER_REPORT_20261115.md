@@ -1625,3 +1625,12 @@ The read-only comparison of the three frozen H10 workbook candidates did not com
 A previously documented 2026-11-08 failure had already established the same rule: never continue a multi-line guarded workflow as separate interactive commands after a terminating error. The mandatory execution procedure is now consolidated in Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md and master guide §4.253: prefer one complete .ps1 invoked once; otherwise one complete & { ... } pasted in one submission. Never split else, catch, finally, braces or here-string terminators. Stop/close a transcript before moving or renaming its file. Capture/check native exit codes immediately and fail fast.
 
 The previously green local results remain separate and unchanged: PREPARED digest focused test 1 passed; targeted Python 3.14 warning diagnostic 109 passed, 1 skipped. No full regression or native Excel acceptance is inferred from those results.
+
+
+### 2026-11-28 — Pending replacement decision inventory snapshot
+
+Added a deterministic read-only inventory model and exclusive evidence-artifact writer for the pending replacement decision phase. The snapshot is derived from the existing exact projection preflight state model, includes every and only unresolved therapist-absent target, checks the full session/state identity join, records all five daily-state counts, and binds operation source identity separately from current evidence-workbook identity. It deliberately excludes patient display names and provider-option/decision data.
+
+GitHub Actions run [46161976361](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46161976361), exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows **2958 passed / 28 warnings**; Ubuntu **2958 passed / 27 warnings**; both synthetic safety jobs passed.
+
+This is only a snapshot builder/artifact, not a native Excel verifier or phase-report adapter. \`PENDING_DECISION_INVENTORY\` remains NOT_IMPLEMENTED; no transaction/receipt/Apply authorization or native Excel proof. No workbook/VBA change or real patient data.

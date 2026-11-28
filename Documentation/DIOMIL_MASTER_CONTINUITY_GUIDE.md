@@ -3478,3 +3478,33 @@ Final full GitHub Actions run `45875449647`, tested HEAD `1bc189a4903fea1890f82e
 Το DIOMIL_H10_K_SCHEMA_COMPARE_20261128_173643_P.txt αποδεικνύει ότι το PowerShell wrapper διασπάστηκε: εμφανίστηκε finally is not recognized, το transcript παρέμεινε ανοικτό και το rename απέτυχε με file-in-use. Η μεταγενέστερη FINAL_STATUS=B δεν είναι έγκυρο schema αποτέλεσμα. Τα τρία frozen XLSM δεν έχουν χαρακτηριστεί B από αυτή την εκτέλεση· η σύγκριση παραμένει PENDING. Δεν επαναλαμβάνεται ο structural auditor αν δεν προκύψει τεχνικός λόγος· διορθώνεται μόνο η εκτέλεση της ακριβούς schema comparison με τον παραπάνω κανόνα.
 
 **Μόνιμη απαίτηση:** Κάθε μελλοντικό PowerShell instruction προς τον χειριστή πρέπει να παρέχεται ως ένα πλήρες copyable block και να δηλώνει ρητά αν είναι .ps1 one-shot ή ενιαίο & { ... }. Ποτέ ξανά αποσπασματικές εντολές που εξαρτώνται από προηγούμενο block.
+
+
+## 4.254 Pending replacement decision inventory snapshot — synthetic full regression GREEN (28/11/2026)
+
+**Purpose:** Advance the next phase evidence kind from §4.252: PENDING_DECISION_INVENTORY. This checkpoint adds a canonical, read-only inventory snapshot model from the existing independently assembled DAILY_INPUT projection preflight. It does not yet implement the native Excel phase-report adapter.
+
+**New files**
+- \`Python/rehab_excel/daily_input_pending_decision_inventory.py\`
+- \`Tests/test_daily_input_pending_decision_inventory.py\`
+
+**Implemented contract**
+1. Accepts only the exact previous/candidate DAILY_INPUT operation types, the legal \`PROJECTIONS_VERIFIED -> PENDING_OPERATOR_DECISION\` transition, and an exact \`DailyInputProjectionPreflight\`.
+2. Requires the preflight service date to match the operation service date and validates separate hashes for the original operation source and the current saved evidence workbook. These two identities are intentionally not conflated.
+3. Requires the preflight session/state collections to be immutable tuples, unique and complete for the exact service date. Every state is joined to its base session by exact SessionID and checked for PatientID, original therapist, date and original time equality.
+4. Includes every and only \`DailySessionStatus.THERAPIST_ABSENT\` target. ACTIVE, PATIENT_ABSENT, REPLACED and CANCELLED sessions are counted separately and excluded from the pending target list. A PENDING_OPERATOR_DECISION phase with zero pending targets is rejected.
+5. Produces deterministic canonical JSON with operation identity, source/evidence digests, exact status counts, pseudonymous target identity, original clock, treatment and robotic flag. Patient display names and provider-option lists are deliberately not copied into this inventory.
+6. Revalidates caller-constructed inventory objects and their digest before persistence. Evidence artifact writing is exclusive (no overwrite), confined to the evidence root, and removes a partially written file if persistence fails.
+
+**Important scope boundary:** this is a pending-target inventory snapshot, not the replacement chooser, not a persisted workbook sheet, not a native Excel verifier and not an operator decision. It does not include provider options, create replacement assignments, record suspensions, write an XLSM, create a phase report/receipt or enable Apply. The report contract \`PENDING_DECISION_INVENTORY\` therefore remains \`NOT_IMPLEMENTED\`. Do not promote it to \`REPORT_ADAPTER_ONLY\` until a separate adapter performs the existing macro-disabled native read-only source capture, binds the generated inventory artifact to the exact saved workbook digest/Excel version, and publishes the canonical phase report. Trusted verifier attestation remains unavailable.
+
+**Full CI:** GitHub Actions run [46161976361](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46161976361), exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`, SUCCESS:
+- Windows: **2958 passed, 28 warnings**.
+- Ubuntu: **2958 passed, 27 warnings**.
+- Synthetic safety jobs: SUCCESS on Windows and Ubuntu.
+
+An initial run exposed an incorrect negative-test fixture (the test changed the operation identity and therefore correctly failed the transition before reaching the intended service-date assertion). The fixture was corrected to preserve the legal operation transition and alter only the preflight date. The final exact HEAD above is fully GREEN. No test failure was hidden or production guard weakened.
+
+**Evidence boundary:** Python synthetic CI only. No actual Excel/COM, no native Save/Close/Reopen, no real patient data, no workbook or VBA changes. Gate 2 remains CLOSED; Apply/Restore/Replacement remain disabled.
+
+**Next mobile-safe engineering step:** add the separate \`PENDING_DECISION_INVENTORY\` phase-report adapter. Reuse \`verify_daily_input_projection_preflight_native_readonly\` and its existing native source capture rather than creating another source reader. Bind the inventory artifact digest, operation/source identity, service date and native Excel version; keep the contract \`REPORT_ADAPTER_ONLY\` and non-authorizing. After that, proceed to \`REPLACEMENTS_REOPEN\`. Do not repeat the full regression unless a subsequent code change requires it.

@@ -223,3 +223,16 @@ Do not equate `operation.source_sha256` (the original operation source identity)
 The verifier contract is REPORT_ADAPTER_ONLY. This is report production over synthetic fake-COM tests, not trusted attestation, not a receipt, not a journal append and not Apply/Restore permission. Seven evidence kinds remain NOT_IMPLEMENTED; Gate 2 remains closed.
 
 Final CI run `45875449647`, HEAD `1bc189a4903fea1890f82efee9555546bf587eac`: Windows **2946 passed / 30 warnings**, Ubuntu **2946 passed / 30 warnings**; both synthetic safety jobs passed. Initial CI attempts caught stale policy/registry test assertions and a malformed LF literal; all corrected before final GREEN.
+
+
+## 18. Pending replacement decision inventory snapshot model — 28/11/2026
+
+Added \`daily_input_pending_decision_inventory.py\` as a pure read-only preparatory component for the \`PENDING_DECISION_INVENTORY\` evidence kind.
+
+The builder requires the legal \`PROJECTIONS_VERIFIED -> PENDING_OPERATOR_DECISION\` transition and exact \`DailyInputProjectionPreflight\`. It verifies complete immutable session/state membership and exact identity joins, then derives the pending target list only from \`DailySessionStatus.THERAPIST_ABSENT\`. Other daily states are counted separately and excluded. The canonical inventory binds the operation's original source hash separately from the current preflight evidence-workbook hash. It includes pseudonymous session/patient/provider identity, original time, treatment and robotic flag; it intentionally omits patient display names and replacement candidate options.
+
+The artifact writer validates the inventory's own digest, confines output under the evidence root, refuses overwrite, and uses exclusive file creation. This is a local evidence-artifact model only.
+
+**Not yet implemented:** independent native Excel read-only source capture/report adapter for this evidence kind, report/receipt integration, trusted verifier attestation, or a durable workbook inventory sheet. Therefore the registry status remains \`NOT_IMPLEMENTED\`. This component does not authorize PENDING_OPERATOR_DECISION, write workbook/VBA, create replacement assignments or enable Apply.
+
+Synthetic CI run \`46161976361\`, exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows 2958 passed / 28 warnings; Ubuntu 2958 passed / 27 warnings; both synthetic safety jobs passed. No actual Excel/COM or patient workbook was used.

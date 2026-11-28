@@ -2084,3 +2084,12 @@ CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2
 Το ίδιο failure pattern είχε καταγραφεί ήδη στις 08/11/2026 (interactive continuation μετά από terminating throw, και απαίτηση ενιαίου & { ... }). Η οδηγία πλέον είναι υποχρεωτική: μακρά/κρίσιμα scripts αποθηκεύονται ως πλήρες μοναδικό .ps1 και εκτελούνται μία φορά με powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...· σύντομα blocks δίνονται μόνο ως πλήρες & { ... } σε μία επικόλληση. Ποτέ χωριστά else/catch/finally, braces ή here-string terminators. Ποτέ μετακίνηση ενεργού transcript· πρώτα Stop-Transcript. Άμεσος έλεγχος κάθε $LASTEXITCODE, fail-fast στο πρώτο gate. Αναλυτικός κανόνας: Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md και master guide §4.253.
 
 Δεν τροποποιήθηκε κανένα frozen XLSM. Δεν επαναλαμβάνονται τα ήδη GREEN focused test (1 passed) και warning diagnostic (109 passed, 1 skipped).
+
+
+## 2026-11-28 — Pending replacement inventory snapshot implementation
+
+Added a pure read-only pending replacement inventory builder and synthetic tests. It derives all unresolved targets only from the exact immutable projection preflight states marked \`THERAPIST_ABSENT\`, validates complete SessionID-to-state identity joins, records separate counts for active/patient-absent/therapist-absent/replaced/cancelled states, binds operation source digest separately from current evidence workbook digest, and writes deterministic canonical JSON exclusively under a controlled evidence root.
+
+Final GitHub Actions run **46161976361**, exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows **2958 passed / 28 warnings**, Ubuntu **2958 passed / 27 warnings**; synthetic safety jobs passed on both platforms.
+
+The new component is not a native Excel verifier, phase-report adapter, workbook sheet, replacement decision or transaction writer. Provider options are not included. \`PENDING_DECISION_INVENTORY\` remains \`NOT_IMPLEMENTED\`; native source-capture/report binding is the next engineering step. No native Excel, real patient data, VBA or workbook mutation. Gate 2 remains closed.
