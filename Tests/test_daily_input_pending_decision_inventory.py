@@ -119,8 +119,9 @@ def test_inventory_is_deterministic_and_digest_covers_full_payload():
 
 def test_inventory_rejects_non_pending_transition_and_wrong_operation_date():
     previous, operation, preflight = fixture()
+    wrong_phase = advance_daily_input_operation(previous, Phase.REPLACEMENTS_RESOLVED)
     with pytest.raises(PendingDecisionInventoryError, match="PENDING_OPERATOR_DECISION"):
-        build_pending_decision_inventory(previous, previous, preflight)
+        build_pending_decision_inventory(previous, wrong_phase, preflight)
     wrong_date = replace(operation, service_date="2026-11-28")
     with pytest.raises(PendingDecisionInventoryError, match="service date"):
         build_pending_decision_inventory(previous, wrong_date, preflight)
