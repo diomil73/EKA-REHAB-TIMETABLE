@@ -1616,3 +1616,12 @@ Important digest distinction: `operation.source_sha256` remains the original ope
 Contract status is REPORT_ADAPTER_ONLY. No trusted attestation, receipt append, journal write, Apply/Restore permission, Gate 2 change, VBA or production workbook change.
 
 Final CI run `45875449647`, HEAD `1bc189a4903fea1890f82efee9555546bf587eac`: **Windows 2946 passed / 30 warnings; Ubuntu 2946 passed / 30 warnings**; both synthetic safety jobs passed. Earlier attempts found test/doc wording drift and a malformed LF argument; corrected before final GREEN. Native Excel paths were exercised only through synthetic fake-COM tests, not a user's workbook.
+
+
+### 2026-11-28 — Operator execution failure: PowerShell block was split
+
+The read-only comparison of the three frozen H10 workbook candidates did not complete. The operator transcript shows finally is not recognized, an active transcript file lock, and a failed Move-Item. The later FINAL_STATUS=B is not valid schema evidence. Record this as wrapper SAFETY STOP / schema comparison PENDING, not as three rejected workbooks. No workbook mutation is evidenced.
+
+A previously documented 2026-11-08 failure had already established the same rule: never continue a multi-line guarded workflow as separate interactive commands after a terminating error. The mandatory execution procedure is now consolidated in Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md and master guide §4.253: prefer one complete .ps1 invoked once; otherwise one complete & { ... } pasted in one submission. Never split else, catch, finally, braces or here-string terminators. Stop/close a transcript before moving or renaming its file. Capture/check native exit codes immediately and fail fast.
+
+The previously green local results remain separate and unchanged: PREPARED digest focused test 1 passed; targeted Python 3.14 warning diagnostic 109 passed, 1 skipped. No full regression or native Excel acceptance is inferred from those results.
