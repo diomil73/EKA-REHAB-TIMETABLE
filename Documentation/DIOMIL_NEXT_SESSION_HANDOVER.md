@@ -110,3 +110,28 @@ Final synthetic CI run **46165623512**, exact code/test HEAD \`ad18f3305bd3d5f3a
 **Next mobile engineering task:** implement OPERATOR_RESOLUTION evidence artifact/reader bound to the exact operation ID, pending inventory digest, resolution mode and target set. Then integrate OPERATOR_RESOLUTION and REPLACEMENTS_REOPEN together in the phase evidence flow. Do not infer operator approval from the lifecycle enum alone.
 
 **PC-only task:** read-only schema comparison of the three frozen H10 candidates remains pending. Prior split PowerShell wrapper's FINAL_STATUS=B is invalid. No frozen workbook was modified. Local PC HEAD after latest GitHub commits is not yet operator-confirmed.
+
+## 2026-11-28 — H10 K schema comparison diagnostic added; local frozen-file read pending
+
+The previous schema comparison wrapper failure remains a **wrapper SAFETY STOP**, not a candidate failure. No candidate was classified BAD and the frozen workbooks remain untouched.
+
+Added on the active branch:
+- `Python/rehab_excel/h10_k_schema_compare.py`: pinned baseline manifest and read-only OOXML schema comparison helpers.
+- `Python/tools/diagnose_h10_k_schema_compare.py`: one-command diagnostic for the three frozen candidates.
+- `Tests/test_h10_k_schema_compare.py`: synthetic tests for the pinned manifest and MASTER header-row detection.
+
+The tool uses the existing `WorkbookPackageProbe`, checks each candidate against the exact SHA-256 and byte-size recorded in `INTEGRATED_TEST_BASELINE_MATRIX_20261115.md`, verifies ZIP integrity and VBA presence, then checks:
+- MASTER header row identified by the exact B/C `Θάλαμος` / `Ασθενής` pair, with exact K/L/M labels.
+- Exactly one row-1 occurrence of each PATIENT_PLANNER header: `PatientID`, `Ψυχ_Ώρα`, `Ψυχ_Ημέρες`, `Ψυχ_Ψυχολόγος`.
+- Source SHA-256 and size unchanged after inspection.
+
+It prints no patient values. It does not launch Excel/COM, save or modify a workbook, select an integration baseline, prove synthetic provenance, or grant native/operational acceptance. `_G` means exactly one schema match; `_B` means the completed comparison found zero or multiple matches; `_S` means a safety/baseline/read failure.
+
+Three GitHub commits currently contain the files:
+- `963f9968bdd9c96fa3f558fe69a64e607b1a2420`
+- `f625ecac3b0ad6fe91373e2306e445f4875f608e`
+- `54c104fb138a526deb20f0f1ce4adee3faeac956`
+
+At this documentation update, GitHub Actions synthetic safety runs for those commits were still in progress. No local Windows test or frozen-file comparison has yet been executed. Do not call this Python GREEN, native Excel GREEN, or candidate selection.
+
+**Next PC action:** fast-forward the local branch, run only `Tests/test_h10_k_schema_compare.py`, then run `Python/tools/diagnose_h10_k_schema_compare.py`. Preserve the generated report and return its complete output. Do not rerun the older structural auditor, the previously green receipt tests, or any frozen workbook operation.
