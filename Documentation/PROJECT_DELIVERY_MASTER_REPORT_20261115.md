@@ -1634,3 +1634,14 @@ Added a deterministic read-only inventory model and exclusive evidence-artifact 
 GitHub Actions run [46161976361](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46161976361), exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows **2958 passed / 28 warnings**; Ubuntu **2958 passed / 27 warnings**; both synthetic safety jobs passed.
 
 This is only a snapshot builder/artifact, not a native Excel verifier or phase-report adapter. \`PENDING_DECISION_INVENTORY\` remains NOT_IMPLEMENTED; no transaction/receipt/Apply authorization or native Excel proof. No workbook/VBA change or real patient data.
+
+
+### 2026-11-28 — PENDING_DECISION_INVENTORY report adapter
+
+Added strict canonical inventory artifact decoding/readback and a separate non-authorizing native-readback phase-report adapter. It rebuilds the inventory from independent preflight facts, requires exact equality with the saved artifact, binds operation/source/date/workbook hash, reuses the existing composite macro-disabled native Excel verifier, checks all existing source/projection readback invariants and native Excel version, then publishes the report exclusively and verifies its readback.
+
+Verifier contract status: **REPORT_ADAPTER_ONLY**. Synthetic tests inject native result objects; actual Excel COM/native Save-Close-Reopen is not claimed. No receipt, journal append, trusted attestation, workbook/VBA change or operational authorization.
+
+Final CI [46162899470](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46162899470), exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows **2964 passed / 30 warnings**, Ubuntu **2964 passed / 28 warnings**, both synthetic safety jobs passed. The prior attempt found one stale test expecting only three report adapters; it was corrected and the final run is fully GREEN.
+
+Next: REPLACEMENTS_REOPEN report adapter over existing replacement facts/suspension source, with no replacement-choice/decision logic.

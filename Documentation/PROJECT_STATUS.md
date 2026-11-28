@@ -2093,3 +2093,14 @@ Added a pure read-only pending replacement inventory builder and synthetic tests
 Final GitHub Actions run **46161976361**, exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows **2958 passed / 28 warnings**, Ubuntu **2958 passed / 27 warnings**; synthetic safety jobs passed on both platforms.
 
 The new component is not a native Excel verifier, phase-report adapter, workbook sheet, replacement decision or transaction writer. Provider options are not included. \`PENDING_DECISION_INVENTORY\` remains \`NOT_IMPLEMENTED\`; native source-capture/report binding is the next engineering step. No native Excel, real patient data, VBA or workbook mutation. Gate 2 remains closed.
+
+
+## 2026-11-28 — PENDING_DECISION_INVENTORY phase-report adapter
+
+Added a separate report adapter and strict inventory artifact reader. It reopens canonical inventory bytes under the evidence root, validates the inventory self-digest, independently rebuilds the expected target set from the exact preflight, binds operation identity/source hash/date and the evidence workbook digest, reuses the existing composite macro-disabled native Excel source/input-ledger/projection verifier, verifies readback scope/counts and native Excel version, and publishes the report exclusively with readback verification.
+
+Verifier registry status for PENDING_DECISION_INVENTORY is now **REPORT_ADAPTER_ONLY**. This is not trusted attestation, not a receipt/journal append, not operational acceptance and not Apply/Restore permission. CI uses injected fake native readback. Actual native Excel execution remains a PC task. No workbook/VBA/production data mutation.
+
+Final GitHub Actions run **46162899470**, code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows **2964 passed / 30 warnings**, Ubuntu **2964 passed / 28 warnings**; both synthetic safety jobs passed. Earlier run 46162810423 had 1 stale registry-test expectation failure (2963 passed); the test was updated and the final exact head is GREEN.
+
+Next mobile-safe work: REPLACEMENTS_REOPEN adapter, using existing replacement facts/suspension readers. PC-only frozen H10 schema comparison remains pending; no frozen candidate has been classified BAD.

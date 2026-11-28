@@ -76,3 +76,20 @@ Final synthetic full CI: run **46161976361**, exact code/test HEAD \`bf8c6e34c71
 **Next mobile engineering task:** implement the separate PENDING_DECISION_INVENTORY native-readback phase-report adapter using the existing composite native source-capture diagnostic. Keep it REPORT_ADAPTER_ONLY and non-authorizing. Then continue to REPLACEMENTS_REOPEN. Do not repeat the already-green full regression absent another code change.
 
 **PC task remains separate:** read-only schema comparison of the three frozen H10 candidates; previous split PowerShell wrapper result is invalid and no candidate was classified BAD. No frozen workbook changed.
+
+
+## Latest engineering checkpoint — 2026-11-28
+
+The PENDING_DECISION_INVENTORY phase-report adapter is now implemented:
+- \`Python/rehab_excel/daily_input_pending_decision_phase_adapter.py\`
+- \`Tests/test_daily_input_pending_decision_phase_adapter.py\`
+- Strict canonical inventory decode/readback functions in \`daily_input_pending_decision_inventory.py\`.
+- Registry status for this evidence kind is **REPORT_ADAPTER_ONLY**.
+
+The adapter reopens the exact inventory artifact, checks canonical bytes/digest, rebuilds the expected inventory from preflight and compares it, binds operation/source/date/workbook digest, reuses the existing composite native read-only Excel verifier, checks source/projection counts and native Excel version, then publishes and reopens a canonical phase report exclusively. It does not authorize the phase, write workbook/VBA, append a journal or receipt, or enable Apply.
+
+Final synthetic CI run **46162899470**, exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows **2964 passed / 30 warnings**, Ubuntu **2964 passed / 28 warnings**; both synthetic safety jobs passed. An earlier run found one outdated registry-test expectation; it was corrected before final GREEN. CI native readback is injected/fake, not actual Excel COM.
+
+**Next mobile engineering task:** implement REPLACEMENTS_REOPEN report adapter using the existing replacement facts and suspension readers, with exact operation/date/workbook binding and synthetic negative tests. Do not implement replacement choices/operator decisions yet.
+
+**PC-only task:** read-only schema comparison of the three frozen H10 candidates remains pending. Previous split PowerShell wrapper's FINAL_STATUS=B is invalid. No frozen workbook was modified. Local PC HEAD after latest GitHub commits is not yet operator-confirmed.

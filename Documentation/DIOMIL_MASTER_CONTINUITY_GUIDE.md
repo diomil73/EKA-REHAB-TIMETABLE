@@ -3508,3 +3508,31 @@ An initial run exposed an incorrect negative-test fixture (the test changed the 
 **Evidence boundary:** Python synthetic CI only. No actual Excel/COM, no native Save/Close/Reopen, no real patient data, no workbook or VBA changes. Gate 2 remains CLOSED; Apply/Restore/Replacement remain disabled.
 
 **Next mobile-safe engineering step:** add the separate \`PENDING_DECISION_INVENTORY\` phase-report adapter. Reuse \`verify_daily_input_projection_preflight_native_readonly\` and its existing native source capture rather than creating another source reader. Bind the inventory artifact digest, operation/source identity, service date and native Excel version; keep the contract \`REPORT_ADAPTER_ONLY\` and non-authorizing. After that, proceed to \`REPLACEMENTS_REOPEN\`. Do not repeat the full regression unless a subsequent code change requires it.
+
+
+## 4.255 PENDING_DECISION_INVENTORY native-readback phase-report adapter — full synthetic CI GREEN (28/11/2026)
+
+**Implementation added**
+- \`Python/rehab_excel/daily_input_pending_decision_phase_adapter.py\`
+- \`Tests/test_daily_input_pending_decision_phase_adapter.py\`
+- Extended \`daily_input_pending_decision_inventory.py\` with strict canonical decoder and evidence-root-confined artifact reader.
+- Promoted only the \`PENDING_DECISION_INVENTORY\` contract metadata to \`REPORT_ADAPTER_ONLY\`; trusted attestation is still absent.
+
+**Adapter behavior**
+1. Requires the exact legal \`PROJECTIONS_VERIFIED -> PENDING_OPERATOR_DECISION\` transition and exact independent preflight.
+2. Reopens the inventory JSON artifact from exact saved bytes, requires canonical UTF-8 serialization, strict field sets and a valid self-digest; path resolution must remain beneath the evidence root.
+3. Independently rebuilds the expected inventory from the same preflight and compares the complete immutable inventory object. Operation ID, original operation source digest, service date and evidence-workbook digest must all match.
+4. Calls the existing \`verify_daily_input_projection_preflight_native_readonly\` rather than creating another native source reader. This invokes the existing macro-disabled, read-only native Excel source capture, INPUT_AND_LEDGER, MASTER and complete THERAPIST_DAILY checks.
+5. Binds native source capture, projection readback and inventory to the exact same saved workbook SHA-256 and service date; checks required source sheets, identity-mirror row count, MASTER row count, all 126 therapist cells, occupied/expected assignments, ledger counts and a consistent native Excel version.
+6. Rechecks both inventory and workbook bytes after verification, creates the canonical phase report using the exact inventory artifact locator and artifact-byte digest, publishes exclusively (no overwrite), flushes and reopens the report to verify its canonical digest.
+
+**Evidence and trust boundary:** synthetic tests inject a fake native result; they do not execute actual Excel COM. This is a report-producing adapter only. The native diagnostic will use real macro-disabled read-only Excel when invoked on the PC, but no such native execution is claimed here. The report self-digest is not authenticity. Trusted verifier attestation, receipt writer, journal append, Apply/Restore and Gate 2 remain disabled. No workbook, VBA or production data was modified.
+
+**CI correction history:** first adapter run \`46162810423\` found one outdated registry test that still expected only the first three adapters. It was a test expectation, not a product regression: **2963 passed, 1 failed** on Ubuntu. Updated the registry regression to include the fourth report-only adapter. Final exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`, GitHub Actions run [46162899470](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46162899470), SUCCESS:
+- Windows: **2964 passed, 30 warnings**.
+- Ubuntu: **2964 passed, 28 warnings**.
+- Synthetic safety jobs: SUCCESS on Windows and Ubuntu.
+
+**Next mobile-safe engineering task:** design/implement the separate \`REPLACEMENTS_REOPEN\` evidence adapter. Reuse the existing daily replacement facts and source capture/readback contracts; independently verify replacement facts and suspensions, bind to the same exact workbook bytes/date/operation, publish a report-only phase report, and add positive/negative synthetic tests. Do not create a replacement chooser or make operator decisions in this phase. Keep report status REPORT_ADAPTER_ONLY and non-authorizing.
+
+**PC-only work remains separate:** the read-only schema comparison of the three frozen H10 candidates is still pending after the split PowerShell wrapper incident. No candidate has been classified BAD by that failed wrapper, and no frozen workbook was modified. Local PC HEAD after these GitHub commits is not yet operator-confirmed.

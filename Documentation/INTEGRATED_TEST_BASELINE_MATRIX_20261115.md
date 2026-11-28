@@ -1148,3 +1148,15 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Synthetic safety jobs: SUCCESS on Windows and Ubuntu.
 - Added canonical read-only inventory derived from exact preflight states; includes every/only therapist-absent pending target, validates exact base-session identity joins, counts all five states, binds source and evidence hashes separately, and writes an exclusive root-confined artifact.
 - This is not native Excel proof, not a phase-report adapter, not a workbook write and not transaction authorization. \`PENDING_DECISION_INVENTORY\` remains NOT_IMPLEMENTED.
+
+
+### 2026-11-28 — PENDING_DECISION_INVENTORY phase report adapter
+
+- Code/test HEAD: \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`.
+- GitHub Actions run: [46162899470](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46162899470), SUCCESS.
+- Full regression: **Windows 2964 passed / 30 warnings; Ubuntu 2964 passed / 28 warnings**.
+- Synthetic safety jobs: SUCCESS on Windows and Ubuntu.
+- Added strict canonical inventory artifact decode/readback and a phase-report adapter. The adapter independently rebuilds the expected inventory, checks artifact bytes/digest, operation/date/source/workbook binding, reuses the existing composite native read-only verifier, checks native version/readback scope and publishes the report exclusively.
+- Status: **REPORT_ADAPTER_ONLY**. CI uses fake native result injection. Actual Excel COM/native acceptance, trusted attestation, receipt/journal append and Apply authorization are NOT established.
+- One earlier run had 1 stale registry-test expectation failure; the test was corrected and the final exact head is GREEN.
+- Next: REPLACEMENTS_REOPEN report adapter; no replacement decision logic.

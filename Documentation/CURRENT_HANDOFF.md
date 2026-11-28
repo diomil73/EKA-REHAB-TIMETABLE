@@ -2818,3 +2818,16 @@ Full CI run **46161976361**, exact code/test HEAD \`bf8c6e34c71c45208f8312ff857a
 This is a target inventory model/artifact only. It does not contain provider options or operator decisions, is not a workbook sheet or native Excel verifier, does not write XLSM/VBA or create a phase report/receipt. \`PENDING_DECISION_INVENTORY\` remains \`NOT_IMPLEMENTED\`. Next mobile step: build its separate native-readback report adapter by reusing the existing composite source-capture diagnostic. Gate 2 remains closed.
 
 **PC-only queue unchanged:** read-only schema comparison of the three frozen H10 candidates remains pending after the earlier split PowerShell wrapper. The invalid \`FINAL_STATUS=B\` remains unusable. No frozen workbook was modified.
+
+
+### 2026-11-28 — PENDING_DECISION_INVENTORY phase-report adapter implemented
+
+Added \`daily_input_pending_decision_phase_adapter.py\` and its synthetic tests. The pending inventory module now also strictly decodes canonical JSON and reads exact artifact bytes under the evidence root. The adapter re-derives the complete inventory from the independent preflight, compares it with the reopened artifact, binds operation/source/date/workbook digest, reuses the existing composite native read-only Excel verifier, checks consistent native Excel version and all expected readback counts, then exclusively publishes and reopens the canonical phase report.
+
+Contract status: **REPORT_ADAPTER_ONLY**, not IMPLEMENTED/trusted. Synthetic tests use injected fake native evidence; no actual Excel COM run is claimed. No workbook/VBA/production data changes; no receipt/journal/Apply/Restore/Gate 2 authorization.
+
+Final CI run **46162899470**, exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows **2964 passed / 30 warnings**, Ubuntu **2964 passed / 28 warnings**; both synthetic safety jobs passed. An earlier CI attempt exposed one stale test expectation for the number of report-only adapters (2963 passed, 1 failed); it was updated to include PENDING_DECISION_INVENTORY and the final exact head is GREEN.
+
+**Next mobile engineering task:** implement \`REPLACEMENTS_REOPEN\` report adapter over existing replacement facts/suspension data, with exact operation/date/workbook binding and synthetic negative tests. No chooser/decision logic yet.
+
+**PC queue:** frozen H10 candidate schema comparison remains pending; prior split wrapper's FINAL_STATUS=B is invalid. Local PC HEAD after current GitHub commits is not confirmed.

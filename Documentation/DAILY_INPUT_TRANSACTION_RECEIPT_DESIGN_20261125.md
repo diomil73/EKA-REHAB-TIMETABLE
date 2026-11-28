@@ -236,3 +236,19 @@ The artifact writer validates the inventory's own digest, confines output under 
 **Not yet implemented:** independent native Excel read-only source capture/report adapter for this evidence kind, report/receipt integration, trusted verifier attestation, or a durable workbook inventory sheet. Therefore the registry status remains \`NOT_IMPLEMENTED\`. This component does not authorize PENDING_OPERATOR_DECISION, write workbook/VBA, create replacement assignments or enable Apply.
 
 Synthetic CI run \`46161976361\`, exact code/test HEAD \`bf8c6e34c71c45208f8312ff857aafe698cff07c\`: Windows 2958 passed / 28 warnings; Ubuntu 2958 passed / 27 warnings; both synthetic safety jobs passed. No actual Excel/COM or patient workbook was used.
+
+
+## 19. PENDING_DECISION_INVENTORY phase-report adapter — 28/11/2026
+
+Added:
+- \`Python/rehab_excel/daily_input_pending_decision_phase_adapter.py\`
+- \`Tests/test_daily_input_pending_decision_phase_adapter.py\`
+- Strict canonical inventory decoder and evidence-root-confined artifact reader in \`daily_input_pending_decision_inventory.py\`.
+
+The adapter requires the legal PROJECTIONS_VERIFIED -> PENDING_OPERATOR_DECISION transition and exact preflight. It reopens the canonical inventory artifact, validates exact schema/self-digest/bytes, independently rebuilds the expected inventory from the preflight and compares the complete immutable object. It checks operation ID, original operation source hash, service date and exact evidence workbook hash. It then reuses \`verify_daily_input_projection_preflight_native_readonly\` to run the existing fresh macro-disabled native source capture, INPUT_AND_LEDGER, MASTER and complete THERAPIST_DAILY readbacks. It checks all components share the exact saved workbook digest/date, validates native Excel version consistency, required source sheets, identity-mirror count and projection/ledger counts. The phase report binds the inventory artifact locator and exact artifact byte digest, plus native Excel version; publication is exclusive and the report is reopened and digest-checked.
+
+Registry status for PENDING_DECISION_INVENTORY is now **REPORT_ADAPTER_ONLY**. This is report generation, not trusted verifier attestation. Synthetic tests inject a fake native verifier result and do not execute actual Excel COM. No native Excel acceptance, receipt, journal append, trusted signer, Apply/Restore permission or Gate 2 opening is established. No workbook/VBA/real-data change.
+
+Final CI run \`46162899470\`, exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows 2964 passed / 30 warnings; Ubuntu 2964 passed / 28 warnings; both synthetic safety jobs passed. Earlier run \`46162810423\` exposed one outdated test expecting only three report adapters; after extending the registry test, the final exact head is GREEN.
+
+**Next:** implement the separate REPLACEMENTS_REOPEN report adapter, reusing existing replacement facts and suspension readers. Keep it report-only and do not create a chooser, resolve operator decisions or enable transactions.
