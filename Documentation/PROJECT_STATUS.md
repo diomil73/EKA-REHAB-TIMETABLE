@@ -2075,3 +2075,12 @@ CI run `45679125582`: Windows **2922 passed / 30 warnings / 42.15s**; Ubuntu **2
 Native source capture checks all A:E identity cells for every populated patient row. Formula cells must match supported OOXML/native semantics; literal cells must exactly match PATIENTS. Wrapper requires mirror row count to equal preflight patient count.
 
 CI run `45680015176`: Windows **2923 passed / 32 warnings / 44.62s**; Ubuntu **2923 passed / 29 warnings / 24.37s**; both synthetic safety jobs passed. No real Excel. Gate 2 remains closed.
+
+
+## 2026-11-28 — PowerShell wrapper split: γνωστό failure pattern επαναλήφθηκε
+
+Η schema comparison των τριών frozen H10 candidates δεν ολοκληρώθηκε. Ο operator transcript δείχνει ότι το σύνθετο PowerShell block διασπάστηκε σε ανεξάρτητες submissions: το finally εκτελέστηκε στο νέο prompt ως άγνωστη εντολή, το Start-Transcript παρέμεινε ανοικτό και το Move-Item απέτυχε λόγω file-in-use. Η μεταγενέστερη μεταβλητή FINAL_STATUS=B δεν αποτελεί αποτέλεσμα schema audit. **Κατάσταση σύγκρισης: PENDING / wrapper SAFETY STOP, όχι candidate B.**
+
+Το ίδιο failure pattern είχε καταγραφεί ήδη στις 08/11/2026 (interactive continuation μετά από terminating throw, και απαίτηση ενιαίου & { ... }). Η οδηγία πλέον είναι υποχρεωτική: μακρά/κρίσιμα scripts αποθηκεύονται ως πλήρες μοναδικό .ps1 και εκτελούνται μία φορά με powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...· σύντομα blocks δίνονται μόνο ως πλήρες & { ... } σε μία επικόλληση. Ποτέ χωριστά else/catch/finally, braces ή here-string terminators. Ποτέ μετακίνηση ενεργού transcript· πρώτα Stop-Transcript. Άμεσος έλεγχος κάθε $LASTEXITCODE, fail-fast στο πρώτο gate. Αναλυτικός κανόνας: Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md και master guide §4.253.
+
+Δεν τροποποιήθηκε κανένα frozen XLSM. Δεν επαναλαμβάνονται τα ήδη GREEN focused test (1 passed) και warning diagnostic (109 passed, 1 skipped).
