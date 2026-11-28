@@ -89,7 +89,7 @@ def test_registry_covers_every_evidence_kind_exactly_once():
     assert len({item.verifier_id for item in contracts}) == len(EvidenceKind)
 
 
-def test_first_four_phase_kinds_have_report_adapters_only_and_no_authorizing_verifier():
+def test_first_five_phase_kinds_have_report_adapters_only_and_no_authorizing_verifier():
     assert VERIFIER_CONTRACTS[EvidenceKind.PREPARED_SNAPSHOT].implementation_status == (
         VerifierImplementationStatus.REPORT_ADAPTER_ONLY
     )
@@ -107,6 +107,7 @@ def test_first_four_phase_kinds_have_report_adapters_only_and_no_authorizing_ver
             EvidenceKind.INPUT_AND_LEDGER_REOPEN,
             EvidenceKind.PROJECTIONS_REOPEN,
             EvidenceKind.PENDING_DECISION_INVENTORY,
+            EvidenceKind.REPLACEMENTS_REOPEN,
         }
     )
     assert all(
