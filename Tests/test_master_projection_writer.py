@@ -337,3 +337,50 @@ def test_expanded_master_last_row_includes_stale_psychology_and_afternoon_cells(
         classmethod(lambda _cls, _ws: (13, 13)),
     )
     assert Win32ComMasterProjectionBackend._last_value_row(_Worksheet()) == 30
+
+
+def test_fictional_psychology_source_to_master_preview_without_projection_mock(tmp_path):
+    """End-to-end OOXML source-to-projection-to-preview, with fictional patients only."""
+    from hashlib import sha256
+
+    source = _book(tmp_path)
+    wb = load_workbook(source)
+    try:
+        planner = wb["PATIENT_PLANNER"]
+        for row, patient_id in ((2, 1), (3, 2), (4, 3)):
+            # The source reader intentionally requires a literal matching PatientID.
+            planner.cell(row, 1).value = patient_id
+        for column, header in (("X", "Ψυχ_Ώρα"), ("Y", "Ψυχ_Ημέρες"), ("Z", "Ψυχ_Ψυχολόγος")):
+            planner[f"{column}1"] = header
+        planner["X3"] = 0.6875
+        planner["Y3"] = "ΔΕ, ΠΕ"
+        planner["Z3"] = "ΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
+
+        master = wb["MASTER_SCHEDULE"]
+        master["K1"] = "ΨΥΧΟΛΟΓΟΙ"
+        master["L1"] = "ΑΠΟΓΕΥΜΑΤΙΝΟ ΠΡΟΓΡΑΜΜΑ"
+        master["M1"] = "Κατάσταση"
+        wb.save(source)
+    finally:
+        wb.close()
+
+    before = sha256(source.read_bytes()).hexdigest()
+    output = tmp_path / "fictional_psychology_master_preview.xlsm"
+    report = create_master_projection_preview(
+        source, output, backend=_FakeBackend(),
+    )
+    assert report.source_unchanged and report.verified_in_output
+    assert report.projected_rows == 3
+    assert sha256(source.read_bytes()).hexdigest() == before
+
+    projected = load_workbook(output, data_only=False)
+    try:
+        ws = projected["MASTER_SCHEDULE"]
+        # Sorted A02 patient first, after the clinic section row.
+        assert ws["K3"].value == "16:30\\nΔΕ, ΠΕ\\nΣΥΝΘΕΤΙΚΟΣ ΨΥΧΟΛΟΓΟΣ"
+        assert ws["L3"].value in (None, "")
+        assert ws["M3"].value == "=PATIENT_PLANNER!E3"
+        assert ws["K4"].value in (None, "")
+        assert ws["K5"].value in (None, "")
+    finally:
+        projected.close()
