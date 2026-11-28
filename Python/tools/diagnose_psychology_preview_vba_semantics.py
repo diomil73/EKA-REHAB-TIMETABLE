@@ -17,6 +17,16 @@ from rehab_excel.vba_semantic_audit import (
     VbaSemanticAuditError,
     audit_vba_components,
     assert_vba_semantics_preserved,
+    FORM_TYPE,
+)
+
+from rehab_excel.vba_form_storage import (
+    form_storage_evidence, compare_form_storage_evidence, stream_change_categories,
+    VbaFormStorageError,
+)
+from rehab_excel.vba_form_designer_audit import (
+    audit_userform_designers, assert_userform_designers_preserved,
+    UserFormDesignerAuditError,
 )
 
 SOURCE_REL = "Excel/previews/UNIFIED_H10_CC_NATIVE_READONLY_PROBE_20261112_A.xlsm"
@@ -41,7 +51,10 @@ def inspect(excel, path: Path):
         )
         if not bool(workbook.ReadOnly):
             raise RuntimeError("Workbook did not open read-only")
-        return audit_vba_components(workbook)
+        components = audit_vba_components(workbook)
+        forms = tuple(e.name for e in components if e.component_type == FORM_TYPE)
+        designers = audit_userform_designers(workbook, expected_form_names=forms)
+        return components, designers
     finally:
         if workbook is not None:
             workbook.Close(SaveChanges=False)
@@ -74,11 +87,25 @@ def main() -> int:
             excel.EnableEvents = False
             excel.DisplayAlerts = False
             excel.Visible = False
-            source_components = inspect(excel, source)
-            preview_components = inspect(excel, preview)
+            source_components, source_designers = inspect(excel, source)
+            preview_components, preview_designers = inspect(excel, preview)
         finally:
             if excel is not None:
                 excel.Quit()
+        forms = tuple(e.name for e in source_components if e.component_type == FORM_TYPE)
+        if forms != tuple(e.name for e in preview_components if e.component_type == FORM_TYPE):
+            raise VbaSemanticAuditError("UserForm identity inventory differs")
+        source_ole = form_storage_evidence(source, forms)
+        preview_ole = form_storage_evidence(preview, forms)
+        changes = compare_form_storage_evidence(source_ole, preview_ole)
+        categories = stream_change_categories(source_ole, preview_ole)
+        print(f"USERFORMS_AUDITED={len(forms)}")
+        for name, count_value in sorted(changes.items()):
+            print(f"OLE_{name.upper()}={count_value}")
+        for name, count_value in sorted(categories.items()):
+            print(f"OLE_{name.upper()}={count_value}")
+        designer_count = assert_userform_designers_preserved(source_designers, preview_designers)
+        print(f"USERFORM_DESIGNERS_MATCHED={designer_count}")
         count = assert_vba_semantics_preserved(
             source_components,
             preview_components,
@@ -88,7 +115,7 @@ def main() -> int:
         print("VBA_COMPONENT_SEMANTICS=GREEN")
         print(f"COMPONENTS_MATCHED={count}")
         verdict = 0
-    except (VbaSemanticAuditError, Exception) as exc:
+    except Exception as exc:
         print("VBA_COMPONENT_SEMANTICS=SAFETY_STOP")
         print(f"REASON={type(exc).__name__}: {exc}")
         verdict = 2
