@@ -2115,3 +2115,12 @@ Registry status: **REPORT_ADAPTER_ONLY**. CI uses injected fake native-capture r
 Final GitHub Actions run **46165623512**, exact code/test HEAD \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`: Windows **2972 passed / 29 warnings**, Ubuntu **2972 passed / 28 warnings**; both synthetic safety jobs passed.
 
 Next mobile-safe work: implement OPERATOR_RESOLUTION evidence artifact/reader bound to operation, pending inventory digest, exact resolution mode and target set. Then integrate both required reports. PC-only frozen H10 schema comparison remains pending; no candidate classified BAD.
+
+
+## 2026-11-28 — H10 K local SAFETY_STOP root cause: VBA member case mismatch
+
+Operator local HEAD `dd8d9daf337784e9d22d5d71f8a0752b859356ce` after fast-forward; focused `Tests/test_h10_k_schema_compare.py`: **3 passed in 2.56s**. Read-only diagnostic report `DIOMIL_H10_K_SCHEMA_COMPARE_20261128_184701_S.txt` returned `FINAL_STATUS=S`, exit 2, `CANDIDATES_COMPLETED=0/3`, with `VBA_PROJECT_MISSING` for all three frozen candidates. **This is NOT a candidate BAD classification and NOT evidence that VBA is absent.** No frozen workbook modified.
+
+Code review found a deterministic diagnostic bug: ZIP entry names were `casefold()`-normalized but compared against mixed-case `xl/vbaProject.bin`; thus even a valid `xl/vbaProject.bin` falsely returned missing. Fixed case-consistent lookup via `has_vba_project_member()` in `Python/rehab_excel/h10_k_schema_compare.py` and added focused positive/negative regression tests in `Tests/test_h10_k_schema_compare.py`. Code commit `18e837fe8f8365bea8d066962a7f908b7196d92b`, test commit `1d49ee83cdc30c31a819274f5cf85b2b4b5e2432`. **New code not yet locally tested on operator PC; CI outcome must be verified separately.** This corrects only the diagnostic; it does not affect production workbooks, permissions or Gate 2.
+
+**Next PC action:** fast-forward branch, run only `python -m pytest -q Tests/test_h10_k_schema_compare.py`, then `python Python/tools/diagnose_h10_k_schema_compare.py`. Preserve full result and report. If status is `S`, stop and investigate; if `G` or `B`, evaluate schema findings only, not provenance or operational acceptance. Do not repeat already GREEN unrelated tests.
