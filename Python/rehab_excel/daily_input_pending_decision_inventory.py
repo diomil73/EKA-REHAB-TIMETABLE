@@ -153,6 +153,8 @@ def build_pending_decision_inventory(
     for state in preflight.states:
         if type(state) is not DailySessionState:
             raise PendingDecisionInventoryError("Invalid preflight daily-state type")
+        if type(state.session_id) is not str or not state.session_id.strip():
+            raise PendingDecisionInventoryError("Invalid preflight daily-state identity")
         if type(state.status) is not DailySessionStatus:
             raise PendingDecisionInventoryError("Invalid preflight daily-state status")
         if state.session_id in states_by_id:
@@ -233,6 +235,12 @@ def validate_pending_decision_inventory(inventory: PendingDecisionInventory) -> 
     if (type(inventory.operation_id) is not str or not inventory.operation_id.strip()
             or type(inventory.service_date) is not str or not inventory.service_date.strip()):
         raise PendingDecisionInventoryError("Pending inventory identity is invalid")
+    try:
+        from datetime import date
+        if date.fromisoformat(inventory.service_date).isoformat() != inventory.service_date:
+            raise ValueError("non-canonical date")
+    except ValueError as exc:
+        raise PendingDecisionInventoryError("Pending inventory service date is invalid") from exc
     counts = (
         inventory.active_count, inventory.patient_absent_count,
         inventory.therapist_absent_count, inventory.replaced_count,
@@ -289,13 +297,17 @@ def write_pending_decision_inventory(
 
     payload = inventory.to_json().encode("utf-8")
     digest = sha256(payload).hexdigest()
+    created = False
     try:
         with output.open("xb") as handle:
+            created = True
             handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
     except FileExistsError as exc:
         raise PendingDecisionInventoryError("Evidence artifact already exists") from exc
     except OSError as exc:
+        if created:
+            output.unlink(missing_ok=True)
         raise PendingDecisionInventoryError("Could not persist pending inventory artifact") from exc
     return PendingDecisionInventoryArtifact(locator, digest, len(payload))
