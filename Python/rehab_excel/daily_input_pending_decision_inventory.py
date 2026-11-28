@@ -137,7 +137,11 @@ def build_pending_decision_inventory(
         if (session.session_date != preflight.service_date
                 or type(session.session_id) is not str or not session.session_id.strip()
                 or type(session.patient_id) is not str or not session.patient_id.strip()
-                or type(session.therapist_id) is not str or not session.therapist_id.strip()):
+                or type(session.therapist_id) is not str or not session.therapist_id.strip()
+                or type(session.start_time).__name__ != "time"
+                or session.start_time.second or session.start_time.microsecond
+                or (session.treatment is not None and type(session.treatment) is not str)
+                or type(session.robotic) is not bool):
             raise PendingDecisionInventoryError("Malformed or wrong-date preflight session")
         if session.session_id in sessions_by_id:
             raise PendingDecisionInventoryError("Duplicate preflight session identity")
@@ -218,6 +222,47 @@ def build_pending_decision_inventory(
     )
 
 
+def validate_pending_decision_inventory(inventory: PendingDecisionInventory) -> None:
+    """Revalidate a possibly caller-constructed inventory before persistence."""
+    if type(inventory) is not PendingDecisionInventory or inventory.schema != SCHEMA:
+        raise PendingDecisionInventoryError("Exact supported pending inventory required")
+    for value in (inventory.operation_source_sha256, inventory.evidence_workbook_sha256,
+                  inventory.inventory_sha256):
+        if type(value) is not str or not _HEX.fullmatch(value):
+            raise PendingDecisionInventoryError("Pending inventory digest is invalid")
+    if (type(inventory.operation_id) is not str or not inventory.operation_id.strip()
+            or type(inventory.service_date) is not str or not inventory.service_date.strip()):
+        raise PendingDecisionInventoryError("Pending inventory identity is invalid")
+    counts = (
+        inventory.active_count, inventory.patient_absent_count,
+        inventory.therapist_absent_count, inventory.replaced_count,
+        inventory.cancelled_count,
+    )
+    if (any(type(value) is not int or value < 0 for value in counts)
+            or type(inventory.total_session_count) is not int
+            or inventory.total_session_count != sum(counts)
+            or type(inventory.targets) is not tuple
+            or len(inventory.targets) != inventory.therapist_absent_count
+            or not inventory.targets):
+        raise PendingDecisionInventoryError("Pending inventory counts or target set are inconsistent")
+    seen: set[str] = set()
+    for target in inventory.targets:
+        if (type(target) is not PendingReplacementTarget
+                or type(target.session_id) is not str or not target.session_id.strip()
+                or target.session_id in seen
+                or type(target.patient_id) is not str or not target.patient_id.strip()
+                or type(target.original_therapist_id) is not str or not target.original_therapist_id.strip()
+                or type(target.original_time) is not str
+                or not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", target.original_time)
+                or (target.treatment is not None and type(target.treatment) is not str)
+                or type(target.robotic) is not bool):
+            raise PendingDecisionInventoryError("Pending inventory target is malformed or duplicated")
+        seen.add(target.session_id)
+    expected = sha256(_canonical_json(inventory.unsigned_dict()).encode("ascii")).hexdigest()
+    if inventory.inventory_sha256 != expected:
+        raise PendingDecisionInventoryError("Pending inventory digest mismatch")
+
+
 def write_pending_decision_inventory(
     inventory: PendingDecisionInventory,
     *,
@@ -225,8 +270,7 @@ def write_pending_decision_inventory(
     artifact_path: str | Path,
 ) -> PendingDecisionInventoryArtifact:
     """Write canonical inventory bytes once, exclusively, under evidence_root."""
-    if type(inventory) is not PendingDecisionInventory:
-        raise PendingDecisionInventoryError("Exact pending inventory object required")
+    validate_pending_decision_inventory(inventory)
     try:
         root = Path(evidence_root).resolve(strict=True)
         parent = Path(artifact_path).parent.resolve(strict=True)
