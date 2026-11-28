@@ -252,3 +252,21 @@ Registry status for PENDING_DECISION_INVENTORY is now **REPORT_ADAPTER_ONLY**. T
 Final CI run \`46162899470\`, exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows 2964 passed / 30 warnings; Ubuntu 2964 passed / 28 warnings; both synthetic safety jobs passed. Earlier run \`46162810423\` exposed one outdated test expecting only three report adapters; after extending the registry test, the final exact head is GREEN.
 
 **Next:** implement the separate REPLACEMENTS_REOPEN report adapter, reusing existing replacement facts and suspension readers. Keep it report-only and do not create a chooser, resolve operator decisions or enable transactions.
+
+
+## 20. REPLACEMENTS_REOPEN phase-report adapter — 28/11/2026
+
+Added:
+- \`Python/rehab_excel/daily_input_replacements_reopen.py\`
+- \`Python/rehab_excel/daily_input_replacements_reopen_phase_adapter.py\`
+- \`Tests/test_daily_input_replacements_reopen_phase_adapter.py\`
+
+The evidence builder consumes the exact preceding pending-decision inventory and final \`DailyInputProjectionPreflight\`. It validates exact base-session identity joins and the complete final daily-state set. Every pending target must resolve exactly once to either an active \`DAILY_REPLACEMENT_FACTS\` replacement or an explicit \`TREATMENT_SUSPENDED\` cancellation from \`DAILY_INPUT\`. Replacement facts are checked against their effective state, provider/time and immutable session; suspensions are checked against cancellation ID/kind/date and final cancelled state. Missing resolution, duplicate targets, overlap, mismatched state, wrong date or identity fail closed. Other already-existing replacements and non-suspension cancellations remain distinct.
+
+The adapter reuses \`verify_daily_input_source_native_capture_readonly\`. Native Excel is opened in a fresh macro-disabled read-only instance; populated source cells in DAILY_INPUT and, when active replacements exist, DAILY_REPLACEMENT_FACTS are compared with the exact OOXML package. The capture and final preflight are bound to the same workbook SHA-256, service date and native Excel version. The canonical evidence artifact and phase report are written exclusively under the evidence root and reopened for digest/readback verification.
+
+Registry status for REPLACEMENTS_REOPEN is **REPORT_ADAPTER_ONLY**. CI injects a synthetic native-capture result and does not execute actual Excel COM. The report is not trusted attestation and does not authenticate the separate OPERATOR_RESOLUTION obligation. No receipt, journal append, Apply/Restore permission, Gate 2 opening, workbook/VBA/real-data mutation.
+
+Final CI run \`46165623512\`, exact code/test HEAD \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`: Windows 2972 passed / 29 warnings; Ubuntu 2972 passed / 28 warnings; both synthetic safety jobs passed.
+
+**Next:** build the separate OPERATOR_RESOLUTION evidence artifact and reader. Bind it to operation ID, prior pending inventory digest, exact resolution mode and the pending target set. Do not accept the operation enum alone as proof of an operator decision.

@@ -3536,3 +3536,32 @@ An initial run exposed an incorrect negative-test fixture (the test changed the 
 **Next mobile-safe engineering task:** design/implement the separate \`REPLACEMENTS_REOPEN\` evidence adapter. Reuse the existing daily replacement facts and source capture/readback contracts; independently verify replacement facts and suspensions, bind to the same exact workbook bytes/date/operation, publish a report-only phase report, and add positive/negative synthetic tests. Do not create a replacement chooser or make operator decisions in this phase. Keep report status REPORT_ADAPTER_ONLY and non-authorizing.
 
 **PC-only work remains separate:** the read-only schema comparison of the three frozen H10 candidates is still pending after the split PowerShell wrapper incident. No candidate has been classified BAD by that failed wrapper, and no frozen workbook was modified. Local PC HEAD after these GitHub commits is not yet operator-confirmed.
+
+
+## 4.256 REPLACEMENTS_REOPEN native source-readback phase-report adapter — full synthetic CI GREEN (28/11/2026)
+
+**Implementation added**
+- \`Python/rehab_excel/daily_input_replacements_reopen.py\`
+- \`Python/rehab_excel/daily_input_replacements_reopen_phase_adapter.py\`
+- \`Tests/test_daily_input_replacements_reopen_phase_adapter.py\`
+- Updated \`daily_input_phase_verifier_contract.py\`: REPLACEMENTS_REOPEN is now \`REPORT_ADAPTER_ONLY\`, not trusted/implemented.
+
+**What it proves at the report-adapter layer**
+1. Requires the legal \`PENDING_OPERATOR_DECISION -> REPLACEMENTS_RESOLVED\` transition and the exact preceding pending inventory artifact.
+2. Reopens and validates the canonical pending inventory; it must bind to the previous operation ID, original source SHA-256 and service date.
+3. Reconstructs the final replacement evidence from the exact final projection preflight. Every pending target must join back to the same immutable session, patient, original therapist and original time.
+4. Every pending target must resolve exactly once: either one active replacement fact, or one explicit \`TREATMENT_SUSPENDED\` cancellation. Missing outcomes, duplicate active targets, replacement/suspension overlap, mismatched effective state, wrong dates and wrong identity joins fail closed.
+5. All active replacement facts are validated against the base sessions and effective daily states. Treatment suspensions are checked against the final cancellation/state model. Other pre-existing replacement facts and non-suspension cancellations remain separately represented and are not misclassified as pending outcomes.
+6. The existing \`verify_daily_input_source_native_capture_readonly\` is reused. It opens a fresh macro-disabled, read-only native Excel instance and compares every populated source cell against the exact OOXML package. \`DAILY_INPUT\` is required; \`DAILY_REPLACEMENT_FACTS\` must also be present whenever active replacements exist. Both source scopes are bound to the exact final workbook SHA-256 and the native Excel version.
+7. Canonical evidence is published exclusively under the evidence root, reopened and digest-checked; the phase report is likewise exclusive and reopened. A failed publication cleans up artifacts created by this adapter.
+
+**Trust boundary:** GitHub CI uses injected native-capture result objects and synthetic workbook bytes. No actual Excel COM execution or production workbook was used in CI. The adapter's native source-capture path is ready for a separate PC-side diagnostic, but this does not claim that diagnostic has run. The report is not an authenticated verifier attestation. \`OPERATOR_RESOLUTION\` remains a separate proof obligation and is not authenticated by this report. No receipt, journal append, Apply/Restore, VBA, workbook or production-data mutation. Gate 2 remains CLOSED.
+
+**Final CI:** GitHub Actions run [46165623512](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46165623512), exact code/test HEAD \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`, SUCCESS:
+- Windows: **2972 passed, 29 warnings**.
+- Ubuntu: **2972 passed, 28 warnings**.
+- Synthetic safety jobs: SUCCESS on Windows and Ubuntu.
+
+**Next mobile-safe engineering task:** independently audit and implement the \`OPERATOR_RESOLUTION\` evidence artifact/reader, binding the exact operation ID, pending inventory digest, chosen resolution mode (\`automatic_accepted\` or \`manual_completed\`), and the decision record to the same pending targets. Keep it report-only/non-authorizing. Then integrate both required reports into the REPLACEMENTS_RESOLVED phase evidence set. Do not enable Apply or infer human approval from the operation enum alone.
+
+**PC-only work remains separate:** the read-only schema comparison of the three frozen H10 candidates remains pending. The previous split PowerShell wrapper's \`FINAL_STATUS=B\` is invalid; no candidate was classified BAD and no frozen workbook was modified. Local PC HEAD after these commits is not yet operator-confirmed.

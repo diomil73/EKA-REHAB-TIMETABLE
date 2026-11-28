@@ -93,3 +93,20 @@ Final synthetic CI run **46162899470**, exact code/test HEAD \`1b90e3dab9e5dc3d4
 **Next mobile engineering task:** implement REPLACEMENTS_REOPEN report adapter using the existing replacement facts and suspension readers, with exact operation/date/workbook binding and synthetic negative tests. Do not implement replacement choices/operator decisions yet.
 
 **PC-only task:** read-only schema comparison of the three frozen H10 candidates remains pending. Previous split PowerShell wrapper's FINAL_STATUS=B is invalid. No frozen workbook was modified. Local PC HEAD after latest GitHub commits is not yet operator-confirmed.
+
+
+## Latest engineering checkpoint — 2026-11-28
+
+REPLACEMENTS_REOPEN report adapter is implemented:
+- \`Python/rehab_excel/daily_input_replacements_reopen.py\`
+- \`Python/rehab_excel/daily_input_replacements_reopen_phase_adapter.py\`
+- \`Tests/test_daily_input_replacements_reopen_phase_adapter.py\`
+- Contract registry status: **REPORT_ADAPTER_ONLY**.
+
+It reopens the prior pending inventory and verifies that every pending target resolves exactly once to an active replacement fact or explicit treatment-suspension cancellation. It checks the immutable session/patient/original therapist/date join, replacement provider/time against final state, suspension ID/kind/date against final cancellation state, and reuses native source capture for DAILY_INPUT and DAILY_REPLACEMENT_FACTS. Evidence and phase report are canonical, exclusive and read back.
+
+Final synthetic CI run **46165623512**, exact code/test HEAD \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`: Windows **2972 passed / 29 warnings**, Ubuntu **2972 passed / 28 warnings**; both safety jobs passed. CI injects fake native capture; no actual Excel COM run is claimed. OPERATOR_RESOLUTION remains a separate proof obligation; this report is not trusted attestation or authorization.
+
+**Next mobile engineering task:** implement OPERATOR_RESOLUTION evidence artifact/reader bound to the exact operation ID, pending inventory digest, resolution mode and target set. Then integrate OPERATOR_RESOLUTION and REPLACEMENTS_REOPEN together in the phase evidence flow. Do not infer operator approval from the lifecycle enum alone.
+
+**PC-only task:** read-only schema comparison of the three frozen H10 candidates remains pending. Prior split PowerShell wrapper's FINAL_STATUS=B is invalid. No frozen workbook was modified. Local PC HEAD after latest GitHub commits is not yet operator-confirmed.

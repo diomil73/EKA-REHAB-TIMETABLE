@@ -1160,3 +1160,15 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Status: **REPORT_ADAPTER_ONLY**. CI uses fake native result injection. Actual Excel COM/native acceptance, trusted attestation, receipt/journal append and Apply authorization are NOT established.
 - One earlier run had 1 stale registry-test expectation failure; the test was corrected and the final exact head is GREEN.
 - Next: REPLACEMENTS_REOPEN report adapter; no replacement decision logic.
+
+
+### 2026-11-28 — REPLACEMENTS_REOPEN report adapter
+
+- Code/test HEAD: \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`.
+- GitHub Actions run: [46165623512](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46165623512), SUCCESS.
+- Full regression: **Windows 2972 passed / 29 warnings; Ubuntu 2972 passed / 28 warnings**.
+- Synthetic safety jobs: SUCCESS on Windows and Ubuntu.
+- Added canonical evidence builder/reader and a phase-report adapter for replacement facts and treatment suspensions. Every pending inventory target must resolve exactly once as replacement or explicit suspension; exact session/patient/original-provider/date joins and effective daily state are checked.
+- Reuses existing macro-disabled native source-cell capture for DAILY_INPUT and DAILY_REPLACEMENT_FACTS; exact workbook digest and native Excel version are bound.
+- Status: **REPORT_ADAPTER_ONLY**. CI native capture is injected/fake. Actual Excel COM, trusted attestation, OPERATOR_RESOLUTION authentication, receipt/journal append and Apply authorization are NOT established.
+- Next: separate OPERATOR_RESOLUTION evidence artifact/reader; then integrate both required reports.

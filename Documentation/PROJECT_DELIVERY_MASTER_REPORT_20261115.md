@@ -1645,3 +1645,14 @@ Verifier contract status: **REPORT_ADAPTER_ONLY**. Synthetic tests inject native
 Final CI [46162899470](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46162899470), exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows **2964 passed / 30 warnings**, Ubuntu **2964 passed / 28 warnings**, both synthetic safety jobs passed. The prior attempt found one stale test expecting only three report adapters; it was corrected and the final run is fully GREEN.
 
 Next: REPLACEMENTS_REOPEN report adapter over existing replacement facts/suspension source, with no replacement-choice/decision logic.
+
+
+### 2026-11-28 — REPLACEMENTS_REOPEN report adapter
+
+Added a canonical evidence builder/reader and non-authorizing phase-report adapter. It reopens the preceding pending inventory, verifies every pending target resolves to exactly one active replacement or explicit treatment suspension, checks identity/date/effective-state joins, and reuses the existing macro-disabled native Excel source capture for literal DAILY_INPUT and DAILY_REPLACEMENT_FACTS cells. Evidence and report artifacts are root-confined, exclusive, canonical and read back.
+
+Contract status: **REPORT_ADAPTER_ONLY**. CI injects native capture results; actual Excel COM is not claimed. OPERATOR_RESOLUTION is a separate obligation and is not authenticated by this report. No trusted attestation, receipt, journal append, Apply/Restore or workbook/VBA/production data change.
+
+Final CI [46165623512](https://github.com/diomil73/EKA-REHAB-TIMETABLE/actions/runs/46165623512), exact code/test HEAD \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`: Windows **2972 passed / 29 warnings**, Ubuntu **2972 passed / 28 warnings**; both synthetic safety jobs passed.
+
+Next: OPERATOR_RESOLUTION evidence artifact/reader. Do not infer human approval from the operation enum alone.

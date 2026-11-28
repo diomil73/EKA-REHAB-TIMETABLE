@@ -2831,3 +2831,16 @@ Final CI run **46162899470**, exact code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c3
 **Next mobile engineering task:** implement \`REPLACEMENTS_REOPEN\` report adapter over existing replacement facts/suspension data, with exact operation/date/workbook binding and synthetic negative tests. No chooser/decision logic yet.
 
 **PC queue:** frozen H10 candidate schema comparison remains pending; prior split wrapper's FINAL_STATUS=B is invalid. Local PC HEAD after current GitHub commits is not confirmed.
+
+
+### 2026-11-28 — REPLACEMENTS_REOPEN report adapter implemented
+
+Added \`daily_input_replacements_reopen.py\`, \`daily_input_replacements_reopen_phase_adapter.py\` and synthetic tests. The adapter requires the preceding PENDING_OPERATOR_DECISION operation and exact prior pending inventory. It joins each pending target to the immutable final session and requires exactly one outcome: an active replacement fact or an explicit TREATMENT_SUSPENDED cancellation. It checks replacement facts against effective daily states, suspension identity/date/state, exact final workbook digest, and reuses the existing macro-disabled native source-cell capture for DAILY_INPUT and DAILY_REPLACEMENT_FACTS. It publishes a canonical evidence artifact and phase report exclusively, with readback.
+
+REPLACEMENTS_REOPEN registry status: **REPORT_ADAPTER_ONLY**. CI native capture is injected/fake; actual Excel COM has not run. The report does not authenticate the separate OPERATOR_RESOLUTION obligation, is not a trusted attestation, and does not enable receipt/journal/Apply/Restore. No workbook/VBA/production data mutation. Gate 2 remains closed.
+
+Final CI run **46165623512**, exact code/test HEAD \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`: Windows **2972 passed / 29 warnings**, Ubuntu **2972 passed / 28 warnings**; both synthetic safety jobs passed.
+
+**Next:** build the separate OPERATOR_RESOLUTION evidence artifact/reader and bind the exact decision record to the pending inventory and operation. Do not infer operator approval from the lifecycle enum alone.
+
+PC frozen H10 candidate schema comparison remains pending; prior split wrapper's FINAL_STATUS=B is invalid. Local PC HEAD is not yet confirmed.

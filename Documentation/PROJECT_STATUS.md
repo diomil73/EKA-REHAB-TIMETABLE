@@ -2104,3 +2104,14 @@ Verifier registry status for PENDING_DECISION_INVENTORY is now **REPORT_ADAPTER_
 Final GitHub Actions run **46162899470**, code/test HEAD \`1b90e3dab9e5dc3d4bd9166e5c321ab665495cde\`: Windows **2964 passed / 30 warnings**, Ubuntu **2964 passed / 28 warnings**; both synthetic safety jobs passed. Earlier run 46162810423 had 1 stale registry-test expectation failure (2963 passed); the test was updated and the final exact head is GREEN.
 
 Next mobile-safe work: REPLACEMENTS_REOPEN adapter, using existing replacement facts/suspension readers. PC-only frozen H10 schema comparison remains pending; no frozen candidate has been classified BAD.
+
+
+## 2026-11-28 — REPLACEMENTS_REOPEN report adapter
+
+Added a canonical replacement/suspension evidence builder, exclusive artifact writer/reader and a separate phase-report adapter. It reopens the prior pending inventory, joins each pending target to the exact immutable final session identity, and requires every target to be represented exactly once by an active replacement or an explicit treatment-suspension cancellation. It checks replacement facts against final effective states, suspension IDs/kinds/dates against cancellation states, and validates all active replacement facts. The existing macro-disabled native source capture is reused to compare the populated DAILY_INPUT and DAILY_REPLACEMENT_FACTS source cells against the exact saved OOXML package, bound to one final workbook SHA-256 and native Excel version.
+
+Registry status: **REPORT_ADAPTER_ONLY**. CI uses injected fake native-capture results and synthetic workbook bytes. No actual Excel COM acceptance, trusted verifier attestation, operator-decision authentication, receipt/journal append, Apply/Restore or Gate 2 opening is established. OPERATOR_RESOLUTION remains a separate evidence obligation. No workbook/VBA/production data mutation.
+
+Final GitHub Actions run **46165623512**, exact code/test HEAD \`ad18f3305bd3d5f3a3caa7c1f6b55df575940f5a\`: Windows **2972 passed / 29 warnings**, Ubuntu **2972 passed / 28 warnings**; both synthetic safety jobs passed.
+
+Next mobile-safe work: implement OPERATOR_RESOLUTION evidence artifact/reader bound to operation, pending inventory digest, exact resolution mode and target set. Then integrate both required reports. PC-only frozen H10 schema comparison remains pending; no candidate classified BAD.
