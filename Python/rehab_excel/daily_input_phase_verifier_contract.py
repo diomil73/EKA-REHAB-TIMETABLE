@@ -2,8 +2,9 @@
 
 This module is NOT a native Excel verifier. It defines the pinned evidence
 contract for each EvidenceKind and validates the shape/binding of a report.
-PREPARED_SNAPSHOT, INPUT_AND_LEDGER_REOPEN and PROJECTIONS_REOPEN have
-report-producing adapters over native readback, but all three remain
+PREPARED_SNAPSHOT, INPUT_AND_LEDGER_REOPEN, PROJECTIONS_REOPEN and
+PENDING_DECISION_INVENTORY have report-producing adapters over native readback,
+but all four remain
 non-authorizing until trusted verifier attestation is integrated. The other
 evidence kinds remain NOT_IMPLEMENTED until independent adapters inspect the
 required saved workbook/artifact scope.
@@ -124,6 +125,7 @@ _CONTRACTS = {
         EvidenceKind.PENDING_DECISION_INVENTORY, "diomil.pending-decision-inventory-reopen",
         "contract-v1", "native_excel_readonly_reopen",
         ("pending_replacement_inventory", "operation_identity", "saved_workbook_sha256"), True,
+        implementation_status=VerifierImplementationStatus.REPORT_ADAPTER_ONLY,
     ),
     EvidenceKind.REPLACEMENTS_REOPEN: PhaseVerifierContract(
         EvidenceKind.REPLACEMENTS_REOPEN, "diomil.replacements-native-reopen",

@@ -311,3 +311,75 @@ def write_pending_decision_inventory(
             output.unlink(missing_ok=True)
         raise PendingDecisionInventoryError("Could not persist pending inventory artifact") from exc
     return PendingDecisionInventoryArtifact(locator, digest, len(payload))
+
+
+
+def decode_pending_decision_inventory(value: str | bytes | dict) -> PendingDecisionInventory:
+    """Decode strict canonical inventory JSON and verify its self-digest."""
+    try:
+        if isinstance(value, bytes):
+            value = value.decode("utf-8")
+        data = json.loads(value) if isinstance(value, str) else value
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PendingDecisionInventoryError("Pending inventory JSON is invalid") from exc
+    fields = {
+        "schema", "operation_id", "operation_source_sha256", "service_date",
+        "evidence_workbook_sha256", "total_session_count", "active_count",
+        "patient_absent_count", "therapist_absent_count", "replaced_count",
+        "cancelled_count", "targets", "inventory_sha256",
+    }
+    target_fields = {
+        "session_id", "patient_id", "original_therapist_id",
+        "original_time", "treatment", "robotic",
+    }
+    if type(data) is not dict or set(data) != fields or type(data.get("targets")) is not list:
+        raise PendingDecisionInventoryError("Pending inventory fields missing or unexpected")
+    targets = []
+    for item in data["targets"]:
+        if type(item) is not dict or set(item) != target_fields:
+            raise PendingDecisionInventoryError("Pending inventory target fields invalid")
+        try:
+            targets.append(PendingReplacementTarget(**item))
+        except TypeError as exc:
+            raise PendingDecisionInventoryError("Pending inventory target fields invalid") from exc
+    normalized = dict(data)
+    normalized["targets"] = tuple(targets)
+    try:
+        inventory = PendingDecisionInventory(**normalized)
+    except TypeError as exc:
+        raise PendingDecisionInventoryError("Pending inventory fields have invalid types") from exc
+    validate_pending_decision_inventory(inventory)
+    if isinstance(value, str) and inventory.to_json() != value:
+        raise PendingDecisionInventoryError("Pending inventory JSON is not canonical")
+    return inventory
+
+
+def read_pending_decision_inventory_artifact(
+    *,
+    evidence_root: str | Path,
+    artifact_path: str | Path,
+) -> tuple[PendingDecisionInventory, PendingDecisionInventoryArtifact]:
+    """Read exact canonical inventory bytes beneath the evidence root."""
+    try:
+        root = Path(evidence_root).resolve(strict=True)
+        candidate = Path(artifact_path).resolve(strict=True)
+        relative = candidate.relative_to(root)
+        locator = relative.as_posix()
+    except (OSError, ValueError) as exc:
+        raise PendingDecisionInventoryError(
+            "Evidence artifact missing or escapes evidence root"
+        ) from exc
+    if not root.is_dir() or not locator or locator == "." or not candidate.is_file():
+        raise PendingDecisionInventoryError("Evidence artifact is not a regular file under evidence root")
+    try:
+        payload = candidate.read_bytes()
+        inventory = decode_pending_decision_inventory(payload)
+        if inventory.to_json().encode("utf-8") != payload:
+            raise PendingDecisionInventoryError("Pending inventory artifact bytes are not canonical")
+    except OSError as exc:
+        raise PendingDecisionInventoryError("Pending inventory artifact readback failed") from exc
+    return inventory, PendingDecisionInventoryArtifact(
+        artifact_locator=locator,
+        artifact_sha256=sha256(payload).hexdigest(),
+        byte_count=len(payload),
+    )
