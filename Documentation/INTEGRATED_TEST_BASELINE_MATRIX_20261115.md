@@ -1129,3 +1129,12 @@ Covers A:E row-by-row identity mirror, formula/literal distinction, text/numeric
 - Added report adapter for legal INPUT_AND_LEDGER_COMMITTED -> PROJECTIONS_VERIFIED transition. Reuses composite native diagnostic for source capture, input/ledger, MASTER and complete therapist grid; binds the report to exact post-commit evidence bytes, service date and preflight scope.
 - Synthetic negative coverage: source/evidence hash distinction, wrong digest/version/scope, workbook mutation, path confinement, output collision and phase identity.
 - Status REPORT_ADAPTER_ONLY; no trusted attestation, no receipt/journal authorization, no real native Excel or production workbook execution.
+
+
+### 2026-11-28 — Operator PowerShell execution incident (not a test result)
+
+- The three-candidate H10 K schema comparison did not complete. The pasted wrapper split across interactive submissions; finally was treated as a standalone command and the active transcript blocked its own rename.
+- Classification: **wrapper SAFETY STOP; schema comparison PENDING**. The printed FINAL_STATUS=B is not valid evidence and must not be used to mark any workbook candidate BAD.
+- No workbook write/native Excel action occurred.
+- Mandatory future method: one complete .ps1 executed once, or one complete & { ... } pasted in a single submission. Never split compound clauses or here-string delimiters. Stop transcript before moving its file; check $LASTEXITCODE immediately. See Documentation/POWERSHELL_OPERATOR_EXECUTION_STANDARD.md and guide §4.253.
+- This incident adds no pass/fail count and does not invalidate earlier green focused results.
