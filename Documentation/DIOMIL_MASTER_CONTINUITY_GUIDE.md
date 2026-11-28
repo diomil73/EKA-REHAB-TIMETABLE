@@ -3451,3 +3451,30 @@ Final full GitHub Actions run `45875449647`, tested HEAD `1bc189a4903fea1890f82e
 **Current verifier inventory:** PREPARED_SNAPSHOT, INPUT_AND_LEDGER_REOPEN and PROJECTIONS_REOPEN are REPORT_ADAPTER_ONLY; the other seven evidence kinds remain NOT_IMPLEMENTED. None is trusted or authorizing. Native Excel tests here use fake COM; no actual user's Excel workbook or production data was opened. Gate 2 remains closed.
 
 **Next:** continue with the next independent phase evidence contract, beginning with the pending replacement inventory. Reuse the already-built preflight facts and exact artifact-bound report pattern; do not create a second projection verifier or repeat the full regression without a code change. Keep ZipFile warning investigation separate: current CI runs use `--disable-warnings` and Python 3.11, so they do not identify the local Python 3.14 ZipFile deallocator warnings. That requires the one focused PC diagnostic with warning detail enabled.
+
+
+## 4.253 Υποχρεωτικός κανόνας εκτέλεσης σύνθετων PowerShell blocks και transcript (28/11/2026)
+
+**ΝΕΑ ΡΗΤΗ ΟΔΗΓΙΑ ΧΕΙΡΙΣΤΗ:** Να μην επαναληφθεί η αποτυχία τμηματικής εκτέλεσης try/catch/finally, if/else ή άλλου σύνθετου PowerShell block στην interactive κονσόλα. Το ίδιο failure pattern έχει ήδη καταγραφεί στο §3.3 και στο PROJECT_STATUS.md (08/11/2026): ο χειριστής συνέχισε σε νέο prompt πριν ολοκληρωθεί το σύνθετο block, με αποτέλεσμα το finally/else να εκτελεστεί ως αυτοτελής εντολή. Στις 28/11/2026 επαναλήφθηκε: το try εκτελέστηκε/τερματίστηκε χωριστά, το finally απορρίφθηκε ως άγνωστη εντολή, το transcript έμεινε ανοικτό και το επόμενο Move-Item απέτυχε επειδή το αρχείο χρησιμοποιούνταν από το transcript process.
+
+### Απαγορεύεται
+- Να δίνονται στον χειριστή διαδοχικές, ανεξάρτητες εντολές που προϋποθέτουν κοινό scope ή κοινό control flow.
+- Να ζητείται να επικολλήσει/εκτελέσει ξεχωριστά else, catch, finally, κλείσιμο block ή τμήμα here-string.
+- Να χρησιμοποιείται interactive, τμηματική εκτέλεση σύνθετου try/finally με την υπόθεση ότι το PowerShell θα περιμένει μέχρι το τέλος.
+- Να μετακινείται/μετονομάζεται transcript ή log όσο παραμένει ανοικτό από Start-Transcript.
+- Να δηλώνεται G ή B από μεταβλητή/μήνυμα που μπορεί να έμεινε σε παλιά τιμή ή από block που δεν ολοκληρώθηκε.
+
+### Υποχρεωτικός τρόπος
+1. **Προτιμώμενος για μακρά/κρίσιμα scripts:** αποθήκευση ολόκληρου του script ως μοναδικό .ps1 αρχείο (με ολοκληρωμένα braces και here-strings) και μία εκτέλεση από την αρχή μέχρι το τέλος:
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Scripts\<exact-script-name>.ps1
+   Το όνομα αρχείου πρέπει να είναι μοναδικό/περιγραφικό και το script να σταματά στο πρώτο αποτυχημένο gate. Το -ExecutionPolicy Bypass αφορά μόνο τη συγκεκριμένη διεργασία και χρησιμοποιείται μόνο όταν είναι αναγκαίο και επιτρέπεται από την πολιτική IT.
+2. **Εναλλακτικά για σύντομο block:** ένα πλήρες & { ... } σε ΕΝΑ paste/μία υποβολή, από τον αρχικό χαρακτήρα & { έως το τελικό }. Δεν διασπάται σε επιμέρους submissions και δεν δίνονται ανεξάρτητες εντολές μετά το block που μπορούν να παρακάμψουν αποτυχία.
+3. Για κάθε native executable (π.χ. Python/pytest) καταγράφεται αμέσως το $LASTEXITCODE πριν εκτελεστεί οποιαδήποτε άλλη native εντολή. Το block ελέγχει ρητά τον κωδικό και κάνει throw/τερματίζει πριν από το επόμενο gate.
+4. Για σύνθετη καταγραφή προτιμάται απλό log με τελική διαδρομή ή redirection. Αν χρησιμοποιηθεί Start-Transcript, πρέπει να κλείσει με επιτυχημένο Stop-Transcript ΠΡΙΝ από οποιοδήποτε read/move/rename του αρχείου. Δεν μετακινούμε ποτέ ενεργό transcript.
+5. Το try/catch/finally επιτρέπεται μόνο μέσα σε πλήρες, ενιαία εκτελούμενο .ps1 ή πλήρες & { ... } block. Σε περίπτωση που η κονσόλα επιστρέψει νέο prompt πριν από το αναμενόμενο τέλος, θεωρούμε την εκτέλεση INCOMPLETE / SAFETY STOP και δεν συνεχίζουμε με τις επόμενες γραμμές.
+6. Το τελικό report γράφεται με status μόνο αφού ολοκληρωθούν όλα τα gates και επαληθευτούν exit codes, report existence και βασικά περιεχόμενα. Αποτυχία εκτέλεσης του ίδιου του wrapper καταγράφεται ως S (SAFETY STOP), όχι ως αποτέλεσμα δοκιμής B.
+
+### Τρέχον περιστατικό 28/11/2026
+Το DIOMIL_H10_K_SCHEMA_COMPARE_20261128_173643_P.txt αποδεικνύει ότι το PowerShell wrapper διασπάστηκε: εμφανίστηκε finally is not recognized, το transcript παρέμεινε ανοικτό και το rename απέτυχε με file-in-use. Η μεταγενέστερη FINAL_STATUS=B δεν είναι έγκυρο schema αποτέλεσμα. Τα τρία frozen XLSM δεν έχουν χαρακτηριστεί B από αυτή την εκτέλεση· η σύγκριση παραμένει PENDING. Δεν επαναλαμβάνεται ο structural auditor αν δεν προκύψει τεχνικός λόγος· διορθώνεται μόνο η εκτέλεση της ακριβούς schema comparison με τον παραπάνω κανόνα.
+
+**Μόνιμη απαίτηση:** Κάθε μελλοντικό PowerShell instruction προς τον χειριστή πρέπει να παρέχεται ως ένα πλήρες copyable block και να δηλώνει ρητά αν είναι .ps1 one-shot ή ενιαίο & { ... }. Ποτέ ξανά αποσπασματικές εντολές που εξαρτώνται από προηγούμενο block.
