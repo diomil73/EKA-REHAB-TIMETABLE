@@ -82,6 +82,11 @@ def find_master_header_row(cells: dict[str, object]) -> int | None:
     return None
 
 
+def has_vba_project_member(names: set[str]) -> bool:
+    """Find the expected VBA project ZIP member case-insensitively."""
+    return "xl/vbaproject.bin" in {name.casefold() for name in names}
+
+
 def inspect_candidate(root: Path, relative_path: str) -> CandidateSchemaResult:
     baseline = CANDIDATE_BASELINES[relative_path]
     path = (root / relative_path).resolve()
@@ -99,7 +104,7 @@ def inspect_candidate(root: Path, relative_path: str) -> CandidateSchemaResult:
             if corrupt_member is not None:
                 raise SchemaComparisonError("ZIP_INTEGRITY_FAILURE")
             names = set(archive.namelist())
-            if "xl/vbaProject.bin" not in {name.casefold() for name in names}:
+            if not has_vba_project_member(names):
                 raise SchemaComparisonError("VBA_PROJECT_MISSING")
     except (BadZipFile, OSError) as exc:
         raise SchemaComparisonError(f"PACKAGE_READ_FAILURE: {type(exc).__name__}") from exc
