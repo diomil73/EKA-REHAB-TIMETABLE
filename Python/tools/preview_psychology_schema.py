@@ -353,6 +353,7 @@ def _verify_dropdowns(
     workbook = None
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
+        excel.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.ScreenUpdating = False
@@ -471,6 +472,7 @@ def main() -> int:
 
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
+        excel.AutomationSecurity = 3  # msoAutomationSecurityForceDisable
         excel.Visible = False
         excel.DisplayAlerts = False
         excel.ScreenUpdating = False
