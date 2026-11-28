@@ -10,6 +10,7 @@ authorize a lifecycle transition.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import date
 from hashlib import sha256
 import json
 import os
@@ -118,7 +119,7 @@ def build_pending_decision_inventory(
     if (operation.phase != DailyInputOperationPhase.PENDING_OPERATOR_DECISION
             or obligations != (EvidenceKind.PENDING_DECISION_INVENTORY,)):
         raise PendingDecisionInventoryError("Expected PENDING_OPERATOR_DECISION transition")
-    if (type(preflight.service_date).__name__ != "date"
+    if (type(preflight.service_date) is not date
             or preflight.service_date.isoformat() != operation.service_date):
         raise PendingDecisionInventoryError("Preflight service date differs from operation")
     if (type(operation.source_sha256) is not str
